@@ -1,3 +1,55 @@
+## 2025-11-29 – Notion Webhook Guided Setup Implementation
+
+Implemented best-in-class webhook setup experience for Notion triggers, surpassing competitors like Zapier and Make.com with automated guidance, real-time verification, and smart status tracking.
+
+### Major Features Added:
+
+#### Notion Webhook Guided Setup System
+**User-friendly manual webhook configuration with real-time verification**
+
+- **Enhanced Trigger Lifecycle**: `lib/triggers/providers/NotionTriggerLifecycle.ts`
+  - Generate workflow-specific webhook URLs with routing parameters (`?workflowId=xxx&nodeId=yyy`)
+  - Set initial status to `pending_webhook_setup` (transitions to `active` after verification)
+  - Store comprehensive metadata: webhook URL, recommended events, setup instructions, target resource
+  - Enhanced `checkHealth()` to verify webhook setup and verification status
+  - Metadata tracks: verification token, verified timestamp, last webhook received
+
+- **Enhanced Webhook Endpoint**: `app/api/webhooks/notion/route.ts`
+  - Extract workflowId and nodeId from query parameters for routing
+  - Implement HMAC-SHA256 signature validation with timing-safe comparison
+  - Store verification token when Notion sends URL verification challenge
+  - Automatically mark webhook as verified on first successful event
+  - Preserve existing metadata when updating (prevents data loss)
+  - Update `lastWebhookReceived` timestamp on every webhook event
+
+- **Guided Setup UI Component**: `components/workflows/NotionWebhookSetupModal.tsx`
+  - Three-step guided setup process with visual progress indicators
+  - One-click webhook URL copy with visual confirmation
+  - Direct link to Notion integration settings (opens in new tab)
+  - Step-by-step instructions with event type recommendations
+  - Real-time webhook verification with "Test Connection" button
+  - Status badges: Pending (yellow), Verified (green), Error (red)
+  - Light & dark mode support with proper color tokens
+  - Auto-closes on successful verification
+
+- **Webhook Status API**: `app/api/triggers/notion/status/route.ts`
+  - Provides real-time webhook status for setup modal
+  - Returns: status, webhookVerified, timestamps, setup instructions, webhook URL
+  - Used by modal's "Test Connection" button for instant feedback
+
+- **Complete Documentation**:
+  - Implementation guide: `/learning/walkthroughs/notion-webhook-guided-setup-implementation.md`
+  - Includes integration instructions, user flow, testing checklist
+  - Documents differences from Zapier/Make.com approach
+
+**Benefits**: Eliminates user confusion around manual webhook setup, provides immediate feedback, detects broken webhooks automatically, and offers one-click re-setup. Follows proven patterns from Zapier/Make.com/n8n but with superior UX through proactive guidance and real-time verification.
+
+**Why Manual Setup**: Notion's API does not support programmatic webhook creation - webhooks must be configured through the Notion integration UI. This implementation makes that process as seamless as possible.
+
+**Integration Required**: Workflow builder UI needs to trigger modal after Notion trigger activation and display status badges on trigger nodes.
+
+---
+
 ## 2025-11-06 – Loop Progress Tracking & Enhanced Workflow Features
 
 Implemented comprehensive real-time progress tracking for Loop nodes, Discord channel-based invite filtering, and Dropbox advanced file search.

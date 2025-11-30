@@ -868,6 +868,38 @@ const boxMappings: Record<string, FieldMapping> = {
 
 // Mailchimp field mappings
 const mailchimpMappings: Record<string, FieldMapping> = {
+  // Triggers
+  mailchimp_trigger_new_subscriber: {
+    audienceId: "mailchimp_audiences",
+  },
+  mailchimp_trigger_link_clicked: {
+    campaignId: "mailchimp_campaigns",
+  },
+  mailchimp_trigger_unsubscribed: {
+    audienceId: "mailchimp_audiences",
+  },
+  mailchimp_trigger_new_campaign: {
+    // No dynamic fields
+  },
+  mailchimp_trigger_subscriber_added_to_segment: {
+    audienceId: "mailchimp_audiences",
+    segmentId: "mailchimp_segments",
+  },
+  mailchimp_trigger_subscriber_updated: {
+    audienceId: "mailchimp_audiences",
+  },
+  mailchimp_trigger_segment_updated: {
+    audienceId: "mailchimp_audiences",
+    segmentId: "mailchimp_segments",
+  },
+  mailchimp_trigger_new_audience: {
+    // No dynamic fields
+  },
+  mailchimp_trigger_email_opened: {
+    campaignId: "mailchimp_campaigns",
+  },
+
+  // Actions
   mailchimp_action_get_subscribers: {
     audience_id: "mailchimp_audiences",
   },
@@ -891,6 +923,12 @@ const mailchimpMappings: Record<string, FieldMapping> = {
   },
   mailchimp_action_send_campaign: {
     campaign_id: "mailchimp_campaigns",
+  },
+  mailchimp_action_create_audience: {
+    // No dynamic fields - creates new audience
+  },
+  mailchimp_action_create_event: {
+    audienceId: "mailchimp_audiences",
   },
 };
 

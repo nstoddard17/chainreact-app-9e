@@ -99,7 +99,27 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
           }
 
           const responseData = await response.json();
-          result = responseData.data || [];
+          const rawData = responseData.data || [];
+
+          // Transform data to FormattedOption format {value, label}
+          result = rawData.map((item: any) => {
+            // Determine label based on data type
+            let label = item.id;
+
+            if (dataType === 'mailchimp_campaigns') {
+              // Campaigns have nested settings with title or subject_line
+              label = item.settings?.title || item.settings?.subject_line || item.id;
+            } else {
+              // Audiences, tags, segments use 'name' field
+              label = item.name || item.title || item.id;
+            }
+
+            return {
+              value: item.id,
+              label,
+              ...item // Include original data for reference
+            };
+          });
 
           logger.debug(`✅ [Mailchimp] Loaded ${result.length} ${dataType}`);
 

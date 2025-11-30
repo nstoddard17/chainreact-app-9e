@@ -43,25 +43,80 @@ export async function executeNotionManageComments(
 
   try {
     switch (operation) {
-      case 'create':
-        // Map fields for create comment
-        const createConfig = {
-          parent_type: 'page',
-          page_id: config.page,
-          discussion_id: config.discussionId,
-          rich_text: config.commentText,
-          parent_id: config.parentId
+      case 'create': {
+        // Map fields for create comment based on commentTarget
+        const createConfig: any = {
+          rich_text: config.commentText
         };
-        return await notionCreateComment(createConfig, context);
 
-      case 'retrieve':
-        // Map fields for retrieve comments
-        const retrieveConfig = {
-          block_id: config.page,
-          page_size: 100,
-          include_resolved: config.includeResolved === 'true'
+        // Determine parent type and ID based on commentTarget
+        if (config.commentTarget === 'page' && config.page) {
+          createConfig.parent_type = 'page';
+          createConfig.page_id = config.page;
+        } else if (config.commentTarget === 'block' && config.blockId) {
+          createConfig.parent_type = 'block';
+          createConfig.page_id = config.blockId; // handlers.ts uses page_id field for block_id too
+        } else if (config.commentTarget === 'discussion' && config.discussionId) {
+          createConfig.parent_type = 'discussion';
+          createConfig.discussion_id = config.discussionId;
+        } else {
+          return {
+            success: false,
+            output: {},
+            message: 'Invalid comment target configuration'
+          };
+        }
+
+        const result = await notionCreateComment(createConfig, context);
+
+        // Map output to match our schema
+        return {
+          success: result.success,
+          output: {
+            commentId: result.output.comment_id,
+            discussionId: result.output.parent?.discussion_id,
+            createdTime: result.output.created_time,
+            ...result.output
+          },
+          message: result.message
         };
-        return await notionRetrieveComments(retrieveConfig, context);
+      }
+
+      case 'list': {
+        // Map fields for list comments based on listTarget
+        let blockOrPageId: string;
+
+        if (config.listTarget === 'page' && config.pageForList) {
+          blockOrPageId = config.pageForList;
+        } else if (config.listTarget === 'block' && config.blockIdForList) {
+          blockOrPageId = config.blockIdForList;
+        } else {
+          return {
+            success: false,
+            output: {},
+            message: 'Invalid list target configuration'
+          };
+        }
+
+        const retrieveConfig = {
+          block_id: blockOrPageId,
+          page_size: config.pageSize || 100
+        };
+
+        const result = await notionRetrieveComments(retrieveConfig, context);
+
+        // Map output to match our schema
+        return {
+          success: result.success,
+          output: {
+            comments: result.output.comments,
+            hasMore: result.output.has_more,
+            nextCursor: result.output.next_cursor,
+            ...result.output
+          },
+          message: result.message
+        };
+      }
 
       default:
         return {

@@ -19,6 +19,7 @@ import { MondayTriggerLifecycle } from './providers/MondayTriggerLifecycle'
 import { GumroadTriggerLifecycle } from './providers/GumroadTriggerLifecycle'
 import { WebhookTriggerLifecycle } from './providers/WebhookTriggerLifecycle'
 import { TeamsTriggerLifecycle } from './teams'
+import { MailchimpTriggerLifecycle } from './providers/MailchimpTriggerLifecycle'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -142,10 +143,17 @@ triggerLifecycleManager.registerProvider({
   description: 'Custom HTTP webhook triggers for external integrations'
 })
 
+// Register Mailchimp provider
+triggerLifecycleManager.registerProvider({
+  providerId: 'mailchimp',
+  lifecycle: new MailchimpTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'Mailchimp webhooks for subscriber, campaign, and audience events'
+})
+
 // TODO: Register remaining providers:
 // - Dropbox
 // - Trello
-// - Mailchimp
 // etc.
 
 logger.debug('✅ Trigger lifecycle providers registered:', triggerLifecycleManager.getRegisteredProviders())

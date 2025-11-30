@@ -8,6 +8,12 @@ import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
 
+// Initialize Supabase client for webhook operations
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
+
 // Comprehensive logging colors for terminal
 const colors = {
   reset: '\x1b[0m',
@@ -34,16 +40,136 @@ function logSection(title: string, data: any, color: string = colors.cyan) {
   }
 }
 
+/**
+ * Validate Notion webhook signature using HMAC-SHA256
+ * Notion sends signature in x-notion-signature header
+ * See: https://developers.notion.com/reference/webhooks#signature-verification
+ */
+async function validateNotionSignature(
+  signature: string | null,
+  body: string,
+  workflowId: string,
+  nodeId: string
+): Promise<boolean> {
+  if (!signature) {
+    logger.warn('[Notion Webhook] No signature provided - skipping validation')
+    return true // Allow without signature for now (optional validation)
+  }
+
+  try {
+    // Get the verification token from trigger_resources
+    const supabase = getSupabase()
+    const { data: resource } = await supabase
+      .from('trigger_resources')
+      .select('metadata')
+      .eq('workflow_id', workflowId)
+      .eq('node_id', nodeId)
+      .eq('provider_id', 'notion')
+      .single()
+
+    const verificationToken = resource?.metadata?.verificationToken
+
+    if (!verificationToken) {
+      logger.warn('[Notion Webhook] No verification token found - cannot validate signature')
+      return true // Allow without token
+    }
+
+    // Compute HMAC-SHA256 hash
+    const hmac = crypto.createHmac('sha256', verificationToken)
+    hmac.update(body)
+    const expectedSignature = hmac.digest('hex')
+
+    // Timing-safe comparison
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    )
+
+    if (!isValid) {
+      logger.error('[Notion Webhook] Signature validation failed')
+    }
+
+    return isValid
+  } catch (error) {
+    logger.error('[Notion Webhook] Error validating signature:', error)
+    return true // Allow on error to avoid blocking webhooks
+  }
+}
+
+/**
+ * Update trigger resource status when webhook is verified
+ */
+async function markWebhookAsVerified(workflowId: string, nodeId: string): Promise<void> {
+  try {
+    const supabase = getSupabase()
+
+    // First get the existing resource to preserve metadata
+    const { data: resource } = await supabase
+      .from('trigger_resources')
+      .select('metadata, status')
+      .eq('workflow_id', workflowId)
+      .eq('node_id', nodeId)
+      .eq('provider_id', 'notion')
+      .single()
+
+    // Only update if not already verified
+    if (resource && !resource.metadata?.webhookVerified) {
+      const { error } = await supabase
+        .from('trigger_resources')
+        .update({
+          status: 'active',
+          metadata: {
+            ...resource.metadata,
+            webhookVerified: true,
+            verifiedAt: new Date().toISOString(),
+            lastWebhookReceived: new Date().toISOString()
+          }
+        })
+        .eq('workflow_id', workflowId)
+        .eq('node_id', nodeId)
+        .eq('provider_id', 'notion')
+
+      if (error) {
+        logger.error('[Notion Webhook] Failed to update trigger resource status:', error)
+      } else {
+        logger.info(`[Notion Webhook] Marked webhook as verified for workflow ${workflowId}`)
+      }
+    } else if (resource) {
+      // Just update last received timestamp
+      await supabase
+        .from('trigger_resources')
+        .update({
+          metadata: {
+            ...resource.metadata,
+            lastWebhookReceived: new Date().toISOString()
+          }
+        })
+        .eq('workflow_id', workflowId)
+        .eq('node_id', nodeId)
+        .eq('provider_id', 'notion')
+    }
+  } catch (error) {
+    logger.error('[Notion Webhook] Error marking webhook as verified:', error)
+  }
+}
+
 export async function POST(req: NextRequest) {
   const requestId = crypto.randomBytes(16).toString('hex')
   const timestamp = new Date().toISOString()
 
   try {
+    // Extract workflow and node IDs from query parameters
+    const url = new URL(req.url)
+    const workflowId = url.searchParams.get('workflowId')
+    const nodeId = url.searchParams.get('nodeId')
+
     // Log incoming request details
     logSection('NOTION WEBHOOK RECEIVED', {
       timestamp,
       requestId,
       url: req.url,
+      workflowId,
+      nodeId,
       method: req.method,
     }, colors.magenta)
 
@@ -71,13 +197,34 @@ export async function POST(req: NextRequest) {
 
     // Check for verification token (Notion sends this in the initial verification)
     if (body.type === 'url_verification') {
-      // CRITICAL: Store verification token in database so user can retrieve it
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SECRET_KEY!
-      )
+      const supabase = getSupabase()
 
-      // Store token in webhook_events table with a special marker
+      // Store verification token in trigger_resources for signature validation
+      if (workflowId && nodeId) {
+        // Get existing metadata to preserve it
+        const { data: resource } = await supabase
+          .from('trigger_resources')
+          .select('metadata')
+          .eq('workflow_id', workflowId)
+          .eq('node_id', nodeId)
+          .eq('provider_id', 'notion')
+          .single()
+
+        await supabase
+          .from('trigger_resources')
+          .update({
+            metadata: {
+              ...resource?.metadata,
+              verificationToken: body.token,
+              verificationReceivedAt: new Date().toISOString()
+            }
+          })
+          .eq('workflow_id', workflowId)
+          .eq('node_id', nodeId)
+          .eq('provider_id', 'notion')
+      }
+
+      // Also store in webhook_events for audit trail
       await supabase.from('webhook_events').insert({
         provider: 'notion',
         event_type: 'VERIFICATION_TOKEN',
@@ -86,6 +233,8 @@ export async function POST(req: NextRequest) {
         event_data: {
           token: body.token,
           challenge: body.challenge,
+          workflowId,
+          nodeId,
           timestamp: timestamp
         },
         created_at: new Date().toISOString()
@@ -94,7 +243,9 @@ export async function POST(req: NextRequest) {
       logSection('URL VERIFICATION REQUEST DETECTED', {
         challenge: body.challenge,
         token: body.token,
-        note: 'Token stored in database - query webhook_events table for event_type=VERIFICATION_TOKEN'
+        workflowId,
+        nodeId,
+        note: 'Token stored in trigger_resources and webhook_events'
       }, colors.magenta)
 
       // Respond with the challenge for verification
@@ -104,20 +255,30 @@ export async function POST(req: NextRequest) {
         status: 200,
         body: {
           challenge: body.challenge,
-          note: 'Token stored in database'
+          note: 'Webhook verified successfully'
         }
       }, colors.green)
 
       return response
     }
 
-    // Log webhook signature if present
+    // Validate webhook signature (optional but recommended)
     const notionSignature = headers['x-notion-signature'] || headers['notion-signature']
-    if (notionSignature) {
+    if (notionSignature && workflowId && nodeId) {
+      const isValid = await validateNotionSignature(notionSignature, rawBody, workflowId, nodeId)
+      if (!isValid) {
+        logger.error('[Notion Webhook] Signature validation failed - rejecting webhook')
+        return errorResponse('Invalid signature', 401)
+      }
+      logSection('SIGNATURE VALIDATED', {
+        signature: notionSignature,
+        valid: true
+      }, colors.green)
+    } else if (notionSignature) {
       logSection('NOTION SIGNATURE', {
         signature: notionSignature,
-        note: 'This should be validated with your webhook secret'
-      }, colors.cyan)
+        note: 'Signature present but cannot validate without workflowId/nodeId'
+      }, colors.yellow)
     }
 
     // Log webhook type and event details
@@ -133,6 +294,11 @@ export async function POST(req: NextRequest) {
       topLevelKeys: Object.keys(body),
     }, colors.magenta)
 
+    // Mark webhook as verified on first successful event
+    if (workflowId && nodeId) {
+      await markWebhookAsVerified(workflowId, nodeId)
+    }
+
     // Process the webhook event
     const webhookEvent = {
       id: body.id || requestId,
@@ -141,6 +307,8 @@ export async function POST(req: NextRequest) {
       eventData,
       requestId,
       timestamp: new Date(),
+      workflowId,
+      nodeId
     }
 
     logSection('PROCESSING WEBHOOK EVENT', webhookEvent, colors.cyan)

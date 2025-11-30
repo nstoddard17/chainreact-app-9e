@@ -1,4 +1,4 @@
-import { Users, MailOpen, UserPlus, Mail, UserX, Tag, List, Search, BarChart, Calendar, User, FileText, UserMinus, StickyNote, Filter } from "lucide-react"
+import { Users, MailOpen, UserPlus, Mail, UserX, Tag, List, Search, BarChart, Calendar, User, FileText, UserMinus, StickyNote, Filter, MousePointer, UserCheck, Send, ListPlus, Zap } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 // Import new action schemas
@@ -201,6 +201,590 @@ export const mailchimpNodes: NodeComponent[] = [
         label: "Location",
         type: "object",
         description: "Geographic location data (city, country, timezone)"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_trigger_link_clicked",
+    title: "Link Clicked in Campaign",
+    description: "Triggers when a recipient clicks a link in an email campaign",
+    icon: MousePointer,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "campaignId",
+        label: "Campaign (Optional)",
+        type: "combobox",
+        required: false,
+        dynamic: "mailchimp_campaigns",
+        loadOnMount: true,
+        placeholder: "All campaigns",
+        description: "Monitor a specific campaign, or leave empty to monitor all campaigns"
+      },
+      {
+        name: "url",
+        label: "Specific URL (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "https://example.com/page",
+        description: "Only trigger for clicks on a specific URL, or leave empty for all clicks"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "email",
+        label: "Subscriber Email",
+        type: "string",
+        description: "Email address of the subscriber who clicked the link"
+      },
+      {
+        name: "url",
+        label: "Clicked URL",
+        type: "string",
+        description: "The URL that was clicked"
+      },
+      {
+        name: "campaignId",
+        label: "Campaign ID",
+        type: "string",
+        description: "Unique identifier for the email campaign"
+      },
+      {
+        name: "campaignTitle",
+        label: "Campaign Title",
+        type: "string",
+        description: "Title/subject of the email campaign"
+      },
+      {
+        name: "clickTime",
+        label: "Click Time",
+        type: "string",
+        description: "ISO timestamp when the link was clicked"
+      },
+      {
+        name: "subscriberId",
+        label: "Subscriber ID",
+        type: "string",
+        description: "Unique identifier for the subscriber"
+      },
+      {
+        name: "ipAddress",
+        label: "IP Address",
+        type: "string",
+        description: "IP address from which the link was clicked"
+      },
+      {
+        name: "location",
+        label: "Location",
+        type: "object",
+        description: "Geographic location data (city, country, timezone)"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_trigger_unsubscribed",
+    title: "New Unsubscriber",
+    description: "Triggers when a subscriber unsubscribes from an audience",
+    icon: UserX,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "audienceId",
+        label: "Audience",
+        type: "combobox",
+        required: true,
+        dynamic: "mailchimp_audiences",
+        loadOnMount: true,
+        placeholder: "Select an audience",
+        description: "Choose which Mailchimp audience to monitor for unsubscribes"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "email",
+        label: "Email Address",
+        type: "string",
+        description: "Email address of the unsubscribed subscriber"
+      },
+      {
+        name: "firstName",
+        label: "First Name",
+        type: "string",
+        description: "Subscriber's first name"
+      },
+      {
+        name: "lastName",
+        label: "Last Name",
+        type: "string",
+        description: "Subscriber's last name"
+      },
+      {
+        name: "reason",
+        label: "Unsubscribe Reason",
+        type: "string",
+        description: "Reason for unsubscribing (if provided)"
+      },
+      {
+        name: "campaignId",
+        label: "Campaign ID",
+        type: "string",
+        description: "Campaign that triggered the unsubscribe (if applicable)"
+      },
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "The ID of the audience they unsubscribed from"
+      },
+      {
+        name: "subscriberId",
+        label: "Subscriber ID",
+        type: "string",
+        description: "Unique identifier for the subscriber"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when they unsubscribed"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_trigger_new_campaign",
+    title: "New Campaign",
+    description: "Triggers when a new campaign is created or sent",
+    icon: Send,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "status",
+        label: "Campaign Status",
+        type: "select",
+        required: false,
+        defaultValue: "sent",
+        options: [
+          { value: "sent", label: "Sent Campaigns Only" },
+          { value: "save", label: "Saved Drafts Only" },
+          { value: "all", label: "All Campaigns" }
+        ],
+        description: "Choose which campaign events to monitor"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "campaignId",
+        label: "Campaign ID",
+        type: "string",
+        description: "Unique identifier for the campaign"
+      },
+      {
+        name: "title",
+        label: "Campaign Title",
+        type: "string",
+        description: "Title/name of the campaign"
+      },
+      {
+        name: "subject",
+        label: "Subject Line",
+        type: "string",
+        description: "Email subject line"
+      },
+      {
+        name: "type",
+        label: "Campaign Type",
+        type: "string",
+        description: "Type of campaign (regular, plaintext, etc.)"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "string",
+        description: "Campaign status (sent, save, etc.)"
+      },
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "The audience this campaign was sent to"
+      },
+      {
+        name: "sendTime",
+        label: "Send Time",
+        type: "string",
+        description: "When the campaign was sent (if applicable)"
+      },
+      {
+        name: "createTime",
+        label: "Create Time",
+        type: "string",
+        description: "When the campaign was created"
+      },
+      {
+        name: "fromName",
+        label: "From Name",
+        type: "string",
+        description: "Sender name"
+      },
+      {
+        name: "replyTo",
+        label: "Reply To",
+        type: "string",
+        description: "Reply-to email address"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_trigger_subscriber_added_to_segment",
+    title: "Subscriber Added to Segment or Tag",
+    description: "Triggers when a subscriber is added to a segment or tag within an audience",
+    icon: UserCheck,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "audienceId",
+        label: "Audience",
+        type: "combobox",
+        required: true,
+        dynamic: "mailchimp_audiences",
+        loadOnMount: true,
+        placeholder: "Select an audience",
+        description: "Choose which Mailchimp audience to monitor"
+      },
+      {
+        name: "segmentId",
+        label: "Segment (Optional)",
+        type: "combobox",
+        required: false,
+        dynamic: "mailchimp_segments",
+        dependsOn: "audienceId",
+        placeholder: "All segments",
+        description: "Monitor a specific segment, or leave empty to monitor all segments"
+      },
+      {
+        name: "tagName",
+        label: "Tag Name (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "vip",
+        description: "Monitor a specific tag, or leave empty to monitor all tags"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "email",
+        label: "Email Address",
+        type: "string",
+        description: "Email address of the subscriber"
+      },
+      {
+        name: "firstName",
+        label: "First Name",
+        type: "string",
+        description: "Subscriber's first name"
+      },
+      {
+        name: "lastName",
+        label: "Last Name",
+        type: "string",
+        description: "Subscriber's last name"
+      },
+      {
+        name: "segmentId",
+        label: "Segment ID",
+        type: "string",
+        description: "ID of the segment they joined (if applicable)"
+      },
+      {
+        name: "segmentName",
+        label: "Segment Name",
+        type: "string",
+        description: "Name of the segment they joined"
+      },
+      {
+        name: "tagName",
+        label: "Tag Name",
+        type: "string",
+        description: "Name of the tag they were assigned"
+      },
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "The ID of the audience"
+      },
+      {
+        name: "subscriberId",
+        label: "Subscriber ID",
+        type: "string",
+        description: "Unique identifier for the subscriber"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when they were added to the segment/tag"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_trigger_subscriber_updated",
+    title: "New or Updated Subscriber",
+    description: "Triggers when a subscriber is added or updated in an audience",
+    icon: Users,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "audienceId",
+        label: "Audience",
+        type: "combobox",
+        required: true,
+        dynamic: "mailchimp_audiences",
+        loadOnMount: true,
+        placeholder: "Select an audience",
+        description: "Choose which Mailchimp audience to monitor"
+      },
+      {
+        name: "eventType",
+        label: "Event Type",
+        type: "select",
+        required: false,
+        defaultValue: "both",
+        options: [
+          { value: "both", label: "New and Updated" },
+          { value: "new", label: "New Subscribers Only" },
+          { value: "updated", label: "Updates Only" }
+        ],
+        description: "Filter by event type"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "email",
+        label: "Email Address",
+        type: "string",
+        description: "Email address of the subscriber"
+      },
+      {
+        name: "firstName",
+        label: "First Name",
+        type: "string",
+        description: "Subscriber's first name"
+      },
+      {
+        name: "lastName",
+        label: "Last Name",
+        type: "string",
+        description: "Subscriber's last name"
+      },
+      {
+        name: "status",
+        label: "Subscription Status",
+        type: "string",
+        description: "Current subscription status"
+      },
+      {
+        name: "eventType",
+        label: "Event Type",
+        type: "string",
+        description: "Whether this was a 'new' subscriber or an 'update'"
+      },
+      {
+        name: "changedFields",
+        label: "Changed Fields",
+        type: "array",
+        description: "List of fields that were updated (for update events)"
+      },
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "The ID of the audience"
+      },
+      {
+        name: "subscriberId",
+        label: "Subscriber ID",
+        type: "string",
+        description: "Unique identifier for the subscriber"
+      },
+      {
+        name: "tags",
+        label: "Tags",
+        type: "array",
+        description: "Tags assigned to this subscriber"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp of the event"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_trigger_segment_updated",
+    title: "Segment Created or Updated",
+    description: "Triggers when a segment is created or updated in an audience",
+    icon: Filter,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "audienceId",
+        label: "Audience",
+        type: "combobox",
+        required: true,
+        dynamic: "mailchimp_audiences",
+        loadOnMount: true,
+        placeholder: "Select an audience",
+        description: "Choose which Mailchimp audience to monitor for segment changes"
+      },
+      {
+        name: "eventType",
+        label: "Event Type",
+        type: "select",
+        required: false,
+        defaultValue: "both",
+        options: [
+          { value: "both", label: "Created and Updated" },
+          { value: "created", label: "Created Only" },
+          { value: "updated", label: "Updated Only" }
+        ],
+        description: "Filter by event type"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "segmentId",
+        label: "Segment ID",
+        type: "string",
+        description: "Unique identifier for the segment"
+      },
+      {
+        name: "segmentName",
+        label: "Segment Name",
+        type: "string",
+        description: "Name of the segment"
+      },
+      {
+        name: "segmentType",
+        label: "Segment Type",
+        type: "string",
+        description: "Type of segment (static, saved, etc.)"
+      },
+      {
+        name: "memberCount",
+        label: "Member Count",
+        type: "number",
+        description: "Number of members in the segment"
+      },
+      {
+        name: "eventType",
+        label: "Event Type",
+        type: "string",
+        description: "Whether this segment was 'created' or 'updated'"
+      },
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "The ID of the audience this segment belongs to"
+      },
+      {
+        name: "createdAt",
+        label: "Created At",
+        type: "string",
+        description: "When the segment was created"
+      },
+      {
+        name: "updatedAt",
+        label: "Updated At",
+        type: "string",
+        description: "When the segment was last updated"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_trigger_new_audience",
+    title: "New Audience Created",
+    description: "Triggers when a new audience (list) is created in your Mailchimp account",
+    icon: ListPlus,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [],
+    outputSchema: [
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "Unique identifier for the new audience"
+      },
+      {
+        name: "name",
+        label: "Audience Name",
+        type: "string",
+        description: "Name of the new audience"
+      },
+      {
+        name: "webId",
+        label: "Web ID",
+        type: "number",
+        description: "Web-based ID for the audience"
+      },
+      {
+        name: "permissionReminder",
+        label: "Permission Reminder",
+        type: "string",
+        description: "Permission reminder text"
+      },
+      {
+        name: "company",
+        label: "Company",
+        type: "string",
+        description: "Company name"
+      },
+      {
+        name: "contactAddress",
+        label: "Contact Address",
+        type: "object",
+        description: "Contact address information"
+      },
+      {
+        name: "campaignDefaults",
+        label: "Campaign Defaults",
+        type: "object",
+        description: "Default campaign settings (from_name, from_email, subject, language)"
+      },
+      {
+        name: "memberCount",
+        label: "Member Count",
+        type: "number",
+        description: "Number of members in the audience (typically 0 for new)"
+      },
+      {
+        name: "dateCreated",
+        label: "Date Created",
+        type: "string",
+        description: "ISO timestamp when the audience was created"
       }
     ]
   },
@@ -715,6 +1299,248 @@ export const mailchimpNodes: NodeComponent[] = [
         label: "Count",
         type: "number",
         description: "Number of subscribers retrieved"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_action_create_audience",
+    title: "Create Audience",
+    description: "Create a new Mailchimp audience (list)",
+    icon: ListPlus,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "name",
+        label: "Audience Name",
+        type: "text",
+        required: true,
+        placeholder: "My New Audience",
+        description: "Name for the new audience",
+        supportsAI: true
+      },
+      {
+        name: "permission_reminder",
+        label: "Permission Reminder",
+        type: "text",
+        required: true,
+        placeholder: "You signed up for updates on our website",
+        description: "Reminder of how people signed up (required by anti-spam laws)",
+        supportsAI: true
+      },
+      {
+        name: "email_type_option",
+        label: "Email Type Option",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Whether the audience supports HTML and plain-text emails"
+      },
+      {
+        name: "company",
+        label: "Company Name",
+        type: "text",
+        required: true,
+        placeholder: "Acme Corporation",
+        description: "Your company or organization name",
+        supportsAI: true
+      },
+      {
+        name: "address1",
+        label: "Address Line 1",
+        type: "text",
+        required: true,
+        placeholder: "123 Main Street",
+        description: "Street address (required by anti-spam laws)",
+        supportsAI: true
+      },
+      {
+        name: "address2",
+        label: "Address Line 2",
+        type: "text",
+        required: false,
+        placeholder: "Suite 100",
+        supportsAI: true
+      },
+      {
+        name: "city",
+        label: "City",
+        type: "text",
+        required: true,
+        placeholder: "San Francisco",
+        supportsAI: true
+      },
+      {
+        name: "state",
+        label: "State/Province",
+        type: "text",
+        required: true,
+        placeholder: "CA",
+        supportsAI: true
+      },
+      {
+        name: "zip",
+        label: "Zip/Postal Code",
+        type: "text",
+        required: true,
+        placeholder: "94102",
+        supportsAI: true
+      },
+      {
+        name: "country",
+        label: "Country",
+        type: "text",
+        required: true,
+        placeholder: "US",
+        description: "Two-letter country code",
+        supportsAI: true
+      },
+      {
+        name: "from_name",
+        label: "Default From Name",
+        type: "text",
+        required: true,
+        placeholder: "Acme Team",
+        description: "Default sender name for campaigns",
+        supportsAI: true
+      },
+      {
+        name: "from_email",
+        label: "Default From Email",
+        type: "email",
+        required: true,
+        placeholder: "hello@acme.com",
+        description: "Default sender email for campaigns",
+        supportsAI: true
+      },
+      {
+        name: "subject",
+        label: "Default Subject",
+        type: "text",
+        required: false,
+        placeholder: "Newsletter from Acme",
+        description: "Default email subject line",
+        supportsAI: true
+      },
+      {
+        name: "language",
+        label: "Language",
+        type: "text",
+        required: false,
+        defaultValue: "en",
+        placeholder: "en",
+        description: "Language code for the audience"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "Unique ID of the created audience"
+      },
+      {
+        name: "name",
+        label: "Audience Name",
+        type: "string",
+        description: "Name of the created audience"
+      },
+      {
+        name: "webId",
+        label: "Web ID",
+        type: "number",
+        description: "Web-based ID for the audience"
+      },
+      {
+        name: "dateCreated",
+        label: "Date Created",
+        type: "string",
+        description: "When the audience was created"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_action_create_event",
+    title: "Create Custom Event",
+    description: "Track a custom event for a subscriber",
+    icon: Zap,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "audience_id",
+        label: "Audience",
+        type: "select",
+        required: true,
+        dynamic: "mailchimp_audiences",
+        placeholder: "Select an audience",
+        loadOnMount: true
+      },
+      {
+        name: "email",
+        label: "Subscriber Email",
+        type: "email",
+        required: true,
+        placeholder: "subscriber@example.com",
+        description: "Email address of the subscriber",
+        supportsAI: true
+      },
+      {
+        name: "event_name",
+        label: "Event Name",
+        type: "text",
+        required: true,
+        placeholder: "purchased_product",
+        description: "Name of the custom event (lowercase, no spaces)",
+        supportsAI: true
+      },
+      {
+        name: "properties",
+        label: "Event Properties (JSON)",
+        type: "textarea",
+        required: false,
+        placeholder: '{"product_name": "Premium Plan", "price": 99.99}',
+        description: "Additional event data as JSON object",
+        supportsAI: true
+      },
+      {
+        name: "occurred_at",
+        label: "Occurred At (Optional)",
+        type: "text",
+        required: false,
+        placeholder: "2025-01-15T10:30:00Z",
+        description: "ISO 8601 timestamp when the event occurred (defaults to now)",
+        supportsAI: true
+      },
+      {
+        name: "is_syncing",
+        label: "Is Syncing",
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        description: "Whether this is a historical event being synced"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "success",
+        label: "Success",
+        type: "boolean",
+        description: "Whether the event was created successfully"
+      },
+      {
+        name: "eventName",
+        label: "Event Name",
+        type: "string",
+        description: "Name of the created event"
+      },
+      {
+        name: "subscriberEmail",
+        label: "Subscriber Email",
+        type: "string",
+        description: "Email of the subscriber"
       }
     ]
   },

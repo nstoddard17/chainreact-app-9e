@@ -1,4 +1,4 @@
-import { FileText, Database, Users, Layers } from "lucide-react"
+import { FileText, Database, Users, Layers, MessageSquare } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 /**
@@ -427,6 +427,211 @@ export const notionUnifiedActions: NodeComponent[] = [
         label: "Has More",
         type: "boolean",
         description: "Whether there are more results"
+      }
+    ]
+  },
+
+  // ============= UNIFIED COMMENT MANAGEMENT =============
+  {
+    type: "notion_action_manage_comments",
+    title: "Manage Comments",
+    description: "Create comments on pages/blocks or retrieve comments from discussions",
+    icon: MessageSquare,
+    providerId: "notion",
+    requiredScopes: ["comment.read", "comment.write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "workspace",
+        label: "Workspace",
+        type: "select",
+        dynamic: "notion_workspaces",
+        required: true,
+        placeholder: "Select Notion workspace",
+        visibilityCondition: "always"
+      },
+      {
+        name: "operation",
+        label: "Operation",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "create", label: "Create Comment" },
+          { value: "list", label: "List Comments" }
+        ],
+        placeholder: "Select operation",
+        visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
+      },
+      // For create operation - choose target
+      {
+        name: "commentTarget",
+        label: "Comment On",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "page", label: "Page (new comment thread)" },
+          { value: "block", label: "Block (new comment thread)" },
+          { value: "discussion", label: "Discussion (reply to existing thread)" }
+        ],
+        placeholder: "Select where to add comment",
+        description: "Choose whether to start a new comment thread or reply to an existing one",
+        visibilityCondition: { field: "operation", operator: "equals", value: "create" }
+      },
+      // Page selection for page comments
+      {
+        name: "page",
+        label: "Page",
+        type: "combobox",
+        dynamic: "notion_pages",
+        required: true,
+        placeholder: "Search for a page...",
+        description: "The page to comment on",
+        dependsOn: "workspace",
+        searchable: true,
+        loadingText: "Loading pages...",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "create" },
+            { field: "commentTarget", operator: "equals", value: "page" }
+          ]
+        }
+      },
+      // Block ID for block comments
+      {
+        name: "blockId",
+        label: "Block ID",
+        type: "text",
+        required: true,
+        placeholder: "Enter block ID (e.g., block_abc123...)",
+        description: "The ID of the block to comment on. You can get this from the 'List Page Content' action.",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "create" },
+            { field: "commentTarget", operator: "equals", value: "block" }
+          ]
+        }
+      },
+      // Discussion ID for thread replies
+      {
+        name: "discussionId",
+        label: "Discussion ID",
+        type: "text",
+        required: true,
+        placeholder: "Enter discussion ID (from previous comment)",
+        description: "The ID of the discussion thread to reply to. Get this from a previous comment or the 'List Comments' action.",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "create" },
+            { field: "commentTarget", operator: "equals", value: "discussion" }
+          ]
+        }
+      },
+      // Comment content for create
+      {
+        name: "commentText",
+        label: "Comment Text",
+        type: "textarea",
+        required: true,
+        placeholder: "Enter your comment...",
+        rows: 5,
+        description: "The text content of your comment",
+        visibilityCondition: { field: "operation", operator: "equals", value: "create" }
+      },
+      // For list operation - page or block selection
+      {
+        name: "listTarget",
+        label: "List Comments From",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "page", label: "Page" },
+          { value: "block", label: "Block" }
+        ],
+        placeholder: "Select source",
+        visibilityCondition: { field: "operation", operator: "equals", value: "list" }
+      },
+      // Page selection for listing
+      {
+        name: "pageForList",
+        label: "Page",
+        type: "combobox",
+        dynamic: "notion_pages",
+        required: true,
+        placeholder: "Search for a page...",
+        description: "The page to retrieve comments from",
+        dependsOn: "workspace",
+        searchable: true,
+        loadingText: "Loading pages...",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "list" },
+            { field: "listTarget", operator: "equals", value: "page" }
+          ]
+        }
+      },
+      // Block ID for listing
+      {
+        name: "blockIdForList",
+        label: "Block ID",
+        type: "text",
+        required: true,
+        placeholder: "Enter block ID",
+        description: "The ID of the block to retrieve comments from",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "list" },
+            { field: "listTarget", operator: "equals", value: "block" }
+          ]
+        }
+      },
+      // Pagination limit
+      {
+        name: "pageSize",
+        label: "Page Size",
+        type: "number",
+        required: false,
+        defaultValue: 100,
+        min: 1,
+        max: 100,
+        placeholder: "100",
+        description: "Number of comments to return (max 100)",
+        visibilityCondition: { field: "operation", operator: "equals", value: "list" }
+      }
+    ],
+    outputSchema: [
+      {
+        name: "commentId",
+        label: "Comment ID",
+        type: "string",
+        description: "The unique ID of the created comment (create operation)"
+      },
+      {
+        name: "discussionId",
+        label: "Discussion ID",
+        type: "string",
+        description: "The discussion thread ID (for replies)"
+      },
+      {
+        name: "comments",
+        label: "Comments",
+        type: "array",
+        description: "List of comments (list operation)"
+      },
+      {
+        name: "hasMore",
+        label: "Has More",
+        type: "boolean",
+        description: "Whether there are more comments to load"
+      },
+      {
+        name: "nextCursor",
+        label: "Next Cursor",
+        type: "string",
+        description: "Cursor for pagination"
       }
     ]
   },

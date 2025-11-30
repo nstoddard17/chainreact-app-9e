@@ -1,7 +1,7 @@
 import { TriggerLifecycle, TriggerActivationContext, TriggerDeactivationContext, TriggerHealthStatus } from '../types'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { decrypt } from '@/lib/security/encryption'
-import { getWebhookUrl } from '@/lib/utils/getBaseUrl'
+import { getWebhookUrl } from '@/lib/webhooks/utils'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -91,7 +91,8 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Store configuration for manual webhook setup
-    const webhookUrl = getWebhookUrl('notion')
+    // Generate workflow-specific webhook URL with routing parameters
+    const webhookUrl = `${getWebhookUrl('/api/webhooks/notion')}?workflowId=${workflowId}&nodeId=${nodeId}`
     const eventTypes = this.getNotionEventTypes(triggerType)
 
     logger.info('[Notion Trigger] Preparing webhook configuration')
@@ -115,7 +116,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
         resource_type: 'webhook',
         resource_id: triggerId,
         external_id: triggerId, // Use internal ID since we can't get Notion's webhook ID
-        status: 'active', // Active - webhook will work once manually set up in Notion
+        status: 'pending_webhook_setup', // Pending until user completes manual setup in Notion
         config: {
           workspace: workspaceId,
           database: databaseId,
@@ -125,6 +126,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
           webhookUrl: webhookUrl,
           apiVersion: '2025-09-03',
           eventTypes: eventTypes,
+          webhookVerified: false, // Will be set to true when first webhook event is received
           setupInstructions: {
             step1: `Visit https://www.notion.so/my-integrations`,
             step2: `Select your ChainReact integration`,
@@ -135,9 +137,12 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
             step7: dataSourceId
               ? `Subscribe to data source: ${dataSourceId}`
               : `Subscribe to database: ${databaseId}`,
-            step8: `Copy the verification token and enter it when prompted`,
-            step9: `Webhook will be verified automatically when Notion sends the first event`
-          }
+            step8: `Click "Create subscription"`,
+            step9: `Notion will send a verification request automatically`
+          },
+          recommendedEvents: eventTypes,
+          targetResource: dataSourceId || databaseId,
+          targetType: dataSourceId ? 'data_source' : 'database'
         }
       })
       .select()
@@ -229,9 +234,30 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
+    // Check webhook setup and verification status
+    const resource = resources[0]
+    const webhookVerified = resource.metadata?.webhookVerified || false
+    const status = resource.status
+
+    if (status === 'pending_webhook_setup') {
+      return {
+        healthy: false,
+        details: 'Webhook setup pending - please configure webhook in Notion integration settings',
+        lastChecked: new Date().toISOString()
+      }
+    }
+
+    if (!webhookVerified) {
+      return {
+        healthy: false,
+        details: 'Webhook not yet verified - waiting for first event from Notion',
+        lastChecked: new Date().toISOString()
+      }
+    }
+
     return {
       healthy: true,
-      details: 'Notion triggers are active',
+      details: 'Notion webhook is active and verified',
       lastChecked: new Date().toISOString()
     }
   }
