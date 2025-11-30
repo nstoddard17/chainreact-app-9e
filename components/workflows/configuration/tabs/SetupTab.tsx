@@ -8,6 +8,9 @@ import { getProviderBrandName } from '@/lib/integrations/brandNames'
 import { useToast } from '@/hooks/use-toast'
 import { AlertCircle } from 'lucide-react'
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from '../utils/connectionExemptions'
+import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
+import { ManyChatGuide } from '@/components/integrations/guides/ManyChatGuide'
+import { BeehiivGuide } from '@/components/integrations/guides/BeehiivGuide'
 
 interface SetupTabProps {
   nodeInfo: any
@@ -33,9 +36,10 @@ interface SetupTabProps {
  */
 export function SetupTab(props: SetupTabProps) {
   const { nodeInfo, integrationName } = props
-  const { integrations, fetchIntegrations } = useIntegrationStore()
+  const { integrations, fetchIntegrations, connectApiKeyIntegration } = useIntegrationStore()
   const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false)
 
   // Listen for reconnection events to refresh integration store
   React.useEffect(() => {
@@ -122,6 +126,15 @@ export function SetupTab(props: SetupTabProps) {
   // OAuth popup handler - Executes immediately without blocking on other operations
   const handleConnect = (isReconnect = false) => {
     if (!nodeInfo?.providerId) return
+
+    // Check if this is an API Key integration
+    const providerConfig = INTEGRATION_CONFIGS[nodeInfo.providerId]
+    if (providerConfig?.authType === 'apiKey') {
+      // For API key integrations, show the modal
+      setShowApiKeyModal(true)
+      setIsConnecting(false)
+      return
+    }
 
     // Immediately set connecting state
     setIsConnecting(true)
@@ -310,43 +323,75 @@ export function SetupTab(props: SetupTabProps) {
   // Check if connection has an error
   const hasConnectionError = requiresConnection && connection?.status === 'error'
 
-  return (
-    <div className="flex flex-col h-full">
-      {/* Connection Status Section */}
-      {requiresConnection && nodeInfo?.providerId && (
-        <div className="px-6 pt-6 pb-4 border-b border-border">
-          <ServiceConnectionSelector
-            providerId={nodeInfo.providerId}
-            providerName={providerName}
-            connections={connections}
-            selectedConnection={connection}
-            onConnect={handleConnect}
-            onReconnect={handleReconnect}
-            onSelectConnection={handleChangeAccount}
-            onDeleteConnection={handleDeleteConnection}
-            isLoading={isConnecting}
-            autoFetch={false}
-          />
-        </div>
-      )}
+  // Determine which API Key guide to show
+  const ApiKeyGuideComponent = nodeInfo?.providerId === 'manychat'
+    ? ManyChatGuide
+    : nodeInfo?.providerId === 'beehiiv'
+    ? BeehiivGuide
+    : null
 
-      {/* Configuration Form or Error Blocker */}
-      <div className="flex-1 overflow-hidden">
-        {hasConnectionError ? (
-          <div className="flex items-center justify-center h-full p-6">
-            <div className="text-center max-w-md space-y-3">
-              <AlertCircle className="w-12 h-12 mx-auto text-red-500" />
-              <h3 className="text-lg font-semibold text-foreground">Connection Required</h3>
-              <p className="text-sm text-muted-foreground">
-                Please reconnect your {providerName} account above to configure this action.
-                Your account connection has expired or encountered an error.
-              </p>
-            </div>
+  return (
+    <>
+      <div className="flex flex-col h-full">
+        {/* Connection Status Section */}
+        {requiresConnection && nodeInfo?.providerId && (
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <ServiceConnectionSelector
+              providerId={nodeInfo.providerId}
+              providerName={providerName}
+              connections={connections}
+              selectedConnection={connection}
+              onConnect={handleConnect}
+              onReconnect={handleReconnect}
+              onSelectConnection={handleChangeAccount}
+              onDeleteConnection={handleDeleteConnection}
+              isLoading={isConnecting}
+              autoFetch={false}
+            />
           </div>
-        ) : (
-          <ConfigurationForm {...props} />
         )}
+
+        {/* Configuration Form or Error Blocker */}
+        <div className="flex-1 overflow-hidden">
+          {hasConnectionError ? (
+            <div className="flex items-center justify-center h-full p-6">
+              <div className="text-center max-w-md space-y-3">
+                <AlertCircle className="w-12 h-12 mx-auto text-red-500" />
+                <h3 className="text-lg font-semibold text-foreground">Connection Required</h3>
+                <p className="text-sm text-muted-foreground">
+                  Please reconnect your {providerName} account above to configure this action.
+                  Your account connection has expired or encountered an error.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <ConfigurationForm {...props} />
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* API Key Connection Modal */}
+      {ApiKeyGuideComponent && (
+        <ApiKeyGuideComponent
+          open={showApiKeyModal}
+          onOpenChange={setShowApiKeyModal}
+          onConnect={async (apiKey: string) => {
+            try {
+              await connectApiKeyIntegration(nodeInfo.providerId, apiKey)
+              setShowApiKeyModal(false)
+              // Refresh integrations to show the new connection
+              await fetchIntegrations(true)
+              toast({
+                title: "Connected Successfully",
+                description: `Your ${providerName} account has been connected.`,
+              })
+            } catch (error: any) {
+              // Error is already handled by the guide component
+              throw error
+            }
+          }}
+        />
+      )}
+    </>
   )
 }

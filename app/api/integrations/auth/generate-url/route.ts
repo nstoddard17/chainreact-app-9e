@@ -294,6 +294,19 @@ export async function POST(request: NextRequest) {
         authUrl = await generateMondayAuthUrl(stateObject, supabaseAdmin)
         break
 
+      case "manychat":
+      case "beehiiv":
+        // API Key integrations - should not use OAuth flow
+        return jsonResponse({
+          error: `${provider} uses API Key authentication, not OAuth`,
+          message: `The ${provider} integration uses API Key authentication. Please use the API Key connection modal instead of the OAuth flow.`,
+          details: {
+            provider,
+            authType: "apiKey",
+            suggestion: "Click 'Connect' and enter your API key in the modal that appears"
+          }
+        }, { status: 400 })
+
       default:
         return jsonResponse({ error: `Provider ${provider} not supported` }, { status: 400 })
     }

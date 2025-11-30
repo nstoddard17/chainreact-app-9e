@@ -5,6 +5,7 @@ import { cookies } from "next/headers"
 import { encrypt, decrypt } from "@/lib/security/encryption"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { TokenAuditLogger } from "@/lib/integrations/TokenAuditLogger"
+import { createManyChatClient } from "@/lib/integrations/providers/manychat/client"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -40,6 +41,21 @@ export async function POST(request: NextRequest) {
 
     if (!ENCRYPTION_SECRET) {
       throw new Error("ENCRYPTION_KEY is not set.")
+    }
+
+    // Validate API key before saving
+    if (provider === 'manychat') {
+      try {
+        const manychatClient = createManyChatClient(apiKey)
+        await manychatClient.getBotInfo()
+        logger.info('[ManyChat] API key validated successfully')
+      } catch (validationError: any) {
+        logger.error('[ManyChat] API key validation failed:', validationError)
+        return errorResponse(
+          validationError.message || 'Invalid ManyChat API key. Please check your API key and try again.',
+          400
+        )
+      }
     }
 
     const encryptedKey = encrypt(apiKey, ENCRYPTION_SECRET)
