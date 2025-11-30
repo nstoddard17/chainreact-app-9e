@@ -3,6 +3,7 @@ import { useAirtableFieldHandler } from './providers/useAirtableFieldHandler';
 import { useDiscordFieldHandler } from './providers/useDiscordFieldHandler';
 import { useGoogleSheetsFieldHandler } from './providers/useGoogleSheetsFieldHandler';
 import { useNotionFieldHandler } from './providers/useNotionFieldHandler';
+import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -831,6 +832,14 @@ export function useFieldChangeHandler({
         // Check if already loading
         if (activelyLoadingFields.current.has(depField.name)) {
           logger.debug(`⏭️ Skipping ${depField.name} - already loading`);
+          return false;
+        }
+
+        // CRITICAL: Skip fields that are currently hidden
+        // This prevents loading options for fields that aren't visible yet
+        const isVisible = FieldVisibilityEngine.isFieldVisible(depField, getFormValues?.(), nodeInfo);
+        if (!isVisible) {
+          logger.debug(`⏭️ Skipping ${depField.name} - field is hidden`);
           return false;
         }
 

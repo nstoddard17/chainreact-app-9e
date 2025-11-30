@@ -169,6 +169,10 @@ import { executeNotionManageDatabase } from './notion/manageDatabase'
 import { executeNotionManagePage } from './notion/managePage'
 import { executeNotionManageUsers } from './notion/manageUsers'
 import { executeNotionManageComments } from './notion/manageComments'
+import { executeNotionManageBlocks } from './notion/manageBlocks'
+import { executeNotionAdvancedQuery } from './notion/advancedQuery'
+import { executeNotionGetPageProperty } from './notion/getPageProperty'
+import { executeNotionUpdateDatabaseSchema } from './notion/updateDatabaseSchema'
 
 // Notion actions - comprehensive new handlers
 import {
@@ -194,6 +198,16 @@ import {
 
 // Notion get page details action
 import { notionGetPageDetails } from './notion/getPageDetails'
+
+// Notion separate page actions
+import {
+  executeNotionCreatePage,
+  executeNotionUpdatePage,
+  executeNotionAppendToPage,
+  executeNotionGetPageDetailsAction,
+  executeNotionArchivePageAction,
+  executeNotionDuplicatePageAction
+} from './notion/pageActions'
 
 // GitHub actions
 import {
@@ -796,7 +810,16 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "notion_action_search_pages": (params: { config: any; userId: string; input: Record<string, any> }) =>
     searchNotionPages(params.config, params.userId, params.input),
 
+  // Notion separate page actions - each operation is now its own action
+  "notion_action_create_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionCreatePage(params.config, params.userId, params.input),
+  "notion_action_update_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionUpdatePage(params.config, params.userId, params.input),
+  "notion_action_append_to_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionAppendToPage(params.config, params.userId, params.input),
+
   // Notion unified actions (primary handlers) - wrapped to handle new calling convention
+  // DEPRECATED: notion_action_manage_page - replaced by separate actions above
   "notion_action_manage_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeNotionManagePage(params.config, params.userId, params.input),
   "notion_action_manage_database": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -805,13 +828,21 @@ export const actionHandlerRegistry: Record<string, Function> = {
     executeNotionManageUsers(params.config, params.userId, params.input),
   "notion_action_manage_comments": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeNotionManageComments(params.config, params.userId, params.input),
+  "notion_action_manage_blocks": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionManageBlocks(params.config, params.userId, params.input),
+  "notion_action_advanced_query": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionAdvancedQuery(params.config, params.userId, params.input),
+  "notion_action_get_page_property": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionGetPageProperty(params.config, params.userId, params.input),
+  "notion_action_update_database_schema": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionUpdateDatabaseSchema(params.config, params.userId, params.input),
   "notion_action_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
     notionSearch(params.config, params.userId, params.input),
 
   // Notion actions - comprehensive API v2 actions - wrapped to handle new calling convention
   // "notion_action_retrieve_page": notionRetrievePage, // Removed - using notion_action_get_page_details instead
   "notion_action_archive_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionArchivePage(params.config, params.userId, params.input),
+    executeNotionArchivePageAction(params.config, params.userId, params.input),
   "notion_action_query_database": (params: { config: any; userId: string; input: Record<string, any> }) =>
     notionQueryDatabase(params.config, params.userId, params.input),
   "notion_action_update_database": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -835,11 +866,11 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "notion_action_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
     notionSearch(params.config, params.userId, params.input),
   "notion_action_duplicate_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionDuplicatePage(params.config, params.userId, params.input),
+    executeNotionDuplicatePageAction(params.config, params.userId, params.input),
   "notion_action_sync_database_entries": (params: { config: any; userId: string; input: Record<string, any> }) =>
     notionSyncDatabaseEntries(params.config, params.userId, params.input),
   "notion_action_get_page_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionGetPageDetails(params.config, params.userId, params.input),
+    executeNotionGetPageDetailsAction(params.config, params.userId, params.input),
 
   // GitHub actions - wrapped to handle new calling convention
   "github_action_create_issue": (params: { config: any; userId: string; input: Record<string, any> }) =>
