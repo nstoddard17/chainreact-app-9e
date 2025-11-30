@@ -10,7 +10,8 @@ import { logger } from '@/lib/utils/logger'
 // (/integrations/trello-auth) where token is in the URL fragment.
 // This API callback is a fallback if we ever redirect here with key/token.
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Persist Trello integration (store token and metadata keyed by provider)
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from('integrations')
       .upsert({
         user_id: userId,

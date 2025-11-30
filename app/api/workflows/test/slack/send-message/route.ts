@@ -10,7 +10,8 @@ import { createClient } from '@supabase/supabase-js'
 import { safeDecrypt } from '@/lib/security/encryption'
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     logger.info('🧪 Testing Slack send message', { integrationId, channel, isTest })
 
     // Get integration
-    const { data: integration, error: integrationError } = await supabase
+    const { data: integration, error: integrationError } = await getSupabase()
       .from('integrations')
       .select('access_token, user_id')
       .eq('id', integrationId)

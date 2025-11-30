@@ -11,9 +11,11 @@ import { GmailIntegration } from './types'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 /**
  * Request deduplication cache
@@ -107,7 +109,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Try to get Gmail integration by the provided ID first
-    let integrationQuery = supabase
+    let integrationQuery = getSupabase()
       .from('integrations')
       .select('*')
       .eq('id', integrationId)
@@ -122,7 +124,7 @@ export async function POST(req: NextRequest) {
       logger.debug('🔍 [Gmail Data API] Gmail integration not found by ID, trying to find by user_id...')
 
       // First get the original integration to find the user_id
-      const { data: originalIntegration } = await supabase
+      const { data: originalIntegration } = await getSupabase()
         .from('integrations')
         .select('user_id')
         .eq('id', integrationId)
@@ -130,7 +132,7 @@ export async function POST(req: NextRequest) {
 
       if (originalIntegration?.user_id) {
         // Find user's Gmail integration
-        const { data: gmailIntegration, error: gmailError } = await supabase
+        const { data: gmailIntegration, error: gmailError } = await getSupabase()
           .from('integrations')
           .select('*')
           .eq('user_id', originalIntegration.user_id)

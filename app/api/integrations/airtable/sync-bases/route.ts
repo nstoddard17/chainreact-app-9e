@@ -6,7 +6,8 @@ import { listAirtableBases } from "@/lib/integrations/airtable/api"
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       return errorResponse("Missing userId" , 400)
     }
 
-    const { data: integ, error } = await supabase
+    const { data: integ, error } = await getSupabase()
       .from("integrations")
       .select("access_token, user_id, provider")
       .eq("user_id", userId)

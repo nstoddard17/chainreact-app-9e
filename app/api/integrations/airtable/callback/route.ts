@@ -7,14 +7,11 @@ import { encrypt } from "@/lib/security/encryption"
 
 import { logger } from '@/lib/utils/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceRoleKey = process.env.SUPABASE_SECRET_KEY
-
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Missing Supabase URL or service role key")
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -45,7 +42,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Fetch the code_verifier from the database
-    const { data: pkceData, error: pkceError } = await supabase
+    const { data: pkceData, error: pkceError } = await getSupabase()
       .from("pkce_flow")
       .select("code_verifier, state")
       .eq("state", state)
@@ -168,7 +165,7 @@ export async function GET(request: NextRequest) {
     const email = userData.email
     if (email) {
       // Check if user already has this provider connected with this email
-      const { data: existingIntegration } = await supabase
+      const { data: existingIntegration } = await getSupabase()
         .from('integrations')
         .select('id')
         .eq('user_id', userId)
@@ -179,7 +176,7 @@ export async function GET(request: NextRequest) {
 
       if (existingIntegration) {
         // Update existing integration (refresh tokens for same account)
-        const { error: updateError } = await supabase
+        const { error: updateError } = await getSupabase()
           .from('integrations')
           .update(integrationData)
           .eq('id', existingIntegration.id)
@@ -191,7 +188,7 @@ export async function GET(request: NextRequest) {
         logger.debug(`✅ Updated existing Airtable integration: ${existingIntegration.id}`)
       } else {
         // Insert new integration (different email = new account)
-        const { error: insertError } = await supabase
+        const { error: insertError } = await getSupabase()
           .from('integrations')
           .insert(integrationData)
 
@@ -203,7 +200,7 @@ export async function GET(request: NextRequest) {
       }
     } else {
       // Fallback: No email available, try to update by user_id + provider
-      const { data: existingIntegration } = await supabase
+      const { data: existingIntegration } = await getSupabase()
         .from('integrations')
         .select('id')
         .eq('user_id', userId)
@@ -212,7 +209,7 @@ export async function GET(request: NextRequest) {
         .single()
 
       if (existingIntegration) {
-        const { error: updateError } = await supabase
+        const { error: updateError } = await getSupabase()
           .from('integrations')
           .update(integrationData)
           .eq('id', existingIntegration.id)
@@ -223,7 +220,7 @@ export async function GET(request: NextRequest) {
 
         logger.debug(`✅ Updated existing Airtable integration (no email): ${existingIntegration.id}`)
       } else {
-        const { error: insertError } = await supabase
+        const { error: insertError } = await getSupabase()
           .from('integrations')
           .insert(integrationData)
 
@@ -236,7 +233,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Delete the PKCE record from the database
-    const { error: deleteError } = await supabase.from("pkce_flow").delete().eq("state", state)
+    const { error: deleteError } = await getSupabase().from("pkce_flow").delete().eq("state", state)
     if (deleteError) {
       logger.warn(`Failed to delete PKCE data for state: ${state}`, deleteError)
     }

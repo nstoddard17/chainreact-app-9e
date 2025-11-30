@@ -73,26 +73,7 @@ export async function POST(
         })
     }
 
-    // Register webhook/trigger with external service (Gmail, Airtable, etc.)
-    // This happens regardless of workflow status for live test mode
-    const { triggerLifecycleManager } = await import('@/lib/triggers')
-
-    logger.debug('🔄 Registering trigger for live test mode...')
-    const result = await triggerLifecycleManager.activateWorkflowTriggers(
-      workflowId,
-      user.id,
-      workflow.nodes || []
-    )
-
-    if (!result.success && result.errors.length > 0) {
-      logger.error('❌ Trigger activation failed:', result.errors)
-      return errorResponse('Failed to register webhook with external service', 500, { details: result.errors
-         })
-    }
-
-    logger.debug('✅ Trigger registered successfully for live test mode')
-
-    // Create test session record
+    // Create test session record FIRST (we need the session ID for webhook isolation)
     const sessionId = `test-${workflowId}-${Date.now()}`
     const { error: sessionError } = await supabase
       .from('workflow_test_sessions')
@@ -102,15 +83,43 @@ export async function POST(
         user_id: user.id,
         status: 'listening',
         trigger_type: triggerType,
-        test_mode_config: testModeConfig || null, // Store test mode configuration
+        test_mode_config: testModeConfig || {
+          nodes: workflow.nodes,
+          connections: workflow.connections,
+          workflowName: workflow.name,
+        },
         started_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + timeout).toISOString(),
       })
 
     if (sessionError) {
       logger.error('Failed to create test session:', sessionError)
-      // Continue anyway - this is not critical
+      return errorResponse('Failed to create test session', 500, { details: sessionError.message })
     }
+
+    // Register webhook/trigger with external service (Gmail, Airtable, etc.)
+    // Use TEST MODE to ensure isolated webhook URL that won't trigger production workflows
+    const { triggerLifecycleManager } = await import('@/lib/triggers')
+
+    logger.debug('🧪 Registering trigger for live test mode with isolated webhook...')
+    const result = await triggerLifecycleManager.activateWorkflowTriggers(
+      workflowId,
+      user.id,
+      workflow.nodes || [],
+      { isTest: true, testSessionId: sessionId } // TEST MODE - uses separate webhook URL
+    )
+
+    if (!result.success && result.errors.length > 0) {
+      logger.error('❌ Trigger activation failed:', result.errors)
+      // Clean up the test session since activation failed
+      await supabase
+        .from('workflow_test_sessions')
+        .delete()
+        .eq('id', sessionId)
+      return errorResponse('Failed to register webhook with external service', 500, { details: result.errors })
+    }
+
+    logger.debug('✅ Test trigger registered successfully with isolated webhook')
 
     return jsonResponse({
       success: true,
@@ -145,24 +154,31 @@ export async function DELETE(
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return errorResponse('Unauthorized' , 401)
+      return errorResponse('Unauthorized', 401)
     }
 
-    // Get workflow to get nodes for deactivation
-    const { data: workflow } = await supabase
-      .from('workflows')
-      .select('nodes')
-      .eq('id', workflowId)
+    // Find the active test session to get its ID for cleanup
+    const { data: testSession } = await supabase
+      .from('workflow_test_sessions')
+      .select('id')
+      .eq('workflow_id', workflowId)
       .eq('user_id', user.id)
+      .eq('status', 'listening')
+      .order('started_at', { ascending: false })
+      .limit(1)
       .single()
 
-    // Unregister webhook/trigger from external service
-    if (workflow?.nodes) {
-      const { triggerLifecycleManager } = await import('@/lib/triggers')
+    const testSessionId = testSession?.id
 
-      logger.debug('🔄 Deactivating trigger for live test mode...')
-      await triggerLifecycleManager.deactivateWorkflowTriggers(workflowId, user.id)
-      logger.debug('✅ Trigger deactivated successfully')
+    // Unregister ONLY the test webhook (not production webhooks)
+    const { triggerLifecycleManager } = await import('@/lib/triggers')
+
+    if (testSessionId) {
+      logger.debug(`🧪 Deactivating test trigger for session ${testSessionId}...`)
+      await triggerLifecycleManager.deactivateWorkflowTriggers(workflowId, user.id, testSessionId)
+      logger.debug('✅ Test trigger deactivated (production triggers unaffected)')
+    } else {
+      logger.debug('⚠️ No active test session found to deactivate')
     }
 
     // Update test session to stopped
@@ -178,11 +194,12 @@ export async function DELETE(
 
     return jsonResponse({
       success: true,
-      message: 'Test session stopped and webhook unregistered',
+      message: 'Test session stopped and test webhook unregistered',
+      testSessionId,
     })
   } catch (error: any) {
     logger.error('Error stopping test session:', error)
-    return errorResponse(error.message || 'Failed to stop test session' , 500)
+    return errorResponse(error.message || 'Failed to stop test session', 500)
   }
 }
 

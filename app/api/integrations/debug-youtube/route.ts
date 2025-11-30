@@ -4,18 +4,16 @@ import { createClient } from "@supabase/supabase-js"
 
 import { logger } from '@/lib/utils/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SECRET_KEY
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY must be defined")
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-  },
-})
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!,
+  {
+    auth: {
+      persistSession: false,
+    },
+  }
+)
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all integrations for this user
-    const { data: allIntegrations, error: allError } = await supabase
+    const { data: allIntegrations, error: allError } = await getSupabase()
       .from("integrations")
       .select("*")
       .eq("user_id", userId)
@@ -39,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get specifically YouTube integrations
-    const { data: youtubeIntegrations, error: youtubeError } = await supabase
+    const { data: youtubeIntegrations, error: youtubeError } = await getSupabase()
       .from("integrations")
       .select("*")
       .eq("user_id", userId)

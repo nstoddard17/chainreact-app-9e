@@ -3,7 +3,8 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 );
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch the integration
-    const { data: integration, error: integrationError } = await supabase
+    const { data: integration, error: integrationError } = await getSupabase()
       .from('integrations')
       .select('*')
       .eq('id', integrationId)

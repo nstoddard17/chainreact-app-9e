@@ -13,9 +13,11 @@ import { encrypt } from '@/lib/security/encryption'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 export async function POST(req: NextRequest) {
   logger.debug('🚀 [Google Data API] POST handler invoked')
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch integration from database
-    const { data: integrationData, error: integrationError } = await supabase
+    const { data: integrationData, error: integrationError } = await getSupabase()
       .from('integrations')
       .select('*')
       .eq('id', integrationId)
@@ -184,7 +186,7 @@ export async function POST(req: NextRequest) {
               updateData.refresh_token = encrypt(refreshResult.refreshToken, encryptionKey)
             }
 
-            const { error: updateError } = await supabase
+            const { error: updateError } = await getSupabase()
               .from('integrations')
               .update(updateData)
               .eq('id', integrationId)
@@ -193,7 +195,7 @@ export async function POST(req: NextRequest) {
               logger.error('❌ [Google API] Failed to update integration with new tokens:', updateError)
             } else {
               // Fetch the updated integration
-              const { data: updatedIntegration, error: fetchError } = await supabase
+              const { data: updatedIntegration, error: fetchError } = await getSupabase()
                 .from('integrations')
                 .select('*')
                 .eq('id', integrationId)

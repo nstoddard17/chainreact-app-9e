@@ -5,9 +5,11 @@ import { getGitHubHandler } from './handlers'
 import { logger } from '@/lib/utils/logger'
 import { decrypt } from '@/lib/security/encryption'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || ''
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 /**
  * POST /api/integrations/github/data
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get GitHub integration from database
-    const { data: integration, error: integrationError } = await supabase
+    const { data: integration, error: integrationError } = await getSupabase()
       .from('integrations')
       .select('*')
       .eq('id', integrationId)

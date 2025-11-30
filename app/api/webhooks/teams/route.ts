@@ -5,7 +5,8 @@ import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
 import { decryptResourceData } from '@/lib/utils/encryptionCertificate'
 import { decrypt } from '@/lib/security/encryption'
 
-const supabase = createAdminClient()
+// Helper to create supabase client inside handlers
+const getSupabase = () => createAdminClient()
 
 /**
  * Microsoft Teams Webhook Endpoint
@@ -492,6 +493,8 @@ async function processLifecycleNotification(notification: any) {
 async function executeWorkflow(workflowId: string, userId: string, triggerData: any): Promise<void> {
   try {
     logger.debug(`[Teams Webhook] Executing workflow ${workflowId}`)
+
+    const supabase = getSupabase()
 
     // Get workflow details
     const { data: workflow, error: workflowError } = await supabase
