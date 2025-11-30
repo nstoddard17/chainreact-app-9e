@@ -106,7 +106,8 @@ import {
 import {
   createMondayItem,
   updateMondayItem,
-  createMondayUpdate
+  createMondayUpdate,
+  addMondayColumn
 } from './monday'
 
 // Slack actions
@@ -704,6 +705,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
     updateMondayItem(params.config, params.userId, params.input),
   "monday_action_create_update": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMondayUpdate(params.config, params.userId, params.input),
+  "monday_action_add_column": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addMondayColumn(params.config, params.userId, params.input),
 
   // Slack actions - wrapped to handle new calling convention
   "slack_action_create_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
