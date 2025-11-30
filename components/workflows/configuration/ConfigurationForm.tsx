@@ -44,6 +44,7 @@ import { normalizeAllVariablesInObject } from '@/lib/workflows/variableReference
 import { BoxConfiguration } from './providers/BoxConfiguration';
 import { GitHubConfiguration } from './providers/GitHubConfiguration';
 import { PayPalConfiguration } from './providers/PayPalConfiguration';
+import { MondayConfiguration } from './providers/monday/MondayConfiguration';
 import { GenericConfiguration } from './providers/GenericConfiguration';
 import { ScheduleConfiguration } from './providers/ScheduleConfiguration';
 import { IfThenConfiguration } from './providers/IfThenConfiguration';
@@ -1691,6 +1692,11 @@ function ConfigurationForm({
     case 'github':
       logger.debug('🐙 [ConfigForm] Routing to GitHub configuration');
       return <GitHubConfiguration {...commonProps} />;
+
+    // Productivity
+    case 'monday':
+      logger.debug('📊 [ConfigForm] Routing to Monday.com configuration');
+      return <MondayConfiguration {...commonProps} />;
 
     // Automation
     case 'webhook':

@@ -80,16 +80,12 @@ export const createSubitemActionSchema: NodeComponent = {
       required: true,
       placeholder: "Enter subitem name...",
       description: "The name/title of the new subitem",
-      supportsAI: true
-    },
-    {
-      name: "columnValues",
-      label: "Column Values",
-      type: "json",
-      required: false,
-      placeholder: '{"status": "Working on it", "text": "Subitem details"}',
-      description: "Optional: Set initial values for specific columns (JSON format)",
-      supportsAI: true
+      supportsAI: true,
+      dependsOn: "parentItemId",
+      hidden: {
+        $deps: ["parentItemId"],
+        $condition: { parentItemId: { $exists: false } }
+      }
     }
   ],
 }
