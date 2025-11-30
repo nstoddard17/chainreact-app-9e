@@ -47,7 +47,8 @@ async function resolveDiscordGuildName(guildId: string): Promise<string | null> 
   return null
 }
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -122,7 +123,7 @@ export async function POST(
     }
 
     // Fetch workflows that match this provider trigger
-    const { data: workflows, error: workflowError } = await supabase
+    const { data: workflows, error: workflowError } = await getSupabase()
       .from('workflows')
       .select('*')
       .eq('status', 'active')
@@ -388,7 +389,7 @@ async function logWebhookExecution(
   errorMessage?: string
 ): Promise<void> {
   try {
-    await supabase
+    await getSupabase()
       .from('webhook_executions')
       .insert({
         workflow_id: workflowId,

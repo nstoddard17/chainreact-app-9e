@@ -1,13 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendWaitlistWelcomeEmail } from '@/lib/services/resend'
+import { checkRateLimit, RateLimitPresets } from '@/lib/utils/rate-limit'
 import { logger } from '@/lib/utils/logger'
-
-// Use service role for anonymous submissions
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
-)
 
 interface WaitlistSubmission {
   name: string
@@ -19,8 +14,20 @@ interface WaitlistSubmission {
   aiActionsImportance: 'not-important' | 'somewhat-important' | 'very-important' | 'critical'
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Rate limiting: 10 requests per minute (strict - prevent spam signups)
+  const rateLimitResult = checkRateLimit(request, RateLimitPresets.strict)
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
+    // Create client inside handler to avoid build-time initialization
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!
+    )
+
     const body = await request.json() as WaitlistSubmission
 
     // Validate required fields

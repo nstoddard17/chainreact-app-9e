@@ -5,7 +5,8 @@ import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscri
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     }
     
     // Get user's Microsoft access token
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token')
       .eq('user_id', userId)
@@ -103,7 +104,7 @@ export async function DELETE(req: NextRequest) {
     }
     
     // Get subscription details to find user and access token
-    const { data: subscription } = await supabase
+    const { data: subscription } = await getSupabase()
       .from('microsoft_graph_subscriptions')
       .select('user_id')
       .eq('id', subscriptionId)
@@ -114,7 +115,7 @@ export async function DELETE(req: NextRequest) {
     }
     
     // Get user's Microsoft access token
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token')
       .eq('user_id', subscription.user_id)

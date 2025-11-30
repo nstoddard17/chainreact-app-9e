@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { checkRateLimit, RateLimitPresets } from '@/lib/utils/rate-limit'
 
 import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
+  // Rate limiting: 60 requests per minute (standard)
+  const rateLimitResult = checkRateLimit(request, RateLimitPresets.standard)
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const input = searchParams.get("input")

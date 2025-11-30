@@ -5,7 +5,8 @@ import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscri
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get all subscriptions for user from trigger_resources
-    const { data: subscriptions } = await supabase
+    const { data: subscriptions } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('user_id', userId)

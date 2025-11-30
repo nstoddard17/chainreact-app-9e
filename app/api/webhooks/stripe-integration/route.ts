@@ -8,12 +8,15 @@ import { logger } from '@/lib/utils/logger'
 // This webhook handles Stripe integration triggers for workflows
 // It processes events from users' connected Stripe accounts
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabase()
+
   try {
     logger.debug('[Stripe Integration Webhook] Received webhook for workflow triggers')
     

@@ -8,7 +8,8 @@ import { flagIntegrationWorkflows } from '@/lib/integrations/integrationWorkflow
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -27,14 +28,14 @@ export async function POST(_req: NextRequest) {
   logger.debug(`\n🏃 Worker called (call #${workerCallCount}) at ${new Date().toISOString()}`)
 
   // Check total queue count first
-  const { count: totalCount } = await supabase
+  const { count: totalCount } = await getSupabase()
     .from('microsoft_webhook_queue')
     .select('id', { count: 'exact', head: true })
 
   logger.debug(`📊 Total items in queue: ${totalCount || 0}`)
 
   // Get status breakdown
-  const { data: statusBreakdown } = await supabase
+  const { data: statusBreakdown } = await getSupabase()
     .from('microsoft_webhook_queue')
     .select('status')
     .limit(100)
@@ -47,7 +48,7 @@ export async function POST(_req: NextRequest) {
   logger.debug('📈 Queue status breakdown:', statusCounts)
 
   // Simple pull worker: process oldest pending items
-  const { data: rows, error: queryError } = await supabase
+  const { data: rows, error: queryError } = await getSupabase()
     .from('microsoft_webhook_queue')
     .select('*')
     .eq('status', 'pending')
@@ -84,13 +85,13 @@ export async function POST(_req: NextRequest) {
   let processed = 0
   for (const row of rows) {
     try {
-      await supabase
+      await getSupabase()
         .from('microsoft_webhook_queue')
         .update({ status: 'processing', updated_at: new Date().toISOString() })
         .eq('id', row.id)
 
       // Get subscription owner for API calls from trigger_resources
-      const { data: resource } = await supabase
+      const { data: resource } = await getSupabase()
         .from('trigger_resources')
         .select('user_id, workflow_id')
         .eq('external_id', row.subscription_id)
@@ -204,7 +205,7 @@ export async function POST(_req: NextRequest) {
       }
 
       // Mark as done
-      await supabase
+      await getSupabase()
         .from('microsoft_webhook_queue')
         .update({
           status: 'done',
@@ -227,7 +228,7 @@ export async function POST(_req: NextRequest) {
           })
         }
       } catch {}
-      await supabase
+      await getSupabase()
         .from('microsoft_webhook_queue')
         .update({
           status: 'error',
@@ -448,7 +449,7 @@ async function fetchResourceChanges(
   })
 
   // Get delta token from database or use default
-  const { data: deltaToken } = await supabase
+  const { data: deltaToken } = await getSupabase()
     .from('microsoft_graph_delta_tokens')
     .select('token')
     .eq('resource_type', resourceType)
@@ -677,7 +678,7 @@ async function fetchResourceChanges(
 
     // Store new delta token if available
     if (newDeltaToken) {
-      await supabase
+      await getSupabase()
         .from('microsoft_graph_delta_tokens')
         .upsert({
           resource_type: resourceType,
@@ -708,7 +709,7 @@ async function storeNormalizedEvents(events: any[], userId: string): Promise<voi
     created_at: new Date().toISOString()
   }))
 
-  await supabase.from('microsoft_graph_events').insert(eventsToInsert)
+  await getSupabase().from('microsoft_graph_events').insert(eventsToInsert)
 }
 
 // Track recently executed workflows to prevent duplicates
@@ -755,7 +756,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   logger.debug('✅ Proceeding with workflow trigger (not a duplicate)')
 
   // First, check if user has any workflows at all
-  const { data: allWorkflows, error: allError } = await supabase
+  const { data: allWorkflows, error: allError } = await getSupabase()
     .from('workflows')
     .select('id, name, status, user_id')
     .eq('user_id', userId)
@@ -765,13 +766,13 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   }
 
   // Also check without the OR condition to see if it's a query issue
-  const { data: directWorkflows } = await supabase
+  const { data: directWorkflows } = await getSupabase()
     .from('workflows')
     .select('id, name, status, user_id')
     .eq('user_id', userId)
 
   // Debug: Check ALL workflows with OneDrive triggers
-  const { data: allDbWorkflows } = await supabase
+  const { data: allDbWorkflows } = await getSupabase()
     .from('workflows')
     .select('id, name, status, user_id, nodes')
     .eq('status', 'active')
@@ -807,7 +808,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   })
 
   // Find workflows that should be triggered by this event
-  const { data: workflows, error: workflowError } = await supabase
+  const { data: workflows, error: workflowError } = await getSupabase()
     .from('workflows')
     .select('id, nodes, name, status, user_id')
     .eq('status', 'active')
@@ -818,7 +819,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
   }
 
   // Also try a direct query without the team condition
-  const { data: directUserWorkflows } = await supabase
+  const { data: directUserWorkflows } = await getSupabase()
     .from('workflows')
     .select('id, nodes, name, status, user_id')
     .eq('status', 'active')
@@ -839,7 +840,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     logger.debug('❌ No active workflows found for user. Please ensure your workflows are activated (status = "active")')
 
     // Additional debug: Check what workflows exist in DB for this user
-    const { data: allUserWorkflows } = await supabase
+    const { data: allUserWorkflows } = await getSupabase()
       .from('workflows')
       .select('id, name, status, user_id')
       .eq('user_id', userId)
@@ -1201,7 +1202,7 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
         const eventUniqueKey = `${workflow.id}-${event.id}-${event.type}-${event.action}`
         const recentExecutionWindow = 60000 // 60 seconds
 
-        const { data: recentExecutions } = await supabase
+        const { data: recentExecutions } = await getSupabase()
           .from('workflow_execution_sessions')
           .select('id, created_at')
           .eq('workflow_id', workflow.id)
@@ -1585,7 +1586,7 @@ async function fetchOneDriveChanges(payload: any, userId: string): Promise<any[]
 }
 
 async function resolveOneDriveTokens(userId: string): Promise<{ accessToken: string; refreshToken?: string; integrationId: string }> {
-  const { data: integration } = await supabase
+  const { data: integration } = await getSupabase()
     .from('integrations')
     .select('id, access_token, refresh_token, status')
     .eq('user_id', userId)
@@ -1679,7 +1680,7 @@ async function updateOneDriveTokens(
   // Note: token_type field doesn't exist in integrations table
   // Store it in metadata if needed
   if (tokens.tokenType) {
-    const { data: existing } = await supabase
+    const { data: existing } = await getSupabase()
       .from('integrations')
       .select('metadata')
       .eq('id', integrationId)
@@ -1689,7 +1690,7 @@ async function updateOneDriveTokens(
     updateData.metadata = { ...metadata, token_type: tokens.tokenType }
   }
 
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('integrations')
     .update(updateData)
     .eq('id', integrationId)
@@ -1738,7 +1739,7 @@ async function resolveProviderTokens(userId: string, resourceType: string): Prom
 
   logger.debug('🔑 Resolving tokens for resource type:', resourceType, '→ provider:', provider)
 
-  const { data: integration } = await supabase
+  const { data: integration } = await getSupabase()
     .from('integrations')
     .select('id, access_token, refresh_token, status')
     .eq('user_id', userId)
@@ -1832,7 +1833,7 @@ async function updateMicrosoftTokens(
   }
 
   if (tokens.tokenType) {
-    const { data: existing } = await supabase
+    const { data: existing } = await getSupabase()
       .from('integrations')
       .select('metadata')
       .eq('id', integrationId)
@@ -1842,7 +1843,7 @@ async function updateMicrosoftTokens(
     updateData.metadata = { ...metadata, token_type: tokens.tokenType }
   }
 
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('integrations')
     .update(updateData)
     .eq('id', integrationId)

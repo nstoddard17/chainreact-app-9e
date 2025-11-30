@@ -5,12 +5,15 @@ import { refreshAirtableWebhook } from '@/lib/integrations/airtable/webhooks'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
 
 export async function POST(req: NextRequest) {
+  const supabase = getSupabase()
+
   try {
     // Check for API key or cron secret
     const authHeader = req.headers.get('authorization')

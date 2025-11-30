@@ -6,7 +6,8 @@ import { matchesAirtableTable } from '@/lib/integrations/airtable/payloadUtils'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -390,7 +391,7 @@ async function setWebhookSkipBefore(
     delete newMetadata.skip_before_timestamp
   }
 
-  await supabase
+  await getSupabase()
     .from('airtable_webhooks')
     .update({ metadata: newMetadata })
     .eq('id', webhookId)
@@ -426,7 +427,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Find webhook secret for validation
-    const { data: wh, error: whError } = await supabase
+    const { data: wh, error: whError } = await getSupabase()
       .from('airtable_webhooks')
       .select('id, user_id, mac_secret_base64, status, webhook_id, last_cursor, metadata')
       .eq('base_id', baseId)
@@ -444,7 +445,7 @@ export async function POST(req: NextRequest) {
       logger.error(`❌ Webhook not found in database for base: ${baseId}, webhook: ${webhookId}`)
 
       // Let's check what webhooks we do have for debugging
-      const { data: allWebhooks } = await supabase
+      const { data: allWebhooks } = await getSupabase()
         .from('airtable_webhooks')
         .select('base_id, webhook_id, status')
         .eq('status', 'active')
@@ -509,7 +510,7 @@ export async function POST(req: NextRequest) {
 
       // Store cursor for next fetch if available
       if (payloads.cursor) {
-        await supabase
+        await getSupabase()
           .from('airtable_webhooks')
           .update({ last_cursor: payloads.cursor })
           .eq('webhook_id', webhookId)
@@ -607,7 +608,7 @@ async function processAirtablePayload(
   }
 
   // Get all workflows with Airtable triggers for this base
-  const { data: workflows, error: workflowError } = await supabase
+  const { data: workflows, error: workflowError } = await getSupabase()
     .from('workflows')
     .select('*')
     .eq('user_id', userId)
@@ -1172,7 +1173,7 @@ async function createWorkflowExecution(workflowId: string, userId: string, trigg
     logger.debug('📝 Trigger data fields:', Object.keys(triggerData))
 
     // Get the workflow details first
-    const { data: workflow, error: workflowError } = await supabase
+    const { data: workflow, error: workflowError } = await getSupabase()
       .from('workflows')
       .select('*')
       .eq('id', workflowId)

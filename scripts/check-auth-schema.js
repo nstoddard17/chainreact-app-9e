@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client with service role key
 const supabaseUrl = 'https://xzwsdwllmrnrgbltibxt.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6d3Nkd2xsbXJucmdibHRpYnh0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0ODU1NjI2NSwiZXhwIjoyMDY0MTMyMjY1fQ.DqarWXtuBjFjmElINOF8U6bQ8VZv9S4IsYKv4VnBTLs';
+const supabaseServiceKey = '***REDACTED_SERVICE_KEY***';
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {

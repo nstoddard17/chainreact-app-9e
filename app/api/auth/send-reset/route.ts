@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { sendPasswordResetEmail } from '@/lib/services/resend'
+import { checkRateLimit, RateLimitPresets } from '@/lib/utils/rate-limit'
 
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 5 requests per minute (auth - very strict for password reset)
+  const rateLimitResult = checkRateLimit(request, RateLimitPresets.auth)
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     const body = await request.json()
     const { email } = body

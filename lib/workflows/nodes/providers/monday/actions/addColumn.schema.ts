@@ -96,94 +96,13 @@ export const addColumnActionSchema: NodeComponent = {
       description: "The type of data the column will contain"
     },
     {
-      name: "statusLabels",
-      label: "Status Labels",
-      type: "text",
+      name: "columnDefaults",
+      label: "Column Settings (JSON)",
+      type: "json",
       required: false,
-      placeholder: "Working on it, Done, Stuck (comma-separated)",
-      description: "Status label options (comma-separated). Example: Not Started, In Progress, Done",
-      supportsAI: true,
-      dependsOn: "columnType",
-      hidden: {
-        $deps: ["columnType"],
-        $condition: { columnType: { $ne: "status" } }
-      }
-    },
-    {
-      name: "statusColors",
-      label: "Status Colors (Optional)",
-      type: "text",
-      required: false,
-      placeholder: "working_orange, done_green, stuck_red (comma-separated)",
-      description: "Colors for each status (comma-separated). Options: working_orange, done_green, stuck_red, sky, dark_orange, etc.",
-      supportsAI: true,
-      dependsOn: "columnType",
-      hidden: {
-        $deps: ["columnType"],
-        $condition: { columnType: { $ne: "status" } }
-      }
-    },
-    {
-      name: "dropdownLabels",
-      label: "Dropdown Options",
-      type: "text",
-      required: false,
-      placeholder: "Option 1, Option 2, Option 3 (comma-separated)",
-      description: "Dropdown option values (comma-separated). Example: High, Medium, Low",
-      supportsAI: true,
-      dependsOn: "columnType",
-      hidden: {
-        $deps: ["columnType"],
-        $condition: { columnType: { $ne: "dropdown" } }
-      }
-    },
-    {
-      name: "allowMultipleSelection",
-      label: "Allow Multiple Selection",
-      type: "select",
-      required: false,
-      options: [
-        { label: "No - Single selection only", value: "false" },
-        { label: "Yes - Allow multiple selections", value: "true" }
-      ],
-      placeholder: "Select...",
-      description: "Whether users can select multiple options from the dropdown",
-      dependsOn: "columnType",
-      hidden: {
-        $deps: ["columnType"],
-        $condition: { columnType: { $ne: "dropdown" } }
-      }
-    },
-    {
-      name: "defaultRating",
-      label: "Default Rating",
-      type: "select",
-      required: false,
-      options: [
-        { label: "5 Stars", value: "5" },
-        { label: "10 Stars", value: "10" }
-      ],
-      placeholder: "Select rating scale...",
-      description: "Number of stars for rating column",
-      dependsOn: "columnType",
-      hidden: {
-        $deps: ["columnType"],
-        $condition: { columnType: { $ne: "rating" } }
-      }
-    },
-    {
-      name: "tagLabels",
-      label: "Tag Options",
-      type: "text",
-      required: false,
-      placeholder: "Tag 1, Tag 2, Tag 3 (comma-separated)",
-      description: "Available tag values (comma-separated). Example: Urgent, Important, Review",
-      supportsAI: true,
-      dependsOn: "columnType",
-      hidden: {
-        $deps: ["columnType"],
-        $condition: { columnType: { $ne: "tag" } }
-      }
+      placeholder: '{"labels": {"0": "Not Started", "1": "Working on it"}}',
+      description: "Optional: Column-specific settings like status labels or dropdown options (JSON format)",
+      supportsAI: true
     }
   ],
 }

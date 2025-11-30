@@ -5,7 +5,8 @@ import { MicrosoftGraphAuth } from '@/lib/microsoft-graph/auth'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
         })
 
         // Look up subscription in trigger_resources
-        const { data: triggerResource, error: lookupError } = await supabase
+        const { data: triggerResource, error: lookupError } = await getSupabase()
           .from('trigger_resources')
           .select('*')
           .eq('external_id', subscriptionId)
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
             logger.debug('🗑️ Subscription removed:', subscriptionId)
 
             // Mark as expired in trigger_resources
-            await supabase
+            await getSupabase()
               .from('trigger_resources')
               .update({
                 status: 'expired',
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
             logger.warn('⚠️ Reauthorization required for subscription:', subscriptionId)
 
             // Mark as requiring reauth
-            await supabase
+            await getSupabase()
               .from('trigger_resources')
               .update({
                 status: 'reauth_required',
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest) {
             logger.warn('⚠️ Missed notifications for subscription:', subscriptionId)
 
             // Mark as requiring reauth
-            await supabase
+            await getSupabase()
               .from('trigger_resources')
               .update({
                 status: 'reauth_required',

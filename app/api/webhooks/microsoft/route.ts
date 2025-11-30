@@ -6,7 +6,8 @@ import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -82,7 +83,7 @@ async function logWebhookExecution(
       payloadKeys: payload ? Object.keys(payload) : []
     }
 
-    await supabase
+    await getSupabase()
       .from('webhook_logs')
       .insert({
         provider: provider,
@@ -127,7 +128,7 @@ async function processNotifications(
       if (subId) {
         logger.debug('🔍 Looking up subscription:', subId)
 
-        const { data: triggerResource, error: resourceError } = await supabase
+        const { data: triggerResource, error: resourceError } = await getSupabase()
           .from('trigger_resources')
           .select('id, user_id, workflow_id, trigger_type, config')
           .eq('external_id', subId)
@@ -192,7 +193,7 @@ async function processNotifications(
       })
 
       // Try to insert dedup key - if it fails due to unique constraint, it's a duplicate
-      const { error: dedupError } = await supabase
+      const { error: dedupError } = await getSupabase()
         .from('microsoft_webhook_dedup')
         .insert({ dedup_key: dedupKey })
 

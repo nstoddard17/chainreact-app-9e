@@ -37,3 +37,8 @@ nul
 
 # Workflow execution logs (may contain sensitive data)
 /logs/
+*.log
+
+# Build/debug logs
+build-*.log
+debug-*.log

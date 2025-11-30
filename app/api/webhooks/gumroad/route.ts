@@ -16,7 +16,8 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -274,7 +275,7 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
     logger.debug(`🚀 Executing workflow ${workflowId}`)
 
     // Get workflow details
-    const { data: workflow, error: workflowError } = await supabase
+    const { data: workflow, error: workflowError } = await getSupabase()
       .from('workflows')
       .select('*')
       .eq('id', workflowId)

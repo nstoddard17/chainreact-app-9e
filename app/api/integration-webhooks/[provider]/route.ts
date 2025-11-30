@@ -5,17 +5,18 @@ import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
-)
-
 export async function POST(
   request: Request,
   { params }: { params: { provider: string } }
 ) {
   const { provider } = params
-  
+
+  // Create client inside handler to avoid build-time initialization
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!
+  )
+
   try {
     // Get the raw body and headers
     const body = await request.text()

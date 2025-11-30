@@ -103,11 +103,33 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value: [
+              // Prevent framing (clickjacking protection)
               "frame-ancestors 'none'",
+              // Restrict base URI
               "base-uri 'self'",
+              // Restrict form submissions
               "form-action 'self'",
-              // Temporarily disabled for local dev - re-enable in production
-              // "upgrade-insecure-requests"
+              // Script sources - 'unsafe-inline' needed for Next.js, 'unsafe-eval' needed for some libs
+              // In production, consider using nonces instead
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://maps.googleapis.com",
+              // Style sources
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              // Font sources
+              "font-src 'self' https://fonts.gstatic.com data:",
+              // Image sources
+              "img-src 'self' data: blob: https: http:",
+              // Connect sources (API endpoints, WebSockets)
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://maps.googleapis.com https://api.resend.com",
+              // Object sources (plugins)
+              "object-src 'none'",
+              // Child/frame sources
+              "child-src 'self' https://js.stripe.com",
+              // Worker sources
+              "worker-src 'self' blob:",
+              // Manifest
+              "manifest-src 'self'",
+              // Upgrade insecure requests in production
+              ...(isDev ? [] : ["upgrade-insecure-requests"]),
             ].filter(Boolean).join('; '),
           },
           {

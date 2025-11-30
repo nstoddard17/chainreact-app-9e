@@ -4,13 +4,14 @@ import { createClient } from '@supabase/supabase-js';
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
-);
-
 export async function POST(request: NextRequest) {
   try {
+    // Create client inside handler to avoid build-time initialization
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!
+    );
+
     const { email } = await request.json();
 
     if (!email) {
