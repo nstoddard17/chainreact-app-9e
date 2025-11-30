@@ -929,7 +929,7 @@ const mondayMappings: Record<string, FieldMapping> = {
   },
   monday_action_create_subitem: {
     boardId: "monday_boards",
-    itemId: "monday_items",
+    parentItemId: "monday_items",
   },
   monday_action_list_items: {
     boardId: "monday_boards",
