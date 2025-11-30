@@ -74,6 +74,7 @@ export function MondayConfiguration({
     const boardId = values.boardId;
     const groupId = values.groupId;
     const itemId = values.itemId;
+    const parentItemId = values.parentItemId;
 
     // Load columns for create item when board and group are selected
     if (nodeInfo.type === 'monday_action_create_item' && boardId && groupId) {
@@ -84,7 +85,12 @@ export function MondayConfiguration({
     if (nodeInfo.type === 'monday_action_update_item' && boardId && itemId) {
       loadColumnsForBoard(boardId);
     }
-  }, [values.boardId, values.groupId, values.itemId, nodeInfo.type]);
+
+    // Load columns for create subitem when board and parent item are selected
+    if (nodeInfo.type === 'monday_action_create_subitem' && boardId && parentItemId) {
+      loadColumnsForBoard(boardId);
+    }
+  }, [values.boardId, values.groupId, values.itemId, values.parentItemId, nodeInfo.type]);
 
   const loadColumnsForBoard = async (boardId: string) => {
     if (!boardId || !integrationId) return;
@@ -184,19 +190,23 @@ export function MondayConfiguration({
 
   // Render dynamic column fields
   const renderColumnFields = () => {
-    // Only show columns for create/update item actions
+    // Only show columns for create/update item actions and create subitem
     const isCreateItem = nodeInfo.type === 'monday_action_create_item';
     const isUpdateItem = nodeInfo.type === 'monday_action_update_item';
+    const isCreateSubitem = nodeInfo.type === 'monday_action_create_subitem';
 
-    if (!isCreateItem && !isUpdateItem) {
+    if (!isCreateItem && !isUpdateItem && !isCreateSubitem) {
       return null;
     }
 
     // For create item: require board and group
     // For update item: require board and itemId
+    // For create subitem: require board and parentItemId
     const shouldShowColumns = isCreateItem
       ? (values.boardId && values.groupId)
-      : (values.boardId && values.itemId);
+      : isUpdateItem
+      ? (values.boardId && values.itemId)
+      : (values.boardId && values.parentItemId);
 
     if (!shouldShowColumns) {
       return null;
