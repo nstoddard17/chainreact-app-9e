@@ -3,7 +3,8 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get workflow and trigger resources
-    const { data: workflow } = await supabase
+    const { data: workflow } = await getSupabase()
       .from('workflows')
       .select('user_id, name, status')
       .eq('id', workflowId)
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get trigger resources for this workflow
-    const { data: triggerResources } = await supabase
+    const { data: triggerResources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Queue workflow execution
-    const { error: queueError } = await supabase
+    const { error: queueError } = await getSupabase()
       .from('workflow_queue')
       .insert({
         workflow_id: workflowId,

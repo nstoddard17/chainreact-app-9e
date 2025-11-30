@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { checkRateLimit, RateLimitPresets } from '@/lib/utils/rate-limit'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -16,7 +17,13 @@ const supabaseAdmin = createClient(
   }
 )
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Rate limiting: 60 requests per minute (standard)
+  const rateLimitResult = checkRateLimit(request, RateLimitPresets.standard)
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     const { username } = await request.json()
 

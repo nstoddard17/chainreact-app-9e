@@ -5,7 +5,8 @@ import crypto from 'crypto'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -78,7 +79,7 @@ export async function POST(
     logger.debug(`🔔 Received Stripe webhook: ${event.type}`)
 
     // Log webhook for debugging
-    await supabase
+    await getSupabase()
       .from('webhook_logs')
       .insert({
         provider: 'stripe',
@@ -88,7 +89,7 @@ export async function POST(
       })
 
     // Find workflows that match this event type
-    const { data: workflows, error: workflowsError } = await supabase
+    const { data: workflows, error: workflowsError } = await getSupabase()
       .from('workflows')
       .select(`
         id,

@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
-
 /**
  * GET /api/integrations/all-connections
  *
@@ -30,6 +28,9 @@ const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SE
  * - user_permission: User's permission level for this connection
  */
 export async function GET(request: NextRequest) {
+  // Create client inside handler to avoid build-time initialization
+  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+
   try {
     // Get the current user from authorization header
     const authHeader = request.headers.get('authorization')

@@ -5,7 +5,8 @@ import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscri
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     // Process each user's subscriptions
     for (const [userId, subs] of Object.entries(userSubscriptions)) {
       // Get fresh access token for user
-      const { data: integration } = await supabase
+      const { data: integration } = await getSupabase()
         .from('integrations')
         .select('access_token, refresh_token')
         .eq('user_id', userId)
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
 // Helper function to notify user of subscription issues
 async function notifySubscriptionIssue(userId: string, message: string): Promise<void> {
   try {
-    await supabase.from('notifications').insert({
+    await getSupabase().from('notifications').insert({
       user_id: userId,
       type: 'microsoft_graph_subscription_issue',
       title: 'Microsoft Graph Subscription Issue',

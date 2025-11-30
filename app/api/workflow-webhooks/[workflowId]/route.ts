@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
 import { createClient } from '@supabase/supabase-js';
 import { webhookManager } from '@/lib/webhooks/webhookManager';
+import { checkRateLimit, RateLimitPresets } from '@/lib/utils/rate-limit';
 import crypto from 'crypto';
 
 import { logger } from '@/lib/utils/logger'
@@ -122,6 +123,18 @@ export async function POST(
   { params }: { params: Promise<{ workflowId: string }> }
 ) {
   const { workflowId } = await params;
+
+  // Rate limiting: 100 requests per minute per workflow
+  const rateLimitResult = checkRateLimit(request, {
+    ...RateLimitPresets.webhook,
+    keyGenerator: () => `webhook:${workflowId}`
+  });
+
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    logger.warn(`Rate limit exceeded for webhook workflow ${workflowId}`);
+    return rateLimitResult.response;
+  }
+
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
 
   try {
@@ -154,7 +167,7 @@ export async function POST(
       return errorResponse('Invalid JSON payload', 400);
     }
 
-    // Check if HMAC signature verification is enabled
+    // Get trigger resource configuration
     const { data: triggerResource } = await supabase
       .from('trigger_resources')
       .select('config')
@@ -166,15 +179,26 @@ export async function POST(
     // Check if this is a test mode trigger
     const isTestMode = triggerResource?.config?.testMode === true
 
-    if (triggerResource?.config?.hmacSecret && triggerResource?.config?.requireSignature) {
-      const signature = headers['x-webhook-signature'] || headers['x-hub-signature-256'];
+    // SECURITY: Webhook signature verification
+    // Signatures are REQUIRED by default unless explicitly disabled with allowUnsigned: true
+    const hmacSecret = triggerResource?.config?.hmacSecret
+    const allowUnsigned = triggerResource?.config?.allowUnsigned === true
+
+    if (!allowUnsigned) {
+      // Signature is required
+      if (!hmacSecret) {
+        logger.error(`Webhook secret not configured for workflow ${workflowId}`);
+        return errorResponse('Webhook not properly configured. Please regenerate the webhook URL.', 500);
+      }
+
+      const signature = headers['x-webhook-signature'] || headers['x-hub-signature-256'] || headers['x-signature-256'];
 
       if (!signature) {
         logger.error(`Webhook signature required but not provided for workflow ${workflowId}`);
-        return errorResponse('Webhook signature required', 401);
+        return errorResponse('Webhook signature required. Include X-Webhook-Signature header.', 401);
       }
 
-      const isValid = verifyHmacSignature(rawBody, signature, triggerResource.config.hmacSecret);
+      const isValid = verifyHmacSignature(rawBody, signature, hmacSecret);
 
       if (!isValid) {
         logger.error(`Invalid webhook signature for workflow ${workflowId}`);
@@ -182,6 +206,8 @@ export async function POST(
       }
 
       logger.debug(`✅ Webhook signature verified for workflow ${workflowId}`);
+    } else {
+      logger.warn(`⚠️ Webhook signature verification disabled for workflow ${workflowId} (allowUnsigned: true)`);
     }
 
     // If in test mode, store the event data in trigger_resources for polling

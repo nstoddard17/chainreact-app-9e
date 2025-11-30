@@ -18,11 +18,6 @@ import {
   logWebhookSample
 } from '@/lib/webhooks/hubspotWebhookUtils'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
-)
-
 // Map HubSpot subscription types to our trigger types
 const SUBSCRIPTION_TO_TRIGGER_MAP: Record<string, string> = {
   'contact.creation': 'hubspot_trigger_contact_created',
@@ -49,6 +44,12 @@ const SUBSCRIPTION_TO_TRIGGER_MAP: Record<string, string> = {
  */
 export async function POST(req: NextRequest) {
   logger.debug('🔔 HubSpot webhook received at', new Date().toISOString())
+
+  // Create client inside handler to avoid build-time initialization
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!
+  )
 
   try {
     const payload = await req.json()

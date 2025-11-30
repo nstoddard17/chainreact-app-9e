@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
   const headers = Object.fromEntries(req.headers.entries())
 
   try {
-    await supabase.from('integration_webhook_executions').insert({
+    await getSupabase().from('integration_webhook_executions').insert({
       user_id: body?.action?.memberCreator?.id || null,
       provider_id: 'trello',
       trigger_type: 'trello_trigger_event',
