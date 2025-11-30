@@ -11,7 +11,8 @@ import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -541,7 +542,7 @@ async function logAIUsage(
   result: ProcessedResult
 ): Promise<void> {
   try {
-    await supabase.from('ai_cost_logs').insert({
+    await getSupabase().from('ai_cost_logs').insert({
       user_id: context.userId,
       workflow_id: context.workflowId,
       execution_id: context.executionId,
@@ -557,7 +558,7 @@ async function logAIUsage(
 
     // If routing decision was made, log it
     if (result.routing) {
-      await supabase.from('ai_routing_decisions').insert({
+      await getSupabase().from('ai_routing_decisions').insert({
         workflow_id: context.workflowId,
         execution_id: context.executionId,
         node_id: context.nodeId,
@@ -617,10 +618,10 @@ async function logFieldResolutions(
     }))
     
     // Insert all field resolutions
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from('ai_field_resolutions')
       .insert(insertData)
-    
+
     if (error) {
       logger.error('Failed to log field resolutions:', error)
     } else {

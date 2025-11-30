@@ -16,7 +16,8 @@ import {
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -48,18 +49,25 @@ export class TriggerLifecycleManager {
    * Activate ALL triggers in a workflow
    *
    * Called when workflow status changes to 'active'
+   *
+   * @param workflowId - The workflow ID
+   * @param userId - The user ID
+   * @param nodes - The workflow nodes
+   * @param testMode - Optional test mode config for creating isolated test subscriptions
    */
   async activateWorkflowTriggers(
     workflowId: string,
     userId: string,
-    nodes: any[]
+    nodes: any[],
+    testMode?: { isTest: true; testSessionId: string }
   ): Promise<{ success: boolean; errors: string[] }> {
     const errors: string[] = []
 
     // Filter to only trigger nodes
     const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
 
-    logger.debug(`🚀 Activating ${triggerNodes.length} triggers for workflow ${workflowId}`)
+    const modeLabel = testMode ? '🧪 TEST MODE' : '🚀 PRODUCTION'
+    logger.debug(`${modeLabel} Activating ${triggerNodes.length} triggers for workflow ${workflowId}`)
 
     for (const node of triggerNodes) {
       const providerId = node.data?.providerId
@@ -85,11 +93,12 @@ export class TriggerLifecycleManager {
           nodeId: node.id,
           triggerType,
           providerId,
-          config
+          config,
+          testMode
         }
 
         await lifecycle.onActivate(context)
-        logger.debug(`✅ Activated trigger: ${providerId}/${triggerType} for workflow ${workflowId}`)
+        logger.debug(`✅ Activated trigger: ${providerId}/${triggerType} for workflow ${workflowId}${testMode ? ' (TEST)' : ''}`)
 
       } catch (error) {
         const errorMsg = `Failed to activate ${providerId}/${triggerType}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -108,21 +117,38 @@ export class TriggerLifecycleManager {
    * Deactivate ALL triggers in a workflow
    *
    * Called when workflow status changes from 'active' to 'draft' or 'inactive'
+   *
+   * @param workflowId - The workflow ID
+   * @param userId - The user ID
+   * @param testSessionId - Optional: only deactivate test triggers for this session
    */
   async deactivateWorkflowTriggers(
     workflowId: string,
-    userId: string
+    userId: string,
+    testSessionId?: string
   ): Promise<{ success: boolean; errors: string[] }> {
     const errors: string[] = []
 
-    // Get all trigger resources for this workflow from database
-    const { data: resources } = await supabase
+    // Build query based on whether we're deactivating test or production triggers
+    let query = getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
 
+    if (testSessionId) {
+      // Only deactivate test triggers for this specific session
+      query = query.eq('test_session_id', testSessionId)
+      logger.debug(`🧪 Deactivating TEST triggers for session ${testSessionId}`)
+    } else {
+      // Deactivate production triggers only (not test triggers)
+      query = query.or('is_test.is.null,is_test.eq.false')
+      logger.debug(`🛑 Deactivating PRODUCTION triggers for workflow ${workflowId}`)
+    }
+
+    const { data: resources } = await query
+
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No trigger resources found for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No trigger resources found for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
       return { success: true, errors: [] }
     }
 
@@ -139,11 +165,12 @@ export class TriggerLifecycleManager {
         const context: TriggerDeactivationContext = {
           workflowId,
           userId,
-          providerId: resource.provider_id
+          providerId: resource.provider_id,
+          testSessionId
         }
 
         await lifecycle.onDeactivate(context)
-        logger.debug(`✅ Deactivated trigger: ${resource.provider_id} for workflow ${workflowId}`)
+        logger.debug(`✅ Deactivated trigger: ${resource.provider_id} for workflow ${workflowId}${testSessionId ? ' (TEST)' : ''}`)
 
       } catch (error) {
         const errorMsg = `Failed to deactivate ${resource.provider_id}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -170,7 +197,7 @@ export class TriggerLifecycleManager {
     const errors: string[] = []
 
     // Get all trigger resources for this workflow from database
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -221,7 +248,7 @@ export class TriggerLifecycleManager {
   ): Promise<Map<string, TriggerHealthStatus>> {
     const healthStatuses = new Map<string, TriggerHealthStatus>()
 
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)

@@ -4,7 +4,8 @@ import { safeDecrypt } from '@/lib/security/encryption'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -91,7 +92,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
 
   const accountSet = new Set(accounts)
 
-  const { data: webhookConfigs, error: configError } = await supabase
+  const { data: webhookConfigs, error: configError } = await getSupabase()
     .from('webhook_configs')
     .select('id, workflow_id, config, status')
     .eq('provider_id', 'dropbox')
@@ -139,7 +140,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
 
   const workflowIds = Array.from(dropboxConfigMap.keys())
 
-  const { data: workflows, error: workflowError } = await supabase
+  const { data: workflows, error: workflowError } = await getSupabase()
     .from('workflows')
     .select('*')
     .in('status', ['draft', 'active'])
@@ -313,7 +314,7 @@ async function buildDropboxTriggerPayload(
   let webhookConfig = (workflow as any).__dropboxWebhookConfig
 
   if (!webhookConfig) {
-    const { data: configRecord, error: configError } = await supabase
+    const { data: configRecord, error: configError } = await getSupabase()
       .from('webhook_configs')
       .select('id, workflow_id, config, status')
       .eq('workflow_id', workflow.id)
@@ -362,7 +363,7 @@ async function buildDropboxTriggerPayload(
   let cursor: string | undefined = dropboxState.cursor
   let accountId: string | null = dropboxState.accountId || null
 
-  const { data: integration, error: integrationError } = await supabase
+  const { data: integration, error: integrationError } = await getSupabase()
     .from('integrations')
     .select('id, access_token, provider, status, metadata')
     .eq('user_id', workflow.user_id)
@@ -629,7 +630,7 @@ async function updateDropboxWebhookState(
       dropbox_state: dropboxState
     }
 
-    await supabase
+    await getSupabase()
       .from('webhook_configs')
       .update({ config: updatedConfig })
       .eq('id', webhookConfigId)

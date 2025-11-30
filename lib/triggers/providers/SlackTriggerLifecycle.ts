@@ -20,7 +20,8 @@ import {
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -40,7 +41,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Verify Slack integration exists
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('id')
       .eq('user_id', userId)
@@ -53,7 +54,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
 
     // Store trigger metadata for event routing
     // Slack events are configured at app level, we just need to route them to the right workflow
-    const { error: insertError } = await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'slack',
@@ -93,7 +94,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
     logger.debug(`🛑 Deactivating Slack triggers for workflow ${workflowId}`)
 
     // Mark triggers as deleted (no external cleanup needed)
-    await supabase
+    await getSupabase()
       .from('trigger_resources')
       .delete()
       .eq('workflow_id', workflowId)
@@ -114,7 +115,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
    * Check health of Slack triggers
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -130,7 +131,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Verify Slack integration still exists
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('id, status')
       .eq('user_id', userId)

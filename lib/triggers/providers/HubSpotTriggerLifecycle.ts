@@ -19,7 +19,8 @@ import {
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -155,7 +156,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Store in trigger_resources table
-    const { error: insertError } = await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'hubspot',
@@ -201,7 +202,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
     logger.debug(`🛑 Deactivating HubSpot triggers for workflow ${workflowId}`)
 
     // Get all HubSpot subscriptions for this workflow
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -217,7 +218,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
     const appId = process.env.HUBSPOT_APP_ID
     if (!appId) {
       logger.warn(`⚠️ HUBSPOT_APP_ID not configured, marking subscriptions as deleted locally`)
-      await supabase
+      await getSupabase()
         .from('trigger_resources')
         .delete()
         .eq('workflow_id', workflowId)
@@ -233,7 +234,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
     } catch (error) {
       logger.warn(`⚠️ Failed to get valid HubSpot token, deleting subscription records without API cleanup`, error)
       // Delete even if we can't clean up in HubSpot API
-      await supabase
+      await getSupabase()
         .from('trigger_resources')
         .delete()
         .eq('workflow_id', workflowId)
@@ -264,7 +265,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
         }
 
         // Delete from trigger_resources
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .delete()
           .eq('id', resource.id)
@@ -276,7 +277,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
           stack: error.stack
         })
         // Mark as error but continue with others
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .update({ status: 'error', updated_at: new Date().toISOString() })
           .eq('id', resource.id)
@@ -297,7 +298,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
    * Verifies subscriptions are still active in HubSpot using the Public App Webhooks API.
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)

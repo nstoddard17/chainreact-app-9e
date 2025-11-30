@@ -15,7 +15,8 @@ import {
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -40,7 +41,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
     } else {
       // Other Discord triggers (message_sent, member_join) just listen to events
       // Store metadata but no external registration needed
-      const { error: insertError } = await supabase.from('trigger_resources').insert({
+      const { error: insertError } = await getSupabase().from('trigger_resources').insert({
         workflow_id: workflowId,
         user_id: userId,
         provider: 'discord',
@@ -157,7 +158,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Store in trigger_resources table
-    const { error: insertError } = await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'discord',
@@ -199,7 +200,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
     logger.debug(`🛑 Deactivating Discord triggers for workflow ${workflowId}`)
 
     // Get all Discord triggers for this workflow
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -239,14 +240,14 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
         }
 
         // Mark as deleted in trigger_resources
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .delete()
           .eq('id', resource.id)
 
       } catch (error) {
         logger.error(`❌ Failed to deactivate Discord trigger ${resource.id}:`, error)
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .update({ status: 'error', updated_at: new Date().toISOString() })
           .eq('id', resource.id)
@@ -265,7 +266,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
    * Check health of Discord triggers
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)

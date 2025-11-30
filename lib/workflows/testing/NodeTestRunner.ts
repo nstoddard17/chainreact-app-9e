@@ -18,8 +18,8 @@ import { buildTestConfig, TEST_USER_ID, shouldSkipTest } from './testData'
 import { createClient } from '@supabase/supabase-js'
 import { TriggerLifecycleManager } from '@/lib/triggers/TriggerLifecycleManager'
 
-// Initialize Supabase client for getting integrations
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -145,7 +145,7 @@ export class NodeTestRunner {
     }
 
     // Find first admin user
-    const { data: admins } = await supabase
+    const { data: admins } = await getSupabase()
       .from('user_profiles')
       .select('id')
       .eq('admin', true)

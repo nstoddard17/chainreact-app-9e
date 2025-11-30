@@ -9,7 +9,8 @@ if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error("Missing Supabase environment variables")
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -32,7 +33,7 @@ export const lucia = {
     const sessionId = generateId(32)
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30) // 30 days
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from("sessions")
       .insert({
         id: sessionId,
@@ -47,7 +48,7 @@ export const lucia = {
   },
 
   async validateSession(sessionId: string) {
-    const { data, error } = await supabase.from("sessions").select("*, users(*)").eq("id", sessionId).single()
+    const { data, error } = await getSupabase().from("sessions").select("*, users(*)").eq("id", sessionId).single()
 
     if (error || !data) return { session: null, user: null }
 
@@ -63,7 +64,7 @@ export const lucia = {
   },
 
   async invalidateSession(sessionId: string) {
-    await supabase.from("sessions").delete().eq("id", sessionId)
+    await getSupabase().from("sessions").delete().eq("id", sessionId)
   },
 
   createSessionCookie(sessionId: string) {

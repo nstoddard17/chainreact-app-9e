@@ -18,7 +18,8 @@ import {
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -32,11 +33,13 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    * Creates a subscription for the specific resource
    */
   async onActivate(context: TriggerActivationContext): Promise<void> {
-    const { workflowId, userId, nodeId, triggerType, config } = context
+    const { workflowId, userId, nodeId, triggerType, config, testMode } = context
 
-    logger.debug(`🔔 Activating Microsoft Graph trigger for workflow ${workflowId}`, {
+    const modeLabel = testMode ? '🧪 TEST' : '🔔 PRODUCTION'
+    logger.debug(`${modeLabel} Activating Microsoft Graph trigger for workflow ${workflowId}`, {
       triggerType,
-      configKeys: Object.keys(config || {})
+      configKeys: Object.keys(config || {}),
+      testSessionId: testMode?.testSessionId
     })
 
     // Get valid access token (automatically refreshes if expired)
@@ -101,16 +104,17 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       workflowId
     })
 
-    // Create subscription
+    // Create subscription - use test URL if in test mode
     const subscription = await this.subscriptionManager.createSubscription({
       resource,
       changeType,
       userId,
-      accessToken: accessToken
+      accessToken: accessToken,
+      testSessionId: testMode?.testSessionId // Pass test session for URL isolation
     })
 
-    // Store in trigger_resources table
-    const { error: insertError } = await supabase.from('trigger_resources').insert({
+    // Store in trigger_resources table with test mode fields
+    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'microsoft',
@@ -128,7 +132,10 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
         ...config
       },
       status: 'active',
-      expires_at: subscription.expirationDateTime
+      expires_at: subscription.expirationDateTime,
+      // Test mode isolation fields
+      is_test: testMode?.isTest ?? false,
+      test_session_id: testMode?.testSessionId ?? null
     })
 
     if (insertError) {
@@ -151,20 +158,31 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    * Deletes the subscription
    */
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
-    const { workflowId, userId } = context
+    const { workflowId, userId, testSessionId } = context
 
-    logger.debug(`🛑 Deactivating Microsoft Graph triggers for workflow ${workflowId}`)
+    const modeLabel = testSessionId ? '🧪 TEST' : '🛑 PRODUCTION'
+    logger.debug(`${modeLabel} Deactivating Microsoft Graph triggers for workflow ${workflowId}`)
 
-    // Get all Microsoft Graph subscriptions for this workflow
-    const { data: resources } = await supabase
+    // Build query based on whether we're deactivating test or production triggers
+    let query = getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
       .eq('provider_id', 'microsoft')
       .eq('status', 'active')
 
+    if (testSessionId) {
+      // Only deactivate test subscriptions for this specific session
+      query = query.eq('test_session_id', testSessionId)
+    } else {
+      // Deactivate production subscriptions only
+      query = query.or('is_test.is.null,is_test.eq.false')
+    }
+
+    const { data: resources } = await query
+
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No active Microsoft Graph subscriptions for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No active Microsoft Graph subscriptions for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
       return
     }
 
@@ -176,7 +194,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     } catch (error) {
       logger.warn(`⚠️ Failed to get valid Microsoft Graph token, deleting subscription records without API cleanup`, error)
       // Delete even if we can't clean up in Microsoft Graph
-      await supabase
+      await getSupabase()
         .from('trigger_resources')
         .delete()
         .eq('workflow_id', workflowId)
@@ -202,7 +220,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       // ALWAYS delete from trigger_resources, even if Microsoft Graph API call failed
       // This ensures we don't have orphaned records
       try {
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .delete()
           .eq('id', resource.id)
@@ -211,7 +229,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       } catch (dbError) {
         logger.error(`❌ Failed to delete from database: ${resource.id}`, dbError)
         // If we can't delete from DB, mark as error as last resort
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .update({ status: 'deleted', deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
           .eq('id', resource.id)
@@ -230,7 +248,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    * Check health of Microsoft Graph subscriptions
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)

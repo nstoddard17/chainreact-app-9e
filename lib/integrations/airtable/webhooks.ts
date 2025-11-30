@@ -32,7 +32,8 @@ import { getWebhookUrl } from "@/lib/utils/getBaseUrl"
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -43,7 +44,7 @@ const supabase = createClient(
 export async function ensureAirtableWebhooksForUser(userId: string) {
   logger.warn('⚠️ DEPRECATED: ensureAirtableWebhooksForUser() is deprecated. Use AirtableTriggerLifecycle instead.')
   // Fetch Airtable integration access token
-  const { data: integ } = await supabase
+  const { data: integ } = await getSupabase()
     .from("integrations")
     .select("access_token")
     .eq("user_id", userId)
@@ -55,7 +56,7 @@ export async function ensureAirtableWebhooksForUser(userId: string) {
   const token = decrypt(integ.access_token, encryptionKey)
 
   // Fetch all bases for this user
-  const { data: bases } = await supabase
+  const { data: bases } = await getSupabase()
     .from("user_bases")
     .select("base_id,name")
     .eq("user_id", userId)
@@ -75,7 +76,7 @@ export async function ensureAirtableWebhooksForUser(userId: string) {
 export async function ensureAirtableWebhookForBase(userId: string, baseId: string, notificationUrl: string, tableName?: string) {
   logger.warn('⚠️ DEPRECATED: ensureAirtableWebhookForBase() is deprecated. Use AirtableTriggerLifecycle instead.')
   // Fetch Airtable integration access token
-  const { data: integ } = await supabase
+  const { data: integ } = await getSupabase()
     .from("integrations")
     .select("access_token")
     .eq("user_id", userId)
@@ -94,7 +95,7 @@ export async function ensureAirtableWebhookForBase(userId: string, baseId: strin
 
 async function ensureWebhookForBase(userId: string, token: string, baseId: string, notificationUrl: string, tableName?: string) {
   // Check if we already have a webhook
-  const { data: existing } = await supabase
+  const { data: existing } = await getSupabase()
     .from("airtable_webhooks")
     .select("id, webhook_id, expiration_time, status, mac_secret_base64, metadata")
     .eq("user_id", userId)
@@ -244,7 +245,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
                 logger.error(`❌ Failed to delete outdated webhook: ${deleteRes.status}`)
                 logger.error(`   Error: ${errorText}`)
               } else {
-                await supabase
+                await getSupabase()
                   .from('airtable_webhooks')
                   .update({ status: 'inactive' })
                   .eq('id', existing.id)
@@ -454,7 +455,7 @@ async function upsertAirtableWebhookRecord(
 ) {
   if (!webhook?.id) return
 
-  await supabase
+  await getSupabase()
     .from('airtable_webhooks')
     .upsert({
       user_id: userId,
@@ -548,7 +549,7 @@ export async function unregisterAirtableWebhook(userId: string, baseId: string) 
   logger.warn('⚠️ DEPRECATED: unregisterAirtableWebhook() is deprecated. Use AirtableTriggerLifecycle instead.')
   try {
     // Get webhook details
-    const { data: webhook } = await supabase
+    const { data: webhook } = await getSupabase()
       .from("airtable_webhooks")
       .select("webhook_id")
       .eq("user_id", userId)
@@ -559,7 +560,7 @@ export async function unregisterAirtableWebhook(userId: string, baseId: string) 
     if (!webhook) return
 
     // Get Airtable token
-    const { data: integ } = await supabase
+    const { data: integ } = await getSupabase()
       .from("integrations")
       .select("access_token")
       .eq("user_id", userId)
@@ -580,7 +581,7 @@ export async function unregisterAirtableWebhook(userId: string, baseId: string) 
     })
 
     // Mark as inactive in our database
-    await supabase
+    await getSupabase()
       .from('airtable_webhooks')
       .update({ status: 'inactive' })
       .eq('webhook_id', webhook.webhook_id)
@@ -592,7 +593,7 @@ export async function unregisterAirtableWebhook(userId: string, baseId: string) 
 export async function fetchAirtableWebhookPayloads(baseId: string, webhookId: string, cursor?: number) {
   try {
     // Get the user and token for this webhook
-    const { data: webhook } = await supabase
+    const { data: webhook } = await getSupabase()
       .from("airtable_webhooks")
       .select("user_id")
       .eq("base_id", baseId)
@@ -601,7 +602,7 @@ export async function fetchAirtableWebhookPayloads(baseId: string, webhookId: st
 
     if (!webhook) throw new Error('Webhook not found')
 
-    const { data: integ } = await supabase
+    const { data: integ } = await getSupabase()
       .from("integrations")
       .select("access_token")
       .eq("user_id", webhook.user_id)
@@ -648,7 +649,7 @@ export async function refreshAirtableWebhook(userId: string, baseId: string) {
   logger.warn('⚠️ DEPRECATED: refreshAirtableWebhook() is deprecated. Use AirtableTriggerLifecycle instead.')
   try {
     // Get existing webhook
-    const { data: webhook } = await supabase
+    const { data: webhook } = await getSupabase()
       .from("airtable_webhooks")
       .select("webhook_id")
       .eq("user_id", userId)
@@ -659,7 +660,7 @@ export async function refreshAirtableWebhook(userId: string, baseId: string) {
     if (!webhook) return
 
     // Get Airtable token
-    const { data: integ } = await supabase
+    const { data: integ } = await getSupabase()
       .from("integrations")
       .select("access_token")
       .eq("user_id", userId)
@@ -683,7 +684,7 @@ export async function refreshAirtableWebhook(userId: string, baseId: string) {
       const data = await response.json()
 
       // Update expiration in database
-      await supabase
+      await getSupabase()
         .from('airtable_webhooks')
         .update({
           expiration_time: data.expirationTime ? new Date(data.expirationTime).toISOString() : null
@@ -705,7 +706,7 @@ export async function cleanupInactiveAirtableWebhooks() {
   try {
     // Get all expired webhooks
     const now = new Date()
-    const { data: expiredWebhooks } = await supabase
+    const { data: expiredWebhooks } = await getSupabase()
       .from('airtable_webhooks')
       .select('user_id, base_id, webhook_id')
       .eq('status', 'active')
@@ -715,7 +716,7 @@ export async function cleanupInactiveAirtableWebhooks() {
 
     for (const webhook of expiredWebhooks) {
       // Mark as inactive
-      await supabase
+      await getSupabase()
         .from('airtable_webhooks')
         .update({ status: 'inactive' })
         .eq('webhook_id', webhook.webhook_id)

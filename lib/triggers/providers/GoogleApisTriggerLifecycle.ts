@@ -20,7 +20,8 @@ import {
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -32,16 +33,18 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
    * Creates a push notification subscription
    */
   async onActivate(context: TriggerActivationContext): Promise<void> {
-    const { workflowId, userId, nodeId, triggerType, providerId, config } = context
+    const { workflowId, userId, nodeId, triggerType, providerId, config, testMode } = context
 
-    logger.debug(`🔔 Activating Google API trigger for workflow ${workflowId}`, {
+    const modeLabel = testMode ? '🧪 TEST' : '🔔 PRODUCTION'
+    logger.debug(`${modeLabel} Activating Google API trigger for workflow ${workflowId}`, {
       triggerType,
       providerId,
-      config
+      config,
+      testSessionId: testMode?.testSessionId
     })
 
     // Get user's Google integration
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token, refresh_token')
       .eq('user_id', userId)
@@ -77,9 +80,11 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     // Get resource and API info based on trigger type
     const { api, resourceId, events } = this.getResourceInfo(triggerType, config)
 
-    // Get webhook callback URL
-    const webhookUrl = this.getWebhookUrl(providerId)
-    const channelId = `chainreact-${workflowId}-${Date.now()}`
+    // Get webhook callback URL - use test URL if in test mode
+    const webhookUrl = this.getWebhookUrl(providerId, testMode?.testSessionId)
+    const channelId = testMode
+      ? `chainreact-test-${testMode.testSessionId}-${Date.now()}`
+      : `chainreact-${workflowId}-${Date.now()}`
 
     logger.debug(`📤 Creating Google push notification`, {
       api,
@@ -129,12 +134,15 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
         webhookUrl // Store webhook URL for debugging
       },
       status: 'active',
-      expires_at: channelData.expiration ? new Date(parseInt(channelData.expiration)).toISOString() : null
+      expires_at: channelData.expiration ? new Date(parseInt(channelData.expiration)).toISOString() : null,
+      // Test mode isolation fields
+      is_test: testMode?.isTest ?? false,
+      test_session_id: testMode?.testSessionId ?? null
     }
 
     logger.debug(`📝 Storing trigger resource:`, resourceData)
 
-    const { error: insertError } = await supabase.from('trigger_resources').insert(resourceData)
+    const { error: insertError } = await getSupabase().from('trigger_resources').insert(resourceData)
 
     if (insertError) {
       // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
@@ -248,25 +256,36 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
    * Stops the push notification subscription
    */
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
-    const { workflowId, userId } = context
+    const { workflowId, userId, testSessionId } = context
 
-    logger.debug(`🛑 Deactivating Google API triggers for workflow ${workflowId}`)
+    const modeLabel = testSessionId ? '🧪 TEST' : '🛑 PRODUCTION'
+    logger.debug(`${modeLabel} Deactivating Google API triggers for workflow ${workflowId}`)
 
-    // Get all Google API subscriptions for this workflow
-    const { data: resources } = await supabase
+    // Build query based on whether we're deactivating test or production triggers
+    let query = getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
       .like('provider_id', 'google%')
       .eq('status', 'active')
 
+    if (testSessionId) {
+      // Only deactivate test subscriptions for this specific session
+      query = query.eq('test_session_id', testSessionId)
+    } else {
+      // Deactivate production subscriptions only
+      query = query.or('is_test.is.null,is_test.eq.false')
+    }
+
+    const { data: resources } = await query
+
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No active Google API subscriptions for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No active Google API subscriptions for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
       return
     }
 
     // Get user's access token
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token, refresh_token')
       .eq('user_id', userId)
@@ -275,7 +294,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
 
     if (!integration) {
       logger.warn(`⚠️ Google integration not found, marking subscriptions as deleted`)
-      await supabase
+      await getSupabase()
         .from('trigger_resources')
         .delete()
         .eq('workflow_id', workflowId)
@@ -293,7 +312,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
 
     if (!accessToken) {
       logger.warn(`⚠️ Failed to decrypt Google access token, marking subscriptions as deleted`)
-      await supabase
+      await getSupabase()
         .from('trigger_resources')
         .delete()
         .eq('workflow_id', workflowId)
@@ -333,7 +352,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
         }
 
         // Mark as deleted in trigger_resources
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .delete()
           .eq('id', resource.id)
@@ -341,7 +360,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
         logger.debug(`✅ Stopped Google ${api} subscription: ${channelId}`)
       } catch (error) {
         logger.error(`❌ Failed to stop subscription ${resource.external_id}:`, error)
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .update({ status: 'error', updated_at: new Date().toISOString() })
           .eq('id', resource.id)
@@ -395,7 +414,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
    * Check health of Google API subscriptions
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -467,8 +486,11 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
 
   /**
    * Get webhook callback URL
+   *
+   * @param providerId - The provider ID (gmail, google-calendar, etc.)
+   * @param testSessionId - Optional test session ID for isolated test webhooks
    */
-  private getWebhookUrl(providerId: string): string {
+  private getWebhookUrl(providerId: string, testSessionId?: string): string {
     const baseUrl = process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL ||
                     process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL ||
                     process.env.PUBLIC_WEBHOOK_BASE_URL
@@ -488,7 +510,14 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       'google-docs': '/api/webhooks/google'
     }
 
-    const endpoint = endpointMap[providerId] || '/api/webhooks/google'
+    const baseEndpoint = endpointMap[providerId] || '/api/webhooks/google'
+
+    // Use test-specific endpoint if in test mode
+    // Test webhooks go to /api/webhooks/google/test/[sessionId]
+    const endpoint = testSessionId
+      ? `${baseEndpoint}/test/${testSessionId}`
+      : baseEndpoint
+
     return `${baseUrl.replace(/\/$/, '')}${endpoint}`
   }
 }

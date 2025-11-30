@@ -17,7 +17,8 @@ import {
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -37,7 +38,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Get user's Stripe integration
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token')
       .eq('user_id', userId)
@@ -81,7 +82,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Store in trigger_resources table
-    const { error: insertError } = await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'stripe',
@@ -125,7 +126,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
     logger.debug(`🛑 Deactivating Stripe triggers for workflow ${workflowId}`)
 
     // Get all Stripe webhook endpoints for this workflow
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -138,7 +139,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Get user's access token
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token')
       .eq('user_id', userId)
@@ -147,7 +148,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
 
     if (!integration) {
       logger.warn(`⚠️ Stripe integration not found, marking webhooks as deleted`)
-      await supabase
+      await getSupabase()
         .from('trigger_resources')
         .delete()
         .eq('workflow_id', workflowId)
@@ -162,7 +163,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
 
     if (!accessToken) {
       logger.warn(`⚠️ Failed to decrypt Stripe access token, marking webhooks as deleted`)
-      await supabase
+      await getSupabase()
         .from('trigger_resources')
         .delete()
         .eq('workflow_id', workflowId)
@@ -183,7 +184,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
         await stripe.webhookEndpoints.del(resource.external_id)
 
         // Mark as deleted in trigger_resources
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .delete()
           .eq('id', resource.id)
@@ -193,12 +194,12 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
         logger.error(`❌ Failed to delete webhook ${resource.external_id}:`, error)
         // If webhook doesn't exist (404), still mark as deleted
         if (error.statusCode === 404) {
-          await supabase
+          await getSupabase()
             .from('trigger_resources')
             .delete()
             .eq('id', resource.id)
         } else {
-          await supabase
+          await getSupabase()
             .from('trigger_resources')
             .update({ status: 'error', updated_at: new Date().toISOString() })
             .eq('id', resource.id)
@@ -218,7 +219,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
    * Check health of Stripe webhook endpoints
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -234,7 +235,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Get user's Stripe integration
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token')
       .eq('user_id', userId)

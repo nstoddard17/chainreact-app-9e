@@ -23,7 +23,8 @@ import {
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -45,7 +46,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Check if user has Gumroad integration
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('id')
       .eq('user_id', userId)
@@ -60,7 +61,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
     const webhookUrl = this.getWebhookUrl()
 
     // Store in trigger_resources table for routing and tracking
-    const { error: insertError } = await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'gumroad',
@@ -105,7 +106,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
     logger.debug(`🛑 Deactivating Gumroad triggers for workflow ${workflowId}`)
 
     // Get all Gumroad triggers for this workflow
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -118,7 +119,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Delete trigger registrations
-    await supabase
+    await getSupabase()
       .from('trigger_resources')
       .delete()
       .eq('workflow_id', workflowId)
@@ -139,7 +140,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
    * Check health of Gumroad webhook triggers
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -155,7 +156,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Check if user still has Gumroad integration
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('id')
       .eq('user_id', userId)

@@ -17,7 +17,8 @@ import {
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -37,7 +38,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Get user's Monday.com integration
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token')
       .eq('user_id', userId)
@@ -121,7 +122,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Store in trigger_resources table
-    const { error: insertError } = await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'monday',
@@ -165,7 +166,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     logger.debug(`🛑 Deactivating Monday.com triggers for workflow ${workflowId}`)
 
     // Get all Monday.com webhooks for this workflow
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -178,7 +179,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Get user's access token
-    const { data: integration } = await supabase
+    const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token')
       .eq('user_id', userId)
@@ -187,7 +188,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
 
     if (!integration) {
       logger.warn(`⚠️ Monday.com integration not found, marking webhooks as deleted`)
-      await supabase
+      await getSupabase()
         .from('trigger_resources')
         .delete()
         .eq('workflow_id', workflowId)
@@ -202,7 +203,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
 
     if (!accessToken) {
       logger.warn(`⚠️ Failed to decrypt Monday.com access token, marking webhooks as deleted`)
-      await supabase
+      await getSupabase()
         .from('trigger_resources')
         .delete()
         .eq('workflow_id', workflowId)
@@ -245,7 +246,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
         }
 
         // Mark as deleted in trigger_resources
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .delete()
           .eq('id', resource.id)
@@ -254,7 +255,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       } catch (error) {
         logger.error(`❌ Failed to delete webhook ${resource.external_id}:`, error)
         // Mark as error but continue with others
-        await supabase
+        await getSupabase()
           .from('trigger_resources')
           .update({ status: 'error', updated_at: new Date().toISOString() })
           .eq('id', resource.id)
@@ -273,7 +274,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
    * Check health of Monday.com webhooks
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)

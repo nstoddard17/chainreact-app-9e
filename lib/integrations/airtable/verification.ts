@@ -2,7 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 );
@@ -66,7 +67,7 @@ export async function verifyAirtableRecord(
 ): Promise<boolean> {
   try {
     // Get user's Airtable integration and access token
-    const { data: integration, error: integrationError } = await supabase
+    const { data: integration, error: integrationError } = await getSupabase()
       .from('integrations')
       .select('access_token, status')
       .eq('user_id', userId)

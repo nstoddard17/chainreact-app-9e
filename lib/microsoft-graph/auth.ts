@@ -2,7 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -122,7 +123,7 @@ export class MicrosoftGraphAuth {
   async storeTokens(userId: string, tokenInfo: MicrosoftTokenInfo, provider: string = 'microsoft-outlook'): Promise<void> {
     const { safeEncrypt } = await import('@/lib/security/encryption')
 
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from('integrations')
       .update({
         access_token: safeEncrypt(tokenInfo.accessToken),
@@ -149,7 +150,7 @@ export class MicrosoftGraphAuth {
     const { safeDecrypt } = await import('@/lib/security/encryption')
 
     // Query for any Microsoft-related integration
-    const { data: integrations, error } = await supabase
+    const { data: integrations, error } = await getSupabase()
       .from('integrations')
       .select('*')
       .eq('user_id', userId)
@@ -222,7 +223,7 @@ export class MicrosoftGraphAuth {
   async revokeTokens(userId: string, provider: string = 'microsoft-outlook'): Promise<void> {
     const { safeDecrypt } = await import('@/lib/security/encryption')
 
-    const { data } = await supabase
+    const { data } = await getSupabase()
       .from('integrations')
       .select('refresh_token')
       .eq('user_id', userId)
@@ -251,7 +252,7 @@ export class MicrosoftGraphAuth {
     }
 
     // Update integration status to disconnected
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from('integrations')
       .update({
         status: 'disconnected',

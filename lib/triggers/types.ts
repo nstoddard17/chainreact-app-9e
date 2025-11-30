@@ -17,12 +17,24 @@ export interface TriggerActivationContext {
   providerId: string
   config: TriggerConfig
   webhookUrl?: string
+  /**
+   * Test mode configuration - when set, creates a test subscription
+   * that uses a separate webhook URL and won't trigger production workflows
+   */
+  testMode?: {
+    isTest: true
+    testSessionId: string
+  }
 }
 
 export interface TriggerDeactivationContext {
   workflowId: string
   userId: string
   providerId: string
+  /**
+   * When set, only deactivate test subscriptions for this session
+   */
+  testSessionId?: string
 }
 
 export interface TriggerHealthStatus {

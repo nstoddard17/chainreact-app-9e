@@ -4,7 +4,8 @@ import { safeDecrypt } from '@/lib/security/encryption'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -20,7 +21,7 @@ async function trelloFetch(url: string, init?: RequestInit) {
 
 export async function registerTrelloWebhooksForUser(userId: string) {
   // Get user's Trello OAuth key/token from integrations table
-  const { data: integ } = await supabase
+  const { data: integ } = await getSupabase()
     .from('integrations')
     .select('access_token, metadata')
     .eq('user_id', userId)

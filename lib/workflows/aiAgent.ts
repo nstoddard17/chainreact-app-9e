@@ -10,8 +10,8 @@ import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
 
-// Supabase client for fetching user profile
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -92,7 +92,7 @@ function buildSignature(
  */
 async function fetchUserProfile(userId: string): Promise<UserProfileContext> {
   try {
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await getSupabase()
       .from('user_profiles')
       .select('full_name, first_name, last_name, company, job_title, username')
       .eq('user_id', userId)
@@ -104,7 +104,7 @@ async function fetchUserProfile(userId: string): Promise<UserProfileContext> {
     }
 
     // Also get email from auth.users
-    const { data: authUser } = await supabase.auth.admin.getUserById(userId)
+    const { data: authUser } = await getSupabase().auth.admin.getUserById(userId)
 
     return {
       fullName: profile.full_name || undefined,

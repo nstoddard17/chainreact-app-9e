@@ -4,7 +4,8 @@ import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -30,6 +31,11 @@ export interface CreateSubscriptionRequest {
   accessToken: string
   notificationUrl?: string
   expirationMinutes?: number
+  /**
+   * Optional test session ID for isolated test webhooks.
+   * When provided, uses a separate test webhook URL that won't trigger production workflows.
+   */
+  testSessionId?: string
 }
 
 export class MicrosoftGraphSubscriptionManager {
@@ -46,9 +52,15 @@ export class MicrosoftGraphSubscriptionManager {
         changeType,
         userId,
         accessToken,
-        notificationUrl = this.getNotificationUrl(),
-        expirationMinutes = 4320 // Default to 3 days
+        expirationMinutes = 4320, // Default to 3 days
+        testSessionId
       } = request
+
+      // Use test-specific URL if in test mode, otherwise use production URL
+      const notificationUrl = request.notificationUrl ||
+        (testSessionId
+          ? this.getTestNotificationUrl(testSessionId)
+          : this.getNotificationUrl())
 
       // NOTE: Duplicate checking is now handled by trigger lifecycle manager
       // which manages subscriptions in the trigger_resources table
@@ -260,7 +272,7 @@ export class MicrosoftGraphSubscriptionManager {
    */
   async getUserSubscriptions(userId: string): Promise<MicrosoftGraphSubscription[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getSupabase()
         .from('trigger_resources')
         .select('*')
         .eq('user_id', userId)
@@ -302,7 +314,7 @@ export class MicrosoftGraphSubscriptionManager {
       const renewalThreshold = new Date()
       renewalThreshold.setMinutes(renewalThreshold.getMinutes() + 15)
 
-      const { data, error } = await supabase
+      const { data, error } = await getSupabase()
         .from('trigger_resources')
         .select('*')
         .eq('resource_type', 'subscription')
@@ -341,7 +353,7 @@ export class MicrosoftGraphSubscriptionManager {
     try {
       const now = new Date().toISOString()
 
-      const { error } = await supabase
+      const { error } = await getSupabase()
         .from('trigger_resources')
         .update({ status: 'expired', updated_at: now })
         .eq('resource_type', 'subscription')
@@ -364,7 +376,7 @@ export class MicrosoftGraphSubscriptionManager {
    */
   async verifyClientState(clientState: string, subscriptionId: string): Promise<boolean> {
     try {
-      const { data } = await supabase
+      const { data } = await getSupabase()
         .from('trigger_resources')
         .select('config')
         .eq('external_id', subscriptionId)
@@ -445,6 +457,28 @@ export class MicrosoftGraphSubscriptionManager {
     return notificationUrl
   }
 
+  /**
+   * Get test-specific notification URL for isolated test webhooks.
+   * Test webhooks go to a separate endpoint that won't trigger production workflows.
+   */
+  private getTestNotificationUrl(testSessionId: string): string {
+    const explicit = process.env.MICROSOFT_GRAPH_WEBHOOK_URL || process.env.NEXT_PUBLIC_MICROSOFT_WEBHOOK_URL
+    const httpsOverride = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
+
+    let baseUrl = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
+    baseUrl = baseUrl.replace(/\/$/, "")
+
+    if (!baseUrl.startsWith("https://")) {
+      const guidanceEnv = httpsOverride || explicit || baseUrl
+      throw new Error(`Microsoft Graph notification URL must use HTTPS. Received base: ${guidanceEnv}. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL (for example, an https ngrok tunnel) or MICROSOFT_GRAPH_WEBHOOK_URL.`)
+    }
+
+    // Use test-specific endpoint: /api/webhooks/microsoft/test/[sessionId]
+    const notificationUrl = `${baseUrl}/api/webhooks/microsoft/test/${testSessionId}`
+    logger.debug("[Microsoft Graph] Using TEST webhook notification URL", { notificationUrl, testSessionId })
+    return notificationUrl
+  }
+
   private getLifecycleNotificationUrl(): string {
     const explicit = process.env.MICROSOFT_GRAPH_WEBHOOK_URL || process.env.NEXT_PUBLIC_MICROSOFT_WEBHOOK_URL
     const httpsOverride = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
@@ -472,7 +506,7 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   private async updateSubscription(subscription: MicrosoftGraphSubscription): Promise<void> {
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from('trigger_resources')
       .update({
         expires_at: subscription.expirationDateTime,
@@ -489,7 +523,7 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   private async markSubscriptionAsDeleted(subscriptionId: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await getSupabase()
       .from('trigger_resources')
       .update({
         status: 'deleted',
@@ -506,7 +540,7 @@ export class MicrosoftGraphSubscriptionManager {
   }
 
   private async getSubscription(subscriptionId: string): Promise<MicrosoftGraphSubscription | null> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('external_id', subscriptionId)

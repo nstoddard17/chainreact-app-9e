@@ -2490,4 +2490,126 @@ async function handleSheetsRowUpdated(eventData: any): Promise<any> {
     message: eventData.message,
     timestamp
   }
+}
+
+/**
+ * Process Google event for a specific TEST SESSION only.
+ *
+ * This function is called from the test webhook endpoint (/api/webhooks/google/test/[sessionId])
+ * and will ONLY process the event for the specified test session.
+ *
+ * It will NOT trigger any production workflows.
+ *
+ * @param event - The Google webhook event with test session info
+ */
+export async function processGoogleEventForTestSession(event: {
+  service: string
+  eventData: any
+  requestId: string
+  testSessionId: string
+  testSession: any
+}): Promise<any> {
+  const { service, eventData, requestId, testSessionId, testSession } = event
+
+  logger.debug(`🧪 [Test Session] Processing ${service} event for session ${testSessionId}`)
+
+  try {
+    const supabase = await createSupabaseServiceClient()
+
+    // Store the webhook event with test session reference
+    await supabase
+      .from('webhook_events')
+      .insert({
+        provider: 'google-test',
+        service,
+        event_data: eventData,
+        request_id: requestId,
+        status: 'received',
+        timestamp: new Date().toISOString()
+      })
+
+    // Get workflow data from test_mode_config
+    const testConfig = testSession.test_mode_config as any
+    if (!testConfig?.nodes) {
+      logger.error(`🧪 [Test Session] No workflow nodes in test_mode_config for session ${testSessionId}`)
+      return { processed: false, error: 'No workflow configuration in test session' }
+    }
+
+    const workflow = {
+      id: testSession.workflow_id,
+      user_id: testSession.user_id,
+      nodes: testConfig.nodes,
+      connections: testConfig.connections || [],
+      name: testConfig.workflowName || 'Test Workflow'
+    }
+
+    // Update test session status to executing
+    await supabase
+      .from('workflow_test_sessions')
+      .update({ status: 'executing' })
+      .eq('id', testSessionId)
+
+    // Create execution session using the advanced execution engine
+    const executionEngine = new AdvancedExecutionEngine()
+    const executionSession = await executionEngine.createExecutionSession(
+      workflow.id,
+      testSession.user_id,
+      'webhook',
+      {
+        triggerData: eventData,
+        source: 'google_test_webhook',
+        testSessionId,
+        isTestExecution: true
+      }
+    )
+
+    // Update test session with execution ID
+    await supabase
+      .from('workflow_test_sessions')
+      .update({
+        execution_id: executionSession.id,
+        status: 'executing'
+      })
+      .eq('id', testSessionId)
+
+    // Execute the workflow with test data
+    logger.debug(`🧪 [Test Session] Starting workflow execution`, {
+      workflowId: workflow.id,
+      executionId: executionSession.id,
+      testSessionId
+    })
+
+    // Execute workflow (this is similar to how production triggers work)
+    await executionEngine.executeWorkflow(
+      executionSession.id,
+      workflow.nodes,
+      workflow.connections,
+      { triggerOutput: eventData }
+    )
+
+    logger.debug(`🧪 [Test Session] Workflow execution complete for session ${testSessionId}`)
+
+    return {
+      processed: true,
+      testSessionId,
+      executionId: executionSession.id,
+      service,
+      isTestExecution: true
+    }
+
+  } catch (error) {
+    logger.error(`🧪 [Test Session] Error processing event for session ${testSessionId}:`, error)
+
+    // Update test session status to failed
+    const supabase = await createSupabaseServiceClient()
+    await supabase
+      .from('workflow_test_sessions')
+      .update({
+        status: 'failed',
+        ended_at: new Date().toISOString()
+      })
+      .eq('id', testSessionId)
+
+    throw error
+  }
 } 

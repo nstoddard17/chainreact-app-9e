@@ -24,7 +24,8 @@ import {
 import { logger } from '@/lib/utils/logger'
 import crypto from 'crypto'
 
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 )
@@ -54,7 +55,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
     const webhookUrl = `${baseUrl}/api/workflow-webhooks/${workflowId}`
 
     // Store webhook configuration in trigger_resources
-    const { error: insertError } = await supabase.from('trigger_resources').insert({
+    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'webhook',
@@ -88,7 +89,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Also create entry in webhook_configs for tracking and management
-    await supabase.from('webhook_configs').insert({
+    await getSupabase().from('webhook_configs').insert({
       user_id: userId,
       workflow_id: workflowId,
       name: `Webhook for ${workflowId}`,
@@ -117,7 +118,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
     logger.debug(`🛑 Deactivating webhook triggers for workflow ${workflowId}`)
 
     // Mark trigger_resources as deleted
-    await supabase
+    await getSupabase()
       .from('trigger_resources')
       .update({ status: 'deleted' })
       .eq('workflow_id', workflowId)
@@ -125,7 +126,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     // Mark webhook_configs as inactive
-    await supabase
+    await getSupabase()
       .from('webhook_configs')
       .update({ status: 'inactive' })
       .eq('workflow_id', workflowId)
@@ -145,14 +146,14 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
     logger.debug(`🗑️ Deleting webhook triggers for workflow ${workflowId}`)
 
     // Delete from trigger_resources
-    await supabase
+    await getSupabase()
       .from('trigger_resources')
       .delete()
       .eq('workflow_id', workflowId)
       .eq('provider_id', 'webhook')
 
     // Delete from webhook_configs
-    await supabase
+    await getSupabase()
       .from('webhook_configs')
       .delete()
       .eq('workflow_id', workflowId)
@@ -166,7 +167,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
    * Verifies configuration exists and is valid
    */
   async checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus> {
-    const { data: resources } = await supabase
+    const { data: resources } = await getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
@@ -182,7 +183,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Verify webhook_configs entry exists
-    const { data: webhookConfig } = await supabase
+    const { data: webhookConfig } = await getSupabase()
       .from('webhook_configs')
       .select('id, status, error_count, last_triggered')
       .eq('workflow_id', workflowId)
