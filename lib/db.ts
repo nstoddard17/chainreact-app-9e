@@ -3,20 +3,28 @@ import { createClient } from "@supabase/supabase-js"
 import { logger } from '@/lib/utils/logger'
 import type { Database } from "../types/database.types"
 
-// Get Supabase credentials from environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
+// Helper to create db client inside handlers (avoids module-level initialization)
+const getDb = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error("Missing required Supabase environment variables")
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Missing required Supabase environment variables")
+  }
+
+  return createClient<Database>(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 }
 
-// Export the db client as a named export with proper typing
-export const db = createClient<Database>(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
+// Export db as a getter for backwards compatibility
+export const db = new Proxy({} as ReturnType<typeof getDb>, {
+  get(_, prop) {
+    return (getDb() as any)[prop]
+  }
 })
 
 // Helper functions for database operations

@@ -2,20 +2,22 @@ import { createClient } from "@supabase/supabase-js"
 
 import { logger } from '@/lib/utils/logger'
 
-const supabaseUrl = process.env.SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
+// Helper to create supabase client inside handlers (avoids module-level initialization)
+const getSupabase = () => {
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error("Missing Supabase environment variables")
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Missing Supabase environment variables")
+  }
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 }
-
-// Helper to create supabase client inside handlers
-const getSupabase = () => createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-})
 
 // Required generateId export
 export function generateId(length = 16): string {
