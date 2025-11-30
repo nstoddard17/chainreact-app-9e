@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const bases = await listAirtableBases(accessToken)
 
     // Upsert user_bases table (create if not present in migrations)
-    await supabase.from("user_bases").upsert(
+    await getSupabase().from("user_bases").upsert(
       bases.map((b) => ({ user_id: userId, provider: "airtable", base_id: b.id, name: b.name })),
       { onConflict: "user_id,provider,base_id" }
     )
