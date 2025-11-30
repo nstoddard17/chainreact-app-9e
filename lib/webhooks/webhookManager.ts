@@ -34,7 +34,14 @@ export interface WebhookPayload {
 }
 
 export class WebhookManager {
-  private supabase = createAdminClient()
+  private _supabase: ReturnType<typeof createAdminClient> | null = null
+
+  private get supabase() {
+    if (!this._supabase) {
+      this._supabase = createAdminClient()
+    }
+    return this._supabase
+  }
 
   /**
    * Register a new webhook for a workflow trigger

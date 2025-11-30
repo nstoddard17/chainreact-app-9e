@@ -11,9 +11,11 @@ import { DiscordIntegration } from '../data/types'
 
 import { logger } from '@/lib/utils/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,7 +36,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Find Discord integration for this user
-    const { data: integration, error: integrationError } = await supabase
+    const { data: integration, error: integrationError } = await getSupabase()
       .from('integrations')
       .select('*')
       .eq('user_id', userId)

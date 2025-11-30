@@ -8,9 +8,11 @@ import { logger } from '@/lib/utils/logger'
 import { getPropertyAndStreamIds, getOrCreateApiSecret } from './secretManager'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || ''
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promise<any> {
   const {

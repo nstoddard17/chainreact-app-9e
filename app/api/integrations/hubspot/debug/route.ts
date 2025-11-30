@@ -4,19 +4,16 @@ import { createClient } from "@supabase/supabase-js"
 
 import { logger } from '@/lib/utils/logger'
 
-// Use direct Supabase client with service role for reliable database operations
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SECRET_KEY
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY must be defined")
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false,
-  },
-})
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!,
+  {
+    auth: {
+      persistSession: false,
+    },
+  }
+)
 
 export async function GET(request: NextRequest) {
   try {

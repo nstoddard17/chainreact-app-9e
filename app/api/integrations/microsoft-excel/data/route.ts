@@ -9,9 +9,11 @@ import { createClient } from "@supabase/supabase-js"
 import { microsoftExcelHandlers } from './handlers'
 import { MicrosoftExcelIntegration } from './types'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.SUPABASE_SECRET_KEY || ""
-const supabase = createClient(supabaseUrl, supabaseKey)
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 export async function POST(req: NextRequest) {
   let dataType: string | undefined;
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
     // If integrationId is provided, first get that integration to find the user
     let userId: string | null = null
     if (integrationId) {
-      const { data: requestingIntegration, error: requestingError } = await supabase
+      const { data: requestingIntegration, error: requestingError } = await getSupabase()
         .from('integrations')
         .select('user_id')
         .eq('id', integrationId)
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch the Microsoft Excel integration
-    let query = supabase
+    let query = getSupabase()
       .from('integrations')
       .select('*')
       .eq('provider', 'microsoft-excel')

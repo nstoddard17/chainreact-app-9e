@@ -10,8 +10,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Initialize Supabase client for usage tracking
-const supabase = createClient(
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
 );
@@ -27,7 +27,7 @@ async function checkBrowserAutomationLimits(userId: string): Promise<{
   limit?: number;
 }> {
   try {
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await getSupabase()
       .from('user_profiles')
       .select('subscription_tier, browser_automation_seconds_used, browser_automation_seconds_limit')
       .eq('user_id', userId)
@@ -79,7 +79,7 @@ async function trackBrowserAutomationUsage(
 ): Promise<void> {
   try {
     // Log the usage
-    await supabase.from('browser_automation_logs').insert({
+    await getSupabase().from('browser_automation_logs').insert({
       user_id: userId,
       workflow_id: workflowId,
       execution_id: executionId,
@@ -90,7 +90,7 @@ async function trackBrowserAutomationUsage(
     });
 
     // Increment user's usage counter
-    await supabase.rpc('increment_browser_automation_usage', {
+    await getSupabase().rpc('increment_browser_automation_usage', {
       p_user_id: userId,
       p_seconds: durationSeconds
     });

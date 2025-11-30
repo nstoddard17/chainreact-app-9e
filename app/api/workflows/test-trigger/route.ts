@@ -196,11 +196,19 @@ export async function POST(request: NextRequest) {
         console.log('🧪 [test-trigger] ✅ Test session created successfully')
       }
 
-      // Activate trigger (creates webhook/subscription)
-      console.log('🧪 [test-trigger] Activating trigger...')
+      // Activate trigger with TEST MODE - creates isolated webhook subscription
+      // that will NOT trigger production workflows
+      console.log('🧪 [test-trigger] Activating trigger in TEST MODE...')
       console.log('🧪 [test-trigger] Trigger node being passed:', JSON.stringify(triggerNode, null, 2))
+      console.log('🧪 [test-trigger] Test session ID:', testSessionId)
 
-      await triggerManager.activateWorkflowTriggers(workflowId, user.id, [triggerNode])
+      // Pass test mode config to ensure separate webhook URL is used
+      await triggerManager.activateWorkflowTriggers(
+        workflowId,
+        user.id,
+        [triggerNode],
+        { isTest: true, testSessionId }
+      )
 
       console.log('🧪 [test-trigger] ✅ Trigger activated successfully!')
       logger.debug(`✅ Trigger activated for testing, polling for events...`)
@@ -336,11 +344,11 @@ export async function POST(request: NextRequest) {
         await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
       }
 
-      // Deactivate trigger after test
-      console.log('🧪 [test-trigger] Deactivating trigger...')
-      await triggerManager.deactivateWorkflowTriggers(workflowId, user.id)
-      console.log('🧪 [test-trigger] 🛑 Trigger deactivated')
-      logger.debug(`🛑 Test trigger deactivated`)
+      // Deactivate ONLY the test trigger (not production triggers)
+      console.log('🧪 [test-trigger] Deactivating test trigger...')
+      await triggerManager.deactivateWorkflowTriggers(workflowId, user.id, testSessionId)
+      console.log('🧪 [test-trigger] 🛑 Test trigger deactivated (production triggers unaffected)')
+      logger.debug(`🛑 Test trigger deactivated for session ${testSessionId}`)
 
       // Clean up test session
       console.log('🧪 [test-trigger] Cleaning up test session...')
@@ -380,10 +388,10 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
       console.error('🧪 [test-trigger] ❌ Error during trigger activation/polling:', error)
-      // Make sure to deactivate trigger even if error occurs
+      // Make sure to deactivate test trigger even if error occurs
       try {
-        await triggerManager.deactivateWorkflowTriggers(workflowId, user.id)
-        console.log('🧪 [test-trigger] Trigger deactivated after error')
+        await triggerManager.deactivateWorkflowTriggers(workflowId, user.id, testSessionId)
+        console.log('🧪 [test-trigger] Test trigger deactivated after error')
 
         // Clean up test session on error
         await supabase
