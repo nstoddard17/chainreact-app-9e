@@ -30,16 +30,18 @@ Webhooks must be created manually through the Notion integration UI:
 
 ### Coverage Score
 - **Triggers:** 2/8 implemented (25%)
-- **Actions:** 8/25+ implemented (32%)
-- **Critical Gaps:** Comment management, archive/restore, file uploads, advanced search
+- **Actions:** 10/25+ implemented (40%)
+- **Critical Gaps:** Archive/restore, file uploads, advanced search/query, block operations
 
 ### Priority Recommendations (REVISED)
 1. ✅ **COMPLETED:** Comment management (Create/Read comments) - IMPLEMENTED Nov 29, 2025
-2. **HIGH:** Add new polling triggers (Database Item Created/Updated, Comment Created)
-3. **MEDIUM:** Add webhook receiver improvements (better event routing, signature validation)
-4. **MEDIUM:** Add file upload capabilities
-5. **MEDIUM:** Add advanced search/query actions
-6. **LOW:** Add webhook setup UI/documentation (manual process)
+2. ✅ **COMPLETED:** Find or Create Database Item (upsert pattern) - IMPLEMENTED Nov 29, 2025
+3. **HIGH:** Archive/Restore Database Item
+4. **HIGH:** Add new polling triggers (Database Item Created/Updated, Comment Created)
+5. **MEDIUM:** Add webhook receiver improvements (better event routing, signature validation)
+6. **MEDIUM:** Add file upload capabilities
+7. **MEDIUM:** Add advanced search/query actions
+8. **LOW:** Add webhook setup UI/documentation (manual process)
 
 ### Implementation Status Update (Nov 29, 2025)
 
@@ -50,6 +52,14 @@ Webhooks must be created manually through the Notion integration UI:
   - Full integration with existing Notion handlers
   - Registered in action registry
   - Output schema defined
+
+- ✅ Find or Create Database Item action (`notion_action_manage_database` → `find_or_create_item`)
+  - Search database by property value (rich_text properties)
+  - Create new item if not found (upsert pattern)
+  - Optional search-only mode (createIfNotFound = false)
+  - Return found/created status + full item data
+  - Competitive advantage (Make.com doesn't have this)
+  - Future enhancement: Auto-detect property types beyond rich_text
 
 ---
 
@@ -140,7 +150,7 @@ Webhooks must be created manually through the Notion integration UI:
 |---------------|--------|----------|-------|
 | **Query Data Source (Advanced)** | ✅ | ❌ | Advanced filtering with JSON, AND/OR logic |
 | **Find Page (By Title)** | ✅ | ❌ | Search with specific criteria |
-| **Find or Create Database Item** | ✅ | ❌ | Upsert pattern |
+| ~~**Find or Create Database Item**~~ | ✅ | ❌ | ✅ **COMPLETED** - Upsert pattern |
 | **Get Block** | ✅ | ❌ | Retrieve specific block by ID |
 | **Get Page and Children** | ✅ | ❌ | Retrieve page + all children blocks |
 | **Retrieve Block Children** | ✅ | ❌ | Get children as Markdown |
@@ -667,15 +677,15 @@ To support all missing features, ensure integration has these capabilities enabl
 | Create Database | ✅ | ❌ | ✅ | ✅ |
 | Update Database | ✅ | ✅ | ✅ | ✅ |
 | **ACTIONS - Comments** |
-| Add Comment | ❌ | ✅ | ❌ | HIGH |
-| Get Comments | ❌ | ✅ | ❌ | HIGH |
+| Add Comment | ✅ | ✅ | ❌ | ✅ |
+| Get Comments | ✅ | ✅ | ❌ | ✅ |
 | **ACTIONS - Files** |
 | Upload File | ❌ | ✅ | ❌ | HIGH |
 | **ACTIONS - Advanced Search** |
 | Search Objects | ✅ | ✅ | ✅ | ✅ |
 | Advanced Query (JSON) | ❌ | ✅ | ❌ | MEDIUM |
 | Find Page by Title | ❌ | ✅ | ❌ | MEDIUM |
-| Find or Create | ❌ | ✅ | ❌ | MEDIUM |
+| Find or Create | ✅ | ✅ | ❌ | ✅ |
 | **ACTIONS - Blocks** |
 | Add Block | ❌ | ✅ | ❌ | MEDIUM |
 | Get Block | ❌ | ✅ | ❌ | MEDIUM |
@@ -685,7 +695,8 @@ To support all missing features, ensure integration has these capabilities enabl
 | **ACTIONS - Database Schema** |
 | Update Schema | ❌ | ✅ | ❌ | LOW |
 | **ACTIONS - Misc** |
-| Restore Archived Item | ❌ | ✅ | ❌ | MEDIUM |
+| Archive Database Item | ✅ | ✅ | ❌ | ✅ |
+| Restore Archived Item | ✅ | ✅ | ❌ | ✅ |
 | Retrieve Database | ❌ | ✅ | ❌ | LOW |
 | Custom API Request | ✅ | ✅ (Beta) | ✅ | ✅ |
 | **USER MANAGEMENT** |

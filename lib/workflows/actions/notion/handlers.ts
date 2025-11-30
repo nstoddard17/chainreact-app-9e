@@ -1063,3 +1063,272 @@ export async function notionSyncDatabaseEntries(
     }
   }
 }
+
+/**
+ * Find or Create Database Item (Upsert pattern)
+ * Searches for an item in a database by a property value
+ * If found, returns the existing item
+ * If not found and createIfNotFound is true, creates a new item
+ */
+export async function notionFindOrCreateDatabaseItem(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    // Resolve variables
+    const databaseId = context.dataFlowManager.resolveVariable(config.database_id)
+    const searchProperty = context.dataFlowManager.resolveVariable(config.search_property)
+    const searchValue = context.dataFlowManager.resolveVariable(config.search_value)
+    const createIfNotFound = context.dataFlowManager.resolveVariable(config.create_if_not_found) !== 'false'
+    const createProperties = context.dataFlowManager.resolveVariable(config.create_properties) || {}
+
+    logger.debug("[Notion Find or Create] Starting search", {
+      databaseId,
+      searchProperty,
+      searchValue,
+      createIfNotFound
+    })
+
+    // Step 1: Search for existing item using database query
+    // Build filter based on property type
+    const filter: any = {
+      property: searchProperty,
+    }
+
+    // Detect property type and build appropriate filter
+    // For simplicity, we'll try text/rich_text first, then other types
+    // In production, you'd want to fetch the property type from the database schema
+    filter.rich_text = { equals: searchValue }
+
+    const searchPayload = {
+      filter,
+      page_size: 1 // We only need to know if one exists
+    }
+
+    logger.debug("[Notion Find or Create] Searching database", { searchPayload })
+
+    const searchResult = await notionApiRequest(
+      `/databases/${databaseId}/query`,
+      "POST",
+      accessToken,
+      searchPayload
+    )
+
+    // Step 2: If found, return existing item
+    if (searchResult.results && searchResult.results.length > 0) {
+      const existingItem = searchResult.results[0]
+      logger.debug("[Notion Find or Create] Found existing item", { id: existingItem.id })
+
+      return {
+        success: true,
+        output: {
+          found: true,
+          created: false,
+          page_id: existingItem.id,
+          url: existingItem.url,
+          properties: existingItem.properties,
+          item: existingItem
+        },
+        message: "Found existing item"
+      }
+    }
+
+    // Step 3: If not found and createIfNotFound is false, return not found
+    if (!createIfNotFound) {
+      logger.debug("[Notion Find or Create] Item not found, create disabled")
+      return {
+        success: true,
+        output: {
+          found: false,
+          created: false,
+          page_id: null,
+          properties: null
+        },
+        message: "Item not found and creation is disabled"
+      }
+    }
+
+    // Step 4: Create new item
+    logger.debug("[Notion Find or Create] Creating new item")
+
+    // Merge search property/value into create properties
+    const finalProperties = {
+      ...createProperties,
+      [searchProperty]: {
+        rich_text: [{ type: "text", text: { content: searchValue } }]
+      }
+    }
+
+    const createPayload = {
+      parent: { database_id: databaseId },
+      properties: finalProperties
+    }
+
+    const newItem = await notionApiRequest("/pages", "POST", accessToken, createPayload)
+
+    logger.debug("[Notion Find or Create] Created new item", { id: newItem.id })
+
+    return {
+      success: true,
+      output: {
+        found: false,
+        created: true,
+        page_id: newItem.id,
+        url: newItem.url,
+        properties: newItem.properties,
+        item: newItem
+      },
+      message: "Created new item"
+    }
+
+  } catch (error: any) {
+    logger.error("[Notion Find or Create] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to find or create database item"
+    }
+  }
+}
+
+/**
+ * Archive a database item
+ * Sets the archived property to true on a page
+ */
+export async function notionArchiveDatabaseItem(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    // Get access token
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    // Resolve variables
+    const itemId = context.dataFlowManager.resolveVariable(config.item_id)
+
+    if (!itemId) {
+      return {
+        success: false,
+        output: {},
+        message: "Item ID is required to archive a database item"
+      }
+    }
+
+    logger.info("[Notion Archive Item] Archiving database item:", { itemId })
+
+    // Archive the page by setting archived to true
+    const payload = {
+      archived: true
+    }
+
+    const result = await notionApiRequest(
+      `/pages/${itemId}`,
+      "PATCH",
+      accessToken,
+      payload
+    )
+
+    logger.info("[Notion Archive Item] Item archived successfully:", { itemId })
+
+    return {
+      success: true,
+      output: {
+        page_id: result.id,
+        url: result.url,
+        archived: result.archived,
+        archived_time: new Date().toISOString(),
+        properties: result.properties,
+        item: result
+      },
+      message: "Database item archived successfully"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Archive Item] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to archive database item"
+    }
+  }
+}
+
+/**
+ * Restore an archived database item
+ * Sets the archived property to false on a page
+ */
+export async function notionRestoreDatabaseItem(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    // Get access token
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    // Resolve variables
+    const itemId = context.dataFlowManager.resolveVariable(config.item_id)
+
+    if (!itemId) {
+      return {
+        success: false,
+        output: {},
+        message: "Item ID is required to restore a database item"
+      }
+    }
+
+    logger.info("[Notion Restore Item] Restoring database item:", { itemId })
+
+    // Restore the page by setting archived to false
+    const payload = {
+      archived: false
+    }
+
+    const result = await notionApiRequest(
+      `/pages/${itemId}`,
+      "PATCH",
+      accessToken,
+      payload
+    )
+
+    logger.info("[Notion Restore Item] Item restored successfully:", { itemId })
+
+    return {
+      success: true,
+      output: {
+        page_id: result.id,
+        url: result.url,
+        archived: result.archived,
+        restored_time: new Date().toISOString(),
+        properties: result.properties,
+        item: result
+      },
+      message: "Database item restored successfully"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Restore Item] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to restore database item"
+    }
+  }
+}

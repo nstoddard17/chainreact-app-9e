@@ -271,7 +271,10 @@ export const notionUnifiedActions: NodeComponent[] = [
         clearable: false,
         options: [
           { value: "create", label: "Create Database" },
-          { value: "update", label: "Update Database" }
+          { value: "update", label: "Update Database" },
+          { value: "find_or_create_item", label: "Find or Create Database Item" },
+          { value: "archive_item", label: "Archive Database Item" },
+          { value: "restore_item", label: "Restore Database Item" }
         ],
         placeholder: "Select operation",
         visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
@@ -394,6 +397,107 @@ export const notionUnifiedActions: NodeComponent[] = [
           ]
         }
       },
+      // Find or Create Item fields
+      {
+        name: "findOrCreateDatabase",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: true,
+        placeholder: "Select database to search/create in",
+        description: "The database to search for the item in, or create it if not found",
+        dependsOn: "workspace",
+        visibilityCondition: { field: "operation", operator: "equals", value: "find_or_create_item" }
+      },
+      {
+        name: "searchProperty",
+        label: "Search By Property",
+        type: "select",
+        dynamic: "notion_database_properties",
+        required: true,
+        placeholder: "Select property to search by",
+        description: "The property to use when searching for existing items (e.g., Title, Email, ID)",
+        dependsOn: "findOrCreateDatabase",
+        visibilityCondition: { field: "operation", operator: "equals", value: "find_or_create_item" }
+      },
+      {
+        name: "searchValue",
+        label: "Search Value",
+        type: "text",
+        required: true,
+        placeholder: "Enter value to search for",
+        description: "The value to match against the search property",
+        visibilityCondition: { field: "operation", operator: "equals", value: "find_or_create_item" }
+      },
+      {
+        name: "createIfNotFound",
+        label: "Create If Not Found",
+        type: "select",
+        required: true,
+        clearable: false,
+        defaultValue: "true",
+        options: [
+          { value: "true", label: "Yes, create new item" },
+          { value: "false", label: "No, just search" }
+        ],
+        description: "Whether to create a new item if no match is found",
+        visibilityCondition: { field: "operation", operator: "equals", value: "find_or_create_item" }
+      },
+      {
+        name: "createProperties",
+        label: "Properties for New Item",
+        type: "dynamic_fields",
+        dynamic: "notion_database_properties",
+        dependsOn: "findOrCreateDatabase",
+        required: false,
+        placeholder: "Loading database properties...",
+        description: "Properties to set if creating a new item (the search property/value will be included automatically)",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "find_or_create_item" },
+            { field: "createIfNotFound", operator: "equals", value: "true" }
+          ]
+        }
+      },
+      // Archive/Restore Item fields
+      {
+        name: "archiveDatabase",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: true,
+        placeholder: "Select database",
+        description: "The database containing the item to archive or restore",
+        dependsOn: "workspace",
+        visibilityCondition: {
+          or: [
+            { field: "operation", operator: "equals", value: "archive_item" },
+            { field: "operation", operator: "equals", value: "restore_item" }
+          ]
+        }
+      },
+      {
+        name: "itemToArchive",
+        label: "Item to Archive",
+        type: "select",
+        dynamic: "notion_database_items",
+        required: true,
+        placeholder: "Select item to archive",
+        description: "The database item to archive",
+        dependsOn: "archiveDatabase",
+        visibilityCondition: { field: "operation", operator: "equals", value: "archive_item" }
+      },
+      {
+        name: "itemToRestore",
+        label: "Item to Restore",
+        type: "select",
+        dynamic: "notion_archived_items",
+        required: true,
+        placeholder: "Select archived item to restore",
+        description: "The archived database item to restore",
+        dependsOn: "archiveDatabase",
+        visibilityCondition: { field: "operation", operator: "equals", value: "restore_item" }
+      },
       // Sync fields
       {
         name: "syncDirection",
@@ -427,6 +531,54 @@ export const notionUnifiedActions: NodeComponent[] = [
         label: "Has More",
         type: "boolean",
         description: "Whether there are more results"
+      },
+      {
+        name: "found",
+        label: "Item Was Found",
+        type: "boolean",
+        description: "Whether an existing item was found (find_or_create operation)"
+      },
+      {
+        name: "created",
+        label: "Item Was Created",
+        type: "boolean",
+        description: "Whether a new item was created (find_or_create operation)"
+      },
+      {
+        name: "pageId",
+        label: "Page ID",
+        type: "string",
+        description: "The ID of the found or created page (find_or_create operation)"
+      },
+      {
+        name: "properties",
+        label: "Properties",
+        type: "object",
+        description: "The properties of the found or created item (find_or_create operation)"
+      },
+      {
+        name: "url",
+        label: "Page URL",
+        type: "string",
+        description: "The URL of the found or created page (find_or_create operation)"
+      },
+      {
+        name: "archived",
+        label: "Archived",
+        type: "boolean",
+        description: "Whether the item is archived (archive/restore operations)"
+      },
+      {
+        name: "archivedTime",
+        label: "Archived Time",
+        type: "string",
+        description: "When the item was archived (archive operation)"
+      },
+      {
+        name: "restoredTime",
+        label: "Restored Time",
+        type: "string",
+        description: "When the item was restored (restore operation)"
       }
     ]
   },

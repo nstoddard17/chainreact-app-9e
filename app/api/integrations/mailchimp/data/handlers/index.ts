@@ -7,6 +7,7 @@ import { getMailchimpMergeFields } from './mergeFields'
 import { getMailchimpTags } from './tags'
 import { getMailchimpCampaigns } from './campaigns'
 import { handleMailchimpSubscribers } from './subscribers'
+import { getMailchimpSegments } from './segments'
 
 export const mailchimpHandlers = {
   'mailchimp_audiences': getMailchimpAudiences,
@@ -14,6 +15,7 @@ export const mailchimpHandlers = {
   'mailchimp_tags': getMailchimpTags,
   'mailchimp_campaigns': getMailchimpCampaigns,
   'mailchimp_subscribers': handleMailchimpSubscribers,
+  'mailchimp_segments': getMailchimpSegments,
 }
 
 export {
@@ -22,4 +24,5 @@ export {
   getMailchimpTags,
   getMailchimpCampaigns,
   handleMailchimpSubscribers,
+  getMailchimpSegments,
 }
