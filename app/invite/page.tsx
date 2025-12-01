@@ -8,14 +8,22 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, Users, Crown, Shield, Eye, LogIn, UserPlus } from "lucide-react"
 import { LightningLoader } from '@/components/ui/lightning-loader'
 import { toast } from "sonner"
-import { createClient } from "@supabase/supabase-js"
+import { createClient, SupabaseClient } from "@supabase/supabase-js"
 
 import { logger } from '@/lib/utils/logger'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-)
+// Lazily initialized Supabase client to avoid build-time errors
+let supabaseClient: SupabaseClient | null = null
+
+function getSupabase(): SupabaseClient {
+  if (!supabaseClient) {
+    supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+    )
+  }
+  return supabaseClient
+}
 
 function InvitePageContent() {
   const searchParams = useSearchParams()
@@ -42,7 +50,7 @@ function InvitePageContent() {
   const checkAuthAndValidate = async () => {
     try {
       // Check if user is logged in
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await getSupabase().auth.getUser()
       const userIsLoggedIn = !!user
       setIsLoggedIn(userIsLoggedIn)
 

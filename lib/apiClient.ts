@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from "./utils/getBaseUrl"
-import { supabase } from "@/utils/supabaseClient"
+import { createClient } from "@/utils/supabaseClient"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -37,6 +37,7 @@ class ApiClient {
       logger.debug("🔍 Getting auth headers...")
       
       // First validate user authentication
+      const supabase = createClient()
       const {
         data: { user },
         error: userError,
