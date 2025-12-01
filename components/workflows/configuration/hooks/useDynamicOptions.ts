@@ -1341,11 +1341,9 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             }
           }
 
-          // CRITICAL FIX: When field depends on workspace selection, use workspace ID as integration ID
-          // This ensures we fetch data from the correct workspace/integration instance
-          const actualIntegrationId = dependsOn === 'workspace' && dependsOnValue
-            ? dependsOnValue
-            : integration.id;
+          // Always use the integration ID from the integration record
+          // For workspace-dependent fields, the workspace ID is passed via options
+          const actualIntegrationId = integration.id;
 
 
           let formattedOptions;

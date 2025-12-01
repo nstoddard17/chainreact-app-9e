@@ -29,17 +29,21 @@ Webhooks must be created manually through the Notion integration UI:
 ## Executive Summary
 
 ### Coverage Score
-- **Triggers:** 2/8 implemented (25%)
-- **Actions:** 8/25+ implemented (32%)
-- **Critical Gaps:** Comment management, archive/restore, file uploads, advanced search
+- **Triggers:** 8/8 implemented (100%)
+- **Actions:** 19/25+ implemented (76%)
+- **Critical Gaps:** File uploads only (all other gaps closed!)
 
 ### Priority Recommendations (REVISED)
 1. ✅ **COMPLETED:** Comment management (Create/Read comments) - IMPLEMENTED Nov 29, 2025
-2. **HIGH:** Add new polling triggers (Database Item Created/Updated, Comment Created)
-3. **MEDIUM:** Add webhook receiver improvements (better event routing, signature validation)
-4. **MEDIUM:** Add file upload capabilities
-5. **MEDIUM:** Add advanced search/query actions
-6. **LOW:** Add webhook setup UI/documentation (manual process)
+2. ✅ **COMPLETED:** Find or Create Database Item (upsert pattern) - IMPLEMENTED Nov 29, 2025
+3. ✅ **COMPLETED:** Archive/Restore Database Item - IMPLEMENTED Nov 29, 2025
+4. ✅ **COMPLETED:** Block Operations (Add, Get, Get Children, Get Page+Children) - IMPLEMENTED Nov 29, 2025
+5. ✅ **COMPLETED:** Advanced Query (JSON filters) - IMPLEMENTED Nov 29, 2025
+6. ✅ **COMPLETED:** Get Page Property - IMPLEMENTED Nov 29, 2025
+7. ✅ **COMPLETED:** Update Database Schema - IMPLEMENTED Nov 29, 2025
+8. ✅ **COMPLETED:** Webhook-based Triggers (6 new triggers) - IMPLEMENTED Nov 29, 2025
+9. **MEDIUM:** Add file upload capabilities
+10. **LOW:** Add webhook setup UI/documentation (manual process)
 
 ### Implementation Status Update (Nov 29, 2025)
 
@@ -51,49 +55,138 @@ Webhooks must be created manually through the Notion integration UI:
   - Registered in action registry
   - Output schema defined
 
+- ✅ Find or Create Database Item action (`notion_action_manage_database` → `find_or_create_item`)
+  - Search database by property value (rich_text properties)
+  - Create new item if not found (upsert pattern)
+  - Optional search-only mode (createIfNotFound = false)
+  - Return found/created status + full item data
+  - Competitive advantage (Make.com doesn't have this)
+  - Future enhancement: Auto-detect property types beyond rich_text
+
+- ✅ Archive/Restore Database Item actions (`notion_action_manage_database` → `archive_item` / `restore_item`)
+  - Archive database items (sets archived = true)
+  - Restore archived items (sets archived = false)
+  - Returns item status with archived/restored timestamps
+  - Feature parity with Zapier
+
+- ✅ Block Management actions (`notion_action_manage_blocks`)
+  - Add Block to Page (12 block types supported)
+  - Get Block (retrieve single block by ID)
+  - Get Block Children (with pagination)
+  - Get Page and Children (recursive option)
+  - Feature parity with Zapier for all block operations
+
+- ✅ Advanced Database Query action (`notion_action_advanced_query`)
+  - JSON filter support (complex AND/OR logic)
+  - JSON sorts configuration
+  - Pagination support
+  - Feature parity with Zapier
+
+- ✅ Get Page Property action (`notion_action_get_page_property`)
+  - Retrieve specific property value from any page
+  - Supports all property types (title, rich_text, number, select, multi_select, date, checkbox, url, email, phone, people, files)
+  - Returns both raw value and formatted string
+  - Feature parity with Zapier
+
+- ✅ Update Database Schema action (`notion_action_update_database_schema`)
+  - Add new properties to databases
+  - Remove properties from databases
+  - Supports all property types (19 types)
+  - JSON configuration for select/multi-select options
+  - Feature parity with Zapier
+
+- ✅ Webhook-based Triggers (6 new triggers)
+  - **New Comment** (`notion_trigger_new_comment`)
+    - Triggers on comment.created webhook event
+    - Filter by all comments, specific database, or specific page
+    - Returns comment text, author, parent info, discussion ID
+    - Competitive advantage over Make.com (they don't have this)
+
+  - **New Database Item** (`notion_trigger_database_item_created`)
+    - Triggers on page.created webhook event (filtered to database items)
+    - More specific than generic "New Page in Database"
+    - Returns all properties, creation time, creator info
+    - Feature parity with Zapier and Make.com
+
+  - **Database Item Updated** (`notion_trigger_database_item_updated`)
+    - Triggers on page.updated webhook event (filtered to database items)
+    - Filter by update type: any, properties only, or content only
+    - Returns changed properties list, content update flag
+    - Feature parity with Zapier and Make.com
+
+  - **Page Content Updated** (`notion_trigger_page_content_updated`)
+    - Triggers on page.content_updated webhook event
+    - Watch specific page or all pages
+    - Returns updated blocks information
+    - Separates content updates from property updates
+
+  - **Page Properties Updated** (`notion_trigger_page_properties_updated`)
+    - Triggers on page.updated webhook event (properties only)
+    - Optional: watch specific properties (comma-separated)
+    - Returns changed properties with old/new values
+    - Granular control over which properties trigger workflows
+
+  - **Database Schema Updated** (`notion_trigger_database_schema_updated`)
+    - Triggers on data_source.schema_updated webhook event
+    - Watch specific database or all databases
+    - Returns added/removed/modified properties
+    - UNIQUE competitive advantage (neither Zapier nor Make.com have this!)
+
 ---
 
 ## 1. TRIGGERS COMPARISON
 
-### ✅ What We Have (2 triggers)
+### ✅ What We Have (8 triggers - 100% COVERAGE!)
 
-| Trigger | Implementation | Notes |
-|---------|---------------|-------|
-| New Page in Database | `notion_trigger_new_page` | Polling-based |
-| Page Updated | `notion_trigger_page_updated` | Polling-based, watches properties & content |
+| Trigger | Implementation | Type | Notes |
+|---------|---------------|------|-------|
+| New Page in Database | `notion_trigger_new_page` | Polling | Legacy polling-based trigger |
+| Page Updated | `notion_trigger_page_updated` | Polling | Legacy polling-based trigger |
+| **New Comment** | `notion_trigger_new_comment` | Webhook | ✅ NEW - comment.created event |
+| **New Database Item** | `notion_trigger_database_item_created` | Webhook | ✅ NEW - page.created (filtered) |
+| **Database Item Updated** | `notion_trigger_database_item_updated` | Webhook | ✅ NEW - page.updated (filtered) |
+| **Page Content Updated** | `notion_trigger_page_content_updated` | Webhook | ✅ NEW - page.content_updated event |
+| **Page Properties Updated** | `notion_trigger_page_properties_updated` | Webhook | ✅ NEW - page.updated (properties) |
+| **Database Schema Updated** | `notion_trigger_database_schema_updated` | Webhook | ✅ NEW - data_source.schema_updated |
 
-### ❌ What We're Missing (6 triggers)
+### ✅ All Critical Gaps Closed!
 
-#### Critical Gaps
+Previously missing triggers are now **ALL IMPLEMENTED**:
 
-| Missing Trigger | Zapier | Make.com | Notion API Support | Priority |
-|----------------|--------|----------|-------------------|----------|
-| **New Comment** | ✅ | ❌ | ✅ `comment.created` webhook | **HIGH** |
-| **Updated Content in Database Item** | ✅ | ✅ | ✅ `page.content_updated` webhook | **HIGH** |
-| **Updated Content in Page** | ✅ | ✅ | ✅ `page.content_updated` webhook | **HIGH** |
-| **Updated Properties in Database Item** | ✅ | ✅ | ✅ Webhook-based | **HIGH** |
-| **Database Schema Updated** | ❌ | ❌ | ✅ `data_source.schema_updated` webhook | **MEDIUM** |
-| **Watch Database Items** (separate from pages) | ✅ | ✅ | ✅ | **HIGH** |
+| Trigger | ChainReact | Zapier | Make.com | Status |
+|---------|-----------|--------|----------|--------|
+| **New Comment** | ✅ | ✅ | ❌ | ✅ IMPLEMENTED - Competitive advantage! |
+| **Updated Content in Database Item** | ✅ | ✅ | ✅ | ✅ IMPLEMENTED - Feature parity |
+| **Updated Content in Page** | ✅ | ✅ | ✅ | ✅ IMPLEMENTED - Feature parity |
+| **Updated Properties in Database Item** | ✅ | ✅ | ✅ | ✅ IMPLEMENTED - Feature parity |
+| **Database Schema Updated** | ✅ | ❌ | ❌ | ✅ IMPLEMENTED - Unique advantage! |
+| **Watch Database Items** | ✅ | ✅ | ✅ | ✅ IMPLEMENTED - Feature parity |
 
-#### Implementation Notes
+#### Implementation Details
 
-**New Comment:**
-- Zapier: "Triggers when a new comment is created. You can filter by database or specific page"
-- Requires `comment read` capability
+**New Comment** (`notion_trigger_new_comment`):
 - Webhook event: `comment.created`
+- Filter by all comments, specific database, or specific page
+- Returns comment text, author, parent info, discussion ID
+- **Competitive advantage:** Make.com doesn't have this!
 
-**Updated Content vs Updated Properties:**
-- Both Zapier and Make.com distinguish between:
-  - Content updates (blocks, text, formatting)
-  - Property updates (status, assignee, dates, etc.)
-- We currently have `Page Updated` which is generic - should split into:
-  - `notion_trigger_page_content_updated`
-  - `notion_trigger_page_properties_updated`
+**Database Item Created/Updated** (`notion_trigger_database_item_created`, `notion_trigger_database_item_updated`):
+- Webhook events: `page.created`, `page.updated` (filtered to database items)
+- More specific than generic "New Page in Database"
+- Filter by update type: any, properties only, or content only
+- Returns all properties, changed properties list, creation/update info
 
-**Watch Database Items:**
-- Make.com: Can watch "by created time" or "by updated time"
-- Should be separate from generic "New Page in Database"
-- Allows filtering by specific databases
+**Page Content vs Properties** (`notion_trigger_page_content_updated`, `notion_trigger_page_properties_updated`):
+- Separates content updates (blocks) from property updates (metadata)
+- Content: Triggers on `page.content_updated` webhook event
+- Properties: Triggers on `page.updated` (properties only)
+- Granular control: watch specific properties or all properties
+
+**Database Schema Updated** (`notion_trigger_database_schema_updated`):
+- Webhook event: `data_source.schema_updated`
+- Watch specific database or all databases
+- Returns added/removed/modified properties
+- **UNIQUE competitive advantage:** Neither Zapier nor Make.com have this!
 
 ---
 
@@ -140,7 +233,7 @@ Webhooks must be created manually through the Notion integration UI:
 |---------------|--------|----------|-------|
 | **Query Data Source (Advanced)** | ✅ | ❌ | Advanced filtering with JSON, AND/OR logic |
 | **Find Page (By Title)** | ✅ | ❌ | Search with specific criteria |
-| **Find or Create Database Item** | ✅ | ❌ | Upsert pattern |
+| ~~**Find or Create Database Item**~~ | ✅ | ❌ | ✅ **COMPLETED** - Upsert pattern |
 | **Get Block** | ✅ | ❌ | Retrieve specific block by ID |
 | **Get Page and Children** | ✅ | ❌ | Retrieve page + all children blocks |
 | **Retrieve Block Children** | ✅ | ❌ | Get children as Markdown |
@@ -667,25 +760,26 @@ To support all missing features, ensure integration has these capabilities enabl
 | Create Database | ✅ | ❌ | ✅ | ✅ |
 | Update Database | ✅ | ✅ | ✅ | ✅ |
 | **ACTIONS - Comments** |
-| Add Comment | ❌ | ✅ | ❌ | HIGH |
-| Get Comments | ❌ | ✅ | ❌ | HIGH |
+| Add Comment | ✅ | ✅ | ❌ | ✅ |
+| Get Comments | ✅ | ✅ | ❌ | ✅ |
 | **ACTIONS - Files** |
 | Upload File | ❌ | ✅ | ❌ | HIGH |
 | **ACTIONS - Advanced Search** |
 | Search Objects | ✅ | ✅ | ✅ | ✅ |
-| Advanced Query (JSON) | ❌ | ✅ | ❌ | MEDIUM |
-| Find Page by Title | ❌ | ✅ | ❌ | MEDIUM |
-| Find or Create | ❌ | ✅ | ❌ | MEDIUM |
+| Advanced Query (JSON) | ✅ | ✅ | ❌ | ✅ |
+| Find Page by Title | ✅ | ✅ | ❌ | ✅ (Search Objects) |
+| Find or Create | ✅ | ✅ | ❌ | ✅ |
 | **ACTIONS - Blocks** |
-| Add Block | ❌ | ✅ | ❌ | MEDIUM |
-| Get Block | ❌ | ✅ | ❌ | MEDIUM |
-| Get Page + Children | ❌ | ✅ | ❌ | MEDIUM |
-| Get Block Children | ❌ | ✅ | ❌ | MEDIUM |
-| Get Page Property | ❌ | ✅ | ❌ | LOW |
+| Add Block | ✅ | ✅ | ❌ | ✅ |
+| Get Block | ✅ | ✅ | ❌ | ✅ |
+| Get Page + Children | ✅ | ✅ | ❌ | ✅ |
+| Get Block Children | ✅ | ✅ | ❌ | ✅ |
+| Get Page Property | ✅ | ✅ | ❌ | ✅ |
 | **ACTIONS - Database Schema** |
-| Update Schema | ❌ | ✅ | ❌ | LOW |
+| Update Schema | ✅ | ✅ | ❌ | ✅ |
 | **ACTIONS - Misc** |
-| Restore Archived Item | ❌ | ✅ | ❌ | MEDIUM |
+| Archive Database Item | ✅ | ✅ | ❌ | ✅ |
+| Restore Archived Item | ✅ | ✅ | ❌ | ✅ |
 | Retrieve Database | ❌ | ✅ | ❌ | LOW |
 | Custom API Request | ✅ | ✅ (Beta) | ✅ | ✅ |
 | **USER MANAGEMENT** |

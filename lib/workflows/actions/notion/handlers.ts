@@ -1063,3 +1063,1022 @@ export async function notionSyncDatabaseEntries(
     }
   }
 }
+
+/**
+ * Find or Create Database Item (Upsert pattern)
+ * Searches for an item in a database by a property value
+ * If found, returns the existing item
+ * If not found and createIfNotFound is true, creates a new item
+ */
+export async function notionFindOrCreateDatabaseItem(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    // Resolve variables
+    const databaseId = context.dataFlowManager.resolveVariable(config.database_id)
+    const searchProperty = context.dataFlowManager.resolveVariable(config.search_property)
+    const searchValue = context.dataFlowManager.resolveVariable(config.search_value)
+    const createIfNotFound = context.dataFlowManager.resolveVariable(config.create_if_not_found) !== 'false'
+    const createProperties = context.dataFlowManager.resolveVariable(config.create_properties) || {}
+
+    logger.debug("[Notion Find or Create] Starting search", {
+      databaseId,
+      searchProperty,
+      searchValue,
+      createIfNotFound
+    })
+
+    // Step 1: Search for existing item using database query
+    // Build filter based on property type
+    const filter: any = {
+      property: searchProperty,
+    }
+
+    // Detect property type and build appropriate filter
+    // For simplicity, we'll try text/rich_text first, then other types
+    // In production, you'd want to fetch the property type from the database schema
+    filter.rich_text = { equals: searchValue }
+
+    const searchPayload = {
+      filter,
+      page_size: 1 // We only need to know if one exists
+    }
+
+    logger.debug("[Notion Find or Create] Searching database", { searchPayload })
+
+    const searchResult = await notionApiRequest(
+      `/databases/${databaseId}/query`,
+      "POST",
+      accessToken,
+      searchPayload
+    )
+
+    // Step 2: If found, return existing item
+    if (searchResult.results && searchResult.results.length > 0) {
+      const existingItem = searchResult.results[0]
+      logger.debug("[Notion Find or Create] Found existing item", { id: existingItem.id })
+
+      return {
+        success: true,
+        output: {
+          found: true,
+          created: false,
+          page_id: existingItem.id,
+          url: existingItem.url,
+          properties: existingItem.properties,
+          item: existingItem
+        },
+        message: "Found existing item"
+      }
+    }
+
+    // Step 3: If not found and createIfNotFound is false, return not found
+    if (!createIfNotFound) {
+      logger.debug("[Notion Find or Create] Item not found, create disabled")
+      return {
+        success: true,
+        output: {
+          found: false,
+          created: false,
+          page_id: null,
+          properties: null
+        },
+        message: "Item not found and creation is disabled"
+      }
+    }
+
+    // Step 4: Create new item
+    logger.debug("[Notion Find or Create] Creating new item")
+
+    // Merge search property/value into create properties
+    const finalProperties = {
+      ...createProperties,
+      [searchProperty]: {
+        rich_text: [{ type: "text", text: { content: searchValue } }]
+      }
+    }
+
+    const createPayload = {
+      parent: { database_id: databaseId },
+      properties: finalProperties
+    }
+
+    const newItem = await notionApiRequest("/pages", "POST", accessToken, createPayload)
+
+    logger.debug("[Notion Find or Create] Created new item", { id: newItem.id })
+
+    return {
+      success: true,
+      output: {
+        found: false,
+        created: true,
+        page_id: newItem.id,
+        url: newItem.url,
+        properties: newItem.properties,
+        item: newItem
+      },
+      message: "Created new item"
+    }
+
+  } catch (error: any) {
+    logger.error("[Notion Find or Create] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to find or create database item"
+    }
+  }
+}
+
+/**
+ * Archive a database item
+ * Sets the archived property to true on a page
+ */
+export async function notionArchiveDatabaseItem(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    // Get access token
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    // Resolve variables
+    const itemId = context.dataFlowManager.resolveVariable(config.item_id)
+
+    if (!itemId) {
+      return {
+        success: false,
+        output: {},
+        message: "Item ID is required to archive a database item"
+      }
+    }
+
+    logger.info("[Notion Archive Item] Archiving database item:", { itemId })
+
+    // Archive the page by setting archived to true
+    const payload = {
+      archived: true
+    }
+
+    const result = await notionApiRequest(
+      `/pages/${itemId}`,
+      "PATCH",
+      accessToken,
+      payload
+    )
+
+    logger.info("[Notion Archive Item] Item archived successfully:", { itemId })
+
+    return {
+      success: true,
+      output: {
+        page_id: result.id,
+        url: result.url,
+        archived: result.archived,
+        archived_time: new Date().toISOString(),
+        properties: result.properties,
+        item: result
+      },
+      message: "Database item archived successfully"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Archive Item] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to archive database item"
+    }
+  }
+}
+
+/**
+ * Restore an archived database item
+ * Sets the archived property to false on a page
+ */
+export async function notionRestoreDatabaseItem(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    // Get access token
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    // Resolve variables
+    const itemId = context.dataFlowManager.resolveVariable(config.item_id)
+
+    if (!itemId) {
+      return {
+        success: false,
+        output: {},
+        message: "Item ID is required to restore a database item"
+      }
+    }
+
+    logger.info("[Notion Restore Item] Restoring database item:", { itemId })
+
+    // Restore the page by setting archived to false
+    const payload = {
+      archived: false
+    }
+
+    const result = await notionApiRequest(
+      `/pages/${itemId}`,
+      "PATCH",
+      accessToken,
+      payload
+    )
+
+    logger.info("[Notion Restore Item] Item restored successfully:", { itemId })
+
+    return {
+      success: true,
+      output: {
+        page_id: result.id,
+        url: result.url,
+        archived: result.archived,
+        restored_time: new Date().toISOString(),
+        properties: result.properties,
+        item: result
+      },
+      message: "Database item restored successfully"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Restore Item] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to restore database item"
+    }
+  }
+}
+
+/**
+ * Add a block to a page
+ */
+export async function notionAddBlock(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import("@/lib/integrations/getDecryptedAccessToken")
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const pageId = context.dataFlowManager.resolveVariable(config.page_id)
+    const blockType = context.dataFlowManager.resolveVariable(config.block_type)
+    const content = context.dataFlowManager.resolveVariable(config.content)
+
+    if (!pageId) {
+      return {
+        success: false,
+        output: {},
+        message: "Page ID is required"
+      }
+    }
+
+    logger.info("[Notion Add Block] Adding block to page:", { pageId, blockType })
+
+    // Build block object based on type
+    let blockObject: any = {
+      type: blockType
+    }
+
+    // Add content for text-based blocks
+    if (content && ["paragraph", "heading_1", "heading_2", "heading_3", "bulleted_list_item", "numbered_list_item", "to_do", "toggle", "quote", "callout"].includes(blockType)) {
+      blockObject[blockType] = {
+        rich_text: [
+          {
+            type: "text",
+            text: { content: content }
+          }
+        ]
+      }
+
+      // Add checked property for to-do blocks
+      if (blockType === "to_do") {
+        blockObject[blockType].checked = config.checked === true
+      }
+    } else if (blockType === "code" && content) {
+      // Code blocks need language
+      blockObject.code = {
+        rich_text: [
+          {
+            type: "text",
+            text: { content: content }
+          }
+        ],
+        language: config.language || "plain text"
+      }
+    } else if (blockType === "divider") {
+      // Divider blocks have no content
+      blockObject.divider = {}
+    }
+
+    const payload = {
+      children: [blockObject]
+    }
+
+    const result = await notionApiRequest(
+      `/blocks/${pageId}/children`,
+      "PATCH",
+      accessToken,
+      payload
+    )
+
+    logger.info("[Notion Add Block] Block added successfully")
+
+    const addedBlock = result.results?.[0] || result
+
+    return {
+      success: true,
+      output: {
+        block_id: addedBlock.id,
+        type: addedBlock.type,
+        content: addedBlock[addedBlock.type] || {},
+        block: addedBlock
+      },
+      message: "Block added successfully"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Add Block] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to add block"
+    }
+  }
+}
+
+/**
+ * Get a specific block by ID
+ */
+export async function notionGetBlock(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const blockId = context.dataFlowManager.resolveVariable(config.block_id)
+
+    if (!blockId) {
+      return {
+        success: false,
+        output: {},
+        message: "Block ID is required"
+      }
+    }
+
+    logger.info("[Notion Get Block] Retrieving block:", { blockId })
+
+    const result = await notionApiRequest(
+      `/blocks/${blockId}`,
+      "GET",
+      accessToken
+    )
+
+    logger.info("[Notion Get Block] Block retrieved successfully")
+
+    return {
+      success: true,
+      output: {
+        block_id: result.id,
+        type: result.type,
+        content: result[result.type] || {},
+        has_children: result.has_children,
+        block: result
+      },
+      message: "Block retrieved successfully"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Get Block] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to get block"
+    }
+  }
+}
+
+/**
+ * Get children of a block
+ */
+export async function notionGetBlockChildren(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const blockId = context.dataFlowManager.resolveVariable(config.block_id)
+    const pageSize = context.dataFlowManager.resolveVariable(config.page_size) || 100
+
+    if (!blockId) {
+      return {
+        success: false,
+        output: {},
+        message: "Block ID is required"
+      }
+    }
+
+    logger.info("[Notion Get Block Children] Retrieving children:", { blockId, pageSize })
+
+    const result = await notionApiRequest(
+      `/blocks/${blockId}/children?page_size=${pageSize}`,
+      "GET",
+      accessToken
+    )
+
+    logger.info("[Notion Get Block Children] Children retrieved successfully")
+
+    return {
+      success: true,
+      output: {
+        children: result.results || [],
+        has_more: result.has_more || false,
+        next_cursor: result.next_cursor || null,
+        count: result.results?.length || 0
+      },
+      message: "Block children retrieved successfully"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Get Block Children] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to get block children"
+    }
+  }
+}
+
+/**
+ * Get page with all children (recursive)
+ */
+export async function notionGetPageWithChildren(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const pageId = context.dataFlowManager.resolveVariable(config.page_id)
+    const depth = context.dataFlowManager.resolveVariable(config.depth) || '1'
+
+    if (!pageId) {
+      return {
+        success: false,
+        output: {},
+        message: "Page ID is required"
+      }
+    }
+
+    logger.info("[Notion Get Page with Children] Retrieving page:", { pageId, depth })
+
+    // Get the page first
+    const page = await notionApiRequest(
+      `/pages/${pageId}`,
+      "GET",
+      accessToken
+    )
+
+    // Get children blocks
+    const childrenResult = await notionApiRequest(
+      `/blocks/${pageId}/children?page_size=100`,
+      "GET",
+      accessToken
+    )
+
+    let children = childrenResult.results || []
+
+    // If depth is 'all', recursively get nested children
+    if (depth === 'all') {
+      const getNestedChildren = async (blocks: any[]): Promise<any[]> => {
+        const blocksWithChildren = await Promise.all(
+          blocks.map(async (block) => {
+            if (block.has_children) {
+              const nestedResult = await notionApiRequest(
+                `/blocks/${block.id}/children?page_size=100`,
+                "GET",
+                accessToken
+              )
+              const nestedChildren = await getNestedChildren(nestedResult.results || [])
+              return { ...block, children: nestedChildren }
+            }
+            return block
+          })
+        )
+        return blocksWithChildren
+      }
+
+      children = await getNestedChildren(children)
+    }
+
+    logger.info("[Notion Get Page with Children] Page retrieved successfully")
+
+    return {
+      success: true,
+      output: {
+        page_id: page.id,
+        url: page.url,
+        properties: page.properties,
+        children: children,
+        child_count: children.length,
+        page: page
+      },
+      message: "Page with children retrieved successfully"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Get Page with Children] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to get page with children"
+    }
+  }
+}
+
+/**
+ * Advanced database query with JSON filters
+ */
+export async function notionAdvancedDatabaseQuery(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const databaseId = context.dataFlowManager.resolveVariable(config.database_id)
+    const filter = context.dataFlowManager.resolveVariable(config.filter)
+    const sorts = context.dataFlowManager.resolveVariable(config.sorts)
+    const pageSize = context.dataFlowManager.resolveVariable(config.page_size) || 100
+
+    if (!databaseId) {
+      return {
+        success: false,
+        output: {},
+        message: "Database ID is required"
+      }
+    }
+
+    logger.info("[Notion Advanced Query] Querying database:", { databaseId, hasFilter: !!filter, hasSorts: !!sorts })
+
+    // Build query payload
+    const payload: any = {
+      page_size: pageSize
+    }
+
+    if (filter) {
+      payload.filter = filter
+    }
+
+    if (sorts) {
+      payload.sorts = sorts
+    }
+
+    const result = await notionApiRequest(
+      `/databases/${databaseId}/query`,
+      "POST",
+      accessToken,
+      payload
+    )
+
+    logger.info("[Notion Advanced Query] Query completed successfully")
+
+    return {
+      success: true,
+      output: {
+        results: result.results || [],
+        has_more: result.has_more || false,
+        next_cursor: result.next_cursor || null,
+        result_count: result.results?.length || 0
+      },
+      message: "Database query completed successfully"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Advanced Query] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to query database"
+    }
+  }
+}
+
+/**
+ * Get a specific property from a Notion page
+ * GET /pages/{page_id}/properties/{property_id}
+ */
+export async function notionGetPageProperty(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const pageId = context.dataFlowManager.resolveVariable(config.page_id)
+    const propertyName = context.dataFlowManager.resolveVariable(config.property_name)
+
+    if (!pageId || !propertyName) {
+      return {
+        success: false,
+        output: {},
+        message: "Page ID and property name are required"
+      }
+    }
+
+    logger.info("[Notion Get Page Property] Retrieving property:", { pageId, propertyName })
+
+    // First, get the page to find the property ID
+    const page = await notionApiRequest(
+      `/pages/${pageId}`,
+      "GET",
+      accessToken
+    )
+
+    if (!page.properties) {
+      return {
+        success: false,
+        output: {},
+        message: "Page has no properties"
+      }
+    }
+
+    // Find the property by name
+    const property = page.properties[propertyName]
+    if (!property) {
+      return {
+        success: false,
+        output: {},
+        message: `Property "${propertyName}" not found on page`
+      }
+    }
+
+    const propertyId = property.id
+    const propertyType = property.type
+
+    // Get the property value
+    const propertyValue = await notionApiRequest(
+      `/pages/${pageId}/properties/${propertyId}`,
+      "GET",
+      accessToken
+    )
+
+    // Format the value based on type
+    let formattedValue = ""
+    let rawValue: any = null
+
+    switch (propertyType) {
+      case "title":
+      case "rich_text":
+        rawValue = propertyValue.results?.[0]?.title?.plain_text || propertyValue.results?.[0]?.rich_text?.plain_text || ""
+        formattedValue = rawValue
+        break
+      case "number":
+        rawValue = propertyValue.number
+        formattedValue = rawValue?.toString() || ""
+        break
+      case "select":
+        rawValue = propertyValue.select
+        formattedValue = propertyValue.select?.name || ""
+        break
+      case "multi_select":
+        rawValue = propertyValue.multi_select
+        formattedValue = propertyValue.multi_select?.map((s: any) => s.name).join(", ") || ""
+        break
+      case "date":
+        rawValue = propertyValue.date
+        formattedValue = propertyValue.date?.start || ""
+        break
+      case "checkbox":
+        rawValue = propertyValue.checkbox
+        formattedValue = propertyValue.checkbox ? "true" : "false"
+        break
+      case "url":
+        rawValue = propertyValue.url
+        formattedValue = propertyValue.url || ""
+        break
+      case "email":
+        rawValue = propertyValue.email
+        formattedValue = propertyValue.email || ""
+        break
+      case "phone_number":
+        rawValue = propertyValue.phone_number
+        formattedValue = propertyValue.phone_number || ""
+        break
+      case "people":
+        rawValue = propertyValue.people
+        formattedValue = propertyValue.people?.map((p: any) => p.name).join(", ") || ""
+        break
+      case "files":
+        rawValue = propertyValue.files
+        formattedValue = propertyValue.files?.map((f: any) => f.name).join(", ") || ""
+        break
+      default:
+        rawValue = propertyValue
+        formattedValue = JSON.stringify(propertyValue)
+    }
+
+    logger.info("[Notion Get Page Property] Property retrieved successfully")
+
+    return {
+      success: true,
+      output: {
+        property_id: propertyId,
+        property_type: propertyType,
+        value: rawValue,
+        formatted_value: formattedValue,
+        raw_property: propertyValue
+      },
+      message: `Retrieved property "${propertyName}" from page`
+    }
+  } catch (error: any) {
+    logger.error("[Notion Get Page Property] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to get page property"
+    }
+  }
+}
+
+/**
+ * Add a property to a Notion database
+ * PATCH /databases/{database_id}
+ */
+export async function notionAddDatabaseProperty(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const databaseId = context.dataFlowManager.resolveVariable(config.database_id)
+    const propertyName = context.dataFlowManager.resolveVariable(config.property_name)
+    const propertyType = context.dataFlowManager.resolveVariable(config.property_type)
+    const selectOptions = context.dataFlowManager.resolveVariable(config.select_options)
+
+    if (!databaseId || !propertyName || !propertyType) {
+      return {
+        success: false,
+        output: {},
+        message: "Database ID, property name, and property type are required"
+      }
+    }
+
+    logger.info("[Notion Add Database Property] Adding property:", { databaseId, propertyName, propertyType })
+
+    // Build property definition based on type
+    let propertyDefinition: any = {}
+
+    switch (propertyType) {
+      case "title":
+        propertyDefinition = { title: {} }
+        break
+      case "rich_text":
+        propertyDefinition = { rich_text: {} }
+        break
+      case "number":
+        propertyDefinition = { number: { format: "number" } }
+        break
+      case "select":
+        propertyDefinition = {
+          select: {
+            options: selectOptions || []
+          }
+        }
+        break
+      case "multi_select":
+        propertyDefinition = {
+          multi_select: {
+            options: selectOptions || []
+          }
+        }
+        break
+      case "date":
+        propertyDefinition = { date: {} }
+        break
+      case "people":
+        propertyDefinition = { people: {} }
+        break
+      case "files":
+        propertyDefinition = { files: {} }
+        break
+      case "checkbox":
+        propertyDefinition = { checkbox: {} }
+        break
+      case "url":
+        propertyDefinition = { url: {} }
+        break
+      case "email":
+        propertyDefinition = { email: {} }
+        break
+      case "phone_number":
+        propertyDefinition = { phone_number: {} }
+        break
+      case "created_time":
+        propertyDefinition = { created_time: {} }
+        break
+      case "created_by":
+        propertyDefinition = { created_by: {} }
+        break
+      case "last_edited_time":
+        propertyDefinition = { last_edited_time: {} }
+        break
+      case "last_edited_by":
+        propertyDefinition = { last_edited_by: {} }
+        break
+      default:
+        return {
+          success: false,
+          output: {},
+          message: `Unsupported property type: ${propertyType}`
+        }
+    }
+
+    const payload = {
+      properties: {
+        [propertyName]: propertyDefinition
+      }
+    }
+
+    const result = await notionApiRequest(
+      `/databases/${databaseId}`,
+      "PATCH",
+      accessToken,
+      payload
+    )
+
+    logger.info("[Notion Add Database Property] Property added successfully")
+
+    return {
+      success: true,
+      output: {
+        database_id: result.id,
+        url: result.url,
+        title: result.title?.[0]?.plain_text || "",
+        properties: result.properties,
+        updated_property: propertyName
+      },
+      message: `Added property "${propertyName}" to database`
+    }
+  } catch (error: any) {
+    logger.error("[Notion Add Database Property] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to add database property"
+    }
+  }
+}
+
+/**
+ * Remove a property from a Notion database
+ * PATCH /databases/{database_id}
+ */
+export async function notionRemoveDatabaseProperty(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const databaseId = context.dataFlowManager.resolveVariable(config.database_id)
+    const propertyName = context.dataFlowManager.resolveVariable(config.property_name)
+
+    if (!databaseId || !propertyName) {
+      return {
+        success: false,
+        output: {},
+        message: "Database ID and property name are required"
+      }
+    }
+
+    logger.info("[Notion Remove Database Property] Removing property:", { databaseId, propertyName })
+
+    // To remove a property, set it to null
+    const payload = {
+      properties: {
+        [propertyName]: null
+      }
+    }
+
+    const result = await notionApiRequest(
+      `/databases/${databaseId}`,
+      "PATCH",
+      accessToken,
+      payload
+    )
+
+    logger.info("[Notion Remove Database Property] Property removed successfully")
+
+    return {
+      success: true,
+      output: {
+        database_id: result.id,
+        url: result.url,
+        title: result.title?.[0]?.plain_text || "",
+        properties: result.properties,
+        updated_property: propertyName
+      },
+      message: `Removed property "${propertyName}" from database`
+    }
+  } catch (error: any) {
+    logger.error("[Notion Remove Database Property] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to remove database property"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { FileText, Database, Users, Layers, MessageSquare } from "lucide-react"
+import { FileText, Database, Users, Layers, MessageSquare, Box, Search } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 /**
@@ -271,7 +271,10 @@ export const notionUnifiedActions: NodeComponent[] = [
         clearable: false,
         options: [
           { value: "create", label: "Create Database" },
-          { value: "update", label: "Update Database" }
+          { value: "update", label: "Update Database" },
+          { value: "find_or_create_item", label: "Find or Create Database Item" },
+          { value: "archive_item", label: "Archive Database Item" },
+          { value: "restore_item", label: "Restore Database Item" }
         ],
         placeholder: "Select operation",
         visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
@@ -394,6 +397,107 @@ export const notionUnifiedActions: NodeComponent[] = [
           ]
         }
       },
+      // Find or Create Item fields
+      {
+        name: "findOrCreateDatabase",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: true,
+        placeholder: "Select database to search/create in",
+        description: "The database to search for the item in, or create it if not found",
+        dependsOn: "workspace",
+        visibilityCondition: { field: "operation", operator: "equals", value: "find_or_create_item" }
+      },
+      {
+        name: "searchProperty",
+        label: "Search By Property",
+        type: "select",
+        dynamic: "notion_database_properties",
+        required: true,
+        placeholder: "Select property to search by",
+        description: "The property to use when searching for existing items (e.g., Title, Email, ID)",
+        dependsOn: "findOrCreateDatabase",
+        visibilityCondition: { field: "operation", operator: "equals", value: "find_or_create_item" }
+      },
+      {
+        name: "searchValue",
+        label: "Search Value",
+        type: "text",
+        required: true,
+        placeholder: "Enter value to search for",
+        description: "The value to match against the search property",
+        visibilityCondition: { field: "operation", operator: "equals", value: "find_or_create_item" }
+      },
+      {
+        name: "createIfNotFound",
+        label: "Create If Not Found",
+        type: "select",
+        required: true,
+        clearable: false,
+        defaultValue: "true",
+        options: [
+          { value: "true", label: "Yes, create new item" },
+          { value: "false", label: "No, just search" }
+        ],
+        description: "Whether to create a new item if no match is found",
+        visibilityCondition: { field: "operation", operator: "equals", value: "find_or_create_item" }
+      },
+      {
+        name: "createProperties",
+        label: "Properties for New Item",
+        type: "dynamic_fields",
+        dynamic: "notion_database_properties",
+        dependsOn: "findOrCreateDatabase",
+        required: false,
+        placeholder: "Loading database properties...",
+        description: "Properties to set if creating a new item (the search property/value will be included automatically)",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "find_or_create_item" },
+            { field: "createIfNotFound", operator: "equals", value: "true" }
+          ]
+        }
+      },
+      // Archive/Restore Item fields
+      {
+        name: "archiveDatabase",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: true,
+        placeholder: "Select database",
+        description: "The database containing the item to archive or restore",
+        dependsOn: "workspace",
+        visibilityCondition: {
+          or: [
+            { field: "operation", operator: "equals", value: "archive_item" },
+            { field: "operation", operator: "equals", value: "restore_item" }
+          ]
+        }
+      },
+      {
+        name: "itemToArchive",
+        label: "Item to Archive",
+        type: "select",
+        dynamic: "notion_database_items",
+        required: true,
+        placeholder: "Select item to archive",
+        description: "The database item to archive",
+        dependsOn: "archiveDatabase",
+        visibilityCondition: { field: "operation", operator: "equals", value: "archive_item" }
+      },
+      {
+        name: "itemToRestore",
+        label: "Item to Restore",
+        type: "select",
+        dynamic: "notion_archived_items",
+        required: true,
+        placeholder: "Select archived item to restore",
+        description: "The archived database item to restore",
+        dependsOn: "archiveDatabase",
+        visibilityCondition: { field: "operation", operator: "equals", value: "restore_item" }
+      },
       // Sync fields
       {
         name: "syncDirection",
@@ -427,6 +531,54 @@ export const notionUnifiedActions: NodeComponent[] = [
         label: "Has More",
         type: "boolean",
         description: "Whether there are more results"
+      },
+      {
+        name: "found",
+        label: "Item Was Found",
+        type: "boolean",
+        description: "Whether an existing item was found (find_or_create operation)"
+      },
+      {
+        name: "created",
+        label: "Item Was Created",
+        type: "boolean",
+        description: "Whether a new item was created (find_or_create operation)"
+      },
+      {
+        name: "pageId",
+        label: "Page ID",
+        type: "string",
+        description: "The ID of the found or created page (find_or_create operation)"
+      },
+      {
+        name: "properties",
+        label: "Properties",
+        type: "object",
+        description: "The properties of the found or created item (find_or_create operation)"
+      },
+      {
+        name: "url",
+        label: "Page URL",
+        type: "string",
+        description: "The URL of the found or created page (find_or_create operation)"
+      },
+      {
+        name: "archived",
+        label: "Archived",
+        type: "boolean",
+        description: "Whether the item is archived (archive/restore operations)"
+      },
+      {
+        name: "archivedTime",
+        label: "Archived Time",
+        type: "string",
+        description: "When the item was archived (archive operation)"
+      },
+      {
+        name: "restoredTime",
+        label: "Restored Time",
+        type: "string",
+        description: "When the item was restored (restore operation)"
       }
     ]
   },
@@ -704,6 +856,548 @@ export const notionUnifiedActions: NodeComponent[] = [
         label: "User",
         type: "object",
         description: "User details (for get operation)"
+      }
+    ]
+  },
+
+  // ============= UNIFIED BLOCK MANAGEMENT =============
+  {
+    type: "notion_action_manage_blocks",
+    title: "Manage Blocks",
+    description: "Add blocks to pages, get blocks, retrieve block children, or get page with all children",
+    icon: Box,
+    providerId: "notion",
+    requiredScopes: ["content.read", "content.write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "workspace",
+        label: "Workspace",
+        type: "select",
+        dynamic: "notion_workspaces",
+        required: true,
+        placeholder: "Select Notion workspace",
+        visibilityCondition: "always"
+      },
+      {
+        name: "operation",
+        label: "Operation",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "add_block", label: "Add Block to Page" },
+          { value: "get_block", label: "Get Block" },
+          { value: "get_block_children", label: "Get Block Children" },
+          { value: "get_page_with_children", label: "Get Page and Children" }
+        ],
+        placeholder: "Select operation",
+        visibilityCondition: { field: "workspace", operator: "isNotEmpty" }
+      },
+      // Add Block fields
+      {
+        name: "targetPage",
+        label: "Page",
+        type: "select",
+        dynamic: "notion_pages",
+        required: true,
+        placeholder: "Select page to add block to",
+        dependsOn: "workspace",
+        visibilityCondition: { field: "operation", operator: "equals", value: "add_block" }
+      },
+      {
+        name: "blockType",
+        label: "Block Type",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "paragraph", label: "Paragraph" },
+          { value: "heading_1", label: "Heading 1" },
+          { value: "heading_2", label: "Heading 2" },
+          { value: "heading_3", label: "Heading 3" },
+          { value: "bulleted_list_item", label: "Bulleted List Item" },
+          { value: "numbered_list_item", label: "Numbered List Item" },
+          { value: "to_do", label: "To-Do" },
+          { value: "toggle", label: "Toggle" },
+          { value: "code", label: "Code Block" },
+          { value: "quote", label: "Quote" },
+          { value: "callout", label: "Callout" },
+          { value: "divider", label: "Divider" }
+        ],
+        visibilityCondition: { field: "operation", operator: "equals", value: "add_block" }
+      },
+      {
+        name: "blockContent",
+        label: "Block Content",
+        type: "textarea",
+        required: false,
+        placeholder: "Enter block content",
+        description: "Text content for the block",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "add_block" },
+            { field: "blockType", operator: "in", value: ["paragraph", "heading_1", "heading_2", "heading_3", "bulleted_list_item", "numbered_list_item", "to_do", "toggle", "quote", "callout", "code"] }
+          ]
+        }
+      },
+      {
+        name: "checked",
+        label: "Checked",
+        type: "select",
+        options: [
+          { value: "true", label: "Checked" },
+          { value: "false", label: "Unchecked" }
+        ],
+        defaultValue: "false",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "add_block" },
+            { field: "blockType", operator: "equals", value: "to_do" }
+          ]
+        }
+      },
+      {
+        name: "codeLanguage",
+        label: "Programming Language",
+        type: "select",
+        options: [
+          { value: "javascript", label: "JavaScript" },
+          { value: "typescript", label: "TypeScript" },
+          { value: "python", label: "Python" },
+          { value: "java", label: "Java" },
+          { value: "c", label: "C" },
+          { value: "cpp", label: "C++" },
+          { value: "csharp", label: "C#" },
+          { value: "php", label: "PHP" },
+          { value: "ruby", label: "Ruby" },
+          { value: "go", label: "Go" },
+          { value: "rust", label: "Rust" },
+          { value: "sql", label: "SQL" },
+          { value: "html", label: "HTML" },
+          { value: "css", label: "CSS" },
+          { value: "json", label: "JSON" },
+          { value: "yaml", label: "YAML" },
+          { value: "markdown", label: "Markdown" },
+          { value: "bash", label: "Bash" },
+          { value: "plain text", label: "Plain Text" }
+        ],
+        defaultValue: "plain text",
+        visibilityCondition: {
+          and: [
+            { field: "operation", operator: "equals", value: "add_block" },
+            { field: "blockType", operator: "equals", value: "code" }
+          ]
+        }
+      },
+      // Get Block fields
+      {
+        name: "blockId",
+        label: "Block ID",
+        type: "text",
+        required: true,
+        placeholder: "Enter block ID",
+        description: "The ID of the block to retrieve",
+        visibilityCondition: {
+          or: [
+            { field: "operation", operator: "equals", value: "get_block" },
+            { field: "operation", operator: "equals", value: "get_block_children" }
+          ]
+        }
+      },
+      // Get Block Children fields
+      {
+        name: "pageSize",
+        label: "Page Size",
+        type: "number",
+        defaultValue: 100,
+        min: 1,
+        max: 100,
+        placeholder: "100",
+        description: "Number of children to retrieve (max 100)",
+        visibilityCondition: { field: "operation", operator: "equals", value: "get_block_children" }
+      },
+      // Get Page with Children fields
+      {
+        name: "pageForChildren",
+        label: "Page",
+        type: "select",
+        dynamic: "notion_pages",
+        required: true,
+        placeholder: "Select page",
+        dependsOn: "workspace",
+        visibilityCondition: { field: "operation", operator: "equals", value: "get_page_with_children" }
+      },
+      {
+        name: "depth",
+        label: "Depth",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "1", label: "Direct Children Only" },
+          { value: "all", label: "All Descendants (Recursive)" }
+        ],
+        defaultValue: "1",
+        description: "How deep to retrieve nested blocks",
+        visibilityCondition: { field: "operation", operator: "equals", value: "get_page_with_children" }
+      }
+    ],
+    outputSchema: [
+      {
+        name: "blockId",
+        label: "Block ID",
+        type: "string",
+        description: "The ID of the block"
+      },
+      {
+        name: "type",
+        label: "Block Type",
+        type: "string",
+        description: "The type of block"
+      },
+      {
+        name: "content",
+        label: "Content",
+        type: "object",
+        description: "The block content"
+      },
+      {
+        name: "children",
+        label: "Children",
+        type: "array",
+        description: "Child blocks (for get_block_children and get_page_with_children operations)"
+      },
+      {
+        name: "hasMore",
+        label: "Has More",
+        type: "boolean",
+        description: "Whether there are more children available"
+      },
+      {
+        name: "nextCursor",
+        label: "Next Cursor",
+        type: "string",
+        description: "Cursor for pagination"
+      }
+    ]
+  },
+
+  // ============= ADVANCED QUERY =============
+  {
+    type: "notion_action_advanced_query",
+    title: "Advanced Database Query",
+    description: "Query databases with complex JSON filters, sorting, and pagination",
+    icon: Search,
+    providerId: "notion",
+    requiredScopes: ["content.read"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "workspace",
+        label: "Workspace",
+        type: "select",
+        dynamic: "notion_workspaces",
+        required: true,
+        placeholder: "Select Notion workspace",
+        visibilityCondition: "always"
+      },
+      {
+        name: "database",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: true,
+        placeholder: "Select database to query",
+        dependsOn: "workspace"
+      },
+      {
+        name: "filterMode",
+        label: "Filter Mode",
+        type: "select",
+        required: true,
+        clearable: false,
+        options: [
+          { value: "none", label: "No Filter (All Items)" },
+          { value: "json", label: "JSON Filter (Advanced)" }
+        ],
+        defaultValue: "none",
+        description: "How to filter the query results"
+      },
+      {
+        name: "filterJson",
+        label: "Filter JSON",
+        type: "code",
+        language: "json",
+        required: false,
+        placeholder: '{\n  "and": [\n    {\n      "property": "Status",\n      "status": {\n        "equals": "Done"\n      }\n    }\n  ]\n}',
+        description: "Notion API filter object in JSON format",
+        visibilityCondition: { field: "filterMode", operator: "equals", value: "json" }
+      },
+      {
+        name: "sorts",
+        label: "Sort Configuration (JSON)",
+        type: "code",
+        language: "json",
+        required: false,
+        placeholder: '[\n  {\n    "property": "Created",\n    "direction": "descending"\n  }\n]',
+        description: "Array of sort objects (property name and direction)"
+      },
+      {
+        name: "pageSize",
+        label: "Page Size",
+        type: "number",
+        defaultValue: 100,
+        min: 1,
+        max: 100,
+        placeholder: "100",
+        description: "Number of results per page (max 100)"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "results",
+        label: "Results",
+        type: "array",
+        description: "Array of database items matching the query"
+      },
+      {
+        name: "hasMore",
+        label: "Has More",
+        type: "boolean",
+        description: "Whether there are more results available"
+      },
+      {
+        name: "nextCursor",
+        label: "Next Cursor",
+        type: "string",
+        description: "Cursor for retrieving next page"
+      },
+      {
+        name: "resultCount",
+        label: "Result Count",
+        type: "number",
+        description: "Number of results returned"
+      }
+    ]
+  },
+
+  // Get Page Property
+  {
+    type: "notion_action_get_page_property",
+    title: "Get Page Property",
+    description: "Retrieve a specific property value from a Notion page",
+    icon: FileText,
+    isTrigger: false,
+    providerId: "notion",
+    testable: true,
+    requiredScopes: ["content.read"],
+    category: "Productivity",
+    outputSchema: [
+      {
+        name: "propertyId",
+        label: "Property ID",
+        type: "string",
+        description: "ID of the property"
+      },
+      {
+        name: "propertyType",
+        label: "Property Type",
+        type: "string",
+        description: "Type of the property (title, rich_text, number, etc.)"
+      },
+      {
+        name: "value",
+        label: "Property Value",
+        type: "any",
+        description: "The value of the property"
+      },
+      {
+        name: "formattedValue",
+        label: "Formatted Value",
+        type: "string",
+        description: "Human-readable formatted value"
+      }
+    ],
+    configSchema: [
+      {
+        name: "workspace",
+        label: "Workspace",
+        type: "select",
+        dynamic: "notion_workspaces",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Notion workspace"
+      },
+      {
+        name: "page",
+        label: "Page",
+        type: "select",
+        dynamic: "notion_pages",
+        required: true,
+        dependsOn: "workspace",
+        placeholder: "Select page",
+        description: "The page to retrieve the property from",
+        supportsAI: true
+      },
+      {
+        name: "propertyName",
+        label: "Property Name",
+        type: "text",
+        required: true,
+        placeholder: "Enter property name (e.g., Status, Priority, Name)",
+        description: "The name of the property to retrieve",
+        supportsAI: true,
+        tooltip: "Must match the exact property name in the page"
+      }
+    ]
+  },
+
+  // Update Database Schema
+  {
+    type: "notion_action_update_database_schema",
+    title: "Update Database Schema",
+    description: "Add, modify, or remove properties from a Notion database",
+    icon: Database,
+    isTrigger: false,
+    providerId: "notion",
+    testable: true,
+    requiredScopes: ["content.write"],
+    category: "Productivity",
+    outputSchema: [
+      {
+        name: "databaseId",
+        label: "Database ID",
+        type: "string",
+        description: "ID of the updated database"
+      },
+      {
+        name: "url",
+        label: "Database URL",
+        type: "string",
+        description: "URL of the database"
+      },
+      {
+        name: "title",
+        label: "Database Title",
+        type: "string",
+        description: "Title of the database"
+      },
+      {
+        name: "properties",
+        label: "Properties",
+        type: "object",
+        description: "All database properties after the update"
+      },
+      {
+        name: "updatedProperty",
+        label: "Updated Property",
+        type: "string",
+        description: "Name of the property that was added/modified/removed"
+      }
+    ],
+    configSchema: [
+      {
+        name: "workspace",
+        label: "Workspace",
+        type: "select",
+        dynamic: "notion_workspaces",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Notion workspace"
+      },
+      {
+        name: "database",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: true,
+        dependsOn: "workspace",
+        placeholder: "Select database",
+        description: "The database to update",
+        supportsAI: true
+      },
+      {
+        name: "operation",
+        label: "Operation",
+        type: "select",
+        required: true,
+        options: [
+          { value: "add_property", label: "Add Property" },
+          { value: "remove_property", label: "Remove Property" }
+        ],
+        defaultValue: "add_property",
+        description: "What to do with the property"
+      },
+      {
+        name: "propertyName",
+        label: "Property Name",
+        type: "text",
+        required: true,
+        placeholder: "Enter property name",
+        description: "Name of the property to add/remove",
+        supportsAI: true
+      },
+      {
+        name: "propertyType",
+        label: "Property Type",
+        type: "select",
+        required: true,
+        options: [
+          { value: "title", label: "Title" },
+          { value: "rich_text", label: "Rich Text" },
+          { value: "number", label: "Number" },
+          { value: "select", label: "Select" },
+          { value: "multi_select", label: "Multi-select" },
+          { value: "date", label: "Date" },
+          { value: "people", label: "People" },
+          { value: "files", label: "Files" },
+          { value: "checkbox", label: "Checkbox" },
+          { value: "url", label: "URL" },
+          { value: "email", label: "Email" },
+          { value: "phone_number", label: "Phone Number" },
+          { value: "formula", label: "Formula" },
+          { value: "relation", label: "Relation" },
+          { value: "rollup", label: "Rollup" },
+          { value: "created_time", label: "Created Time" },
+          { value: "created_by", label: "Created By" },
+          { value: "last_edited_time", label: "Last Edited Time" },
+          { value: "last_edited_by", label: "Last Edited By" }
+        ],
+        visibilityCondition: {
+          field: "operation",
+          operator: "equals",
+          value: "add_property"
+        },
+        description: "Type of property to add"
+      },
+      {
+        name: "selectOptions",
+        label: "Select Options",
+        type: "code",
+        language: "json",
+        required: false,
+        placeholder: '[\n  {"name": "Option 1", "color": "blue"},\n  {"name": "Option 2", "color": "green"}\n]',
+        description: "Options for select/multi-select properties",
+        visibilityCondition: {
+          or: [
+            {
+              and: [
+                { field: "operation", operator: "equals", value: "add_property" },
+                { field: "propertyType", operator: "equals", value: "select" }
+              ]
+            },
+            {
+              and: [
+                { field: "operation", operator: "equals", value: "add_property" },
+                { field: "propertyType", operator: "equals", value: "multi_select" }
+              ]
+            }
+          ]
+        },
+        tooltip: "JSON array of options with name and color"
       }
     ]
   }

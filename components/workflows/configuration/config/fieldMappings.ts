@@ -914,9 +914,11 @@ const mailchimpMappings: Record<string, FieldMapping> = {
   },
   mailchimp_action_add_tag: {
     audience_id: "mailchimp_audiences",
+    tags: "mailchimp_tags",
   },
   mailchimp_action_remove_tag: {
     audience_id: "mailchimp_audiences",
+    tags: "mailchimp_tags",
   },
   mailchimp_action_create_campaign: {
     audience_id: "mailchimp_audiences",

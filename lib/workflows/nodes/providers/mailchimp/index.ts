@@ -940,7 +940,12 @@ export const mailchimpNodes: NodeComponent[] = [
         required: false,
         placeholder: "newemail@example.com",
         description: "Leave empty to keep current email",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       },
       {
         name: "status",
@@ -954,7 +959,12 @@ export const mailchimpNodes: NodeComponent[] = [
           { value: "transactional", label: "Transactional" }
         ],
         placeholder: "Keep current status",
-        description: "Leave empty to keep current status"
+        description: "Leave empty to keep current status",
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       },
       {
         name: "first_name",
@@ -962,7 +972,12 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Leave empty to keep current value",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       },
       {
         name: "last_name",
@@ -970,7 +985,12 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Leave empty to keep current value",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       },
       {
         name: "phone",
@@ -978,7 +998,12 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Leave empty to keep current value",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       },
       {
         name: "address",
@@ -986,7 +1011,12 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Leave empty to keep current value",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       },
       {
         name: "city",
@@ -994,7 +1024,12 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Leave empty to keep current value",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       },
       {
         name: "state",
@@ -1002,7 +1037,12 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Leave empty to keep current value",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       },
       {
         name: "zip",
@@ -1010,7 +1050,12 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Leave empty to keep current value",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       },
       {
         name: "country",
@@ -1018,7 +1063,12 @@ export const mailchimpNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "Leave empty to keep current value",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "subscriber_email",
+        hidden: {
+          $deps: ["subscriber_email"],
+          $condition: { subscriber_email: { $exists: false } }
+        }
       }
     ]
   },

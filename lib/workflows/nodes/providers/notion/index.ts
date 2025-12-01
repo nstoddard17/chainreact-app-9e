@@ -4,8 +4,11 @@ import { NodeComponent } from "../../types"
 // Import Notion action metadata if it exists
 const NOTION_CREATE_PAGE_METADATA = { key: "notion_action_create_page", name: "Create Page", description: "Create a new page in Notion" }
 
-// Import unified actions instead of comprehensive actions
+// Import unified actions (excluding manage_page which is now separated)
 import { notionUnifiedActions } from './unified-actions'
+
+// Import separate page actions (replaces notion_action_manage_page)
+import { notionPageActions } from './page-actions'
 
 // Import granular page content actions
 import { listPageContentActionSchema } from './actions/listPageContent.schema'
@@ -52,10 +55,14 @@ const makeApiCall: NodeComponent = {
   icon: Code
 }
 
-// Use unified actions instead of individual actions
+// Use separate page actions + other unified actions
 export const notionNodes: NodeComponent[] = [
-  // === Unified Actions (Main Workflow Tools) ===
-  ...notionUnifiedActions,
+  // === Page Actions (Main Workflow Tools) ===
+  ...notionPageActions,
+
+  // === Other Unified Actions (Database, Users, Comments, Blocks) ===
+  // Filter out manage_page as it's been replaced by separate page actions
+  ...notionUnifiedActions.filter(action => action.type !== 'notion_action_manage_page'),
 
   // === Granular Page Content Actions (Advanced Content Management) ===
   listPageContent,
@@ -109,6 +116,210 @@ export const notionNodes: NodeComponent[] = [
       { name: "changedProperties", label: "Changed Properties", type: "object", description: "The properties that were changed" },
       { name: "updatedAt", label: "Updated At", type: "string", description: "When the page was updated" },
       { name: "url", label: "URL", type: "string", description: "The URL of the page" }
+    ]
+  },
+
+  // === Webhook-based Triggers ===
+  {
+    type: "notion_trigger_new_comment",
+    title: "New Comment",
+    description: "Triggers when a new comment is created on a page or discussion",
+    icon: MessageSquare,
+    providerId: "notion",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    webhookBased: true,
+    configSchema: [
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
+      {
+        name: "filterType",
+        label: "Filter By",
+        type: "select",
+        required: false,
+        options: [
+          { value: "all", label: "All Comments" },
+          { value: "database", label: "Specific Database" },
+          { value: "page", label: "Specific Page" }
+        ],
+        defaultValue: "all",
+        description: "Filter comments by database or page"
+      },
+      {
+        name: "database",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: false,
+        dependsOn: "workspace",
+        visibilityCondition: { field: "filterType", operator: "equals", value: "database" },
+        description: "Only trigger for comments on pages in this database"
+      },
+      {
+        name: "page",
+        label: "Page",
+        type: "select",
+        dynamic: "notion_pages",
+        required: false,
+        dependsOn: "workspace",
+        visibilityCondition: { field: "filterType", operator: "equals", value: "page" },
+        description: "Only trigger for comments on this specific page"
+      }
+    ],
+    outputSchema: [
+      { name: "commentId", label: "Comment ID", type: "string", description: "The unique ID of the comment" },
+      { name: "parentId", label: "Parent ID", type: "string", description: "ID of the page or discussion" },
+      { name: "parentType", label: "Parent Type", type: "string", description: "Type of parent (page or discussion)" },
+      { name: "text", label: "Comment Text", type: "string", description: "The text content of the comment" },
+      { name: "createdBy", label: "Created By", type: "object", description: "User who created the comment" },
+      { name: "createdAt", label: "Created At", type: "string", description: "When the comment was created" },
+      { name: "discussionId", label: "Discussion ID", type: "string", description: "ID of the discussion thread (if applicable)" }
+    ]
+  },
+  {
+    type: "notion_trigger_database_item_created",
+    title: "New Database Item",
+    description: "Triggers when a new item (page) is created in a database",
+    icon: FilePlus,
+    providerId: "notion",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    webhookBased: true,
+    configSchema: [
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
+      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: true, dependsOn: "workspace" }
+    ],
+    outputSchema: [
+      { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the database item" },
+      { name: "databaseId", label: "Database ID", type: "string", description: "The unique ID of the database" },
+      { name: "title", label: "Title", type: "string", description: "The title of the database item" },
+      { name: "url", label: "URL", type: "string", description: "The URL of the database item" },
+      { name: "properties", label: "Properties", type: "object", description: "All properties of the database item" },
+      { name: "createdAt", label: "Created At", type: "string", description: "When the item was created" },
+      { name: "createdBy", label: "Created By", type: "object", description: "User who created the item" }
+    ]
+  },
+  {
+    type: "notion_trigger_database_item_updated",
+    title: "Database Item Updated",
+    description: "Triggers when a database item's properties or content are updated",
+    icon: Edit,
+    providerId: "notion",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    webhookBased: true,
+    configSchema: [
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
+      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: true, dependsOn: "workspace" },
+      {
+        name: "updateType",
+        label: "Update Type",
+        type: "select",
+        required: false,
+        options: [
+          { value: "any", label: "Any Update" },
+          { value: "properties", label: "Properties Only" },
+          { value: "content", label: "Content Only" }
+        ],
+        defaultValue: "any",
+        description: "Filter by type of update"
+      }
+    ],
+    outputSchema: [
+      { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the database item" },
+      { name: "databaseId", label: "Database ID", type: "string", description: "The unique ID of the database" },
+      { name: "title", label: "Title", type: "string", description: "The title of the database item" },
+      { name: "url", label: "URL", type: "string", description: "The URL of the database item" },
+      { name: "properties", label: "Properties", type: "object", description: "Current properties of the database item" },
+      { name: "changedProperties", label: "Changed Properties", type: "array", description: "List of property names that changed" },
+      { name: "contentUpdated", label: "Content Updated", type: "boolean", description: "Whether the content/blocks were updated" },
+      { name: "updatedAt", label: "Updated At", type: "string", description: "When the item was updated" },
+      { name: "updatedBy", label: "Updated By", type: "object", description: "User who updated the item" }
+    ]
+  },
+  {
+    type: "notion_trigger_page_content_updated",
+    title: "Page Content Updated",
+    description: "Triggers when a page's content (blocks) are updated",
+    icon: Edit,
+    providerId: "notion",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    webhookBased: true,
+    configSchema: [
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
+      { name: "page", label: "Page", type: "select", dynamic: "notion_pages", required: false, dependsOn: "workspace", description: "Leave empty to watch all pages" }
+    ],
+    outputSchema: [
+      { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
+      { name: "title", label: "Title", type: "string", description: "The title of the page" },
+      { name: "url", label: "URL", type: "string", description: "The URL of the page" },
+      { name: "updatedBlocks", label: "Updated Blocks", type: "array", description: "Blocks that were updated" },
+      { name: "updatedAt", label: "Updated At", type: "string", description: "When the content was updated" },
+      { name: "updatedBy", label: "Updated By", type: "object", description: "User who updated the content" }
+    ]
+  },
+  {
+    type: "notion_trigger_page_properties_updated",
+    title: "Page Properties Updated",
+    description: "Triggers when a page's properties are updated (excluding content)",
+    icon: Edit,
+    providerId: "notion",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    webhookBased: true,
+    configSchema: [
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
+      { name: "page", label: "Page", type: "select", dynamic: "notion_pages", required: false, dependsOn: "workspace", description: "Leave empty to watch all pages" },
+      {
+        name: "watchProperties",
+        label: "Watch Specific Properties",
+        type: "text",
+        required: false,
+        placeholder: "Status, Priority, Assignee",
+        description: "Comma-separated list of property names to watch. Leave empty to watch all properties.",
+        supportsAI: true
+      }
+    ],
+    outputSchema: [
+      { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
+      { name: "title", label: "Title", type: "string", description: "The title of the page" },
+      { name: "url", label: "URL", type: "string", description: "The URL of the page" },
+      { name: "properties", label: "Properties", type: "object", description: "Current properties of the page" },
+      { name: "changedProperties", label: "Changed Properties", type: "object", description: "Properties that were changed with old and new values" },
+      { name: "propertyNames", label: "Changed Property Names", type: "array", description: "Names of properties that changed" },
+      { name: "updatedAt", label: "Updated At", type: "string", description: "When the properties were updated" },
+      { name: "updatedBy", label: "Updated By", type: "object", description: "User who updated the properties" }
+    ]
+  },
+  {
+    type: "notion_trigger_database_schema_updated",
+    title: "Database Schema Updated",
+    description: "Triggers when a database's schema (properties) are updated",
+    icon: Database,
+    providerId: "notion",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    webhookBased: true,
+    configSchema: [
+      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
+      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: false, dependsOn: "workspace", description: "Leave empty to watch all databases" }
+    ],
+    outputSchema: [
+      { name: "databaseId", label: "Database ID", type: "string", description: "The unique ID of the database" },
+      { name: "title", label: "Database Title", type: "string", description: "The title of the database" },
+      { name: "url", label: "URL", type: "string", description: "The URL of the database" },
+      { name: "properties", label: "Properties", type: "object", description: "Current database schema properties" },
+      { name: "addedProperties", label: "Added Properties", type: "array", description: "Properties that were added" },
+      { name: "removedProperties", label: "Removed Properties", type: "array", description: "Properties that were removed" },
+      { name: "modifiedProperties", label: "Modified Properties", type: "array", description: "Properties that were modified" },
+      { name: "updatedAt", label: "Updated At", type: "string", description: "When the schema was updated" },
+      { name: "updatedBy", label: "Updated By", type: "object", description: "User who updated the schema" }
     ]
   },
 ]

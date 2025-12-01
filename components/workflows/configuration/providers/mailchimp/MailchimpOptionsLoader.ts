@@ -17,7 +17,13 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
     'campaign_id',
     'campaignId',
     'tag_id',
-    'tagId'
+    'tagId',
+    'tags',
+    'segment_id',
+    'segmentId',
+    'segments',
+    'subscriber_email',
+    'subscriberEmail'
   ];
 
   // Map field names to Mailchimp API data types
@@ -27,7 +33,13 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
     campaign_id: 'mailchimp_campaigns',
     campaignId: 'mailchimp_campaigns',
     tag_id: 'mailchimp_tags',
-    tagId: 'mailchimp_tags'
+    tagId: 'mailchimp_tags',
+    tags: 'mailchimp_tags',
+    segment_id: 'mailchimp_segments',
+    segmentId: 'mailchimp_segments',
+    segments: 'mailchimp_segments',
+    subscriber_email: 'mailchimp_subscribers',
+    subscriberEmail: 'mailchimp_subscribers'
   };
 
   canHandle(fieldName: string, providerId: string): boolean {
@@ -75,9 +87,15 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
           // Build options object for API request
           const options: Record<string, any> = {};
 
-          // Add audience parameter for dependent fields (tags, segments)
-          if ((fieldName === 'tag_id' || fieldName === 'tagId') && dependsOnValue) {
+          // Add audience parameter for dependent fields (tags, segments, subscribers)
+          if ((fieldName === 'tag_id' || fieldName === 'tagId' || fieldName === 'tags' ||
+               fieldName === 'segment_id' || fieldName === 'segmentId' || fieldName === 'segments') && dependsOnValue) {
             options.audienceId = dependsOnValue;
+          }
+
+          // Subscribers need audience_id (not audienceId) for backend compatibility
+          if ((fieldName === 'subscriber_email' || fieldName === 'subscriberEmail') && dependsOnValue) {
+            options.audience_id = dependsOnValue;
           }
 
           logger.debug(`📡 [Mailchimp] Loading ${dataType}:`, { integrationId, options });
@@ -101,25 +119,36 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
           const responseData = await response.json();
           const rawData = responseData.data || [];
 
-          // Transform data to FormattedOption format {value, label}
-          result = rawData.map((item: any) => {
-            // Determine label based on data type
-            let label = item.id;
+          // Subscribers handler already returns formatted data with value/label
+          if (dataType === 'mailchimp_subscribers') {
+            result = rawData; // Already formatted
+          } else {
+            // Transform data to FormattedOption format {value, label}
+            result = rawData.map((item: any) => {
+              // Determine label and value based on data type
+              let label = item.id;
+              let value = item.id;
 
-            if (dataType === 'mailchimp_campaigns') {
-              // Campaigns have nested settings with title or subject_line
-              label = item.settings?.title || item.settings?.subject_line || item.id;
-            } else {
-              // Audiences, tags, segments use 'name' field
-              label = item.name || item.title || item.id;
-            }
+              if (dataType === 'mailchimp_campaigns') {
+                // Campaigns have nested settings with title or subject_line
+                label = item.settings?.title || item.settings?.subject_line || item.id;
+              } else if (dataType === 'mailchimp_tags') {
+                // Tags use name as label, but value could be id (number) or name (string)
+                // For tags, we use name as the value for easier matching
+                label = item.name || String(item.id);
+                value = item.name || String(item.id);
+              } else {
+                // Audiences, segments use 'name' field
+                label = item.name || item.title || item.id;
+              }
 
-            return {
-              value: item.id,
-              label,
-              ...item // Include original data for reference
-            };
-          });
+              return {
+                value: String(value), // Ensure value is always a string
+                label,
+                ...item // Include original data for reference
+              };
+            });
+          }
 
           logger.debug(`✅ [Mailchimp] Loaded ${result.length} ${dataType}`);
 
@@ -153,6 +182,12 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
     switch (fieldName) {
       case 'tag_id':
       case 'tagId':
+      case 'tags':
+      case 'segment_id':
+      case 'segmentId':
+      case 'segments':
+      case 'subscriber_email':
+      case 'subscriberEmail':
         return ['audience_id', 'audienceId'];
       default:
         return [];

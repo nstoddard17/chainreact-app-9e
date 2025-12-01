@@ -340,6 +340,61 @@ async function executeNotionManageDatabaseInternal(
         return await updateResponse.json();
       }
 
+    case 'find_or_create_item':
+      // Import and use the find or create handler
+      const { notionFindOrCreateDatabaseItem } = await import('./handlers');
+
+      // Map config fields to handler expected format
+      const findOrCreateConfig = {
+        database_id: config.findOrCreateDatabase,
+        search_property: config.searchProperty,
+        search_value: config.searchValue,
+        create_if_not_found: config.createIfNotFound,
+        create_properties: config.createProperties || {}
+      };
+
+      const findOrCreateResult = await notionFindOrCreateDatabaseItem(findOrCreateConfig, context);
+
+      if (!findOrCreateResult.success) {
+        throw new Error(findOrCreateResult.message || 'Failed to find or create database item');
+      }
+
+      return findOrCreateResult.output;
+
+    case 'archive_item':
+      // Import and use the archive item handler
+      const { notionArchiveDatabaseItem } = await import('./handlers');
+
+      // Map config fields to handler expected format
+      const archiveConfig = {
+        item_id: config.itemToArchive
+      };
+
+      const archiveResult = await notionArchiveDatabaseItem(archiveConfig, context);
+
+      if (!archiveResult.success) {
+        throw new Error(archiveResult.message || 'Failed to archive database item');
+      }
+
+      return archiveResult.output;
+
+    case 'restore_item':
+      // Import and use the restore item handler
+      const { notionRestoreDatabaseItem } = await import('./handlers');
+
+      // Map config fields to handler expected format
+      const restoreConfig = {
+        item_id: config.itemToRestore
+      };
+
+      const restoreResult = await notionRestoreDatabaseItem(restoreConfig, context);
+
+      if (!restoreResult.success) {
+        throw new Error(restoreResult.message || 'Failed to restore database item');
+      }
+
+      return restoreResult.output;
+
     case 'sync':
       // Sync database entries (simplified version)
       // This would need more complex implementation based on sync direction
