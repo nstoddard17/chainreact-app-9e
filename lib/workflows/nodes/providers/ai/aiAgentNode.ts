@@ -43,34 +43,239 @@ export const aiAgentNode: NodeComponent = {
 
   configSchema: [
     // ========================================
-    // MAIN PROMPT - The agent figures out what to do
+    // ACTION TYPE - Pre-built templates like Zapier/Make
     // ========================================
     {
-      name: "prompt",
-      label: "What should the AI do?",
+      name: "actionType",
+      label: "What do you want the AI to do?",
+      type: "select",
+      required: true,
+      defaultValue: "respond",
+      options: [
+        { value: "respond", label: "✉️ Respond - Reply to emails, messages, or inquiries" },
+        { value: "extract", label: "📋 Extract Data - Pull specific information from text" },
+        { value: "summarize", label: "📝 Summarize - Create concise summaries" },
+        { value: "classify", label: "🏷️ Classify - Categorize, tag, or analyze sentiment" },
+        { value: "translate", label: "🌐 Translate - Convert to another language" },
+        { value: "generate", label: "✨ Generate - Create new content from scratch" },
+        { value: "custom", label: "🔧 Custom - Write your own prompt" }
+      ],
+      description: "Choose a task type for optimized results, or use Custom for full control"
+    },
+
+    // ========================================
+    // SMART PROMPT TEMPLATES (shown based on actionType)
+    // ========================================
+
+    // RESPOND - Email/Message reply
+    {
+      name: "respondInstructions",
+      label: "Response Instructions",
       type: "textarea",
       multiline: true,
-      rows: 16,
+      rows: 6,
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "respond" },
+      hasVariablePicker: true,
+      placeholder: `How should the AI respond? Examples:
+• "Be helpful and address their question directly"
+• "Acknowledge their concern and offer a solution"
+• "Thank them for their inquiry and provide next steps"`,
+      description: "Guide how the AI should respond to the incoming message"
+    },
+
+    // EXTRACT - Data extraction
+    {
+      name: "extractFields",
+      label: "What data should be extracted?",
+      type: "textarea",
+      multiline: true,
+      rows: 8,
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "extract" },
+      hasVariablePicker: true,
+      required: true,
+      placeholder: `List the fields to extract (one per line):
+name
+email
+phone
+order_number
+amount
+date
+
+Or describe what to look for:
+"Extract the customer's name, email address, and any order numbers mentioned"`,
+      description: "Specify the data fields you want the AI to extract"
+    },
+
+    // SUMMARIZE - Summarization
+    {
+      name: "summarizeFormat",
+      label: "Summary Format",
+      type: "select",
+      defaultValue: "bullets",
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "summarize" },
+      options: [
+        { value: "bullets", label: "Bullet points (3-5 key points)" },
+        { value: "paragraph", label: "Short paragraph (2-3 sentences)" },
+        { value: "oneliner", label: "One-line summary" },
+        { value: "detailed", label: "Detailed summary with sections" }
+      ],
+      description: "How the summary should be formatted"
+    },
+    {
+      name: "summarizeFocus",
+      label: "What to focus on (Optional)",
+      type: "text",
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "summarize" },
+      hasVariablePicker: true,
+      placeholder: "e.g., action items, key decisions, main topics",
+      description: "Optionally specify what aspects to emphasize"
+    },
+
+    // CLASSIFY - Classification/Sentiment
+    {
+      name: "classifyCategories",
+      label: "Categories",
+      type: "textarea",
+      multiline: true,
+      rows: 6,
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "classify" },
+      required: true,
+      placeholder: `List your categories (one per line):
+bug
+feature_request
+question
+feedback
+complaint
+
+Or use common presets like:
+"sentiment" for positive/negative/neutral
+"priority" for high/medium/low
+"urgency" for urgent/normal/low`,
+      description: "The categories the AI should classify into"
+    },
+    {
+      name: "classifyMultiple",
+      label: "Allow multiple categories?",
+      type: "select",
+      defaultValue: "single",
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "classify" },
+      options: [
+        { value: "single", label: "Single category only" },
+        { value: "multiple", label: "Can have multiple categories" }
+      ],
+      description: "Whether the input can belong to multiple categories"
+    },
+
+    // TRANSLATE - Translation
+    {
+      name: "translateTo",
+      label: "Translate to",
+      type: "select",
+      required: true,
+      defaultValue: "spanish",
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "translate" },
+      options: [
+        { value: "spanish", label: "Spanish" },
+        { value: "french", label: "French" },
+        { value: "german", label: "German" },
+        { value: "italian", label: "Italian" },
+        { value: "portuguese", label: "Portuguese" },
+        { value: "chinese", label: "Chinese (Simplified)" },
+        { value: "japanese", label: "Japanese" },
+        { value: "korean", label: "Korean" },
+        { value: "arabic", label: "Arabic" },
+        { value: "hindi", label: "Hindi" },
+        { value: "russian", label: "Russian" },
+        { value: "dutch", label: "Dutch" },
+        { value: "other", label: "Other (specify below)" }
+      ],
+      description: "Target language for translation"
+    },
+    {
+      name: "translateToCustom",
+      label: "Target Language",
+      type: "text",
+      dependsOn: "translateTo",
+      visibilityCondition: { field: "translateTo", operator: "equals", value: "other" },
+      required: true,
+      placeholder: "e.g., Swedish, Polish, Thai",
+      description: "Specify the target language"
+    },
+    {
+      name: "translatePreserve",
+      label: "Preserve formatting?",
+      type: "select",
+      defaultValue: "yes",
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "translate" },
+      options: [
+        { value: "yes", label: "Yes - Keep original formatting" },
+        { value: "no", label: "No - Plain text only" }
+      ],
+      description: "Whether to preserve markdown, HTML, or other formatting"
+    },
+
+    // GENERATE - Content generation
+    {
+      name: "generateType",
+      label: "What to generate",
+      type: "select",
+      required: true,
+      defaultValue: "email",
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "generate" },
+      options: [
+        { value: "email", label: "Email" },
+        { value: "message", label: "Chat message (Slack, Discord, etc.)" },
+        { value: "social", label: "Social media post" },
+        { value: "document", label: "Document or article" },
+        { value: "description", label: "Product/item description" },
+        { value: "other", label: "Other content" }
+      ],
+      description: "Type of content to generate"
+    },
+    {
+      name: "generateInstructions",
+      label: "Generation Instructions",
+      type: "textarea",
+      multiline: true,
+      rows: 6,
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "generate" },
+      hasVariablePicker: true,
+      required: true,
+      placeholder: `Describe what you want generated:
+• "Write a welcome email for new subscribers"
+• "Create a product description for {{trigger.product.name}}"
+• "Draft a meeting summary based on the notes"`,
+      description: "Detailed instructions for content generation"
+    },
+
+    // CUSTOM - Full prompt control (original behavior)
+    {
+      name: "prompt",
+      label: "Custom Prompt",
+      type: "textarea",
+      multiline: true,
+      rows: 12,
+      dependsOn: "actionType",
+      visibilityCondition: { field: "actionType", operator: "equals", value: "custom" },
       required: true,
       hasVariablePicker: true,
-      hasImproveButton: true, // Enable "Improve Prompt" button
-      placeholder: `Tell the AI what you want it to do. It will automatically figure out the rest!
-
-Examples:
+      hasImproveButton: true,
+      placeholder: `Write your complete prompt here. Examples:
 • "Summarize this article in 3 bullet points"
-• "Extract the customer name, email, and order number from {{trigger.email.body}}"
-• "Analyze the sentiment of this review and classify as positive, negative, or neutral"
-• "Translate {{trigger.message}} to Spanish"
-• "Generate a professional response to this customer inquiry"
-• "Classify this support ticket as bug, feature request, or question"
-• "Draft a follow-up email based on {{trigger.user.name}} and their purchase history"
-
-The AI will:
-✓ Summarize, extract, translate, or generate content as requested
-✓ Classify and analyze sentiment based on your prompt
-✓ Route to the best path if you have multiple outputs
-✓ Make intelligent decisions based on context`,
-      description: "Describe the task. The AI figures out if it needs to generate content, route, or both!"
+• "Extract the customer name and order number from {{trigger.email.body}}"
+• "Analyze sentiment and classify as positive, negative, or neutral"
+• "Generate a professional response to this customer inquiry"`,
+      description: "Full control over what the AI does"
     },
 
     // ========================================
@@ -157,7 +362,8 @@ john@acme.com`,
       type: "select",
       defaultValue: "best",
       dependsOn: "includeSignature",
-      visibilityCondition: { field: "includeSignature", operator: "notEquals", value: "none" },
+      // Only show for name_only and full - custom already includes the full signature
+      visibilityCondition: { field: "includeSignature", operator: "in", value: ["name_only", "full"] },
       options: [
         { value: "best", label: "Best regards," },
         { value: "thanks", label: "Thanks," },
@@ -327,24 +533,120 @@ The AI will structure its output accordingly.`,
 
   // ========================================
   // DYNAMIC OUTPUTS
-  // Agent automatically provides relevant outputs
+  // Agent automatically provides relevant outputs based on action type
   // ========================================
   outputSchema: [
-    // Always available
+    // ========================================
+    // UNIVERSAL OUTPUTS (always available)
+    // ========================================
     {
       name: "output",
       label: "Generated Content",
       type: "string",
-      description: "Main content generated by the AI (if applicable)"
+      description: "Main content generated by the AI"
     },
     {
       name: "data",
       label: "Structured Data",
       type: "object",
-      description: "Structured data extracted by the AI (if applicable)"
+      description: "All extracted/structured data as an object"
     },
 
-    // Routing outputs (when multiple paths exist)
+    // ========================================
+    // RESPOND ACTION OUTPUTS
+    // ========================================
+    {
+      name: "response",
+      label: "Response Text",
+      type: "string",
+      description: "The AI-generated response (for Respond action)"
+    },
+    {
+      name: "email_subject",
+      label: "Email Subject",
+      type: "string",
+      description: "Email subject line (auto-generates 'Re: ...' for replies)"
+    },
+    {
+      name: "email_body",
+      label: "Email Body",
+      type: "string",
+      description: "Email body content"
+    },
+
+    // ========================================
+    // EXTRACT ACTION OUTPUTS
+    // ========================================
+    {
+      name: "extracted",
+      label: "Extracted Data",
+      type: "object",
+      description: "All extracted fields as key-value pairs"
+    },
+
+    // ========================================
+    // SUMMARIZE ACTION OUTPUTS
+    // ========================================
+    {
+      name: "summary",
+      label: "Summary",
+      type: "string",
+      description: "The generated summary"
+    },
+
+    // ========================================
+    // CLASSIFY ACTION OUTPUTS
+    // ========================================
+    {
+      name: "category",
+      label: "Category",
+      type: "string",
+      description: "The primary classification category"
+    },
+    {
+      name: "categories",
+      label: "Categories",
+      type: "array",
+      description: "All matching categories (when multiple allowed)"
+    },
+    {
+      name: "sentiment",
+      label: "Sentiment",
+      type: "string",
+      description: "Detected sentiment (positive/negative/neutral)"
+    },
+    {
+      name: "confidence",
+      label: "Confidence Score",
+      type: "number",
+      description: "AI's confidence in the classification (0-1)"
+    },
+    {
+      name: "reasoning",
+      label: "Reasoning",
+      type: "string",
+      description: "Explanation for the classification"
+    },
+
+    // ========================================
+    // TRANSLATE ACTION OUTPUTS
+    // ========================================
+    {
+      name: "translation",
+      label: "Translation",
+      type: "string",
+      description: "The translated text"
+    },
+    {
+      name: "target_language",
+      label: "Target Language",
+      type: "string",
+      description: "The language translated to"
+    },
+
+    // ========================================
+    // ROUTING OUTPUTS (when multiple paths)
+    // ========================================
     {
       name: "selectedPath",
       label: "Selected Path",
@@ -355,22 +657,18 @@ The AI will structure its output accordingly.`,
       name: "decision",
       label: "Decision",
       type: "object",
-      description: "AI's decision with reasoning and confidence"
-    },
-    {
-      name: "confidence",
-      label: "Confidence Score",
-      type: "number",
-      description: "AI's confidence in its decision (0-1)"
-    },
-    {
-      name: "reasoning",
-      label: "Reasoning",
-      type: "string",
-      description: "AI's explanation for its decision"
+      description: "AI's routing decision with reasoning"
     },
 
-    // Metadata
+    // ========================================
+    // METADATA
+    // ========================================
+    {
+      name: "actionType",
+      label: "Action Type",
+      type: "string",
+      description: "The action type that was executed"
+    },
     {
       name: "tokensUsed",
       label: "Tokens Used",

@@ -951,11 +951,51 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
               .single()
 
             if (integration) {
+              // Get the stored historyId from when the watch was created
+              // Gmail history API returns changes AFTER the startHistoryId
+              // Using the notification's historyId would return nothing because that's WHERE the change is
+              // We need to use the STORED historyId from when we created the watch
+              // First try to find the trigger_resource for THIS specific test session
+              let triggerResource = null
+              const { data: testTriggerResource } = await supabase
+                .from('trigger_resources')
+                .select('config')
+                .eq('workflow_id', session.workflow_id)
+                .eq('trigger_type', 'gmail_trigger_new_email')
+                .eq('test_session_id', session.id)
+                .eq('status', 'active')
+                .maybeSingle()
+
+              if (testTriggerResource) {
+                triggerResource = testTriggerResource
+                logger.debug('[Gmail] Found trigger_resource for test session', { sessionId: session.id })
+              } else {
+                // Fallback: get most recent trigger_resource for this workflow
+                const { data: fallbackResource } = await supabase
+                  .from('trigger_resources')
+                  .select('config')
+                  .eq('workflow_id', session.workflow_id)
+                  .eq('trigger_type', 'gmail_trigger_new_email')
+                  .eq('status', 'active')
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                  .maybeSingle()
+                triggerResource = fallbackResource
+                logger.debug('[Gmail] Using fallback trigger_resource', { found: !!fallbackResource })
+              }
+
+              // Use stored historyId if available, otherwise fall back to notification's historyId
+              const storedHistoryId = triggerResource?.config?.resourceId
+              const historyIdToUse = storedHistoryId || event.eventData.historyId
+
               logInfo(executionSession.id, 'Gmail integration found, fetching email details', {
                 integrationId: integration.id,
-                historyId: event.eventData.historyId
+                notificationHistoryId: event.eventData.historyId,
+                storedHistoryId,
+                usingHistoryId: historyIdToUse
               })
-              emailDetails = await fetchGmailMessageDetails(integration, event.eventData.historyId, executionSession.id)
+
+              emailDetails = await fetchGmailMessageDetails(integration, historyIdToUse, executionSession.id)
 
               if (emailDetails) {
                 // SECURITY: Don't log email addresses or subject content (PII)

@@ -1,21 +1,28 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { checkRateLimit, RateLimitPresets } from '@/lib/utils/rate-limit'
 
 import { logger } from '@/lib/utils/logger'
 
-// Create a service role client to bypass RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
+// Lazily initialized Supabase admin client to avoid build-time errors
+let supabaseAdmin: SupabaseClient | null = null
+
+function getSupabaseAdmin(): SupabaseClient {
+  if (!supabaseAdmin) {
+    supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
   }
-)
+  return supabaseAdmin
+}
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 60 requests per minute (standard)
@@ -32,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use service role to bypass RLS
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await getSupabaseAdmin()
       .from('user_profiles')
       .select('username')
       .eq('username', username)

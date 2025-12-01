@@ -67,6 +67,7 @@ import { SetupTab, AdvancedTab, ResultsTab } from "./tabs"
 import { getProviderBrandName } from "@/lib/integrations/brandNames"
 import { StaticIntegrationLogo } from "@/components/ui/static-integration-logo"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { AIAgentConfigContent } from "./AIAgentConfigContent"
 
 import { logger } from '@/lib/utils/logger'
 

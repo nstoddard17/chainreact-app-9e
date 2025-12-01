@@ -744,7 +744,11 @@ function cleanAIOutput(text: string): string {
     .replace(/\[.*? Title\]/gi, '')
     .replace(/\[.*? Information\]/gi, '')
 
-    // Remove sign-off patterns at the end of messages
+    // Remove sign-off patterns at the end of messages (with or without names following)
+    // Pattern 1: Sign-off followed by name on same or next line(s) at end of text
+    // e.g., "Best,\nNathaniel", "Best regards,\n\nNathaniel Stoddard", "Best, Nathaniel"
+    .replace(/\n\n?(Best regards|Sincerely|Kind regards|Regards|Best|Thank you|Thanks|Cheers|Warm regards|With regards|Respectfully),?\s*\n*[A-Z][a-zA-Z]*(\s+[A-Z][a-zA-Z]*)*\s*$/i, '')
+    // Pattern 2: Sign-off without name at end
     .replace(/\n\n?(Best regards|Sincerely|Kind regards|Regards|Best|Thank you|Thanks|Cheers|Warm regards|With regards|Respectfully),?\s*\n?$/i, '')
     .replace(/\n\n?(Best regards|Sincerely|Kind regards|Regards|Best|Thank you|Thanks|Cheers|Warm regards|With regards|Respectfully),?\s*$/i, '')
 
