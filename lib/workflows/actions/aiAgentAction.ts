@@ -987,7 +987,7 @@ function buildEnhancedUserPrompt(
 
   // Add email context if this is a reply
   if (originalEmailSubject) {
-    prompt += `\nEMAIL CONTEXT:\nThis is a reply to an email with subject: "${originalEmailSubject}"\nWhen generating email content, the subject should be "Re: ${originalEmailSubject}"\n`
+    prompt += `\nEMAIL CONTEXT:\nThis is a reply to an email with subject: "${originalEmailSubject}"\nIMPORTANT: Do NOT include the subject line in your response - only write the email body content. The subject line will be handled separately.\n`
   }
 
   // Add input data - but make it more readable
@@ -1303,14 +1303,21 @@ function parseAutonomousResponse(
     }
   }
 
-  // Generate proper email subject for replies
+  // Generate proper email subject for replies and formatted output
   if (originalEmailSubject) {
     // Use "Re: original subject" format for email replies
     const replySubject = originalEmailSubject.toLowerCase().startsWith('re:')
       ? originalEmailSubject
       : `Re: ${originalEmailSubject}`
     result.data.email_subject = replySubject
+
+    // Create formatted_output with subject header for Discord/Slack/Teams
+    result.data.formatted_output = `**${replySubject}**\n\n${result.data.output}`
+
     logger.debug('[AI Agent] Email reply subject set', { email_subject: replySubject })
+  } else {
+    // No email context - formatted_output is same as output
+    result.data.formatted_output = result.data.output
   }
 
   // ========================================

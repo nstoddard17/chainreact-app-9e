@@ -552,13 +552,19 @@ The AI will structure its output accordingly.`,
     },
 
     // ========================================
-    // EMAIL-SPECIFIC OUTPUT
+    // EMAIL-SPECIFIC OUTPUTS
     // ========================================
     {
       name: "email_subject",
       label: "Email Subject",
       type: "string",
       description: "Auto-generated subject line with 'Re: ...' format for email replies (Respond action only)"
+    },
+    {
+      name: "formatted_output",
+      label: "Formatted Response",
+      type: "string",
+      description: "Full response with subject header - use for Discord/Slack/Teams where you want complete context"
     },
 
     // ========================================
