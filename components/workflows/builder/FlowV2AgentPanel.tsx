@@ -752,7 +752,6 @@ export function FlowV2AgentPanel({
   useEffect(() => {
     // Don't load options until we're actually configuring nodes (WAITING_USER state)
     if (buildMachine.state !== BuildState.WAITING_USER) {
-      console.log('[FlowV2AgentPanel] Skipping dynamic options load - not in WAITING_USER state')
       return
     }
 
@@ -764,11 +763,8 @@ export function FlowV2AgentPanel({
       const planNode = planNodes[currentNodeIndex]
       const connectionId = nodeConfigs[planNode.id]?.connection
 
-      console.log(`[FlowV2AgentPanel] Node ${planNode.id}: connectionId=${connectionId}, providerId=${planNode.providerId}, hasOptions=${!!nodesDynamicOptions[planNode.id]}`)
-
       // If connection is set and we haven't loaded options yet
       if (connectionId && planNode.providerId && !nodesDynamicOptions[planNode.id]) {
-        console.log(`[FlowV2AgentPanel] ✅ Loading dynamic options for ${planNode.id}`)
         loadDynamicOptionsForNode(planNode.id, planNode.nodeType, planNode.providerId, connectionId)
       }
     }

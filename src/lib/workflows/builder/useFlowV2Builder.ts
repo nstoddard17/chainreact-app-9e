@@ -677,9 +677,22 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     if (!flowId) return
 
     try {
-      const payload = await fetchJson<{ run: { id: string } | null }>(
-        `${flowApiUrl(flowId, '/runs/latest')}`
-      )
+      // Use direct fetch instead of fetchJson to handle 404 gracefully
+      // (404 is expected for workflows that haven't been run yet)
+      const response = await fetch(`${flowApiUrl(flowId, '/runs/latest')}`, {
+        credentials: "include",
+      })
+
+      // 404 is expected for new workflows with no runs - silently return
+      if (response.status === 404) {
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status})`)
+      }
+
+      const payload = await response.json() as { run: { id: string } | null }
 
       if (payload?.run?.id) {
         setFlowState((prev) => ({
@@ -688,6 +701,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         }))
       }
     } catch (error) {
+      // Only log non-404 errors (404 is handled above)
       console.debug("[useFlowV2Builder] Unable to fetch latest run", error)
     }
   }, [flowId])

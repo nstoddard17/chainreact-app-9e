@@ -890,54 +890,14 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
             continue
           }
 
-          // Create execution session using the advanced execution engine
-          const executionEngine = new AdvancedExecutionEngine()
-          const executionSession = await executionEngine.createExecutionSession(
-            workflow.id,
-            userId, // Use the userId from session (more reliable)
-            'webhook',
-            {
-              inputData: {
-                provider: 'gmail',
-                emailAddress: event.eventData.emailAddress,
-                historyId: event.eventData.historyId,
-                timestamp: new Date().toISOString()
-              },
-              webhookEvent: {
-                provider: 'gmail',
-                event: event.eventData
-              }
-            }
-          )
-
-          // Log to backend logger for debug modal
-          logInfo(executionSession.id, 'Gmail webhook received - creating execution session', {
-            sessionId: session.id,
-            executionId: executionSession.id,
-            workflow: workflow.name,
-            emailAddress: event.eventData.emailAddress
-          })
-
-          // Update test session to executing
-          // Note: execution_id references executions table, not workflow_execution_sessions
-          // Just update status for now to mark the test session as active
-          const { error: updateError } = await supabase
-            .from('workflow_test_sessions')
-            .update({
-              status: 'executing'
-            })
-            .eq('id', session.id)
-
-          if (updateError) {
-            logger.error('[Gmail] Failed to update test session status:', updateError)
-          } else {
-            logger.debug('[Gmail] Updated test session status to executing', { sessionId: session.id })
-          }
+          // For test sessions, DON'T execute the workflow here.
+          // Instead, just fetch email details and store trigger data.
+          // The frontend will call /api/workflows/execute-stream for real-time SSE updates.
 
           // Get email details first for proper context
           let emailDetails = null
           try {
-            logInfo(executionSession.id, 'Fetching Gmail integration for test session', {
+            logger.debug('[Gmail] Fetching Gmail integration for test session', {
               userId,
               provider: 'gmail'
             })
@@ -952,10 +912,6 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
             if (integration) {
               // Get the stored historyId from when the watch was created
-              // Gmail history API returns changes AFTER the startHistoryId
-              // Using the notification's historyId would return nothing because that's WHERE the change is
-              // We need to use the STORED historyId from when we created the watch
-              // First try to find the trigger_resource for THIS specific test session
               let triggerResource = null
               const { data: testTriggerResource } = await supabase
                 .from('trigger_resources')
@@ -988,74 +944,79 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
               const storedHistoryId = triggerResource?.config?.resourceId
               const historyIdToUse = storedHistoryId || event.eventData.historyId
 
-              logInfo(executionSession.id, 'Gmail integration found, fetching email details', {
-                integrationId: integration.id,
+              logger.debug('[Gmail] Fetching email details', {
                 notificationHistoryId: event.eventData.historyId,
                 storedHistoryId,
                 usingHistoryId: historyIdToUse
               })
 
-              emailDetails = await fetchGmailMessageDetails(integration, historyIdToUse, executionSession.id)
+              emailDetails = await fetchGmailMessageDetails(integration, historyIdToUse)
 
               if (emailDetails) {
-                // SECURITY: Don't log email addresses or subject content (PII)
-                logSuccess(executionSession.id, 'Email details fetched successfully', {
+                logger.debug('[Gmail] Email details fetched successfully', {
                   hasFrom: !!emailDetails.from,
                   subjectLength: emailDetails.subject?.length || 0,
                   hasAttachments: emailDetails.hasAttachments
                 })
               } else {
-                logWarning(executionSession.id, 'No email details could be fetched')
+                logger.debug('[Gmail] No email details could be fetched')
               }
             } else {
-              logWarning(executionSession.id, 'No connected Gmail integration found for user', { userId })
+              logger.debug('[Gmail] No connected Gmail integration found for user', { userId })
             }
           } catch (err: any) {
             const errorMessage = err?.message || 'Unknown error'
             logger.debug('[Gmail] Could not fetch email details:', err)
-            logError(executionSession.id, 'Failed to fetch email details for test session', {
-              error: errorMessage,
-              stack: err?.stack
-            })
           }
 
-          // Start workflow execution with full context
-          // Pass the workflow object directly to avoid fetching from DB (which has 0 nodes for unsaved workflows)
-          // IMPORTANT: Flatten trigger structure so {{trigger.from}}, {{trigger.subject}}, {{trigger.body}} work directly
+          // Build flattened trigger data for variable resolution
           const flattenedEmailData = emailDetails || {
             from: event.eventData.emailAddress,
             subject: 'New Email',
             body: '',
-            content: ''
+            content: '',
+            to: '',
+            date: new Date().toISOString(),
+            hasAttachments: false
           }
-          await executionEngine.executeWorkflowAdvanced(executionSession.id, {
+
+          // Build trigger data to store in the test session
+          const triggerData = {
             provider: 'gmail',
             emailAddress: event.eventData.emailAddress,
             historyId: event.eventData.historyId,
             timestamp: new Date().toISOString(),
-            // Flatten trigger data for easy variable resolution: {{trigger.from}}, {{trigger.subject}}, {{trigger.body}}
             trigger: {
               type: 'gmail_trigger_new_email',
-              // Spread email fields directly on trigger for {{trigger.from}}, {{trigger.subject}}, {{trigger.body}}
               from: flattenedEmailData.from,
               subject: flattenedEmailData.subject,
               body: flattenedEmailData.body || flattenedEmailData.content || '',
               to: flattenedEmailData.to,
               date: flattenedEmailData.date,
               hasAttachments: flattenedEmailData.hasAttachments,
-              // Keep data for backward compatibility
               data: flattenedEmailData
             },
             emailDetails: emailDetails
-          }, {
-            workflow: workflow // Pass workflow from test_mode_config to avoid DB fetch
-          })
+          }
 
-          logger.debug('[Gmail] Workflow execution started for test session', {
-            sessionId: session.id,
-            workflowId: workflow.id,
-            executionId: executionSession.id
-          })
+          // Store trigger data in test session - frontend will handle execution via SSE
+          const { error: updateError } = await supabase
+            .from('workflow_test_sessions')
+            .update({
+              status: 'trigger_received',
+              trigger_data: triggerData
+            })
+            .eq('id', session.id)
+
+          if (updateError) {
+            logger.error('[Gmail] Failed to update test session with trigger data:', updateError)
+          } else {
+            logger.debug('[Gmail] Trigger data stored in test session (execution deferred to frontend SSE)', {
+              sessionId: session.id,
+              workflowId: workflow.id,
+              hasEmailDetails: !!emailDetails
+            })
+          }
 
         } catch (workflowError) {
           logger.error(`[Gmail] Failed to execute workflow for test session ${session.id}:`, workflowError)

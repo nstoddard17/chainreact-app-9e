@@ -460,49 +460,8 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
         hasAttachments: false
       }
 
-      // Create execution session using the advanced execution engine
-      const executionEngine = new AdvancedExecutionEngine()
-      const executionSession = await executionEngine.createExecutionSession(
-        workflowId,
-        userId,
-        'webhook',
-        {
-          inputData: {
-            provider: 'gmail',
-            emailAddress: eventData.emailAddress,
-            historyId: eventData.historyId,
-            timestamp: new Date().toISOString(),
-            trigger: {
-              type: 'gmail_trigger_new_email',
-              from: flattenedEmailData.from,
-              subject: flattenedEmailData.subject,
-              body: flattenedEmailData.body,
-              to: flattenedEmailData.to,
-              date: flattenedEmailData.date,
-              hasAttachments: flattenedEmailData.hasAttachments,
-              data: flattenedEmailData
-            },
-            emailDetails
-          },
-          webhookEvent: {
-            provider: 'gmail',
-            metadata,
-            event: eventData
-          }
-        }
-      )
-
-      // Update test session to executing
-      await supabase
-        .from('workflow_test_sessions')
-        .update({
-          status: 'executing',
-          execution_id: executionSession.id
-        })
-        .eq('id', session.id)
-
-      // Start workflow execution with full email context
-      await executionEngine.executeWorkflowAdvanced(executionSession.id, {
+      // Build the trigger data that will be passed to the workflow
+      const triggerData = {
         provider: 'gmail',
         emailAddress: eventData.emailAddress,
         historyId: eventData.historyId,
@@ -518,12 +477,23 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
           data: flattenedEmailData
         },
         emailDetails
-      })
+      }
 
-      logger.debug('[Gmail] Workflow execution started', {
+      // For test sessions, DON'T execute the workflow here.
+      // Instead, just store the trigger data and let the frontend handle execution
+      // via the SSE endpoint for real-time updates.
+      // Update test session with trigger data (status='trigger_received')
+      await supabase
+        .from('workflow_test_sessions')
+        .update({
+          status: 'trigger_received',
+          trigger_data: triggerData
+        })
+        .eq('id', session.id)
+
+      logger.debug('[Gmail] Test session trigger data stored (execution deferred to frontend SSE)', {
         sessionId: session.id,
         workflowId,
-        executionId: executionSession.id,
         hasEmailDetails: !!emailDetails
       })
 

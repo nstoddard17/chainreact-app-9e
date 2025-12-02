@@ -22,19 +22,12 @@ interface PhantomEdgeOverlayProps {
 export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps) {
   const lastNodeInfo = useMemo(() => {
     if (!nodes || nodes.length === 0) {
-      console.log('[PhantomEdgeOverlay] No nodes found')
       return null
     }
 
     // Sort nodes by Y position to find the last one
     const sortedNodes = [...nodes].sort((a, b) => a.position.y - b.position.y)
     const lastNode = sortedNodes[sortedNodes.length - 1]
-
-    console.log('[PhantomEdgeOverlay] Last node:', {
-      id: lastNode.id,
-      type: lastNode.type,
-      position: lastNode.position
-    })
 
     const widthCandidates = [
       lastNode.width,
@@ -65,7 +58,6 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
   }, [nodes])
 
   if (!lastNodeInfo) {
-    console.log('[PhantomEdgeOverlay] Not rendering - no last node info')
     return null
   }
 
@@ -75,14 +67,6 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
   const lineLength = Math.max(verticalSpacing, 0)
   const buttonY = lineStartY + lineLength
   const centerX = lastNodeInfo.x + lastNodeInfo.width / 2
-
-  console.log('[PhantomEdgeOverlay] Rendering:', {
-    nodePos: lastNodeInfo,
-    centerX,
-    lineStartY,
-    buttonY,
-    lineLength
-  })
 
   return (
     <>

@@ -233,13 +233,23 @@ export async function POST(request: NextRequest) {
         const elapsed = Math.round((Date.now() - startTime) / 1000)
         console.log(`🧪 [test-trigger] Poll #${pollCount} (${elapsed}s elapsed)`)
 
-        // PRIORITY 1: Check if test session status changed to 'executing' (set by Gmail/webhook processors)
+        // PRIORITY 1: Check if test session has received trigger data
+        // The webhook processor stores trigger_data and sets status='trigger_received'
+        // We return this to the frontend so it can execute via SSE for real-time updates
         const { data: testSession } = await supabase
           .from('workflow_test_sessions')
-          .select('status, execution_id')
+          .select('status, execution_id, trigger_data')
           .eq('id', testSessionId)
           .maybeSingle()
 
+        if (testSession?.status === 'trigger_received' && testSession?.trigger_data) {
+          console.log('🧪 [test-trigger] ✅ Trigger data received!')
+          eventData = testSession.trigger_data
+          logger.debug(`✅ Trigger event received via test session!`, { eventData })
+          break
+        }
+
+        // Also check for legacy 'executing' status (for backwards compatibility)
         if (testSession?.status === 'executing' && testSession?.execution_id) {
           console.log('🧪 [test-trigger] ✅ Test session is executing!', { executionId: testSession.execution_id })
           executionId = testSession.execution_id
@@ -366,6 +376,7 @@ export async function POST(request: NextRequest) {
           success: true,
           eventReceived: true,
           data: eventData,
+          testSessionId, // Return session ID so frontend can track/cleanup
           message: "Trigger event received successfully"
         })
       } else {
@@ -412,6 +423,67 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('🧪 [test-trigger] ❌ Top-level error:', error)
     logger.error("Test trigger error:", error)
+    return errorResponse(error.message || "Internal server error", 500)
+  }
+}
+
+/**
+ * DELETE handler - Stop a running test and deactivate webhooks
+ *
+ * Called when:
+ * 1. User clicks "Stop" button during test
+ * 2. Workflow execution completes via SSE
+ */
+export async function DELETE(request: NextRequest) {
+  console.log('🧪 [test-trigger] DELETE request received')
+
+  const supabase = await createSupabaseRouteHandlerClient()
+
+  try {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return errorResponse("Not authenticated", 401)
+    }
+
+    const body = await request.json()
+    const { workflowId, testSessionId } = body
+
+    console.log('🧪 [test-trigger] DELETE request:', { workflowId, testSessionId })
+
+    if (!workflowId || !testSessionId) {
+      return errorResponse("Workflow ID and Test Session ID are required", 400)
+    }
+
+    // Import trigger lifecycle manager
+    const { triggerLifecycleManager: triggerManager } = await import('@/lib/triggers')
+
+    // Deactivate test trigger
+    console.log('🧪 [test-trigger] Deactivating test trigger via DELETE...')
+    await triggerManager.deactivateWorkflowTriggers(workflowId, user.id, testSessionId)
+    console.log('🧪 [test-trigger] 🛑 Test trigger deactivated via DELETE')
+
+    // Update test session status
+    await supabase
+      .from('workflow_test_sessions')
+      .update({
+        status: 'cancelled',
+        ended_at: new Date().toISOString(),
+      })
+      .eq('id', testSessionId)
+      .eq('user_id', user.id)
+
+    return jsonResponse({
+      success: true,
+      message: "Test stopped and webhook deactivated"
+    })
+
+  } catch (error: any) {
+    console.error('🧪 [test-trigger] ❌ DELETE error:', error)
+    logger.error("Test trigger DELETE error:", error)
     return errorResponse(error.message || "Internal server error", 500)
   }
 }
