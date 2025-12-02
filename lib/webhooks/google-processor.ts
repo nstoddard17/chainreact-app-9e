@@ -1,6 +1,8 @@
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { queueWebhookTask } from '@/lib/webhooks/task-queue'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
+import { google } from 'googleapis'
+import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -262,9 +264,12 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
   const supabase = await createSupabaseServiceClient()
 
   // Find active test sessions for Gmail triggers
+  // Use LEFT join (no !inner) so we can also find test sessions for UNSAVED workflows
+  // Unsaved workflows won't have a record in the workflows table, but they store
+  // workflow data in test_mode_config
   const { data: testSessions, error: sessionError } = await supabase
     .from('workflow_test_sessions')
-    .select('*, workflows!inner(id, user_id, nodes, connections, name)')
+    .select('*, workflows(id, user_id, nodes, connections, name)')
     .eq('trigger_type', 'gmail_trigger_new_email')
     .in('status', ['listening'])
 
@@ -284,27 +289,200 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
   // Process each test session
   for (const session of testSessions) {
     try {
-      const workflow = session.workflows
-      if (!workflow) continue
+      // For SAVED workflows, use the joined workflows data
+      // For UNSAVED workflows, use test_mode_config which contains the workflow data
+      const savedWorkflow = session.workflows
+      const testModeConfig = session.test_mode_config as any
+
+      // Determine workflow data source
+      let workflowId: string
+      let userId: string
+      let workflowNodes: any[]
+      let workflowConnections: any[]
+      let workflowName: string
+
+      if (savedWorkflow) {
+        // Saved workflow - use database data
+        workflowId = savedWorkflow.id
+        userId = savedWorkflow.user_id
+        workflowNodes = savedWorkflow.nodes || []
+        workflowConnections = savedWorkflow.connections || []
+        workflowName = savedWorkflow.name
+        logger.debug('[Gmail] Using saved workflow data', { workflowId, workflowName })
+      } else if (testModeConfig?.nodes && testModeConfig?.triggerNode) {
+        // Unsaved workflow - use test_mode_config
+        workflowId = session.workflow_id
+        userId = session.user_id
+        workflowNodes = testModeConfig.nodes
+        workflowConnections = testModeConfig.connections || []
+        workflowName = testModeConfig.workflowName || 'Unsaved Workflow'
+        logger.debug('[Gmail] Using unsaved workflow data from test_mode_config', {
+          workflowId,
+          workflowName,
+          nodeCount: workflowNodes.length
+        })
+      } else {
+        logger.warn(`[Gmail] No workflow data available for test session ${session.id}`)
+        continue
+      }
 
       logger.debug('[Gmail] Starting workflow execution for test session', {
         sessionId: session.id,
-        workflowId: workflow.id,
-        workflowName: workflow.name
+        workflowId,
+        workflowName,
+        isUnsavedWorkflow: !savedWorkflow
       })
+
+      // Fetch actual email content before executing workflow
+      let emailDetails = null
+      try {
+        const accessToken = await getDecryptedAccessToken(userId, 'gmail')
+        if (accessToken) {
+          // Get the stored historyId from when the watch was created
+          // Gmail history API returns changes AFTER the startHistoryId
+          let triggerResource = null
+          const { data: testTriggerResource } = await supabase
+            .from('trigger_resources')
+            .select('config')
+            .eq('workflow_id', workflowId)
+            .eq('trigger_type', 'gmail_trigger_new_email')
+            .eq('test_session_id', session.id)
+            .eq('status', 'active')
+            .maybeSingle()
+
+          if (testTriggerResource) {
+            triggerResource = testTriggerResource
+          } else {
+            // Fallback: get most recent trigger_resource
+            const { data: fallbackResource } = await supabase
+              .from('trigger_resources')
+              .select('config')
+              .eq('workflow_id', workflowId)
+              .eq('trigger_type', 'gmail_trigger_new_email')
+              .eq('status', 'active')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            triggerResource = fallbackResource
+          }
+
+          const storedHistoryId = triggerResource?.config?.resourceId
+          const historyIdToUse = storedHistoryId || eventData.historyId
+
+          logger.debug('[Gmail] Fetching email details', {
+            storedHistoryId,
+            notificationHistoryId: eventData.historyId,
+            usingHistoryId: historyIdToUse
+          })
+
+          const oauth2Client = new google.auth.OAuth2()
+          oauth2Client.setCredentials({ access_token: accessToken })
+          const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
+
+          // Fetch history to find new messages
+          const history = await gmail.users.history.list({
+            userId: 'me',
+            historyTypes: ['messageAdded'],
+            startHistoryId: String(historyIdToUse)
+          })
+
+          if (history.data.history && history.data.history.length > 0) {
+            const messageId = history.data.history
+              ?.flatMap(entry => entry.messagesAdded || entry.messages || [])
+              ?.map(entry => (entry as any).message || entry)
+              ?.find((msg: any) => msg?.id)?.id
+
+            if (messageId) {
+              const message = await gmail.users.messages.get({
+                userId: 'me',
+                id: messageId,
+                format: 'full'
+              })
+
+              const headers = message.data.payload?.headers || []
+              emailDetails = {
+                id: message.data.id,
+                messageId: message.data.id,
+                threadId: message.data.threadId,
+                labelIds: message.data.labelIds,
+                snippet: message.data.snippet,
+                from: '',
+                to: '',
+                subject: '',
+                date: '',
+                body: '',
+                hasAttachments: false
+              }
+
+              headers.forEach((header: any) => {
+                const name = header.name.toLowerCase()
+                if (name === 'from') emailDetails!.from = header.value
+                if (name === 'to') emailDetails!.to = header.value
+                if (name === 'subject') emailDetails!.subject = header.value
+                if (name === 'date') emailDetails!.date = header.value
+              })
+
+              // Extract body
+              let body = ''
+              if (message.data.payload?.parts) {
+                for (const part of message.data.payload.parts) {
+                  if (part.mimeType === 'text/plain' && part.body?.data) {
+                    body += Buffer.from(part.body.data, 'base64').toString('utf-8')
+                  }
+                }
+                emailDetails.hasAttachments = message.data.payload.parts.some(
+                  (part: any) => part.filename && part.filename.length > 0
+                )
+              } else if (message.data.payload?.body?.data) {
+                body = Buffer.from(message.data.payload.body.data, 'base64').toString('utf-8')
+              }
+              emailDetails.body = body
+
+              logger.debug('[Gmail] Email details fetched successfully', {
+                hasFrom: !!emailDetails.from,
+                subjectLength: emailDetails.subject?.length || 0,
+                bodyLength: emailDetails.body?.length || 0
+              })
+            }
+          }
+        }
+      } catch (fetchError) {
+        logger.error('[Gmail] Failed to fetch email details:', fetchError)
+      }
+
+      // Build flattened trigger data for variable resolution
+      const flattenedEmailData = emailDetails || {
+        from: eventData.emailAddress,
+        subject: 'New Email',
+        body: '',
+        to: '',
+        date: new Date().toISOString(),
+        hasAttachments: false
+      }
 
       // Create execution session using the advanced execution engine
       const executionEngine = new AdvancedExecutionEngine()
       const executionSession = await executionEngine.createExecutionSession(
-        workflow.id,
-        workflow.user_id,
+        workflowId,
+        userId,
         'webhook',
         {
           inputData: {
             provider: 'gmail',
             emailAddress: eventData.emailAddress,
             historyId: eventData.historyId,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            trigger: {
+              type: 'gmail_trigger_new_email',
+              from: flattenedEmailData.from,
+              subject: flattenedEmailData.subject,
+              body: flattenedEmailData.body,
+              to: flattenedEmailData.to,
+              date: flattenedEmailData.date,
+              hasAttachments: flattenedEmailData.hasAttachments,
+              data: flattenedEmailData
+            },
+            emailDetails
           },
           webhookEvent: {
             provider: 'gmail',
@@ -323,18 +501,30 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
         })
         .eq('id', session.id)
 
-      // Start workflow execution
+      // Start workflow execution with full email context
       await executionEngine.executeWorkflowAdvanced(executionSession.id, {
         provider: 'gmail',
         emailAddress: eventData.emailAddress,
         historyId: eventData.historyId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        trigger: {
+          type: 'gmail_trigger_new_email',
+          from: flattenedEmailData.from,
+          subject: flattenedEmailData.subject,
+          body: flattenedEmailData.body,
+          to: flattenedEmailData.to,
+          date: flattenedEmailData.date,
+          hasAttachments: flattenedEmailData.hasAttachments,
+          data: flattenedEmailData
+        },
+        emailDetails
       })
 
       logger.debug('[Gmail] Workflow execution started', {
         sessionId: session.id,
-        workflowId: workflow.id,
-        executionId: executionSession.id
+        workflowId,
+        executionId: executionSession.id,
+        hasEmailDetails: !!emailDetails
       })
 
     } catch (workflowError) {

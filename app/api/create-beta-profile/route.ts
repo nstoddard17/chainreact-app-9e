@@ -1,20 +1,27 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 
 import { logger } from '@/lib/utils/logger'
 
-// Create a service role client to bypass RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
+// Lazily initialized Supabase admin client to avoid build-time errors
+let supabaseAdmin: SupabaseClient | null = null
+
+function getSupabaseAdmin(): SupabaseClient {
+  if (!supabaseAdmin) {
+    supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
   }
-)
+  return supabaseAdmin
+}
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +32,7 @@ export async function POST(request: Request) {
     }
 
     // First check if profile already exists
-    const { data: existingProfile } = await supabaseAdmin
+    const { data: existingProfile } = await getSupabaseAdmin()
       .from('user_profiles')
       .select('id')
       .eq('id', userId)
@@ -35,7 +42,7 @@ export async function POST(request: Request) {
 
     if (existingProfile) {
       // Update existing profile
-      profileResult = await supabaseAdmin
+      profileResult = await getSupabaseAdmin()
         .from('user_profiles')
         .update({
           username: username.toLowerCase().trim(),
@@ -48,7 +55,7 @@ export async function POST(request: Request) {
         .single()
     } else {
       // Create new profile
-      profileResult = await supabaseAdmin
+      profileResult = await getSupabaseAdmin()
         .from('user_profiles')
         .insert({
           id: userId,
@@ -71,7 +78,7 @@ export async function POST(request: Request) {
     // Update beta tester status to converted (if they exist and haven't already converted)
     if (email) {
       try {
-        const { error } = await supabaseAdmin
+        const { error } = await getSupabaseAdmin()
           .from('beta_testers')
           .update({
             status: 'converted',

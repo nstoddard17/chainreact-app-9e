@@ -1,4 +1,4 @@
-import { supabase } from "@/utils/supabaseClient"
+import { createClient } from "@/utils/supabaseClient"
 import { apiClient } from "@/lib/apiClient"
 
 import { logger } from '@/lib/utils/logger'
@@ -244,6 +244,7 @@ class GlobalDataPreloader {
 
   async validateUserAccess(): Promise<boolean> {
     try {
+      const supabase = createClient()
       const { data: user } = await supabase.auth.getUser()
       return !!user.user
     } catch (error) {
