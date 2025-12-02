@@ -240,6 +240,20 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   // Load options for a dynamic field with request deduplication
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean, extraOptions?: Record<string, any>) => {
 
+    // COMPREHENSIVE LOGGING for workspace and page fields
+    if ((fieldName === 'workspace' || fieldName === 'page') && providerId === 'notion') {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`🔵 [loadOptions] Called for: ${fieldName}`);
+      console.log(`   Provider: ${providerId}`);
+      console.log(`   Node Type: ${nodeType}`);
+      console.log(`   Force Refresh: ${forceRefresh}`);
+      console.log(`   Depends On: ${dependsOn || 'none'}`);
+      console.log(`   Depends On Value: ${dependsOnValue || 'none'}`);
+      console.log(`   Stack trace:`);
+      console.log(new Error().stack);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
+
     logger.debug(`🔵 [useDynamicOptions] loadOptions called`, {
       fieldName,
       nodeType,
@@ -2336,9 +2350,19 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     
   }, [nodeType, providerId]);
 
+  // Track if we've already preloaded to prevent React 18 Strict Mode double-mount
+  const hasPreloadedRef = useRef(false);
+
   // Preload independent fields when modal opens
   useEffect(() => {
     if (!nodeType || !providerId) return;
+
+    // Prevent duplicate preload in React 18 Strict Mode (double-mount)
+    if (hasPreloadedRef.current) {
+      logger.debug('⏭️ [useDynamicOptions] Skipping preload - already loaded');
+      return;
+    }
+    hasPreloadedRef.current = true;
 
     // Preload fields that don't depend on other fields
     // Note: Exclude email fields (like 'email') since they should load on-demand only

@@ -195,13 +195,15 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
       logger.debug('🔄 [NotionConfig] Loading workspaces for:', nodeInfo?.type);
       logger.debug('  Current dynamic options:', props.dynamicOptions);
       logger.debug('  Loading fields:', loadingFields);
-      
+
       // Only load if not already loading and we don't have options yet
       if (!loadingFields.has('workspace') && !props.dynamicOptions['workspace']?.length) {
         logger.debug('  ✅ Loading workspaces...');
         setIsLoadingWorkspace(true);
         try {
-          await loadOptions('workspace', undefined, undefined, true);
+          // FIXED: Changed forceRefresh from true to false to enable request deduplication
+          // Workspaces rarely change, so caching is safe and prevents duplicate loads
+          await loadOptions('workspace', undefined, undefined, false);
         } catch (error) {
           logger.error('  ❌ Failed to load workspaces:', error);
         } finally {
@@ -214,7 +216,7 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
         });
       }
     };
-    
+
     loadWorkspaces();
   }, []); // Only run once on mount
   

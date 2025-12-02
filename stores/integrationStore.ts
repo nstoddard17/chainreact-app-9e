@@ -66,6 +66,8 @@ export interface IntegrationStore {
   workspaceId: string | null
   // Workspace cache key to prevent stale promise returns
   lastWorkspaceKey: string | null
+  // Track when configuration modal is open to suppress background refreshes
+  isConfigurationModalOpen: boolean
 
   // Actions
   setLoading: (key: string, loading: boolean) => void
@@ -97,6 +99,7 @@ export interface IntegrationStore {
   deleteIntegration: (integrationId: string) => Promise<void>
   setCurrentUserId: (userId: string | null) => void
   setWorkspaceContext: (workspaceType: 'personal' | 'team' | 'organization', workspaceId?: string | null) => void
+  setConfigurationModalOpen: (isOpen: boolean) => void
   checkIntegrationScopes: (providerId: string) => { needsReconnection: boolean; reason: string; missingScopes?: string[] }
 }
 
@@ -171,6 +174,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
     workspaceType: 'personal',
     workspaceId: null,
     lastWorkspaceKey: null,
+    isConfigurationModalOpen: false,
 
     setCurrentUserId: (userId: string | null) => {
       const currentUserId = get().currentUserId
@@ -206,6 +210,16 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       // DON'T auto-fetch here - let the caller decide when to fetch
       // This prevents infinite loops when called from AppContext
+    },
+
+    setConfigurationModalOpen: (isOpen: boolean) => {
+      set((state) => {
+        if (state.isConfigurationModalOpen === isOpen) {
+          return state
+        }
+        logger.debug('[IntegrationStore] Configuration modal visibility changed:', { isOpen })
+        return { isConfigurationModalOpen: isOpen }
+      })
     },
 
     setLoading: (key: string, loading: boolean) => {
@@ -276,7 +290,12 @@ export const useIntegrationStore = create<IntegrationStore>()(
     fetchIntegrations: async (force = false, workspaceType?: 'personal' | 'team' | 'organization', workspaceId?: string) => {
       const fetchStartTime = Date.now()
 
-        const { setLoading, currentUserId, integrations, lastFetchTime } = get()
+        const { setLoading, currentUserId, integrations, lastFetchTime, isConfigurationModalOpen } = get()
+
+        if (!force && isConfigurationModalOpen) {
+          logger.debug('[IntegrationStore] Skipping integration refresh - configuration modal open')
+          return
+        }
 
         // Use provided workspace context or fallback to store state
         const currentState = get()

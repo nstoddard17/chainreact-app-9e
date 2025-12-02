@@ -24,6 +24,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "select",
         dynamic: "notion_workspaces",
         required: true,
+        loadOnMount: true,
         placeholder: "Select Notion workspace"
       },
       {
@@ -160,6 +161,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "select",
         dynamic: "notion_workspaces",
         required: true,
+        loadOnMount: true,
         placeholder: "Select Notion workspace"
       },
       {
@@ -168,6 +170,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "combobox",
         dynamic: "notion_pages",
         required: true,
+        loadOnMount: true,
         placeholder: "Search for a page...",
         description: "Only pages shared with your Notion integration will appear",
         dependsOn: "workspace",
@@ -244,6 +247,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "select",
         dynamic: "notion_workspaces",
         required: true,
+        loadOnMount: true,
         placeholder: "Select Notion workspace"
       },
       {
@@ -252,6 +256,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "combobox",
         dynamic: "notion_pages",
         required: true,
+        loadOnMount: true,
         placeholder: "Search for a page...",
         description: "Only pages shared with your Notion integration will appear",
         dependsOn: "workspace",
@@ -316,6 +321,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "select",
         dynamic: "notion_workspaces",
         required: true,
+        loadOnMount: true,
         placeholder: "Select Notion workspace"
       },
       {
@@ -324,6 +330,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "combobox",
         dynamic: "notion_pages",
         required: true,
+        loadOnMount: true,
         placeholder: "Search for a page...",
         description: "Only pages shared with your Notion integration will appear",
         dependsOn: "workspace",
@@ -430,6 +437,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "select",
         dynamic: "notion_workspaces",
         required: true,
+        loadOnMount: true,
         placeholder: "Select Notion workspace"
       },
       {
@@ -438,6 +446,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "combobox",
         dynamic: "notion_pages",
         required: true,
+        loadOnMount: true,
         placeholder: "Search for a page...",
         description: "Only pages shared with your Notion integration will appear",
         dependsOn: "workspace",
@@ -499,6 +508,7 @@ export const notionPageActions: NodeComponent[] = [
         type: "select",
         dynamic: "notion_workspaces",
         required: true,
+        loadOnMount: true,
         placeholder: "Select Notion workspace"
       },
       {

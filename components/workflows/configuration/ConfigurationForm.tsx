@@ -175,7 +175,17 @@ function ConfigurationForm({
 
   const { validateRequiredFields, getMissingRequiredFields, getAllRequiredFields } = useFieldValidation({ nodeInfo, values });
 
-  const { getIntegrationByProvider, getAllIntegrationsByProvider, getIntegrationById, hasMultipleAccounts, connectIntegration, fetchIntegrations, deleteIntegration, reconnectIntegration } = useIntegrationStore();
+  const {
+    getIntegrationByProvider,
+    getAllIntegrationsByProvider,
+    getIntegrationById,
+    hasMultipleAccounts,
+    connectIntegration,
+    fetchIntegrations,
+    deleteIntegration,
+    reconnectIntegration,
+    setConfigurationModalOpen = () => {}
+  } = useIntegrationStore();
   // Subscribe to integrations to trigger re-render when they change (important for shared auth like Excel/OneDrive)
   const integrations = useIntegrationStore(state => state.integrations);
   const { currentWorkflow, updateNode } = useWorkflowStore();
@@ -291,6 +301,11 @@ function ConfigurationForm({
     }
   }, [provider, integration, fetchIntegrations]);
 
+  // Suppress background integration refreshes while the configuration modal is open
+  useEffect(() => {
+    setConfigurationModalOpen(true)
+    return () => setConfigurationModalOpen(false)
+  }, [setConfigurationModalOpen])
 
   // Dynamic options hook
   const {
@@ -359,6 +374,18 @@ function ConfigurationForm({
 
   // Base value setter (without provider logic)
   const setValueBase = useCallback((field: string, value: any) => {
+    // COMPREHENSIVE LOGGING for workspace and page fields
+    if ((field === 'workspace' || field === 'page') && provider === 'notion') {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`📝 [setValue] Field changed: ${field}`);
+      console.log(`   New Value: ${value}`);
+      console.log(`   Provider: ${provider}`);
+      console.log(`   Node Type: ${nodeInfo?.type}`);
+      console.log(`   Stack trace:`);
+      console.log(new Error().stack);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
+
     setValues(prev => ({
       ...prev,
       [field]: value
@@ -370,7 +397,7 @@ function ConfigurationForm({
       delete newErrors[field];
       return newErrors;
     });
-  }, []);
+  }, [provider, nodeInfo?.type]);
 
   // Ref to track which fields have already loaded options to prevent infinite loops
   const loadedFieldsWithValues = useRef<Set<string>>(new Set());
@@ -385,6 +412,11 @@ function ConfigurationForm({
     }
   }, [nodeInfo?.type, currentNodeId]);
 
+  // DISABLED: Auto-loading is now handled by useDynamicOptions hook
+  // This was causing duplicate loads (3-5x) because both ConfigurationForm and useDynamicOptions
+  // were loading the same fields independently, and React 18 Strict Mode was doubling each call.
+  // The useDynamicOptions hook has better deduplication logic and request management.
+  /*
   // Auto-load all dynamic dropdown fields when modal opens
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
@@ -427,6 +459,7 @@ function ConfigurationForm({
       loadOptionsParallel(fieldsToLoad);
     }
   }, [nodeInfo?.configSchema, loadOptionsParallel, values, initialData]);
+  */
 
   // Consolidated field change handler hook
   const { handleFieldChange } = useFieldChangeHandler({
