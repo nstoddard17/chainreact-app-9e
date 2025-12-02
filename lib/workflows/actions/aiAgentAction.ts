@@ -1328,9 +1328,9 @@ function parseAutonomousResponse(
       break
 
     case 'extract':
-      // For extract: parse JSON and set extracted field
+      // For extract: parse JSON and set data field (primary) + extracted (backwards compat)
       if (parsedContent && typeof parsedContent === 'object') {
-        result.data.extracted = parsedContent
+        result.data.data = parsedContent  // Primary field
         // Also set individual fields at top level for easy access
         Object.entries(parsedContent).forEach(([key, value]) => {
           if (!['output', 'data', 'tokensUsed', 'costIncurred'].includes(key)) {
@@ -1341,14 +1341,14 @@ function parseAutonomousResponse(
         // Try to parse the output as JSON
         try {
           const extracted = JSON.parse(result.data.output || '{}')
-          result.data.extracted = extracted
+          result.data.data = extracted  // Primary field
           Object.entries(extracted).forEach(([key, value]) => {
             if (!['output', 'data', 'tokensUsed', 'costIncurred'].includes(key)) {
               result.data[key] = value
             }
           })
         } catch {
-          result.data.extracted = { raw: result.data.output }
+          result.data.data = { raw: result.data.output }
         }
       }
       break

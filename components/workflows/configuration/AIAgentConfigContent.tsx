@@ -44,12 +44,16 @@ import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/utils/logger'
 import { ResultsTab } from './tabs/ResultsTab'
+import { InlineTestPreview } from './InlineTestPreview'
 
 // Auto-resize textarea helper - calculates height based on content
-const autoResizeTextarea = (textarea: HTMLTextAreaElement | null) => {
+const autoResizeTextarea = (textarea: HTMLTextAreaElement | null, minHeight = 120) => {
   if (!textarea) return
+  // Reset height to recalculate scrollHeight correctly
   textarea.style.height = 'auto'
-  textarea.style.height = `${Math.max(120, textarea.scrollHeight)}px`
+  // Set to scrollHeight (actual content height) with a minimum
+  const newHeight = Math.max(minHeight, textarea.scrollHeight)
+  textarea.style.height = `${newHeight}px`
 }
 
 // Calculate initial height based on placeholder text (roughly 16px per line + padding)
@@ -151,13 +155,14 @@ const AI_MODELS = {
   }
 }
 
-// Prompt templates for quick start
+// Prompt templates for quick start - each maps to an action type
 const PROMPT_TEMPLATES = [
   {
     id: 'summarize',
     name: 'Summarize',
     icon: FileText,
     category: 'Transform',
+    actionType: 'summarize',
     prompt: 'Summarize the following content concisely:\n\n{{input}}\n\nProvide a clear, structured summary.',
   },
   {
@@ -165,6 +170,7 @@ const PROMPT_TEMPLATES = [
     name: 'Email Reply',
     icon: Mail,
     category: 'Generate',
+    actionType: 'respond',
     prompt: 'Write a professional email response based on this context:\n\n{{input}}\n\nKeep the tone professional and helpful.',
   },
   {
@@ -172,6 +178,7 @@ const PROMPT_TEMPLATES = [
     name: 'Classify',
     icon: Filter,
     category: 'Analyze',
+    actionType: 'classify',
     prompt: 'Classify the following into appropriate categories:\n\n{{input}}\n\nProvide the classification with confidence level.',
   },
   {
@@ -179,6 +186,7 @@ const PROMPT_TEMPLATES = [
     name: 'Extract',
     icon: Target,
     category: 'Transform',
+    actionType: 'extract',
     prompt: 'Extract key information from this text:\n\n{{input}}\n\nReturn the extracted data as structured JSON.',
   },
   {
@@ -186,6 +194,7 @@ const PROMPT_TEMPLATES = [
     name: 'Translate',
     icon: Languages,
     category: 'Transform',
+    actionType: 'translate',
     prompt: 'Translate the following text:\n\n{{input}}\n\nMaintain the original meaning and tone.',
   },
   {
@@ -193,6 +202,7 @@ const PROMPT_TEMPLATES = [
     name: 'Sentiment',
     icon: BarChart3,
     category: 'Analyze',
+    actionType: 'classify', // Sentiment is a type of classification
     prompt: 'Analyze the sentiment of:\n\n{{input}}\n\nReturn: sentiment (positive/negative/neutral), confidence, and key phrases.',
   },
 ]
@@ -221,6 +231,8 @@ export function AIAgentConfigContent({
     customInstructions: '',
     outputFormat: '',
     timeout: 30,
+    // Action type for intelligent processing (matches aiAgentNode default)
+    actionType: 'respond',
     // Tone & Signature settings
     tone: 'professional',
     includeSignature: 'none',
@@ -338,6 +350,7 @@ export function AIAgentConfigContent({
 
   const handleUseTemplate = (template: typeof PROMPT_TEMPLATES[0]) => {
     if (template.prompt) handleFieldChange('prompt', template.prompt)
+    if (template.actionType) handleFieldChange('actionType', template.actionType)
     setSelectedTemplate(template.id)
     toast({ title: "Template Applied", description: `"${template.name}" loaded` })
   }
@@ -366,8 +379,9 @@ export function AIAgentConfigContent({
     providerId: 'ai',
     outputSchema: [
       { name: 'output', label: 'AI Response', type: 'string' },
+      { name: 'data', label: 'Structured Data', type: 'object' },
       { name: 'tokensUsed', label: 'Tokens Used', type: 'number' },
-      { name: 'cost', label: 'Cost', type: 'number' },
+      { name: 'costIncurred', label: 'Cost ($)', type: 'number' },
     ]
   }
 
@@ -562,22 +576,12 @@ Example: Analyze the incoming message and:
                 value={config.prompt}
                 onChange={(e) => {
                   handleFieldChange('prompt', e.target.value)
-                  autoResizeTextarea(e.target)
+                  // Auto-resize after value update
+                  requestAnimationFrame(() => autoResizeTextarea(e.target))
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setTimeout(() => autoResizeTextarea(e.currentTarget), 0)
-                  }
-                }}
+                onFocus={(e) => autoResizeTextarea(e.target)}
                 className="font-mono text-xs resize-none overflow-hidden"
-                style={{
-                  height: config.prompt ? 'auto' : `${calculatePlaceholderHeight(`Describe what the AI should do...
-
-Example: Analyze the incoming message and:
-1. Identify the main topic
-2. Draft a helpful response`)}px`,
-                  minHeight: '120px'
-                }}
+                style={{ minHeight: '120px' }}
               />
             </div>
 
@@ -720,6 +724,26 @@ Example:
                 ))}
               </div>
             </div>
+
+            {/* Inline Test Preview - Makes testing discoverable */}
+            <InlineTestPreview
+              actionType={config.actionType || 'custom'}
+              config={config}
+              workflowId={workflowId}
+              nodeId={currentNodeId}
+              onRunTest={onRunTest}
+              isTestingNode={isTestingNode}
+              onSwitchToResults={() => setActiveTab('results')}
+              upstreamNodes={upstreamNodes.map(node => ({
+                nodeId: node.id,
+                nodeType: node.type || '',
+                providerId: node.providerId || '',
+                title: node.title,
+                outputSchema: node.outputs,
+                // Note: sampleData would come from last test execution
+                // This would need to be fetched from workflow_executions or node snapshots
+              }))}
+            />
           </TabsContent>
 
           {/* ADVANCED TAB - API, Output, Guardrails */}
