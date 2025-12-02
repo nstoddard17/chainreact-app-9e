@@ -1230,23 +1230,38 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     database_id: "notion_databases",
   },
-  // Deprecated - replaced by notion_action_manage_page
-  // notion_action_update_page: {
-  //   workspace: "notion_workspaces",
-  //   page: "notion_pages",
-  // },
+  // Page Actions - separate page actions from unified actions
+  notion_action_update_page: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+    pageFields: "notion_page_blocks",
+  },
   notion_action_search_pages: {
     filter: "notion_filter_types",
   },
   // Simple create page action (for backwards compatibility with templates)
   notion_action_create_page: {
-    databaseId: "notion_databases",
+    workspace: "notion_workspaces",
+    parentDatabase: "notion_databases",
+    parentPage: "notion_pages",
   },
-  // Deprecated - replaced by notion_action_manage_page
-  // notion_action_append_to_page: {
-  //   workspace: "notion_workspaces",
-  //   page: "notion_pages",
-  // },
+  notion_action_append_to_page: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  notion_action_get_page_details: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  notion_action_archive_page: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  notion_action_duplicate_page: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+    destinationPage: "notion_pages",
+  },
   // Deprecated - replaced by notion_action_manage_database
   // notion_action_create_database: {
   //   workspace: "notion_workspaces",

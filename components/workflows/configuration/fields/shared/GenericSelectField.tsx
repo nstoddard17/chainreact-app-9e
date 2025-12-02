@@ -706,6 +706,22 @@ export function GenericSelectField({
     // Only trigger load on transition from closed to open (not on every render while open)
     const isOpeningNow = open && !wasOpen;
 
+    // COMPREHENSIVE LOGGING for workspace and page fields
+    if ((field.name === 'workspace' || field.name === 'page') && nodeInfo?.providerId === 'notion') {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`🎯 [handleFieldOpen] Field: ${field.name}`);
+      console.log(`   Open State: ${open ? 'OPENING' : 'CLOSING'}`);
+      console.log(`   Was Open: ${wasOpen}`);
+      console.log(`   Is Opening Now: ${isOpeningNow}`);
+      console.log(`   Has Options: ${options?.length || 0}`);
+      console.log(`   Is Loading: ${isLoading}`);
+      console.log(`   Has Attempted Load: ${hasAttemptedLoad}`);
+      console.log(`   Time Since Last Load: ${Date.now() - lastLoadTimestamp}ms`);
+      console.log(`   Provider: ${nodeInfo?.providerId}`);
+      console.log(`   Node Type: ${nodeInfo?.type}`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    }
+
     // COMPREHENSIVE LOGGING for selectedProperties to debug infinite loop
     if (field.name === 'selectedProperties') {
       console.log('🔍🔍🔍 [GenericSelectField] selectedProperties handleFieldOpen called:', {
