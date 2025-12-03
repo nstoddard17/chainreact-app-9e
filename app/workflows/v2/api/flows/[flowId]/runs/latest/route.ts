@@ -16,26 +16,44 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const definition = await supabase
-    .from("flow_v2_definitions")
-    .select("workspace_id")
+  // Check both workflows table (v1) and flow_v2_definitions table (v2)
+  const { data: workflowRow } = await supabase
+    .from("workflows")
+    .select("id, user_id, workspace_id")
     .eq("id", flowId)
     .maybeSingle()
 
-  if (definition.error) {
-    return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })
-  }
+  const { data: flowV2Row } = await supabase
+    .from("flow_v2_definitions")
+    .select("id, owner_id, workspace_id")
+    .eq("id", flowId)
+    .maybeSingle()
 
-  if (!definition.data) {
+  // Use whichever row exists (v1 or v2), normalize user_id/owner_id
+  const flowRow = workflowRow
+    ? { ...workflowRow, owner_id: workflowRow.user_id }
+    : flowV2Row
+      ? { ...flowV2Row, user_id: flowV2Row.owner_id }
+      : null
+
+  if (!flowRow) {
     return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
   }
 
-  try {
-    await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "viewer")
-  } catch (error: any) {
-    const status = error?.status === 403 ? 403 : 500
-    const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to fetch run"
-    return NextResponse.json({ ok: false, error: message }, { status })
+  // Check access - user owns it or has workspace access
+  let hasAccess = flowRow.user_id === user.id
+
+  if (!hasAccess && flowRow.workspace_id) {
+    try {
+      await ensureWorkspaceRole(supabase, flowRow.workspace_id, user.id, "viewer")
+      hasAccess = true
+    } catch {
+      // User doesn't have workspace access
+    }
+  }
+
+  if (!hasAccess) {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
   }
 
   const { data: run, error: runError } = await supabase

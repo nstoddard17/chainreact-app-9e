@@ -62,6 +62,7 @@ import { GoogleSearchConfiguration } from './providers/utility/GoogleSearchConfi
 import { TavilySearchConfiguration } from './providers/utility/TavilySearchConfiguration';
 
 import { logger } from '@/lib/utils/logger'
+import { safeLocalStorageSet } from '@/lib/utils/storage-cleanup'
 import { collectFieldLabelsFromCache, loadLabelsIntoCache } from '@/lib/workflows/configuration/collect-labels'
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from './utils/connectionExemptions'
 import { ServiceConnectionSelector } from './ServiceConnectionSelector'
@@ -1375,15 +1376,12 @@ function ConfigurationForm({
       // Only save to localStorage as a quick cache/fallback (synchronous, no delay)
       if (workflowData?.id && currentNodeId && typeof window !== 'undefined') {
         const cacheKey = `workflow_${workflowData.id}_node_${currentNodeId}_config`;
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify({
-            config: submissionWithLabels,
-            timestamp: Date.now()
-          }));
+        const stored = safeLocalStorageSet(cacheKey, {
+          config: submissionWithLabels,
+          timestamp: Date.now()
+        });
+        if (stored) {
           logger.debug('💾 [ConfigForm] Configuration cached locally for node:', currentNodeId);
-        } catch (e) {
-          // localStorage might be full or disabled, ignore
-          logger.warn('Could not cache configuration locally:', e);
         }
       }
 

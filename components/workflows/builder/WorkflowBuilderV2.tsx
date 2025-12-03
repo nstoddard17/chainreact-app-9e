@@ -85,6 +85,7 @@ import { swapProviderInPlan, canSwapProviders } from "@/lib/workflows/ai-agent/p
 import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflows/ai-agent/templateMatching"
 import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
 import { logger } from '@/lib/utils/logger'
+import { safeLocalStorageSet } from '@/lib/utils/storage-cleanup'
 import { useAppContext } from "@/lib/contexts/AppContext"
 
 type PendingChatMessage = {
@@ -353,6 +354,51 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [isNodeTesting, setIsNodeTesting] = useState(false) // True while testing a single node
   const [nodeTestingName, setNodeTestingName] = useState<string | null>(null) // Name of node being tested
   const [isTestModeDialogOpen, setIsTestModeDialogOpen] = useState(false) // Test/Live mode dialog
+
+  // Ref to track if test is in progress and abort controller for cleanup
+  const testAbortControllerRef = useRef<AbortController | null>(null)
+  const testSessionIdRef = useRef<string | null>(null)
+  const isMountedRef = useRef(true)
+
+  // Cleanup function to deactivate webhooks when test ends
+  const cleanupTestTrigger = useCallback(async () => {
+    const sessionId = testSessionIdRef.current
+    if (!sessionId || !flowId) {
+      console.log('[TEST] No test session to cleanup')
+      return
+    }
+
+    console.log('[TEST] Cleaning up test trigger...', { sessionId, workflowId: flowId })
+    try {
+      await fetch('/api/workflows/test-trigger', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId: flowId,
+          testSessionId: sessionId,
+        }),
+      })
+      console.log('[TEST] Test trigger cleaned up successfully')
+    } catch (error) {
+      console.error('[TEST] Failed to cleanup test trigger:', error)
+    } finally {
+      testSessionIdRef.current = null
+    }
+  }, [flowId])
+
+  // Track mount/unmount for async safety
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+      // Abort any ongoing test when unmounting
+      if (testAbortControllerRef.current) {
+        testAbortControllerRef.current.abort()
+      }
+      // Cleanup test trigger on unmount
+      cleanupTestTrigger()
+    }
+  }, [cleanupTestTrigger])
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
   const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
   const [configuringNode, setConfiguringNode] = useState<any>(null)
@@ -3100,14 +3146,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // INSTANT UPDATE: Update the config in localStorage immediately for instant reopen
       if (typeof window !== 'undefined' && flowId) {
         const cacheKey = `workflow_${flowId}_node_${nodeId}_config`;
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify({
-            config: config,
-            timestamp: Date.now()
-          }));
+        const stored = safeLocalStorageSet(cacheKey, {
+          config: config,
+          timestamp: Date.now()
+        });
+        if (stored) {
           console.log('💾 [WorkflowBuilder] Cached config locally for instant reopen');
-        } catch (e) {
-          console.warn('Could not cache configuration locally:', e);
         }
       }
 
@@ -3177,7 +3221,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     addInterceptedAction,
     finishTestFlow,
     cancelTestFlow,
-    resetTestFlow
+    resetTestFlow,
+    // NEW: Enhanced node execution methods
+    setNodeRunning,
+    setNodeCompletedWithDetails,
+    setNodeFailedWithDetails,
   } = useWorkflowTestStore()
 
   // Get trigger type for the TestModeDialog
@@ -3210,11 +3258,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
   // Handler for when user starts a test from the dialog
   const handleRunTestFromDialog = useCallback(async (config: TestModeConfig, mockVariation?: string) => {
+    console.log('[TEST] handleRunTestFromDialog called', { config, mockVariation })
     setIsTestModeDialogOpen(false)
 
     if (!builder?.nodes) {
+      console.log('[TEST] No builder nodes, returning early')
       return
     }
+
+    // Create an abort controller for this test run
+    if (testAbortControllerRef.current) {
+      testAbortControllerRef.current.abort()
+    }
+    const abortController = new AbortController()
+    testAbortControllerRef.current = abortController
 
     const nodes = builder.nodes
     const edges = builder.edges || []
@@ -3223,9 +3280,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     const isLiveMode = config.actionMode === ActionTestMode.EXECUTE_ALL
     const waitForTrigger = config.triggerMode === TriggerTestMode.WAIT_FOR_REAL
 
+    // Store trigger data when received
+    let triggerEventData: any = null
+    let timerInterval: NodeJS.Timeout | null = null
+
     try {
+      console.log('[TEST] Starting test execution', { waitForTrigger, hasTriggerNode: !!triggerNode })
+
       // If waiting for real trigger, start listening
       if (waitForTrigger && triggerNode) {
+        console.log('[TEST] Waiting for real trigger')
         startListening(config)
 
         toast({
@@ -3237,115 +3301,256 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         const startTime = Date.now()
         const timeout = config.triggerTimeout || 60000
 
-        const timerInterval = setInterval(() => {
+        timerInterval = setInterval(() => {
+          if (abortController.signal.aborted) {
+            if (timerInterval) clearInterval(timerInterval)
+            return
+          }
           const elapsed = Date.now() - startTime
           const remaining = Math.max(0, Math.ceil((timeout - elapsed) / 1000))
           updateListeningTime(remaining)
 
           if (remaining <= 0) {
-            clearInterval(timerInterval)
+            if (timerInterval) clearInterval(timerInterval)
           }
         }, 1000)
 
-        // Call the test-trigger API
+        // Call the test-trigger API with abort signal
         const triggerResponse = await fetch('/api/workflows/test-trigger', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             workflowId: flowId,
             nodeId: triggerNode.id,
-            nodes: builder?.nodes, // Pass nodes for unsaved workflows
-            connections: builder?.edges, // Pass edges/connections for unsaved workflows
+            nodes: builder?.nodes,
+            connections: builder?.edges,
           }),
+          signal: abortController.signal,
         })
 
-        clearInterval(timerInterval)
+        if (timerInterval) clearInterval(timerInterval)
+
+        // Check if aborted
+        if (abortController.signal.aborted) {
+          console.log('[TEST] Test was aborted')
+          return
+        }
+
+        console.log('[TEST] Trigger API response status:', triggerResponse.status)
 
         if (!triggerResponse.ok) {
           throw new Error('Failed to activate trigger')
         }
 
         const triggerResult = await triggerResponse.json()
+        console.log('[TEST] Trigger result:', triggerResult)
 
         if (!triggerResult.eventReceived) {
-          finishTestFlow('cancelled', 'No event received within timeout')
-          toast({
-            title: "Timeout",
-            description: "No trigger event received. Try again or use mock data.",
-            variant: "destructive",
-          })
+          if (isMountedRef.current) {
+            finishTestFlow('cancelled', 'No event received within timeout')
+            toast({
+              title: "Timeout",
+              description: "No trigger event received. Try again or use mock data.",
+              variant: "destructive",
+            })
+          }
           return
         }
 
-        // Event received! Continue with execution
-        toast({
-          title: "Trigger received!",
-          description: "Executing workflow...",
-        })
+        // Store the trigger event data and session ID
+        triggerEventData = triggerResult.data
+        testSessionIdRef.current = triggerResult.testSessionId || null
+        console.log('[SSE] Trigger event received:', { triggerEventData, testSessionId: triggerResult.testSessionId })
+
+        if (isMountedRef.current) {
+          toast({
+            title: "Trigger received!",
+            description: "Executing workflow...",
+          })
+        }
       }
 
-      // Execute the workflow
+      // Check if aborted before continuing
+      if (abortController.signal.aborted) {
+        console.log('[TEST] Test was aborted before SSE execution')
+        return
+      }
+
+      console.log('[SSE] Starting workflow execution phase')
+
+      // Execute the workflow with SSE streaming for real-time updates
       setIsFlowTesting(true)
 
-      const response = await fetch('/api/workflows/execute-advanced', {
+      // Reset test flow state for execution phase
+      resetTestFlow()
+
+      console.log('[SSE] Starting SSE execution stream', {
+        workflowId: flowId,
+        hasTriggerData: !!triggerEventData,
+        skipTrigger: !waitForTrigger
+      })
+
+      const response = await fetch('/api/workflows/execute-stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workflowId: flowId,
-          inputData: {},
+          nodes: builder?.nodes,
+          connections: builder?.edges,
+          inputData: {
+            trigger: triggerEventData,
+            ...(triggerEventData || {})
+          },
           options: {
-            mode: isLiveMode ? 'live' : 'test',
+            testMode: !isLiveMode,
             skipTrigger: !waitForTrigger,
             mockVariation,
           }
         }),
+        signal: abortController.signal,
       })
 
       if (!response.ok) {
-        throw new Error('Workflow execution failed')
+        const errorText = await response.text()
+        console.log('[SSE] Response not OK:', response.status, errorText)
+        throw new Error(`Workflow execution failed: ${response.status}`)
       }
 
-      const result = await response.json()
+      console.log('[SSE] Response received, status:', response.status)
 
-      // Update node states based on results
-      const nodeResults = result.result?.mainResult || {}
+      // Read SSE stream for real-time node updates
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
 
-      for (const [nodeId, output] of Object.entries(nodeResults)) {
-        const hasError = (output as any)?.error || (output as any)?.success === false
-        if (hasError) {
-          setNodeFailed(nodeId, (output as any)?.error || 'Unknown error')
-        } else {
-          setNodeCompleted(nodeId, output)
+      if (!reader) {
+        console.log('[SSE] No reader available')
+        throw new Error('No response stream available')
+      }
+
+      console.log('[SSE] Starting to read stream...')
+      let buffer = ''
+
+      while (true) {
+        // Check if aborted
+        if (abortController.signal.aborted) {
+          console.log('[SSE] Stream reading aborted')
+          reader.cancel()
+          break
+        }
+
+        const { done, value } = await reader.read()
+
+        if (done) {
+          console.log('[SSE] Stream done')
+          break
+        }
+
+        const chunk = decoder.decode(value, { stream: true })
+        console.log('[SSE] Received chunk:', chunk.length, 'chars')
+        buffer += chunk
+
+        // Parse SSE events from buffer
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const event = JSON.parse(line.slice(6))
+              console.log('[SSE] Event received:', event)
+
+              switch (event.type) {
+                case 'node_started':
+                  console.log('[SSE] Setting node running:', event.nodeId)
+                  setNodeRunning(
+                    event.nodeId,
+                    event.nodeType,
+                    event.nodeTitle,
+                    event.preview
+                  )
+                  break
+
+                case 'node_completed':
+                  console.log('[SSE] Setting node completed:', event.nodeId)
+                  setNodeCompletedWithDetails(
+                    event.nodeId,
+                    event.output,
+                    event.preview || 'Completed',
+                    event.executionTime || 0,
+                    event.nodeType,
+                    event.nodeTitle
+                  )
+                  break
+
+                case 'node_failed':
+                  console.log('[SSE] Setting node failed:', event.nodeId, event.error)
+                  setNodeFailedWithDetails(
+                    event.nodeId,
+                    event.error || 'Unknown error',
+                    event.executionTime || 0,
+                    event.nodeType,
+                    event.nodeTitle
+                  )
+                  break
+
+                case 'workflow_completed':
+                  console.log('[SSE] Workflow completed')
+                  finishTestFlow('completed')
+                  // Deactivate the test webhook now that workflow is complete
+                  cleanupTestTrigger()
+                  toast({
+                    title: isLiveMode ? "Workflow executed" : "Test completed",
+                    description: "Workflow executed successfully.",
+                  })
+                  break
+
+                case 'workflow_failed':
+                  console.log('[SSE] Workflow failed:', event.error)
+                  finishTestFlow('error', event.error)
+                  // Deactivate the test webhook even on failure
+                  cleanupTestTrigger()
+                  toast({
+                    title: "Execution failed",
+                    description: event.error || "Workflow execution failed",
+                    variant: "destructive",
+                  })
+                  break
+
+                default:
+                  console.log('[SSE] Unknown event type:', event.type)
+              }
+            } catch (parseError) {
+              console.log('[SSE] Parse error:', parseError, 'Line:', line)
+            }
+          }
         }
       }
-
-      // Handle intercepted actions for test mode
-      if (!isLiveMode && result.interceptedActions) {
-        for (const action of result.interceptedActions) {
-          addInterceptedAction(action)
-        }
-      }
-
-      finishTestFlow('completed')
-
-      toast({
-        title: isLiveMode ? "Workflow executed" : "Test completed",
-        description: isLiveMode
-          ? "Workflow executed successfully with real actions."
-          : `Test completed. ${(result.interceptedActions?.length || 0)} actions were captured.`,
-      })
 
     } catch (error: any) {
-      finishTestFlow('error', error.message)
-      toast({
-        title: "Execution failed",
-        description: error.message || "Failed to execute workflow",
-        variant: "destructive",
-      })
+      // Don't show error for aborted requests
+      if (error.name === 'AbortError' || abortController.signal.aborted) {
+        console.log('[TEST] Test was aborted')
+        return
+      }
+      console.log('[TEST] Error in test execution:', error)
+      if (isMountedRef.current) {
+        finishTestFlow('error', error.message)
+        toast({
+          title: "Execution failed",
+          description: error.message || "Failed to execute workflow",
+          variant: "destructive",
+        })
+      }
     } finally {
-      setIsFlowTesting(false)
+      // Clean up timer if it's still running
+      if (timerInterval) {
+        clearInterval(timerInterval)
+      }
+      if (isMountedRef.current) {
+        setIsFlowTesting(false)
+      }
     }
-  }, [builder?.nodes, builder?.edges, flowId, toast, startListening, updateListeningTime, finishTestFlow, setNodeCompleted, setNodeFailed, addInterceptedAction])
+  }, [builder?.nodes, builder?.edges, flowId, toast, startListening, updateListeningTime, finishTestFlow, resetTestFlow, setNodeRunning, setNodeCompletedWithDetails, setNodeFailedWithDetails, cleanupTestTrigger])
 
   // Handle test workflow - run from start to finish
   const handleTestWorkflow = useCallback(async () => {
@@ -3582,11 +3787,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     setFlowTestStatus(null)
     setIsFlowTestPaused(false)
     cancelTestFlow()
+    // Deactivate the test webhook when user clicks stop
+    cleanupTestTrigger()
     toast({
       title: "Test stopped",
       description: "Flow test has been stopped.",
     })
-  }, [cancelTestFlow, toast])
+  }, [cancelTestFlow, cleanupTestTrigger, toast])
 
   // Handler to stop single node testing
   const handleStopNodeTest = useCallback(() => {

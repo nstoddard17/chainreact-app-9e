@@ -237,7 +237,19 @@ export function resolveValue(
             const nodeData = input[prefixMatchKey]
 
             if (nodeData && typeof nodeData === 'object') {
-              // Navigate to the field
+              // First check nodeData.data (AI agent stores outputs here)
+              if (nodeData.data && typeof nodeData.data === 'object') {
+                const dataFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+                  return acc && acc[part]
+                }, nodeData.data)
+
+                if (dataFieldValue !== undefined) {
+                  logger.debug(`✅ [RESOLVE_VALUE] Resolved "${key}" via prefix match from data`)
+                  return dataFieldValue
+                }
+              }
+
+              // Navigate to the field directly on nodeData
               const fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
                 return acc && acc[part]
               }, nodeData)
@@ -247,8 +259,8 @@ export function resolveValue(
                 return fieldValue
               }
 
-              // Try nodeData.output
-              if (nodeData.output) {
+              // Try nodeData.output (but skip if it's a circular reference)
+              if (nodeData.output && nodeData.output !== '[Circular Reference]') {
                 const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
                   return acc && acc[part]
                 }, nodeData.output)
@@ -551,7 +563,19 @@ export function resolveValue(
               const nodeData = input[prefixMatchKey]
 
               if (nodeData && typeof nodeData === 'object') {
-                // Navigate to the field
+                // First check nodeData.data (AI agent stores outputs here)
+                if (nodeData.data && typeof nodeData.data === 'object') {
+                  const dataFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
+                    return acc && acc[part]
+                  }, nodeData.data)
+
+                  if (dataFieldValue !== undefined) {
+                    logger.debug(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match from data`)
+                    return dataFieldValue
+                  }
+                }
+
+                // Navigate to the field directly
                 const fieldValue = outputField.split(".").reduce((acc: any, part: any) => {
                   return acc && acc[part]
                 }, nodeData)
@@ -561,8 +585,8 @@ export function resolveValue(
                   return fieldValue
                 }
 
-                // Try nodeData.output
-                if (nodeData.output) {
+                // Try nodeData.output (but skip if it's a circular reference)
+                if (nodeData.output && nodeData.output !== '[Circular Reference]') {
                   const outputFieldValue = outputField.split(".").reduce((acc: any, part: any) => {
                     return acc && acc[part]
                   }, nodeData.output)

@@ -4,6 +4,7 @@ import { WorkflowNode } from "@/stores/workflowStore"
 import { createClient } from "@/utils/supabase/client"
 
 import { logger } from '@/lib/utils/logger'
+import { safeLocalStorageSet } from '@/lib/utils/storage-cleanup'
 
 /**
  * Configuration persistence utility for workflow node configurations
@@ -67,8 +68,10 @@ export const saveNodeConfig = async (
       // Don't throw an error - the node might be pending save
       // Store in localStorage as fallback
       const fallbackKey = `workflow_${workflowId}_node_${nodeId}_config`;
-      localStorage.setItem(fallbackKey, JSON.stringify({ config, dynamicOptions, timestamp: Date.now() }));
-      logger.debug(`💾 [ConfigPersistence] Stored config in localStorage as fallback for node ${nodeId}`);
+      const stored = safeLocalStorageSet(fallbackKey, { config, dynamicOptions, timestamp: Date.now() });
+      if (stored) {
+        logger.debug(`💾 [ConfigPersistence] Stored config in localStorage as fallback for node ${nodeId}`);
+      }
       return;
     }
 

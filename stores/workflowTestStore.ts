@@ -22,6 +22,19 @@ interface InterceptedAction {
   timestamp: string
 }
 
+// Extended node execution data for real-time display
+export interface NodeExecutionData {
+  nodeId: string
+  nodeType?: string
+  nodeTitle?: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  preview?: string  // Short description of what's happening/happened
+  output?: any      // Full output data
+  error?: string    // Error message if failed
+  executionTime?: number  // Time in ms
+  startedAt?: number
+}
+
 export type TestFlowStatus = 'idle' | 'listening' | 'running' | 'completed' | 'error' | 'cancelled'
 
 interface WorkflowTestState {
@@ -42,6 +55,9 @@ interface WorkflowTestState {
   testConfig: TestModeConfig | null
   testError: string | null
 
+  // NEW: Per-node execution data for real-time display
+  nodeExecutionData: Record<string, NodeExecutionData>
+
   // Actions
   setTestResults: (results: WorkflowTestResult[], executionPath: string[], triggerOutput: any, testedNodeId: string) => void
   clearTestResults: () => void
@@ -60,6 +76,12 @@ interface WorkflowTestState {
   finishTestFlow: (status: 'completed' | 'error' | 'cancelled', error?: string) => void
   cancelTestFlow: () => void
   resetTestFlow: () => void
+
+  // NEW: Enhanced node execution actions
+  setNodeRunning: (nodeId: string, nodeType?: string, nodeTitle?: string, preview?: string) => void
+  setNodeCompletedWithDetails: (nodeId: string, output: any, preview: string, executionTime: number, nodeType?: string, nodeTitle?: string) => void
+  setNodeFailedWithDetails: (nodeId: string, error: string, executionTime: number, nodeType?: string, nodeTitle?: string) => void
+  getNodeExecutionData: (nodeId: string) => NodeExecutionData | null
 }
 
 export const useWorkflowTestStore = create<WorkflowTestState>((set, get) => ({
@@ -78,6 +100,9 @@ export const useWorkflowTestStore = create<WorkflowTestState>((set, get) => ({
   interceptedActions: [],
   testConfig: null,
   testError: null,
+
+  // NEW: Per-node execution data
+  nodeExecutionData: {},
 
   setTestResults: (results, executionPath, triggerOutput, testedNodeId) => {
     set({
@@ -147,7 +172,8 @@ export const useWorkflowTestStore = create<WorkflowTestState>((set, get) => ({
       completedNodeIds: [],
       failedNodeIds: [],
       interceptedActions: [],
-      currentExecutingNodeId: null
+      currentExecutingNodeId: null,
+      nodeExecutionData: {}
     })
   },
 
@@ -159,7 +185,8 @@ export const useWorkflowTestStore = create<WorkflowTestState>((set, get) => ({
     set({
       testFlowStatus: 'running',
       currentExecutingNodeId: nodeId,
-      listeningTimeRemaining: null
+      listeningTimeRemaining: null,
+      nodeExecutionData: {} // Clear previous execution data when starting new execution
     })
   },
 
@@ -219,7 +246,82 @@ export const useWorkflowTestStore = create<WorkflowTestState>((set, get) => ({
       failedNodeIds: [],
       interceptedActions: [],
       testConfig: null,
-      testError: null
+      testError: null,
+      nodeExecutionData: {}
     })
+  },
+
+  // NEW: Enhanced node execution actions
+  setNodeRunning: (nodeId: string, nodeType?: string, nodeTitle?: string, preview?: string) => {
+    const { nodeExecutionData } = get()
+    set({
+      testFlowStatus: 'running',
+      currentExecutingNodeId: nodeId,
+      listeningTimeRemaining: null,
+      nodeExecutionData: {
+        ...nodeExecutionData,
+        [nodeId]: {
+          nodeId,
+          nodeType,
+          nodeTitle,
+          status: 'running',
+          preview,
+          startedAt: Date.now()
+        }
+      }
+    })
+  },
+
+  setNodeCompletedWithDetails: (nodeId: string, output: any, preview: string, executionTime: number, nodeType?: string, nodeTitle?: string) => {
+    const { completedNodeIds, executionPath, nodeExecutionData } = get()
+    if (!completedNodeIds.includes(nodeId)) {
+      set({
+        completedNodeIds: [...completedNodeIds, nodeId],
+        currentExecutingNodeId: null,
+        executionPath: executionPath.includes(nodeId) ? executionPath : [...executionPath, nodeId],
+        nodeExecutionData: {
+          ...nodeExecutionData,
+          [nodeId]: {
+            nodeId,
+            nodeType: nodeType || nodeExecutionData[nodeId]?.nodeType,
+            nodeTitle: nodeTitle || nodeExecutionData[nodeId]?.nodeTitle,
+            status: 'completed',
+            preview,
+            output,
+            executionTime,
+            startedAt: nodeExecutionData[nodeId]?.startedAt
+          }
+        }
+      })
+    }
+  },
+
+  setNodeFailedWithDetails: (nodeId: string, error: string, executionTime: number, nodeType?: string, nodeTitle?: string) => {
+    const { failedNodeIds, nodeExecutionData } = get()
+    if (!failedNodeIds.includes(nodeId)) {
+      set({
+        failedNodeIds: [...failedNodeIds, nodeId],
+        currentExecutingNodeId: null,
+        testFlowStatus: 'error',
+        testError: error,
+        nodeExecutionData: {
+          ...nodeExecutionData,
+          [nodeId]: {
+            nodeId,
+            nodeType: nodeType || nodeExecutionData[nodeId]?.nodeType,
+            nodeTitle: nodeTitle || nodeExecutionData[nodeId]?.nodeTitle,
+            status: 'failed',
+            error,
+            executionTime,
+            startedAt: nodeExecutionData[nodeId]?.startedAt
+          }
+        }
+      })
+    }
+  },
+
+  getNodeExecutionData: (nodeId: string) => {
+    const { nodeExecutionData } = get()
+    return nodeExecutionData[nodeId] || null
   }
 })) 

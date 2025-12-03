@@ -208,12 +208,33 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Phase 1: Node state helpers
   const nodeState = nodeData.state || 'ready'
   const isSkeletonState = nodeState === 'skeleton'
-  // Access test flow state (need to get these before useMemo that uses them)
-  const testStore = useWorkflowTestStore.getState()
-  const isTestListeningForNode = testStore.testFlowStatus === 'listening' && nodeData.isTrigger
-  const isTestRunningForNode = testStore.currentExecutingNodeId === id
-  const isTestCompletedForNode = testStore.completedNodeIds.includes(id)
-  const isTestFailedForNode = testStore.failedNodeIds.includes(id)
+
+  // Subscribe to test flow state reactively (not with getState())
+  const testFlowStatus = useWorkflowTestStore((state) => state.testFlowStatus)
+  const currentExecutingNodeId = useWorkflowTestStore((state) => state.currentExecutingNodeId)
+  const completedNodeIds = useWorkflowTestStore((state) => state.completedNodeIds)
+  const failedNodeIds = useWorkflowTestStore((state) => state.failedNodeIds)
+  const nodeExecutionData = useWorkflowTestStore((state) => state.nodeExecutionData[id])
+
+  const isTestListeningForNode = testFlowStatus === 'listening' && nodeData.isTrigger
+  const isTestRunningForNode = currentExecutingNodeId === id
+  const isTestCompletedForNode = completedNodeIds.includes(id)
+  const isTestFailedForNode = failedNodeIds.includes(id)
+
+  // Debug: Log state changes for test flow
+  useEffect(() => {
+    if (testFlowStatus !== 'idle' || nodeExecutionData) {
+      console.log(`[CustomNode ${id}] Test state:`, {
+        testFlowStatus,
+        currentExecutingNodeId,
+        isTestListeningForNode,
+        isTestRunningForNode,
+        isTestCompletedForNode,
+        isTestFailedForNode,
+        nodeExecutionData
+      })
+    }
+  }, [testFlowStatus, currentExecutingNodeId, isTestListeningForNode, isTestRunningForNode, isTestCompletedForNode, isTestFailedForNode, nodeExecutionData, id])
 
   const visualNodeState = useMemo<NodeState>(() => {
     if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed' || nodeState === 'paused' || nodeState === 'listening') {
@@ -494,23 +515,10 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const isSlackSendMessage = type === 'slack_action_send_message'
   const hasMultipleOutputs = ["if_condition", "switch_case", "try_catch"].includes(type)
 
-  // Check if this node has test data available
-  const {
-    isNodeInExecutionPath,
-    getNodeTestResult,
-    testFlowStatus,
-    currentExecutingNodeId,
-    completedNodeIds,
-    failedNodeIds
-  } = useWorkflowTestStore()
+  // Check if this node has test data available (methods only - state is subscribed reactively at top)
+  const { isNodeInExecutionPath, getNodeTestResult } = useWorkflowTestStore()
   const hasTestData = isNodeInExecutionPath(id)
   const testResult = getNodeTestResult(id)
-
-  // Determine test flow execution state for this node
-  const isTestListening = testFlowStatus === 'listening' && isTrigger
-  const isTestRunning = currentExecutingNodeId === id
-  const isTestCompleted = completedNodeIds.includes(id)
-  const isTestFailed = failedNodeIds.includes(id)
 
   // Check if integration is disconnected
   const { integrations } = useIntegrationStore()
@@ -548,25 +556,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
     const hasTestData = testData && Object.keys(testData).length > 0
     const isActiveStatus = ['preparing', 'creating', 'configuring', 'testing', 'testing_successful'].includes(aiStatus || '')
 
-    console.log('[CUSTOMNODE] 📊 Effect check:', {
-      nodeId: id,
-      title: title,
-      hasConfig,
-      hasTestData,
-      isActiveStatus,
-      autoExpand,
-      aiStatus,
-      nodeState,
-      isSkeletonState,
-      isConfigExpanded,
-      configKeys: config ? Object.keys(config) : [],
-      configValues: config,
-      aiProgressConfig
-    })
-
     // Don't auto-expand skeleton nodes - they should stay collapsed
     if (!isConfigExpanded && !isSkeletonState && (autoExpand || hasConfig || hasTestData || isActiveStatus)) {
-      console.log('[CUSTOMNODE] 📈 Expanding node:', id)
       setIsConfigExpanded(true)
     }
   }, [autoExpand, config, testData, aiStatus, isConfigExpanded, aiProgressConfig, id, title, nodeState, isSkeletonState])
@@ -2145,6 +2136,62 @@ function CustomNode({ id, data, selected }: NodeProps) {
                 <p className="text-xs text-muted-foreground leading-relaxed">{nodeData.preview.content}</p>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Test Execution Preview - Shows real-time execution status */}
+        {nodeExecutionData && (
+          <div className={cn(
+            "mt-3 rounded-lg border overflow-hidden",
+            nodeExecutionData.status === 'running' && "border-blue-500/40 bg-blue-500/5",
+            nodeExecutionData.status === 'completed' && "border-green-500/40 bg-green-500/5",
+            nodeExecutionData.status === 'failed' && "border-red-500/40 bg-red-500/5"
+          )}>
+            <div className={cn(
+              "px-3 py-2 flex items-center justify-between gap-2",
+              nodeExecutionData.status === 'running' && "bg-blue-500/10",
+              nodeExecutionData.status === 'completed' && "bg-green-500/10",
+              nodeExecutionData.status === 'failed' && "bg-red-500/10"
+            )}>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {nodeExecutionData.status === 'running' && (
+                  <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />
+                )}
+                {nodeExecutionData.status === 'completed' && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                )}
+                {nodeExecutionData.status === 'failed' && (
+                  <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                )}
+                <p className={cn(
+                  "text-xs font-medium truncate",
+                  nodeExecutionData.status === 'running' && "text-blue-600 dark:text-blue-400",
+                  nodeExecutionData.status === 'completed' && "text-green-600 dark:text-green-400",
+                  nodeExecutionData.status === 'failed' && "text-red-600 dark:text-red-400"
+                )}>
+                  {nodeExecutionData.preview || (
+                    nodeExecutionData.status === 'running' ? 'Running...' :
+                    nodeExecutionData.status === 'completed' ? 'Completed' :
+                    nodeExecutionData.status === 'failed' ? 'Failed' : ''
+                  )}
+                </p>
+              </div>
+              {nodeExecutionData.executionTime !== undefined && nodeExecutionData.status !== 'running' && (
+                <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                  {nodeExecutionData.executionTime < 1000
+                    ? `${nodeExecutionData.executionTime}ms`
+                    : `${(nodeExecutionData.executionTime / 1000).toFixed(1)}s`}
+                </span>
+              )}
+            </div>
+            {/* Error details for failed nodes */}
+            {nodeExecutionData.status === 'failed' && nodeExecutionData.error && (
+              <div className="px-3 py-2 border-t border-red-500/20 bg-red-500/5">
+                <p className="text-xs text-red-600 dark:text-red-400 font-mono">
+                  {nodeExecutionData.error}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
