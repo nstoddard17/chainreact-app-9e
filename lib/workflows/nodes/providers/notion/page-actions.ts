@@ -110,6 +110,8 @@ export const notionPageActions: NodeComponent[] = [
 • Quotes: > quoted text
 • Code: \`\`\` code block
 • Divider: --- or ***`,
+        supportsVariables: true,
+        hasConnectButton: true,
         hidden: {
           $deps: ["parentType"],
           $condition: { parentType: { $exists: false } }
@@ -282,6 +284,8 @@ export const notionPageActions: NodeComponent[] = [
 • Quotes: > quoted text
 • Code: \`\`\` code block
 • Divider: --- or ***`,
+        supportsVariables: true,
+        hasConnectButton: true,
         hidden: {
           $deps: ["page"],
           $condition: { page: { $exists: false } }

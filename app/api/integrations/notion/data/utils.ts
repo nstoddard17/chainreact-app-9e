@@ -2,7 +2,9 @@
  * Notion Integration Utilities
  */
 
-import { NotionApiError } from './types'
+import { NotionApiError, NotionIntegration } from './types'
+import { decrypt } from '@/lib/security/encryption'
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Create Notion API error with proper context
@@ -82,6 +84,52 @@ export function getNotionApiHeaders(accessToken: string): Record<string, string>
     'Authorization': `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
     'Notion-Version': '2022-06-28',
+  }
+}
+
+/**
+ * Resolve the correct (decrypted) access token for a Notion integration.
+ * If a workspace is provided and has its own token, prefer that value.
+ */
+export function resolveNotionAccessToken(
+  integration: NotionIntegration,
+  workspaceId?: string
+): string {
+  const encryptionKey = process.env.ENCRYPTION_KEY
+  if (!encryptionKey) {
+    throw new Error('Notion encryption key missing. Please configure ENCRYPTION_KEY.')
+  }
+
+  let encryptedToken = integration.access_token
+
+  if (workspaceId && integration.metadata?.workspaces) {
+    const workspaceToken = integration.metadata.workspaces[workspaceId]?.access_token
+    if (workspaceToken) {
+      encryptedToken = workspaceToken
+      logger.debug('[Notion] Using workspace-specific access token', { workspaceId })
+    } else {
+      logger.debug('[Notion] Workspace token missing, falling back to primary token', { workspaceId })
+    }
+  }
+
+  if (!encryptedToken) {
+    throw new Error('Notion authentication required. Please reconnect your account.')
+  }
+
+  return decrypt(encryptedToken, encryptionKey)
+}
+
+export interface NotionRequestContext {
+  workspace?: string
+  workspaceId?: string
+  [key: string]: any
+}
+
+export function getNotionRequestOptions(context?: NotionRequestContext): {
+  workspaceId?: string
+} {
+  return {
+    workspaceId: context?.workspaceId || context?.workspace
   }
 }
 

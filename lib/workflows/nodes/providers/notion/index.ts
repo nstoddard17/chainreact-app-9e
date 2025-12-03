@@ -10,6 +10,9 @@ import { notionUnifiedActions } from './unified-actions'
 // Import separate page actions (replaces notion_action_manage_page)
 import { notionPageActions } from './page-actions'
 
+// Import separate database actions (replaces notion_action_manage_database)
+import { notionDatabaseActions } from './database-actions'
+
 // Import granular page content actions
 import { listPageContentActionSchema } from './actions/listPageContent.schema'
 import { getPageContentActionSchema } from './actions/getPageContent.schema'
@@ -55,14 +58,20 @@ const makeApiCall: NodeComponent = {
   icon: Code
 }
 
-// Use separate page actions + other unified actions
+// Use separate page actions + database actions + other unified actions
 export const notionNodes: NodeComponent[] = [
   // === Page Actions (Main Workflow Tools) ===
   ...notionPageActions,
 
-  // === Other Unified Actions (Database, Users, Comments, Blocks) ===
-  // Filter out manage_page as it's been replaced by separate page actions
-  ...notionUnifiedActions.filter(action => action.type !== 'notion_action_manage_page'),
+  // === Database Actions (Database Management) ===
+  ...notionDatabaseActions,
+
+  // === Other Unified Actions (Users, Comments, Blocks) ===
+  // Filter out manage_page and manage_database as they've been replaced by separate actions
+  ...notionUnifiedActions.filter(action =>
+    action.type !== 'notion_action_manage_page' &&
+    action.type !== 'notion_action_manage_database'
+  ),
 
   // === Granular Page Content Actions (Advanced Content Management) ===
   listPageContent,
@@ -440,33 +449,41 @@ export {
         required: false,
         placeholder: "Tertiary heading"
       },
-      { 
-        name: "bullet_list", 
-        label: "Bullet List (Optional)", 
-        type: "textarea", 
+      {
+        name: "bullet_list",
+        label: "Bullet List (Optional)",
+        type: "textarea",
         required: false,
-        placeholder: "Enter list items, one per line"
+        placeholder: "Enter list items, one per line",
+        supportsVariables: true,
+        hasConnectButton: true
       },
-      { 
-        name: "numbered_list", 
-        label: "Numbered List (Optional)", 
-        type: "textarea", 
+      {
+        name: "numbered_list",
+        label: "Numbered List (Optional)",
+        type: "textarea",
         required: false,
-        placeholder: "Enter list items, one per line"
+        placeholder: "Enter list items, one per line",
+        supportsVariables: true,
+        hasConnectButton: true
       },
-      { 
-        name: "quote", 
-        label: "Quote (Optional)", 
-        type: "textarea", 
+      {
+        name: "quote",
+        label: "Quote (Optional)",
+        type: "textarea",
         required: false,
-        placeholder: "Enter a quote or callout text"
+        placeholder: "Enter a quote or callout text",
+        supportsVariables: true,
+        hasConnectButton: true
       },
-      { 
-        name: "code_block", 
-        label: "Code Block (Optional)", 
-        type: "textarea", 
+      {
+        name: "code_block",
+        label: "Code Block (Optional)",
+        type: "textarea",
         required: false,
-        placeholder: "Enter code or technical content"
+        placeholder: "Enter code or technical content",
+        supportsVariables: true,
+        hasConnectButton: true
       },
       { 
         name: "divider", 
@@ -516,7 +533,7 @@ export {
     isTrigger: false,
     configSchema: [
       { name: "page", label: "Page", type: "select", dynamic: "notion_pages", required: true, placeholder: "Select a page" },
-      { name: "content", label: "Content", type: "textarea", required: true, placeholder: "Content to append" }
+      { name: "content", label: "Content", type: "textarea", required: true, placeholder: "Content to append", supportsVariables: true, hasConnectButton: true }
     ]
   },
   */
@@ -692,7 +709,7 @@ export {
     configSchema: [
       { name: "page", label: "Page", type: "select", dynamic: "notion_pages", required: true, placeholder: "Select a page" },
       { name: "title", label: "New Title", type: "text", required: false, placeholder: "New page title" },
-      { name: "content", label: "Content", type: "textarea", required: false, placeholder: "New page content" }
+      { name: "content", label: "Content", type: "textarea", required: false, placeholder: "New page content", supportsVariables: true, hasConnectButton: true }
     ]
   },
   */

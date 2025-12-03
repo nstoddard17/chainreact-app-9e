@@ -1282,6 +1282,35 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     database: "notion_databases",
   },
+  // New separate database actions
+  notion_action_create_database: {
+    workspace: "notion_workspaces",
+    parentPage: "notion_pages",
+  },
+  notion_action_update_database_info: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+  },
+  notion_action_query_database: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+  },
+  notion_action_find_or_create_item: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+    searchProperty: "notion_database_properties",
+    createProperties: "notion_database_properties",
+  },
+  notion_action_archive_database_item: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+    itemToArchive: "notion_database_items",
+  },
+  notion_action_restore_database_item: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+    itemToRestore: "notion_archived_items",
+  },
   notion_action_manage_users: {
     workspace: "notion_workspaces",
     userId: "notion_users",

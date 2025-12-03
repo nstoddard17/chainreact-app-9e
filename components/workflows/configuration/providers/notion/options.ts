@@ -9,7 +9,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
   },
   
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { fieldName, integrationId, dependsOnValue, extraOptions } = params
+    const { fieldName, integrationId, dependsOnValue, extraOptions, formValues } = params
     try {
       // Map field names to Notion API data types
       const fieldToDataTypeMap: Record<string, string> = {
@@ -39,6 +39,11 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         'destinationPage': 'pages',
         'destination_database_id': 'databases',
         'databaseRows': 'database_rows',
+        // New database action fields
+        'searchProperty': 'properties',
+        'createProperties': 'properties',
+        'itemToArchive': 'database_items',
+        'itemToRestore': 'archived_items',
       }
 
       const dataType = fieldToDataTypeMap[fieldName] || fieldName
@@ -61,16 +66,56 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       // Add other dependencies
       if (fieldName === 'databaseProperties' && dependsOnValue) {
         requestBody.options.databaseId = dependsOnValue
+        // Add workspace ID if available
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
       } else if (fieldName === 'databaseFields' && dependsOnValue) {
         requestBody.options.databaseId = dependsOnValue
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
       } else if (fieldName === 'databaseRows' && dependsOnValue) {
         requestBody.options.databaseId = dependsOnValue
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
+      } else if (fieldName === 'searchProperty' && dependsOnValue) {
+        requestBody.options.databaseId = dependsOnValue
+        // Add workspace ID from form values for proper token selection
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
+      } else if (fieldName === 'createProperties' && dependsOnValue) {
+        requestBody.options.databaseId = dependsOnValue
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
+      } else if (fieldName === 'itemToArchive' && dependsOnValue) {
+        requestBody.options.databaseId = dependsOnValue
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
+      } else if (fieldName === 'itemToRestore' && dependsOnValue) {
+        requestBody.options.databaseId = dependsOnValue
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
       } else if (fieldName === 'pageFields' && dependsOnValue) {
         requestBody.options.pageId = dependsOnValue
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
       } else if (fieldName === 'after' && dependsOnValue) {
         requestBody.options.pageId = dependsOnValue
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
       } else if (fieldName === 'block_id' && dependsOnValue) {
         requestBody.options.pageId = dependsOnValue
+        if (formValues?.workspace) {
+          requestBody.options.workspaceId = formValues.workspace
+        }
       }
       
       // Add extra options

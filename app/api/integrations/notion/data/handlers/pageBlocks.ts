@@ -240,7 +240,6 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
           content = block[blockType].rich_text.map((t: any) => t.plain_text).join('')
           blockProperties.push({
             id: `${block.id}-content`,
-            blockId: block.id, // Preserve the actual Notion block ID
             type: 'text',
             label: 'Content',
             value: content
@@ -398,7 +397,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
             property.type = 'text'
             property.required = true // Title is always required
             break
-            
+
           case 'rich_text':
             if (propData.rich_text && propData.rich_text.length > 0) {
               property.value = propData.rich_text.map((t: any) => t.plain_text).join('')
