@@ -104,7 +104,7 @@
     "jexl": "^2.3.0",
     "lru-cache": "^11.1.0",
     "lucide-react": "^0.454.0",
-    "next": "^15.5.2",
+    "next": "^15.5.7",
     "next-themes": "latest",
     "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
