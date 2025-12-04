@@ -9,7 +9,12 @@
       "Bash(powershell -Command \"Get-Content ''c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\lib\\workflows\\actions\\notion\\handlers.ts'' | Measure-Object -Line\")",
       "Bash(powershell -Command \"Get-Content ''c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\learning\\docs\\notion-integration-gap-analysis.md'' | Measure-Object -Line\")",
       "Bash(git checkout:*)",
-      "Bash(powershell -Command \"Get-Content ''c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\components\\workflows\\configuration\\ConfigurationForm.tsx'' | Measure-Object -Line\")"
+      "Bash(powershell -Command \"Get-Content ''c:\\Users\\marcu\\source\\repos\\nstoddard17\\chainreact-app-9e\\components\\workflows\\configuration\\ConfigurationForm.tsx'' | Measure-Object -Line\")",
+      "Bash(dir:*)",
+      "Bash(powershell -Command \"Get-ChildItem -Path ''supabase\\migrations'' -Name | Sort-Object\")",
+      "Bash(powershell -Command:*)",
+      "Bash(supabase db push:*)",
+      "Bash(where.exe:*)"
     ],
     "deny": [],
     "ask": [],

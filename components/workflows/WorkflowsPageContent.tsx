@@ -1615,21 +1615,23 @@ function WorkflowsContent() {
               </DropdownMenu>
             )}
 
-            {/* Create Button */}
-            <Button
-              size="sm"
-              className="h-9 gap-2 whitespace-nowrap"
-              onClick={() => {
-                if (activeTab === 'workflows') {
-                  initiateWorkflowCreation(() => router.push('/workflows/ai-agent'))
-                } else {
-                  setCreateFolderDialog(true)
-                }
-              }}
-            >
-              <Plus className="w-4 h-4" />
-              {activeTab === 'workflows' ? 'Create workflow' : 'Create folder'}
-            </Button>
+            {/* Create Button - hide "Create folder" when viewing trash */}
+            {!(activeTab === 'folders' && isViewingTrash) && (
+              <Button
+                size="sm"
+                className="h-9 gap-2 whitespace-nowrap"
+                onClick={() => {
+                  if (activeTab === 'workflows') {
+                    initiateWorkflowCreation(() => router.push('/workflows/ai-agent'))
+                  } else {
+                    setCreateFolderDialog(true)
+                  }
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                {activeTab === 'workflows' ? 'Create workflow' : 'Create folder'}
+              </Button>
+            )}
             </div>
           </div>
 
@@ -2527,11 +2529,15 @@ function WorkflowsContent() {
                         className="group relative bg-white rounded-xl border-2 border-slate-200 p-5 hover:shadow-lg hover:border-blue-300 transition-all cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation()
-                          // Single click: navigate into folder, stay on Folders tab
+                          // Single click: navigate into folder
                           logger.debug('[Folders] Clicking folder:', folder.name, folder.id)
                           setCurrentFolderId(folder.id)
                           setSelectedFolderFilter(folder.id)
-                          // Stay on Folders tab so users can create subfolders
+                          // If clicking trash folder, switch to workflows tab to show trashed workflows
+                          if (folder.is_trash) {
+                            setActiveTab('workflows')
+                          }
+                          // Otherwise stay on Folders tab so users can create subfolders
                         }}
                       >
                         <div className="flex items-start justify-between mb-3">
@@ -2647,7 +2653,7 @@ function WorkflowsContent() {
                   })}
                 </div>
 
-                {filteredFolders.length === 0 && (
+                {filteredFolders.length === 0 && !isViewingTrash && (
                   <div className="text-center py-16">
                     <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <Folder className="w-8 h-8 text-slate-400" />
@@ -2709,11 +2715,15 @@ function WorkflowsContent() {
                           className="group hover:bg-slate-50 transition-colors cursor-pointer"
                           onClick={(e) => {
                             e.stopPropagation()
-                            // Single click: navigate into folder, stay on Folders tab
+                            // Single click: navigate into folder
                             logger.debug('[Folders List] Clicking folder:', folder.name, folder.id)
                             setCurrentFolderId(folder.id)
                             setSelectedFolderFilter(folder.id)
-                            // Stay on Folders tab so users can create subfolders
+                            // If clicking trash folder, switch to workflows tab to show trashed workflows
+                            if (folder.is_trash) {
+                              setActiveTab('workflows')
+                            }
+                            // Otherwise stay on Folders tab so users can create subfolders
                           }}
                         >
                           <td className="px-6 py-4">
@@ -2836,7 +2846,7 @@ function WorkflowsContent() {
                       })}
                     </tbody>
                   </table>
-                  {filteredFolders.length === 0 && (
+                  {filteredFolders.length === 0 && !isViewingTrash && (
                     <div className="text-center py-16">
                       <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                         <Folder className="w-8 h-8 text-slate-400" />

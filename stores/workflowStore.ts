@@ -154,6 +154,7 @@ export interface Workflow {
   source_template_id?: string | null
   deleted_at?: string | null
   original_folder_id?: string | null
+  was_in_root?: boolean
   workspace_type?: 'personal' | 'team' | 'organization'
   workspace_id?: string | null
   user_permission?: 'use' | 'manage' | 'admin'
