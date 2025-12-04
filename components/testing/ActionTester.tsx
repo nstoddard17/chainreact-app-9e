@@ -195,9 +195,17 @@ export function ActionTester({ userId }: ActionTesterProps) {
         if (item.value && item.label) {
           // Already in correct format
           return item
-        } else if (item.id && item.name) {
-          // Common format: id + name (Trello, etc.)
-          return { value: item.id, label: item.name }
+        } else if (item.id && item.fullName) {
+          // Trello members: use fullName
+          return { value: item.id, label: item.fullName }
+        } else if (item.id && item.username) {
+          // Trello members fallback: use username
+          return { value: item.id, label: item.username }
+        } else if (item.id && item.name !== undefined) {
+          // Common format: id + name (Trello labels, etc.)
+          // For Trello labels with empty names, use color
+          const label = item.name || (item.color ? `${item.color} label` : item.id)
+          return { value: item.id, label }
         } else if (item.id && item.title) {
           // Alternative: id + title
           return { value: item.id, label: item.title }
@@ -207,7 +215,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
         } else {
           // Fallback: use first available property as label
           const value = item.id || item.value || JSON.stringify(item)
-          const label = item.name || item.label || item.title || value
+          const label = item.fullName || item.username || item.name || item.label || item.title || (item.color ? `${item.color} label` : value)
           return { value, label }
         }
       })
