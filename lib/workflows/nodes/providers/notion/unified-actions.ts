@@ -984,7 +984,11 @@ export const notionUnifiedActions: NodeComponent[] = [
         dependsOn: "workspace",
         placeholder: "Select database",
         description: "The database to update",
-        supportsAI: true
+        supportsAI: true,
+        hidden: {
+          $deps: ["workspace"],
+          $condition: { workspace: { $exists: false } }
+        }
       },
       {
         name: "operation",
@@ -996,7 +1000,12 @@ export const notionUnifiedActions: NodeComponent[] = [
           { value: "remove_property", label: "Remove Property" }
         ],
         defaultValue: "add_property",
-        description: "What to do with the property"
+        description: "What to do with the property",
+        dependsOn: "database",
+        hidden: {
+          $deps: ["database"],
+          $condition: { database: { $exists: false } }
+        }
       },
       {
         name: "propertyName",
@@ -1005,7 +1014,12 @@ export const notionUnifiedActions: NodeComponent[] = [
         required: true,
         placeholder: "Enter property name",
         description: "Name of the property to add/remove",
-        supportsAI: true
+        supportsAI: true,
+        dependsOn: "operation",
+        hidden: {
+          $deps: ["operation"],
+          $condition: { operation: { $exists: false } }
+        }
       },
       {
         name: "propertyType",
@@ -1038,7 +1052,12 @@ export const notionUnifiedActions: NodeComponent[] = [
           operator: "equals",
           value: "add_property"
         },
-        description: "Type of property to add"
+        description: "Type of property to add",
+        dependsOn: "operation",
+        hidden: {
+          $deps: ["operation"],
+          $condition: { operation: { $exists: false } }
+        }
       },
       {
         name: "selectOptions",
@@ -1064,7 +1083,12 @@ export const notionUnifiedActions: NodeComponent[] = [
             }
           ]
         },
-        tooltip: "JSON array of options with name and color"
+        tooltip: "JSON array of options with name and color",
+        dependsOn: "operation",
+        hidden: {
+          $deps: ["operation"],
+          $condition: { operation: { $exists: false } }
+        }
       }
     ]
   }

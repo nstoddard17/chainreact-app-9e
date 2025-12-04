@@ -1311,6 +1311,38 @@ const notionMappings: Record<string, FieldMapping> = {
     database: "notion_databases",
     itemToRestore: "notion_archived_items",
   },
+  // New separate comment actions
+  notion_action_create_comment: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  notion_action_list_comments: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  // New separate user actions
+  notion_action_list_users: {
+    workspace: "notion_workspaces",
+  },
+  notion_action_get_user: {
+    workspace: "notion_workspaces",
+    userId: "notion_users",
+  },
+  // New separate block actions
+  notion_action_add_block: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  notion_action_get_block: {
+    workspace: "notion_workspaces",
+  },
+  notion_action_get_block_children: {
+    workspace: "notion_workspaces",
+  },
+  notion_action_get_page_with_children: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
   notion_action_manage_users: {
     workspace: "notion_workspaces",
     userId: "notion_users",

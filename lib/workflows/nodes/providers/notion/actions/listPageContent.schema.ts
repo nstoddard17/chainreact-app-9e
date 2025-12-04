@@ -66,7 +66,11 @@ export const listPageContentActionSchema: NodeComponent = {
       searchable: true,
       placeholder: "Search for a page...",
       description: "The page whose content you want to list",
-      loadingText: "Loading pages..."
+      loadingText: "Loading pages...",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "filterType",
@@ -91,7 +95,12 @@ export const listPageContentActionSchema: NodeComponent = {
         { value: "file", label: "File" }
       ],
       placeholder: "All block types",
-      description: "Only return blocks of specific types"
+      description: "Only return blocks of specific types",
+      dependsOn: "pageId",
+      hidden: {
+        $deps: ["pageId"],
+        $condition: { pageId: { $exists: false } }
+      }
     },
     {
       name: "maxBlocks",
@@ -102,7 +111,12 @@ export const listPageContentActionSchema: NodeComponent = {
       min: 1,
       max: 100,
       placeholder: "100",
-      description: "Maximum number of blocks to return (Notion API limit is 100 per request)"
+      description: "Maximum number of blocks to return (Notion API limit is 100 per request)",
+      dependsOn: "pageId",
+      hidden: {
+        $deps: ["pageId"],
+        $condition: { pageId: { $exists: false } }
+      }
     },
   ],
 }

@@ -293,6 +293,8 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       'databaseFields': ['database'],
       'databaseRows': ['database'],
       'pageFields': ['page'],
+      'itemToArchive': ['database'],
+      'itemToRestore': ['database'],
     }
 
     return dependencies[fieldName] || []
