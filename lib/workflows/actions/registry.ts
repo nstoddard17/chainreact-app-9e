@@ -117,6 +117,13 @@ import {
   createTrelloList,
   createTrelloCard,
   moveTrelloCard,
+  createTrelloBoard,
+  updateTrelloCard,
+  archiveTrelloCard,
+  addTrelloComment,
+  addTrelloLabelToCard,
+  addTrelloChecklist,
+  createTrelloChecklistItem
 } from './trello'
 
 // Discord actions
@@ -735,7 +742,21 @@ export const actionHandlerRegistry: Record<string, Function> = {
     createTrelloCard(params.config, params.userId, params.input),
   "trello_action_move_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
     moveTrelloCard(params.config, params.userId, params.input),
-  
+  "trello_action_create_board": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTrelloBoard(params.config, params.userId, params.input),
+  "trello_action_update_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateTrelloCard(params.config, params.userId, params.input),
+  "trello_action_archive_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    archiveTrelloCard(params.config, params.userId, params.input),
+  "trello_action_add_comment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addTrelloComment(params.config, params.userId, params.input),
+  "trello_action_add_label_to_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addTrelloLabelToCard(params.config, params.userId, params.input),
+  "trello_action_add_checklist": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addTrelloChecklist(params.config, params.userId, params.input),
+  "trello_action_create_checklist_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTrelloChecklistItem(params.config, params.userId, params.input),
+
   // Discord actions - wrapped to handle new calling convention
   "discord_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     sendDiscordMessage(params.config, params.userId, params.input),

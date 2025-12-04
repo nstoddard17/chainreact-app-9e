@@ -14,7 +14,8 @@
       "Bash(powershell -Command \"Get-ChildItem -Path ''supabase\\migrations'' -Name | Sort-Object\")",
       "Bash(powershell -Command:*)",
       "Bash(supabase db push:*)",
-      "Bash(where.exe:*)"
+      "Bash(where.exe:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": [],
