@@ -4,30 +4,27 @@ import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Update an existing customer in Stripe
- * API VERIFICATION: Uses Stripe API POST /v1/customers/:id
- * Docs: https://stripe.com/docs/api/customers/update
+ * Create a new customer in Stripe with full customization options
+ * API VERIFICATION: Uses Stripe API POST /v1/customers
+ * Docs: https://stripe.com/docs/api/customers/create
  */
-export async function stripeUpdateCustomer(
+export async function stripeCreateCustomer(
   config: any,
   context: ExecutionContext
 ): Promise<ActionResult> {
   try {
     const accessToken = await getDecryptedAccessToken(context.userId, "stripe")
 
-    // Resolve required customerId
-    const customerId = context.dataFlowManager.resolveVariable(config.customerId)
-    if (!customerId) {
-      throw new Error('Customer ID is required')
-    }
-
     // Build request body - resolve all dynamic values
     const body: any = {}
 
-    // Primary contact information
-    if (config.email) {
-      body.email = context.dataFlowManager.resolveVariable(config.email)
+    // Primary contact information (email is required)
+    const email = context.dataFlowManager.resolveVariable(config.email)
+    if (!email) {
+      throw new Error('Email is required to create a customer')
     }
+    body.email = email
+
     if (config.name) {
       body.name = context.dataFlowManager.resolveVariable(config.name)
     }
@@ -131,7 +128,7 @@ export async function stripeUpdateCustomer(
         try {
           metadataObj = JSON.parse(metadata)
         } catch (e) {
-          logger.error('[Stripe Update Customer] Failed to parse metadata JSON', { metadata })
+          logger.error('[Stripe Create Customer] Failed to parse metadata JSON', { metadata })
           metadataObj = null
         }
       }
@@ -159,7 +156,7 @@ export async function stripeUpdateCustomer(
         try {
           fieldsArray = JSON.parse(customFields)
         } catch (e) {
-          logger.error('[Stripe Update Customer] Failed to parse invoice custom fields', { customFields })
+          logger.error('[Stripe Create Customer] Failed to parse invoice custom fields', { customFields })
         }
       }
 
@@ -172,8 +169,8 @@ export async function stripeUpdateCustomer(
       body['invoice_settings[footer]'] = context.dataFlowManager.resolveVariable(config.invoice_settings_footer)
     }
 
-    // Make API call to update customer
-    const response = await fetch(`https://api.stripe.com/v1/customers/${customerId}`, {
+    // Make API call to create customer
+    const response = await fetch('https://api.stripe.com/v1/customers', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -221,14 +218,14 @@ export async function stripeUpdateCustomer(
         metadata: customer.metadata,
         livemode: customer.livemode
       },
-      message: `Successfully updated customer ${customer.id}`
+      message: `Successfully created customer ${customer.id}`
     }
   } catch (error: any) {
-    logger.error('[Stripe Update Customer] Error:', error)
+    logger.error('[Stripe Create Customer] Error:', error)
     return {
       success: false,
       output: {},
-      message: error.message || 'Failed to update customer in Stripe'
+      message: error.message || 'Failed to create customer in Stripe'
     }
   }
 }

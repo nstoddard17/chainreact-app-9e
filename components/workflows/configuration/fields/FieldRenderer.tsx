@@ -80,6 +80,7 @@ import { DiscordGenericField } from "./discord/DiscordGenericField";
 import { AirtableImageField } from "./airtable/AirtableImageField";
 import { MultipleRecordsField } from "./airtable/MultipleRecordsField";
 import { FieldMapperField } from "./airtable/FieldMapperField";
+import { ShopifyLineItemsField } from "./shopify/ShopifyLineItemsField";
 import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 import { GoogleSheetsFindRowPreview } from "../components/google-sheets/GoogleSheetsFindRowPreview";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -559,10 +560,12 @@ export function FieldRenderer({
     // - select fields with loadOnMount: true (e.g., spreadsheetId)
     // - select fields with dependsOn (e.g., sheetName when spreadsheet is selected)
     // - multiselect/multi_select fields with dynamic data
+    // - shopify_line_items fields with dynamic data
     const shouldAutoLoad = (field.type === 'combobox' && field.dynamic) ||
                           (field.type === 'select' && field.dynamic && (field.loadOnMount || field.dependsOn)) ||
                           ((field.type === 'multiselect' || field.type === 'multi_select' || field.type === 'multi-select') && field.dynamic) ||
-                          ((field.type === 'hubspot_filters') && field.dynamic && (field.loadOnMount || !field.dependsOn));
+                          ((field.type === 'hubspot_filters') && field.dynamic && (field.loadOnMount || !field.dependsOn)) ||
+                          ((field.type === 'shopify_line_items') && field.dynamic && field.loadOnMount);
 
     if (shouldAutoLoad) {
       // Only load if we don't have options yet
@@ -2842,6 +2845,19 @@ export function FieldRenderer({
             parentValues={parentValues}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
+          />
+        );
+
+      case "shopify_line_items":
+        // Shopify Line Items Field for visual order creation
+        return (
+          <ShopifyLineItemsField
+            value={value}
+            onChange={onChange}
+            field={field}
+            dynamicOptions={dynamicOptions}
+            loadingFields={loadingFields}
+            loadOptions={onDynamicLoad}
           />
         );
 

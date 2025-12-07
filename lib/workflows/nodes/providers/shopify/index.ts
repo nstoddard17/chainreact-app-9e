@@ -458,12 +458,11 @@ export const shopifyNodes: NodeComponent[] = [
           $condition: { shopify_store: { $exists: false } }
         },
         label: "Line Items",
-        type: "array",
+        type: "shopify_line_items",
+        dynamic: "shopify_products", // Triggers product loading
+        loadOnMount: true, // Load products when store is selected
         required: true,
-        placeholder: JSON.stringify([
-          { variant_id: "123456", quantity: 1 }
-        ], null, 2),
-        description: "Array of items to include in the order",
+        description: "Products to include in the order",
         supportsAI: true,
         connectButton: true
       },
@@ -740,7 +739,7 @@ export const shopifyNodes: NodeComponent[] = [
     isTrigger: false,
     producesOutput: true,
     testable: true,
-    requiredScopes: ["write_orders"],
+    requiredScopes: ["write_orders", "write_fulfillments"],
     configSchema: [
       STORE_SELECTOR_FIELD,
       {
@@ -784,14 +783,13 @@ export const shopifyNodes: NodeComponent[] = [
         dependsOn: "action",
         hidden: {
           $deps: ["action"],
-          $condition: { action: { $exists: false } }
+          $condition: { action: { $ne: "add_tags" } }
         },
         label: "Tags",
         type: "text",
         required: false,
         placeholder: "urgent, priority",
-        description: "Tags to add (only if action is 'Add Tags')",
-        showIf: { field: "action", value: "add_tags" },
+        description: "Comma-separated tags to add to the order",
         supportsAI: true,
         connectButton: true
       },
@@ -800,14 +798,13 @@ export const shopifyNodes: NodeComponent[] = [
         dependsOn: "action",
         hidden: {
           $deps: ["action"],
-          $condition: { action: { $exists: false } }
+          $condition: { action: { $ne: "add_note" } }
         },
         label: "Note",
-        type: "text",
+        type: "textarea",
         required: false,
         placeholder: "Customer requested expedited shipping",
-        description: "Note to add (only if action is 'Add Note')",
-        showIf: { field: "action", value: "add_note" },
+        description: "Note to add to the order",
         supportsAI: true,
         connectButton: true
       },
@@ -892,11 +889,11 @@ export const shopifyNodes: NodeComponent[] = [
           $deps: ["shopify_store"],
           $condition: { shopify_store: { $exists: false } }
         },
-        label: "Description (HTML)",
-        type: "text",
+        label: "Description",
+        type: "textarea",
         required: false,
-        placeholder: "<p>Product description...</p>",
-        description: "Product description in HTML format",
+        placeholder: "Product description...",
+        description: "Product description (plain text or HTML)",
         supportsAI: true,
         connectButton: true
       },
@@ -943,7 +940,9 @@ export const shopifyNodes: NodeComponent[] = [
         placeholder: "29.99",
         description: "The price of the product",
         supportsAI: true,
-        connectButton: true
+        connectButton: true,
+        step: 0.01,
+        min: 0
       },
       {
         name: "sku",
@@ -1067,10 +1066,10 @@ export const shopifyNodes: NodeComponent[] = [
           $condition: { shopify_store: { $exists: false } }
         },
         label: "Description (Optional)",
-        type: "text",
+        type: "textarea",
         required: false,
-        placeholder: "<p>Updated description...</p>",
-        description: "Update product description in HTML format",
+        placeholder: "Updated product description",
+        description: "Update product description",
         supportsAI: true,
         connectButton: true
       },
@@ -1848,56 +1847,58 @@ export const shopifyNodes: NodeComponent[] = [
           $deps: ["shopify_store"],
           $condition: { shopify_store: { $exists: false } }
         },
-        label: "Product ID",
-        type: "text",
+        label: "Product",
+        type: "select",
+        dynamic: "shopify_products",
+        loadOnMount: true,
         required: true,
-        placeholder: "{{trigger.product_id}}",
-        description: "The ID of the product to add variant to",
+        placeholder: "Select a product",
+        description: "The product to add a variant to",
         supportsAI: true,
         connectButton: true
       },
       {
         name: "option1",
-        dependsOn: "shopify_store",
+        dependsOn: "product_id",
         hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
+          $deps: ["product_id"],
+          $condition: { product_id: { $exists: false } }
         },
-        label: "Option 1 (e.g., Size, Color)",
+        label: "Option 1 Value",
         type: "text",
         required: false,
-        placeholder: "Large",
-        description: "First variant option value (e.g., 'Large' for Size option)",
+        placeholder: "e.g., Large, Red, Default Title",
+        description: "Value for the product's first option (e.g., if your product's first option is 'Size', enter 'Large')",
         supportsAI: true,
         connectButton: true
       },
       {
         name: "option2",
-        dependsOn: "shopify_store",
+        dependsOn: "product_id",
         hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
+          $deps: ["product_id"],
+          $condition: { product_id: { $exists: false } }
         },
-        label: "Option 2 (Optional)",
+        label: "Option 2 Value (Optional)",
         type: "text",
         required: false,
-        placeholder: "Red",
-        description: "Second variant option value (e.g., 'Red' for Color option)",
+        placeholder: "e.g., Blue, XL",
+        description: "Value for the product's second option (only if your product has 2+ options)",
         supportsAI: true,
         connectButton: true
       },
       {
         name: "option3",
-        dependsOn: "shopify_store",
+        dependsOn: "product_id",
         hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
+          $deps: ["product_id"],
+          $condition: { product_id: { $exists: false } }
         },
-        label: "Option 3 (Optional)",
+        label: "Option 3 Value (Optional)",
         type: "text",
         required: false,
-        placeholder: "Cotton",
-        description: "Third variant option value (e.g., 'Cotton' for Material option)",
+        placeholder: "e.g., Polyester",
+        description: "Value for the product's third option (only if your product has 3 options)",
         supportsAI: true,
         connectButton: true
       },
@@ -1914,7 +1915,9 @@ export const shopifyNodes: NodeComponent[] = [
         placeholder: "39.99",
         description: "Price for this variant",
         supportsAI: true,
-        connectButton: true
+        connectButton: true,
+        step: 0.01,
+        min: 0
       },
       {
         name: "sku",

@@ -358,8 +358,13 @@ import { uploadDropboxFile, findDropboxFiles } from './dropbox'
 
 // Shopify actions
 import { createShopifyOrder } from './shopify/createOrder'
+import { createShopifyProduct } from './shopify/createProduct'
 import { updateShopifyProduct } from './shopify/updateProduct'
+import { createShopifyCustomer } from './shopify/createCustomer'
 import { updateShopifyCustomer } from './shopify/updateCustomer'
+import { updateShopifyInventory } from './shopify/updateInventory'
+import { updateShopifyOrderStatus } from './shopify/updateOrderStatus'
+import { addShopifyOrderNote } from './shopify/addOrderNote'
 import { createShopifyFulfillment } from './shopify/createFulfillment'
 import { createShopifyProductVariant } from './shopify/createProductVariant'
 import { updateShopifyProductVariant } from './shopify/updateProductVariant'
@@ -438,7 +443,11 @@ import { mailchimpCreateCampaign } from './mailchimp/createCampaign'
 import { mailchimpCreateAudience } from './mailchimp/createAudience'
 import { mailchimpCreateEvent } from './mailchimp/createEvent'
 import { stripeGetPayments } from './stripe/getPayments'
+import { stripeCreateCustomer } from './stripe/createCustomer'
 import { stripeUpdateCustomer } from './stripe/updateCustomer'
+import { stripeCreatePaymentIntent } from './stripe/createPaymentIntent'
+import { stripeCreateInvoice } from './stripe/createInvoice'
+import { stripeCreateSubscription } from './stripe/createSubscription'
 import { stripeCreateRefund } from './stripe/createRefund'
 import { stripeCancelSubscription } from './stripe/cancelSubscription'
 import { stripeUpdateSubscription } from './stripe/updateSubscription'
@@ -1098,8 +1107,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "mailchimp_action_create_event": createExecutionContextWrapper(mailchimpCreateEvent),
 
   // Stripe actions
-  "stripe_action_get_payments": createExecutionContextWrapper(stripeGetPayments),
+  "stripe_action_create_customer": createExecutionContextWrapper(stripeCreateCustomer),
   "stripe_action_update_customer": createExecutionContextWrapper(stripeUpdateCustomer),
+  "stripe_action_create_payment_intent": createExecutionContextWrapper(stripeCreatePaymentIntent),
+  "stripe_action_create_invoice": createExecutionContextWrapper(stripeCreateInvoice),
+  "stripe_action_create_subscription": createExecutionContextWrapper(stripeCreateSubscription),
+  "stripe_action_get_payments": createExecutionContextWrapper(stripeGetPayments),
   "stripe_action_create_refund": createExecutionContextWrapper(stripeCreateRefund),
   "stripe_action_cancel_subscription": createExecutionContextWrapper(stripeCancelSubscription),
   "stripe_action_update_subscription": createExecutionContextWrapper(stripeUpdateSubscription),
@@ -1124,10 +1137,20 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Shopify actions - wrapped to handle new calling convention
   "shopify_action_create_order": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createShopifyOrder(params.config, params.userId, params.input),
+  "shopify_action_create_product": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createShopifyProduct(params.config, params.userId, params.input),
   "shopify_action_update_product": (params: { config: any; userId: string; input: Record<string, any> }) =>
     updateShopifyProduct(params.config, params.userId, params.input),
+  "shopify_action_create_customer": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createShopifyCustomer(params.config, params.userId, params.input),
   "shopify_action_update_customer": (params: { config: any; userId: string; input: Record<string, any> }) =>
     updateShopifyCustomer(params.config, params.userId, params.input),
+  "shopify_action_update_inventory": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateShopifyInventory(params.config, params.userId, params.input),
+  "shopify_action_update_order_status": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateShopifyOrderStatus(params.config, params.userId, params.input),
+  "shopify_action_add_order_note": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addShopifyOrderNote(params.config, params.userId, params.input),
   "shopify_action_create_fulfillment": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createShopifyFulfillment(params.config, params.userId, params.input),
   "shopify_action_create_product_variant": (params: { config: any; userId: string; input: Record<string, any> }) =>

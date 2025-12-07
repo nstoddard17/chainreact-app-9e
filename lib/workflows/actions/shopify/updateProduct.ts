@@ -1,6 +1,6 @@
 import { ActionResult } from '../index'
-import { makeShopifyRequest, validateShopifyIntegration, getShopDomain } from '@/app/api/integrations/shopify/data/utils'
-import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
+import { makeShopifyGraphQLRequest, validateShopifyIntegration, getShopDomain } from '@/app/api/integrations/shopify/data/utils'
+import { getIntegrationById } from '../../executeNode'
 import { resolveValue } from '../core/resolveValue'
 import { logger } from '@/lib/utils/logger'
 
@@ -16,7 +16,18 @@ function extractNumericId(id: string): string {
 }
 
 /**
- * Update Shopify Product
+ * Convert numeric ID to Shopify GID format
+ * Example: 123456789 → gid://shopify/Product/123456789
+ */
+function toProductGid(id: string): string {
+  if (id.includes('gid://shopify/')) {
+    return id
+  }
+  return `gid://shopify/Product/${id}`
+}
+
+/**
+ * Update Shopify Product (GraphQL)
  * Updates an existing product's properties (title, description, tags, published status, etc.)
  */
 export async function updateShopifyProduct(
@@ -27,8 +38,9 @@ export async function updateShopifyProduct(
   try {
     // 1. Get and validate integration
     const integrationId = await resolveValue(config.integration_id || config.integrationId, input)
-    const integration = await getDecryptedAccessToken(integrationId, userId, 'shopify')
+    const integration = await getIntegrationById(integrationId)
     validateShopifyIntegration(integration)
+    const selectedStore = config.shopify_store ? await resolveValue(config.shopify_store, input) : undefined
 
     // 2. Resolve all config values
     const productId = await resolveValue(config.product_id, input)
@@ -39,44 +51,69 @@ export async function updateShopifyProduct(
     const tags = config.tags ? await resolveValue(config.tags, input) : undefined
     const published = config.published ? await resolveValue(config.published, input) : undefined
 
-    // 3. Build payload (only include fields that were provided)
-    const payload: any = {}
-    if (title) payload.title = title
-    if (bodyHtml) payload.body_html = bodyHtml
-    if (vendor) payload.vendor = vendor
-    if (productType) payload.product_type = productType
-    if (tags) payload.tags = tags
-    if (published !== undefined && published !== '') {
-      payload.published = published === 'true'
+    // 3. Convert to GID format
+    const productGid = toProductGid(productId)
+
+    logger.debug('[Shopify GraphQL] Updating product:', { productId: productGid })
+
+    // 4. Build GraphQL mutation (only include fields that were provided)
+    const mutation = `
+      mutation productUpdate($input: ProductInput!) {
+        productUpdate(input: $input) {
+          product {
+            id
+            title
+            descriptionHtml
+            vendor
+            productType
+            tags
+            status
+            updatedAt
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables: any = {
+      input: {
+        id: productGid
+      }
     }
 
-    // 4. Extract numeric ID from GID if needed
-    const numericId = extractNumericId(productId)
+    if (title) variables.input.title = title
+    if (bodyHtml) variables.input.descriptionHtml = bodyHtml
+    if (vendor) variables.input.vendor = vendor
+    if (productType) variables.input.productType = productType
+    if (tags) variables.input.tags = tags.split(',').map((t: string) => t.trim())
+    if (published !== undefined && published !== '') {
+      variables.input.status = published === 'true' ? 'ACTIVE' : 'DRAFT'
+    }
 
-    logger.debug('[Shopify] Updating product:', { productId: numericId, payload })
+    // 5. Make GraphQL request
+    const result = await makeShopifyGraphQLRequest(integration, mutation, variables, selectedStore)
 
-    // 5. Make API request
-    const result = await makeShopifyRequest(integration, `products/${numericId}.json`, {
-      method: 'PUT',
-      body: JSON.stringify({ product: payload })
-    })
-
-    const product = result.product
-    const shopDomain = getShopDomain(integration)
+    const product = result.productUpdate.product
+    const shopDomain = getShopDomain(integration, selectedStore)
+    const numericId = extractNumericId(product.id)
 
     return {
       success: true,
       output: {
         success: true,
-        product_id: product.id,
+        product_id: numericId,
+        product_gid: product.id,
         title: product.title,
-        admin_url: `https://${shopDomain}/admin/products/${product.id}`,
-        updated_at: product.updated_at
+        admin_url: `https://${shopDomain}/admin/products/${numericId}`,
+        updated_at: product.updatedAt
       },
       message: 'Product updated successfully'
     }
   } catch (error: any) {
-    logger.error('[Shopify] Update product error:', error)
+    logger.error('[Shopify GraphQL] Update product error:', error)
     return {
       success: false,
       output: { success: false },

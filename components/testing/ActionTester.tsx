@@ -53,6 +53,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
   const [requestDetails, setRequestDetails] = useState<any>(null)
   const [responseDetails, setResponseDetails] = useState<any>(null)
   const [isResultsExpanded, setIsResultsExpanded] = useState(false)
+  const [activeTab, setActiveTab] = useState<'results' | 'request' | 'response' | 'validation'>('results')
 
   // Get unique providers from available nodes (actions only)
   const providers = React.useMemo(() => {
@@ -246,6 +247,34 @@ export function ActionTester({ userId }: ActionTesterProps) {
     }
   }, [selectedProvider, selectedIntegrationId, selectedNode, configValues, logApiCall, logApiResponse, logEvent, logApiError])
 
+  // Analyze schema validation - compare config fields vs API response
+  const analyzeSchemaValidation = useCallback((configSent: any, apiResponse: any) => {
+    if (!selectedNode || !apiResponse) return null
+
+    const configFields = Object.keys(configSent)
+    const responseFields = Object.keys(apiResponse)
+
+    // Fields we sent but API didn't return (could be ignored or input-only)
+    const ignoredFields = configFields.filter(field => !responseFields.includes(field))
+
+    // Fields API returned but we don't have in our schema
+    const missingFields = responseFields.filter(field => {
+      const inSchema = selectedNode.configSchema?.some((schema: any) => schema.name === field)
+      return !inSchema
+    })
+
+    // Fields that matched (we sent and got back)
+    const matchedFields = configFields.filter(field => responseFields.includes(field))
+
+    return {
+      ignoredFields,
+      missingFields,
+      matchedFields,
+      configFields,
+      responseFields
+    }
+  }, [selectedNode])
+
   // Execute test
   const executeTest = useCallback(async () => {
     if (!selectedNode || !selectedIntegrationId) {
@@ -298,6 +327,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
         setTestResult(result.testResult)
         setRequestDetails(result.requestDetails)
         setResponseDetails(result.responseDetails)
+        setActiveTab('results') // Start on results tab
         setIsResultsExpanded(true) // Auto-expand results after execution
 
         logEvent('info', 'ActionTester', `Test completed successfully`, {
@@ -307,6 +337,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
         setTestResult(result.testResult)
         setRequestDetails(result.requestDetails)
         setResponseDetails(result.responseDetails)
+        setActiveTab('results') // Start on results tab
         setIsResultsExpanded(true) // Auto-expand results after execution
 
         logEvent('error', 'ActionTester', `Test failed: ${result.error}`, {
@@ -327,6 +358,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
         executionTime: 0,
         timestamp: new Date().toISOString()
       })
+      setActiveTab('results') // Start on results tab
       setIsResultsExpanded(true) // Auto-expand results to show error
     } finally {
       setIsExecuting(false)
@@ -447,26 +479,319 @@ export function ActionTester({ userId }: ActionTesterProps) {
                     ✕
                   </Button>
                 </div>
-                <div className="flex-1 overflow-auto p-6 space-y-4">
-                  <RequestResponseViewer
-                    requestDetails={requestDetails}
-                    responseDetails={responseDetails}
-                    success={testResult?.success || false}
-                  />
-                  {testResult?.output && (
-                    <div className="border rounded-md p-4 bg-muted/50">
-                      <h4 className="text-base font-semibold mb-3">Action Output</h4>
-                      <pre className="text-sm overflow-auto bg-background p-3 rounded">
-                        {JSON.stringify(testResult.output, null, 2)}
-                      </pre>
+
+                {/* Tabs */}
+                <div className="flex border-b px-4">
+                  <button
+                    onClick={() => setActiveTab('results')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'results'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Results
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('validation')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'validation'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Schema Validation
+                    {requestDetails && responseDetails && (
+                      <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-yellow-500/20 text-yellow-700 dark:text-yellow-300">
+                        !
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('request')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'request'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Request
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('response')}
+                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'response'
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Response
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-auto p-6">
+                  {/* Results Tab */}
+                  {activeTab === 'results' && (
+                    <div className="space-y-4">
+                      {testResult?.output && (
+                        <div className="border rounded-md p-4 bg-muted/50">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-base font-semibold">Action Output</h4>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(JSON.stringify(testResult.output, null, 2))
+                                logEvent('info', 'ActionTester', 'Copied action output to clipboard')
+                              }}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                          <pre className="text-sm overflow-auto bg-background p-3 rounded">
+                            {JSON.stringify(testResult.output, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                      {testResult?.error && (
+                        <div className="border border-red-500 rounded-md p-4 bg-red-500/10">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-base font-semibold text-red-600 dark:text-red-400">Error Details</h4>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(testResult.error)
+                                logEvent('info', 'ActionTester', 'Copied error to clipboard')
+                              }}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                          <pre className="text-sm overflow-auto text-red-600 dark:text-red-400">
+                            {testResult.error}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   )}
-                  {testResult?.error && (
-                    <div className="border border-red-500 rounded-md p-4 bg-red-500/10">
-                      <h4 className="text-base font-semibold mb-3 text-red-600 dark:text-red-400">Error Details</h4>
-                      <pre className="text-sm overflow-auto text-red-600 dark:text-red-400">
-                        {testResult.error}
-                      </pre>
+
+                  {/* Schema Validation Tab */}
+                  {activeTab === 'validation' && requestDetails && responseDetails && (() => {
+                    // The requestDetails.config contains the config sent
+                    // The responseDetails.data contains the API response
+                    const validation = analyzeSchemaValidation(
+                      requestDetails.config || {},
+                      responseDetails.data || {}
+                    )
+
+                    if (!validation) {
+                      return <p className="text-muted-foreground">No validation data available</p>
+                    }
+
+                    return (
+                      <div className="space-y-6">
+                        <div className="text-sm text-muted-foreground">
+                          Comparing configuration fields vs API response to detect mismatches
+                        </div>
+
+                        {/* Matched Fields */}
+                        {validation.matchedFields.length > 0 && (
+                          <div className="border rounded-md p-4 bg-green-500/10 border-green-500/30">
+                            <h4 className="text-base font-semibold mb-3 text-green-700 dark:text-green-400 flex items-center gap-2">
+                              <span className="text-lg">✅</span> Matched Fields ({validation.matchedFields.length})
+                            </h4>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              Fields that were sent in the request and returned in the response
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {validation.matchedFields.map(field => (
+                                <span key={field} className="px-2 py-1 bg-green-500/20 text-green-700 dark:text-green-300 rounded text-sm font-mono">
+                                  {field}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Ignored/Input-Only Fields */}
+                        {validation.ignoredFields.length > 0 && (
+                          <div className="border rounded-md p-4 bg-yellow-500/10 border-yellow-500/30">
+                            <h4 className="text-base font-semibold mb-3 text-yellow-700 dark:text-yellow-400 flex items-center gap-2">
+                              <span className="text-lg">⚠️</span> Fields Not in Response ({validation.ignoredFields.length})
+                            </h4>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              These fields were sent in the request but didn't appear in the API response. This could mean:
+                              <br />• They are input-only fields (normal for create/update actions)
+                              <br />• The API ignored them (possibly unsupported fields that should be removed from schema)
+                            </p>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {validation.ignoredFields.map(field => (
+                                <span key={field} className="px-2 py-1 bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 rounded text-sm font-mono">
+                                  {field}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="bg-background p-3 rounded text-xs">
+                              <p className="font-semibold mb-2">💡 Suggested Action:</p>
+                              <p className="text-muted-foreground">
+                                Review these fields in the node configuration schema. If they are NOT input-only fields and the API doesn't support them, consider removing them from:
+                              </p>
+                              <code className="block mt-2 text-xs">
+                                /lib/workflows/nodes/providers/{selectedProvider}/index.ts
+                              </code>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Missing Fields in Schema */}
+                        {validation.missingFields.length > 0 && (
+                          <div className="border rounded-md p-4 bg-blue-500/10 border-blue-500/30">
+                            <h4 className="text-base font-semibold mb-3 text-blue-700 dark:text-blue-400 flex items-center gap-2">
+                              <span className="text-lg">💡</span> Fields Not in Schema ({validation.missingFields.length})
+                            </h4>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              The API returned these fields, but they're not defined in our configuration schema. Consider adding them to capture more data.
+                            </p>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {validation.missingFields.map(field => (
+                                <span key={field} className="px-2 py-1 bg-blue-500/20 text-blue-700 dark:text-blue-300 rounded text-sm font-mono">
+                                  {field}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="bg-background p-3 rounded text-xs space-y-2">
+                              <p className="font-semibold">🔧 Auto-Generated Fix:</p>
+                              <p className="text-muted-foreground">Add these fields to the output schema:</p>
+                              <pre className="bg-muted p-3 rounded overflow-auto text-xs">
+{`outputSchema: [
+  // ... existing fields ...
+${validation.missingFields.map(field => {
+  const responseValue = responseDetails.data?.[field]
+  const fieldType = Array.isArray(responseValue) ? 'array' : typeof responseValue
+  return `  { name: "${field}", label: "${field.charAt(0).toUpperCase() + field.slice(1)}", type: "${fieldType}", description: "TODO: Add description" }`
+}).join(',\n')}
+]`}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Summary */}
+                        <div className="border rounded-md p-4 bg-muted/50">
+                          <h4 className="text-base font-semibold mb-3">Summary</h4>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">Config Fields Sent</p>
+                              <p className="text-2xl font-bold">{validation.configFields.length}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Response Fields Received</p>
+                              <p className="text-2xl font-bold">{validation.responseFields.length}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Matched</p>
+                              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{validation.matchedFields.length}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Mismatches</p>
+                              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                                {validation.ignoredFields.length + validation.missingFields.length}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Request Tab */}
+                  {activeTab === 'request' && requestDetails && (
+                    <div className="border rounded-md p-4 bg-muted/50">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-base font-semibold">Request Details</h4>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(JSON.stringify(requestDetails, null, 2))
+                            logEvent('info', 'ActionTester', 'Copied request details to clipboard')
+                          }}
+                        >
+                          Copy All
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">Method & Endpoint</p>
+                          <p className="text-sm font-mono">{requestDetails.method} {requestDetails.endpoint}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">Integration ID</p>
+                          <p className="text-sm font-mono">{requestDetails.integrationId}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">Configuration Sent</p>
+                          <pre className="text-xs overflow-auto bg-background p-3 rounded max-h-96">
+                            {JSON.stringify(requestDetails.config, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Response Tab */}
+                  {activeTab === 'response' && responseDetails && (
+                    <div className="border rounded-md p-4 bg-muted/50">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-base font-semibold">Response Details</h4>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(JSON.stringify(responseDetails, null, 2))
+                            logEvent('info', 'ActionTester', 'Copied response details to clipboard')
+                          }}
+                        >
+                          Copy All
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">Status Code</p>
+                          <p className={`text-sm font-mono ${
+                            responseDetails.statusCode >= 200 && responseDetails.statusCode < 300
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {responseDetails.statusCode}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">Execution Time</p>
+                          <p className="text-sm font-mono">{responseDetails.executionTime}ms</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">Timestamp</p>
+                          <p className="text-sm font-mono">{responseDetails.timestamp}</p>
+                        </div>
+                        {responseDetails.data && (
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-1">Response Data (API Output)</p>
+                            <pre className="text-xs overflow-auto bg-background p-3 rounded max-h-96">
+                              {JSON.stringify(responseDetails.data, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                        {responseDetails.error && (
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground mb-1">Error</p>
+                            <pre className="text-xs overflow-auto bg-background p-3 rounded text-red-600 dark:text-red-400">
+                              {responseDetails.error}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

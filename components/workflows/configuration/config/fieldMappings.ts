@@ -1410,8 +1410,13 @@ const twitterMappings: Record<string, FieldMapping> = {
 
 // Stripe field mappings
 const stripeMappings: Record<string, FieldMapping> = {
+  stripe_action_create_customer: {
+    payment_method: "stripe_payment_methods",
+  },
   stripe_action_update_customer: {
     customerId: "stripe_customers",
+    payment_method: "stripe_payment_methods",
+    invoice_settings_default_payment_method: "stripe_payment_methods",
   },
   stripe_action_cancel_subscription: {
     subscriptionId: "stripe_subscriptions",
@@ -1427,9 +1432,11 @@ const stripeMappings: Record<string, FieldMapping> = {
   },
   stripe_action_create_subscription: {
     customerId: "stripe_customers",
+    priceId: "stripe_prices",
   },
   stripe_action_update_subscription: {
     subscriptionId: "stripe_subscriptions",
+    priceId: "stripe_prices",
   },
   stripe_action_find_subscription: {
     subscriptionId: "stripe_subscriptions",
@@ -1569,6 +1576,14 @@ const shopifyMappings: Record<string, FieldMapping> = {
     shopify_store: "shopify_stores",
     customer_id: "shopify_customers",
   },
+  shopify_action_create_order: {
+    shopify_store: "shopify_stores",
+    line_items: "shopify_products", // Maps line_items field to load products
+  },
+  shopify_action_create_product_variant: {
+    shopify_store: "shopify_stores",
+    product_id: "shopify_products",
+  },
 };
 
 // Default field mappings for unmapped fields
@@ -1634,6 +1649,11 @@ export function getResourceTypeForField(fieldName: string, nodeType: string): st
   // Debug logging for Trello template field
   if (fieldName === 'template' && nodeType?.includes('trello')) {
     logger.debug('[FieldMapping] Checking Trello template field:', { fieldName, nodeType });
+  }
+
+  // Special handling for Shopify line item variants (variants_for_item_0, variants_for_item_1, etc.)
+  if (fieldName.startsWith('variants_for_item_') && nodeType === 'shopify_action_create_order') {
+    return 'shopify_variants';
   }
 
   // First check node-specific mapping

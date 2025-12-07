@@ -1,6 +1,6 @@
 import { ActionResult } from '../index'
-import { makeShopifyRequest, validateShopifyIntegration, getShopDomain } from '@/app/api/integrations/shopify/data/utils'
-import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
+import { makeShopifyGraphQLRequest, validateShopifyIntegration, getShopDomain } from '@/app/api/integrations/shopify/data/utils'
+import { getIntegrationById } from '../../executeNode'
 import { resolveValue } from '../core/resolveValue'
 import { logger } from '@/lib/utils/logger'
 
@@ -16,7 +16,17 @@ function extractNumericId(id: string): string {
 }
 
 /**
- * Update Shopify Customer
+ * Convert numeric ID to Shopify GID format
+ */
+function toCustomerGid(id: string): string {
+  if (id.includes('gid://shopify/')) {
+    return id
+  }
+  return `gid://shopify/Customer/${id}`
+}
+
+/**
+ * Update Shopify Customer (GraphQL)
  * Updates customer information (email, name, phone, tags, marketing preferences, notes)
  */
 export async function updateShopifyCustomer(
@@ -27,8 +37,9 @@ export async function updateShopifyCustomer(
   try {
     // 1. Get and validate integration
     const integrationId = await resolveValue(config.integration_id || config.integrationId, input)
-    const integration = await getDecryptedAccessToken(integrationId, userId, 'shopify')
+    const integration = await getIntegrationById(integrationId)
     validateShopifyIntegration(integration)
+    const selectedStore = config.shopify_store ? await resolveValue(config.shopify_store, input) : undefined
 
     // 2. Resolve all config values
     const customerId = await resolveValue(config.customer_id, input)
@@ -40,45 +51,72 @@ export async function updateShopifyCustomer(
     const note = config.note ? await resolveValue(config.note, input) : undefined
     const acceptsMarketing = config.accepts_marketing ? await resolveValue(config.accepts_marketing, input) : undefined
 
-    // 3. Build payload (only include fields that were provided)
-    const payload: any = {}
-    if (email) payload.email = email
-    if (firstName) payload.first_name = firstName
-    if (lastName) payload.last_name = lastName
-    if (phone) payload.phone = phone
-    if (tags) payload.tags = tags
-    if (note) payload.note = note
-    if (acceptsMarketing !== undefined && acceptsMarketing !== '') {
-      payload.accepts_marketing = acceptsMarketing === 'true'
+    // 3. Convert to GID format
+    const customerGid = toCustomerGid(customerId)
+
+    logger.debug('[Shopify GraphQL] Updating customer:', { customerId: customerGid })
+
+    // 4. Build GraphQL mutation
+    const mutation = `
+      mutation customerUpdate($input: CustomerInput!) {
+        customerUpdate(input: $input) {
+          customer {
+            id
+            email
+            firstName
+            lastName
+            phone
+            tags
+            note
+            updatedAt
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables: any = {
+      input: {
+        id: customerGid
+      }
     }
 
-    // 4. Extract numeric ID from GID if needed
-    const numericId = extractNumericId(customerId)
+    if (email) variables.input.email = email
+    if (firstName) variables.input.firstName = firstName
+    if (lastName) variables.input.lastName = lastName
+    if (phone) variables.input.phone = phone
+    if (tags) variables.input.tags = tags.split(',').map((t: string) => t.trim())
+    if (note) variables.input.note = note
+    if (acceptsMarketing !== undefined && acceptsMarketing !== '') {
+      variables.input.emailMarketingConsent = {
+        marketingState: acceptsMarketing === 'true' ? 'SUBSCRIBED' : 'UNSUBSCRIBED'
+      }
+    }
 
-    logger.debug('[Shopify] Updating customer:', { customerId: numericId, payload })
+    // 5. Make GraphQL request
+    const result = await makeShopifyGraphQLRequest(integration, mutation, variables, selectedStore)
 
-    // 5. Make API request
-    const result = await makeShopifyRequest(integration, `customers/${numericId}.json`, {
-      method: 'PUT',
-      body: JSON.stringify({ customer: payload })
-    })
-
-    const customer = result.customer
-    const shopDomain = getShopDomain(integration)
+    const customer = result.customerUpdate.customer
+    const shopDomain = getShopDomain(integration, selectedStore)
+    const numericId = extractNumericId(customer.id)
 
     return {
       success: true,
       output: {
         success: true,
-        customer_id: customer.id,
+        customer_id: numericId,
+        customer_gid: customer.id,
         email: customer.email,
-        admin_url: `https://${shopDomain}/admin/customers/${customer.id}`,
-        updated_at: customer.updated_at
+        admin_url: `https://${shopDomain}/admin/customers/${numericId}`,
+        updated_at: customer.updatedAt
       },
       message: 'Customer updated successfully'
     }
   } catch (error: any) {
-    logger.error('[Shopify] Update customer error:', error)
+    logger.error('[Shopify GraphQL] Update customer error:', error)
     return {
       success: false,
       output: { success: false },

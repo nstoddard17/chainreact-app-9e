@@ -15,7 +15,12 @@
       "Bash(powershell -Command:*)",
       "Bash(supabase db push:*)",
       "Bash(where.exe:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(NUL)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)"
     ],
     "deny": [],
     "ask": [],
