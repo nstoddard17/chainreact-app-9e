@@ -123,8 +123,8 @@ export async function updateShopifyOrderStatus(
 
       case 'cancel': {
         const cancelMutation = `
-          mutation orderCancel($orderId: ID!, $notifyCustomer: Boolean, $reason: OrderCancelReason!) {
-            orderCancel(orderId: $orderId, notifyCustomer: $notifyCustomer, reason: $reason) {
+          mutation orderCancel($orderId: ID!, $notifyCustomer: Boolean, $reason: OrderCancelReason!, $refund: Boolean!, $restock: Boolean!) {
+            orderCancel(orderId: $orderId, notifyCustomer: $notifyCustomer, reason: $reason, refund: $refund, restock: $restock) {
               orderCancelUserErrors {
                 field
                 message
@@ -136,7 +136,9 @@ export async function updateShopifyOrderStatus(
         result = await makeShopifyGraphQLRequest(integration, cancelMutation, {
           orderId: orderGid,
           notifyCustomer,
-          reason: 'OTHER'
+          reason: 'OTHER',
+          refund: false, // Don't automatically refund
+          restock: true  // Restock items by default
         }, selectedStore)
 
         statusMessage = 'cancelled'

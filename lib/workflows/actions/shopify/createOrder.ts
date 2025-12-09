@@ -15,6 +15,41 @@ function extractNumericId(gid: string): string {
 }
 
 /**
+ * Convert country name to ISO 3166-1 alpha-2 code
+ * Returns the input if it's already a 2-letter code, or the mapped code if it's a country name
+ */
+function getCountryCode(countryInput: string): string {
+  if (!countryInput) return countryInput
+
+  // If already a 2-letter code, return as-is
+  if (countryInput.length === 2) {
+    return countryInput.toUpperCase()
+  }
+
+  // Map of common country names to codes
+  const countryMap: Record<string, string> = {
+    'united states': 'US',
+    'usa': 'US',
+    'canada': 'CA',
+    'united kingdom': 'GB',
+    'uk': 'GB',
+    'australia': 'AU',
+    'germany': 'DE',
+    'france': 'FR',
+    'italy': 'IT',
+    'spain': 'ES',
+    'mexico': 'MX',
+    'brazil': 'BR',
+    'japan': 'JP',
+    'china': 'CN',
+    'india': 'IN',
+  }
+
+  const normalized = countryInput.toLowerCase().trim()
+  return countryMap[normalized] || countryInput
+}
+
+/**
  * Create Shopify Order (GraphQL)
  * Creates a new order with full address support
  *
@@ -113,7 +148,7 @@ export async function createShopifyOrder(
       if (shippingLine2) variables.order.shippingAddress.address2 = shippingLine2
       if (shippingCity) variables.order.shippingAddress.city = shippingCity
       if (shippingProvince) variables.order.shippingAddress.province = shippingProvince
-      if (shippingCountry) variables.order.shippingAddress.countryCode = shippingCountry
+      if (shippingCountry) variables.order.shippingAddress.countryCode = getCountryCode(shippingCountry)
       if (shippingZip) variables.order.shippingAddress.zip = shippingZip
     }
 
@@ -124,7 +159,7 @@ export async function createShopifyOrder(
       if (billingLine2) variables.order.billingAddress.address2 = billingLine2
       if (billingCity) variables.order.billingAddress.city = billingCity
       if (billingProvince) variables.order.billingAddress.province = billingProvince
-      if (billingCountry) variables.order.billingAddress.countryCode = billingCountry
+      if (billingCountry) variables.order.billingAddress.countryCode = getCountryCode(billingCountry)
       if (billingZip) variables.order.billingAddress.zip = billingZip
     }
 

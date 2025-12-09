@@ -20,7 +20,9 @@
       "Bash(npm install:*)",
       "Bash(npm run dev:*)",
       "Bash(timeout:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(psql:*)",
+      "Bash(node check-scopes.js:*)"
     ],
     "deny": [],
     "ask": [],
