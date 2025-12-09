@@ -2037,26 +2037,45 @@ export const shopifyNodes: NodeComponent[] = [
     configSchema: [
       STORE_SELECTOR_FIELD,
       {
-        name: "variant_id",
+        name: "product_id",
         dependsOn: "shopify_store",
         hidden: {
           $deps: ["shopify_store"],
           $condition: { shopify_store: { $exists: false } }
         },
-        label: "Variant ID",
-        type: "text",
+        label: "Product",
+        type: "select",
+        dynamic: "shopify_products",
+        loadOnMount: true,
         required: true,
-        placeholder: "{{trigger.variant_id}}",
-        description: "The ID of the variant to update",
+        placeholder: "Select a product",
+        description: "Select the product containing the variant",
+        supportsAI: true,
+        connectButton: true
+      },
+      {
+        name: "variant_id",
+        dependsOn: "product_id",
+        hidden: {
+          $deps: ["product_id"],
+          $condition: { product_id: { $exists: false } }
+        },
+        label: "Variant",
+        type: "select",
+        dynamic: "shopify_variants",
+        loadOnMount: true,
+        required: true,
+        placeholder: "Select a variant",
+        description: "Select the variant to update",
         supportsAI: true,
         connectButton: true
       },
       {
         name: "price",
-        dependsOn: "shopify_store",
+        dependsOn: "variant_id",
         hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
+          $deps: ["variant_id"],
+          $condition: { variant_id: { $exists: false } }
         },
         label: "Price (Optional)",
         type: "number",
@@ -2068,10 +2087,10 @@ export const shopifyNodes: NodeComponent[] = [
       },
       {
         name: "sku",
-        dependsOn: "shopify_store",
+        dependsOn: "variant_id",
         hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
+          $deps: ["variant_id"],
+          $condition: { variant_id: { $exists: false } }
         },
         label: "SKU (Optional)",
         type: "text",
@@ -2082,90 +2101,17 @@ export const shopifyNodes: NodeComponent[] = [
         connectButton: true
       },
       {
-        name: "inventory_quantity",
-        dependsOn: "shopify_store",
-        hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
-        },
-        label: "Inventory Quantity (Optional)",
-        type: "number",
-        required: false,
-        placeholder: "150",
-        description: "Set inventory quantity (requires location if specified)",
-        connectButton: true
-      },
-      {
-        name: "weight",
-        dependsOn: "shopify_store",
-        hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
-        },
-        label: "Weight (Optional)",
-        type: "number",
-        required: false,
-        placeholder: "2.0",
-        description: "Update weight in pounds (or store's default unit)",
-        connectButton: true
-      },
-      {
         name: "barcode",
-        dependsOn: "shopify_store",
+        dependsOn: "variant_id",
         hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
+          $deps: ["variant_id"],
+          $condition: { variant_id: { $exists: false } }
         },
         label: "Barcode (Optional)",
         type: "text",
         required: false,
         placeholder: "123456789013",
         description: "Update UPC, EAN, or ISBN barcode",
-        supportsAI: true,
-        connectButton: true
-      },
-      {
-        name: "option1",
-        dependsOn: "shopify_store",
-        hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
-        },
-        label: "Option 1 (Optional)",
-        type: "text",
-        required: false,
-        placeholder: "X-Large",
-        description: "Update first option value",
-        supportsAI: true,
-        connectButton: true
-      },
-      {
-        name: "option2",
-        dependsOn: "shopify_store",
-        hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
-        },
-        label: "Option 2 (Optional)",
-        type: "text",
-        required: false,
-        placeholder: "Blue",
-        description: "Update second option value",
-        supportsAI: true,
-        connectButton: true
-      },
-      {
-        name: "option3",
-        dependsOn: "shopify_store",
-        hidden: {
-          $deps: ["shopify_store"],
-          $condition: { shopify_store: { $exists: false } }
-        },
-        label: "Option 3 (Optional)",
-        type: "text",
-        required: false,
-        placeholder: "Polyester",
-        description: "Update third option value",
         supportsAI: true,
         connectButton: true
       },

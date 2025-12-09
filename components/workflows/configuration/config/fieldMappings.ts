@@ -1584,6 +1584,11 @@ const shopifyMappings: Record<string, FieldMapping> = {
     shopify_store: "shopify_stores",
     product_id: "shopify_products",
   },
+  shopify_action_update_product_variant: {
+    shopify_store: "shopify_stores",
+    product_id: "shopify_products",
+    variant_id: "shopify_variants",
+  },
 };
 
 // Default field mappings for unmapped fields

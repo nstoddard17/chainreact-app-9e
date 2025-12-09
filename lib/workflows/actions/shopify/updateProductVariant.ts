@@ -46,9 +46,6 @@ export async function updateShopifyProductVariant(
             price
             sku
             barcode
-            weight
-            weightUnit
-            inventoryQuantity
             selectedOptions {
               name
               value
@@ -71,22 +68,12 @@ export async function updateShopifyProductVariant(
     if (price) variantInput.price = String(price)
     if (sku) variantInput.sku = sku
     if (barcode) variantInput.barcode = barcode
-    if (weight) {
-      variantInput.weight = parseFloat(weight)
-      variantInput.weightUnit = 'POUNDS' // Default to pounds, could be made configurable
-    }
+    // Note: Weight updates are not supported via productVariantsBulkUpdate
+    // Weight can only be set during variant creation or via REST API
 
-    // Options need to be in array format for GraphQL
-    const options: string[] = []
-    if (option1) options.push(option1)
-    if (option2) options.push(option2)
-    if (option3) options.push(option3)
-    if (options.length > 0) {
-      variantInput.optionsToUpdate = options.map((value, index) => ({
-        name: `option${index + 1}`,
-        value
-      }))
-    }
+    // Note: Options cannot be updated via productVariantsBulkUpdate
+    // Options are defined at the product level and variant combinations are fixed
+    // To change options, you need to create a new variant with different option values
 
     // Note: Inventory quantity requires a separate mutation (inventorySetQuantities)
     // We'll handle it separately if provided
