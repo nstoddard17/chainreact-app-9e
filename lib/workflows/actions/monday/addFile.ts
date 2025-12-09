@@ -2,9 +2,9 @@ import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workf
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Create an update (comment) on a Monday.com item
+ * Add a file to a Monday.com item
  */
-export async function createMondayUpdate(
+export async function addMondayFile(
   config: Record<string, any>,
   userId: string,
   input: Record<string, any>
@@ -12,14 +12,18 @@ export async function createMondayUpdate(
   try {
     // Resolve configuration values
     const itemId = await resolveValue(config.itemId, input)
-    const text = await resolveValue(config.text, input)
+    const columnId = await resolveValue(config.columnId, input)
+    const fileUrl = await resolveValue(config.fileUrl, input)
 
     // Validate required fields
     if (!itemId) {
       throw new Error('Item ID is required')
     }
-    if (!text) {
-      throw new Error('Update text is required')
+    if (!columnId) {
+      throw new Error('Column ID is required')
+    }
+    if (!fileUrl) {
+      throw new Error('File URL is required')
     }
 
     // Get access token
@@ -27,24 +31,18 @@ export async function createMondayUpdate(
 
     // Build GraphQL mutation
     const mutation = `
-      mutation($itemId: ID!, $text: String!) {
-        create_update(
-          item_id: $itemId
-          body: $text
-        ) {
+      mutation($itemId: ID!, $columnId: String!, $fileUrl: String!) {
+        add_file_to_column(item_id: $itemId, column_id: $columnId, file_url: $fileUrl) {
           id
-          text_body
-          creator {
-            id
-          }
-          created_at
+          name
         }
       }
     `
 
     const variables = {
       itemId: itemId.toString(),
-      text: text.toString()
+      columnId: columnId.toString(),
+      fileUrl: fileUrl.toString()
     }
 
     // Make API request
@@ -70,32 +68,32 @@ export async function createMondayUpdate(
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
 
-    const update = data.data?.create_update
+    const item = data.data?.add_file_to_column
 
-    if (!update) {
-      throw new Error('Failed to create update: No data returned')
+    if (!item) {
+      throw new Error('Failed to add file: No data returned')
     }
 
-    logger.info('✅ Monday.com update created successfully', { updateId: update.id, itemId, userId })
+    logger.info('✅ Monday.com file added successfully', { itemId, columnId, userId })
 
     return {
       success: true,
       output: {
-        updateId: update.id,
-        itemId: itemId,
-        text: update.text_body || text,
-        creatorId: update.creator?.id,
-        createdAt: update.created_at
+        itemId: item.id,
+        itemName: item.name,
+        columnId: columnId,
+        fileUrl: fileUrl,
+        addedAt: new Date().toISOString()
       },
-      message: `Update posted successfully to item ${itemId}`
+      message: `File added successfully to item ${itemId}`
     }
 
   } catch (error: any) {
-    logger.error('❌ Monday.com create update error:', error)
+    logger.error('❌ Monday.com add file error:', error)
     return {
       success: false,
       output: {},
-      message: error.message || 'Failed to create Monday.com update'
+      message: error.message || 'Failed to add file to Monday.com item'
     }
   }
 }

@@ -2,24 +2,24 @@ import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workf
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Create an update (comment) on a Monday.com item
+ * Create a new group in a Monday.com board
  */
-export async function createMondayUpdate(
+export async function createMondayGroup(
   config: Record<string, any>,
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
     // Resolve configuration values
-    const itemId = await resolveValue(config.itemId, input)
-    const text = await resolveValue(config.text, input)
+    const boardId = await resolveValue(config.boardId, input)
+    const groupName = await resolveValue(config.groupName, input)
 
     // Validate required fields
-    if (!itemId) {
-      throw new Error('Item ID is required')
+    if (!boardId) {
+      throw new Error('Board ID is required')
     }
-    if (!text) {
-      throw new Error('Update text is required')
+    if (!groupName) {
+      throw new Error('Group name is required')
     }
 
     // Get access token
@@ -27,24 +27,18 @@ export async function createMondayUpdate(
 
     // Build GraphQL mutation
     const mutation = `
-      mutation($itemId: ID!, $text: String!) {
-        create_update(
-          item_id: $itemId
-          body: $text
-        ) {
+      mutation($boardId: ID!, $groupName: String!) {
+        create_group(board_id: $boardId, group_name: $groupName) {
           id
-          text_body
-          creator {
-            id
-          }
-          created_at
+          title
+          color
         }
       }
     `
 
     const variables = {
-      itemId: itemId.toString(),
-      text: text.toString()
+      boardId: boardId.toString(),
+      groupName: groupName.toString()
     }
 
     // Make API request
@@ -70,32 +64,32 @@ export async function createMondayUpdate(
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
 
-    const update = data.data?.create_update
+    const group = data.data?.create_group
 
-    if (!update) {
-      throw new Error('Failed to create update: No data returned')
+    if (!group) {
+      throw new Error('Failed to create group: No data returned')
     }
 
-    logger.info('✅ Monday.com update created successfully', { updateId: update.id, itemId, userId })
+    logger.info('✅ Monday.com group created successfully', { groupId: group.id, boardId, userId })
 
     return {
       success: true,
       output: {
-        updateId: update.id,
-        itemId: itemId,
-        text: update.text_body || text,
-        creatorId: update.creator?.id,
-        createdAt: update.created_at
+        groupId: group.id,
+        groupTitle: group.title,
+        groupColor: group.color,
+        boardId: boardId,
+        createdAt: new Date().toISOString()
       },
-      message: `Update posted successfully to item ${itemId}`
+      message: `Group "${groupName}" created successfully in Monday.com`
     }
 
   } catch (error: any) {
-    logger.error('❌ Monday.com create update error:', error)
+    logger.error('❌ Monday.com create group error:', error)
     return {
       success: false,
       output: {},
-      message: error.message || 'Failed to create Monday.com update'
+      message: error.message || 'Failed to create Monday.com group'
     }
   }
 }

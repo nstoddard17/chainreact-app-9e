@@ -22,7 +22,8 @@
       "Bash(timeout:*)",
       "Bash(ping:*)",
       "Bash(psql:*)",
-      "Bash(node check-scopes.js:*)"
+      "Bash(node check-scopes.js:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": [],

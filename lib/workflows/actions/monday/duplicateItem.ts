@@ -2,24 +2,27 @@ import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workf
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Create an update (comment) on a Monday.com item
+ * Duplicate an item in Monday.com
  */
-export async function createMondayUpdate(
+export async function duplicateMondayItem(
   config: Record<string, any>,
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
     // Resolve configuration values
+    const boardId = await resolveValue(config.boardId, input)
     const itemId = await resolveValue(config.itemId, input)
-    const text = await resolveValue(config.text, input)
+    const withUpdates = config.withUpdates
+      ? await resolveValue(config.withUpdates, input)
+      : false
 
     // Validate required fields
+    if (!boardId) {
+      throw new Error('Board ID is required')
+    }
     if (!itemId) {
       throw new Error('Item ID is required')
-    }
-    if (!text) {
-      throw new Error('Update text is required')
     }
 
     // Get access token
@@ -27,14 +30,14 @@ export async function createMondayUpdate(
 
     // Build GraphQL mutation
     const mutation = `
-      mutation($itemId: ID!, $text: String!) {
-        create_update(
-          item_id: $itemId
-          body: $text
-        ) {
+      mutation($boardId: ID!, $itemId: ID!, $withUpdates: Boolean) {
+        duplicate_item(board_id: $boardId, item_id: $itemId, with_updates: $withUpdates) {
           id
-          text_body
-          creator {
+          name
+          board {
+            id
+          }
+          group {
             id
           }
           created_at
@@ -43,8 +46,9 @@ export async function createMondayUpdate(
     `
 
     const variables = {
+      boardId: boardId.toString(),
       itemId: itemId.toString(),
-      text: text.toString()
+      withUpdates: withUpdates === 'true' || withUpdates === true
     }
 
     // Make API request
@@ -70,32 +74,33 @@ export async function createMondayUpdate(
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
 
-    const update = data.data?.create_update
+    const newItem = data.data?.duplicate_item
 
-    if (!update) {
-      throw new Error('Failed to create update: No data returned')
+    if (!newItem) {
+      throw new Error('Failed to duplicate item: No data returned')
     }
 
-    logger.info('✅ Monday.com update created successfully', { updateId: update.id, itemId, userId })
+    logger.info('✅ Monday.com item duplicated successfully', { newItemId: newItem.id, originalItemId: itemId, userId })
 
     return {
       success: true,
       output: {
-        updateId: update.id,
-        itemId: itemId,
-        text: update.text_body || text,
-        creatorId: update.creator?.id,
-        createdAt: update.created_at
+        newItemId: newItem.id,
+        newItemName: newItem.name,
+        originalItemId: itemId,
+        boardId: newItem.board?.id || boardId,
+        groupId: newItem.group?.id,
+        createdAt: newItem.created_at
       },
-      message: `Update posted successfully to item ${itemId}`
+      message: `Item ${itemId} duplicated successfully. New item ID: ${newItem.id}`
     }
 
   } catch (error: any) {
-    logger.error('❌ Monday.com create update error:', error)
+    logger.error('❌ Monday.com duplicate item error:', error)
     return {
       success: false,
       output: {},
-      message: error.message || 'Failed to create Monday.com update'
+      message: error.message || 'Failed to duplicate Monday.com item'
     }
   }
 }

@@ -2,9 +2,9 @@ import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workf
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Create an update (comment) on a Monday.com item
+ * Get a specific item from Monday.com
  */
-export async function createMondayUpdate(
+export async function getMondayItem(
   config: Record<string, any>,
   userId: string,
   input: Record<string, any>
@@ -12,39 +12,49 @@ export async function createMondayUpdate(
   try {
     // Resolve configuration values
     const itemId = await resolveValue(config.itemId, input)
-    const text = await resolveValue(config.text, input)
 
     // Validate required fields
     if (!itemId) {
       throw new Error('Item ID is required')
     }
-    if (!text) {
-      throw new Error('Update text is required')
-    }
 
     // Get access token
     const accessToken = await getDecryptedAccessToken(userId, 'monday')
 
-    // Build GraphQL mutation
-    const mutation = `
-      mutation($itemId: ID!, $text: String!) {
-        create_update(
-          item_id: $itemId
-          body: $text
-        ) {
+    // Build GraphQL query
+    const query = `
+      query($itemId: [ID!]) {
+        items(ids: $itemId) {
           id
-          text_body
-          creator {
+          name
+          state
+          board {
             id
+            name
+          }
+          group {
+            id
+            title
+          }
+          column_values {
+            id
+            title
+            type
+            text
+            value
           }
           created_at
+          updated_at
+          creator {
+            id
+            name
+          }
         }
       }
     `
 
     const variables = {
-      itemId: itemId.toString(),
-      text: text.toString()
+      itemId: [itemId.toString()]
     }
 
     // Make API request
@@ -55,7 +65,7 @@ export async function createMondayUpdate(
         'Content-Type': 'application/json',
         'API-Version': '2024-01'
       },
-      body: JSON.stringify({ query: mutation, variables })
+      body: JSON.stringify({ query, variables })
     })
 
     if (!response.ok) {
@@ -70,32 +80,41 @@ export async function createMondayUpdate(
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
 
-    const update = data.data?.create_update
+    const items = data.data?.items
 
-    if (!update) {
-      throw new Error('Failed to create update: No data returned')
+    if (!items || items.length === 0) {
+      throw new Error('Item not found')
     }
 
-    logger.info('✅ Monday.com update created successfully', { updateId: update.id, itemId, userId })
+    const item = items[0]
+
+    logger.info('✅ Monday.com item retrieved successfully', { itemId, userId })
 
     return {
       success: true,
       output: {
-        updateId: update.id,
-        itemId: itemId,
-        text: update.text_body || text,
-        creatorId: update.creator?.id,
-        createdAt: update.created_at
+        itemId: item.id,
+        itemName: item.name,
+        state: item.state,
+        boardId: item.board?.id,
+        boardName: item.board?.name,
+        groupId: item.group?.id,
+        groupTitle: item.group?.title,
+        columnValues: item.column_values || [],
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        creatorId: item.creator?.id,
+        creatorName: item.creator?.name
       },
-      message: `Update posted successfully to item ${itemId}`
+      message: `Item ${itemId} retrieved successfully from Monday.com`
     }
 
   } catch (error: any) {
-    logger.error('❌ Monday.com create update error:', error)
+    logger.error('❌ Monday.com get item error:', error)
     return {
       success: false,
       output: {},
-      message: error.message || 'Failed to create Monday.com update'
+      message: error.message || 'Failed to get Monday.com item'
     }
   }
 }

@@ -2,31 +2,27 @@ import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workf
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Create a new item in Monday.com
+ * Create a subitem under a parent item in Monday.com
  */
-export async function createMondayItem(
+export async function createMondaySubitem(
   config: Record<string, any>,
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
     // Resolve configuration values
-    const boardId = await resolveValue(config.boardId, input)
-    const groupId = await resolveValue(config.groupId, input)
+    const parentItemId = await resolveValue(config.parentItemId, input)
     const itemName = await resolveValue(config.itemName, input)
     const columnValues = config.columnValues
       ? await resolveValue(config.columnValues, input)
       : undefined
 
     // Validate required fields
-    if (!boardId) {
-      throw new Error('Board ID is required')
-    }
-    if (!groupId) {
-      throw new Error('Group ID is required')
+    if (!parentItemId) {
+      throw new Error('Parent item ID is required')
     }
     if (!itemName) {
-      throw new Error('Item name is required')
+      throw new Error('Subitem name is required')
     }
 
     // Get access token
@@ -34,18 +30,14 @@ export async function createMondayItem(
 
     // Build GraphQL mutation
     let mutation = `
-      mutation($boardId: ID!, $groupId: String!, $itemName: String!) {
-        create_item(
-          board_id: $boardId
-          group_id: $groupId
+      mutation($parentItemId: ID!, $itemName: String!) {
+        create_subitem(
+          parent_item_id: $parentItemId
           item_name: $itemName
         ) {
           id
           name
           board {
-            id
-          }
-          group {
             id
           }
           created_at
@@ -54,8 +46,7 @@ export async function createMondayItem(
     `
 
     const variables: Record<string, any> = {
-      boardId: boardId.toString(),
-      groupId: groupId.toString(),
+      parentItemId: parentItemId.toString(),
       itemName: itemName.toString()
     }
 
@@ -71,19 +62,15 @@ export async function createMondayItem(
       }
 
       mutation = `
-        mutation($boardId: ID!, $groupId: String!, $itemName: String!, $columnValues: JSON!) {
-          create_item(
-            board_id: $boardId
-            group_id: $groupId
+        mutation($parentItemId: ID!, $itemName: String!, $columnValues: JSON!) {
+          create_subitem(
+            parent_item_id: $parentItemId
             item_name: $itemName
             column_values: $columnValues
           ) {
             id
             name
             board {
-              id
-            }
-            group {
               id
             }
             created_at
@@ -116,32 +103,32 @@ export async function createMondayItem(
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
 
-    const item = data.data?.create_item
+    const subitem = data.data?.create_subitem
 
-    if (!item) {
-      throw new Error('Failed to create item: No data returned')
+    if (!subitem) {
+      throw new Error('Failed to create subitem: No data returned')
     }
 
-    logger.info('✅ Monday.com item created successfully', { itemId: item.id, boardId, userId })
+    logger.info('✅ Monday.com subitem created successfully', { subitemId: subitem.id, parentItemId, userId })
 
     return {
       success: true,
       output: {
-        itemId: item.id,
-        itemName: item.name,
-        boardId: item.board?.id || boardId,
-        groupId: item.group?.id || groupId,
-        createdAt: item.created_at
+        subitemId: subitem.id,
+        subitemName: subitem.name,
+        parentItemId: parentItemId,
+        boardId: subitem.board?.id,
+        createdAt: subitem.created_at
       },
-      message: `Item "${itemName}" created successfully in Monday.com`
+      message: `Subitem "${itemName}" created successfully in Monday.com`
     }
 
   } catch (error: any) {
-    logger.error('❌ Monday.com create item error:', error)
+    logger.error('❌ Monday.com create subitem error:', error)
     return {
       success: false,
       output: {},
-      message: error.message || 'Failed to create Monday.com item'
+      message: error.message || 'Failed to create Monday.com subitem'
     }
   }
 }

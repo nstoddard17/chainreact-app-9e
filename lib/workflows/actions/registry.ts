@@ -106,7 +106,28 @@ import {
 import {
   createMondayItem,
   updateMondayItem,
-  createMondayUpdate
+  createMondayUpdate,
+  createMondaySubitem,
+  deleteMondayItem,
+  archiveMondayItem,
+  moveMondayItem,
+  createMondayBoard,
+  createMondayGroup,
+  getMondayItem,
+  searchMondayItems,
+  listMondayItems,
+  addMondayFile,
+  duplicateMondayItem,
+  duplicateMondayBoard,
+  addMondayColumn,
+  listMondayUpdates,
+  downloadMondayFile,
+  getMondayUser,
+  listMondayUsers,
+  listMondayBoards,
+  getMondayBoard,
+  listMondayGroups,
+  listMondaySubitems
 } from './monday'
 
 // Slack actions
@@ -730,12 +751,61 @@ export const actionHandlerRegistry: Record<string, Function> = {
     updateMultipleAirtableRecords(params.config, params.userId, params.input),
 
   // Monday.com actions - wrapped to handle new calling convention
+  // CRUD Operations
   "monday_action_create_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMondayItem(params.config, params.userId, params.input),
   "monday_action_update_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
     updateMondayItem(params.config, params.userId, params.input),
   "monday_action_create_update": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMondayUpdate(params.config, params.userId, params.input),
+  "monday_action_create_subitem": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMondaySubitem(params.config, params.userId, params.input),
+  "monday_action_delete_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteMondayItem(params.config, params.userId, params.input),
+  "monday_action_archive_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    archiveMondayItem(params.config, params.userId, params.input),
+  "monday_action_move_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    moveMondayItem(params.config, params.userId, params.input),
+  "monday_action_duplicate_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    duplicateMondayItem(params.config, params.userId, params.input),
+
+  // Board & Group Management
+  "monday_action_create_board": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMondayBoard(params.config, params.userId, params.input),
+  "monday_action_create_group": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMondayGroup(params.config, params.userId, params.input),
+  "monday_action_duplicate_board": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    duplicateMondayBoard(params.config, params.userId, params.input),
+  "monday_action_add_column": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addMondayColumn(params.config, params.userId, params.input),
+
+  // Search & Retrieval
+  "monday_action_get_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getMondayItem(params.config, params.userId, params.input),
+  "monday_action_search_items": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    searchMondayItems(params.config, params.userId, params.input),
+  "monday_action_list_items": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayItems(params.config, params.userId, params.input),
+  "monday_action_list_subitems": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondaySubitems(params.config, params.userId, params.input),
+  "monday_action_list_updates": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayUpdates(params.config, params.userId, params.input),
+  "monday_action_get_board": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getMondayBoard(params.config, params.userId, params.input),
+  "monday_action_list_boards": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayBoards(params.config, params.userId, params.input),
+  "monday_action_list_groups": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayGroups(params.config, params.userId, params.input),
+  "monday_action_get_user": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getMondayUser(params.config, params.userId, params.input),
+  "monday_action_list_users": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayUsers(params.config, params.userId, params.input),
+
+  // File Operations
+  "monday_action_add_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addMondayFile(params.config, params.userId, params.input),
+  "monday_action_download_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    downloadMondayFile(params.config, params.userId, params.input),
 
   // Slack actions - wrapped to handle new calling convention
   "slack_action_create_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>

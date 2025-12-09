@@ -2,9 +2,9 @@ import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workf
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Create an update (comment) on a Monday.com item
+ * Archive an item in Monday.com
  */
-export async function createMondayUpdate(
+export async function archiveMondayItem(
   config: Record<string, any>,
   userId: string,
   input: Record<string, any>
@@ -12,14 +12,10 @@ export async function createMondayUpdate(
   try {
     // Resolve configuration values
     const itemId = await resolveValue(config.itemId, input)
-    const text = await resolveValue(config.text, input)
 
     // Validate required fields
     if (!itemId) {
       throw new Error('Item ID is required')
-    }
-    if (!text) {
-      throw new Error('Update text is required')
     }
 
     // Get access token
@@ -27,24 +23,15 @@ export async function createMondayUpdate(
 
     // Build GraphQL mutation
     const mutation = `
-      mutation($itemId: ID!, $text: String!) {
-        create_update(
-          item_id: $itemId
-          body: $text
-        ) {
+      mutation($itemId: ID!) {
+        archive_item(item_id: $itemId) {
           id
-          text_body
-          creator {
-            id
-          }
-          created_at
         }
       }
     `
 
     const variables = {
-      itemId: itemId.toString(),
-      text: text.toString()
+      itemId: itemId.toString()
     }
 
     // Make API request
@@ -70,32 +57,29 @@ export async function createMondayUpdate(
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
 
-    const update = data.data?.create_update
+    const archivedItem = data.data?.archive_item
 
-    if (!update) {
-      throw new Error('Failed to create update: No data returned')
+    if (!archivedItem) {
+      throw new Error('Failed to archive item: No data returned')
     }
 
-    logger.info('✅ Monday.com update created successfully', { updateId: update.id, itemId, userId })
+    logger.info('✅ Monday.com item archived successfully', { itemId, userId })
 
     return {
       success: true,
       output: {
-        updateId: update.id,
-        itemId: itemId,
-        text: update.text_body || text,
-        creatorId: update.creator?.id,
-        createdAt: update.created_at
+        archivedItemId: archivedItem.id,
+        archivedAt: new Date().toISOString()
       },
-      message: `Update posted successfully to item ${itemId}`
+      message: `Item ${itemId} archived successfully in Monday.com`
     }
 
   } catch (error: any) {
-    logger.error('❌ Monday.com create update error:', error)
+    logger.error('❌ Monday.com archive item error:', error)
     return {
       success: false,
       output: {},
-      message: error.message || 'Failed to create Monday.com update'
+      message: error.message || 'Failed to archive Monday.com item'
     }
   }
 }

@@ -2,9 +2,9 @@ import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workf
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Create an update (comment) on a Monday.com item
+ * Move an item to a different group in Monday.com
  */
-export async function createMondayUpdate(
+export async function moveMondayItem(
   config: Record<string, any>,
   userId: string,
   input: Record<string, any>
@@ -12,14 +12,14 @@ export async function createMondayUpdate(
   try {
     // Resolve configuration values
     const itemId = await resolveValue(config.itemId, input)
-    const text = await resolveValue(config.text, input)
+    const groupId = await resolveValue(config.groupId, input)
 
     // Validate required fields
     if (!itemId) {
       throw new Error('Item ID is required')
     }
-    if (!text) {
-      throw new Error('Update text is required')
+    if (!groupId) {
+      throw new Error('Group ID is required')
     }
 
     // Get access token
@@ -27,24 +27,21 @@ export async function createMondayUpdate(
 
     // Build GraphQL mutation
     const mutation = `
-      mutation($itemId: ID!, $text: String!) {
-        create_update(
-          item_id: $itemId
-          body: $text
-        ) {
+      mutation($itemId: ID!, $groupId: String!) {
+        move_item_to_group(item_id: $itemId, group_id: $groupId) {
           id
-          text_body
-          creator {
+          name
+          group {
             id
+            title
           }
-          created_at
         }
       }
     `
 
     const variables = {
       itemId: itemId.toString(),
-      text: text.toString()
+      groupId: groupId.toString()
     }
 
     // Make API request
@@ -70,32 +67,32 @@ export async function createMondayUpdate(
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
 
-    const update = data.data?.create_update
+    const item = data.data?.move_item_to_group
 
-    if (!update) {
-      throw new Error('Failed to create update: No data returned')
+    if (!item) {
+      throw new Error('Failed to move item: No data returned')
     }
 
-    logger.info('✅ Monday.com update created successfully', { updateId: update.id, itemId, userId })
+    logger.info('✅ Monday.com item moved successfully', { itemId, groupId, userId })
 
     return {
       success: true,
       output: {
-        updateId: update.id,
-        itemId: itemId,
-        text: update.text_body || text,
-        creatorId: update.creator?.id,
-        createdAt: update.created_at
+        itemId: item.id,
+        itemName: item.name,
+        newGroupId: item.group?.id || groupId,
+        newGroupTitle: item.group?.title,
+        movedAt: new Date().toISOString()
       },
-      message: `Update posted successfully to item ${itemId}`
+      message: `Item ${itemId} moved successfully to group ${groupId}`
     }
 
   } catch (error: any) {
-    logger.error('❌ Monday.com create update error:', error)
+    logger.error('❌ Monday.com move item error:', error)
     return {
       success: false,
       output: {},
-      message: error.message || 'Failed to create Monday.com update'
+      message: error.message || 'Failed to move Monday.com item'
     }
   }
 }
