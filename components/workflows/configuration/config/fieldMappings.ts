@@ -966,6 +966,7 @@ const mondayMappings: Record<string, FieldMapping> = {
     itemId: "monday_items",
   },
   monday_action_delete_item: {
+    boardId: "monday_boards",
     itemId: "monday_items",
   },
   monday_action_create_subitem: {
@@ -1036,6 +1037,9 @@ const mondayMappings: Record<string, FieldMapping> = {
   monday_trigger_new_subitem: {
     boardId: "monday_boards",
     parentItemId: "monday_items",
+  },
+  monday_action_get_user: {
+    userId: "monday_users",
   },
 };
 

@@ -70,11 +70,13 @@ export const getUserActionSchema: NodeComponent = {
   configSchema: [
     {
       name: "userId",
-      label: "User ID",
-      type: "text",
+      label: "User",
+      type: "select",
+      dynamic: "monday_users",
       required: true,
-      placeholder: "Enter user ID...",
-      description: "The ID of the user to retrieve",
+      loadOnMount: true,
+      placeholder: "Select a user...",
+      description: "The user to retrieve details for",
       supportsAI: true
     }
   ],

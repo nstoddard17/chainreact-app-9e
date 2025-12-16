@@ -85,8 +85,12 @@ export const duplicateItemActionSchema: NodeComponent = {
       label: "Target Board (Optional)",
       type: "select",
       dynamic: "monday_boards",
+      dependsOn: "itemId",
+      hidden: {
+        $deps: ["itemId"],
+        $condition: { itemId: { $exists: false } }
+      },
       required: false,
-      loadOnMount: true,
       placeholder: "Same as source board...",
       description: "Optionally duplicate to a different board"
     },
@@ -98,8 +102,8 @@ export const duplicateItemActionSchema: NodeComponent = {
       dynamicParent: "targetBoardId",
       dependsOn: "targetBoardId",
       hidden: {
-        $deps: ["targetBoardId"],
-        $condition: { targetBoardId: { $exists: false } }
+        $deps: ["itemId", "targetBoardId"],
+        $condition: { $or: [{ itemId: { $exists: false } }, { targetBoardId: { $exists: false } }] }
       },
       required: false,
       placeholder: "Same as source group...",
@@ -109,6 +113,11 @@ export const duplicateItemActionSchema: NodeComponent = {
       name: "withUpdates",
       label: "Include Updates",
       type: "select",
+      dependsOn: "itemId",
+      hidden: {
+        $deps: ["itemId"],
+        $condition: { itemId: { $exists: false } }
+      },
       required: false,
       options: [
         { label: "No (default)", value: "false" },

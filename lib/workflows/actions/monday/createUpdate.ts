@@ -25,12 +25,12 @@ export async function createMondayUpdate(
     // Get access token
     const accessToken = await getDecryptedAccessToken(userId, 'monday')
 
-    // Build GraphQL mutation
+    // Build GraphQL mutation with variables so large IDs don't overflow GraphQL Int
     const mutation = `
-      mutation($itemId: ID!, $text: String!) {
+      mutation($itemId: ID!, $body: String!) {
         create_update(
           item_id: $itemId
-          body: $text
+          body: $body
         ) {
           id
           text_body
@@ -41,10 +41,9 @@ export async function createMondayUpdate(
         }
       }
     `
-
     const variables = {
       itemId: itemId.toString(),
-      text: text.toString()
+      body: text.toString()
     }
 
     // Make API request

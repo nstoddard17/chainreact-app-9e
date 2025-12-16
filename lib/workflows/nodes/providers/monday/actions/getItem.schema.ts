@@ -81,18 +81,18 @@ export const getItemActionSchema: NodeComponent = {
       example: "12345"
     },
     {
-      name: "columnValues",
-      label: "Column Values",
-      type: "object",
-      description: "All column values for the item",
-      example: '{"status": "Working on it", "date": "2024-01-15"}'
+      name: "creatorName",
+      label: "Creator Name",
+      type: "string",
+      description: "The name of the user who created the item",
+      example: "John Doe"
     },
     {
-      name: "subscribers",
-      label: "Subscribers",
+      name: "columnValues",
+      label: "Column Values",
       type: "array",
-      description: "List of user IDs subscribed to this item",
-      example: '["12345", "67890"]'
+      description: "All column values for the item with id, title, type, text, and value",
+      example: '[{"id": "status", "title": "Status", "type": "color", "text": "Working on it"}]'
     }
   ],
   configSchema: [

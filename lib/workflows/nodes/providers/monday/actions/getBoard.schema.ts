@@ -25,32 +25,11 @@ export const getBoardActionSchema: NodeComponent = {
       example: "Project Board"
     },
     {
-      name: "boardUrl",
-      label: "Board URL",
-      type: "string",
-      description: "Direct link to the board",
-      example: "https://mycompany.monday.com/boards/1234567890"
-    },
-    {
       name: "description",
       label: "Description",
       type: "string",
       description: "The board's description",
       example: "Q1 project tracking board"
-    },
-    {
-      name: "workspaceId",
-      label: "Workspace ID",
-      type: "string",
-      description: "The ID of the workspace containing the board",
-      example: "9876543210"
-    },
-    {
-      name: "state",
-      label: "State",
-      type: "string",
-      description: "The state of the board (active, archived, deleted)",
-      example: "active"
     },
     {
       name: "boardKind",
@@ -60,11 +39,46 @@ export const getBoardActionSchema: NodeComponent = {
       example: "public"
     },
     {
-      name: "createdAt",
-      label: "Created At",
+      name: "state",
+      label: "State",
       type: "string",
-      description: "Timestamp when the board was created",
+      description: "The state of the board (active, archived, deleted)",
+      example: "active"
+    },
+    {
+      name: "updatedAt",
+      label: "Updated At",
+      type: "string",
+      description: "Timestamp when the board was last updated",
       example: "2024-01-15T10:30:00Z"
+    },
+    {
+      name: "creatorId",
+      label: "Creator ID",
+      type: "string",
+      description: "The ID of the user who created the board",
+      example: "12345678"
+    },
+    {
+      name: "creatorName",
+      label: "Creator Name",
+      type: "string",
+      description: "The name of the user who created the board",
+      example: "John Doe"
+    },
+    {
+      name: "columns",
+      label: "Columns",
+      type: "array",
+      description: "List of columns in the board",
+      example: "[{id: 'name', title: 'Name', type: 'name'}]"
+    },
+    {
+      name: "groups",
+      label: "Groups",
+      type: "array",
+      description: "List of groups in the board",
+      example: "[{id: 'topics', title: 'Group Title', color: '#037f4c'}]"
     },
     {
       name: "columnCount",
