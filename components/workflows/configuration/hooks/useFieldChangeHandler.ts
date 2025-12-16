@@ -837,7 +837,10 @@ export function useFieldChangeHandler({
 
         // CRITICAL: Skip fields that are currently hidden
         // This prevents loading options for fields that aren't visible yet
-        const isVisible = FieldVisibilityEngine.isFieldVisible(depField, getFormValues?.(), nodeInfo);
+        // IMPORTANT: Merge the newly set value with current form values to handle timing issues
+        // The form state (values) may not have updated yet, but we know the new value
+        const mergedFormValues = { ...values, [fieldName]: value };
+        const isVisible = FieldVisibilityEngine.isFieldVisible(depField, mergedFormValues, nodeInfo);
         if (!isVisible) {
           logger.debug(`⏭️ Skipping ${depField.name} - field is hidden`);
           return false;
@@ -941,7 +944,7 @@ export function useFieldChangeHandler({
     }
 
     return true;
-  }, [nodeInfo, setValue, loadOptions, setLoadingFields, resetOptions]);
+  }, [nodeInfo, values, setValue, loadOptions, setLoadingFields, resetOptions]);
 
   /**
    * Main provider field handler that tries each provider

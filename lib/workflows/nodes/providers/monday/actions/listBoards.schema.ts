@@ -23,6 +23,13 @@ export const listBoardsActionSchema: NodeComponent = {
       type: "number",
       description: "Total number of boards",
       example: "15"
+    },
+    {
+      name: "boardKind",
+      label: "Board Kind",
+      type: "string",
+      description: "The board kind filter applied (if any)",
+      example: "public"
     }
   ],
   configSchema: [

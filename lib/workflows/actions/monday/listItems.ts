@@ -48,10 +48,13 @@ export async function listMondayItems(
               }
               column_values {
                 id
-                title
                 type
                 text
                 value
+                column {
+                  id
+                  title
+                }
               }
               created_at
               updated_at

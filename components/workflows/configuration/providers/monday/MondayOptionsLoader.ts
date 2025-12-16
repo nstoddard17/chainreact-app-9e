@@ -188,7 +188,7 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
       case 'column':
       case 'itemId':
       case 'parentItemId':
-        return ['boardId', 'board'];
+        return ['boardId', 'board', 'sourceBoardId', 'targetBoardId'];
       default:
         return [];
     }

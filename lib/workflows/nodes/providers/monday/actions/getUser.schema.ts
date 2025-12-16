@@ -46,17 +46,10 @@ export const getUserActionSchema: NodeComponent = {
       example: "https://cdn.monday.com/photos/..."
     },
     {
-      name: "isGuest",
-      label: "Is Guest",
+      name: "enabled",
+      label: "Enabled",
       type: "boolean",
-      description: "Whether the user is a guest",
-      example: "false"
-    },
-    {
-      name: "isAdmin",
-      label: "Is Admin",
-      type: "boolean",
-      description: "Whether the user is an admin",
+      description: "Whether the user account is enabled",
       example: "true"
     },
     {
@@ -65,6 +58,20 @@ export const getUserActionSchema: NodeComponent = {
       type: "string",
       description: "Timestamp when the user account was created",
       example: "2024-01-15T10:30:00Z"
+    },
+    {
+      name: "accountId",
+      label: "Account ID",
+      type: "string",
+      description: "The ID of the Monday.com account the user belongs to",
+      example: "12345678"
+    },
+    {
+      name: "accountName",
+      label: "Account Name",
+      type: "string",
+      description: "The name of the Monday.com account the user belongs to",
+      example: "My Company"
     }
   ],
   configSchema: [

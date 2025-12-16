@@ -61,10 +61,13 @@ export async function searchMondayItems(
               }
               column_values {
                 id
-                title
                 type
                 text
                 value
+                column {
+                  id
+                  title
+                }
               }
               created_at
               updated_at
@@ -94,10 +97,13 @@ export async function searchMondayItems(
                 }
                 column_values {
                   id
-                  title
                   type
                   text
                   value
+                  column {
+                    id
+                    title
+                  }
                 }
                 created_at
                 updated_at

@@ -159,6 +159,15 @@ export function ActionTester({ userId }: ActionTesterProps) {
       const options: Record<string, any> = { ...configValues }
       if (parentValue !== undefined && parentField) {
         options[parentField] = parentValue
+
+        // Normalize board-related parent fields to 'boardId' for Monday.com API
+        // The API expects 'boardId' but schemas may use 'sourceBoardId' or 'targetBoardId'
+        if (selectedProvider === 'monday' &&
+            (parentField === 'sourceBoardId' || parentField === 'targetBoardId') &&
+            (fieldName === 'itemId' || fieldName === 'groupId' || fieldName === 'targetGroupId' ||
+             fieldName === 'columnId' || fieldName === 'parentItemId')) {
+          options.boardId = parentValue
+        }
       }
 
       const response = await fetchWithTimeout(

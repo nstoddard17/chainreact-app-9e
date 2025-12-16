@@ -979,7 +979,7 @@ const mondayMappings: Record<string, FieldMapping> = {
   },
   monday_action_list_subitems: {
     boardId: "monday_boards",
-    itemId: "monday_items",
+    parentItemId: "monday_items",
   },
   monday_action_list_updates: {
     boardId: "monday_boards",

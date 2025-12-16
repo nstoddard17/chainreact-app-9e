@@ -30,6 +30,13 @@ export const listGroupsActionSchema: NodeComponent = {
       type: "string",
       description: "The ID of the board",
       example: "1234567890"
+    },
+    {
+      name: "boardName",
+      label: "Board Name",
+      type: "string",
+      description: "The name of the board",
+      example: "Project Board"
     }
   ],
   configSchema: [
