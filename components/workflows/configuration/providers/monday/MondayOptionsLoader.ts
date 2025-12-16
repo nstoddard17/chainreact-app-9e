@@ -7,6 +7,7 @@ import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../ty
 import { logger } from '@/lib/utils/logger';
 import { useConfigCacheStore } from '@/stores/configCacheStore';
 import { buildCacheKey, getFieldTTL } from '@/lib/workflows/configuration/cache-utils';
+import { getResourceTypeForField } from '../../config/fieldMappings';
 
 // Debounce map to prevent rapid consecutive calls
 const debounceTimers = new Map<string, NodeJS.Timeout>();
@@ -43,21 +44,43 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
     parentItemId: 'monday_items'
   };
 
+  // Map dynamic field values to API data types (for fields using 'dynamic' property)
+  private dynamicToDataType: Record<string, string> = {
+    'monday_boards': 'monday_boards',
+    'monday_groups': 'monday_groups',
+    'monday_columns': 'monday_columns',
+    'monday_items': 'monday_items',
+    'monday_file_columns': 'monday_file_columns'
+  };
+
   canHandle(fieldName: string, providerId: string): boolean {
     return providerId === 'monday' && this.supportedFields.includes(fieldName);
   }
 
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { fieldName, dependsOnValue, integrationId, forceRefresh, signal } = params;
+    const { fieldName, nodeType, dependsOnValue, integrationId, forceRefresh, signal } = params;
 
-    // Build cache key
-    const options = (fieldName === 'groupId' || fieldName === 'group' ||
+    logger.debug(`🔍 [Monday] loadOptions called:`, { fieldName, nodeType, dependsOnValue, integrationId });
+
+    // Determine the data type - first check field mappings for node-specific type, then fall back to generic
+    const mappedDataType = getResourceTypeForField(fieldName, nodeType);
+    const dataType = mappedDataType || this.fieldToDataType[fieldName];
+
+    logger.debug(`🔍 [Monday] Data type resolved:`, { fieldName, mappedDataType, dataType });
+
+    if (!dataType) {
+      logger.warn(`❌ [Monday] Unknown field: ${fieldName} for nodeType: ${nodeType}`);
+      return [];
+    }
+
+    // Build cache key - include dataType for fields that can have different types (like columnId)
+    const cacheOptions = (fieldName === 'groupId' || fieldName === 'group' ||
                      fieldName === 'targetGroupId' ||
                      fieldName === 'columnId' || fieldName === 'column' ||
                      fieldName === 'itemId' || fieldName === 'parentItemId') && dependsOnValue
-      ? { boardId: dependsOnValue }
-      : undefined;
-    const cacheKey = buildCacheKey('monday', integrationId, fieldName, options);
+      ? { boardId: dependsOnValue, dataType }
+      : dataType !== this.fieldToDataType[fieldName] ? { dataType } : undefined;
+    const cacheKey = buildCacheKey('monday', integrationId, fieldName, cacheOptions);
 
     // Get cache store
     const cacheStore = useConfigCacheStore.getState();
@@ -95,12 +118,6 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
       debounceTimers.delete(fieldName);
     }
 
-    const dataType = this.fieldToDataType[fieldName];
-    if (!dataType) {
-      logger.warn(`❌ [Monday] Unknown field: ${fieldName}`);
-      return [];
-    }
-
     // Create a new promise for this request
     const loadPromise = new Promise<FormattedOption[]>((resolve) => {
       // Add a small debounce delay to batch rapid consecutive calls
@@ -119,7 +136,7 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
             apiOptions.boardId = dependsOnValue;
           }
 
-          logger.debug(`📡 [Monday] Loading ${dataType}:`, { integrationId, options: apiOptions });
+          logger.debug(`📡 [Monday] Loading ${dataType}:`, { integrationId, options: apiOptions, nodeType });
 
           const result = await fetchDataType({
             integrationId,

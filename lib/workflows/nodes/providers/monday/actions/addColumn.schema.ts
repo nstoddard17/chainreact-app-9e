@@ -95,13 +95,85 @@ export const addColumnActionSchema: NodeComponent = {
       placeholder: "Select column type...",
       description: "The type of data the column will contain"
     },
+    // Status Column Settings
     {
-      name: "columnDefaults",
-      label: "Column Settings (JSON)",
-      type: "json",
+      name: "statusLabels",
+      label: "Status Labels",
+      type: "text",
       required: false,
-      placeholder: '{"labels": {"0": "Not Started", "1": "Working on it"}}',
-      description: "Optional: Column-specific settings like status labels or dropdown options (JSON format)",
+      dependsOn: "columnType",
+      hidden: {
+        $deps: ["columnType"],
+        $condition: { columnType: { $ne: "status" } }
+      },
+      placeholder: "Not Started, Working on it, Done, Stuck",
+      description: "Comma-separated list of status options",
+      supportsAI: true
+    },
+    // Dropdown Column Settings
+    {
+      name: "dropdownLabels",
+      label: "Dropdown Options",
+      type: "text",
+      required: false,
+      dependsOn: "columnType",
+      hidden: {
+        $deps: ["columnType"],
+        $condition: { columnType: { $ne: "dropdown" } }
+      },
+      placeholder: "Option 1, Option 2, Option 3",
+      description: "Comma-separated list of dropdown options",
+      supportsAI: true
+    },
+    {
+      name: "allowMultipleSelection",
+      label: "Allow Multiple Selection",
+      type: "select",
+      required: false,
+      dependsOn: "columnType",
+      hidden: {
+        $deps: ["columnType"],
+        $condition: { columnType: { $ne: "dropdown" } }
+      },
+      options: [
+        { label: "No (Single Selection)", value: "false" },
+        { label: "Yes (Multiple Selection)", value: "true" }
+      ],
+      description: "Allow selecting multiple options",
+      supportsAI: false
+    },
+    // Rating Column Settings
+    {
+      name: "defaultRating",
+      label: "Maximum Rating",
+      type: "select",
+      required: false,
+      dependsOn: "columnType",
+      hidden: {
+        $deps: ["columnType"],
+        $condition: { columnType: { $ne: "rating" } }
+      },
+      options: [
+        { label: "3 Stars", value: "3" },
+        { label: "5 Stars", value: "5" },
+        { label: "10 Stars", value: "10" }
+      ],
+      description: "Maximum number of stars/rating",
+      supportsAI: false
+    },
+    // Tags Column Settings
+    {
+      name: "tagLabels",
+      label: "Available Tags",
+      type: "text",
+      required: false,
+      dependsOn: "columnType",
+      hidden: {
+        $deps: ["columnType"],
+        $condition: { columnType: { $ne: "tag" } }
+      },
+      placeholder: "Bug, Feature, Enhancement, Documentation",
+      description: "Comma-separated list of available tags",
       supportsAI: true
     }
   ],

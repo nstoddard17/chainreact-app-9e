@@ -946,6 +946,7 @@ const mondayMappings: Record<string, FieldMapping> = {
     itemId: "monday_items",
   },
   monday_action_create_update: {
+    boardId: "monday_boards",
     itemId: "monday_items",
   },
   monday_action_move_item: {
@@ -1005,7 +1006,7 @@ const mondayMappings: Record<string, FieldMapping> = {
   monday_action_add_file: {
     boardId: "monday_boards",
     itemId: "monday_items",
-    columnId: "monday_file_columns",
+    columnId: "monday_columns",
   },
   monday_action_download_file: {
     boardId: "monday_boards",

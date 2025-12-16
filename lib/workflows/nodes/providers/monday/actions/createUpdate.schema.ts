@@ -48,13 +48,30 @@ export const createUpdateActionSchema: NodeComponent = {
   ],
   configSchema: [
     {
-      name: "itemId",
-      label: "Item ID",
-      type: "text",
+      name: "boardId",
+      label: "Board",
+      type: "select",
+      dynamic: "monday_boards",
       required: true,
-      placeholder: "Enter item ID or use a variable...",
-      description: "The ID of the item to post the update to",
-      supportsAI: false
+      loadOnMount: true,
+      placeholder: "Select a board...",
+      description: "The Monday.com board containing the item"
+    },
+    {
+      name: "itemId",
+      label: "Item",
+      type: "select",
+      dynamic: "monday_items",
+      dynamicParent: "boardId",
+      dependsOn: "boardId",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      },
+      required: true,
+      placeholder: "Select an item...",
+      description: "The item to post the update to",
+      supportsAI: true
     },
     {
       name: "text",
