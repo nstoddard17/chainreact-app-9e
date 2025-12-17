@@ -1403,13 +1403,23 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     page: "notion_pages",
   },
-  notion_action_manage_users: {
+  notion_action_advanced_query: {
     workspace: "notion_workspaces",
-    userId: "notion_users",
+    database: "notion_databases",
+    sortProperty: "notion_database_properties",
   },
-  notion_action_manage_comments: {
+  notion_action_manage_blocks: {
+    workspace: "notion_workspaces",
+    targetPage: "notion_pages",
+    pageForChildren: "notion_pages",
+  },
+  notion_action_get_page_property: {
     workspace: "notion_workspaces",
     page: "notion_pages",
+  },
+  notion_action_update_database_schema: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
   },
 };
 
@@ -1649,6 +1659,18 @@ const defaultMappings: FieldMapping = {
   // attendees fields should be simple text inputs for email addresses
   labelIds: "gmail_labels",
   shopify_store: "shopify_stores", // Shopify store selector (used by all Shopify nodes)
+  // Notion default mappings
+  workspace: "notion_workspaces",
+  workspaceId: "notion_workspaces",
+  workspace_id: "notion_workspaces",
+  database: "notion_databases",
+  databaseId: "notion_databases",
+  database_id: "notion_databases",
+  page: "notion_pages",
+  pageId: "notion_pages",
+  page_id: "notion_pages",
+  userId: "notion_users",
+  user_id: "notion_users",
 };
 
 // Combine all mappings

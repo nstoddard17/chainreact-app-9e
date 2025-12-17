@@ -769,7 +769,7 @@ export const notionUnifiedActions: NodeComponent[] = [
         dynamic: "notion_workspaces",
         required: true,
         placeholder: "Select Notion workspace",
-        visibilityCondition: "always"
+        loadOnMount: true
       },
       {
         name: "database",
@@ -778,7 +778,11 @@ export const notionUnifiedActions: NodeComponent[] = [
         dynamic: "notion_databases",
         required: true,
         placeholder: "Select database to query",
-        dependsOn: "workspace"
+        dependsOn: "workspace",
+        hidden: {
+          $deps: ["workspace"],
+          $condition: { workspace: { $exists: false } }
+        }
       },
       {
         name: "filterMode",
@@ -791,7 +795,12 @@ export const notionUnifiedActions: NodeComponent[] = [
           { value: "json", label: "JSON Filter (Advanced)" }
         ],
         defaultValue: "none",
-        description: "How to filter the query results"
+        description: "How to filter the query results",
+        dependsOn: "database",
+        hidden: {
+          $deps: ["database"],
+          $condition: { database: { $exists: false } }
+        }
       },
       {
         name: "filterJson",
@@ -804,13 +813,36 @@ export const notionUnifiedActions: NodeComponent[] = [
         visibilityCondition: { field: "filterMode", operator: "equals", value: "json" }
       },
       {
-        name: "sorts",
-        label: "Sort Configuration (JSON)",
-        type: "code",
-        language: "json",
+        name: "sortProperty",
+        label: "Sort By Property",
+        type: "select",
+        dynamic: "notion_database_properties",
         required: false,
-        placeholder: '[\n  {\n    "property": "Created",\n    "direction": "descending"\n  }\n]',
-        description: "Array of sort objects (property name and direction)"
+        placeholder: "Select property to sort by (optional)",
+        description: "The database property to sort results by",
+        dependsOn: "database",
+        hidden: {
+          $deps: ["database"],
+          $condition: { database: { $exists: false } }
+        }
+      },
+      {
+        name: "sortDirection",
+        label: "Sort Direction",
+        type: "select",
+        required: false,
+        clearable: false,
+        options: [
+          { value: "ascending", label: "Ascending (A-Z, oldest first)" },
+          { value: "descending", label: "Descending (Z-A, newest first)" }
+        ],
+        defaultValue: "descending",
+        description: "Sort order for the results",
+        dependsOn: "sortProperty",
+        hidden: {
+          $deps: ["sortProperty"],
+          $condition: { sortProperty: { $exists: false } }
+        }
       },
       {
         name: "pageSize",
@@ -820,7 +852,12 @@ export const notionUnifiedActions: NodeComponent[] = [
         min: 1,
         max: 100,
         placeholder: "100",
-        description: "Number of results per page (max 100)"
+        description: "Number of results per page (max 100)",
+        dependsOn: "database",
+        hidden: {
+          $deps: ["database"],
+          $condition: { database: { $exists: false } }
+        }
       }
     ],
     outputSchema: [

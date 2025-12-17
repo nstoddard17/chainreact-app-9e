@@ -1352,19 +1352,33 @@ export async function notionAddBlock(
       }
     }
 
-    const pageId = context.dataFlowManager.resolveVariable(config.page_id)
-    const blockType = context.dataFlowManager.resolveVariable(config.block_type)
-    const content = context.dataFlowManager.resolveVariable(config.content)
+    // Support both 'page' (from schema) and 'page_id' (legacy)
+    const pageId = context.dataFlowManager.resolveVariable(config.page) ||
+                   context.dataFlowManager.resolveVariable(config.page_id)
+    // Support both 'blockType' (from schema) and 'block_type' (legacy)
+    const blockType = context.dataFlowManager.resolveVariable(config.blockType) ||
+                      context.dataFlowManager.resolveVariable(config.block_type)
+    // Support both 'blockContent' (from schema) and 'content' (legacy)
+    const content = context.dataFlowManager.resolveVariable(config.blockContent) ||
+                    context.dataFlowManager.resolveVariable(config.content)
 
     if (!pageId) {
       return {
         success: false,
         output: {},
-        message: "Page ID is required"
+        message: "Page is required"
       }
     }
 
-    logger.info("[Notion Add Block] Adding block to page:", { pageId, blockType })
+    if (!blockType) {
+      return {
+        success: false,
+        output: {},
+        message: "Block type is required"
+      }
+    }
+
+    logger.info("[Notion Add Block] Adding block to page:", { pageId, blockType, content })
 
     // Build block object based on type
     let blockObject: any = {
@@ -1384,10 +1398,14 @@ export async function notionAddBlock(
 
       // Add checked property for to-do blocks
       if (blockType === "to_do") {
-        blockObject[blockType].checked = config.checked === true
+        const checked = context.dataFlowManager.resolveVariable(config.checked)
+        blockObject[blockType].checked = checked === true || checked === "true"
       }
     } else if (blockType === "code" && content) {
-      // Code blocks need language
+      // Code blocks need language - support both 'codeLanguage' (from schema) and 'language' (legacy)
+      const language = context.dataFlowManager.resolveVariable(config.codeLanguage) ||
+                       context.dataFlowManager.resolveVariable(config.language) ||
+                       "plain text"
       blockObject.code = {
         rich_text: [
           {
@@ -1395,16 +1413,23 @@ export async function notionAddBlock(
             text: { content: content }
           }
         ],
-        language: config.language || "plain text"
+        language
       }
     } else if (blockType === "divider") {
       // Divider blocks have no content
       blockObject.divider = {}
+    } else if (!content && blockType !== "divider") {
+      // For text-based blocks without content, still need to create the block structure
+      blockObject[blockType] = {
+        rich_text: []
+      }
     }
 
     const payload = {
       children: [blockObject]
     }
+
+    logger.debug("[Notion Add Block] Payload:", JSON.stringify(payload, null, 2))
 
     const result = await notionApiRequest(
       `/blocks/${pageId}/children`,
@@ -2079,6 +2104,129 @@ export async function notionRemoveDatabaseProperty(
       success: false,
       output: {},
       message: error.message || "Failed to remove database property"
+    }
+  }
+}
+
+/**
+ * Make a custom API call to Notion's API
+ * Supports any endpoint with any method
+ */
+export async function notionMakeApiCall(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const endpoint = config.endpoint
+    const method = config.method || 'GET'
+    let body = config.body
+    let queryParams = config.queryParams
+    const customHeaders = config.headers || {}
+
+    if (!endpoint) {
+      return {
+        success: false,
+        output: {},
+        message: "API endpoint is required"
+      }
+    }
+
+    // Parse body if it's a string
+    if (typeof body === 'string' && body.trim()) {
+      try {
+        body = JSON.parse(body)
+      } catch (e) {
+        return {
+          success: false,
+          output: {},
+          message: "Invalid JSON in request body"
+        }
+      }
+    }
+
+    // Parse query params if it's a string
+    if (typeof queryParams === 'string' && queryParams.trim()) {
+      try {
+        queryParams = JSON.parse(queryParams)
+      } catch (e) {
+        return {
+          success: false,
+          output: {},
+          message: "Invalid JSON in query parameters"
+        }
+      }
+    }
+
+    // Build the full URL
+    let url = `https://api.notion.com${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`
+
+    // Add query parameters
+    if (queryParams && typeof queryParams === 'object' && Object.keys(queryParams).length > 0) {
+      const params = new URLSearchParams()
+      for (const [key, value] of Object.entries(queryParams)) {
+        params.append(key, String(value))
+      }
+      url += `?${params.toString()}`
+    }
+
+    logger.info("[Notion Make API Call] Making request:", { method, url })
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Notion-Version': '2022-06-28',
+      'Content-Type': 'application/json',
+      ...customHeaders
+    }
+
+    const fetchOptions: RequestInit = {
+      method,
+      headers
+    }
+
+    if (body && (method === 'POST' || method === 'PATCH' || method === 'PUT')) {
+      fetchOptions.body = JSON.stringify(body)
+    }
+
+    const response = await fetch(url, fetchOptions)
+    const data = await response.json()
+
+    if (!response.ok) {
+      logger.error("[Notion Make API Call] API error:", data)
+      return {
+        success: false,
+        output: { status: response.status, error: data },
+        message: data.message || `API call failed with status ${response.status}`
+      }
+    }
+
+    logger.info("[Notion Make API Call] Request successful")
+
+    return {
+      success: true,
+      output: {
+        data,
+        status: response.status
+      },
+      message: "API call successful"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Make API Call] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to make API call"
     }
   }
 }

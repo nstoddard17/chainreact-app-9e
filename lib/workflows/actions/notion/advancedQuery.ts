@@ -57,19 +57,15 @@ export async function executeNotionAdvancedQuery(
       }
     }
 
+    // Build sorts array from user-friendly fields
     let sorts = null;
-    if (config.sorts) {
-      try {
-        sorts = typeof config.sorts === 'string'
-          ? JSON.parse(config.sorts)
-          : config.sorts;
-      } catch (error) {
-        return {
-          success: false,
-          output: {},
-          message: 'Invalid sorts JSON: ' + (error as Error).message
-        };
-      }
+    if (config.sortProperty) {
+      sorts = [
+        {
+          property: config.sortProperty,
+          direction: config.sortDirection || 'descending'
+        }
+      ];
     }
 
     const queryConfig = {
