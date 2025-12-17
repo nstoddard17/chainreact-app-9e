@@ -39,12 +39,13 @@ export async function moveOnedriveItem(
     }
 
     // Set destination parent reference
-    if (destinationFolderId) {
+    // Handle 'root' as special value meaning the root folder
+    if (destinationFolderId && destinationFolderId !== 'root') {
       payload.parentReference = {
         id: destinationFolderId
       }
     } else {
-      // Move to root
+      // Move to root (either no destination or 'root' was explicitly selected)
       payload.parentReference = {
         path: '/drive/root:'
       }

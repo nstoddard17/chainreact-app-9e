@@ -70,6 +70,47 @@ export const updateItemActionSchema: NodeComponent = {
       hidden: {
         $deps: ["boardId"],
         $condition: { boardId: { $exists: false } }
+      },
+      supportsAI: true
+    },
+    {
+      name: "columnId",
+      label: "Column to Update",
+      type: "select",
+      dynamic: "monday_columns",
+      dynamicParent: "boardId",
+      dependsOn: "boardId",
+      required: true,
+      placeholder: "Select a column...",
+      description: "The column to update",
+      hidden: {
+        $deps: ["boardId"],
+        $condition: { boardId: { $exists: false } }
+      }
+    },
+    {
+      name: "columnValue",
+      label: "New Value",
+      type: "text",
+      required: true,
+      placeholder: "Enter the new value...",
+      description: "The new value for the column (for status columns, use the label text like 'Done')",
+      hidden: {
+        $deps: ["columnId"],
+        $condition: { columnId: { $exists: false } }
+      },
+      supportsAI: true
+    },
+    {
+      name: "additionalColumns",
+      label: "Additional Column Updates (JSON)",
+      type: "textarea",
+      required: false,
+      placeholder: '{"column_id": "value", "another_column": "value2"}',
+      description: "Optional: Update multiple columns at once using JSON format",
+      hidden: {
+        $deps: ["columnId"],
+        $condition: { columnId: { $exists: false } }
       }
     }
   ],

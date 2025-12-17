@@ -23,10 +23,12 @@ export async function createOnedriveFolder(
     }
 
     // Construct create folder URL
+    // Handle 'root' as special value meaning the root folder
     let createUrl: string
-    if (parentFolderId) {
+    if (parentFolderId && parentFolderId !== 'root') {
       createUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${parentFolderId}/children`
     } else {
+      // Create in root (either no parent or 'root' was explicitly selected)
       createUrl = `https://graph.microsoft.com/v1.0/me/drive/root/children`
     }
 

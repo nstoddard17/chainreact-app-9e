@@ -754,6 +754,44 @@ const onedriveMappings: Record<string, FieldMapping> = {
     folderId: "onedrive-folders",
     fileId: "onedrive-files",
   },
+  "onedrive_action_create_folder": {
+    parentFolderId: "onedrive-folders",
+  },
+  "onedrive_action_delete_item": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+    folderIdToDelete: "onedrive-folders",
+  },
+  "onedrive_action_copy_item": {
+    sourceFolderId: "onedrive-folders",
+    sourceFileId: "onedrive-files",
+    sourceFolderIdToCopy: "onedrive-folders",
+    destinationFolderId: "onedrive-folders",
+  },
+  "onedrive_action_move_item": {
+    sourceFolderId: "onedrive-folders",
+    sourceFileId: "onedrive-files",
+    sourceFolderIdToMove: "onedrive-folders",
+    destinationFolderId: "onedrive-folders",
+  },
+  "onedrive_action_rename_item": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+    folderIdToRename: "onedrive-folders",
+  },
+  "onedrive_action_create_sharing_link": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+    folderIdToShare: "onedrive-folders",
+  },
+  "onedrive_action_send_sharing_invitation": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+    folderIdToShare: "onedrive-folders",
+  },
+  "onedrive_action_search_files": {
+    searchScope: "onedrive-folders",
+  },
 };
 
 // Microsoft Excel field mappings
@@ -944,6 +982,7 @@ const mondayMappings: Record<string, FieldMapping> = {
   monday_action_update_item: {
     boardId: "monday_boards",
     itemId: "monday_items",
+    columnId: "monday_columns",
   },
   monday_action_create_update: {
     boardId: "monday_boards",
@@ -1016,6 +1055,7 @@ const mondayMappings: Record<string, FieldMapping> = {
   },
   monday_action_search_items: {
     boardId: "monday_boards",
+    columnId: "monday_columns",
     groupId: "monday_groups",
   },
   // Triggers

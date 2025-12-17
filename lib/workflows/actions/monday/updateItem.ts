@@ -13,7 +13,11 @@ export async function updateMondayItem(
     // Resolve configuration values
     const boardId = await resolveValue(config.boardId, input)
     const itemId = await resolveValue(config.itemId, input)
-    const columnValues = await resolveValue(config.columnValues, input)
+    const columnId = await resolveValue(config.columnId, input)
+    const columnValue = await resolveValue(config.columnValue, input)
+    const additionalColumns = config.additionalColumns
+      ? await resolveValue(config.additionalColumns, input)
+      : undefined
 
     // Validate required fields
     if (!boardId) {
@@ -22,21 +26,32 @@ export async function updateMondayItem(
     if (!itemId) {
       throw new Error('Item ID is required')
     }
-    if (!columnValues) {
-      throw new Error('Column values are required')
+    if (!columnId) {
+      throw new Error('Column ID is required')
+    }
+    if (columnValue === undefined || columnValue === null || columnValue === '') {
+      throw new Error('Column value is required')
     }
 
     // Get access token
     const accessToken = await getDecryptedAccessToken(userId, 'monday')
 
-    // Parse column values
-    let parsedColumnValues = columnValues
-    if (typeof columnValues === 'string') {
-      try {
-        parsedColumnValues = JSON.parse(columnValues)
-      } catch (e) {
-        throw new Error('Column values must be valid JSON')
+    // Build column values object
+    let parsedColumnValues: Record<string, any> = {
+      [columnId]: columnValue
+    }
+
+    // Merge additional columns if provided
+    if (additionalColumns) {
+      let additionalParsed = additionalColumns
+      if (typeof additionalColumns === 'string') {
+        try {
+          additionalParsed = JSON.parse(additionalColumns)
+        } catch (e) {
+          throw new Error('Additional columns must be valid JSON')
+        }
       }
+      parsedColumnValues = { ...parsedColumnValues, ...additionalParsed }
     }
 
     // Build GraphQL mutation

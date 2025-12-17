@@ -25,6 +25,13 @@ export const searchItemsActionSchema: NodeComponent = {
       example: "2"
     },
     {
+      name: "columnValue",
+      label: "Search Value",
+      type: "string",
+      description: "The value that was searched for",
+      example: "task"
+    },
+    {
       name: "boardId",
       label: "Board ID",
       type: "string",

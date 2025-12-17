@@ -23,7 +23,8 @@
       "Bash(ping:*)",
       "Bash(psql:*)",
       "Bash(node check-scopes.js:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": [],

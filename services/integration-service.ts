@@ -497,6 +497,13 @@ export class IntegrationService {
 
     logger.debug('📡 [IntegrationService] loadIntegrationData called:', { dataType, integrationId, params })
 
+    // Validate dataType - must contain underscore or dash to be a valid resource type
+    // Field names like "sourceFolderId" or "destinationFolderId" should not reach here
+    if (!dataType || (!dataType.includes('_') && !dataType.includes('-'))) {
+      logger.warn(`⚠️ [IntegrationService] Invalid dataType received: ${dataType}. Expected format: provider_resource or provider-resource`)
+      return []
+    }
+
     // The API routes expect a POST request with the data in the body
     const body = {
       integrationId,

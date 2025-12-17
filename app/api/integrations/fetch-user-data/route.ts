@@ -941,7 +941,8 @@ export async function POST(req: NextRequest) {
 
     // OneDrive integration delegation
     if ((
-      dataType === 'onedrive-folders'
+      dataType === 'onedrive-folders' ||
+      dataType === 'onedrive-files'
     )) {
       logger.debug(`🔄 [SERVER] Routing OneDrive request to dedicated API: ${dataType}`);
       

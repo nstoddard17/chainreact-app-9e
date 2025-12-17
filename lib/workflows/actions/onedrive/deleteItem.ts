@@ -21,13 +21,19 @@ export async function deleteOnedriveItem(
     const permanentDelete = context.dataFlowManager.resolveVariable(config.permanentDelete) === true
 
     // Determine which item to delete
+    // Note: 'root' is a virtual folder ID - cannot delete the root folder
     let targetItemId: string | null = null
-    if (itemId) {
+    if (itemId && itemId !== 'root') {
       targetItemId = itemId
     } else if (itemType === 'file' && fileId) {
       targetItemId = fileId
-    } else if (itemType === 'folder' && folderIdToDelete) {
+    } else if (itemType === 'folder' && folderIdToDelete && folderIdToDelete !== 'root') {
       targetItemId = folderIdToDelete
+    }
+
+    // Check if user tried to select root folder
+    if (itemId === 'root' || folderIdToDelete === 'root') {
+      throw new Error("Cannot delete the root folder")
     }
 
     if (!targetItemId) {

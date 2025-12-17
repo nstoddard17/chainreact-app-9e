@@ -314,6 +314,8 @@ export function ActionTester({ userId }: ActionTesterProps) {
         configKeys: Object.keys(configValues)
       })
 
+      const executionTimeoutMs = selectedNode.recommendedTimeoutMs || 30000
+
       const response = await fetchWithTimeout(
         '/api/test-action',
         {
@@ -326,7 +328,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
             integrationId: selectedIntegrationId
           })
         },
-        30000 // 30 second timeout for action execution
+        executionTimeoutMs
       )
 
       const result = await response.json()
