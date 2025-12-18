@@ -6,7 +6,7 @@ import { NotionDataHandler } from '../types'
 import { getNotionUsers } from './users'
 import { getNotionTemplates } from './templates'
 import { getNotionDatabases } from './databases'
-import { getNotionPages } from './pages'
+import { getNotionPages, getNotionArchivedPages } from './pages'
 import { getNotionWorkspaces } from './workspaces'
 import { getNotionDatabaseProperties } from './databaseProperties'
 import { getNotionTeamspaces } from './teamspaces'
@@ -39,6 +39,7 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   database_rows: getNotionDatabaseRows,
   database_items: getNotionDatabaseItems,
   archived_items: getNotionArchivedItems,
+  archived_pages: getNotionArchivedPages,
   blocks: getNotionPageBlocks,
   page_blocks: getNotionPageBlocks,
   userId: getNotionUsers, // Alias for user field variations
@@ -66,6 +67,7 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   notion_database_fields: getNotionDatabaseFields,
   notion_database_items: getNotionDatabaseItems,
   notion_archived_items: getNotionArchivedItems,
+  notion_archived_pages: getNotionArchivedPages,
   notion_page_blocks: getNotionPageBlocks,
   notion_blocks: getNotionPageBlocks, // Alias for notion_page_blocks
   notion_filter_types: () => Promise.resolve([
@@ -86,6 +88,7 @@ export {
   getNotionTemplates,
   getNotionDatabases,
   getNotionPages,
+  getNotionArchivedPages,
   getNotionWorkspaces,
   getNotionTeamspaces,
   getNotionDatabaseProperties,

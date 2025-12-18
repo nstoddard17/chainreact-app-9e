@@ -68,7 +68,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
         const dbResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Notion-Version': '2025-09-03',
+            'Notion-Version': '2022-06-28',
             'Content-Type': 'application/json'
           },
           signal: controller.signal
@@ -124,7 +124,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
         },
         metadata: {
           webhookUrl: webhookUrl,
-          apiVersion: '2025-09-03',
+          apiVersion: '2022-06-28',
           eventTypes: eventTypes,
           webhookVerified: false, // Will be set to true when first webhook event is received
           setupInstructions: {

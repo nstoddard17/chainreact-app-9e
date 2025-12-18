@@ -537,8 +537,25 @@ export async function executeNotionArchivePageAction(
   const context = createContext(userId, input);
 
   try {
+    // Determine page ID based on action type
+    // For archive action, use pageToArchive; for unarchive, use pageToUnarchive
+    // Also support legacy 'page' field for backward compatibility
+    const pageId = config.archiveAction === 'archive'
+      ? (config.pageToArchive || config.page)
+      : (config.pageToUnarchive || config.page);
+
+    if (!pageId) {
+      return {
+        success: false,
+        output: {},
+        message: config.archiveAction === 'archive'
+          ? 'Please select a page to archive'
+          : 'Please select an archived page to restore'
+      };
+    }
+
     const archiveConfig = {
-      page_id: config.page,
+      page_id: pageId,
       archived: config.archiveAction === 'archive' ? 'true' : 'false'
     };
 

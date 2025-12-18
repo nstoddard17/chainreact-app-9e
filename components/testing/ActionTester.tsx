@@ -168,6 +168,21 @@ export function ActionTester({ userId }: ActionTesterProps) {
              fieldName === 'columnId' || fieldName === 'parentItemId')) {
           options.boardId = parentValue
         }
+
+        // Normalize database field to databaseId for Notion API
+        // The Notion data handlers expect 'databaseId' but schema uses 'database'
+        if (selectedProvider === 'notion' && parentField === 'database') {
+          options.databaseId = parentValue
+        }
+      }
+
+      // Also normalize workspace field to workspaceId for Notion API
+      if (selectedProvider === 'notion' && configValues.workspace && !options.workspaceId) {
+        options.workspaceId = configValues.workspace
+      }
+      // And normalize database field to databaseId if it exists in configValues
+      if (selectedProvider === 'notion' && configValues.database && !options.databaseId) {
+        options.databaseId = configValues.database
       }
 
       const response = await fetchWithTimeout(

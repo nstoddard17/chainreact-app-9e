@@ -1217,10 +1217,7 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     page: "notion_pages",
   },
-  notion_action_archive_page: {
-    workspace: "notion_workspaces",
-    page_id: "notion_pages",
-  },
+  // notion_action_archive_page: Removed - use notion_action_archive_database_item instead
   notion_action_query_database: {
     workspace: "notion_workspaces",
     database_id: "notion_databases",
@@ -1298,10 +1295,7 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     page: "notion_pages",
   },
-  notion_action_archive_page: {
-    workspace: "notion_workspaces",
-    page: "notion_pages",
-  },
+  // notion_action_archive_page: Removed - use notion_action_archive_database_item instead
   notion_action_duplicate_page: {
     workspace: "notion_workspaces",
     page: "notion_pages",

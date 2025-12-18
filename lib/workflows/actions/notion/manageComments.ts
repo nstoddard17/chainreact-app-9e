@@ -16,7 +16,12 @@ export async function executeNotionManageComments(
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
-  const { operation } = config;
+  // Infer operation from config if not explicitly set
+  // If commentTarget is set, it's a create operation
+  // If listTarget is set, it's a list operation
+  const operation = config.operation ||
+    (config.commentTarget ? 'create' :
+    (config.listTarget ? 'list' : undefined));
 
   // Create a mock ExecutionContext for the handlers that expect it
   const context: ExecutionContext = {

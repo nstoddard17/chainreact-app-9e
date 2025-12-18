@@ -10,6 +10,17 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
   
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, dependsOnValue, extraOptions, formValues } = params
+
+    logger.debug('🔵 [Notion Options] loadOptions called:', {
+      fieldName,
+      integrationId,
+      dependsOnValue,
+      formValuesKeys: formValues ? Object.keys(formValues) : [],
+      formValuesDatabase: formValues?.database,
+      formValuesDatabaseId: formValues?.databaseId,
+      extraOptions
+    })
+
     try {
       // Map field names to Notion API data types
       const fieldToDataTypeMap: Record<string, string> = {
@@ -112,14 +123,24 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       
       const requiresDatabaseId = databaseBoundFields.has(fieldName)
       if (requiresDatabaseId && !requestBody.options.databaseId) {
-        logger.debug('Skipping Notion request - missing databaseId', {
+        logger.debug('⚠️ [Notion Options] Skipping Notion request - missing databaseId', {
           fieldName,
           dataType,
           integrationId,
-          formValues
+          dependsOnValue,
+          formValuesDatabase: formValues?.database,
+          formValuesDatabaseId: formValues?.databaseId,
+          formValuesKeys: formValues ? Object.keys(formValues) : []
         })
         return []
       }
+
+      logger.debug('📤 [Notion Options] Making API request:', {
+        fieldName,
+        dataType,
+        requestBody,
+        options: requestBody.options
+      })
 
       const response = await fetch('/api/integrations/notion/data', {
         method: 'POST',
@@ -294,6 +315,8 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       'itemToArchive': ['database'],
       'itemToRestore': ['database'],
       'sortProperty': ['database'],
+      'searchProperty': ['database'],
+      'createProperties': ['database'],
     }
 
     return dependencies[fieldName] || []

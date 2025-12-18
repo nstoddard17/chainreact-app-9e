@@ -75,6 +75,16 @@ export async function executeNotionAdvancedQuery(
       page_size: config.pageSize || 100
     };
 
+    logger.info('[Notion Advanced Query] Executing with config:', {
+      database_id: config.database,
+      sortProperty: config.sortProperty,
+      sortDirection: config.sortDirection,
+      hasSorts: !!sorts,
+      sorts: sorts,
+      hasFilter: !!filter,
+      pageSize: config.pageSize
+    });
+
     const result = await notionAdvancedDatabaseQuery(queryConfig, context);
 
     return {

@@ -5,7 +5,7 @@ import { getCachedDataSourceId, cacheDataSourceId } from './dataSourceCache'
 
 import { logger } from '@/lib/utils/logger'
 
-const NOTION_API_VERSION = "2025-09-03"
+const NOTION_API_VERSION = "2022-06-28"
 
 /**
  * Get pages from a Notion database or data source

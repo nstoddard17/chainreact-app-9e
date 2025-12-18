@@ -43,7 +43,7 @@ async function executeNotionManageUsersInternal(
 
   const baseHeaders = {
     'Authorization': `Bearer ${accessToken}`,
-    'Notion-Version': '2025-09-03',
+    'Notion-Version': '2022-06-28',
     'Content-Type': 'application/json'
   };
 

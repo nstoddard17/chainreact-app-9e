@@ -85,7 +85,7 @@ export async function notionGetPageDetails(
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Notion-Version': '2025-09-03',
+        'Notion-Version': '2022-06-28',
         'Content-Type': 'application/json'
       }
     });
@@ -128,7 +128,7 @@ export async function notionGetPageDetails(
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Notion-Version': '2025-09-03',
+            'Notion-Version': '2022-06-28',
             'Content-Type': 'application/json'
           }
         }
@@ -146,7 +146,7 @@ export async function notionGetPageDetails(
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'Notion-Version': '2025-09-03',
+          'Notion-Version': '2022-06-28',
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -175,7 +175,7 @@ export async function notionGetPageDetails(
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Notion-Version': '2025-09-03',
+            'Notion-Version': '2022-06-28',
             'Content-Type': 'application/json'
           }
         }
