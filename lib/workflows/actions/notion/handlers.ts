@@ -826,18 +826,36 @@ export async function notionRetrieveBlockChildren(
 ): Promise<ActionResult> {
   try {
     const accessToken = await getDecryptedAccessToken(context.userId, "notion")
-    
+
     const blockId = context.dataFlowManager.resolveVariable(config.block_id)
-    const pageSize = parseInt(config.page_size) || 100
-    
+    const pageSize = parseInt(config.page_size || config.maxBlocks) || 100
+    const filterType = context.dataFlowManager.resolveVariable(config.filterType)
+
     const params = new URLSearchParams({ page_size: pageSize.toString() })
     const result = await notionApiRequest(`/blocks/${blockId}/children?${params}`, "GET", accessToken)
+
+    let children = result.results || []
+
+    // Apply client-side filtering by block type if specified
+    // Notion API doesn't support server-side filtering of block children
+    if (filterType && Array.isArray(filterType) && filterType.length > 0) {
+      children = children.filter((block: any) => filterType.includes(block.type))
+      logger.debug("[Notion] Filtered blocks by type:", {
+        filterType,
+        originalCount: result.results?.length || 0,
+        filteredCount: children.length
+      })
+    }
 
     return {
       success: true,
       output: {
-        children: result.results,
+        children,
+        blocks: children, // Alias for schema compatibility
+        blockCount: children.length,
+        pageId: blockId,
         has_more: result.has_more,
+        hasMore: result.has_more,
         next_cursor: result.next_cursor
       }
     }
