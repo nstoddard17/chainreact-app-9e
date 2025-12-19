@@ -1421,10 +1421,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     const afterNode = builder.nodes.find((n: any) => n.id === afterNodeId)
     if (!afterNode) return
 
-    // Position will be auto-corrected by the vertical stacking effect
-    // Just use a placeholder position for now
+    // Use same X position as the node we're adding after to maintain alignment
     const position = {
-      x: 400,
+      x: afterNode.position.x,
       y: afterNode.position.y + 180
     }
 
@@ -2525,7 +2524,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       hasBuilder: !!builder
     })
 
-    if (!actions || !builder) return
+    if (!actions || !builder) {
+      console.log('⚠️ [WorkflowBuilder] Returning early - actions or builder missing')
+      return
+    }
 
     const currentNodes = builder.nodes ?? []
 
@@ -2534,7 +2536,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       n.id === selectedNodeId && n.data?.isPlaceholder
     )
 
-    let position = nodeData.position || { x: 400, y: 300 }
+    // Default position - use existing node's X to maintain alignment, or fallback to 400
+    const existingNodeX = currentNodes[0]?.position?.x ?? 400
+    let position = nodeData.position || { x: existingNodeX, y: 300 }
 
     // If replacing placeholder, use its position
     if (replacingPlaceholder) {
@@ -2546,7 +2550,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
       if (afterNode) {
         position = {
-          x: 400,
+          x: afterNode.position.x, // Use same X as the node we're adding after (maintains alignment)
           y: afterNode.position.y + 180 // Add 180px vertical spacing after the node
         }
         console.log('📌 [WorkflowBuilder] Adding node after:', selectedNodeId, 'at position:', position)
@@ -2580,6 +2584,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Close panel immediately for better UX
     setIsIntegrationsPanelOpen(false)
 
+    // Check if this node needs configuration (has configSchema fields)
+    console.log('🔧 [WorkflowBuilder] Config check:', {
+      nodeType: nodeData.type,
+      nodeComponentFound: !!nodeComponent,
+      configSchema: nodeComponent?.configSchema,
+      configSchemaLength: nodeComponent?.configSchema?.length,
+    })
+    const needsConfiguration = nodeComponent?.configSchema && nodeComponent.configSchema.length > 0
+    console.log('🔧 [WorkflowBuilder] needsConfiguration:', needsConfiguration)
+
     // Add optimistic node to canvas immediately for instant feedback
     builder.setNodes((nodes: any[]) => {
       let newNodes = [...nodes]
@@ -2591,9 +2605,30 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       const insertIndex = newNodes.findIndex(n => n.position.y > position.y)
       if (insertIndex === -1) {
+        // Adding at the end - no shift needed
         newNodes.push(optimisticNode)
       } else {
-        newNodes.splice(insertIndex, 0, optimisticNode)
+        // Inserting between nodes - shift all nodes below down to make room
+        const verticalShift = 180 // Same as vertical spacing constant
+        newNodes = newNodes.map((node, idx) => {
+          if (node.position && node.position.y >= position.y) {
+            return {
+              ...node,
+              position: {
+                ...node.position,
+                y: node.position.y + verticalShift
+              }
+            }
+          }
+          return node
+        })
+        // Now insert the new node
+        const newInsertIndex = newNodes.findIndex(n => n.position.y > position.y)
+        if (newInsertIndex === -1) {
+          newNodes.push(optimisticNode)
+        } else {
+          newNodes.splice(newInsertIndex, 0, optimisticNode)
+        }
       }
       return newNodes
     })
@@ -2654,8 +2689,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
 
-    // Open config modal immediately
-    setConfiguringNode(optimisticNode)
+    // Open config modal immediately (only if node needs configuration)
+    if (needsConfiguration) {
+      setConfiguringNode(optimisticNode)
+    }
+
+    // Save the selectedNodeId before clearing (needed for edge creation later)
+    const previousNodeId = selectedNodeId
+    const isReplacingPlaceholder = !!replacingPlaceholder
 
     // Clear selected node ID
     setSelectedNodeId(null)
@@ -2668,21 +2709,27 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       console.log('📌 [WorkflowBuilder] Node saved successfully, updateReactFlowGraph will handle placeholder')
 
       // Update the configuring node with the real node ID from DB
-      if (newNode) {
-        setConfiguringNode((current: any) => {
-          if (current && current.id === tempId) {
-            return { ...current, id: newNode.id, data: { ...current.data, _optimistic: false } }
-          }
-          return current
-        })
+      // Note: actions.addNode returns a string (the node ID), not an object
+      const newNodeId = newNode
+      if (newNodeId) {
+        // Only update configuring node if we opened the config modal
+        if (needsConfiguration) {
+          setConfiguringNode((current: any) => {
+            if (current && current.id === tempId) {
+              return { ...current, id: newNodeId, data: { ...current.data, _optimistic: false } }
+            }
+            return current
+          })
+        }
 
         // If adding after a node (not replacing placeholder), create edge and handle insertion
-        if (selectedNodeId && !replacingPlaceholder) {
-          console.log('🔗 [WorkflowBuilder] Inserting node after:', selectedNodeId)
+        // Note: Using previousNodeId which was saved before setSelectedNodeId(null) was called
+        if (previousNodeId && !isReplacingPlaceholder) {
+          console.log('🔗 [WorkflowBuilder] Inserting node after:', previousNodeId)
 
           // Find what was connected after the selected node
-          const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
-          const oldEdge = builder.edges.find((e: any) => e.source === selectedNodeId)
+          const afterNode = currentNodes.find((n: any) => n.id === previousNodeId)
+          const oldEdge = builder.edges.find((e: any) => e.source === previousNodeId)
 
           if (oldEdge) {
             // We're inserting between two nodes
@@ -2690,33 +2737,35 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
             // Create edge from previous node to new node
             await actions.connectEdge({
-              sourceId: selectedNodeId,
-              targetId: newNode.id,
+              sourceId: previousNodeId,
+              targetId: newNodeId,
               sourceHandle: oldEdge.sourceHandle || 'source'
             })
 
             // Create edge from new node to next node
             await actions.connectEdge({
-              sourceId: newNode.id,
+              sourceId: newNodeId,
               targetId: nextNodeId,
               sourceHandle: 'source',
               targetHandle: oldEdge.targetHandle
             })
 
-            console.log('🔗 [WorkflowBuilder] Inserted between', selectedNodeId, 'and', nextNodeId)
+            console.log('🔗 [WorkflowBuilder] Inserted between', previousNodeId, 'and', nextNodeId)
           } else {
             // We're adding at the end
             await actions.connectEdge({
-              sourceId: selectedNodeId,
-              targetId: newNode.id,
+              sourceId: previousNodeId,
+              targetId: newNodeId,
               sourceHandle: 'source'
             })
-            console.log('🔗 [WorkflowBuilder] Added at end after', selectedNodeId)
+            console.log('🔗 [WorkflowBuilder] Added at end after', previousNodeId)
           }
         }
       }
     } catch (error: any) {
-      setConfiguringNode(null)
+      if (needsConfiguration) {
+        setConfiguringNode(null)
+      }
       toast({
         title: "Failed to add node",
         description: error?.message ?? "Unable to add node",
@@ -2950,10 +2999,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Generate a temporary ID for the duplicate
     const tempId = `node-${Date.now()}`
 
-    // Position will be auto-corrected by the vertical stacking effect
-    // Place it just below the original for now
+    // Use same X position as the original node to maintain alignment
     const newPosition = {
-      x: 400,
+      x: nodeToDuplicate.position.x,
       y: nodeToDuplicate.position.y + 180,
     }
 
@@ -2979,26 +3027,27 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     try {
       // Add the node to backend
-      const newNode = await actions.addNode(nodeToDuplicate.data?.type, newPosition)
+      // Note: actions.addNode returns a string (the node ID), not an object
+      const newNodeId = await actions.addNode(nodeToDuplicate.data?.type, newPosition)
 
-      if (newNode) {
+      if (newNodeId) {
         // Update with real ID from backend
         const finalNodes = builder.nodes.map((n: any) =>
           n.id === tempId
-            ? { ...n, id: newNode.id, data: { ...n.data, _optimistic: false } }
+            ? { ...n, id: newNodeId, data: { ...n.data, _optimistic: false } }
             : n
         )
         builder.setNodes(finalNodes)
 
         // Apply configuration if the original node had config
         if (nodeToDuplicate.data?.config && Object.keys(nodeToDuplicate.data.config).length > 0) {
-          await actions.updateConfig(newNode.id, nodeToDuplicate.data.config)
+          await actions.updateConfig(newNodeId, nodeToDuplicate.data.config)
         }
 
         // Apply the title
         await actions.applyEdits([{
           op: "updateNode",
-          nodeId: newNode.id,
+          nodeId: newNodeId,
           updates: { title: duplicateTitle }
         }])
 
@@ -3111,12 +3160,26 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       // For regular (configured) nodes, open their configuration modal
       // Prefetch config data before opening modal for instant UX
-      const nodeInfo = getNodeByType(node.data?.nodeType || node.type)
+      // Note: node type can be in node.data.type, node.data.nodeType, or extracted from node id
+      const nodeType = node.data?.type || node.data?.nodeType || nodeId.split('-')[0]
+      const nodeInfo = getNodeByType(nodeType)
+
+      console.log('🔧 [WorkflowBuilder] Looking up node info:', { nodeType, found: !!nodeInfo, configSchemaLength: nodeInfo?.configSchema?.length })
+
+      // Check if this node has any configuration fields
+      const hasConfigFields = nodeInfo?.configSchema && nodeInfo.configSchema.length > 0
+
+      // Skip config modal for nodes with no configuration (like Manual Trigger)
+      if (!hasConfigFields) {
+        console.log('🔧 [WorkflowBuilder] Node has no config fields, skipping config modal:', nodeType)
+        return
+      }
+
       if (nodeInfo && nodeInfo.configSchema) {
-        console.log('🚀 [WorkflowBuilder] Prefetching config data for:', node.data?.nodeType)
+        console.log('🚀 [WorkflowBuilder] Prefetching config data for:', nodeType)
         // Don't await - let it load in parallel with modal opening
         prefetchNodeConfig(
-          node.data?.nodeType || node.type,
+          nodeType,
           nodeInfo.providerId || '',
           nodeInfo.configSchema
         ).catch(err => {
@@ -3136,6 +3199,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
     console.log('💾 [WorkflowBuilder] Saving configuration for node:', nodeId, config)
+    console.log('💾 [WorkflowBuilder] __validationState in config:', config.__validationState)
 
     if (!actions || !builder) {
       console.warn('💾 [WorkflowBuilder] No actions or builder available to save config')

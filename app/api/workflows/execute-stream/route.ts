@@ -171,14 +171,36 @@ export async function POST(request: NextRequest) {
 
   // Execute workflow in background
   const executeWorkflow = async () => {
+    // Generate execution ID upfront for HITL support
+    const executionId = crypto.randomUUID()
+
     try {
       console.log('[ExecuteStream] Started', {
         workflowId,
+        executionId,
         nodeCount: workflowNodes.length,
         connectionCount: workflowConnections.length,
         hasInputData: !!inputData,
         options
       })
+
+      // Create workflow_executions record for HITL and tracking
+      // This is required so HITL can update the execution to 'paused' and later resume it
+      const { error: insertError } = await supabase
+        .from('workflow_executions')
+        .insert({
+          id: executionId,
+          workflow_id: workflowId,
+          user_id: user.id,
+          status: 'running',
+          input_data: inputData,
+          started_at: new Date().toISOString()
+        })
+
+      if (insertError) {
+        console.error('[ExecuteStream] Failed to create execution record:', insertError)
+        // Continue anyway - non-HITL workflows don't need this
+      }
 
       const context = {
         data: inputData,
@@ -186,6 +208,7 @@ export async function POST(request: NextRequest) {
         variables: {},
         userId: user.id,
         workflowId,
+        executionId, // Include executionId in context for HITL
       }
 
       const executionQueue: any[] = []
@@ -281,7 +304,7 @@ export async function POST(request: NextRequest) {
             ...currentData,
             ...previousResults,
             trigger: context.trigger,
-            executionId: `stream-${Date.now()}`,
+            executionId: context.executionId, // Use the execution ID from context for HITL
             workflowId,
             nodeId: currentNode.id,
             testMode: options.testMode || false
@@ -311,6 +334,16 @@ export async function POST(request: NextRequest) {
               timestamp: Date.now()
             })
 
+            // Update execution status to failed
+            await supabase
+              .from('workflow_executions')
+              .update({
+                status: 'failed',
+                completed_at: new Date().toISOString(),
+                error: `Node "${nodeTitle}" failed: ${actionResult.message || actionResult.error}`
+              })
+              .eq('id', context.executionId)
+
             // Stop execution on failure
             await sendEvent({
               type: 'workflow_failed',
@@ -318,6 +351,33 @@ export async function POST(request: NextRequest) {
               timestamp: Date.now()
             })
 
+            break
+          }
+
+          // Check if execution should pause (HITL, wait-for-event, etc.)
+          if (actionResult.pauseExecution) {
+            console.log(`[ExecuteStream] Execution paused at node: ${currentNode.id}`)
+
+            await sendEvent({
+              type: 'node_completed',
+              nodeId: currentNode.id,
+              nodeType,
+              nodeTitle,
+              output: actionResult,
+              preview: generateOutputPreview(nodeType, actionResult),
+              executionTime,
+              timestamp: Date.now()
+            })
+
+            // Send workflow_paused event
+            await sendEvent({
+              type: 'workflow_paused',
+              pausedAt: currentNode.id,
+              reason: actionResult.message || 'Waiting for external input',
+              timestamp: Date.now()
+            })
+
+            // Don't continue to next nodes - workflow is paused
             break
           }
 
@@ -382,6 +442,16 @@ export async function POST(request: NextRequest) {
             timestamp: Date.now()
           })
 
+          // Update execution status to failed
+          await supabase
+            .from('workflow_executions')
+            .update({
+              status: 'failed',
+              completed_at: new Date().toISOString(),
+              error: `Node "${nodeTitle}" failed: ${error.message}`
+            })
+            .eq('id', context.executionId)
+
           await sendEvent({
             type: 'workflow_failed',
             error: `Node "${nodeTitle}" failed: ${error.message}`,
@@ -392,16 +462,49 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // If we completed all nodes successfully
+      // If we completed all nodes (or broke out of loop)
       if (executionQueue.length === 0) {
-        await sendEvent({
-          type: 'workflow_completed',
-          timestamp: Date.now()
-        })
+        // Check if workflow was paused by HITL before marking complete
+        const { data: currentExecution } = await supabase
+          .from('workflow_executions')
+          .select('status')
+          .eq('id', executionId)
+          .single()
+
+        // Only mark as completed and send event if not paused
+        if (currentExecution?.status === 'paused') {
+          console.log('[ExecuteStream] Workflow is paused, not sending workflow_completed')
+          // Don't send workflow_completed - the workflow_paused event was already sent
+        } else {
+          await supabase
+            .from('workflow_executions')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+              output_data: previousResults
+            })
+            .eq('id', executionId)
+
+          await sendEvent({
+            type: 'workflow_completed',
+            timestamp: Date.now()
+          })
+        }
       }
 
     } catch (error: any) {
       logger.error('Stream execution error:', error)
+
+      // Update execution status to failed
+      await supabase
+        .from('workflow_executions')
+        .update({
+          status: 'failed',
+          completed_at: new Date().toISOString(),
+          error: error.message || 'Workflow execution failed'
+        })
+        .eq('id', executionId)
+
       await sendEvent({
         type: 'workflow_failed',
         error: error.message || 'Workflow execution failed',

@@ -1233,7 +1233,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
 
   // HITL (Human-in-the-Loop) - needs execution context for pausing
   "hitl_conversation": (params: { config: any; userId: string; input: Record<string, any>; context?: any }) =>
-    executeHITL(params.config, params.userId, params.input, params.input.context)
+    executeHITL(params.config, params.userId, params.input, params.context)
 }
 
 /**

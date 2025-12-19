@@ -265,15 +265,18 @@ class DiscordGateway extends SimpleEventEmitter {
         const isTransientError = gatewayResponse.status === 503 || gatewayResponse.status === 502 || gatewayResponse.status === 500
 
         if (gatewayResponse.status === 401) {
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+          console.log('❌ DISCORD GATEWAY CONNECTION FAILED: Invalid Token')
+          console.log('   Status: 401 Unauthorized')
+          console.log('   Please check:')
+          console.log('   1. DISCORD_BOT_TOKEN in .env.local is correct')
+          console.log('   2. The bot exists in Discord Developer Portal')
+          console.log('   3. Regenerate token at: https://discord.com/developers/applications')
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
           logger.error('❌ Discord bot token is invalid or expired (401 Unauthorized)')
-          logger.error('Please check:')
-          logger.error('1. The DISCORD_BOT_TOKEN in your .env.local file is correct')
-          logger.error('2. The bot still exists in Discord Developer Portal')
-          logger.error('3. You may need to regenerate the token at: https://discord.com/developers/applications')
 
           // Disable persistent reconnect to avoid spamming with invalid token
           this.disablePersistentReconnect()
-          logger.debug('⚠️ Disabled automatic reconnection due to invalid token')
 
           throw new Error(`Discord bot token is invalid or expired. Please update DISCORD_BOT_TOKEN in .env.local`)
         } else if (isTransientError) {
@@ -316,10 +319,29 @@ class DiscordGateway extends SimpleEventEmitter {
       }
 
       this.ws.onmessage = (event) => {
-        this.handleMessage(event.data)
+        // Handle both string and Buffer data (ws package may return Buffer)
+        let data: string
+        if (typeof event.data === 'string') {
+          data = event.data
+        } else if (Buffer.isBuffer(event.data)) {
+          data = event.data.toString('utf-8')
+        } else if (event.data instanceof ArrayBuffer) {
+          data = new TextDecoder().decode(event.data)
+        } else {
+          console.log('⚠️ Unknown WebSocket message type:', typeof event.data)
+          return
+        }
+        this.handleMessage(data)
       }
 
       this.ws.onclose = (event) => {
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        console.log('🔌 DISCORD GATEWAY WEBSOCKET CLOSED')
+        console.log(`   Code: ${event.code}`)
+        console.log(`   Reason: ${event.reason || 'No reason provided'}`)
+        console.log(`   Clean: ${event.wasClean}`)
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
         this.isConnected = false
         const wasIntentional = this.intentionalDisconnect
         this.cleanup()
@@ -332,6 +354,34 @@ class DiscordGateway extends SimpleEventEmitter {
         // 4013: Invalid intents
         // 4014: Disallowed intents
         const noReconnectCodes = [1000, 4004, 4010, 4011, 4013, 4014]
+
+        // Log critical intent errors prominently
+        if (event.code === 4013 || event.code === 4014) {
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+          console.log('❌ DISCORD GATEWAY DISCONNECTED: INTENT ERROR')
+          console.log(`   Close Code: ${event.code}`)
+          if (event.code === 4013) {
+            console.log('   Error: Invalid intents specified')
+          } else {
+            console.log('   Error: Disallowed intents - MESSAGE_CONTENT requires approval!')
+          }
+          console.log('')
+          console.log('   To fix this:')
+          console.log('   1. Go to: https://discord.com/developers/applications')
+          console.log('   2. Select your bot application')
+          console.log('   3. Go to "Bot" section')
+          console.log('   4. Scroll down to "Privileged Gateway Intents"')
+          console.log('   5. Enable "MESSAGE CONTENT INTENT"')
+          console.log('   6. Save changes and restart the server')
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        } else if (event.code === 4004) {
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+          console.log('❌ DISCORD GATEWAY DISCONNECTED: Authentication Failed')
+          console.log('   Close Code: 4004')
+          console.log('   The bot token is invalid or has been reset.')
+          console.log('   Regenerate your bot token in Discord Developer Portal.')
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        }
 
         // Only reconnect if not intentionally disconnected and persistent reconnect is enabled
         if (!wasIntentional && this.persistentReconnect && !noReconnectCodes.includes(event.code)) {
@@ -347,8 +397,12 @@ class DiscordGateway extends SimpleEventEmitter {
         }
       }
 
-      this.ws.onerror = (error) => {
-        // Silent error handling
+      this.ws.onerror = (error: any) => {
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        console.log('❌ DISCORD GATEWAY WEBSOCKET ERROR')
+        console.log(`   Error: ${error?.message || error || 'Unknown error'}`)
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        logger.error('Discord Gateway WebSocket error:', error)
       }
 
     } catch (error) {
@@ -373,8 +427,12 @@ class DiscordGateway extends SimpleEventEmitter {
     try {
       const payload: DiscordGatewayPayload = JSON.parse(data)
 
+      // Log all incoming messages for debugging
+      console.log(`📨 Discord Gateway message: op=${payload.op}, t=${payload.t || 'N/A'}`)
+
       switch (payload.op) {
         case 10: // Hello
+          console.log('📨 Received HELLO from Discord Gateway')
           this.handleHello(payload.d)
           break
         case 11: // Heartbeat ACK
@@ -385,18 +443,25 @@ class DiscordGateway extends SimpleEventEmitter {
           this.handleDispatch(payload)
           break
         case 7: // Reconnect
+          console.log('📨 Discord requested RECONNECT')
           this.reconnect()
           break
         case 9: // Invalid Session
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+          console.log('❌ DISCORD GATEWAY: INVALID SESSION')
+          console.log(`   Resumable: ${payload.d}`)
+          console.log('   This usually means the bot token or intents are invalid.')
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
           this.reconnect()
           break
         default:
-          // Silent handling of unhandled opcodes
+          console.log(`📨 Unhandled opcode: ${payload.op}`)
           break
       }
 
-    } catch (error) {
-      // Silent error handling
+    } catch (error: any) {
+      console.log('❌ Error parsing Discord Gateway message:', error?.message)
+      logger.error('Error parsing Discord Gateway message:', error)
     }
   }
 
@@ -454,7 +519,16 @@ class DiscordGateway extends SimpleEventEmitter {
    */
   private async handleReady(data: any): Promise<void> {
     this.sessionId = data.session_id
-    logger.debug('🎉 Discord bot ready!', {
+    // Use console.log directly for critical connection info to ensure visibility
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('🎉 DISCORD GATEWAY CONNECTED AND READY!')
+    console.log(`   Bot: ${data.user?.username}#${data.user?.discriminator || '0'}`)
+    console.log(`   User ID: ${data.user?.id}`)
+    console.log(`   Session: ${this.sessionId}`)
+    console.log(`   Guilds: ${data.guilds?.length || 0}`)
+    console.log('   The bot is now listening for MESSAGE_CREATE events.')
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    logger.info('🎉 Discord bot ready!', {
       sessionId: this.sessionId,
       username: data.user?.username,
       userId: data.user?.id,
@@ -478,7 +552,16 @@ class DiscordGateway extends SimpleEventEmitter {
    * Handle MESSAGE_CREATE event and trigger workflows
    */
   private handleMessageCreate(messageData: any): void {
-    logger.debug('🔵 Discord MESSAGE_CREATE received:', {
+    // Use console.log for visibility - this is key for debugging HITL
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('🔵 DISCORD MESSAGE_CREATE EVENT RECEIVED')
+    console.log(`   Author: ${messageData.author?.username}${messageData.author?.bot ? ' (BOT)' : ''}`)
+    console.log(`   Channel: ${messageData.channel_id}`)
+    console.log(`   Guild: ${messageData.guild_id}`)
+    console.log(`   Content: ${messageData.content?.substring(0, 50)}${messageData.content?.length > 50 ? '...' : ''}`)
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+    logger.info('🔵 Discord MESSAGE_CREATE received:', {
       messageId: messageData.id,
       channelId: messageData.channel_id,
       guildId: messageData.guild_id,
@@ -489,17 +572,86 @@ class DiscordGateway extends SimpleEventEmitter {
 
     // Ignore messages from bots (including our own bot)
     if (messageData.author?.bot) {
+      console.log('🤖 Ignoring bot message')
       logger.debug('🤖 Ignoring bot message')
       return
     }
 
-    logger.debug('💬 Processing user message for workflows')
+    console.log('💬 Processing user message for HITL and workflows...')
+    logger.info('💬 Processing user message for workflows')
 
     // Emit message event for workflow processing
     this.emit('message', messageData)
 
+    // Forward to HITL webhook for human-in-the-loop conversations
+    this.forwardToHITLWebhook(messageData)
+
     // Trigger workflow processing
     this.processDiscordMessageForWorkflows(messageData)
+  }
+
+  /**
+   * Forward Discord message to HITL webhook for human-in-the-loop conversations
+   */
+  private async forwardToHITLWebhook(messageData: any): Promise<void> {
+    try {
+      // For internal webhook calls, always prefer localhost since Gateway and webhook
+      // are on the same server. This avoids ngrok interstitial pages and is faster.
+      const isProd = process.env.NODE_ENV === 'production'
+      let baseUrl: string
+
+      if (!isProd) {
+        // In development, use localhost for internal calls (same server)
+        baseUrl = 'http://localhost:3000'
+      } else {
+        baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+                  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://chainreact.app')
+      }
+
+      const hitlEndpoint = `${baseUrl}/api/webhooks/discord/hitl`
+
+      logger.info('🔄 [HITL Gateway] Forwarding message to HITL webhook', {
+        endpoint: hitlEndpoint,
+        channelId: messageData.channel_id,
+        author: messageData.author?.username,
+        contentPreview: messageData.content?.substring(0, 50)
+      })
+
+      const response = await fetch(hitlEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'ChainReact-DiscordGateway/1.0',
+          'ngrok-skip-browser-warning': 'true' // Bypass ngrok interstitial page
+        },
+        body: JSON.stringify({
+          t: 'MESSAGE_CREATE',
+          d: messageData
+        })
+      })
+
+      const result = await response.json()
+
+      logger.info('📨 [HITL Gateway] Webhook response', {
+        status: response.status,
+        ok: response.ok,
+        action: result.action,
+        message: result.message,
+        hasConversation: result.action !== undefined && result.message !== 'No active conversation'
+      })
+
+      if (response.ok) {
+        if (result.action === 'resumed') {
+          logger.info('✅ [HITL Gateway] Workflow resumed!', { executionId: result.executionId })
+        } else if (result.action === 'continue_conversation') {
+          logger.info('💬 [HITL Gateway] AI response sent, conversation continues')
+        } else if (result.action === 'reactivated') {
+          logger.info('🔄 [HITL Gateway] Timed-out conversation reactivated')
+        }
+      }
+    } catch (error: any) {
+      logger.error('❌ [HITL Gateway] Error forwarding to webhook', { error: error.message })
+    }
   }
 
   /**

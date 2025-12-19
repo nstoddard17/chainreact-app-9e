@@ -623,6 +623,12 @@ export async function processEnhancedConversation(
   needsFileSearch?: boolean
   searchQuery?: string
 }> {
+  logger.info('🧠 [HITL AI] Starting conversation processing', {
+    userMessage: userMessage.substring(0, 100),
+    historyLength: conversationHistory.length,
+    hasCustomPrompt: !!customSystemPrompt
+  })
+
   try {
     // Check if user is asking about files or policies
     const fileSearchKeywords = [
@@ -637,12 +643,31 @@ export async function processEnhancedConversation(
     // Get connected storage providers
     const storageProviders = await getConnectedStorageIntegrations(userId)
 
+    logger.debug('🔌 [HITL AI] Storage providers', { providers: storageProviders })
+
     // Build enhanced system prompt
-    const systemPrompt = customSystemPrompt || buildEnhancedSystemPrompt(
+    // IMPORTANT: Always include contextData and initial message context
+    // even when using customSystemPrompt, as it may not have been included
+    let systemPrompt = customSystemPrompt || buildEnhancedSystemPrompt(
       config,
       contextData,
       storageProviders
     )
+
+    // Ensure contextData is included in the prompt (it may have been omitted from customSystemPrompt)
+    const contextDataString = typeof contextData === 'string' ? contextData : JSON.stringify(contextData, null, 2)
+    const hasContextInPrompt = systemPrompt.includes('Context:') || systemPrompt.includes('context:')
+
+    if (!hasContextInPrompt && contextDataString && contextDataString !== '{}' && contextDataString !== '""') {
+      systemPrompt += `\n\n**Current Workflow Context:**\n${contextDataString}`
+    }
+
+    // Get the initial message from conversation history to reinforce context
+    const initialAssistantMessage = conversationHistory.find(msg => msg.role === 'assistant')?.content
+    if (initialAssistantMessage && !systemPrompt.includes(initialAssistantMessage.substring(0, 100))) {
+      // The initial message contains the workflow context - remind the AI about it
+      systemPrompt += `\n\n**IMPORTANT:** Your first message to the user (shown in conversation history) describes the specific workflow context. Answer questions based on that context - the data and scenario described in your initial message IS the workflow context you should reference.`
+    }
 
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
@@ -653,27 +678,47 @@ export async function processEnhancedConversation(
       { role: 'user', content: userMessage }
     ]
 
+    logger.info('📤 [HITL AI] Calling OpenAI API', {
+      model: 'gpt-4',
+      messageCount: messages.length,
+      systemPromptLength: systemPrompt.length
+    })
+
     // Define available tools
     const tools: OpenAI.Chat.ChatCompletionTool[] = [
       {
         type: 'function',
         function: {
           name: 'continue_workflow',
-          description: 'Call this when the user approves or is ready to continue the workflow.',
+          description: 'Call this when the user approves or is ready to continue the workflow. ALWAYS extract the decision and any notes from the conversation.',
           parameters: {
             type: 'object',
             properties: {
               extractedVariables: {
                 type: 'object',
-                description: 'Variables extracted from conversation',
-                additionalProperties: true
+                description: 'Variables extracted from the conversation. MUST include decision and notes fields.',
+                properties: {
+                  decision: {
+                    type: 'string',
+                    description: 'The user\'s decision: "approved", "rejected", "pending", or "continued"'
+                  },
+                  notes: {
+                    type: 'string',
+                    description: 'Any additional notes, conditions, or context the user provided'
+                  },
+                  reason: {
+                    type: 'string',
+                    description: 'The reason for the decision if provided'
+                  }
+                },
+                required: ['decision', 'notes']
               },
               summary: {
                 type: 'string',
                 description: 'Brief summary of what was decided'
               }
             },
-            required: ['summary']
+            required: ['summary', 'extractedVariables']
           }
         }
       }
@@ -717,11 +762,29 @@ export async function processEnhancedConversation(
 
     const choice = response.choices[0]
 
+    logger.info('📥 [HITL AI] OpenAI response received', {
+      finishReason: choice.finish_reason,
+      hasToolCalls: !!(choice.message.tool_calls && choice.message.tool_calls.length > 0),
+      toolCallCount: choice.message.tool_calls?.length || 0,
+      contentLength: choice.message.content?.length || 0,
+      usage: response.usage
+    })
+
     // Check for tool calls
     if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
       for (const toolCall of choice.message.tool_calls) {
+        logger.info('🔧 [HITL AI] Tool call detected', {
+          toolName: toolCall.function.name,
+          arguments: toolCall.function.arguments.substring(0, 200)
+        })
+
         if (toolCall.function.name === 'continue_workflow') {
           const args = JSON.parse(toolCall.function.arguments)
+
+          logger.info('✅ [HITL AI] Continuation signal! Workflow will resume', {
+            summary: args.summary,
+            extractedVariables: args.extractedVariables
+          })
 
           return {
             aiResponse: `Perfect! I'll proceed with: ${args.summary}`,
@@ -736,6 +799,8 @@ export async function processEnhancedConversation(
           const searchProviders = args.providers && args.providers.length > 0
             ? args.providers
             : storageProviders
+
+          logger.info('🔍 [HITL AI] File search requested', { query: args.query, providers: searchProviders })
 
           return {
             aiResponse: storageProviders.length > 1
@@ -752,13 +817,18 @@ export async function processEnhancedConversation(
     // Regular conversation response
     const aiResponse = choice.message.content || "I'm sorry, I didn't understand that. Can you rephrase?"
 
+    logger.info('💬 [HITL AI] Regular conversation response', {
+      responsePreview: aiResponse.substring(0, 100),
+      shouldContinue: false
+    })
+
     return {
       aiResponse,
       shouldContinue: false
     }
 
   } catch (error: any) {
-    logger.error('Error in enhanced conversation processing', { error: error.message })
+    logger.error('❌ [HITL AI] Error in conversation processing', { error: error.message })
 
     // Fallback: check for simple continuation keywords
     const continuationSignals = config.continuationSignals || ['yes', 'send it', 'continue', 'proceed', 'go ahead', 'looks good', 'approve']

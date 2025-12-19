@@ -129,6 +129,21 @@ export function DiscordRichTextEditor({
   const [internalValue, setInternalValue] = useState(value || '') // What gets saved (Discord API format)
   
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Track cursor position AND text content for variable insertion
+  // We save both because Fast Refresh can reset refs, but this captures state at click time
+  const savedCursorPositionRef = useRef<{ start: number; end: number; savedText: string }>({ start: 0, end: 0, savedText: '' })
+
+  // CRITICAL: Use window object for storage that survives Fast Refresh
+  // React refs get reset during Fast Refresh, but window properties persist
+  // This is a fallback for when Fast Refresh occurs between button click and variable selection
+  const getGlobalCursorState = useCallback(() => {
+    // Access global state, creating it if it doesn't exist
+    const w = window as any
+    if (!w.__discordEditorCursorState) {
+      w.__discordEditorCursorState = { start: 0, end: 0, savedText: '' }
+    }
+    return w.__discordEditorCursorState
+  }, [])
   const { toast } = useToast()
   const mentionMapRef = useRef<Map<string, string>>(new Map()) // Maps display format to Discord format
 
@@ -137,6 +152,16 @@ export function DiscordRichTextEditor({
     workflowData,
     currentNodeId
   })
+
+  // Initialize cursor position to end of text on mount only
+  const initializedCursorRef = useRef(false)
+  useEffect(() => {
+    if (!initializedCursorRef.current) {
+      // Set initial cursor position to end of text (so variable inserts at end if user hasn't clicked)
+      savedCursorPositionRef.current = { start: displayValue.length, end: displayValue.length, savedText: displayValue }
+      initializedCursorRef.current = true
+    }
+  }, [displayValue.length])
 
   // Debug logging to identify freeze cause
   logger.debug('[DiscordRichTextEditor] Rendering with:', { guildId, channelId, userId, value })
@@ -329,6 +354,18 @@ export function DiscordRichTextEditor({
     }
   }, [value, internalValue, convertToDisplayFormat])
 
+  // Auto-expand textarea to fit content
+  useEffect(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current
+      // Reset height to auto to get accurate scrollHeight
+      textarea.style.height = 'auto'
+      // Set height to scrollHeight (minimum 100px)
+      const newHeight = Math.max(100, textarea.scrollHeight)
+      textarea.style.height = `${newHeight}px`
+    }
+  }, [displayValue])
+
   const insertMarkdown = useCallback((markdownSyntax: string) => {
     if (textareaRef.current) {
       const textarea = textareaRef.current
@@ -420,33 +457,139 @@ export function DiscordRichTextEditor({
     }
   }, [displayValue, convertToDiscordFormat, onChange])
 
-  const insertVariable = (variable: string) => {
+  // Store displayValue in a ref so insertVariable always has the latest value
+  // IMPORTANT: Update ref synchronously, not just in useEffect (which runs after render)
+  const displayValueRef = useRef(displayValue)
+  // Keep ref in sync - update immediately when displayValue changes
+  displayValueRef.current = displayValue
+
+  // Save cursor position AND text content whenever selection changes (before dropdown steals focus)
+  // CRITICAL: Store values in BOTH ref AND window object
+  // Window object survives Fast Refresh because it's a browser global outside of React
+  const saveCursorPosition = useCallback(() => {
     if (textareaRef.current) {
-      const textarea = textareaRef.current
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      
-      const newDisplayValue = displayValue.substring(0, start) + variable + displayValue.substring(end)
-      setDisplayValue(newDisplayValue)
-      
-      // Convert to Discord format and save
-      const newInternalValue = convertToDiscordFormat(newDisplayValue)
-      setInternalValue(newInternalValue)
-      onChange(newInternalValue)
-      
-      setTimeout(() => {
-        if (textareaRef.current) {
-          const newPosition = start + variable.length
-          textareaRef.current.setSelectionRange(newPosition, newPosition)
-          textareaRef.current.focus()
+      const start = textareaRef.current.selectionStart
+      const end = textareaRef.current.selectionEnd
+      // Get the actual text content from the textarea
+      const currentText = textareaRef.current.value || ''
+      const currentDisplayLength = currentText.length
+
+      // Only update if we have valid selection info (textarea has been focused)
+      // Reject if both start and end are 0 but there's text (user hasn't clicked in textarea)
+      // Also reject if it looks like full text was selected by browser (start=0, end=full length) during blur
+      if (start !== null && end !== null) {
+        // Reject 0,0 position if there's text (user hasn't interacted)
+        const isBothZeroWithText = start === 0 && end === 0 && currentDisplayLength > 0
+        // Reject full selection that might be browser auto-selection
+        const isFullSelectionOnBlur = start === 0 && end === currentDisplayLength && currentDisplayLength > 0
+
+        if (!isBothZeroWithText && !isFullSelectionOnBlur) {
+          // Save in ref (for normal React flow)
+          savedCursorPositionRef.current = { start, end, savedText: currentText }
+
+          // CRITICAL: Also save in window object (survives Fast Refresh)
+          // This is the most reliable storage because React doesn't touch window properties
+          const globalState = getGlobalCursorState()
+          globalState.start = start
+          globalState.end = end
+          globalState.savedText = currentText
         }
-      }, 10)
+      }
     }
-    
-    if (onVariableInsert) {
-      onVariableInsert(variable)
+  }, [getGlobalCursorState])
+
+  const insertVariable = useCallback((variable: string) => {
+    // CRITICAL: Read from window object FIRST - this is the most reliable source
+    // Window object survives Fast Refresh because it's a browser global outside of React
+    const globalState = getGlobalCursorState()
+
+    // Also gather from refs (for non-Fast-Refresh scenarios)
+    const refSavedText = savedCursorPositionRef.current.savedText ?? ''
+    const textareaValue = textareaRef.current?.value ?? ''
+    const refValue = displayValueRef.current ?? ''
+    const domTextarea = document.querySelector('textarea[id="message-content"]') as HTMLTextAreaElement
+    const domValue = domTextarea?.value ?? ''
+
+    // Priority order for text: window global > ref savedText > textarea > displayValueRef > DOM query
+    // Window global is most reliable because React doesn't touch it during Fast Refresh
+    let currentDisplayValue = ''
+    if (globalState.savedText && globalState.savedText.length > 0) {
+      currentDisplayValue = globalState.savedText
+    } else if (refSavedText.length > 0) {
+      currentDisplayValue = refSavedText
+    } else if (textareaValue.length > 0) {
+      currentDisplayValue = textareaValue
+    } else if (refValue.length > 0) {
+      currentDisplayValue = refValue
+    } else if (domValue.length > 0) {
+      currentDisplayValue = domValue
     }
-  }
+    // If all sources are empty, currentDisplayValue stays as '' which is correct
+
+    const textLength = currentDisplayValue.length
+
+    // Get cursor position: prefer window global, fallback to ref
+    let start: number = globalState.start
+    let end: number = globalState.end
+
+    // If global state doesn't have valid values, fallback to ref
+    if (start === 0 && end === 0 && textLength > 0) {
+      start = savedCursorPositionRef.current.start
+      end = savedCursorPositionRef.current.end
+    }
+
+    // Validate cursor position - detect invalid states and fallback to end of text
+    const isInvalidPosition = (
+      // NaN from parseInt
+      isNaN(start) || isNaN(end) ||
+      // Position beyond text length
+      start > textLength || end > textLength ||
+      // Both zero when there's text (likely reset/uninitialized)
+      (start === 0 && end === 0 && textLength > 0) ||
+      // Full text selection (would replace everything - likely browser auto-selection)
+      (start === 0 && end === textLength && textLength > 0)
+    )
+
+    if (isInvalidPosition) {
+      // Fallback: insert at end of text
+      start = textLength
+      end = textLength
+    }
+
+    const beforeCursor = currentDisplayValue.substring(0, start)
+    const afterCursor = currentDisplayValue.substring(end)
+    const newDisplayValue = beforeCursor + variable + afterCursor
+
+    setDisplayValue(newDisplayValue)
+    // Also update ref immediately to keep it in sync
+    displayValueRef.current = newDisplayValue
+
+    // Convert to Discord format and save
+    const newInternalValue = convertToDiscordFormat(newDisplayValue)
+    setInternalValue(newInternalValue)
+    onChange(newInternalValue)
+
+    // Update saved cursor position to after the inserted variable (with new text)
+    const newPosition = start + variable.length
+    savedCursorPositionRef.current = { start: newPosition, end: newPosition, savedText: newDisplayValue }
+
+    // Also update window global state for next insertion (most reliable)
+    globalState.start = newPosition
+    globalState.end = newPosition
+    globalState.savedText = newDisplayValue
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.setSelectionRange(newPosition, newPosition)
+        textareaRef.current.focus()
+      }
+    }, 10)
+
+    // NOTE: We intentionally do NOT call onVariableInsert(variable) here.
+    // In FieldRenderer.tsx, onVariableInsert={onChange}, so calling it with just
+    // the variable string would OVERWRITE the correct full text we set via onChange(newInternalValue).
+    // The onChange call above already handles updating the form value correctly.
+  }, [convertToDiscordFormat, getGlobalCursorState, onChange])
 
   const updateEmbed = (field: keyof DiscordEmbed, value: any) => {
     setEmbed(prev => ({
@@ -797,6 +940,10 @@ export function DiscordRichTextEditor({
                     variant="ghost"
                     size="sm"
                     className="h-8 gap-1 hover:bg-slate-700 text-slate-300 hover:text-white"
+                    onMouseDown={(e) => {
+                      // Save cursor position BEFORE the button click steals focus from textarea
+                      saveCursorPosition()
+                    }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Variable className="h-4 w-4" />
@@ -969,19 +1116,29 @@ export function DiscordRichTextEditor({
                 onChange={(e) => {
                   const newDisplayValue = e.target.value
                   setDisplayValue(newDisplayValue)
-                  
+
                   // Convert to Discord format and save
                   const newInternalValue = convertToDiscordFormat(newDisplayValue)
                   setInternalValue(newInternalValue)
                   onChange(newInternalValue)
+
+                  // Save cursor position after change
+                  saveCursorPosition()
                 }}
+                onSelect={saveCursorPosition}
+                onKeyUp={saveCursorPosition}
+                onClick={saveCursorPosition}
                 onFocus={dropHandlers.onFocus}
-                onBlur={dropHandlers.onBlur}
+                onBlur={(e) => {
+                  // DO NOT save cursor position on blur - browsers may reset selection to 0 or full text
+                  // The onMouseDown on Variables button captures position BEFORE blur fires
+                  dropHandlers.onBlur(e)
+                }}
                 onDragOver={dropHandlers.onDragOver}
                 onDragLeave={dropHandlers.onDragLeave}
                 onDrop={dropHandlers.onDrop}
                 className={cn(
-                  "min-h-[100px] font-mono text-sm",
+                  "min-h-[100px] font-mono text-sm resize-none overflow-hidden",
                   isDragOver && "ring-2 ring-blue-500 ring-offset-1"
                 )}
               />

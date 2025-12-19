@@ -142,7 +142,7 @@ const DEFAULT_SLACK_SECTION_STATE = SLACK_CONFIG_SECTIONS.reduce<Record<string, 
   return acc
 }, {})
 
-const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'ai', 'utility', 'openai', 'anthropic', 'google'])
+const INTERNAL_PROVIDER_IDS = new Set(['logic', 'core', 'manual', 'schedule', 'ai', 'utility', 'openai', 'anthropic', 'google', 'automation', 'ask-human'])
 const DEFAULT_PATH_COLORS = ['#2563EB', '#EA580C', '#059669', '#9333EA', '#BE123C', '#14B8A6']
 const ELSE_HANDLE_COLOR = '#64748B'
 
@@ -372,19 +372,31 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Memo to check required fields - use validationState if available, otherwise check visibility-aware
   const hasRequiredFieldsMissing = useMemo(() => {
     const isGetTableSchema = type === 'airtable_action_get_table_schema';
+    const isHITL = type === 'hitl_conversation';
+
+    // Debug for HITL node - use JSON.stringify for immediate visibility
+    if (isHITL) {
+      console.log('[HITL Debug] hasRequiredFieldsMissing check:',
+        'hasValidationState=' + !!data.validationState,
+        'isValid=' + data.validationState?.isValid,
+        'isValidType=' + typeof data.validationState?.isValid,
+        'missingRequired=' + JSON.stringify(data.validationState?.missingRequired),
+        'configKeys=' + (config ? Object.keys(config).join(',') : 'none')
+      );
+    }
 
     // Path 1: If we have validation state from the configuration form, use it (most reliable)
     if (data.validationState) {
       const isValid = data.validationState.isValid
       const hasMissingRequired = (data.validationState.missingRequired?.length ?? 0) > 0
 
-      if (isGetTableSchema) {
-        console.log('[Get Table Schema Debug] Validation State:', {
-          isValid,
-          hasMissingRequired,
-          missingRequired: data.validationState.missingRequired,
-          config
-        });
+      if (isGetTableSchema || isHITL) {
+        console.log('[HITL/Get Table Schema Debug] Path 1 taken:',
+          'isValid=' + isValid,
+          'isValidStrictTrue=' + (isValid === true),
+          'hasMissingRequired=' + hasMissingRequired,
+          'returning=' + (isValid === true ? 'false' : isValid === false ? 'true' : String(hasMissingRequired))
+        );
       }
 
       if (isValid === true) return false
@@ -408,11 +420,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
         nodeInfo
       )
 
-      if (isGetTableSchema) {
-        console.log('[Get Table Schema Debug] FieldVisibilityEngine Check:', {
+      if (isGetTableSchema || isHITL) {
+        console.log('[HITL/Get Table Schema Debug] FieldVisibilityEngine Check:', {
           missingFields,
           config,
-          configSchema: component.configSchema
+          configSchemaLength: component.configSchema?.length,
+          requiredFields: component.configSchema?.filter((f: any) => f.required).map((f: any) => f.name)
         });
       }
 
@@ -1905,35 +1918,32 @@ function CustomNode({ id, data, selected }: NodeProps) {
         </div>
       )}
 
-      {hasTestData && (
-        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2">
-          <div className="flex items-center gap-2 text-xs text-blue-700">
-            <TestTube className="w-3 h-3" />
-            <span>Test data available</span>
-            {testResult && (
-              <span className={`px-1.5 py-0.5 rounded text-xs ${
-                testResult.success 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'bg-red-100 text-red-700'
-              }`}>
-                {testResult.success ? '✓' : '✗'}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Success badge for nodes with successful test results */}
-      {testResult?.success && hasTestData && !isPathConditionNode && !aiStatus && (
-        <div className="absolute -top-2 -left-2 z-20 noDrag noPan">
-          <Badge
-            variant="outline"
-            className="px-1.5 py-0.5 text-[10px] font-semibold shadow-md bg-emerald-50 border-emerald-500 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-          >
-            <CheckCircle2 className="w-3 h-3 mr-0.5 inline" />
-            Success
-          </Badge>
-        </div>
+      {/* Cached test data indicator - small icon in top-left corner */}
+      {hasTestData && !nodeExecutionData && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="absolute top-2 left-2 z-20 noDrag noPan">
+                <div className={cn(
+                  "w-5 h-5 rounded-full flex items-center justify-center",
+                  testResult?.success
+                    ? "bg-emerald-100 dark:bg-emerald-900/40"
+                    : "bg-blue-100 dark:bg-blue-900/40"
+                )}>
+                  <Database className={cn(
+                    "w-3 h-3",
+                    testResult?.success
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-blue-600 dark:text-blue-400"
+                  )} />
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">
+              <p>Test data cached{testResult?.success ? ' (passed)' : ''}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
 
       {/* Path label badge for Path Condition nodes */}
@@ -2139,59 +2149,14 @@ function CustomNode({ id, data, selected }: NodeProps) {
           </div>
         )}
 
-        {/* Test Execution Preview - Shows real-time execution status */}
-        {nodeExecutionData && (
-          <div className={cn(
-            "mt-3 rounded-lg border overflow-hidden",
-            nodeExecutionData.status === 'running' && "border-blue-500/40 bg-blue-500/5",
-            nodeExecutionData.status === 'completed' && "border-green-500/40 bg-green-500/5",
-            nodeExecutionData.status === 'failed' && "border-red-500/40 bg-red-500/5"
-          )}>
-            <div className={cn(
-              "px-3 py-2 flex items-center justify-between gap-2",
-              nodeExecutionData.status === 'running' && "bg-blue-500/10",
-              nodeExecutionData.status === 'completed' && "bg-green-500/10",
-              nodeExecutionData.status === 'failed' && "bg-red-500/10"
-            )}>
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {nodeExecutionData.status === 'running' && (
-                  <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />
-                )}
-                {nodeExecutionData.status === 'completed' && (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                )}
-                {nodeExecutionData.status === 'failed' && (
-                  <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-                )}
-                <p className={cn(
-                  "text-xs font-medium truncate",
-                  nodeExecutionData.status === 'running' && "text-blue-600 dark:text-blue-400",
-                  nodeExecutionData.status === 'completed' && "text-green-600 dark:text-green-400",
-                  nodeExecutionData.status === 'failed' && "text-red-600 dark:text-red-400"
-                )}>
-                  {nodeExecutionData.preview || (
-                    nodeExecutionData.status === 'running' ? 'Running...' :
-                    nodeExecutionData.status === 'completed' ? 'Completed' :
-                    nodeExecutionData.status === 'failed' ? 'Failed' : ''
-                  )}
-                </p>
-              </div>
-              {nodeExecutionData.executionTime !== undefined && nodeExecutionData.status !== 'running' && (
-                <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                  {nodeExecutionData.executionTime < 1000
-                    ? `${nodeExecutionData.executionTime}ms`
-                    : `${(nodeExecutionData.executionTime / 1000).toFixed(1)}s`}
-                </span>
-              )}
+        {/* Error details for failed nodes - keep inside card for visibility */}
+        {nodeExecutionData?.status === 'failed' && nodeExecutionData.error && (
+          <div className="mt-3 rounded-lg border border-red-500/40 overflow-hidden bg-red-500/5">
+            <div className="px-3 py-2">
+              <p className="text-xs text-red-600 dark:text-red-400 font-mono">
+                {nodeExecutionData.error}
+              </p>
             </div>
-            {/* Error details for failed nodes */}
-            {nodeExecutionData.status === 'failed' && nodeExecutionData.error && (
-              <div className="px-3 py-2 border-t border-red-500/20 bg-red-500/5">
-                <p className="text-xs text-red-600 dark:text-red-400 font-mono">
-                  {nodeExecutionData.error}
-                </p>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -2473,6 +2438,43 @@ function CustomNode({ id, data, selected }: NodeProps) {
       )}
     </div>
     {/* End of main node div */}
+
+    {/* External Status Bar - Compact status below the node card */}
+    {nodeExecutionData && (
+      <div className={cn(
+        "mt-1 mx-auto flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all",
+        nodeExecutionData.status === 'running' && "text-blue-600 dark:text-blue-400",
+        nodeExecutionData.status === 'completed' && "text-emerald-600 dark:text-emerald-400",
+        nodeExecutionData.status === 'failed' && "text-red-600 dark:text-red-400"
+      )}>
+        {nodeExecutionData.status === 'running' && (
+          <Loader2 className="w-3 h-3 animate-spin" />
+        )}
+        {nodeExecutionData.status === 'completed' && (
+          <CheckCircle2 className="w-3 h-3" />
+        )}
+        {nodeExecutionData.status === 'failed' && (
+          <AlertCircle className="w-3 h-3" />
+        )}
+        <span>
+          {nodeExecutionData.preview || (
+            nodeExecutionData.status === 'running' ? 'Running...' :
+            nodeExecutionData.status === 'completed' ? 'Completed successfully' :
+            nodeExecutionData.status === 'failed' ? 'Failed' : ''
+          )}
+        </span>
+        {nodeExecutionData.executionTime !== undefined && nodeExecutionData.status !== 'running' && (
+          <>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">
+              {nodeExecutionData.executionTime < 1000
+                ? `${nodeExecutionData.executionTime}ms`
+                : `${(nodeExecutionData.executionTime / 1000).toFixed(1)}s`}
+            </span>
+          </>
+        )}
+      </div>
+    )}
 
     {/* Output handle(s) - Rendered outside node container to prevent clipping by overflow-hidden */}
     {renderOutputHandles()}

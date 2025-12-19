@@ -256,10 +256,10 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
    * Stops the push notification subscription
    */
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
-    const { workflowId, userId, testSessionId } = context
+    const { workflowId, userId, nodeId, testSessionId } = context
 
-    const modeLabel = testSessionId ? '🧪 TEST' : '🛑 PRODUCTION'
-    logger.debug(`${modeLabel} Deactivating Google API triggers for workflow ${workflowId}`)
+    const modeLabel = testSessionId ? '🧪 TEST' : nodeId ? '🗑️ NODE' : '🛑 PRODUCTION'
+    logger.debug(`${modeLabel} Deactivating Google API triggers for workflow ${workflowId}${nodeId ? ` node ${nodeId}` : ''}`)
 
     // Build query based on whether we're deactivating test or production triggers
     let query = getSupabase()
@@ -269,7 +269,10 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       .like('provider_id', 'google%')
       .eq('status', 'active')
 
-    if (testSessionId) {
+    // Filter by specific node if provided (for node deletion)
+    if (nodeId) {
+      query = query.eq('node_id', nodeId)
+    } else if (testSessionId) {
       // Only deactivate test subscriptions for this specific session
       query = query.eq('test_session_id', testSessionId)
     } else {
@@ -280,7 +283,8 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     const { data: resources } = await query
 
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No active Google API subscriptions for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
+      const suffix = nodeId ? ` (node ${nodeId})` : testSessionId ? ` (session ${testSessionId})` : ''
+      logger.debug(`ℹ️ No active Google API subscriptions for workflow ${workflowId}${suffix}`)
       return
     }
 

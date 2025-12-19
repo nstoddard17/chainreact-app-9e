@@ -84,6 +84,7 @@
     "aes256": "latest",
     "ai": "^5.0.56",
     "autoprefixer": "^10.4.20",
+    "bufferutil": "^4.0.9",
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -129,6 +130,7 @@
     "tailwindcss-animate": "^1.0.7",
     "turndown": "^7.2.2",
     "twilio": "^5.3.7",
+    "utf-8-validate": "^6.0.5",
     "vaul": "latest",
     "web-vitals": "^5.1.0",
     "ws": "^8.18.3",
@@ -141,6 +143,7 @@
     "pyodide": "^0.29.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
     "@playwright/test": "^1.52.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.3.0",
@@ -150,7 +153,6 @@
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
     "critters": "^0.0.25",
-    "@eslint/eslintrc": "^3.3.1",
     "eslint": "^9.28.0",
     "eslint-config-next": "^15.3.5",
     "jest": "^29.7.0",

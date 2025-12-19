@@ -36,6 +36,7 @@ export class TriggerNodeHandlers {
       case "schedule":
         return await this.executeScheduleTrigger(node, context)
       case "manual":
+      case "manual_trigger":
         return await this.executeManualTrigger(node, context)
       case "gmail_trigger_new_email":
         return await this.executeGmailTrigger(node, context)

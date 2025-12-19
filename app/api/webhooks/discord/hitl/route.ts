@@ -15,6 +15,20 @@ import { NodeExecutionService } from '@/lib/services/nodeExecutionService'
 import { ExecutionProgressTracker } from '@/lib/execution/executionProgressTracker'
 import { createDataFlowManager } from '@/lib/workflows/dataFlowContext'
 
+// Simple in-memory cache to prevent duplicate message processing
+// Messages are cached for 60 seconds to handle retries/reconnects
+const processedMessages = new Map<string, number>()
+const MESSAGE_CACHE_TTL = 60000 // 60 seconds
+
+function cleanupMessageCache() {
+  const now = Date.now()
+  for (const [messageId, timestamp] of processedMessages) {
+    if (now - timestamp > MESSAGE_CACHE_TTL) {
+      processedMessages.delete(messageId)
+    }
+  }
+}
+
 /**
  * POST /api/webhooks/discord/hitl
  * Handles incoming Discord messages for HITL conversations
@@ -23,9 +37,12 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await request.json()
 
-    logger.info('Discord HITL webhook received', {
+    logger.info('📩 [HITL Webhook] Received Discord message', {
       type: payload.t,
-      channelId: payload.d?.channel_id
+      channelId: payload.d?.channel_id,
+      messageId: payload.d?.id,
+      author: payload.d?.author?.username,
+      contentPreview: payload.d?.content?.substring(0, 50)
     })
 
     // Only process MESSAGE_CREATE events
@@ -34,9 +51,23 @@ export async function POST(request: NextRequest) {
     }
 
     const message = payload.d
+    const messageId = message.id
+
+    // Deduplicate: Check if we've already processed this message
+    cleanupMessageCache()
+    if (messageId && processedMessages.has(messageId)) {
+      logger.info('🔄 [HITL Webhook] Duplicate message detected, skipping', { messageId })
+      return NextResponse.json({ ok: true, message: 'Duplicate message skipped' })
+    }
+
+    // Mark message as being processed
+    if (messageId) {
+      processedMessages.set(messageId, Date.now())
+    }
 
     // Ignore bot messages (prevent loops)
     if (message.author?.bot) {
+      logger.debug('🤖 [HITL Webhook] Ignoring bot message')
       return NextResponse.json({ ok: true, message: 'Bot message ignored' })
     }
 
@@ -46,21 +77,56 @@ export async function POST(request: NextRequest) {
     const authorName = message.author?.username
 
     if (!channelId || !content) {
+      logger.warn('⚠️ [HITL Webhook] Missing required fields', { channelId, hasContent: !!content })
       return NextResponse.json({ ok: true, message: 'Missing required fields' })
     }
 
     // Find HITL conversation for this channel (active or timeout)
-    const supabase = await createSupabaseRouteHandlerClient()
+    // IMPORTANT: Use service client since this webhook is called from Discord Gateway
+    // without user authentication - RLS would block the query otherwise
+    const supabase = await createSupabaseServiceClient()
 
-    const { data: conversation, error } = await supabase
+    logger.info('🔍 [HITL Webhook] Looking up conversation for channel', { channelId })
+
+    // DEBUG: First, log ALL conversations for this channel to see what exists
+    const { data: allConversations, error: debugError } = await supabase
+      .from('hitl_conversations')
+      .select('id, channel_id, status, created_at, execution_id')
+      .eq('channel_id', channelId)
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('🔍 [HITL Webhook DEBUG] All conversations for channel:')
+    console.log(`   Channel ID: ${channelId}`)
+    console.log(`   Found: ${allConversations?.length || 0} conversation(s)`)
+    if (allConversations && allConversations.length > 0) {
+      allConversations.forEach((conv, i) => {
+        console.log(`   [${i + 1}] ID: ${conv.id}, Status: ${conv.status}, Created: ${conv.created_at}`)
+      })
+    }
+    if (debugError) {
+      console.log(`   Debug Query Error: ${debugError.message}`)
+    }
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+    // Get the MOST RECENT active/timeout conversation (in case there are multiple)
+    const { data: conversations, error } = await supabase
       .from('hitl_conversations')
       .select('*')
       .eq('channel_id', channelId)
-      .in('status', ['active', 'timeout'])  // Look for active OR timed-out conversations
-      .single()
+      .in('status', ['active', 'timeout'])
+      .order('started_at', { ascending: false })
+      .limit(1)
+
+    const conversation = conversations?.[0] || null
 
     if (error || !conversation) {
       // No active or timed-out conversation in this channel - ignore
+      console.log('📭 [HITL Webhook] No active conversation found:', {
+        channelId,
+        error: error?.message || 'No matching record',
+        code: error?.code,
+        details: error?.details
+      })
       return NextResponse.json({ ok: true, message: 'No active conversation' })
     }
 
@@ -180,10 +246,11 @@ export async function POST(request: NextRequest) {
     // ============================================
     // ACTIVE CONVERSATION - NORMAL PROCESSING
     // ============================================
-    logger.info('Found active HITL conversation', {
+    logger.info('🎯 [HITL Webhook] Found active conversation', {
       conversationId: conversation.id,
       executionId: conversation.execution_id,
-      channelId
+      channelId,
+      historyLength: conversation.conversation_history?.length || 0
     })
 
     // Get the workflow execution to access resume_data
@@ -194,7 +261,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (execError || !execution || !execution.resume_data) {
-      logger.error('Failed to find execution or resume data', { error: execError })
+      logger.error('❌ [HITL Webhook] Failed to find execution or resume data', { error: execError })
       return NextResponse.json({ error: 'Execution not found' }, { status: 404 })
     }
 
@@ -202,12 +269,23 @@ export async function POST(request: NextRequest) {
     const hitlConfig = resumeData.hitl_config
     const contextData = resumeData.context_data
 
+    logger.info('📋 [HITL Webhook] Processing user message', {
+      userMessage: content.substring(0, 100),
+      hasHitlConfig: !!hitlConfig,
+      continuationSignals: hitlConfig?.continuationSignals || []
+    })
+
     // Add user message to conversation history
     const conversationHistory: ConversationMessage[] = conversation.conversation_history || []
     conversationHistory.push({
       role: 'user',
       content,
       timestamp: new Date().toISOString()
+    })
+
+    logger.info('🤖 [HITL Webhook] Calling OpenAI for AI response...', {
+      historyLength: conversationHistory.length,
+      hasSystemPrompt: !!conversation.system_prompt
     })
 
     // Process message through enhanced AI conversation system
@@ -221,6 +299,14 @@ export async function POST(request: NextRequest) {
         conversation.system_prompt || undefined // Use enhanced prompt with memory
       )
 
+    logger.info('✅ [HITL Webhook] AI response received', {
+      responseLength: aiResponse?.length || 0,
+      shouldContinue,
+      hasExtractedVariables: !!extractedVariables && Object.keys(extractedVariables).length > 0,
+      summary: summary?.substring(0, 50),
+      needsFileSearch
+    })
+
     // Add AI response to history
     conversationHistory.push({
       role: 'assistant',
@@ -229,7 +315,14 @@ export async function POST(request: NextRequest) {
     })
 
     // Send AI response back to Discord
-    await sendDiscordThreadMessage(conversation.user_id, channelId, aiResponse)
+    logger.info('📤 [HITL Webhook] Sending AI response to Discord...', {
+      channelId,
+      responsePreview: aiResponse.substring(0, 100)
+    })
+
+    const sendResult = await sendDiscordThreadMessage(conversation.user_id, channelId, aiResponse)
+
+    logger.info('📬 [HITL Webhook] Discord message send result', { success: sendResult })
 
     // Handle file search if needed
     if (needsFileSearch && searchQuery) {
@@ -349,7 +442,7 @@ export async function POST(request: NextRequest) {
       try {
         const serviceSupabase = await createSupabaseServiceClient()
 
-        // Load workflow
+        // Load workflow metadata
         const { data: workflow, error: workflowError } = await serviceSupabase
           .from('workflows')
           .select('*')
@@ -360,15 +453,77 @@ export async function POST(request: NextRequest) {
           throw new Error(`Workflow not found: ${workflowError?.message}`)
         }
 
-        // Parse workflow nodes and edges
-        const allNodes = workflow.nodes || []
-        const allEdges = workflow.edges || workflow.connections || []
+        // For V2 flows, load the latest revision which contains the actual graph data
+        // The workflows table may have empty nodes/connections for V2 flows
+        let allNodes: any[] = workflow.nodes || []
+        let allEdges: any[] = workflow.edges || workflow.connections || []
 
-        const nodes = allNodes.filter((node: any) =>
-          node.type !== 'addAction' &&
-          node.type !== 'insertAction' &&
-          !node.id?.startsWith('add-action-')
-        )
+        if (workflow.flow_v2_enabled || allNodes.length === 0) {
+          logger.info('[HITL Resume] Loading workflow graph from revisions table')
+
+          const { data: latestRevision, error: revisionError } = await serviceSupabase
+            .from('workflows_revisions')
+            .select('graph')
+            .eq('workflow_id', conversation.workflow_id)
+            .order('version', { ascending: false })
+            .limit(1)
+            .single()
+
+          if (!revisionError && latestRevision?.graph) {
+            const graph = latestRevision.graph as any
+            allNodes = graph.nodes || []
+
+            // V2 edges use {from: {nodeId}, to: {nodeId}} format
+            // Convert to {source, target} format for compatibility
+            const v2Edges = graph.edges || []
+            allEdges = v2Edges.map((edge: any) => ({
+              id: edge.id,
+              source: edge.from?.nodeId || edge.source,
+              target: edge.to?.nodeId || edge.target,
+              ...edge
+            }))
+
+            logger.info('[HITL Resume] Loaded from revision', {
+              nodeCount: allNodes.length,
+              edgeCount: allEdges.length
+            })
+          } else {
+            logger.warn('[HITL Resume] Could not load revision', { error: revisionError?.message })
+          }
+        }
+
+        // Convert V2 nodes to old format if needed
+        // V2 format: {id, type, config, label, metadata: {position}}
+        // Old format: {id, data: {type, config, title}, position}
+        const convertV2NodeToOldFormat = (v2Node: any) => {
+          // If already in old format (has data.type), return as-is
+          if (v2Node.data?.type) {
+            return v2Node
+          }
+          // Convert V2 to old format
+          return {
+            id: v2Node.id,
+            type: 'custom', // React Flow type
+            position: v2Node.metadata?.position || { x: 0, y: 0 },
+            data: {
+              type: v2Node.type,
+              title: v2Node.label || v2Node.type,
+              config: v2Node.config || {},
+              description: v2Node.description,
+              providerId: v2Node.metadata?.providerId,
+              category: v2Node.metadata?.category,
+              isTrigger: v2Node.metadata?.isTrigger || false,
+            }
+          }
+        }
+
+        const nodes = allNodes
+          .filter((node: any) =>
+            node.type !== 'addAction' &&
+            node.type !== 'insertAction' &&
+            !node.id?.startsWith('add-action-')
+          )
+          .map(convertV2NodeToOldFormat)
 
         const edges = allEdges.filter((edge: any) => {
           const sourceNode = nodes.find((n: any) => n.id === edge.source)
@@ -417,13 +572,25 @@ export async function POST(request: NextRequest) {
         // Preserve test/sandbox mode from original execution
         const originalTestMode = resumeData.testMode || execution.test_mode || false
 
+        // Build HITL output with proper structure for variable resolution
+        // Variables like {{hitl_conversation.status}} need data nested under 'hitl_conversation'
+        const hitlOutput = {
+          status: conversationOutput.hitlStatus,
+          conversationSummary: conversationOutput.conversationSummary,
+          messagesCount: conversationOutput.messagesCount,
+          duration: conversationOutput.duration,
+          extractedVariables: conversationOutput.extractedVariables,
+          conversationHistory: conversationOutput.conversationHistory
+        }
+
         const executionContext = {
           userId: conversation.user_id,
           workflowId: conversation.workflow_id,
           testMode: originalTestMode, // FIX: Preserve original test mode instead of hardcoding false
           data: {
             ...resumeData.input,                              // Original workflow data
-            ...conversationOutput,                             // HITL metadata (hitlStatus, summary, etc.)
+            hitl_conversation: hitlOutput,                     // Nested for {{hitl_conversation.field}} access
+            [pausedNodeId]: hitlOutput,                        // Also accessible via node ID for prefix matching
             ...(conversationOutput.extractedVariables || {})   // Extracted variables at top level for easy access
           },
           variables: {},
@@ -436,7 +603,9 @@ export async function POST(request: NextRequest) {
           executionId: conversation.execution_id,
           testMode: originalTestMode,
           preservedFromResume: !!resumeData.testMode,
-          preservedFromExecution: !!execution.test_mode
+          preservedFromExecution: !!execution.test_mode,
+          hitlOutputKeys: Object.keys(hitlOutput),
+          dataKeys: Object.keys(executionContext.data)
         })
 
         // Execute next nodes

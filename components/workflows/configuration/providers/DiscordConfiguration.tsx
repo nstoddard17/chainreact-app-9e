@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
+import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility'
 
 // Discord-specific extended configuration
 // This includes Discord-specific UI features like bot status, channel permissions, etc.
@@ -174,13 +175,21 @@ export function DiscordConfiguration({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate required fields
+    // Validate required fields - only validate VISIBLE fields
     const newErrors: Record<string, string> = {};
+    const missingRequiredFields: string[] = [];
+    const allRequiredFields: string[] = [];
 
     if (nodeInfo?.configSchema) {
       for (const field of nodeInfo.configSchema) {
-        if (field.required && !values[field.name]) {
-          newErrors[field.name] = `${field.label} is required`;
+        // Only validate fields that are currently visible
+        const isVisible = FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo);
+        if (field.required && isVisible) {
+          allRequiredFields.push(field.name);
+          if (!values[field.name]) {
+            newErrors[field.name] = `${field.label} is required`;
+            missingRequiredFields.push(field.name);
+          }
         }
       }
     }
@@ -197,7 +206,21 @@ export function DiscordConfiguration({
       allValues: values
     });
 
-    await onSubmit(values);
+    // Include validation state so node shows as configured
+    const validationState = {
+      missingRequired: missingRequiredFields,
+      allRequiredFields: allRequiredFields,
+      lastValidatedAt: new Date().toISOString(),
+      lastUpdatedAt: new Date().toISOString(),
+      isValid: missingRequiredFields.length === 0
+    };
+
+    console.log('🔧 [DiscordConfig] Submitting with validationState:', validationState);
+
+    await onSubmit({
+      ...values,
+      __validationState: validationState
+    });
   };
 
   // Track if we're currently processing a field change to prevent re-entrant calls
@@ -838,8 +861,9 @@ export function DiscordConfiguration({
         </div>
       )}
       {fields.map((field: any, index: number) => {
-              // Skip hidden fields
-              if (field.type === 'hidden') return null;
+              // Use FieldVisibilityEngine to check if field should be visible
+              // This handles hidden, showWhen, dependsOn, and all other visibility conditions
+              if (!FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo)) return null;
 
               // Progressive field disclosure for Discord trigger (new message in channel)
               if (nodeInfo?.type === 'discord_trigger_new_message_in_channel') {

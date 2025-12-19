@@ -37,7 +37,9 @@ export function TestModeDialog({
   isListening = false,
   listeningTimeRemaining
 }: TestModeDialogProps) {
-  const [includeTrigger, setIncludeTrigger] = useState(true)
+  // Manual triggers don't need to wait for real events - they just run immediately
+  const isManualTrigger = triggerType === 'manual_trigger'
+  const [includeTrigger, setIncludeTrigger] = useState(!isManualTrigger)
   const [mockVariation, setMockVariation] = useState<string | undefined>()
 
   const handleRunWorkflow = () => {
@@ -78,42 +80,54 @@ export function TestModeDialog({
             </div>
           </div>
 
-          {/* Trigger Option */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="include-trigger" className="text-sm font-medium">
-                  Wait for real trigger
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {includeTrigger ? "Listen up to 60s for trigger event" : "Use sample data instead"}
-                </p>
+          {/* Trigger Option - Hidden for manual triggers */}
+          {!isManualTrigger && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="include-trigger" className="text-sm font-medium">
+                    Wait for real trigger
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {includeTrigger ? "Listen up to 60s for trigger event" : "Use sample data instead"}
+                  </p>
+                </div>
+                <Switch
+                  id="include-trigger"
+                  checked={includeTrigger}
+                  onCheckedChange={setIncludeTrigger}
+                />
               </div>
-              <Switch
-                id="include-trigger"
-                checked={includeTrigger}
-                onCheckedChange={setIncludeTrigger}
-              />
+
+              {includeTrigger && (
+                <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
+                  <Radio className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    Trigger the event in your service after clicking Run.
+                  </p>
+                </div>
+              )}
+
+              {!includeTrigger && triggerType && (
+                <MockDataVariationPicker
+                  triggerType={triggerType}
+                  selectedVariation={mockVariation}
+                  onVariationChange={setMockVariation}
+                  compact
+                />
+              )}
             </div>
+          )}
 
-            {includeTrigger && (
-              <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
-                <Radio className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-blue-800 dark:text-blue-200">
-                  Trigger the event in your service after clicking Run.
-                </p>
-              </div>
-            )}
-
-            {!includeTrigger && triggerType && (
-              <MockDataVariationPicker
-                triggerType={triggerType}
-                selectedVariation={mockVariation}
-                onVariationChange={setMockVariation}
-                compact
-              />
-            )}
-          </div>
+          {/* Manual trigger info */}
+          {isManualTrigger && (
+            <div className="flex items-start gap-2 p-2 bg-green-50 dark:bg-green-950/20 rounded-md border border-green-200 dark:border-green-800">
+              <Play className="w-3.5 h-3.5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-green-800 dark:text-green-200">
+                Manual trigger will start immediately when you click Run.
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">

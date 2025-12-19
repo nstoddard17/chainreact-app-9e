@@ -13,6 +13,7 @@ import { sendDiscordHITLMessage } from './discord'
 import { resolveValue } from '../core/resolveValue'
 import { generateInitialAssistantOpening, detectScenario, type ScenarioDescriptor } from './conversation'
 import { generateContextAwareMessage } from './enhancedConversation'
+import { buildNodeContext } from './nodeContext'
 
 /**
  * Create service role client for HITL database operations
@@ -447,15 +448,21 @@ async function loadAIMemory(
 }
 
 /**
- * Build AI system prompt with memory and knowledge base
+ * Build AI system prompt with memory, knowledge base, and node context
  */
 function buildSystemPrompt(
   config: HITLConfig,
   aiMemory: any,
-  knowledgeBase: string[]
+  knowledgeBase: string[],
+  nodeContext?: string
 ): string {
   let prompt = config.systemPrompt ||
     "You are a helpful workflow assistant. Help the user review and refine this workflow step. Answer questions about the data and accept modifications. When the user is satisfied, detect continuation signals like 'continue', 'proceed', 'go ahead', or 'send it'."
+
+  // Add node context (available nodes and current workflow structure)
+  if (nodeContext) {
+    prompt += '\n\n' + nodeContext
+  }
 
   // Add memory context if available
   if (aiMemory) {
@@ -535,10 +542,22 @@ export async function executeHITL(
       aiMemory = await loadAIMemory(config, userId, context?.workflowId)
     }
 
-    // 4. Build system prompt with memory and knowledge
-    const enhancedSystemPrompt = buildSystemPrompt(config, aiMemory, knowledgeBase)
+    // 4. Load node context (available nodes catalog + current workflow structure)
+    let nodeContext: string | undefined
+    try {
+      nodeContext = await buildNodeContext(context?.workflowId)
+      logger.debug('[HITL] Loaded node context for AI', {
+        workflowId: context?.workflowId,
+        contextLength: nodeContext?.length
+      })
+    } catch (error) {
+      logger.warn('[HITL] Could not load node context', { error })
+    }
 
-    // 5. Generate AI drafted opening message (if possible)
+    // 5. Build system prompt with memory, knowledge, and node context
+    const enhancedSystemPrompt = buildSystemPrompt(config, aiMemory, knowledgeBase, nodeContext)
+
+    // 6. Generate AI drafted opening message (if possible)
     let scenario: ScenarioDescriptor = detectScenario(input)
     let aiDraftedOpening: string | null = null
     let contextSection = ''
@@ -701,6 +720,15 @@ export async function executeHITL(
       logger.error('Failed to create HITL conversation', { error: conversationError })
       throw new Error(`Failed to create conversation record: ${conversationError.message}`)
     }
+
+    // DEBUG: Log the created conversation details
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('✅ [HITL] Conversation created successfully!')
+    console.log(`   ID: ${conversation.id}`)
+    console.log(`   Channel ID: ${conversation.channel_id}`)
+    console.log(`   Status: ${conversation.status}`)
+    console.log(`   Execution ID: ${conversation.execution_id}`)
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
     // Update workflow execution to paused state using service role client
     // IMPORTANT: Store testMode so it's preserved when resuming

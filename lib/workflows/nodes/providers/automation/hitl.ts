@@ -133,7 +133,8 @@ export const hitlAction: NodeComponent = {
       placeholder: '{{*}}',
       required: false,
       defaultValue: '{{*}}',
-      uiTab: "advanced"
+      uiTab: "advanced",
+      hidden: true // Good default - hidden from UI
     },
     {
       name: "systemPrompt",
@@ -143,7 +144,8 @@ export const hitlAction: NodeComponent = {
       placeholder: "You are helping review an email before sending. Discuss the content, tone, and timing. Extract the user's final decision.",
       required: false,
       uiTab: "advanced",
-      defaultValue: "You are a helpful workflow assistant. Help the user review and refine this workflow step. Answer questions about the data and accept modifications. When the user is satisfied, detect continuation signals like 'continue', 'proceed', 'go ahead', or 'send it'."
+      defaultValue: "You are a helpful workflow assistant. Help the user review and refine this workflow step. Answer questions about the data and accept modifications. When the user is satisfied, detect continuation signals like 'continue', 'proceed', 'go ahead', or 'send it'.",
+      hidden: true // Good default - hidden from UI
     },
     {
       name: "extractVariables",
@@ -153,7 +155,8 @@ export const hitlAction: NodeComponent = {
       placeholder: '{\n  "userDecision": "approved | rejected | modified",\n  "modifiedContent": "If user suggested changes, the updated content",\n  "userNotes": "Any additional context from the conversation"\n}',
       required: false,
       uiTab: "advanced",
-      defaultValue: '{\n  "decision": "The user\'s final decision",\n  "notes": "Any additional context provided by the user"\n}'
+      defaultValue: '{\n  "decision": "The user\'s final decision",\n  "notes": "Any additional context provided by the user"\n}',
+      hidden: true // Good default - hidden from UI
     },
     {
       name: "continuationSignals",
@@ -163,7 +166,8 @@ export const hitlAction: NodeComponent = {
       placeholder: "continue, proceed, go ahead",
       required: false,
       defaultValue: ["continue", "proceed", "go ahead", "send it", "looks good", "approve"],
-      uiTab: "advanced"
+      uiTab: "advanced",
+      hidden: true // Good default - hidden from UI
     },
     {
       name: "memoryStorageProvider",
@@ -297,7 +301,8 @@ export const hitlAction: NodeComponent = {
         memoryStorageProvider: { $in: ["google_docs", "notion", "onedrive"] }
       },
       uiTab: "memory",
-      help: "⚡ Caches learnings in database to avoid slow API calls to external services. ChainReact Memory doesn't need this - it's already fast!"
+      help: "⚡ Caches learnings in database to avoid slow API calls to external services. ChainReact Memory doesn't need this - it's already fast!",
+      hidden: true // Good default - hidden from UI
     }
   ],
   outputSchema: [

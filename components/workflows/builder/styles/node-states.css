@@ -132,14 +132,22 @@
 
 /* ===== Node Container Borders ===== */
 
-/* Passed state - subtle green border */
-.workflow-node-card.node-passed {
-  border-color: hsl(142 76% 36% / 0.2) !important;
+/* Running state - blue border with glow */
+.workflow-node-card.node-running {
+  border-color: hsl(217 91% 60% / 0.5) !important;
+  box-shadow: 0 0 12px hsl(217 91% 60% / 0.15);
 }
 
-/* Failed state - subtle red border */
+/* Passed state - green border */
+.workflow-node-card.node-passed {
+  border-color: hsl(142 76% 36% / 0.5) !important;
+  box-shadow: 0 0 8px hsl(142 76% 36% / 0.1);
+}
+
+/* Failed state - red border */
 .workflow-node-card.node-failed {
-  border-color: hsl(var(--destructive) / 0.2) !important;
+  border-color: hsl(var(--destructive) / 0.5) !important;
+  box-shadow: 0 0 8px hsl(var(--destructive) / 0.1);
 }
 
 /* ===== Listening State (Trigger waiting for event) ===== */

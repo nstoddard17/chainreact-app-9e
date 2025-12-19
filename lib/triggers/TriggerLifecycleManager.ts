@@ -240,6 +240,124 @@ export class TriggerLifecycleManager {
   }
 
   /**
+   * Delete triggers for a specific node that was removed from the workflow
+   *
+   * Called when a trigger node is deleted from the workflow builder
+   */
+  async deleteNodeTrigger(
+    workflowId: string,
+    userId: string,
+    nodeId: string
+  ): Promise<{ success: boolean; errors: string[] }> {
+    const errors: string[] = []
+
+    // Get all trigger resources for this specific node
+    const { data: resources } = await getSupabase()
+      .from('trigger_resources')
+      .select('*')
+      .eq('workflow_id', workflowId)
+      .eq('node_id', nodeId)
+
+    if (!resources || resources.length === 0) {
+      logger.debug(`ℹ️ No trigger resources found for node ${nodeId} in workflow ${workflowId}`)
+      return { success: true, errors: [] }
+    }
+
+    logger.debug(`🗑️ Deleting ${resources.length} trigger resources for node ${nodeId}`)
+
+    for (const resource of resources) {
+      const lifecycle = this.getLifecycle(resource.provider_id)
+      if (!lifecycle) {
+        // No lifecycle = just delete the database record
+        logger.debug(`ℹ️ No lifecycle for ${resource.provider_id}, deleting DB record only`)
+        await getSupabase()
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+        continue
+      }
+
+      try {
+        const context: TriggerDeactivationContext = {
+          workflowId,
+          userId,
+          providerId: resource.provider_id,
+          nodeId  // Pass nodeId for per-node cleanup
+        }
+
+        await lifecycle.onDelete(context)
+        logger.debug(`✅ Deleted trigger for node ${nodeId}: ${resource.provider_id}`)
+
+      } catch (error) {
+        const errorMsg = `Failed to delete trigger for node ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        logger.error(`❌ ${errorMsg}`)
+        errors.push(errorMsg)
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      errors
+    }
+  }
+
+  /**
+   * Clean up orphaned trigger resources for nodes that no longer exist in workflow
+   *
+   * Called during apply-edits to detect and clean up removed trigger nodes
+   */
+  async cleanupRemovedTriggerNodes(
+    workflowId: string,
+    userId: string,
+    currentNodeIds: string[]
+  ): Promise<{ success: boolean; deletedCount: number; errors: string[] }> {
+    const errors: string[] = []
+    let deletedCount = 0
+
+    // Get all trigger resources for this workflow
+    const { data: resources } = await getSupabase()
+      .from('trigger_resources')
+      .select('*')
+      .eq('workflow_id', workflowId)
+
+    if (!resources || resources.length === 0) {
+      return { success: true, deletedCount: 0, errors: [] }
+    }
+
+    // Find resources for nodes that no longer exist
+    const orphanedResources = resources.filter(r => !currentNodeIds.includes(r.node_id))
+
+    if (orphanedResources.length === 0) {
+      return { success: true, deletedCount: 0, errors: [] }
+    }
+
+    logger.debug(`🧹 Found ${orphanedResources.length} orphaned trigger resources to clean up`)
+
+    for (const resource of orphanedResources) {
+      try {
+        const result = await this.deleteNodeTrigger(workflowId, userId, resource.node_id)
+        if (result.success) {
+          deletedCount++
+        } else {
+          errors.push(...result.errors)
+        }
+      } catch (error) {
+        const errorMsg = `Failed to cleanup node ${resource.node_id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        logger.error(`❌ ${errorMsg}`)
+        errors.push(errorMsg)
+      }
+    }
+
+    logger.debug(`🧹 Cleaned up ${deletedCount} orphaned trigger resources`)
+
+    return {
+      success: errors.length === 0,
+      deletedCount,
+      errors
+    }
+  }
+
+  /**
    * Check health of all triggers in a workflow
    */
   async checkWorkflowTriggerHealth(

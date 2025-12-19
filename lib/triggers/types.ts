@@ -32,6 +32,10 @@ export interface TriggerDeactivationContext {
   userId: string
   providerId: string
   /**
+   * When set, only deactivate triggers for this specific node
+   */
+  nodeId?: string
+  /**
    * When set, only deactivate test subscriptions for this session
    */
   testSessionId?: string
