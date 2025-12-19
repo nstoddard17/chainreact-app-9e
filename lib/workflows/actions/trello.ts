@@ -986,3 +986,417 @@ export async function createTrelloBoard(
     }
   }
 }
+
+/**
+ * Update an existing Trello card
+ */
+export async function updateTrelloCard(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const { cardId, name, desc, listId, pos, due, dueComplete, closed } = resolvedConfig
+
+    if (!cardId) {
+      return {
+        success: false,
+        output: {},
+        message: "Card ID is required"
+      }
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "trello")
+
+    // Build update data with only provided fields
+    const updateData: any = {}
+    if (name !== undefined && name !== '') updateData.name = name
+    if (desc !== undefined && desc !== '') updateData.desc = desc
+    if (listId) updateData.idList = listId
+    if (pos) updateData.pos = pos
+    if (due) {
+      const dueDate = due instanceof Date ? due : new Date(due)
+      updateData.due = dueDate.toISOString()
+    }
+    if (dueComplete !== undefined) updateData.dueComplete = dueComplete
+    if (closed !== undefined) updateData.closed = closed
+
+    const response = await fetch(
+      `https://api.trello.com/1/cards/${cardId}?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updateData),
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.error(`Trello API error: ${response.status} - ${errorText}`)
+      throw new Error(`Failed to update Trello card: ${response.status} ${response.statusText}`)
+    }
+
+    const updatedCard = await response.json()
+
+    return {
+      success: true,
+      output: {
+        id: updatedCard.id,
+        name: updatedCard.name,
+        desc: updatedCard.desc,
+        url: updatedCard.url,
+        idList: updatedCard.idList,
+        due: updatedCard.due,
+        closed: updatedCard.closed
+      },
+      message: `Successfully updated card "${updatedCard.name}"`
+    }
+  } catch (error: any) {
+    logger.error("Error updating Trello card:", error)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to update Trello card: ${error.message}`
+    }
+  }
+}
+
+/**
+ * Archive or unarchive a Trello card
+ */
+export async function archiveTrelloCard(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const { cardId, closed } = resolvedConfig
+
+    if (!cardId) {
+      return {
+        success: false,
+        output: {},
+        message: "Card ID is required"
+      }
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "trello")
+    const shouldArchive = closed === "true" || closed === true
+
+    const response = await fetch(
+      `https://api.trello.com/1/cards/${cardId}?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          closed: shouldArchive
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.error(`Trello API error: ${response.status} - ${errorText}`)
+      throw new Error(`Failed to archive Trello card: ${response.status} ${response.statusText}`)
+    }
+
+    const updatedCard = await response.json()
+
+    return {
+      success: true,
+      output: {
+        id: updatedCard.id,
+        name: updatedCard.name,
+        closed: updatedCard.closed,
+        url: updatedCard.url
+      },
+      message: `Successfully ${shouldArchive ? 'archived' : 'unarchived'} card "${updatedCard.name}"`
+    }
+  } catch (error: any) {
+    logger.error("Error archiving Trello card:", error)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to archive Trello card: ${error.message}`
+    }
+  }
+}
+
+/**
+ * Add a comment to a Trello card
+ */
+export async function addTrelloComment(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const { cardId, text } = resolvedConfig
+
+    if (!cardId || !text) {
+      return {
+        success: false,
+        output: {},
+        message: "Card ID and comment text are required"
+      }
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "trello")
+
+    const response = await fetch(
+      `https://api.trello.com/1/cards/${cardId}/actions/comments?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: text
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.error(`Trello API error: ${response.status} - ${errorText}`)
+      throw new Error(`Failed to add comment to Trello card: ${response.status} ${response.statusText}`)
+    }
+
+    const comment = await response.json()
+
+    return {
+      success: true,
+      output: {
+        id: comment.id,
+        data: comment.data,
+        date: comment.date,
+        memberCreator: comment.memberCreator
+      },
+      message: `Successfully added comment to card`
+    }
+  } catch (error: any) {
+    logger.error("Error adding comment to Trello card:", error)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to add comment to Trello card: ${error.message}`
+    }
+  }
+}
+
+/**
+ * Add a label to a Trello card
+ */
+export async function addTrelloLabelToCard(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const { cardId, labelId } = resolvedConfig
+
+    if (!cardId || !labelId) {
+      return {
+        success: false,
+        output: {},
+        message: "Card ID and label ID are required"
+      }
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "trello")
+
+    const response = await fetch(
+      `https://api.trello.com/1/cards/${cardId}/idLabels?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}&value=${labelId}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.error(`Trello API error: ${response.status} - ${errorText}`)
+      throw new Error(`Failed to add label to Trello card: ${response.status} ${response.statusText}`)
+    }
+
+    const updatedLabels = await response.json()
+
+    // Get full card details to return
+    const cardResponse = await fetch(
+      `https://api.trello.com/1/cards/${cardId}?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}&fields=id,name,idLabels,labels`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    )
+
+    const card = cardResponse.ok ? await cardResponse.json() : { id: cardId }
+
+    return {
+      success: true,
+      output: {
+        id: card.id,
+        name: card.name,
+        idLabels: card.idLabels,
+        labels: card.labels
+      },
+      message: `Successfully added label to card`
+    }
+  } catch (error: any) {
+    logger.error("Error adding label to Trello card:", error)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to add label to Trello card: ${error.message}`
+    }
+  }
+}
+
+/**
+ * Add a checklist to a Trello card
+ */
+export async function addTrelloChecklist(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const { cardId, name } = resolvedConfig
+
+    if (!cardId || !name) {
+      return {
+        success: false,
+        output: {},
+        message: "Card ID and checklist name are required"
+      }
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "trello")
+
+    const response = await fetch(
+      `https://api.trello.com/1/checklists?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          idCard: cardId,
+          name: name
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.error(`Trello API error: ${response.status} - ${errorText}`)
+      throw new Error(`Failed to add checklist to Trello card: ${response.status} ${response.statusText}`)
+    }
+
+    const checklist = await response.json()
+
+    return {
+      success: true,
+      output: {
+        id: checklist.id,
+        name: checklist.name,
+        idCard: checklist.idCard,
+        checkItems: checklist.checkItems
+      },
+      message: `Successfully added checklist "${name}" to card`
+    }
+  } catch (error: any) {
+    logger.error("Error adding checklist to Trello card:", error)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to add checklist to Trello card: ${error.message}`
+    }
+  }
+}
+
+/**
+ * Create a checklist item in a Trello checklist
+ */
+export async function createTrelloChecklistItem(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const { checklistId, name, checked, pos } = resolvedConfig
+
+    if (!checklistId || !name) {
+      return {
+        success: false,
+        output: {},
+        message: "Checklist ID and item text are required"
+      }
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "trello")
+
+    const itemData: any = {
+      name: name
+    }
+
+    if (checked !== undefined) {
+      itemData.checked = checked
+    }
+
+    if (pos) {
+      itemData.pos = pos
+    }
+
+    const response = await fetch(
+      `https://api.trello.com/1/checklists/${checklistId}/checkItems?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(itemData),
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.error(`Trello API error: ${response.status} - ${errorText}`)
+      throw new Error(`Failed to create checklist item: ${response.status} ${response.statusText}`)
+    }
+
+    const checkItem = await response.json()
+
+    return {
+      success: true,
+      output: {
+        id: checkItem.id,
+        name: checkItem.name,
+        state: checkItem.state,
+        idChecklist: checkItem.idChecklist,
+        pos: checkItem.pos
+      },
+      message: `Successfully created checklist item "${name}"`
+    }
+  } catch (error: any) {
+    logger.error("Error creating checklist item:", error)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to create checklist item: ${error.message}`
+    }
+  }
+}

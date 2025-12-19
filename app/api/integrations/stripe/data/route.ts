@@ -10,6 +10,8 @@ import { stripeHandlers } from './handlers'
 import { StripeIntegration } from './types'
 import { logger } from '@/lib/utils/logger'
 import { decryptToken } from '@/lib/integrations/tokenUtils'
+import { refreshTokenForProvider } from '@/lib/integrations/tokenRefreshService'
+import { encrypt } from '@/lib/security/encryption'
 
 // Helper to create supabase client inside handlers
 const getSupabase = () => createClient(
@@ -53,14 +55,14 @@ export async function POST(req: NextRequest) {
       provider: 'stripe'
     })
 
-    const { data: integration, error: integrationError } = await getSupabase()
+    const { data: integrationData, error: integrationError } = await getSupabase()
       .from('integrations')
       .select('*')
       .eq('id', integrationId)
       .eq('provider', 'stripe')
       .single()
 
-    if (integrationError || !integration) {
+    if (integrationError || !integrationData) {
       logger.error('[Stripe API] Integration not found', {
         integrationId,
         error: integrationError?.message || 'No integration returned',
@@ -68,6 +70,9 @@ export async function POST(req: NextRequest) {
       })
       return errorResponse('Stripe integration not found', 404)
     }
+
+    // Use let so we can update it after token refresh
+    let integration = integrationData
 
     logger.info('[Stripe API] Integration found', {
       integrationId,
@@ -130,36 +135,124 @@ export async function POST(req: NextRequest) {
       access_token: decryptedToken
     }
 
-    // Execute the handler
+    // Execute the handler with retry on auth error
     let data
-    try {
-      logger.info('[Stripe API] Executing handler', {
-        integrationId,
-        dataType,
-        options
-      })
-      data = await handler(integrationWithToken, options)
-      logger.info('[Stripe API] Handler executed successfully', {
-        integrationId,
-        dataType,
-        resultCount: Array.isArray(data) ? data.length : (data ? 1 : 0),
-        resultType: typeof data,
-        isArray: Array.isArray(data)
-      })
-    } catch (handlerError: any) {
-      logger.error('[Stripe API] Handler execution failed', {
-        dataType,
-        error: handlerError.message,
-        integrationId,
-        statusCode: handlerError.statusCode,
-        stripeCode: handlerError.code
-      })
+    let retryCount = 0
+    const maxRetries = 1
 
-      // Return a proper error response
-      return errorResponse(handlerError.message || 'Failed to fetch Stripe data', 500, {
-        details: process.env.NODE_ENV === 'development' ? handlerError.stack : undefined,
-        needsReconnection: handlerError.message?.includes('authentication')
-      })
+    while (retryCount <= maxRetries) {
+      try {
+        logger.info('[Stripe API] Executing handler', {
+          integrationId,
+          dataType,
+          options,
+          attempt: retryCount + 1
+        })
+
+        data = await handler(integrationWithToken, options)
+
+        logger.info('[Stripe API] Handler executed successfully', {
+          integrationId,
+          dataType,
+          resultCount: Array.isArray(data) ? data.length : (data ? 1 : 0),
+          resultType: typeof data,
+          isArray: Array.isArray(data)
+        })
+
+        // Success - break out of retry loop
+        break
+
+      } catch (handlerError: any) {
+        logger.error('[Stripe API] Handler execution failed', {
+          dataType,
+          error: handlerError.message,
+          integrationId,
+          statusCode: handlerError.statusCode,
+          stripeCode: handlerError.code,
+          attempt: retryCount + 1
+        })
+
+        // Check if this is an authentication error and we have a refresh token
+        const isAuthError = handlerError.message?.includes('authentication') ||
+                           handlerError.message?.includes('expired') ||
+                           handlerError.message?.includes('Unauthorized') ||
+                           handlerError.message?.includes('platform_api_key_expired')
+
+        if (isAuthError && retryCount === 0 && integration.refresh_token) {
+          logger.info('[Stripe API] Token expired, attempting refresh...', {
+            integrationId,
+            hasRefreshToken: !!integration.refresh_token
+          })
+
+          try {
+            // Attempt to refresh the token
+            const refreshResult = await refreshTokenForProvider(
+              'stripe',
+              integration.refresh_token,
+              integration.user_id
+            )
+
+            if (refreshResult.success && refreshResult.access_token) {
+              logger.info('[Stripe API] Token refreshed successfully', {
+                integrationId,
+                userId: integration.user_id
+              })
+
+              // Encrypt the new token
+              const encryptedToken = await encrypt(refreshResult.access_token)
+              const encryptedRefreshToken = refreshResult.refresh_token
+                ? await encrypt(refreshResult.refresh_token)
+                : integration.refresh_token
+
+              // Update the integration in the database
+              const { error: updateError } = await getSupabase()
+                .from('integrations')
+                .update({
+                  access_token: encryptedToken,
+                  refresh_token: encryptedRefreshToken,
+                  expires_at: refreshResult.expires_at || integration.expires_at,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', integrationId)
+
+              if (updateError) {
+                logger.error('[Stripe API] Failed to update tokens in database', {
+                  integrationId,
+                  error: updateError.message
+                })
+              } else {
+                // Update local integration object with new decrypted token
+                integration.access_token = encryptedToken
+                integration.refresh_token = encryptedRefreshToken
+
+                // Update the integration with token for retry
+                integrationWithToken.access_token = refreshResult.access_token
+
+                // Increment retry count and loop will retry
+                retryCount++
+                continue
+              }
+            } else {
+              logger.error('[Stripe API] Token refresh failed', {
+                integrationId,
+                refreshSuccess: refreshResult.success
+              })
+            }
+          } catch (refreshError: any) {
+            logger.error('[Stripe API] Token refresh error', {
+              integrationId,
+              error: refreshError.message
+            })
+          }
+        }
+
+        // If we get here, either it's not an auth error, we don't have a refresh token,
+        // or the refresh failed - return the error
+        return errorResponse(handlerError.message || 'Failed to fetch Stripe data', 500, {
+          details: process.env.NODE_ENV === 'development' ? handlerError.stack : undefined,
+          needsReconnection: isAuthError
+        })
+      }
     }
 
     logger.info(`[Stripe API] Successfully processed ${dataType}`, {

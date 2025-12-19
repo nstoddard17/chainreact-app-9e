@@ -14,9 +14,10 @@ export const getShopifyProducts: ShopifyDataHandler<ShopifyProduct[]> = async (
     const selectedStore = options?.shopify_store || options?.selectedStore
 
     // Fetch products from Shopify (limit to 250 most recent)
+    // Include variants and options so we can populate variant dropdowns and option fields without additional API calls
     const response = await makeShopifyRequest(
       integration,
-      'products.json?limit=250&fields=id,title,vendor,product_type,status',
+      'products.json?limit=250&fields=id,title,vendor,product_type,status,variants,options',
       {},
       selectedStore
     )
@@ -27,6 +28,28 @@ export const getShopifyProducts: ShopifyDataHandler<ShopifyProduct[]> = async (
       const productType = product.product_type ? ` - ${product.product_type}` : ''
       const label = `${product.title}${vendor}${productType}`
 
+      // Format variants with descriptive labels
+      const variants = (product.variants || []).map((variant: any) => {
+        const variantTitle = variant.title !== 'Default Title' ? variant.title : 'Standard'
+        const price = variant.price ? ` - $${variant.price}` : ''
+        const sku = variant.sku ? ` (SKU: ${variant.sku})` : ''
+        const inventory = variant.inventory_quantity !== undefined
+          ? ` [${variant.inventory_quantity} in stock]`
+          : ''
+
+        return {
+          id: String(variant.id),
+          value: String(variant.id),
+          label: `${variantTitle}${price}${sku}${inventory}`,
+          product_id: String(product.id),
+          title: variant.title,
+          price: variant.price,
+          sku: variant.sku,
+          inventory_quantity: variant.inventory_quantity,
+          available: variant.available || variant.inventory_quantity > 0
+        }
+      })
+
       return {
         id: String(product.id),
         value: String(product.id),
@@ -35,7 +58,9 @@ export const getShopifyProducts: ShopifyDataHandler<ShopifyProduct[]> = async (
         title: product.title,
         vendor: product.vendor,
         product_type: product.product_type,
-        status: product.status
+        status: product.status,
+        variants, // Include variants array in the product object
+        options: product.options || [] // Include options array for variant creation
       }
     })
 

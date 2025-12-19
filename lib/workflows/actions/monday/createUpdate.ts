@@ -1,12 +1,5 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 import { logger } from '@/lib/utils/logger'
-import { createClient } from '@supabase/supabase-js'
-
-// Helper to create supabase client inside handlers
-const getSupabase = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
-)
 
 /**
  * Create an update (comment) on a Monday.com item
@@ -29,21 +22,8 @@ export async function createMondayUpdate(
       throw new Error('Update text is required')
     }
 
-    // Get Monday.com integration
-    const { data: integration, error: integrationError } = await getSupabase()
-      .from('integrations')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('provider', 'monday')
-      .eq('status', 'connected')
-      .single()
-
-    if (integrationError || !integration) {
-      throw new Error('Monday.com integration not found. Please connect your Monday.com account.')
-    }
-
     // Get access token
-    const accessToken = getDecryptedAccessToken(integration)
+    const accessToken = await getDecryptedAccessToken(userId, 'monday')
 
     // Build GraphQL mutation
     const mutation = `

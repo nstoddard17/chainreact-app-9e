@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Loader2, FolderOpen, FileText, FileSpreadsheet, FileImage, File, Grid, List, Check, ChevronDown, Search } from 'lucide-react'
 import { useIntegrationStore } from '@/stores/integrationStore'
-import { 
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -892,7 +892,7 @@ export function NotionBlockFields({
             </div>
           )
         }
-        
+
         return (
           <div key={fieldKey} className="space-y-2">
             <Label htmlFor={fieldKey} className="flex items-center gap-2">

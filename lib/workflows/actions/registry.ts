@@ -106,7 +106,28 @@ import {
 import {
   createMondayItem,
   updateMondayItem,
-  createMondayUpdate
+  createMondayUpdate,
+  createMondaySubitem,
+  deleteMondayItem,
+  archiveMondayItem,
+  moveMondayItem,
+  createMondayBoard,
+  createMondayGroup,
+  getMondayItem,
+  searchMondayItems,
+  listMondayItems,
+  addMondayFile,
+  duplicateMondayItem,
+  duplicateMondayBoard,
+  addMondayColumn,
+  listMondayUpdates,
+  downloadMondayFile,
+  getMondayUser,
+  listMondayUsers,
+  listMondayBoards,
+  getMondayBoard,
+  listMondayGroups,
+  listMondaySubitems
 } from './monday'
 
 // Slack actions
@@ -117,6 +138,13 @@ import {
   createTrelloList,
   createTrelloCard,
   moveTrelloCard,
+  createTrelloBoard,
+  updateTrelloCard,
+  archiveTrelloCard,
+  addTrelloComment,
+  addTrelloLabelToCard,
+  addTrelloChecklist,
+  createTrelloChecklistItem
 } from './trello'
 
 // Discord actions
@@ -351,8 +379,13 @@ import { uploadDropboxFile, findDropboxFiles } from './dropbox'
 
 // Shopify actions
 import { createShopifyOrder } from './shopify/createOrder'
+import { createShopifyProduct } from './shopify/createProduct'
 import { updateShopifyProduct } from './shopify/updateProduct'
+import { createShopifyCustomer } from './shopify/createCustomer'
 import { updateShopifyCustomer } from './shopify/updateCustomer'
+import { updateShopifyInventory } from './shopify/updateInventory'
+import { updateShopifyOrderStatus } from './shopify/updateOrderStatus'
+import { addShopifyOrderNote } from './shopify/addOrderNote'
 import { createShopifyFulfillment } from './shopify/createFulfillment'
 import { createShopifyProductVariant } from './shopify/createProductVariant'
 import { updateShopifyProductVariant } from './shopify/updateProductVariant'
@@ -431,7 +464,11 @@ import { mailchimpCreateCampaign } from './mailchimp/createCampaign'
 import { mailchimpCreateAudience } from './mailchimp/createAudience'
 import { mailchimpCreateEvent } from './mailchimp/createEvent'
 import { stripeGetPayments } from './stripe/getPayments'
+import { stripeCreateCustomer } from './stripe/createCustomer'
 import { stripeUpdateCustomer } from './stripe/updateCustomer'
+import { stripeCreatePaymentIntent } from './stripe/createPaymentIntent'
+import { stripeCreateInvoice } from './stripe/createInvoice'
+import { stripeCreateSubscription } from './stripe/createSubscription'
 import { stripeCreateRefund } from './stripe/createRefund'
 import { stripeCancelSubscription } from './stripe/cancelSubscription'
 import { stripeUpdateSubscription } from './stripe/updateSubscription'
@@ -714,12 +751,61 @@ export const actionHandlerRegistry: Record<string, Function> = {
     updateMultipleAirtableRecords(params.config, params.userId, params.input),
 
   // Monday.com actions - wrapped to handle new calling convention
+  // CRUD Operations
   "monday_action_create_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMondayItem(params.config, params.userId, params.input),
   "monday_action_update_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
     updateMondayItem(params.config, params.userId, params.input),
   "monday_action_create_update": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMondayUpdate(params.config, params.userId, params.input),
+  "monday_action_create_subitem": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMondaySubitem(params.config, params.userId, params.input),
+  "monday_action_delete_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteMondayItem(params.config, params.userId, params.input),
+  "monday_action_archive_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    archiveMondayItem(params.config, params.userId, params.input),
+  "monday_action_move_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    moveMondayItem(params.config, params.userId, params.input),
+  "monday_action_duplicate_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    duplicateMondayItem(params.config, params.userId, params.input),
+
+  // Board & Group Management
+  "monday_action_create_board": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMondayBoard(params.config, params.userId, params.input),
+  "monday_action_create_group": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createMondayGroup(params.config, params.userId, params.input),
+  "monday_action_duplicate_board": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    duplicateMondayBoard(params.config, params.userId, params.input),
+  "monday_action_add_column": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addMondayColumn(params.config, params.userId, params.input),
+
+  // Search & Retrieval
+  "monday_action_get_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getMondayItem(params.config, params.userId, params.input),
+  "monday_action_search_items": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    searchMondayItems(params.config, params.userId, params.input),
+  "monday_action_list_items": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayItems(params.config, params.userId, params.input),
+  "monday_action_list_subitems": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondaySubitems(params.config, params.userId, params.input),
+  "monday_action_list_updates": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayUpdates(params.config, params.userId, params.input),
+  "monday_action_get_board": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getMondayBoard(params.config, params.userId, params.input),
+  "monday_action_list_boards": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayBoards(params.config, params.userId, params.input),
+  "monday_action_list_groups": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayGroups(params.config, params.userId, params.input),
+  "monday_action_get_user": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getMondayUser(params.config, params.userId, params.input),
+  "monday_action_list_users": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listMondayUsers(params.config, params.userId, params.input),
+
+  // File Operations
+  "monday_action_add_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addMondayFile(params.config, params.userId, params.input),
+  "monday_action_download_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    downloadMondayFile(params.config, params.userId, params.input),
 
   // Slack actions - wrapped to handle new calling convention
   "slack_action_create_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -735,7 +821,21 @@ export const actionHandlerRegistry: Record<string, Function> = {
     createTrelloCard(params.config, params.userId, params.input),
   "trello_action_move_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
     moveTrelloCard(params.config, params.userId, params.input),
-  
+  "trello_action_create_board": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTrelloBoard(params.config, params.userId, params.input),
+  "trello_action_update_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateTrelloCard(params.config, params.userId, params.input),
+  "trello_action_archive_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    archiveTrelloCard(params.config, params.userId, params.input),
+  "trello_action_add_comment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addTrelloComment(params.config, params.userId, params.input),
+  "trello_action_add_label_to_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addTrelloLabelToCard(params.config, params.userId, params.input),
+  "trello_action_add_checklist": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addTrelloChecklist(params.config, params.userId, params.input),
+  "trello_action_create_checklist_item": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTrelloChecklistItem(params.config, params.userId, params.input),
+
   // Discord actions - wrapped to handle new calling convention
   "discord_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     sendDiscordMessage(params.config, params.userId, params.input),
@@ -1077,8 +1177,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "mailchimp_action_create_event": createExecutionContextWrapper(mailchimpCreateEvent),
 
   // Stripe actions
-  "stripe_action_get_payments": createExecutionContextWrapper(stripeGetPayments),
+  "stripe_action_create_customer": createExecutionContextWrapper(stripeCreateCustomer),
   "stripe_action_update_customer": createExecutionContextWrapper(stripeUpdateCustomer),
+  "stripe_action_create_payment_intent": createExecutionContextWrapper(stripeCreatePaymentIntent),
+  "stripe_action_create_invoice": createExecutionContextWrapper(stripeCreateInvoice),
+  "stripe_action_create_subscription": createExecutionContextWrapper(stripeCreateSubscription),
+  "stripe_action_get_payments": createExecutionContextWrapper(stripeGetPayments),
   "stripe_action_create_refund": createExecutionContextWrapper(stripeCreateRefund),
   "stripe_action_cancel_subscription": createExecutionContextWrapper(stripeCancelSubscription),
   "stripe_action_update_subscription": createExecutionContextWrapper(stripeUpdateSubscription),
@@ -1103,10 +1207,20 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Shopify actions - wrapped to handle new calling convention
   "shopify_action_create_order": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createShopifyOrder(params.config, params.userId, params.input),
+  "shopify_action_create_product": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createShopifyProduct(params.config, params.userId, params.input),
   "shopify_action_update_product": (params: { config: any; userId: string; input: Record<string, any> }) =>
     updateShopifyProduct(params.config, params.userId, params.input),
+  "shopify_action_create_customer": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createShopifyCustomer(params.config, params.userId, params.input),
   "shopify_action_update_customer": (params: { config: any; userId: string; input: Record<string, any> }) =>
     updateShopifyCustomer(params.config, params.userId, params.input),
+  "shopify_action_update_inventory": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateShopifyInventory(params.config, params.userId, params.input),
+  "shopify_action_update_order_status": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateShopifyOrderStatus(params.config, params.userId, params.input),
+  "shopify_action_add_order_note": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addShopifyOrderNote(params.config, params.userId, params.input),
   "shopify_action_create_fulfillment": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createShopifyFulfillment(params.config, params.userId, params.input),
   "shopify_action_create_product_variant": (params: { config: any; userId: string; input: Record<string, any> }) =>

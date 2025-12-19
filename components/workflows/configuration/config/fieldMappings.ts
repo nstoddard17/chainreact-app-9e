@@ -1282,6 +1282,67 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     database: "notion_databases",
   },
+  // New separate database actions
+  notion_action_create_database: {
+    workspace: "notion_workspaces",
+    parentPage: "notion_pages",
+  },
+  notion_action_update_database_info: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+  },
+  notion_action_query_database: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+  },
+  notion_action_find_or_create_item: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+    searchProperty: "notion_database_properties",
+    createProperties: "notion_database_properties",
+  },
+  notion_action_archive_database_item: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+    itemToArchive: "notion_database_items",
+  },
+  notion_action_restore_database_item: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+    itemToRestore: "notion_archived_items",
+  },
+  // New separate comment actions
+  notion_action_create_comment: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  notion_action_list_comments: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  // New separate user actions
+  notion_action_list_users: {
+    workspace: "notion_workspaces",
+  },
+  notion_action_get_user: {
+    workspace: "notion_workspaces",
+    userId: "notion_users",
+  },
+  // New separate block actions
+  notion_action_add_block: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
+  notion_action_get_block: {
+    workspace: "notion_workspaces",
+  },
+  notion_action_get_block_children: {
+    workspace: "notion_workspaces",
+  },
+  notion_action_get_page_with_children: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+  },
   notion_action_manage_users: {
     workspace: "notion_workspaces",
     userId: "notion_users",
@@ -1349,8 +1410,13 @@ const twitterMappings: Record<string, FieldMapping> = {
 
 // Stripe field mappings
 const stripeMappings: Record<string, FieldMapping> = {
+  stripe_action_create_customer: {
+    payment_method: "stripe_payment_methods",
+  },
   stripe_action_update_customer: {
     customerId: "stripe_customers",
+    payment_method: "stripe_payment_methods",
+    invoice_settings_default_payment_method: "stripe_payment_methods",
   },
   stripe_action_cancel_subscription: {
     subscriptionId: "stripe_subscriptions",
@@ -1366,9 +1432,11 @@ const stripeMappings: Record<string, FieldMapping> = {
   },
   stripe_action_create_subscription: {
     customerId: "stripe_customers",
+    priceId: "stripe_prices",
   },
   stripe_action_update_subscription: {
     subscriptionId: "stripe_subscriptions",
+    priceId: "stripe_prices",
   },
   stripe_action_find_subscription: {
     subscriptionId: "stripe_subscriptions",
@@ -1508,6 +1576,19 @@ const shopifyMappings: Record<string, FieldMapping> = {
     shopify_store: "shopify_stores",
     customer_id: "shopify_customers",
   },
+  shopify_action_create_order: {
+    shopify_store: "shopify_stores",
+    line_items: "shopify_products", // Maps line_items field to load products
+  },
+  shopify_action_create_product_variant: {
+    shopify_store: "shopify_stores",
+    product_id: "shopify_products",
+  },
+  shopify_action_update_product_variant: {
+    shopify_store: "shopify_stores",
+    product_id: "shopify_products",
+    variant_id: "shopify_variants",
+  },
 };
 
 // Default field mappings for unmapped fields
@@ -1573,6 +1654,11 @@ export function getResourceTypeForField(fieldName: string, nodeType: string): st
   // Debug logging for Trello template field
   if (fieldName === 'template' && nodeType?.includes('trello')) {
     logger.debug('[FieldMapping] Checking Trello template field:', { fieldName, nodeType });
+  }
+
+  // Special handling for Shopify line item variants (variants_for_item_0, variants_for_item_1, etc.)
+  if (fieldName.startsWith('variants_for_item_') && nodeType === 'shopify_action_create_order') {
+    return 'shopify_variants';
   }
 
   // First check node-specific mapping

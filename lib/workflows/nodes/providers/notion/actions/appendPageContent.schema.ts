@@ -75,7 +75,9 @@ export const appendPageContentActionSchema: NodeComponent = {
 • Todos: [] unchecked, [x] checked
 • Quotes: > quoted text
 • Code: \`\`\` code block
-• Divider: --- or ***`
+• Divider: --- or ***`,
+      supportsVariables: true,
+      hasConnectButton: true
     },
     {
       name: "appendAfterBlock",

@@ -4,51 +4,18 @@
  */
 
 import { NotionIntegration, NotionDataHandler } from '../types'
-import { makeNotionApiRequest } from '../utils'
-import { createAdminClient } from "@/lib/supabase/admin"
+import { makeNotionApiRequest, validateNotionIntegration, resolveNotionAccessToken, getNotionRequestOptions } from '../utils'
 
 import { logger } from '@/lib/utils/logger'
 
-export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: any, context?: any): Promise<any> => {
+export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: NotionIntegration, context?: any): Promise<any> => {
   logger.debug("🔍 Notion database metadata fetcher called")
   logger.debug("🔍 Context:", context)
 
   try {
-    // Get the Notion integration
-    const supabase = createAdminClient()
-    let notionIntegration
-    let integrationError
-
-    if (integration.id) {
-      logger.debug(`🔍 Looking up integration by ID: ${integration.id}`)
-      const result = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('id', integration.id)
-        .single()
-      notionIntegration = result.data
-      integrationError = result.error
-    } else if (integration.userId) {
-      logger.debug(`🔍 Looking up Notion integration for user: ${integration.userId}`)
-      const result = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('user_id', integration.userId)
-        .eq('provider', 'notion')
-        .eq('status', 'connected')
-        .single()
-      notionIntegration = result.data
-      integrationError = result.error
-    } else {
-      throw new Error("No integration ID or user ID provided")
-    }
-
-    if (integrationError || !notionIntegration) {
-      logger.error('🔍 Integration lookup failed:', integrationError)
-      throw new Error("Notion integration not found")
-    }
-
-    logger.debug(`🔍 Found integration: ${notionIntegration.id}`)
+    validateNotionIntegration(integration)
+    const { workspaceId } = getNotionRequestOptions(context)
+    const accessToken = resolveNotionAccessToken(integration, workspaceId)
 
     // Get the database ID from context
     const databaseId = context?.databaseId || context?.database_id
@@ -65,7 +32,7 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
     // Get the database details
     const databaseResponse = await makeNotionApiRequest(
       `https://api.notion.com/v1/databases/${databaseId}`,
-      notionIntegration.access_token!,
+      accessToken,
       {
         method: 'GET'
       }
@@ -99,3 +66,4 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
     }
   }
 }
+

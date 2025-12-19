@@ -407,38 +407,6 @@ export const trelloNodes: NodeComponent[] = [
           },
           defaultMode: "upload"
         }
-      },
-
-      // Location
-      {
-        name: "address",
-        label: "Location Address",
-        type: "text",
-        required: false,
-        placeholder: "123 Main St, City, State",
-        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
-        tooltip: "Physical address associated with the card",
-        supportsAI: true
-      },
-      {
-        name: "locationName",
-        label: "Location Name",
-        type: "text",
-        required: false,
-        placeholder: "Office Building A",
-        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
-        tooltip: "Name of the location",
-        supportsAI: true
-      },
-      {
-        name: "coordinates",
-        label: "GPS Coordinates",
-        type: "text",
-        required: false,
-        placeholder: "latitude,longitude",
-        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
-        tooltip: "GPS coordinates in format: latitude,longitude",
-        supportsAI: true
       }
     ],
     outputSchema: [

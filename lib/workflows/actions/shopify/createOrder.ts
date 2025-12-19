@@ -1,11 +1,56 @@
 import { ActionResult } from '../index'
-import { makeShopifyRequest, validateShopifyIntegration, getShopDomain } from '@/app/api/integrations/shopify/data/utils'
-import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
+import { makeShopifyGraphQLRequest, validateShopifyIntegration, getShopDomain } from '@/app/api/integrations/shopify/data/utils'
+import { getIntegrationById } from '../../executeNode'
 import { resolveValue } from '../core/resolveValue'
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Create Shopify Order
+ * Extract numeric ID from Shopify GID
+ */
+function extractNumericId(gid: string): string {
+  if (gid.includes('gid://shopify/')) {
+    return gid.split('/').pop() || gid
+  }
+  return gid
+}
+
+/**
+ * Convert country name to ISO 3166-1 alpha-2 code
+ * Returns the input if it's already a 2-letter code, or the mapped code if it's a country name
+ */
+function getCountryCode(countryInput: string): string {
+  if (!countryInput) return countryInput
+
+  // If already a 2-letter code, return as-is
+  if (countryInput.length === 2) {
+    return countryInput.toUpperCase()
+  }
+
+  // Map of common country names to codes
+  const countryMap: Record<string, string> = {
+    'united states': 'US',
+    'usa': 'US',
+    'canada': 'CA',
+    'united kingdom': 'GB',
+    'uk': 'GB',
+    'australia': 'AU',
+    'germany': 'DE',
+    'france': 'FR',
+    'italy': 'IT',
+    'spain': 'ES',
+    'mexico': 'MX',
+    'brazil': 'BR',
+    'japan': 'JP',
+    'china': 'CN',
+    'india': 'IN',
+  }
+
+  const normalized = countryInput.toLowerCase().trim()
+  return countryMap[normalized] || countryInput
+}
+
+/**
+ * Create Shopify Order (GraphQL)
  * Creates a new order with full address support
  *
  * Enhanced with:
@@ -20,16 +65,18 @@ export async function createShopifyOrder(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    // 1. Get and validate integration
+    // 1. Get and validate the integration
     const integrationId = await resolveValue(config.integration_id || config.integrationId, input)
-    const integration = await getDecryptedAccessToken(integrationId, userId, 'shopify')
+    const integration = await getIntegrationById(integrationId)
     validateShopifyIntegration(integration)
 
+    const selectedStore = config.shopify_store ? await resolveValue(config.shopify_store, input) : undefined
+
     // 2. Resolve all config values
-    const email = await resolveValue(config.email, input)
+    const email = await resolveValue(config.customer_email || config.email, input)
     const financialStatus = config.financial_status
       ? await resolveValue(config.financial_status, input)
-      : 'pending'
+      : 'PENDING'
 
     // Line items (required)
     const lineItems = config.line_items
@@ -56,77 +103,93 @@ export async function createShopifyOrder(
     const billingCountry = config.billing_country ? await resolveValue(config.billing_country, input) : undefined
     const billingZip = config.billing_zip ? await resolveValue(config.billing_zip, input) : undefined
 
-    // 3. Build shipping address (if any field provided)
-    let shippingAddress: any = undefined
+    logger.debug('[Shopify GraphQL] Creating order:', { email, lineItemCount: lineItems.length })
+
+    // 3. Build GraphQL mutation
+    const mutation = `
+      mutation orderCreate($order: OrderCreateOrderInput!) {
+        orderCreate(order: $order) {
+          order {
+            id
+            name
+            email
+            totalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+            displayFinancialStatus
+            createdAt
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const variables: any = {
+      order: {
+        email,
+        lineItems: lineItems.map((item: any) => ({
+          variantId: item.variant_id?.includes('gid://') ? item.variant_id : `gid://shopify/ProductVariant/${item.variant_id}`,
+          quantity: item.quantity || 1
+        })),
+        financialStatus: financialStatus.toUpperCase(),
+      }
+    }
+
+    // Add shipping address if provided
     if (shippingLine1 || shippingCity || shippingCountry || shippingZip) {
-      shippingAddress = {}
-      if (shippingLine1) shippingAddress.address1 = shippingLine1
-      if (shippingLine2) shippingAddress.address2 = shippingLine2
-      if (shippingCity) shippingAddress.city = shippingCity
-      if (shippingProvince) shippingAddress.province = shippingProvince
-      if (shippingCountry) shippingAddress.country = shippingCountry
-      if (shippingZip) shippingAddress.zip = shippingZip
+      variables.order.shippingAddress = {}
+      if (shippingLine1) variables.order.shippingAddress.address1 = shippingLine1
+      if (shippingLine2) variables.order.shippingAddress.address2 = shippingLine2
+      if (shippingCity) variables.order.shippingAddress.city = shippingCity
+      if (shippingProvince) variables.order.shippingAddress.province = shippingProvince
+      if (shippingCountry) variables.order.shippingAddress.countryCode = getCountryCode(shippingCountry)
+      if (shippingZip) variables.order.shippingAddress.zip = shippingZip
     }
 
-    // 4. Build billing address (if any field provided, otherwise defaults to shipping)
-    let billingAddress: any = undefined
+    // Add billing address if provided
     if (billingLine1 || billingCity || billingCountry || billingZip) {
-      billingAddress = {}
-      if (billingLine1) billingAddress.address1 = billingLine1
-      if (billingLine2) billingAddress.address2 = billingLine2
-      if (billingCity) billingAddress.city = billingCity
-      if (billingProvince) billingAddress.province = billingProvince
-      if (billingCountry) billingAddress.country = billingCountry
-      if (billingZip) billingAddress.zip = billingZip
-    } else if (shippingAddress) {
-      // Default billing to shipping if shipping provided but billing not
-      billingAddress = { ...shippingAddress }
+      variables.order.billingAddress = {}
+      if (billingLine1) variables.order.billingAddress.address1 = billingLine1
+      if (billingLine2) variables.order.billingAddress.address2 = billingLine2
+      if (billingCity) variables.order.billingAddress.city = billingCity
+      if (billingProvince) variables.order.billingAddress.province = billingProvince
+      if (billingCountry) variables.order.billingAddress.countryCode = getCountryCode(billingCountry)
+      if (billingZip) variables.order.billingAddress.zip = billingZip
     }
 
-    // 5. Build order payload
-    const payload: any = {
-      email,
-      line_items: lineItems,
-      financial_status: financialStatus,
-    }
+    if (tags) variables.order.tags = tags.split(',').map((t: string) => t.trim())
+    if (note) variables.order.note = note
 
-    if (tags) payload.tags = tags
-    if (note) payload.note = note
-    if (shippingAddress) payload.shipping_address = shippingAddress
-    if (billingAddress) payload.billing_address = billingAddress
+    // 4. Make GraphQL request
+    const result = await makeShopifyGraphQLRequest(integration, mutation, variables, selectedStore)
 
-    logger.debug('[Shopify] Creating order:', {
-      email,
-      lineItemCount: lineItems.length,
-      hasShippingAddress: !!shippingAddress,
-      hasBillingAddress: !!billingAddress,
-    })
-
-    // 6. Make API request
-    const result = await makeShopifyRequest(integration, 'orders.json', {
-      method: 'POST',
-      body: JSON.stringify({ order: payload }),
-    })
-
-    const order = result.order
-    const shopDomain = getShopDomain(integration)
+    const order = result.orderCreate.order
+    const shopDomain = getShopDomain(integration, selectedStore)
+    const orderId = extractNumericId(order.id)
 
     return {
       success: true,
       output: {
         success: true,
-        order_id: order.id,
-        order_number: order.order_number,
-        admin_url: `https://${shopDomain}/admin/orders/${order.id}`,
-        total_price: order.total_price,
-        currency: order.currency,
-        financial_status: order.financial_status,
-        created_at: order.created_at,
+        order_id: orderId,
+        order_gid: order.id,
+        order_number: order.name,
+        admin_url: `https://${shopDomain}/admin/orders/${orderId}`,
+        total_price: order.totalPriceSet.shopMoney.amount,
+        currency: order.totalPriceSet.shopMoney.currencyCode,
+        financial_status: order.displayFinancialStatus,
+        created_at: order.createdAt,
       },
       message: 'Order created successfully',
     }
   } catch (error: any) {
-    logger.error('[Shopify] Create order error:', error)
+    logger.error('[Shopify GraphQL] Create order error:', error)
     return {
       success: false,
       output: { success: false },

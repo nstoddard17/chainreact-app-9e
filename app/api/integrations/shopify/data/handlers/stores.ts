@@ -23,13 +23,24 @@ export const getShopifyStores: ShopifyDataHandler<ShopifyStore[]> = async (
         return [{
           shop: legacyShop,
           name: legacyShop,
-          id: legacyShop
+          id: legacyShop,
+          value: legacyShop, // Use shop domain as value for select fields
+          label: legacyShop
         }]
       }
     }
 
-    logger.debug(`✅ [Shopify] Returning ${stores.length} connected stores`)
-    return stores
+    // Map stores to include value/label for select fields
+    // IMPORTANT: Use 'shop' (domain) as the value, not numeric 'id'
+    const mappedStores = stores.map((store: any) => ({
+      ...store,
+      value: store.shop, // The shop domain (e.g., "mystore.myshopify.com")
+      label: store.name || store.shop, // Display name or fallback to domain
+      id: store.id // Keep the numeric ID for reference
+    }))
+
+    logger.debug(`✅ [Shopify] Returning ${mappedStores.length} connected stores`)
+    return mappedStores
 
   } catch (error: any) {
     logger.error('❌ [Shopify] Error fetching stores:', error)

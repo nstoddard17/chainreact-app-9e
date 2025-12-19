@@ -1,29 +1,15 @@
 import { ActionResult } from '../index'
-import { makeShopifyRequest, validateShopifyIntegration } from '@/app/api/integrations/shopify/data/utils'
-import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
+import { makeShopifyGraphQLRequest, validateShopifyIntegration, getShopDomain } from '@/app/api/integrations/shopify/data/utils'
+import { getIntegrationById } from '../../executeNode'
 import { resolveValue } from '../core/resolveValue'
 import { logger } from '@/lib/utils/logger'
+import { extractNumericId, toOrderGid } from './graphqlHelpers'
 
 /**
- * Extract numeric ID from Shopify GID format
- * Example: gid://shopify/Order/123456789 → 123456789
- */
-function extractNumericId(id: string): string {
-  if (id.includes('gid://')) {
-    return id.split('/').pop() || id
-  }
-  return id
-}
-
-/**
- * Create Shopify Fulfillment
+ * Create Shopify Fulfillment (GraphQL)
  * Creates a fulfillment for an order with optional tracking information
  *
- * NOTE: Modern Shopify API (2024-01) requires FulfillmentOrder pattern:
- * 1. Fetch FulfillmentOrders for the order
- * 2. Create Fulfillment with fulfillment_order_line_items
- *
- * This implementation follows the recommended approach.
+ * Uses fulfillmentCreateV2 mutation which works with FulfillmentOrders
  */
 export async function createShopifyFulfillment(
   config: any,
@@ -33,8 +19,9 @@ export async function createShopifyFulfillment(
   try {
     // 1. Get and validate integration
     const integrationId = await resolveValue(config.integration_id || config.integrationId, input)
-    const integration = await getDecryptedAccessToken(integrationId, userId, 'shopify')
+    const integration = await getIntegrationById(integrationId)
     validateShopifyIntegration(integration)
+    const selectedStore = config.shopify_store ? await resolveValue(config.shopify_store, input) : undefined
 
     // 2. Resolve config values
     const orderId = await resolveValue(config.order_id, input)
@@ -43,79 +30,132 @@ export async function createShopifyFulfillment(
     const trackingUrl = config.tracking_url ? await resolveValue(config.tracking_url, input) : undefined
     const notifyCustomer = config.notify_customer !== undefined
       ? await resolveValue(config.notify_customer, input) === 'true' || await resolveValue(config.notify_customer, input) === true
-      : true // Default to true
+      : true
 
-    // 3. Extract numeric ID from GID if needed
-    const numericOrderId = extractNumericId(orderId)
+    // 3. Convert to GID format
+    const orderGid = toOrderGid(orderId)
+    const numericOrderId = extractNumericId(orderGid)
 
-    logger.debug('[Shopify] Creating fulfillment for order:', { orderId: numericOrderId })
+    logger.debug('[Shopify GraphQL] Creating fulfillment for order:', { orderId: orderGid })
 
-    // 4. Fetch FulfillmentOrders for this order (required by modern API)
-    const fulfillmentOrdersResponse = await makeShopifyRequest(
+    // 4. Query for fulfillment orders
+    const fulfillmentOrderQuery = `
+      query getOrderFulfillmentOrders($id: ID!) {
+        order(id: $id) {
+          id
+          fulfillmentOrders(first: 10) {
+            edges {
+              node {
+                id
+                status
+                lineItems(first: 50) {
+                  edges {
+                    node {
+                      id
+                      remainingQuantity
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const orderData = await makeShopifyGraphQLRequest(
       integration,
-      `orders/${numericOrderId}/fulfillment_orders.json`
+      fulfillmentOrderQuery,
+      { id: orderGid },
+      selectedStore
     )
 
-    const fulfillmentOrders = fulfillmentOrdersResponse.fulfillment_orders
+    const fulfillmentOrders = orderData.order.fulfillmentOrders.edges.map((edge: any) => edge.node)
 
     if (!fulfillmentOrders || fulfillmentOrders.length === 0) {
       throw new Error('No fulfillment orders found for this order')
     }
 
-    // 5. Use the first open/scheduled fulfillment order
+    // 5. Find the first open/scheduled fulfillment order
     const fulfillmentOrder = fulfillmentOrders.find((fo: any) =>
-      fo.status === 'open' || fo.status === 'scheduled'
+      fo.status === 'OPEN' || fo.status === 'SCHEDULED'
     ) || fulfillmentOrders[0]
 
-    // 6. Build fulfillment_order_line_items array (fulfill all line items)
-    const lineItems = fulfillmentOrder.line_items.map((item: any) => ({
-      id: item.id,
-      quantity: item.fulfillable_quantity
-    }))
+    // 6. Build line items for fulfillment
+    const fulfillmentOrderLineItems = fulfillmentOrder.lineItems.edges
+      .filter((edge: any) => edge.node.remainingQuantity > 0)
+      .map((edge: any) => ({
+        id: edge.node.id,
+        quantity: edge.node.remainingQuantity
+      }))
 
-    // 7. Build fulfillment payload
-    const payload: any = {
-      line_items_by_fulfillment_order: [
+    // 7. Build fulfillment mutation
+    const mutation = `
+      mutation fulfillmentCreateV2($fulfillment: FulfillmentV2Input!) {
+        fulfillmentCreateV2(fulfillment: $fulfillment) {
+          fulfillment {
+            id
+            status
+            trackingInfo {
+              number
+              url
+              company
+            }
+            createdAt
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    const fulfillmentInput: any = {
+      lineItemsByFulfillmentOrder: [
         {
-          fulfillment_order_id: fulfillmentOrder.id,
-          fulfillment_order_line_items: lineItems
+          fulfillmentOrderId: fulfillmentOrder.id,
+          fulfillmentOrderLineItems
         }
       ],
-      notify_customer: notifyCustomer
+      notifyCustomer
     }
 
-    // Add tracking information if provided
+    // Add tracking info if provided
     if (trackingNumber || trackingCompany || trackingUrl) {
-      payload.tracking_info = {}
-      if (trackingNumber) payload.tracking_info.number = trackingNumber
-      if (trackingCompany) payload.tracking_info.company = trackingCompany
-      if (trackingUrl) payload.tracking_info.url = trackingUrl
+      fulfillmentInput.trackingInfo = {}
+      if (trackingNumber) fulfillmentInput.trackingInfo.number = trackingNumber
+      if (trackingCompany) fulfillmentInput.trackingInfo.company = trackingCompany
+      if (trackingUrl) fulfillmentInput.trackingInfo.url = trackingUrl
     }
-
-    logger.debug('[Shopify] Fulfillment payload:', payload)
 
     // 8. Create fulfillment
-    const result = await makeShopifyRequest(integration, 'fulfillments.json', {
-      method: 'POST',
-      body: JSON.stringify({ fulfillment: payload })
-    })
+    const result = await makeShopifyGraphQLRequest(integration, mutation, {
+      fulfillment: fulfillmentInput
+    }, selectedStore)
 
-    const fulfillment = result.fulfillment
+    const fulfillment = result.fulfillmentCreateV2.fulfillment
+    const shopDomain = getShopDomain(integration, selectedStore)
+    const fulfillmentId = extractNumericId(fulfillment.id)
 
     return {
       success: true,
       output: {
         success: true,
-        fulfillment_id: fulfillment.id,
+        fulfillment_id: fulfillmentId,
+        fulfillment_gid: fulfillment.id,
         order_id: numericOrderId,
-        tracking_number: fulfillment.tracking_number || trackingNumber,
-        tracking_url: fulfillment.tracking_url || trackingUrl,
-        created_at: fulfillment.created_at
+        order_gid: orderGid,
+        status: fulfillment.status,
+        tracking_number: fulfillment.trackingInfo?.[0]?.number || trackingNumber,
+        tracking_url: fulfillment.trackingInfo?.[0]?.url || trackingUrl,
+        admin_url: `https://${shopDomain}/admin/orders/${numericOrderId}`,
+        created_at: fulfillment.createdAt
       },
       message: 'Fulfillment created successfully'
     }
   } catch (error: any) {
-    logger.error('[Shopify] Create fulfillment error:', error)
+    logger.error('[Shopify GraphQL] Create fulfillment error:', error)
     return {
       success: false,
       output: { success: false },

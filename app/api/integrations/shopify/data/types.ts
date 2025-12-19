@@ -45,6 +45,20 @@ export interface ShopifyProduct {
   vendor?: string
   product_type?: string
   status: string
+  variants?: ShopifyVariant[] // Array of variants for this product
+  options?: Array<{ id: string; name: string; position: number; values: string[] }> // Product options for variant creation
+}
+
+export interface ShopifyVariant {
+  id: string
+  value: string
+  label: string
+  product_id: string
+  title: string
+  price: string
+  sku?: string
+  inventory_quantity?: number
+  available: boolean
 }
 
 export interface ShopifyCustomer {

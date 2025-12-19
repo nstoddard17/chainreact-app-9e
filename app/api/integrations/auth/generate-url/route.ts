@@ -906,17 +906,23 @@ function generateShopifyAuthUrl(state: string, shop: string): string {
 
   const redirectUri = `${baseUrl}/api/integrations/shopify/callback`
 
+  // Get scopes from oauthConfig - this includes all required scopes including fulfillment
+  const { OAUTH_PROVIDERS } = require("@/lib/integrations/oauthConfig")
+  const shopifyConfig = OAUTH_PROVIDERS.shopify
+  const scopeString = shopifyConfig?.scope || "read_products,write_products,read_orders,write_orders,read_customers,write_customers,read_inventory,write_inventory"
+
   logger.debug('🛍️ Shopify OAuth URL Generation:')
   logger.debug('  - Client ID:', clientId ? `${clientId.substring(0, 10)}...` : 'NOT SET')
   logger.debug('  - Base URL:', baseUrl)
   logger.debug('  - Redirect URI:', redirectUri)
   logger.debug('  - Shop Domain:', shopDomain)
+  logger.debug('  - Scopes:', scopeString)
 
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "read_products write_products read_orders write_orders read_customers write_customers read_inventory write_inventory",
+    scope: scopeString,
     state,
     // Note: Shopify doesn't support a 'prompt' parameter like other OAuth providers
     // Users must uninstall the app from Shopify admin to see the consent screen again

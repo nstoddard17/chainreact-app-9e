@@ -221,6 +221,7 @@ export async function POST(request: Request) {
     // If no folder_id is provided, use the user's default folder
     let targetFolderId = folder_id
     if (!targetFolderId) {
+      // First, ensure the user has a default folder (create if doesn't exist)
       const { data: defaultFolder } = await supabase
         .from("workflow_folders")
         .select("id")
@@ -228,7 +229,33 @@ export async function POST(request: Request) {
         .eq("is_default", true)
         .single()
 
-      targetFolderId = defaultFolder?.id || null
+      if (defaultFolder) {
+        targetFolderId = defaultFolder.id
+      } else {
+        // No default folder exists, create one using the database function
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', user.id)
+          .single()
+
+        const userEmail = profile?.email || user.email || 'User'
+
+        const { data: newFolderId, error: folderError } = await supabase.rpc(
+          'create_default_workflow_folder_for_user',
+          {
+            user_id_param: user.id,
+            user_email: userEmail
+          }
+        )
+
+        if (!folderError && newFolderId) {
+          targetFolderId = newFolderId
+        } else {
+          logger.warn('[API /api/workflows] Failed to create default folder, using NULL', folderError)
+          targetFolderId = null
+        }
+      }
     }
 
     // Insert workflow with workspace context

@@ -46,85 +46,68 @@ export async function stripeUpdateCustomer(
       body.invoice_prefix = context.dataFlowManager.resolveVariable(config.invoice_prefix)
     }
 
-    // Billing address
-    const address: any = {}
+    // Billing address - use bracket notation for URLSearchParams
     if (config.address_line1) {
-      address.line1 = context.dataFlowManager.resolveVariable(config.address_line1)
+      body['address[line1]'] = context.dataFlowManager.resolveVariable(config.address_line1)
     }
     if (config.address_line2) {
-      address.line2 = context.dataFlowManager.resolveVariable(config.address_line2)
+      body['address[line2]'] = context.dataFlowManager.resolveVariable(config.address_line2)
     }
     if (config.address_city) {
-      address.city = context.dataFlowManager.resolveVariable(config.address_city)
+      body['address[city]'] = context.dataFlowManager.resolveVariable(config.address_city)
     }
     if (config.address_state) {
-      address.state = context.dataFlowManager.resolveVariable(config.address_state)
+      body['address[state]'] = context.dataFlowManager.resolveVariable(config.address_state)
     }
     if (config.address_postal_code) {
-      address.postal_code = context.dataFlowManager.resolveVariable(config.address_postal_code)
+      body['address[postal_code]'] = context.dataFlowManager.resolveVariable(config.address_postal_code)
     }
     if (config.address_country) {
-      address.country = context.dataFlowManager.resolveVariable(config.address_country)
-    }
-    if (Object.keys(address).length > 0) {
-      body.address = address
+      body['address[country]'] = context.dataFlowManager.resolveVariable(config.address_country)
     }
 
-    // Shipping address
-    const shipping: any = {}
-    if (config.shipping_name || config.shipping_phone ||
-        config.shipping_address_line1 || config.shipping_address_city) {
-      if (config.shipping_name) {
-        shipping.name = context.dataFlowManager.resolveVariable(config.shipping_name)
-      }
-      if (config.shipping_phone) {
-        shipping.phone = context.dataFlowManager.resolveVariable(config.shipping_phone)
-      }
-
-      const shippingAddress: any = {}
-      if (config.shipping_address_line1) {
-        shippingAddress.line1 = context.dataFlowManager.resolveVariable(config.shipping_address_line1)
-      }
-      if (config.shipping_address_line2) {
-        shippingAddress.line2 = context.dataFlowManager.resolveVariable(config.shipping_address_line2)
-      }
-      if (config.shipping_address_city) {
-        shippingAddress.city = context.dataFlowManager.resolveVariable(config.shipping_address_city)
-      }
-      if (config.shipping_address_state) {
-        shippingAddress.state = context.dataFlowManager.resolveVariable(config.shipping_address_state)
-      }
-      if (config.shipping_address_postal_code) {
-        shippingAddress.postal_code = context.dataFlowManager.resolveVariable(config.shipping_address_postal_code)
-      }
-      if (config.shipping_address_country) {
-        shippingAddress.country = context.dataFlowManager.resolveVariable(config.shipping_address_country)
-      }
-      if (Object.keys(shippingAddress).length > 0) {
-        shipping.address = shippingAddress
-      }
-
-      if (Object.keys(shipping).length > 0) {
-        body.shipping = shipping
-      }
+    // Shipping address - use bracket notation for URLSearchParams
+    if (config.shipping_name) {
+      body['shipping[name]'] = context.dataFlowManager.resolveVariable(config.shipping_name)
+    }
+    if (config.shipping_phone) {
+      body['shipping[phone]'] = context.dataFlowManager.resolveVariable(config.shipping_phone)
+    }
+    if (config.shipping_address_line1) {
+      body['shipping[address][line1]'] = context.dataFlowManager.resolveVariable(config.shipping_address_line1)
+    }
+    if (config.shipping_address_line2) {
+      body['shipping[address][line2]'] = context.dataFlowManager.resolveVariable(config.shipping_address_line2)
+    }
+    if (config.shipping_address_city) {
+      body['shipping[address][city]'] = context.dataFlowManager.resolveVariable(config.shipping_address_city)
+    }
+    if (config.shipping_address_state) {
+      body['shipping[address][state]'] = context.dataFlowManager.resolveVariable(config.shipping_address_state)
+    }
+    if (config.shipping_address_postal_code) {
+      body['shipping[address][postal_code]'] = context.dataFlowManager.resolveVariable(config.shipping_address_postal_code)
+    }
+    if (config.shipping_address_country) {
+      body['shipping[address][country]'] = context.dataFlowManager.resolveVariable(config.shipping_address_country)
     }
 
-    // Tax & compliance
+    // Tax & compliance - use bracket notation for arrays
     if (config.tax_id_type && config.tax_id_value) {
-      body.tax_id_data = [{
-        type: context.dataFlowManager.resolveVariable(config.tax_id_type),
-        value: context.dataFlowManager.resolveVariable(config.tax_id_value)
-      }]
+      body['tax_id_data[0][type]'] = context.dataFlowManager.resolveVariable(config.tax_id_type)
+      body['tax_id_data[0][value]'] = context.dataFlowManager.resolveVariable(config.tax_id_value)
     }
     if (config.tax_exempt) {
       body.tax_exempt = context.dataFlowManager.resolveVariable(config.tax_exempt)
     }
 
-    // Preferences
+    // Preferences - use bracket notation for arrays
     if (config.preferred_locales) {
       const locales = context.dataFlowManager.resolveVariable(config.preferred_locales)
       if (Array.isArray(locales)) {
-        body.preferred_locales = locales
+        locales.forEach((locale, index) => {
+          body[`preferred_locales[${index}]`] = locale
+        })
       }
     }
 
@@ -139,44 +122,54 @@ export async function stripeUpdateCustomer(
       body.promotion_code = context.dataFlowManager.resolveVariable(config.promotion_code)
     }
 
-    // Metadata
+    // Metadata - use bracket notation for nested objects
     if (config.metadata) {
       const metadata = context.dataFlowManager.resolveVariable(config.metadata)
-      if (typeof metadata === 'object') {
-        body.metadata = metadata
-      } else if (typeof metadata === 'string') {
+      let metadataObj: any = metadata
+
+      if (typeof metadata === 'string') {
         try {
-          body.metadata = JSON.parse(metadata)
+          metadataObj = JSON.parse(metadata)
         } catch (e) {
           logger.error('[Stripe Update Customer] Failed to parse metadata JSON', { metadata })
+          metadataObj = null
         }
+      }
+
+      if (metadataObj && typeof metadataObj === 'object') {
+        Object.keys(metadataObj).forEach(key => {
+          body[`metadata[${key}]`] = metadataObj[key]
+        })
       }
     }
 
-    // Invoice settings
-    const invoiceSettings: any = {}
+    // Invoice settings - use bracket notation
     if (config.invoice_settings_default_payment_method) {
-      invoiceSettings.default_payment_method = context.dataFlowManager.resolveVariable(
+      body['invoice_settings[default_payment_method]'] = context.dataFlowManager.resolveVariable(
         config.invoice_settings_default_payment_method
       )
     }
     if (config.invoice_settings_custom_fields) {
       const customFields = context.dataFlowManager.resolveVariable(config.invoice_settings_custom_fields)
+      let fieldsArray: any[] = []
+
       if (Array.isArray(customFields)) {
-        invoiceSettings.custom_fields = customFields
+        fieldsArray = customFields
       } else if (typeof customFields === 'string') {
         try {
-          invoiceSettings.custom_fields = JSON.parse(customFields)
+          fieldsArray = JSON.parse(customFields)
         } catch (e) {
           logger.error('[Stripe Update Customer] Failed to parse invoice custom fields', { customFields })
         }
       }
+
+      fieldsArray.forEach((field, index) => {
+        if (field.name) body[`invoice_settings[custom_fields][${index}][name]`] = field.name
+        if (field.value) body[`invoice_settings[custom_fields][${index}][value]`] = field.value
+      })
     }
     if (config.invoice_settings_footer) {
-      invoiceSettings.footer = context.dataFlowManager.resolveVariable(config.invoice_settings_footer)
-    }
-    if (Object.keys(invoiceSettings).length > 0) {
-      body.invoice_settings = invoiceSettings
+      body['invoice_settings[footer]'] = context.dataFlowManager.resolveVariable(config.invoice_settings_footer)
     }
 
     // Make API call to update customer
@@ -191,7 +184,21 @@ export async function stripeUpdateCustomer(
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Stripe API error: ${response.status} - ${errorText}`)
+      let errorMessage = `Stripe API error: ${response.status}`
+
+      // Try to parse Stripe's error JSON to get the user-friendly message
+      try {
+        const errorData = JSON.parse(errorText)
+        if (errorData?.error?.message) {
+          errorMessage = errorData.error.message
+        } else {
+          errorMessage += ` - ${errorText}`
+        }
+      } catch (e) {
+        errorMessage += ` - ${errorText}`
+      }
+
+      throw new Error(errorMessage)
     }
 
     const customer = await response.json()

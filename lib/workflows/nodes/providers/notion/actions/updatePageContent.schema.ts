@@ -74,7 +74,9 @@ export const updatePageContentActionSchema: NodeComponent = {
       rows: 10,
       placeholder: "Enter new content...",
       description: "The new content for this block. Formatting depends on block type.",
-      tooltip: "Note: You cannot change the block type, only update its content. To change type, delete the block and create a new one."
+      tooltip: "Note: You cannot change the block type, only update its content. To change type, delete the block and create a new one.",
+      supportsVariables: true,
+      hasConnectButton: true
     },
     {
       name: "color",

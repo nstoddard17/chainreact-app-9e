@@ -500,6 +500,32 @@ export const OAUTH_PROVIDERS: Record<string, OAuthProviderConfig> = {
     accessTokenExpiryBuffer: 30,
     sendRedirectUriWithRefresh: true,
     redirectUriPath: "/api/integrations/shopify/callback",
+    scope: [
+      // Read scopes
+      "read_checkouts",
+      "read_customers",
+      "read_inventory",
+      "read_locations",
+      "read_orders",
+      "read_products",
+      "read_fulfillments",
+      "read_fulfillment_orders",
+      "read_assigned_fulfillment_orders",
+      "read_merchant_managed_fulfillment_orders",
+      "read_third_party_fulfillment_orders",
+      // Write scopes
+      "write_checkouts",
+      "write_customers",
+      "write_inventory",
+      "write_locations",
+      "write_orders",
+      "write_products",
+      "write_fulfillments",
+      "write_fulfillment_orders",
+      "write_assigned_fulfillment_orders",
+      "write_merchant_managed_fulfillment_orders",
+      "write_third_party_fulfillment_orders"
+    ].join(","),
   },
   stripe: {
     id: "stripe",

@@ -110,10 +110,14 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "payment_method",
         label: "Default Payment Method (Optional)",
-        type: "text",
+        type: "combobox",
+        dynamic: "stripe_payment_methods",
         required: false,
-        placeholder: "pm_1234567890",
-        description: "ID of a PaymentMethod to attach as the default payment method"
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a payment method or enter ID...",
+        description: "Select a payment method from the dropdown or manually enter a payment method ID",
+        allowManualInput: true
       },
       {
         name: "invoice_prefix",
@@ -121,7 +125,7 @@ export const stripeNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "CUST",
-        description: "Custom prefix for invoice numbers (e.g., 'CUST' results in 'CUST-0001')"
+        description: "Custom prefix for invoice numbers. Must be 1-12 uppercase letters or numbers (e.g., 'CUST', 'INV2024', 'A1B2')"
       },
 
       // Billing Address
@@ -552,7 +556,7 @@ export const stripeNodes: NodeComponent[] = [
         type: "text",
         required: false,
         placeholder: "CUST",
-        description: "Custom prefix for invoice numbers",
+        description: "Custom prefix for invoice numbers. Must be 1-12 uppercase letters or numbers (e.g., 'CUST', 'INV2024', 'A1B2')",
         dependsOn: "customerId",
         hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
       },
@@ -1268,8 +1272,39 @@ export const stripeNodes: NodeComponent[] = [
         placeholder: "Search for a customer...",
         description: "Select the customer for this subscription"
       },
-      { name: "priceId", label: "Price ID", type: "text", required: true, placeholder: "price_1234567890", description: "Stripe Price ID (e.g., price_1234567890)" },
-      { name: "trialPeriodDays", label: "Trial Period (days)", type: "number", required: false, placeholder: "7" }
+      {
+        name: "priceId",
+        label: "Price",
+        type: "combobox",
+        dynamic: "stripe_prices",
+        required: true,
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a price...",
+        description: "Select a price from the dropdown (shows product name and price)"
+      },
+      {
+        name: "trialPeriodDays",
+        label: "Trial Period (days)",
+        type: "number",
+        required: false,
+        placeholder: "7",
+        description: "Number of days for the trial period",
+        dependsOn: "priceId",
+        hidden: { $deps: ["priceId"], $condition: { priceId: { $exists: false } } }
+      },
+      {
+        name: "metadata",
+        label: "Custom Metadata (Optional)",
+        type: "object",
+        required: false,
+        placeholder: '{"subscription_source": "workflow", "plan_type": "premium"}',
+        description: "Set of key-value pairs for storing additional information",
+        supportsAI: true,
+        advanced: true,
+        dependsOn: "priceId",
+        hidden: { $deps: ["priceId"], $condition: { priceId: { $exists: false } } }
+      }
     ],
     outputSchema: [
       { name: "subscriptionId", label: "Subscription ID", type: "string", description: "The unique ID of the subscription (sub_...)" },
@@ -1511,12 +1546,16 @@ export const stripeNodes: NodeComponent[] = [
       },
       {
         name: "priceId",
-        label: "New Price ID",
-        type: "text",
+        label: "New Price",
+        type: "combobox",
+        dynamic: "stripe_prices",
         required: false,
-        placeholder: "price_1234567890",
-        description: "Change to a different price/plan",
-        tooltip: "Leave empty to keep current plan"
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a price...",
+        description: "Change to a different price/plan (leave empty to keep current plan)",
+        dependsOn: "subscriptionId",
+        hidden: { $deps: ["subscriptionId"], $condition: { subscriptionId: { $exists: false } } }
       },
       {
         name: "quantity",

@@ -44,6 +44,18 @@ export interface StripePaymentIntent {
   created?: number
 }
 
+export interface StripePrice {
+  id: string
+  value: string
+  label: string
+  productName: string
+  amount: number | null
+  currency: string
+  interval?: string
+  intervalCount?: number
+  type: 'one_time' | 'recurring'
+}
+
 export type StripeDataHandler<T> = (
   integration: StripeIntegration,
   options?: any
