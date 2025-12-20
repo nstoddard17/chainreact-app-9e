@@ -19,6 +19,18 @@ export const MOCK_TRIGGER_DATA: Record<string, MockTriggerData> = {
     }
   },
 
+  // Manual trigger (alternate type name)
+  'manual_trigger': {
+    type: 'manual_trigger',
+    description: 'Manual workflow trigger - starts immediately',
+    data: {
+      triggeredAt: new Date().toISOString(),
+      triggeredBy: 'manual',
+      workflowId: 'current_workflow',
+      source: 'test_run'
+    }
+  },
+
   // Webhook trigger
   'webhook': {
     type: 'webhook',

@@ -637,8 +637,17 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   }
 
   // Execute the handler with the processed parameters
+  // Build context for actions that need workflowId, nodeId, executionId (like HITL)
+  const executionContext = {
+    workflowId,
+    nodeId: node.id,
+    executionId: input?.executionId,
+    testMode,
+    executionMode
+  }
+
   try {
-    const result = await handler({ config: processedConfig, userId, input })
+    const result = await handler({ config: processedConfig, userId, input, context: executionContext })
     const executionTime = Date.now() - startTime
 
     // CRITICAL: Check if the action actually succeeded

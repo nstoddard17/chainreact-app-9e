@@ -100,6 +100,7 @@ export function AskHumanConfiguration(props: DiscordConfigurationProps) {
 
   const handleSubmit = useCallback(async (formValues: Record<string, any>) => {
     const { guildId, channelId, ...restValues } = formValues
+    console.log('🔧 [AskHumanConfig] handleSubmit received:', { guildId, channelId, restValues, hasValidationState: !!restValues.__validationState })
     await onSubmit({
       ...restValues,
       discordGuildId: guildId,

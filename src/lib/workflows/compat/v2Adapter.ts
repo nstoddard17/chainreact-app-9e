@@ -187,8 +187,8 @@ export function oldConnectToEdge(
   }
 }
 
-export function addNodeEdit(type: string, position?: { x: number; y: number }): { op: "addNode"; node: FlowNode } {
-  const nodeId = generateId(type.replace(/\W+/g, "-") || "node")
+export function addNodeEdit(type: string, position?: { x: number; y: number }, nodeId?: string): { op: "addNode"; node: FlowNode } {
+  const id = nodeId ?? generateId(type.replace(/\W+/g, "-") || "node")
 
   // Look up node definition from ALL_NODE_COMPONENTS
   const nodeDefinition = ALL_NODE_COMPONENTS.find(n => n.type === type)
@@ -199,13 +199,14 @@ export function addNodeEdit(type: string, position?: { x: number; y: number }): 
   const icon = nodeDefinition?.icon
   const category = nodeDefinition?.category
 
-  const finalPosition = position ?? { x: 160, y: 120 }
-  console.log(`📍 [addNodeEdit] Creating node ${nodeId} with position:`, finalPosition)
+  // Default to LINEAR_STACK_X (400) to keep nodes aligned vertically
+  const finalPosition = position ?? { x: 400, y: 120 }
+  console.log(`📍 [addNodeEdit] Creating node ${id} with position:`, finalPosition)
 
   return {
     op: "addNode",
     node: {
-      id: nodeId,
+      id,
       type,
       label: title,
       description: description,

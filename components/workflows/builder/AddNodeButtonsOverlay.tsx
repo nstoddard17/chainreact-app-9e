@@ -44,13 +44,15 @@ export function AddNodeButtonsOverlay({ nodes, onAddNode }: AddNodeButtonsOverla
     }
 
     // Add button after the last node with a line extending down
+    // Use same distance as between nodes (midpoint = 90px if nodes are 180px apart)
     if (sortedNodes.length > 0) {
       const lastNode = sortedNodes[sortedNodes.length - 1]
+      const buttonOffset = 90 // Half of 180px vertical spacing - matches midpoint between nodes
       positions.push({
         id: `add-after-${lastNode.id}`,
         position: {
           x: lastNode.position.x,
-          y: lastNode.position.y + 130, // 90px spacing + 40px line
+          y: lastNode.position.y + buttonOffset, // Same visual distance as between nodes
         },
         afterNodeId: lastNode.id,
         showLine: true, // Show line for last button
@@ -86,13 +88,13 @@ export function AddNodeButtonsOverlay({ nodes, onAddNode }: AddNodeButtonsOverla
                 transform: 'translateX(-50%)',
               }}
               width="2"
-              height="40"
+              height="50"
             >
               <line
                 x1="1"
                 y1="0"
                 x2="1"
-                y2="40"
+                y2="50"
                 stroke="rgb(156 163 175)"
                 strokeWidth="2"
                 strokeDasharray="5,5"

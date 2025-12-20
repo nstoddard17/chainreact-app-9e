@@ -3,6 +3,8 @@ import { z } from "zod"
 
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
 import { getRouteClient, getFlowRepository, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
+import { triggerLifecycleManager } from "@/lib/triggers/TriggerLifecycleManager"
+import { logger } from "@/lib/utils/logger"
 
 const ApplyEditsSchema = z.object({
   flow: FlowSchema,
@@ -95,6 +97,26 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       flow,
       version,
     })
+
+    // Clean up orphaned trigger resources for nodes that were removed
+    // This runs after revision is saved to ensure we don't lose trigger data on failed saves
+    try {
+      const currentNodeIds = flow.nodes?.map((node: any) => node.id) || []
+      const cleanupResult = await triggerLifecycleManager.cleanupRemovedTriggerNodes(
+        flowId,
+        user.id,
+        currentNodeIds
+      )
+      if (cleanupResult.deletedCount > 0) {
+        logger.debug(`[apply-edits] Cleaned up ${cleanupResult.deletedCount} orphaned trigger resources for workflow ${flowId}`)
+      }
+      if (cleanupResult.errors.length > 0) {
+        logger.warn(`[apply-edits] Trigger cleanup had errors: ${cleanupResult.errors.join(', ')}`)
+      }
+    } catch (cleanupError) {
+      // Don't fail the entire request if cleanup fails - log and continue
+      logger.error('[apply-edits] Failed to cleanup orphaned triggers:', cleanupError)
+    }
 
     return NextResponse.json({
       ok: true,

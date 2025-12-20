@@ -109,7 +109,7 @@ export async function executeAIAgentWithChains(
         parallelExecution: config.parallelExecution || false
       },
       metadata: {
-        executionId: `exec_${Date.now()}`,
+        executionId: crypto.randomUUID(),
         workflowId: workflowContext?.workflowId || 'unknown',
         userId,
         timestamp: new Date().toISOString(),

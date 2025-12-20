@@ -56,7 +56,11 @@ export async function register() {
           const config = checkDiscordBotConfig()
 
           if (config.isConfigured) {
-            logger.debug('🤖 Discord bot configured, initializing gateway connection in background...')
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+            console.log('🤖 DISCORD BOT: Initializing Gateway connection...')
+            console.log('   Check logs below for connection status.')
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+            logger.info('🤖 Discord bot configured, initializing gateway connection in background...')
 
             // Mark as initialized BEFORE attempting connection
             isDiscordInitialized = true
@@ -68,12 +72,19 @@ export async function register() {
             // Don't await - let it complete in the background
             initializeDiscordGateway()
               .then(() => {
-                logger.debug('✅ Discord bot gateway connection initialized')
+                console.log('✅ Discord bot gateway connection process completed')
               })
               .catch((error) => {
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+                console.log('⚠️ DISCORD BOT: Connection failed!')
+                console.log(`   Error: ${error.message}`)
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
                 logger.warn('⚠️ Discord bot connection failed (non-critical):', error.message)
                 // Don't reset the flag - we don't want to retry on every request
               })
+          } else {
+            console.log('⚠️ DISCORD BOT: Not configured, skipping Gateway connection')
+            console.log('   Missing env vars:', config.missingVars.join(', '))
           }
         } catch (error) {
           logger.warn('⚠️ Discord bot initialization skipped (non-critical):', error)

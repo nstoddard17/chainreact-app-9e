@@ -1194,6 +1194,7 @@ export function GenericConfiguration({
 
       {hasTabBasedFields ? (
         // New tab-based rendering
+        // Using forceMount to prevent content unmounting on tab switch, which preserves form state
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="basic">Basic</TabsTrigger>
@@ -1201,7 +1202,7 @@ export function GenericConfiguration({
             <TabsTrigger value="memory">Memory</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="basic" className="space-y-3">
+          <TabsContent value="basic" className="space-y-3" forceMount>
             {baseFields.length > 0 ? (
               renderFields(baseFields)
             ) : (
@@ -1209,7 +1210,7 @@ export function GenericConfiguration({
             )}
           </TabsContent>
 
-          <TabsContent value="advanced" className="space-y-3">
+          <TabsContent value="advanced" className="space-y-3" forceMount>
             {advancedFields.length > 0 ? (
               renderFields(advancedFields)
             ) : (
@@ -1217,7 +1218,7 @@ export function GenericConfiguration({
             )}
           </TabsContent>
 
-          <TabsContent value="memory" className="space-y-3">
+          <TabsContent value="memory" className="space-y-3" forceMount>
             {memoryFields.length > 0 ? (
               renderFields(memoryFields)
             ) : (

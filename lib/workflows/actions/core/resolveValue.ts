@@ -425,6 +425,18 @@ export function resolveValue(
   // Check if there are any templates embedded in the string
   const embeddedTemplateRegex = /{{([^}]+)}}/g
   if (embeddedTemplateRegex.test(value)) {
+    // Helper function to stringify objects when interpolating into strings
+    const stringifyForEmbedding = (val: any): string => {
+      if (val === null || val === undefined) {
+        return ''
+      }
+      if (typeof val === 'object') {
+        // JSON.stringify with formatting for readability
+        return JSON.stringify(val, null, 2)
+      }
+      return String(val)
+    }
+
     // Replace all embedded templates
     let resolvedValue = value
     resolvedValue = resolvedValue.replace(/{{([^}]+)}}/g, (match, key) => {
@@ -473,15 +485,15 @@ export function resolveValue(
               }
               
               const actualField = fieldMap[fieldName] || fieldName.toLowerCase()
-              
+
               if (firstMessage[actualField] !== undefined) {
-                return firstMessage[actualField]
+                return stringifyForEmbedding(firstMessage[actualField])
               }
             }
           }
         }
       }
-      
+
       // Handle other template formats (data.field, trigger.field, node.field, etc.)
       const parts = key.split(".")
 
@@ -489,7 +501,7 @@ export function resolveValue(
         const dataKey = parts.slice(1).join(".")
         const resolvedData = dataKey.split(".").reduce((acc: any, part: any) => acc && acc[part], input)
         if (resolvedData !== undefined) {
-          return resolvedData
+          return stringifyForEmbedding(resolvedData)
         }
       }
 
@@ -500,7 +512,7 @@ export function resolveValue(
         if (input && input.trigger) {
           const triggerValue = triggerPath.reduce((acc: any, part: any) => acc && acc[part], input.trigger)
           if (triggerValue !== undefined) {
-            return triggerValue
+            return stringifyForEmbedding(triggerValue)
           }
         }
 
@@ -508,7 +520,7 @@ export function resolveValue(
         if (mockTriggerOutputs && triggerPath.length > 0) {
           const triggerKey = triggerPath[0]
           if (mockTriggerOutputs[triggerKey]) {
-            return mockTriggerOutputs[triggerKey].value ?? mockTriggerOutputs[triggerKey].example ?? mockTriggerOutputs[triggerKey]
+            return stringifyForEmbedding(mockTriggerOutputs[triggerKey].value ?? mockTriggerOutputs[triggerKey].example ?? mockTriggerOutputs[triggerKey])
           }
         }
       }
@@ -528,7 +540,7 @@ export function resolveValue(
           }, nodeData)
 
           if (fieldValue !== undefined) {
-            return fieldValue
+            return stringifyForEmbedding(fieldValue)
           }
 
           // Also check if the field exists in the node's output property
@@ -538,7 +550,7 @@ export function resolveValue(
             }, nodeData.output)
 
             if (outputFieldValue !== undefined) {
-              return outputFieldValue
+              return stringifyForEmbedding(outputFieldValue)
             }
           }
 
@@ -549,7 +561,7 @@ export function resolveValue(
             }, nodeData.output.output)
 
             if (doubleNestedValue !== undefined) {
-              return doubleNestedValue
+              return stringifyForEmbedding(doubleNestedValue)
             }
           }
         } else {
@@ -571,7 +583,7 @@ export function resolveValue(
 
                   if (dataFieldValue !== undefined) {
                     logger.debug(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match from data`)
-                    return dataFieldValue
+                    return stringifyForEmbedding(dataFieldValue)
                   }
                 }
 
@@ -582,7 +594,7 @@ export function resolveValue(
 
                 if (fieldValue !== undefined) {
                   logger.debug(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match`)
-                  return fieldValue
+                  return stringifyForEmbedding(fieldValue)
                 }
 
                 // Try nodeData.output (but skip if it's a circular reference)
@@ -592,7 +604,7 @@ export function resolveValue(
                   }, nodeData.output)
                   if (outputFieldValue !== undefined) {
                     logger.debug(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match from output`)
-                    return outputFieldValue
+                    return stringifyForEmbedding(outputFieldValue)
                   }
                 }
               }
@@ -604,7 +616,7 @@ export function resolveValue(
       // Try direct field access as fallback
       const directValue = parts.reduce((acc: any, part: any) => acc && acc[part], input)
       if (directValue !== undefined) {
-        return directValue
+        return stringifyForEmbedding(directValue)
       }
 
       // PREFIX MATCHING for single-part keys (e.g., {{ai_agent}} -> ai_agent-xxxxx)
@@ -624,16 +636,16 @@ export function resolveValue(
             // First check data.output (AI agent stores actual text here)
             if (nodeData.data?.output !== undefined && nodeData.data.output !== '[Circular Reference]') {
               logger.debug(`✅ [EMBEDDED] Found output from data.output via prefix match: "${prefixMatchKey}"`)
-              return nodeData.data.output
+              return stringifyForEmbedding(nodeData.data.output)
             }
             // Fall back to top-level output if it's not a circular reference marker
             if (nodeData.output !== undefined && nodeData.output !== '[Circular Reference]') {
               logger.debug(`✅ [EMBEDDED] Found output from prefix match: "${prefixMatchKey}"`)
-              return nodeData.output
+              return stringifyForEmbedding(nodeData.output)
             }
-            return nodeData
+            return stringifyForEmbedding(nodeData)
           }
-          return nodeData
+          return stringifyForEmbedding(nodeData)
         }
       }
 

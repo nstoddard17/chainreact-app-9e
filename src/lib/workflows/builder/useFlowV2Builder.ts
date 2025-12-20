@@ -735,10 +735,13 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             ...node,
             position: alignedPosition,
             positionAbsolute: alignedPosition,
-            // Preserve existing node state and className to prevent resetting from 'passed' to 'ready'
+            // Preserve existing node state, className, validationState, needsSetup, and config to prevent resetting
             data: {
               ...node.data,
               ...(existing.data?.state ? { state: existing.data.state } : {}),
+              ...(existing.data?.validationState ? { validationState: existing.data.validationState } : {}),
+              ...(existing.data?.needsSetup !== undefined ? { needsSetup: existing.data.needsSetup } : {}),
+              ...(existing.data?.config ? { config: existing.data.config } : {}),
             },
             ...(existing.className ? { className: existing.className } : {}),
           }
