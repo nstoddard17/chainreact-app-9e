@@ -684,38 +684,46 @@ export async function processEnhancedConversation(
       systemPromptLength: systemPrompt.length
     })
 
-    // Define available tools
+    // Define available tools with dynamic variable extraction
     const tools: OpenAI.Chat.ChatCompletionTool[] = [
       {
         type: 'function',
         function: {
           name: 'continue_workflow',
-          description: 'Call this when the user approves or is ready to continue the workflow. ALWAYS extract the decision and any notes from the conversation.',
+          description: `Call this when the user approves or is ready to continue the workflow.
+
+IMPORTANT: Intelligently extract ALL relevant data from the conversation that would be useful for subsequent workflow steps. Analyze the context to determine what variables are needed.
+
+Common extraction patterns:
+- Email workflows: extract emailBody, emailSubject, recipientEmail, senderName
+- Task workflows: extract taskTitle, taskDescription, assignee, dueDate, priority
+- Approval workflows: extract decision, approverName, approvalNotes, conditions
+- Content workflows: extract content, title, author, publishDate
+- Meeting workflows: extract meetingTitle, attendees, meetingDate, meetingTime, agenda
+
+Always include:
+- decision: The user's final decision (approved/rejected/modified/continued)
+- summary: Brief summary of what was discussed and decided
+
+Add any other relevant variables based on what was discussed. Use camelCase for variable names.`,
           parameters: {
             type: 'object',
             properties: {
               extractedVariables: {
                 type: 'object',
-                description: 'Variables extracted from the conversation. MUST include decision and notes fields.',
+                description: 'Dynamically extracted variables from the conversation. Include ALL relevant data discussed. Always include "decision" field. Add context-specific fields like emailBody, recipientEmail, taskTitle, dueDate, etc. based on what was discussed.',
+                additionalProperties: true,  // Allow any properties
                 properties: {
                   decision: {
                     type: 'string',
-                    description: 'The user\'s decision: "approved", "rejected", "pending", or "continued"'
-                  },
-                  notes: {
-                    type: 'string',
-                    description: 'Any additional notes, conditions, or context the user provided'
-                  },
-                  reason: {
-                    type: 'string',
-                    description: 'The reason for the decision if provided'
+                    description: 'The user\'s decision: "approved", "rejected", "modified", or "continued"'
                   }
                 },
-                required: ['decision', 'notes']
+                required: ['decision']
               },
               summary: {
                 type: 'string',
-                description: 'Brief summary of what was decided'
+                description: 'Brief summary of what was decided and any key details'
               }
             },
             required: ['summary', 'extractedVariables']

@@ -580,7 +580,69 @@ export async function POST(request: NextRequest) {
           messagesCount: conversationOutput.messagesCount,
           duration: conversationOutput.duration,
           extractedVariables: conversationOutput.extractedVariables,
-          conversationHistory: conversationOutput.conversationHistory
+          conversationHistory: conversationOutput.conversationHistory,
+          // Also include extracted variables at top level for easy access
+          ...(conversationOutput.extractedVariables || {})
+        }
+
+        // Register HITL node metadata and output with DataFlowManager
+        // This enables variable resolution like {{hitl_conversation.recipientEmail}}
+        const pausedNode = nodes.find((n: any) => n.id === pausedNodeId)
+        if (pausedNode) {
+          // Register by node ID
+          dataFlowManager.setNodeMetadata(pausedNodeId, {
+            title: pausedNode.data?.title || 'Ask Human via Chat',
+            type: pausedNode.data?.type || 'hitl_conversation',
+            outputSchema: [
+              { name: 'status', label: 'Status', type: 'string' },
+              { name: 'conversationSummary', label: 'Conversation Summary', type: 'string' },
+              { name: 'messagesCount', label: 'Message Count', type: 'number' },
+              { name: 'duration', label: 'Duration', type: 'number' },
+              { name: 'extractedVariables', label: 'Extracted Variables', type: 'object' },
+              // Include dynamic extracted variables in schema
+              ...Object.keys(conversationOutput.extractedVariables || {}).map(key => ({
+                name: key,
+                label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1'),
+                type: 'string'
+              }))
+            ]
+          })
+          dataFlowManager.setNodeOutput(pausedNodeId, {
+            success: true,
+            data: hitlOutput,
+            metadata: {
+              timestamp: new Date(),
+              nodeType: 'hitl_conversation',
+              executionTime: conversationOutput.duration * 1000
+            }
+          })
+
+          // Also register by node type for {{hitl_conversation.field}} references
+          dataFlowManager.setNodeMetadata('hitl_conversation', {
+            title: 'Ask Human via Chat',
+            type: 'hitl_conversation',
+            outputSchema: [
+              { name: 'status', label: 'Status', type: 'string' },
+              { name: 'conversationSummary', label: 'Conversation Summary', type: 'string' },
+              { name: 'messagesCount', label: 'Message Count', type: 'number' },
+              { name: 'duration', label: 'Duration', type: 'number' },
+              { name: 'extractedVariables', label: 'Extracted Variables', type: 'object' },
+              ...Object.keys(conversationOutput.extractedVariables || {}).map(key => ({
+                name: key,
+                label: key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1'),
+                type: 'string'
+              }))
+            ]
+          })
+          dataFlowManager.setNodeOutput('hitl_conversation', {
+            success: true,
+            data: hitlOutput,
+            metadata: {
+              timestamp: new Date(),
+              nodeType: 'hitl_conversation',
+              executionTime: conversationOutput.duration * 1000
+            }
+          })
         }
 
         const executionContext = {
@@ -605,7 +667,8 @@ export async function POST(request: NextRequest) {
           preservedFromResume: !!resumeData.testMode,
           preservedFromExecution: !!execution.test_mode,
           hitlOutputKeys: Object.keys(hitlOutput),
-          dataKeys: Object.keys(executionContext.data)
+          dataKeys: Object.keys(executionContext.data),
+          dataFlowManagerNodeIds: Object.keys(dataFlowManager.getContext().nodeMetadata)
         })
 
         // Execute next nodes

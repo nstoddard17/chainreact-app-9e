@@ -5328,8 +5328,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             onAddNote={handleAddNote}
             onInit={(instance) => {
               reactFlowInstanceRef.current = instance
-              // Center view accounting for agent panel (Zapier-style)
-              setTimeout(() => {
+              // Center view accounting for agent panel - single calculation, no animation
+              // This eliminates the "adjust then adjust again" visual glitch
+              requestAnimationFrame(() => {
                 if (instance && builder?.nodes && builder.nodes.length > 0) {
                   const nodes = builder.nodes
 
@@ -5358,28 +5359,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
                   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
                   const availableWidth = viewportWidth - agentPanelWidth
 
-                  // Position nodes in center of available space (to the right of panel)
-                  const viewportCenterX = agentPanelWidth + (availableWidth / 2)
-                  const viewportCenterY = viewportHeight / 2
+                  // Calculate the center of the available canvas area (right of agent panel)
+                  const availableCenterX = agentPanelWidth + (availableWidth / 2)
+                  const availableCenterY = viewportHeight / 2
 
-                  instance.setCenter(nodesCenterX, nodesCenterY, {
-                    zoom: 1,
-                    duration: 400
-                  })
+                  // Calculate viewport position to center nodes in available space
+                  // viewport.x = screenX - (nodeX * zoom), so to put nodesCenterX at availableCenterX:
+                  const zoom = 1
+                  const viewportX = availableCenterX - (nodesCenterX * zoom)
+                  const viewportY = availableCenterY - (nodesCenterY * zoom)
 
-                  // Shift viewport to account for agent panel
-                  setTimeout(() => {
-                    const viewport = instance.getViewport()
-                    const shiftAmount = agentPanelWidth / 2
-
-                    instance.setViewport({
-                      x: viewport.x + shiftAmount,
-                      y: viewport.y,
-                      zoom: viewport.zoom
-                    }, { duration: 200 })
-                  }, 450)
+                  // Set viewport directly - no animation, instant positioning
+                  instance.setViewport({ x: viewportX, y: viewportY, zoom }, { duration: 0 })
                 }
-              }, 600)
+              })
             }}
             agentPanelWidth={agentPanelWidth}
             isAgentPanelOpen={agentOpen}

@@ -1029,6 +1029,16 @@ function ConfigurationForm({
 
     if (fieldsToLoad.length > 0) {
       logger.debug('🚀 [ConfigForm] Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
+
+      // Extra debug logging for Gmail
+      if (nodeInfo?.providerId === 'gmail') {
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        console.log('📧 [Gmail] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name))
+        console.log('   needsConnection:', needsConnection)
+        console.log('   nodeType:', nodeInfo?.type)
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      }
+
       hasLoadedOnMount.current = true; // Mark that we've loaded
       lastLoadedNodeTypeKeyRef.current = currentNodeTypeKey; // Track which node type we loaded for
 
@@ -1041,7 +1051,25 @@ function ConfigurationForm({
         }))
       ).catch(err => {
         logger.error('❌ [ConfigForm] Parallel load failed:', err);
+        // Extra error logging for Gmail
+        if (nodeInfo?.providerId === 'gmail') {
+          console.error('📧 [Gmail] Field loading FAILED:', err)
+        }
       });
+    } else if (nodeInfo?.providerId === 'gmail') {
+      // Debug why no fields are loading
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      console.log('⚠️ [Gmail] NO fields to load!')
+      console.log('   needsConnection:', needsConnection)
+      console.log('   nodeType:', nodeInfo?.type)
+      console.log('   hasLoadedOnMount:', hasLoadedOnMount.current)
+      console.log('   configSchema fields:', nodeInfo?.configSchema?.map((f: any) => ({
+        name: f.name,
+        dynamic: f.dynamic,
+        loadOnMount: f.loadOnMount,
+        dependsOn: f.dependsOn
+      })))
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     }
   }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection, reloadCounter]); // Track node identity changes, connection state, and reload trigger
 

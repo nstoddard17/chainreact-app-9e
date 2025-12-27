@@ -38,6 +38,10 @@ export async function POST(req: NextRequest) {
       'gmail_labels',
       'gmail_recipients',
       'gmail_signatures',
+      'gmail_from_addresses',
+      'gmail_recent_senders',
+      'gmail-contacts',
+      'gmail-recent-emails',
     ]);
 
     const teamsDataTypes = new Set([

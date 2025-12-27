@@ -17,7 +17,7 @@ export interface HITLConfig {
 
   // AI configuration
   systemPrompt?: string
-  extractVariables?: Record<string, string>
+  extractVariables?: Record<string, string> | string[]  // Array (new) or object (legacy)
 
   // Timeout configuration
   timeoutPreset?: string  // Preset timeout option ("0", "15", "30", "60", "120", "240", "480", "1440", "custom")

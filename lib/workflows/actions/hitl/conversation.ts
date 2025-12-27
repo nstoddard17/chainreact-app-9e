@@ -29,9 +29,39 @@ const openai = new OpenAI({
 export function generateSystemPrompt(config: HITLConfig, contextData: any): string {
   const basePrompt = config.systemPrompt || `You are a helpful workflow assistant. Help the user review and refine this workflow step before continuing.`
 
-  const extractionInstructions = config.extractVariables
-    ? `\n\nWhen the user is ready to continue, you MUST extract the following information:\n${JSON.stringify(config.extractVariables, null, 2)}`
-    : ''
+  // Handle extraction instructions - support user-defined variables or smart auto-extraction
+  let extractionInstructions = ''
+  const hasUserDefinedVariables = config.extractVariables &&
+    (Array.isArray(config.extractVariables) ? config.extractVariables.length > 0 : Object.keys(config.extractVariables).length > 0)
+
+  if (hasUserDefinedVariables) {
+    if (Array.isArray(config.extractVariables)) {
+      // New format: array of variable names like ["decision", "notes", "approvedBudget"]
+      extractionInstructions = `\n\nWhen the user is ready to continue, you MUST extract these specific variables:\n${config.extractVariables.map(v => `- ${v}`).join('\n')}\n\nAlso extract any other relevant data discussed in the conversation.`
+    } else {
+      // Legacy format: object with descriptions like {"decision": "The user's final decision"}
+      extractionInstructions = `\n\nWhen the user is ready to continue, you MUST extract:\n${JSON.stringify(config.extractVariables, null, 2)}\n\nAlso extract any other relevant data discussed in the conversation.`
+    }
+  } else {
+    // Smart auto-extraction - AI determines what to extract based on context
+    extractionInstructions = `
+
+IMPORTANT - Smart Variable Extraction:
+When the user is ready to continue, you MUST intelligently extract ALL relevant data from our conversation.
+
+Analyze the context and extract appropriate variables. Common patterns:
+- For EMAIL discussions: emailBody, emailSubject, recipientEmail, recipientName, senderName, ccEmails
+- For TASK discussions: taskTitle, taskDescription, assignee, dueDate, priority, status
+- For APPROVAL discussions: decision, approverNotes, conditions, approvedAmount
+- For CONTENT discussions: content, title, author, category, tags, publishDate
+- For MEETING discussions: meetingTitle, attendees, meetingDate, meetingTime, location, agenda
+- For DATA discussions: extract the specific data fields discussed
+
+ALWAYS include:
+- decision: "approved", "rejected", "modified", or "continued"
+
+Use camelCase for all variable names. Extract everything that would be useful for the next workflow step.`
+  }
 
   const continuationSignals = config.continuationSignals || ['continue', 'proceed', 'go ahead', 'send it', 'looks good']
 
@@ -45,14 +75,13 @@ Your job:
 2. Answer questions about the data and context
 3. Accept suggestions and modifications
 4. When the user is satisfied, detect continuation signals
-5. Extract key decisions and changes to pass to the next workflow steps
+5. Extract ALL relevant data from the conversation to pass to the next workflow steps
 
 Continuation signals (any of these means the user wants to proceed):
 ${continuationSignals.map(s => `- "${s}"`).join('\n')}
-
 ${extractionInstructions}
 
-When you detect a continuation signal, call the continue_workflow function with the extracted variables and a brief summary of the conversation.
+When you detect a continuation signal, call the continue_workflow function with the extracted variables and a brief summary.
 `
 }
 

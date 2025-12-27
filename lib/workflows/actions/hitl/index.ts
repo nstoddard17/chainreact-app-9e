@@ -14,6 +14,7 @@ import { resolveValue } from '../core/resolveValue'
 import { generateInitialAssistantOpening, detectScenario, type ScenarioDescriptor } from './conversation'
 import { generateContextAwareMessage } from './enhancedConversation'
 import { buildNodeContext } from './nodeContext'
+import { getDownstreamRequiredVariables, formatVariablesForPrompt, type DownstreamVariable } from './downstreamVariables'
 
 /**
  * Create service role client for HITL database operations
@@ -448,13 +449,14 @@ async function loadAIMemory(
 }
 
 /**
- * Build AI system prompt with memory, knowledge base, and node context
+ * Build AI system prompt with memory, knowledge base, node context, and downstream variable requirements
  */
 function buildSystemPrompt(
   config: HITLConfig,
   aiMemory: any,
   knowledgeBase: string[],
-  nodeContext?: string
+  nodeContext?: string,
+  downstreamVariables?: DownstreamVariable[]
 ): string {
   let prompt = config.systemPrompt ||
     "You are a helpful workflow assistant. Help the user review and refine this workflow step. Answer questions about the data and accept modifications. When the user is satisfied, detect continuation signals like 'continue', 'proceed', 'go ahead', or 'send it'."
@@ -462,6 +464,12 @@ function buildSystemPrompt(
   // Add node context (available nodes and current workflow structure)
   if (nodeContext) {
     prompt += '\n\n' + nodeContext
+  }
+
+  // Add downstream variable extraction requirements
+  // This tells the AI exactly what variables to extract based on the next workflow step
+  if (downstreamVariables && downstreamVariables.length > 0) {
+    prompt += '\n\n' + formatVariablesForPrompt(downstreamVariables)
   }
 
   // Add memory context if available
@@ -554,8 +562,39 @@ export async function executeHITL(
       logger.warn('[HITL] Could not load node context', { error })
     }
 
-    // 5. Build system prompt with memory, knowledge, and node context
-    const enhancedSystemPrompt = buildSystemPrompt(config, aiMemory, knowledgeBase, nodeContext)
+    // 5. Detect downstream nodes and their required variables
+    // This tells the AI exactly what variables to extract based on the next workflow step
+    let downstreamVariables: DownstreamVariable[] = []
+    try {
+      // Load workflow to get nodes and edges
+      const { data: workflow, error: workflowError } = await supabase
+        .from('workflows')
+        .select('nodes, edges, connections')
+        .eq('id', context.workflowId)
+        .single()
+
+      if (!workflowError && workflow) {
+        const nodes = workflow.nodes || []
+        const edges = workflow.edges || workflow.connections || []
+
+        downstreamVariables = getDownstreamRequiredVariables(
+          context.nodeId,
+          nodes,
+          edges
+        )
+
+        logger.info('[HITL] Detected downstream variables', {
+          nodeId: context.nodeId,
+          variableCount: downstreamVariables.length,
+          variables: downstreamVariables.map(v => v.name)
+        })
+      }
+    } catch (error) {
+      logger.warn('[HITL] Could not detect downstream variables', { error })
+    }
+
+    // 6. Build system prompt with memory, knowledge, node context, and downstream variables
+    const enhancedSystemPrompt = buildSystemPrompt(config, aiMemory, knowledgeBase, nodeContext, downstreamVariables)
 
     // 6. Generate AI drafted opening message (if possible)
     let scenario: ScenarioDescriptor = detectScenario(input)
@@ -606,17 +645,14 @@ export async function executeHITL(
       )
     }
 
-    // Parse extracted variables config (it might be a JSON string)
-    let extractVariables = config.extractVariables
+    // Parse extracted variables config (it might be a JSON string, array, or object)
+    let extractVariables: Record<string, string> | string[] | undefined = config.extractVariables
     if (typeof extractVariables === 'string') {
       try {
         extractVariables = JSON.parse(extractVariables)
       } catch (e) {
         logger.warn('Failed to parse extractVariables, using default')
-        extractVariables = {
-          decision: "The user's final decision",
-          notes: "Any additional context provided"
-        }
+        extractVariables = ['decision', 'notes']  // New array format
       }
     }
 

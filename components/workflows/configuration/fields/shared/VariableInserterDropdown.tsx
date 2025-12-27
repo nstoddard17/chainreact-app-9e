@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils'
 import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
 import { extractNodeOutputs, sanitizeAlias } from '../../autoMapping'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { getDownstreamRequiredVariables } from '@/lib/workflows/actions/hitl/downstreamVariables'
+import { getActionOutputSchema } from '@/lib/workflows/actions/outputSchemaRegistry'
 
 /**
  * Helper function to recursively get ALL previous nodes in the workflow
@@ -98,9 +100,44 @@ export function VariableInserterDropdown({
       .map(node => {
         const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
         const baseOutputs = extractNodeOutputs(node as any)
-        const outputs = (baseOutputs && baseOutputs.length > 0)
-          ? baseOutputs
-          : (nodeComponent?.outputSchema || [])
+        const registryOutputs = getActionOutputSchema(node.data?.type || '', node.data?.config)
+        const staticOutputs = nodeComponent?.outputSchema || []
+
+        // Merge outputs from multiple sources
+        let outputs = (registryOutputs && registryOutputs.length > 0)
+          ? registryOutputs
+          : (baseOutputs && baseOutputs.length > 0)
+            ? baseOutputs
+            : staticOutputs
+
+        // HITL Node: Add dynamic outputs based on downstream nodes
+        // This allows the variable picker to show specific variables
+        // that the AI will extract based on what node comes after HITL
+        if (node.data?.type === 'hitl_conversation') {
+          const downstreamVariables = getDownstreamRequiredVariables(
+            node.id,
+            workflowData.nodes,
+            edges
+          )
+
+          // Convert downstream variables to output schema format
+          const dynamicOutputs = downstreamVariables.map(v => ({
+            name: v.name,
+            label: v.label,
+            type: v.type,
+            description: v.description,
+            _isDynamicHITLVariable: true
+          }))
+
+          // Merge with existing outputs, avoiding duplicates
+          const existingNames = new Set(outputs.map((o: any) => o.name))
+          dynamicOutputs.forEach(dynamicOutput => {
+            if (!existingNames.has(dynamicOutput.name)) {
+              outputs = [...outputs, dynamicOutput]
+            }
+          })
+        }
+
         const title = node.data?.title || node.data?.label || nodeComponent?.title || 'Unnamed'
 
         return {

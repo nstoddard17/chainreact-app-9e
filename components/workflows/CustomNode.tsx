@@ -541,9 +541,30 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return false
     }
 
-    // Check if integration is connected
+    // Provider mapping for services that share OAuth (e.g., Gmail uses Google OAuth)
+    const providerMapping: Record<string, string[]> = {
+      'gmail': ['gmail', 'google'],
+      'google-docs': ['google-docs', 'google'],
+      'google-drive': ['google-drive', 'google'],
+      'google-sheets': ['google-sheets', 'google'],
+      'google-calendar': ['google-calendar', 'google_calendar', 'google'],
+      'google_calendar': ['google_calendar', 'google-calendar', 'google'],
+    }
+
+    // Get all possible provider names to check
+    const providersToCheck = providerMapping[providerId] || [providerId]
+
+    // Also check hyphen/underscore variants
+    const alternateProvider = providerId.includes('-')
+      ? providerId.replace(/-/g, '_')
+      : providerId.replace(/_/g, '-')
+    if (!providersToCheck.includes(alternateProvider)) {
+      providersToCheck.push(alternateProvider)
+    }
+
+    // Check if any matching integration is connected
     const isConnected = integrations.some(
-      integration => integration.provider === providerId && integration.status === 'connected'
+      integration => providersToCheck.includes(integration.provider) && integration.status === 'connected'
     )
 
     return !isConnected

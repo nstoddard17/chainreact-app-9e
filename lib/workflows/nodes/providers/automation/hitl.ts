@@ -115,6 +115,17 @@ export const hitlAction: NodeComponent = {
       uiTab: "basic"
     },
     {
+      name: "systemPrompt",
+      label: "AI System Prompt",
+      type: "textarea",
+      description: "Instructions for the AI assistant during the conversation. Customize how the AI behaves, what it focuses on, and how it interacts with reviewers.",
+      placeholder: "You are helping review an email before sending. Focus on tone, grammar, and appropriateness. Ask clarifying questions if needed.",
+      required: false,
+      uiTab: "advanced",
+      defaultValue: "You are a helpful workflow assistant. Help the user review and refine this workflow step. Answer questions about the data and accept modifications. When the user is satisfied, detect continuation signals like 'continue', 'proceed', 'go ahead', or 'send it'.",
+      help: "💡 Examples: 'You are a content moderator checking brand guidelines' or 'You are validating customer data for accuracy'"
+    },
+    {
       name: "initialMessage",
       label: "Initial Message",
       type: "discord-rich-text",
@@ -137,37 +148,27 @@ export const hitlAction: NodeComponent = {
       hidden: true // Good default - hidden from UI
     },
     {
-      name: "systemPrompt",
-      label: "AI System Prompt",
-      type: "textarea",
-      description: "Instructions for the AI assistant during the conversation",
-      placeholder: "You are helping review an email before sending. Discuss the content, tone, and timing. Extract the user's final decision.",
-      required: false,
-      uiTab: "advanced",
-      defaultValue: "You are a helpful workflow assistant. Help the user review and refine this workflow step. Answer questions about the data and accept modifications. When the user is satisfied, detect continuation signals like 'continue', 'proceed', 'go ahead', or 'send it'.",
-      hidden: true // Good default - hidden from UI
-    },
-    {
       name: "extractVariables",
-      label: "Variables to Extract",
-      type: "json",
-      description: "Define what information to extract from the conversation",
-      placeholder: '{\n  "userDecision": "approved | rejected | modified",\n  "modifiedContent": "If user suggested changes, the updated content",\n  "userNotes": "Any additional context from the conversation"\n}',
+      label: "Variables to Extract (Override)",
+      type: "tag-input",
+      description: "Override smart auto-extraction with specific variables. By default, the AI intelligently determines what data to extract based on the conversation.",
+      placeholder: "Add specific variables to override auto-extraction",
       required: false,
       uiTab: "advanced",
-      defaultValue: '{\n  "decision": "The user\'s final decision",\n  "notes": "Any additional context provided by the user"\n}',
-      hidden: true // Good default - hidden from UI
+      defaultValue: [],
+      hidden: true, // Hidden by default - AI handles extraction automatically
+      help: "💡 The AI automatically extracts relevant data (emailBody, recipientEmail, etc.) based on context. Only use this to force specific variable names."
     },
     {
       name: "continuationSignals",
       label: "Continuation Signals",
       type: "tag-input",
-      description: "Phrases that signal the user is ready to continue",
-      placeholder: "continue, proceed, go ahead",
+      description: "Phrases that trigger the workflow to continue. When the user says any of these, the AI will wrap up and resume the workflow.",
+      placeholder: "Type a phrase and press Enter",
       required: false,
       defaultValue: ["continue", "proceed", "go ahead", "send it", "looks good", "approve"],
       uiTab: "advanced",
-      hidden: true // Good default - hidden from UI
+      help: "💡 Add custom phrases like 'ship it', 'publish now', or 'confirmed'. The AI detects these to know when to continue."
     },
     {
       name: "memoryStorageProvider",
@@ -305,6 +306,8 @@ export const hitlAction: NodeComponent = {
       hidden: true // Good default - hidden from UI
     }
   ],
+  // Static output schema - additional dynamic variables are added based on downstream nodes
+  // See useUpstreamVariables hook and downstreamVariables.ts for dynamic variable injection
   outputSchema: [
     {
       name: "status",
@@ -334,13 +337,25 @@ export const hitlAction: NodeComponent = {
       name: "extractedVariables",
       label: "Extracted Variables",
       type: "object",
-      description: "Variables extracted from the conversation as defined in config"
+      description: "All variables extracted from the conversation (dynamic based on downstream nodes)"
     },
     {
       name: "conversationHistory",
       label: "Full Conversation",
       type: "array",
       description: "Complete conversation history with all messages"
+    },
+    {
+      name: "decision",
+      label: "Decision",
+      type: "string",
+      description: "User's decision: approved, rejected, modified, or continued"
+    },
+    {
+      name: "notes",
+      label: "Notes",
+      type: "string",
+      description: "Additional notes from the conversation"
     }
   ]
 }

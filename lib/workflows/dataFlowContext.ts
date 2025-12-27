@@ -162,30 +162,53 @@ export class DataFlowManager {
       // If no exact title match, try multiple fallback strategies
       let fallbackNodeId = nodeId
       if (!nodeId) {
-        // Strategy 1: Look for AI agent by type
-        if (nodeTitle === "AI Agent" || nodeTitle.includes("AI") || nodeTitle.includes("Agent")) {
-          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id => 
+        // Strategy 1: Look for node by TYPE (e.g., hitl_conversation, ai_agent)
+        // This handles references like {{hitl_conversation.recipientEmail}}
+        fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id =>
+          this.context.nodeMetadata[id].type === nodeTitle
+        )
+        if (fallbackNodeId) {
+          logger.debug(`🔄 Fallback 1: Looking for node by type "${nodeTitle}", found: ${fallbackNodeId}`)
+        }
+
+        // Strategy 2: Look for AI agent by type
+        if (!fallbackNodeId && (nodeTitle === "AI Agent" || nodeTitle.includes("AI") || nodeTitle.includes("Agent"))) {
+          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id =>
             this.context.nodeMetadata[id].type === "ai_agent"
           )
-          logger.debug(`🔄 Fallback 1: Looking for ai_agent type, found: ${fallbackNodeId}`)
+          logger.debug(`🔄 Fallback 2: Looking for ai_agent type, found: ${fallbackNodeId}`)
         }
-        
-        // Strategy 2: Look for partial title matches (case-insensitive)
+
+        // Strategy 3: Look for partial title matches (case-insensitive)
         if (!fallbackNodeId) {
           fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id => {
             const metadata = this.context.nodeMetadata[id]
-            return metadata.title.toLowerCase().includes(nodeTitle.toLowerCase()) || 
+            return metadata.title.toLowerCase().includes(nodeTitle.toLowerCase()) ||
                    nodeTitle.toLowerCase().includes(metadata.title.toLowerCase())
           })
-          logger.debug(`🔄 Fallback 2: Looking for partial title match, found: ${fallbackNodeId}`)
+          logger.debug(`🔄 Fallback 3: Looking for partial title match, found: ${fallbackNodeId}`)
         }
-        
-        // Strategy 3: If looking for AI-related fields, find any AI agent node
+
+        // Strategy 4: If looking for AI-related fields, find any AI agent node
         if (!fallbackNodeId && (fieldLabel === "AI Agent Output" || fieldLabel === "output")) {
-          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id => 
+          fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id =>
             this.context.nodeMetadata[id].type === "ai_agent"
           )
-          logger.debug(`🔄 Fallback 3: Looking for any ai_agent for AI output, found: ${fallbackNodeId}`)
+          logger.debug(`🔄 Fallback 4: Looking for any ai_agent for AI output, found: ${fallbackNodeId}`)
+        }
+
+        // Strategy 5: Check if nodeTitle exists as a key in nodeOutputs directly
+        // This handles HITL resumed workflows where outputs are stored by type
+        if (!fallbackNodeId && this.context.nodeOutputs[nodeTitle]) {
+          logger.debug(`🔄 Fallback 5: Found "${nodeTitle}" directly in nodeOutputs`)
+          const output = this.context.nodeOutputs[nodeTitle]
+          if (output && output.data) {
+            const result = this.getNestedValue(output.data, fieldLabel)
+            if (result !== null && result !== undefined) {
+              logger.debug(`✅ Resolved from direct nodeOutputs key: ${result}`)
+              return result
+            }
+          }
         }
       }
       

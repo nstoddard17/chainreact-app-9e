@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 interface TagInputProps {
-  value: string[];
+  value: string[] | string | Record<string, any> | undefined | null;
   onChange: (value: string[]) => void;
   placeholder?: string;
   disabled?: boolean;
@@ -16,13 +16,39 @@ interface TagInputProps {
 }
 
 export function TagInput({
-  value = [],
+  value: rawValue,
   onChange,
   placeholder = "Type and press Enter",
   disabled = false,
   className,
   error
 }: TagInputProps) {
+  // Normalize value to always be an array
+  // Handles: string (JSON), object (legacy format with keys), array, undefined/null
+  const value = React.useMemo(() => {
+    if (Array.isArray(rawValue)) {
+      return rawValue
+    }
+    if (typeof rawValue === 'string') {
+      try {
+        const parsed = JSON.parse(rawValue)
+        if (Array.isArray(parsed)) return parsed
+        if (typeof parsed === 'object' && parsed !== null) return Object.keys(parsed)
+        return []
+      } catch {
+        // If it's a comma-separated string, split it
+        if (rawValue.includes(',')) {
+          return rawValue.split(',').map(s => s.trim()).filter(Boolean)
+        }
+        return rawValue.trim() ? [rawValue.trim()] : []
+      }
+    }
+    if (typeof rawValue === 'object' && rawValue !== null) {
+      // Legacy object format like {"decision": "...", "notes": "..."} - extract keys
+      return Object.keys(rawValue)
+    }
+    return []
+  }, [rawValue])
   const [inputValue, setInputValue] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [duplicateError, setDuplicateError] = useState(false);

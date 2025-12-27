@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { extractNodeOutputs, sanitizeAlias } from '../autoMapping'
 import { getActionOutputSchema } from '@/lib/workflows/actions/outputSchemaRegistry'
+import { getDownstreamRequiredVariables } from '@/lib/workflows/actions/hitl/downstreamVariables'
 
 function mergeOutputDefinitions(...lists: Array<any[] | undefined>): any[] {
   const merged = new Map<string, any>()
@@ -209,11 +210,34 @@ export function useUpstreamVariables({
         const registryOutputs = getActionOutputSchema(node.data?.type || '', node.data?.config)
         const staticOutputs = nodeComponent?.outputSchema || []
 
-        const outputs = mergeOutputDefinitions(
+        let outputs = mergeOutputDefinitions(
           registryOutputs && registryOutputs.length > 0 ? registryOutputs : undefined,
           extractedOutputs && extractedOutputs.length > 0 ? extractedOutputs : undefined,
           staticOutputs && staticOutputs.length > 0 ? staticOutputs : undefined
         )
+
+        // HITL Node: Add dynamic outputs based on downstream nodes
+        // This allows the variable picker to show the specific variables
+        // that the AI will extract based on what node comes after HITL
+        if (node.data?.type === 'hitl_conversation') {
+          const downstreamVariables = getDownstreamRequiredVariables(
+            node.id,
+            workflowData.nodes,
+            edges
+          )
+
+          // Convert downstream variables to output schema format
+          const dynamicOutputs = downstreamVariables.map(v => ({
+            name: v.name,
+            label: v.label,
+            type: v.type,
+            description: v.description,
+            _isDynamicHITLVariable: true
+          }))
+
+          // Merge with existing outputs, avoiding duplicates
+          outputs = mergeOutputDefinitions(outputs, dynamicOutputs)
+        }
 
         const flattenedOutputs = flattenOutputFields(outputs)
 
