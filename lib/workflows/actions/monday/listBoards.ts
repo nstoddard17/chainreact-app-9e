@@ -21,7 +21,7 @@ export async function listMondayBoards(
     // Get access token
     const accessToken = await getDecryptedAccessToken(userId, 'monday')
 
-    // Build GraphQL query
+    // Build GraphQL query - Note: Board type doesn't have created_at in API 2024-01
     let query = `
       query($limit: Int!) {
         boards(limit: $limit) {
@@ -30,9 +30,8 @@ export async function listMondayBoards(
           description
           board_kind
           state
-          created_at
           updated_at
-          owner {
+          creator {
             id
             name
           }
@@ -54,9 +53,8 @@ export async function listMondayBoards(
             description
             board_kind
             state
-            created_at
             updated_at
-            owner {
+            creator {
               id
               name
             }

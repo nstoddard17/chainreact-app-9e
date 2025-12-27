@@ -1,4 +1,4 @@
-import { FileText, MessageSquare, Plus, Database, Search, Edit, Trash, Archive, Users, Hash, Calendar, Link, Copy, Filter, FolderOpen, RefreshCw } from "lucide-react"
+import { FileText, MessageSquare, Plus, Database, Search, Edit, Trash, Users, Hash, Calendar, Link, Copy, Filter, FolderOpen, RefreshCw } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 /**
@@ -170,52 +170,6 @@ export const notionComprehensiveActions: NodeComponent[] = [
       { name: "created_time", label: "Created Time", type: "string" },
       { name: "last_edited_time", label: "Last Edited Time", type: "string" },
       { name: "archived", label: "Is Archived", type: "boolean" }
-    ]
-  },
-
-  {
-    type: "notion_action_archive_page",
-    title: "Archive/Unarchive Page",
-    description: "Archive or restore a page",
-    icon: Archive,
-    providerId: "notion",
-    requiredScopes: ["update"],
-    category: "Productivity",
-    isTrigger: false,
-    configSchema: [
-      { 
-        name: "workspace", 
-        label: "Workspace", 
-        type: "select",
-        dynamic: true,
-        dynamicOptions: "notion_workspaces",
-        required: true,
-        placeholder: "Select a workspace"
-      },
-      { 
-        name: "page_id", 
-        label: "Page", 
-        type: "select",
-        dynamic: true,
-        dynamicOptions: "notion_pages",
-        required: true,
-        placeholder: "Select a page",
-        dependsOn: "workspace"
-      },
-      { 
-        name: "archived", 
-        label: "Archive Action", 
-        type: "select",
-        required: true,
-        options: [
-          { value: "true", label: "Archive page" },
-          { value: "false", label: "Unarchive page" }
-        ]
-      }
-    ],
-    outputSchema: [
-      { name: "page_id", label: "Page ID", type: "string" },
-      { name: "archived", label: "Archived Status", type: "boolean" }
     ]
   },
 

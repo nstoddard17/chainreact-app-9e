@@ -222,6 +222,15 @@ import {
   notionSearch,
   notionDuplicatePage,
   notionSyncDatabaseEntries,
+  notionAddBlock,
+  notionGetBlock,
+  notionGetBlockChildren,
+  notionGetPageWithChildren,
+  notionFindOrCreateDatabaseItem,
+  notionArchiveDatabaseItem,
+  notionRestoreDatabaseItem,
+  notionGetPageProperty,
+  notionMakeApiCall,
 } from './notion/handlers'
 
 // Notion get page details action
@@ -233,7 +242,6 @@ import {
   executeNotionUpdatePage,
   executeNotionAppendToPage,
   executeNotionGetPageDetailsAction,
-  executeNotionArchivePageAction,
   executeNotionDuplicatePageAction
 } from './notion/pageActions'
 
@@ -936,41 +944,134 @@ export const actionHandlerRegistry: Record<string, Function> = {
     executeNotionGetPageProperty(params.config, params.userId, params.input),
   "notion_action_update_database_schema": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeNotionUpdateDatabaseSchema(params.config, params.userId, params.input),
-  "notion_action_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionSearch(params.config, params.userId, params.input),
 
-  // Notion actions - comprehensive API v2 actions - wrapped to handle new calling convention
-  // "notion_action_retrieve_page": notionRetrievePage, // Removed - using notion_action_get_page_details instead
-  "notion_action_archive_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeNotionArchivePageAction(params.config, params.userId, params.input),
-  "notion_action_query_database": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionQueryDatabase(params.config, params.userId, params.input),
-  "notion_action_update_database": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionUpdateDatabase(params.config, params.userId, params.input),
-  "notion_action_append_blocks": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionAppendBlocks(params.config, params.userId, params.input),
-  "notion_action_update_block": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionUpdateBlock(params.config, params.userId, params.input),
-  "notion_action_delete_block": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionDeleteBlock(params.config, params.userId, params.input),
-  "notion_action_retrieve_block_children": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionRetrieveBlockChildren(params.config, params.userId, params.input),
-  "notion_action_list_users": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionListUsers(params.config, params.userId, params.input),
-  "notion_action_retrieve_user": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionRetrieveUser(params.config, params.userId, params.input),
-  "notion_action_create_comment": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionCreateComment(params.config, params.userId, params.input),
-  "notion_action_retrieve_comments": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionRetrieveComments(params.config, params.userId, params.input),
-  "notion_action_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionSearch(params.config, params.userId, params.input),
+  // Notion actions - comprehensive API v2 actions - wrapped with ExecutionContext pattern
+  // Note: All handlers in handlers.ts expect (config, context: ExecutionContext)
+  // "notion_action_retrieve_page": Removed - using notion_action_get_page_details instead
+  // "notion_action_archive_page": Removed - use notion_action_archive_database_item instead
+  "notion_action_query_database": createExecutionContextWrapper(notionQueryDatabase),
+  "notion_action_update_database": createExecutionContextWrapper(notionUpdateDatabase),
+  "notion_action_append_blocks": createExecutionContextWrapper(notionAppendBlocks),
+  "notion_action_update_block": createExecutionContextWrapper(notionUpdateBlock),
+  "notion_action_delete_block": createExecutionContextWrapper(notionDeleteBlock),
+  "notion_action_retrieve_block_children": createExecutionContextWrapper(notionRetrieveBlockChildren),
+  "notion_action_list_users": createExecutionContextWrapper(notionListUsers),
+  "notion_action_retrieve_user": createExecutionContextWrapper(notionRetrieveUser),
+  "notion_action_create_comment": createExecutionContextWrapper((config: any, context: any) =>
+    notionCreateComment({
+      ...config,
+      // Map UI field names to handler expected fields
+      page_id: config.page || config.page_id,
+      rich_text: config.commentText || config.rich_text,
+      parent_type: config.commentTarget || config.parent_type || 'page',
+      discussion_id: config.discussionId || config.discussion_id,
+    }, context)),
+  "notion_action_retrieve_comments": createExecutionContextWrapper((config: any, context: any) =>
+    notionRetrieveComments({
+      ...config,
+      // Map UI field names to handler expected fields
+      block_id: config.page || config.blockId || config.block_id,
+    }, context)),
+  "notion_action_search": createExecutionContextWrapper(notionSearch),
   "notion_action_duplicate_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeNotionDuplicatePageAction(params.config, params.userId, params.input),
-  "notion_action_sync_database_entries": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    notionSyncDatabaseEntries(params.config, params.userId, params.input),
+  "notion_action_sync_database_entries": createExecutionContextWrapper(notionSyncDatabaseEntries),
   "notion_action_get_page_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeNotionGetPageDetailsAction(params.config, params.userId, params.input),
+
+  // Notion Append Page Content action (new schema)
+  "notion_action_append_page_content": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    executeNotionAppendToPage({
+      ...params.config,
+      page: params.config.pageId || params.config.page, // Map pageId to page
+    }, params.userId, params.input),
+
+  // Notion Block actions
+  "notion_action_add_block": createExecutionContextWrapper(notionAddBlock),
+  "notion_action_get_block": createExecutionContextWrapper(notionGetBlock),
+  "notion_action_get_block_children": createExecutionContextWrapper(notionGetBlockChildren),
+  "notion_action_get_page_with_children": createExecutionContextWrapper((config: any, context: any) =>
+    notionGetPageWithChildren({
+      ...config,
+      page_id: config.page || config.page_id,
+    }, context)),
+
+  // Notion Database actions (new separate actions)
+  "notion_action_create_database": createExecutionContextWrapper((config: any, context: any) =>
+    notionCreateDatabase({
+      ...config,
+      // Map UI field names to handler expected fields
+      parent_type: "page",
+      parent_page_id: config.parentPage || config.parent_page_id,
+      is_inline: config.databaseType === "Inline" ? "true" : "false",
+      properties_config: config.properties || config.properties_config || {
+        // Default Name/Title property if none specified
+        "Name": { title: {} }
+      }
+    }, context)),
+  "notion_action_update_database_info": createExecutionContextWrapper(notionUpdateDatabase),
+  "notion_action_find_or_create_item": createExecutionContextWrapper((config: any, context: any) =>
+    notionFindOrCreateDatabaseItem({
+      ...config,
+      database_id: config.database || config.database_id,
+      search_property: config.searchProperty || config.search_property,
+      search_value: config.searchValue || config.search_value,
+      create_if_not_found: config.createIfNotFound || config.create_if_not_found,
+      create_properties: config.createProperties || config.create_properties,
+    }, context)),
+  "notion_action_archive_database_item": createExecutionContextWrapper((config: any, context: any) =>
+    notionArchiveDatabaseItem({
+      ...config,
+      item_id: config.itemToArchive || config.item_id, // Map itemToArchive to item_id
+    }, context)),
+  "notion_action_restore_database_item": createExecutionContextWrapper((config: any, context: any) =>
+    notionRestoreDatabaseItem({
+      ...config,
+      item_id: config.itemToRestore || config.item_id, // Map itemToRestore to item_id
+    }, context)),
+
+  // Notion User actions aliases
+  "notion_action_get_user": createExecutionContextWrapper((config: any, context: any) =>
+    notionRetrieveUser({
+      ...config,
+      user_id: config.userId || config.user_id, // Map userId to user_id
+    }, context)),
+
+  // Notion Comment actions aliases
+  "notion_action_list_comments": createExecutionContextWrapper((config: any, context: any) =>
+    notionRetrieveComments({
+      ...config,
+      // Map UI field names to handler expected fields (listTarget determines source)
+      block_id: config.listTarget === 'block'
+        ? (config.blockIdForList || config.blockId || config.block_id)
+        : (config.pageForList || config.page || config.block_id),
+    }, context)),
+
+  // Notion Page Content actions (new schema actions)
+  "notion_action_get_page_content": createExecutionContextWrapper((config: any, context: any) =>
+    notionRetrieveBlockChildren({
+      ...config,
+      block_id: config.pageId || config.page || config.block_id,
+    }, context)),
+  "notion_action_list_page_content": createExecutionContextWrapper((config: any, context: any) =>
+    notionRetrieveBlockChildren({
+      ...config,
+      block_id: config.pageId || config.page || config.block_id,
+    }, context)),
+  "notion_action_update_page_content": createExecutionContextWrapper((config: any, context: any) =>
+    notionUpdateBlock({
+      ...config,
+      block_id: config.blockId || config.block || config.block_id,
+    }, context)),
+  "notion_action_delete_page_content": createExecutionContextWrapper((config: any, context: any) =>
+    notionDeleteBlock({
+      ...config,
+      block_id: config.blockId || config.block || config.block_id,
+    }, context)),
+
+  // Notion Make API Call action (this one already expects userId, input pattern)
+  "notion_action_api_call": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    notionMakeApiCall(params.config, params.userId, params.input),
 
   // GitHub actions - wrapped to handle new calling convention
   "github_action_create_issue": (params: { config: any; userId: string; input: Record<string, any> }) =>

@@ -8,6 +8,7 @@ import { getMondayGroups } from './groups'
 import { getMondayColumns } from './columns'
 import { getMondayItems } from './items'
 import { getMondayFileColumns } from './fileColumns'
+import { getMondayUsers } from './users'
 
 /**
  * Registry of all Monday.com data handlers
@@ -18,6 +19,7 @@ export const mondayHandlers: Record<string, MondayDataHandler> = {
   'monday_columns': getMondayColumns,
   'monday_items': getMondayItems,
   'monday_file_columns': getMondayFileColumns,
+  'monday_users': getMondayUsers,
 }
 
 /**

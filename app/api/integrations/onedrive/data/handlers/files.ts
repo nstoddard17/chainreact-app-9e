@@ -4,7 +4,9 @@ import { logger } from '@/lib/utils/logger'
 import type { OneDriveDataHandler, OneDriveFile } from '../types'
 
 export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integration, options = {}) => {
-  const { folderId } = options as { folderId?: string }
+  // Support multiple field names for folder ID - different actions use different names
+  const { folderId, sourceFolderId } = options as { folderId?: string; sourceFolderId?: string }
+  const effectiveFolderId = folderId || sourceFolderId
 
   try {
     validateOneDriveIntegration(integration)
@@ -19,16 +21,18 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
     let baseEndpoint = ''
 
     // Handle different folder ID formats
-    if (folderId) {
+    // 'root' is a special value meaning the root folder
+    if (effectiveFolderId && effectiveFolderId !== 'root') {
       // If the folder ID contains an exclamation mark, it's likely a special format
-      if (folderId.includes('!')) {
+      if (effectiveFolderId.includes('!')) {
         // Try using it directly
-        baseEndpoint = `/me/drive/items/${folderId}/children`
+        baseEndpoint = `/me/drive/items/${effectiveFolderId}/children`
       } else {
         // Otherwise use standard format
-        baseEndpoint = `/me/drive/items/${folderId}/children`
+        baseEndpoint = `/me/drive/items/${effectiveFolderId}/children`
       }
     } else {
+      // No folder selected or 'root' selected - load from root
       baseEndpoint = '/me/drive/root/children'
     }
 
@@ -38,7 +42,7 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
 
     logger.debug('🔍 [OneDrive] Fetching files from:', {
       baseEndpoint,
-      folderId,
+      folderId: effectiveFolderId,
       fullUrl: url
     })
 
@@ -69,11 +73,15 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
     })
 
     // Filter to only get files (not folders)
-    // In OneDrive, items with a 'file' property are files, items with 'folder' property are folders
+    // In OneDrive, items with a 'file' property are regular files
+    // Items with 'package' property are special packages like OneNote notebooks
+    // Items with 'folder' property are folders - exclude these
     const files = (payload?.value ?? []).filter((item: any) => {
-      const isFile = item.file !== undefined && item.folder === undefined
+      // Include items that have 'file' property OR 'package' property (for OneNote etc.)
+      // Exclude items that have 'folder' property
+      const isFile = (item.file !== undefined || item.package !== undefined) && item.folder === undefined
       if (!isFile && item.name) {
-        logger.debug(`⏭️ Skipping non-file item: ${item.name} (folder: ${!!item.folder})`)
+        logger.debug(`⏭️ Skipping non-file item: ${item.name} (folder: ${!!item.folder}, package: ${!!item.package})`)
       }
       return isFile
     })
@@ -92,9 +100,10 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
       size: file.size,
       parentReference: file.parentReference,
       file: file.file,
+      package: file.package, // For OneNote notebooks and other packages
     }))
   } catch (error: any) {
-    logger.error('❌ [OneDrive] Failed to load files', { folderId, error: error?.message || error })
+    logger.error('❌ [OneDrive] Failed to load files', { folderId: effectiveFolderId, error: error?.message || error })
     throw new Error(error?.message || 'Failed to load OneDrive files')
   }
 }

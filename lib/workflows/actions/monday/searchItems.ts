@@ -12,9 +12,13 @@ export async function searchMondayItems(
   try {
     // Resolve configuration values
     const boardId = await resolveValue(config.boardId, input)
-    const searchValue = await resolveValue(config.searchValue, input)
+    // Support both columnValue (from schema) and searchValue (legacy)
+    const columnValue = await resolveValue(config.columnValue || config.searchValue, input)
     const columnId = config.columnId
       ? await resolveValue(config.columnId, input)
+      : undefined
+    const groupId = config.groupId
+      ? await resolveValue(config.groupId, input)
       : undefined
     const limit = config.limit
       ? await resolveValue(config.limit, input)
@@ -24,8 +28,8 @@ export async function searchMondayItems(
     if (!boardId) {
       throw new Error('Board ID is required')
     }
-    if (!searchValue) {
-      throw new Error('Search value is required')
+    if (!columnValue) {
+      throw new Error('Column value is required')
     }
 
     // Get access token
@@ -61,10 +65,13 @@ export async function searchMondayItems(
               }
               column_values {
                 id
-                title
                 type
                 text
                 value
+                column {
+                  id
+                  title
+                }
               }
               created_at
               updated_at
@@ -73,7 +80,7 @@ export async function searchMondayItems(
         }
       `
       variables.columnId = columnId.toString()
-      variables.columnValue = searchValue.toString()
+      variables.columnValue = columnValue.toString()
     } else {
       // Search by item name
       query = `
@@ -94,10 +101,13 @@ export async function searchMondayItems(
                 }
                 column_values {
                   id
-                  title
                   type
                   text
                   value
+                  column {
+                    id
+                    title
+                  }
                 }
                 created_at
                 updated_at
@@ -138,7 +148,7 @@ export async function searchMondayItems(
       items = data.data?.boards?.[0]?.items_page?.items || []
       // Filter by name if searching without column
       items = items.filter((item: any) =>
-        item.name.toLowerCase().includes(searchValue.toString().toLowerCase())
+        item.name.toLowerCase().includes(columnValue.toString().toLowerCase())
       )
     }
 
@@ -149,10 +159,10 @@ export async function searchMondayItems(
       output: {
         items: items,
         count: items.length,
-        searchValue: searchValue,
+        columnValue: columnValue,
         boardId: boardId
       },
-      message: `Found ${items.length} items matching "${searchValue}" in Monday.com`
+      message: `Found ${items.length} items matching "${columnValue}" in Monday.com`
     }
 
   } catch (error: any) {

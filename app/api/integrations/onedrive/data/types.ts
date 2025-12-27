@@ -48,6 +48,9 @@ export interface OneDriveFile {
       quickXorHash?: string
     }
   }
+  package?: {
+    type?: string // e.g., 'oneNote' for OneNote notebooks
+  }
 }
 
 export interface OneDriveItem {

@@ -28,11 +28,17 @@ export async function sendOnedriveSharingInvitation(
     }
 
     // Determine which item to share
+    // Note: 'root' is a virtual folder ID - cannot share root directly, select a specific folder
     let targetItemId: string | null = null
     if (itemType === 'file' && fileId) {
       targetItemId = fileId
-    } else if (itemType === 'folder' && folderIdToShare) {
+    } else if (itemType === 'folder' && folderIdToShare && folderIdToShare !== 'root') {
       targetItemId = folderIdToShare
+    }
+
+    // Check if user tried to select root folder
+    if (folderIdToShare === 'root') {
+      throw new Error("Cannot send sharing invitation for the root folder. Please select a specific folder.")
     }
 
     if (!targetItemId) {
@@ -84,6 +90,26 @@ export async function sendOnedriveSharingInvitation(
 
     if (!response.ok) {
       const errorText = await response.text()
+      let errorData: any = {}
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {
+        // Not JSON
+      }
+
+      // Provide helpful error messages for common sharing issues
+      const errorCode = errorData?.error?.code
+      if (errorCode === 'sharingFailed' || errorCode === 'invalidRequest') {
+        // Common causes of sharing failures
+        throw new Error(
+          'Sharing failed. Common causes: ' +
+          '(1) Cannot share with the same account that owns the file, ' +
+          '(2) External sharing may be disabled by your organization, ' +
+          '(3) The recipient email may be invalid. ' +
+          'Try sharing with a different email address.'
+        )
+      }
+
       throw new Error(`OneDrive API error: ${response.status} - ${errorText}`)
     }
 

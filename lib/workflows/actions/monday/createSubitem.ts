@@ -10,9 +10,9 @@ export async function createMondaySubitem(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    // Resolve configuration values
+    // Resolve configuration values - support both subitemName (schema) and itemName (legacy)
     const parentItemId = await resolveValue(config.parentItemId, input)
-    const itemName = await resolveValue(config.itemName, input)
+    const itemName = await resolveValue(config.subitemName || config.itemName, input)
     const columnValues = config.columnValues
       ? await resolveValue(config.columnValues, input)
       : undefined

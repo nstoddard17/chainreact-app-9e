@@ -6,7 +6,7 @@ import { NotionDataHandler } from '../types'
 import { getNotionUsers } from './users'
 import { getNotionTemplates } from './templates'
 import { getNotionDatabases } from './databases'
-import { getNotionPages } from './pages'
+import { getNotionPages, getNotionArchivedPages } from './pages'
 import { getNotionWorkspaces } from './workspaces'
 import { getNotionDatabaseProperties } from './databaseProperties'
 import { getNotionTeamspaces } from './teamspaces'
@@ -21,8 +21,17 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   users: getNotionUsers,
   templates: getNotionTemplates,
   databases: getNotionDatabases,
+  database: getNotionDatabases, // Alias for 'databases' - handles singular field names
+  databaseId: getNotionDatabases, // Alias for field name variations
+  database_id: getNotionDatabases, // Alias for snake_case
   pages: getNotionPages,
+  page: getNotionPages, // Alias for 'pages' - handles singular field names
+  pageId: getNotionPages, // Alias for field name variations
+  page_id: getNotionPages, // Alias for snake_case
   workspaces: getNotionWorkspaces,
+  workspace: getNotionWorkspaces, // Alias for 'workspaces' - handles singular field names
+  workspaceId: getNotionWorkspaces, // Alias for field name variations
+  workspace_id: getNotionWorkspaces, // Alias for snake_case
   teamspaces: getNotionTeamspaces,
   properties: getNotionDatabaseProperties,
   database_fields: getNotionDatabaseFields,
@@ -30,8 +39,11 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   database_rows: getNotionDatabaseRows,
   database_items: getNotionDatabaseItems,
   archived_items: getNotionArchivedItems,
+  archived_pages: getNotionArchivedPages,
   blocks: getNotionPageBlocks,
   page_blocks: getNotionPageBlocks,
+  userId: getNotionUsers, // Alias for user field variations
+  user_id: getNotionUsers, // Alias for snake_case
   filter_types: () => Promise.resolve([
     { value: 'page', label: 'Pages' },
     { value: 'database', label: 'Databases' }
@@ -55,7 +67,20 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   notion_database_fields: getNotionDatabaseFields,
   notion_database_items: getNotionDatabaseItems,
   notion_archived_items: getNotionArchivedItems,
+  notion_archived_pages: getNotionArchivedPages,
   notion_page_blocks: getNotionPageBlocks,
+  notion_blocks: getNotionPageBlocks, // Alias for notion_page_blocks
+  notion_filter_types: () => Promise.resolve([
+    { value: 'page', label: 'Pages' },
+    { value: 'database', label: 'Databases' }
+  ]),
+  notion_database_templates: () => Promise.resolve([
+    { value: 'Project Tracker', label: 'Project Tracker' },
+    { value: 'CRM', label: 'CRM' },
+    { value: 'Content Calendar', label: 'Content Calendar' },
+    { value: 'Task Management', label: 'Task Management' },
+    { value: 'Bug Tracker', label: 'Bug Tracker' },
+  ]),
 }
 
 export {
@@ -63,6 +88,7 @@ export {
   getNotionTemplates,
   getNotionDatabases,
   getNotionPages,
+  getNotionArchivedPages,
   getNotionWorkspaces,
   getNotionTeamspaces,
   getNotionDatabaseProperties,

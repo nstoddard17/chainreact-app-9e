@@ -754,6 +754,44 @@ const onedriveMappings: Record<string, FieldMapping> = {
     folderId: "onedrive-folders",
     fileId: "onedrive-files",
   },
+  "onedrive_action_create_folder": {
+    parentFolderId: "onedrive-folders",
+  },
+  "onedrive_action_delete_item": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+    folderIdToDelete: "onedrive-folders",
+  },
+  "onedrive_action_copy_item": {
+    sourceFolderId: "onedrive-folders",
+    sourceFileId: "onedrive-files",
+    sourceFolderIdToCopy: "onedrive-folders",
+    destinationFolderId: "onedrive-folders",
+  },
+  "onedrive_action_move_item": {
+    sourceFolderId: "onedrive-folders",
+    sourceFileId: "onedrive-files",
+    sourceFolderIdToMove: "onedrive-folders",
+    destinationFolderId: "onedrive-folders",
+  },
+  "onedrive_action_rename_item": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+    folderIdToRename: "onedrive-folders",
+  },
+  "onedrive_action_create_sharing_link": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+    folderIdToShare: "onedrive-folders",
+  },
+  "onedrive_action_send_sharing_invitation": {
+    folderId: "onedrive-folders",
+    fileId: "onedrive-files",
+    folderIdToShare: "onedrive-folders",
+  },
+  "onedrive_action_search_files": {
+    searchScope: "onedrive-folders",
+  },
 };
 
 // Microsoft Excel field mappings
@@ -944,8 +982,10 @@ const mondayMappings: Record<string, FieldMapping> = {
   monday_action_update_item: {
     boardId: "monday_boards",
     itemId: "monday_items",
+    columnId: "monday_columns",
   },
   monday_action_create_update: {
+    boardId: "monday_boards",
     itemId: "monday_items",
   },
   monday_action_move_item: {
@@ -965,6 +1005,7 @@ const mondayMappings: Record<string, FieldMapping> = {
     itemId: "monday_items",
   },
   monday_action_delete_item: {
+    boardId: "monday_boards",
     itemId: "monday_items",
   },
   monday_action_create_subitem: {
@@ -977,7 +1018,7 @@ const mondayMappings: Record<string, FieldMapping> = {
   },
   monday_action_list_subitems: {
     boardId: "monday_boards",
-    itemId: "monday_items",
+    parentItemId: "monday_items",
   },
   monday_action_list_updates: {
     boardId: "monday_boards",
@@ -1005,7 +1046,7 @@ const mondayMappings: Record<string, FieldMapping> = {
   monday_action_add_file: {
     boardId: "monday_boards",
     itemId: "monday_items",
-    columnId: "monday_file_columns",
+    columnId: "monday_columns",
   },
   monday_action_download_file: {
     boardId: "monday_boards",
@@ -1014,6 +1055,7 @@ const mondayMappings: Record<string, FieldMapping> = {
   },
   monday_action_search_items: {
     boardId: "monday_boards",
+    columnId: "monday_columns",
     groupId: "monday_groups",
   },
   // Triggers
@@ -1035,6 +1077,9 @@ const mondayMappings: Record<string, FieldMapping> = {
   monday_trigger_new_subitem: {
     boardId: "monday_boards",
     parentItemId: "monday_items",
+  },
+  monday_action_get_user: {
+    userId: "monday_users",
   },
 };
 
@@ -1172,10 +1217,7 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     page: "notion_pages",
   },
-  notion_action_archive_page: {
-    workspace: "notion_workspaces",
-    page_id: "notion_pages",
-  },
+  // notion_action_archive_page: Removed - use notion_action_archive_database_item instead
   notion_action_query_database: {
     workspace: "notion_workspaces",
     database_id: "notion_databases",
@@ -1253,10 +1295,7 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     page: "notion_pages",
   },
-  notion_action_archive_page: {
-    workspace: "notion_workspaces",
-    page: "notion_pages",
-  },
+  // notion_action_archive_page: Removed - use notion_action_archive_database_item instead
   notion_action_duplicate_page: {
     workspace: "notion_workspaces",
     page: "notion_pages",
@@ -1358,13 +1397,23 @@ const notionMappings: Record<string, FieldMapping> = {
     workspace: "notion_workspaces",
     page: "notion_pages",
   },
-  notion_action_manage_users: {
+  notion_action_advanced_query: {
     workspace: "notion_workspaces",
-    userId: "notion_users",
+    database: "notion_databases",
+    sortProperty: "notion_database_properties",
   },
-  notion_action_manage_comments: {
+  notion_action_manage_blocks: {
+    workspace: "notion_workspaces",
+    targetPage: "notion_pages",
+    pageForChildren: "notion_pages",
+  },
+  notion_action_get_page_property: {
     workspace: "notion_workspaces",
     page: "notion_pages",
+  },
+  notion_action_update_database_schema: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
   },
 };
 
@@ -1604,6 +1653,18 @@ const defaultMappings: FieldMapping = {
   // attendees fields should be simple text inputs for email addresses
   labelIds: "gmail_labels",
   shopify_store: "shopify_stores", // Shopify store selector (used by all Shopify nodes)
+  // Notion default mappings
+  workspace: "notion_workspaces",
+  workspaceId: "notion_workspaces",
+  workspace_id: "notion_workspaces",
+  database: "notion_databases",
+  databaseId: "notion_databases",
+  database_id: "notion_databases",
+  page: "notion_pages",
+  pageId: "notion_pages",
+  page_id: "notion_pages",
+  userId: "notion_users",
+  user_id: "notion_users",
 };
 
 // Combine all mappings

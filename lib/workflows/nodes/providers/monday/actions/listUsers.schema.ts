@@ -23,6 +23,13 @@ export const listUsersActionSchema: NodeComponent = {
       type: "number",
       description: "Total number of users",
       example: "25"
+    },
+    {
+      name: "kind",
+      label: "User Kind",
+      type: "string",
+      description: "The user kind filter applied",
+      example: "all"
     }
   ],
   configSchema: [

@@ -4,7 +4,158 @@ import { ExecutionContext } from '../../execution/types'
 
 import { logger } from '@/lib/utils/logger'
 
-const NOTION_API_VERSION = "2025-09-03"
+const NOTION_API_VERSION = "2022-06-28"
+
+function normalizeNotionId(id?: string | null) {
+  if (!id || typeof id !== 'string') {
+    return id
+  }
+  return id.replace(/-/g, '')
+}
+
+function parseBoolean(value: any) {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (['true', '1', 'yes', 'y'].includes(normalized)) return true
+    if (['false', '0', 'no', 'n'].includes(normalized)) return false
+  }
+  return Boolean(value)
+}
+
+function parseMultiSelect(value: any) {
+  if (Array.isArray(value)) {
+    return value.filter(Boolean).map((v) => (typeof v === 'string' ? v : String(v)))
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function formatNotionPropertyValue(propertyType: string, value: any) {
+  switch (propertyType) {
+    case 'title':
+      return { title: [{ type: 'text', text: { content: value ?? '' } }] }
+    case 'rich_text':
+      return { rich_text: [{ type: 'text', text: { content: value ?? '' } }] }
+    case 'number': {
+      const num = value === '' || value === null || value === undefined ? null : Number(value)
+      if (num !== null && Number.isNaN(num)) {
+        throw new Error('Search value must be a number for this property')
+      }
+      return { number: num }
+    }
+    case 'checkbox':
+      return { checkbox: parseBoolean(value) }
+    case 'select':
+      return { select: value ? { name: value } : null }
+    case 'status':
+      return { status: value ? { name: value } : null }
+    case 'multi_select': {
+      const values = parseMultiSelect(value)
+      return { multi_select: values.map((name) => ({ name })) }
+    }
+    case 'date':
+      return value ? { date: { start: value } } : { date: null }
+    case 'email':
+      return { email: value || null }
+    case 'phone_number':
+      return { phone_number: value || null }
+    case 'url':
+      return { url: value || null }
+    default:
+      return { rich_text: [{ type: 'text', text: { content: value ?? '' } }] }
+  }
+}
+
+function buildFilterForProperty(propertyType: string, propertyName: string, searchValue: any) {
+  const filter: any = { property: propertyName }
+
+  switch (propertyType) {
+    case 'title':
+      filter.title = { equals: searchValue ?? '' }
+      break
+    case 'rich_text':
+      filter.rich_text = { equals: searchValue ?? '' }
+      break
+    case 'number': {
+      const num = Number(searchValue)
+      if (Number.isNaN(num)) {
+        throw new Error('Search value must be a number for this property')
+      }
+      filter.number = { equals: num }
+      break
+    }
+    case 'checkbox':
+      filter.checkbox = { equals: parseBoolean(searchValue) }
+      break
+    case 'select':
+      filter.select = { equals: searchValue ?? '' }
+      break
+    case 'status':
+      filter.status = { equals: searchValue ?? '' }
+      break
+    case 'multi_select':
+      filter.multi_select = { contains: searchValue ?? '' }
+      break
+    case 'date':
+      filter.date = { equals: searchValue ?? '' }
+      break
+    case 'email':
+      filter.email = { equals: searchValue ?? '' }
+      break
+    case 'phone_number':
+      filter.phone_number = { equals: searchValue ?? '' }
+      break
+    case 'url':
+      filter.url = { equals: searchValue ?? '' }
+      break
+    default:
+      filter.rich_text = { equals: searchValue ?? '' }
+      break
+  }
+
+  return filter
+}
+
+function resolveDatabaseProperty(database: any, identifier: string) {
+  if (!database?.properties || !identifier) return null
+
+  // Try to decode the identifier in case it's URL-encoded
+  let decodedIdentifier = identifier
+  try {
+    decodedIdentifier = decodeURIComponent(identifier)
+  } catch (e) {
+    // Ignore decode errors
+  }
+
+  logger.debug('[Notion resolveDatabaseProperty] Looking up property', {
+    identifier,
+    decodedIdentifier,
+    availableProperties: Object.entries(database.properties).map(([name, prop]: [string, any]) => ({
+      name,
+      id: prop.id
+    }))
+  })
+
+  for (const [name, property] of Object.entries<any>(database.properties)) {
+    // Check both raw and decoded identifier against property id and name
+    // Also do case-insensitive name matching
+    if (property.id === identifier ||
+        property.id === decodedIdentifier ||
+        name === identifier ||
+        name === decodedIdentifier ||
+        name.toLowerCase() === identifier.toLowerCase() ||
+        name.toLowerCase() === decodedIdentifier.toLowerCase()) {
+      return { name, property }
+    }
+  }
+  return null
+}
 
 /**
  * Output Schema Type Definition
@@ -392,9 +543,9 @@ export async function notionCreateDatabase(
       is_inline: isInline
     }
 
-    // Set parent
+    // Set parent - Notion API requires type to be explicitly set
     if (parentType === "page" && parentPageId) {
-      payload.parent = { page_id: parentPageId }
+      payload.parent = { type: "page_id", page_id: parentPageId }
     } else {
       payload.parent = { type: "workspace", workspace: true }
     }
@@ -675,18 +826,36 @@ export async function notionRetrieveBlockChildren(
 ): Promise<ActionResult> {
   try {
     const accessToken = await getDecryptedAccessToken(context.userId, "notion")
-    
+
     const blockId = context.dataFlowManager.resolveVariable(config.block_id)
-    const pageSize = parseInt(config.page_size) || 100
-    
+    const pageSize = parseInt(config.page_size || config.maxBlocks) || 100
+    const filterType = context.dataFlowManager.resolveVariable(config.filterType)
+
     const params = new URLSearchParams({ page_size: pageSize.toString() })
     const result = await notionApiRequest(`/blocks/${blockId}/children?${params}`, "GET", accessToken)
+
+    let children = result.results || []
+
+    // Apply client-side filtering by block type if specified
+    // Notion API doesn't support server-side filtering of block children
+    if (filterType && Array.isArray(filterType) && filterType.length > 0) {
+      children = children.filter((block: any) => filterType.includes(block.type))
+      logger.debug("[Notion] Filtered blocks by type:", {
+        filterType,
+        originalCount: result.results?.length || 0,
+        filteredCount: children.length
+      })
+    }
 
     return {
       success: true,
       output: {
-        children: result.results,
+        children,
+        blocks: children, // Alias for schema compatibility
+        blockCount: children.length,
+        pageId: blockId,
         has_more: result.has_more,
+        hasMore: result.has_more,
         next_cursor: result.next_cursor
       }
     }
@@ -1075,32 +1244,58 @@ export async function notionFindOrCreateDatabaseItem(
   context: ExecutionContext
 ): Promise<ActionResult> {
   try {
+    logger.debug("[Notion Find or Create] Received config:", {
+      configKeys: Object.keys(config),
+      database: config.database,
+      database_id: config.database_id,
+      searchProperty: config.searchProperty,
+      search_property: config.search_property,
+      searchValue: config.searchValue,
+      search_value: config.search_value,
+    })
+
     const accessToken = await getDecryptedAccessToken(context.userId, "notion")
 
-    // Resolve variables
-    const databaseId = context.dataFlowManager.resolveVariable(config.database_id)
-    const searchProperty = context.dataFlowManager.resolveVariable(config.search_property)
-    const searchValue = context.dataFlowManager.resolveVariable(config.search_value)
-    const createIfNotFound = context.dataFlowManager.resolveVariable(config.create_if_not_found) !== 'false'
-    const createProperties = context.dataFlowManager.resolveVariable(config.create_properties) || {}
+    // Resolve variables - support both camelCase (from schema) and snake_case
+    const rawDatabaseId = context.dataFlowManager.resolveVariable(config.database_id || config.database)
+    const databaseId = normalizeNotionId(rawDatabaseId)
+    const searchPropertyInput = context.dataFlowManager.resolveVariable(config.search_property || config.searchProperty)
+    const searchValue = context.dataFlowManager.resolveVariable(config.search_value || config.searchValue)
+    const createIfNotFound = context.dataFlowManager.resolveVariable(config.create_if_not_found ?? config.createIfNotFound) !== 'false'
+    let createProperties = context.dataFlowManager.resolveVariable(config.create_properties || config.createProperties) || {}
+
+    if (!databaseId) {
+      throw new Error('Database is required')
+    }
+
+    if (!searchPropertyInput) {
+      throw new Error('Search property is required')
+    }
+
+    if (searchValue === undefined || searchValue === null || searchValue === '') {
+      throw new Error('Search value is required')
+    }
 
     logger.debug("[Notion Find or Create] Starting search", {
       databaseId,
-      searchProperty,
+      rawDatabaseId,
+      searchProperty: searchPropertyInput,
       searchValue,
       createIfNotFound
     })
 
-    // Step 1: Search for existing item using database query
-    // Build filter based on property type
-    const filter: any = {
-      property: searchProperty,
+    const database = await notionApiRequest(`/databases/${databaseId}`, "GET", accessToken)
+
+    const propertyInfo = resolveDatabaseProperty(database, searchPropertyInput)
+    if (!propertyInfo) {
+      throw new Error(`Property "${searchPropertyInput}" not found in selected database`)
     }
 
-    // Detect property type and build appropriate filter
-    // For simplicity, we'll try text/rich_text first, then other types
-    // In production, you'd want to fetch the property type from the database schema
-    filter.rich_text = { equals: searchValue }
+    const propertyName = propertyInfo.name
+    const propertyType = propertyInfo.property?.type || 'rich_text'
+
+    // Step 1: Search for existing item using database query
+    const filter = buildFilterForProperty(propertyType, propertyName, searchValue)
 
     const searchPayload = {
       filter,
@@ -1154,11 +1349,25 @@ export async function notionFindOrCreateDatabaseItem(
     logger.debug("[Notion Find or Create] Creating new item")
 
     // Merge search property/value into create properties
+    if (typeof createProperties === 'string') {
+      if (createProperties.trim() === '') {
+        createProperties = {}
+      } else {
+        try {
+          createProperties = JSON.parse(createProperties)
+        } catch (error: any) {
+          throw new Error(`Invalid JSON for create properties: ${error.message}`)
+        }
+      }
+    }
+
+    if (typeof createProperties !== 'object' || createProperties === null) {
+      createProperties = {}
+    }
+
     const finalProperties = {
       ...createProperties,
-      [searchProperty]: {
-        rich_text: [{ type: "text", text: { content: searchValue } }]
-      }
+      [propertyName]: formatNotionPropertyValue(propertyType, searchValue)
     }
 
     const createPayload = {
@@ -1352,19 +1561,33 @@ export async function notionAddBlock(
       }
     }
 
-    const pageId = context.dataFlowManager.resolveVariable(config.page_id)
-    const blockType = context.dataFlowManager.resolveVariable(config.block_type)
-    const content = context.dataFlowManager.resolveVariable(config.content)
+    // Support both 'page' (from schema) and 'page_id' (legacy)
+    const pageId = context.dataFlowManager.resolveVariable(config.page) ||
+                   context.dataFlowManager.resolveVariable(config.page_id)
+    // Support both 'blockType' (from schema) and 'block_type' (legacy)
+    const blockType = context.dataFlowManager.resolveVariable(config.blockType) ||
+                      context.dataFlowManager.resolveVariable(config.block_type)
+    // Support both 'blockContent' (from schema) and 'content' (legacy)
+    const content = context.dataFlowManager.resolveVariable(config.blockContent) ||
+                    context.dataFlowManager.resolveVariable(config.content)
 
     if (!pageId) {
       return {
         success: false,
         output: {},
-        message: "Page ID is required"
+        message: "Page is required"
       }
     }
 
-    logger.info("[Notion Add Block] Adding block to page:", { pageId, blockType })
+    if (!blockType) {
+      return {
+        success: false,
+        output: {},
+        message: "Block type is required"
+      }
+    }
+
+    logger.info("[Notion Add Block] Adding block to page:", { pageId, blockType, content })
 
     // Build block object based on type
     let blockObject: any = {
@@ -1384,10 +1607,14 @@ export async function notionAddBlock(
 
       // Add checked property for to-do blocks
       if (blockType === "to_do") {
-        blockObject[blockType].checked = config.checked === true
+        const checked = context.dataFlowManager.resolveVariable(config.checked)
+        blockObject[blockType].checked = checked === true || checked === "true"
       }
     } else if (blockType === "code" && content) {
-      // Code blocks need language
+      // Code blocks need language - support both 'codeLanguage' (from schema) and 'language' (legacy)
+      const language = context.dataFlowManager.resolveVariable(config.codeLanguage) ||
+                       context.dataFlowManager.resolveVariable(config.language) ||
+                       "plain text"
       blockObject.code = {
         rich_text: [
           {
@@ -1395,16 +1622,23 @@ export async function notionAddBlock(
             text: { content: content }
           }
         ],
-        language: config.language || "plain text"
+        language
       }
     } else if (blockType === "divider") {
       // Divider blocks have no content
       blockObject.divider = {}
+    } else if (!content && blockType !== "divider") {
+      // For text-based blocks without content, still need to create the block structure
+      blockObject[blockType] = {
+        rich_text: []
+      }
     }
 
     const payload = {
       children: [blockObject]
     }
+
+    logger.debug("[Notion Add Block] Payload:", JSON.stringify(payload, null, 2))
 
     const result = await notionApiRequest(
       `/blocks/${pageId}/children`,
@@ -1671,9 +1905,10 @@ export async function notionAdvancedDatabaseQuery(
       }
     }
 
-    const databaseId = context.dataFlowManager.resolveVariable(config.database_id)
-    const filter = context.dataFlowManager.resolveVariable(config.filter)
-    const sorts = context.dataFlowManager.resolveVariable(config.sorts)
+    const rawDatabaseId = context.dataFlowManager.resolveVariable(config.database_id || config.database)
+    const databaseId = normalizeNotionId(rawDatabaseId)
+    let filter = context.dataFlowManager.resolveVariable(config.filter)
+    let sorts = context.dataFlowManager.resolveVariable(config.sorts)
     const pageSize = context.dataFlowManager.resolveVariable(config.page_size) || 100
 
     if (!databaseId) {
@@ -1684,7 +1919,44 @@ export async function notionAdvancedDatabaseQuery(
       }
     }
 
-    logger.info("[Notion Advanced Query] Querying database:", { databaseId, hasFilter: !!filter, hasSorts: !!sorts })
+    if (typeof filter === 'string') {
+      const trimmed = filter.trim()
+      if (trimmed === '') {
+        filter = undefined
+      } else {
+        try {
+          filter = JSON.parse(trimmed)
+        } catch (error: any) {
+          return {
+            success: false,
+            output: {},
+            message: `Invalid JSON for filter: ${error.message}`
+          }
+        }
+      }
+    }
+
+    if (typeof sorts === 'string') {
+      const trimmed = sorts.trim()
+      if (trimmed === '') {
+        sorts = undefined
+      } else {
+        try {
+          sorts = JSON.parse(trimmed)
+          if (!Array.isArray(sorts)) {
+            throw new Error('Sorts must be an array')
+          }
+        } catch (error: any) {
+          return {
+            success: false,
+            output: {},
+            message: `Invalid JSON for sorts: ${error.message}`
+          }
+        }
+      }
+    }
+
+    logger.info("[Notion Advanced Query] Querying database:", { databaseId, rawDatabaseId, hasFilter: !!filter, hasSorts: !!sorts })
 
     // Build query payload
     const payload: any = {
@@ -2079,6 +2351,129 @@ export async function notionRemoveDatabaseProperty(
       success: false,
       output: {},
       message: error.message || "Failed to remove database property"
+    }
+  }
+}
+
+/**
+ * Make a custom API call to Notion's API
+ * Supports any endpoint with any method
+ */
+export async function notionMakeApiCall(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const { getDecryptedAccessToken } = await import('@/lib/integrations/getDecryptedAccessToken')
+    const accessToken = await getDecryptedAccessToken(userId, "notion")
+
+    if (!accessToken) {
+      return {
+        success: false,
+        output: {},
+        message: "Notion integration not connected. Please connect your Notion account."
+      }
+    }
+
+    const endpoint = config.endpoint
+    const method = config.method || 'GET'
+    let body = config.body
+    let queryParams = config.queryParams
+    const customHeaders = config.headers || {}
+
+    if (!endpoint) {
+      return {
+        success: false,
+        output: {},
+        message: "API endpoint is required"
+      }
+    }
+
+    // Parse body if it's a string
+    if (typeof body === 'string' && body.trim()) {
+      try {
+        body = JSON.parse(body)
+      } catch (e) {
+        return {
+          success: false,
+          output: {},
+          message: "Invalid JSON in request body"
+        }
+      }
+    }
+
+    // Parse query params if it's a string
+    if (typeof queryParams === 'string' && queryParams.trim()) {
+      try {
+        queryParams = JSON.parse(queryParams)
+      } catch (e) {
+        return {
+          success: false,
+          output: {},
+          message: "Invalid JSON in query parameters"
+        }
+      }
+    }
+
+    // Build the full URL
+    let url = `https://api.notion.com${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`
+
+    // Add query parameters
+    if (queryParams && typeof queryParams === 'object' && Object.keys(queryParams).length > 0) {
+      const params = new URLSearchParams()
+      for (const [key, value] of Object.entries(queryParams)) {
+        params.append(key, String(value))
+      }
+      url += `?${params.toString()}`
+    }
+
+    logger.info("[Notion Make API Call] Making request:", { method, url })
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Notion-Version': '2022-06-28',
+      'Content-Type': 'application/json',
+      ...customHeaders
+    }
+
+    const fetchOptions: RequestInit = {
+      method,
+      headers
+    }
+
+    if (body && (method === 'POST' || method === 'PATCH' || method === 'PUT')) {
+      fetchOptions.body = JSON.stringify(body)
+    }
+
+    const response = await fetch(url, fetchOptions)
+    const data = await response.json()
+
+    if (!response.ok) {
+      logger.error("[Notion Make API Call] API error:", data)
+      return {
+        success: false,
+        output: { status: response.status, error: data },
+        message: data.message || `API call failed with status ${response.status}`
+      }
+    }
+
+    logger.info("[Notion Make API Call] Request successful")
+
+    return {
+      success: true,
+      output: {
+        data,
+        status: response.status
+      },
+      message: "API call successful"
+    }
+  } catch (error: any) {
+    logger.error("[Notion Make API Call] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to make API call"
     }
   }
 }

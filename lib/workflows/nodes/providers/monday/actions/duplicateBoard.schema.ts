@@ -79,9 +79,9 @@ export const duplicateBoardActionSchema: NodeComponent = {
       type: "select",
       required: false,
       options: [
-        { label: "Structure only (default)", value: "structure" },
-        { label: "Structure and items", value: "structure_and_items" },
-        { label: "Structure, items, and updates", value: "structure_items_updates" }
+        { label: "Structure only (default)", value: "duplicate_board_with_structure" },
+        { label: "Structure and items", value: "duplicate_board_with_pulses" },
+        { label: "Structure, items, and updates", value: "duplicate_board_with_pulses_and_updates" }
       ],
       placeholder: "Structure only...",
       description: "What to include in the duplicate"

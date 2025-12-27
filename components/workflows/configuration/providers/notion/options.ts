@@ -10,6 +10,17 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
   
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, dependsOnValue, extraOptions, formValues } = params
+
+    logger.debug('🔵 [Notion Options] loadOptions called:', {
+      fieldName,
+      integrationId,
+      dependsOnValue,
+      formValuesKeys: formValues ? Object.keys(formValues) : [],
+      formValuesDatabase: formValues?.database,
+      formValuesDatabaseId: formValues?.databaseId,
+      extraOptions
+    })
+
     try {
       // Map field names to Notion API data types
       const fieldToDataTypeMap: Record<string, string> = {
@@ -44,6 +55,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         'createProperties': 'properties',
         'itemToArchive': 'database_items',
         'itemToRestore': 'archived_items',
+        'sortProperty': 'properties',
       }
 
       const dataType = fieldToDataTypeMap[fieldName] || fieldName
@@ -63,41 +75,27 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         requestBody.options.workspaceId = dependsOnValue
       }
       
-      // Add other dependencies
-      if (fieldName === 'databaseProperties' && dependsOnValue) {
-        requestBody.options.databaseId = dependsOnValue
-        // Add workspace ID if available
-        if (formValues?.workspace) {
-          requestBody.options.workspaceId = formValues.workspace
+      const databaseBoundFields = new Set([
+        'databaseProperties',
+        'databaseFields',
+        'databaseRows',
+        'searchProperty',
+        'createProperties',
+        'itemToArchive',
+        'itemToRestore',
+        'sortProperty'
+      ])
+
+      if (databaseBoundFields.has(fieldName)) {
+        if (dependsOnValue) {
+          requestBody.options.databaseId = dependsOnValue
+        } else if (formValues?.database) {
+          // Fall back to currently selected database value if dependency wasn't passed along
+          requestBody.options.databaseId = formValues.database
+        } else if (formValues?.databaseId) {
+          requestBody.options.databaseId = formValues.databaseId
         }
-      } else if (fieldName === 'databaseFields' && dependsOnValue) {
-        requestBody.options.databaseId = dependsOnValue
-        if (formValues?.workspace) {
-          requestBody.options.workspaceId = formValues.workspace
-        }
-      } else if (fieldName === 'databaseRows' && dependsOnValue) {
-        requestBody.options.databaseId = dependsOnValue
-        if (formValues?.workspace) {
-          requestBody.options.workspaceId = formValues.workspace
-        }
-      } else if (fieldName === 'searchProperty' && dependsOnValue) {
-        requestBody.options.databaseId = dependsOnValue
-        // Add workspace ID from form values for proper token selection
-        if (formValues?.workspace) {
-          requestBody.options.workspaceId = formValues.workspace
-        }
-      } else if (fieldName === 'createProperties' && dependsOnValue) {
-        requestBody.options.databaseId = dependsOnValue
-        if (formValues?.workspace) {
-          requestBody.options.workspaceId = formValues.workspace
-        }
-      } else if (fieldName === 'itemToArchive' && dependsOnValue) {
-        requestBody.options.databaseId = dependsOnValue
-        if (formValues?.workspace) {
-          requestBody.options.workspaceId = formValues.workspace
-        }
-      } else if (fieldName === 'itemToRestore' && dependsOnValue) {
-        requestBody.options.databaseId = dependsOnValue
+
         if (formValues?.workspace) {
           requestBody.options.workspaceId = formValues.workspace
         }
@@ -123,6 +121,27 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         requestBody.options = { ...requestBody.options, ...extraOptions }
       }
       
+      const requiresDatabaseId = databaseBoundFields.has(fieldName)
+      if (requiresDatabaseId && !requestBody.options.databaseId) {
+        logger.debug('⚠️ [Notion Options] Skipping Notion request - missing databaseId', {
+          fieldName,
+          dataType,
+          integrationId,
+          dependsOnValue,
+          formValuesDatabase: formValues?.database,
+          formValuesDatabaseId: formValues?.databaseId,
+          formValuesKeys: formValues ? Object.keys(formValues) : []
+        })
+        return []
+      }
+
+      logger.debug('📤 [Notion Options] Making API request:', {
+        fieldName,
+        dataType,
+        requestBody,
+        options: requestBody.options
+      })
+
       const response = await fetch('/api/integrations/notion/data', {
         method: 'POST',
         headers: {
@@ -295,6 +314,9 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       'pageFields': ['page'],
       'itemToArchive': ['database'],
       'itemToRestore': ['database'],
+      'sortProperty': ['database'],
+      'searchProperty': ['database'],
+      'createProperties': ['database'],
     }
 
     return dependencies[fieldName] || []

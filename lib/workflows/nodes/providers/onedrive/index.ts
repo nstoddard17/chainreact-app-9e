@@ -600,13 +600,17 @@ const onedriveActionDeleteItem: NodeComponent = {
     },
     {
       name: "folderId",
-      label: "Folder",
+      label: "Browse Folder",
       type: "select",
       dynamic: "onedrive-folders",
       required: false,
       loadOnMount: true,
-      placeholder: "Select a folder (optional)",
-      description: "Choose a folder to browse items from",
+      placeholder: "Select folder to browse (optional)",
+      description: "Navigate to a folder to find the file you want to delete. Leave empty to browse root files.",
+      hidden: {
+        $deps: ["itemType"],
+        $condition: { itemType: { $ne: "file" } }
+      },
       uiTab: "basic"
     },
     {
@@ -615,6 +619,7 @@ const onedriveActionDeleteItem: NodeComponent = {
       type: "select",
       dynamic: "onedrive-files",
       required: false,
+      loadOnMount: true,
       placeholder: "Select a file",
       description: "Choose the file to delete",
       dependsOn: "folderId",
@@ -695,6 +700,7 @@ const onedriveActionCopyItem: NodeComponent = {
   requiredScopes: ["Files.ReadWrite"],
   category: "Storage",
   isTrigger: false,
+  recommendedTimeoutMs: 180000,
   configSchema: [
     {
       name: "itemType",
@@ -711,13 +717,17 @@ const onedriveActionCopyItem: NodeComponent = {
     },
     {
       name: "sourceFolderId",
-      label: "Source Folder",
+      label: "Browse Folder",
       type: "select",
       dynamic: "onedrive-folders",
       required: false,
       loadOnMount: true,
-      placeholder: "Select source folder (optional)",
-      description: "Choose the folder containing the item to copy",
+      placeholder: "Select folder to browse (optional)",
+      description: "Navigate to a folder to find the file you want to copy. Leave empty to browse root files.",
+      hidden: {
+        $deps: ["itemType"],
+        $condition: { itemType: { $ne: "file" } }
+      },
       uiTab: "basic"
     },
     {
@@ -726,8 +736,9 @@ const onedriveActionCopyItem: NodeComponent = {
       type: "select",
       dynamic: "onedrive-files",
       required: false,
+      loadOnMount: true,
       placeholder: "Select a file",
-      description: "Choose the file to copy",
+      description: "Choose the file to copy. Select a source folder first to browse files in that folder, or leave it empty to see root files.",
       dependsOn: "sourceFolderId",
       hidden: {
         $deps: ["itemType"],
@@ -784,14 +795,34 @@ const onedriveActionCopyItem: NodeComponent = {
       ],
       description: "How to handle if an item with the same name exists",
       uiTab: "advanced"
+    },
+    {
+      name: "waitForCompletion",
+      label: "Wait for Completion",
+      type: "boolean",
+      defaultValue: false,
+      description: "When disabled (default), returns success immediately after copy is initiated - the copy continues in the background. Enable to wait for the copy to fully complete before proceeding.",
+      uiTab: "advanced"
     }
   ],
   outputSchema: [
     {
+      name: "status",
+      label: "Status",
+      type: "string",
+      description: "Copy status: 'initiated', 'in_progress', or 'completed'"
+    },
+    {
+      name: "monitorUrl",
+      label: "Monitor URL",
+      type: "string",
+      description: "URL to check copy operation progress (when not waiting for completion)"
+    },
+    {
       name: "id",
       label: "Copied Item ID",
       type: "string",
-      description: "Unique identifier for the copied item"
+      description: "Unique identifier for the copied item (available when completed)"
     },
     {
       name: "name",
@@ -857,13 +888,17 @@ const onedriveActionMoveItem: NodeComponent = {
     },
     {
       name: "sourceFolderId",
-      label: "Source Folder",
+      label: "Browse Folder",
       type: "select",
       dynamic: "onedrive-folders",
       required: false,
       loadOnMount: true,
-      placeholder: "Select source folder (optional)",
-      description: "Choose the folder containing the item to move",
+      placeholder: "Select folder to browse (optional)",
+      description: "Navigate to a folder to find the file you want to move. Leave empty to browse root files.",
+      hidden: {
+        $deps: ["itemType"],
+        $condition: { itemType: { $ne: "file" } }
+      },
       uiTab: "basic"
     },
     {
@@ -872,8 +907,9 @@ const onedriveActionMoveItem: NodeComponent = {
       type: "select",
       dynamic: "onedrive-files",
       required: false,
+      loadOnMount: true,
       placeholder: "Select a file",
-      description: "Choose the file to move",
+      description: "Choose the file to move. Select a source folder first to browse files in that folder, or leave it empty to see root files.",
       dependsOn: "sourceFolderId",
       hidden: {
         $deps: ["itemType"],
@@ -1003,13 +1039,17 @@ const onedriveActionRenameItem: NodeComponent = {
     },
     {
       name: "folderId",
-      label: "Folder",
+      label: "Browse Folder",
       type: "select",
       dynamic: "onedrive-folders",
       required: false,
       loadOnMount: true,
-      placeholder: "Select a folder (optional)",
-      description: "Choose a folder to browse items from",
+      placeholder: "Select folder to browse (optional)",
+      description: "Navigate to a folder to find the file you want to rename. Leave empty to browse root files.",
+      hidden: {
+        $deps: ["itemType"],
+        $condition: { itemType: { $ne: "file" } }
+      },
       uiTab: "basic"
     },
     {
@@ -1018,6 +1058,7 @@ const onedriveActionRenameItem: NodeComponent = {
       type: "select",
       dynamic: "onedrive-files",
       required: false,
+      loadOnMount: true,
       placeholder: "Select a file",
       description: "Choose the file to rename",
       dependsOn: "folderId",
@@ -1125,13 +1166,17 @@ const onedriveActionCreateSharingLink: NodeComponent = {
     },
     {
       name: "folderId",
-      label: "Folder",
+      label: "Browse Folder",
       type: "select",
       dynamic: "onedrive-folders",
       required: false,
       loadOnMount: true,
-      placeholder: "Select a folder (optional)",
-      description: "Choose a folder to browse items from",
+      placeholder: "Select folder to browse (optional)",
+      description: "Navigate to a folder to find the file you want to share. Leave empty to browse root files.",
+      hidden: {
+        $deps: ["itemType"],
+        $condition: { itemType: { $ne: "file" } }
+      },
       uiTab: "basic"
     },
     {
@@ -1140,6 +1185,7 @@ const onedriveActionCreateSharingLink: NodeComponent = {
       type: "select",
       dynamic: "onedrive-files",
       required: false,
+      loadOnMount: true,
       placeholder: "Select a file",
       description: "Choose the file to create a sharing link for",
       dependsOn: "folderId",
@@ -1282,13 +1328,17 @@ const onedriveActionSendSharingInvitation: NodeComponent = {
     },
     {
       name: "folderId",
-      label: "Folder",
+      label: "Browse Folder",
       type: "select",
       dynamic: "onedrive-folders",
       required: false,
       loadOnMount: true,
-      placeholder: "Select a folder (optional)",
-      description: "Choose a folder to browse items from",
+      placeholder: "Select folder to browse (optional)",
+      description: "Navigate to a folder to find the file you want to share. Leave empty to browse root files.",
+      hidden: {
+        $deps: ["itemType"],
+        $condition: { itemType: { $ne: "file" } }
+      },
       uiTab: "basic"
     },
     {
@@ -1297,6 +1347,7 @@ const onedriveActionSendSharingInvitation: NodeComponent = {
       type: "select",
       dynamic: "onedrive-files",
       required: false,
+      loadOnMount: true,
       placeholder: "Select a file",
       description: "Choose the file to share",
       dependsOn: "folderId",
@@ -1527,8 +1578,8 @@ const onedriveActionSearchFiles: NodeComponent = {
 
 const onedriveActionFindItemById: NodeComponent = {
   type: "onedrive_action_find_item_by_id",
-  title: "Find Item by ID",
-  description: "Retrieve a specific file or folder using its unique ID",
+  title: "Get Item Details by ID",
+  description: "Get full details of a file/folder using an ID from a previous step (trigger or action output)",
   icon: Search,
   providerId: "onedrive",
   requiredScopes: ["Files.Read"],
@@ -1540,8 +1591,8 @@ const onedriveActionFindItemById: NodeComponent = {
       label: "Item ID",
       type: "text",
       required: true,
-      placeholder: "e.g., 01ABCDEF1234567890ABCDEF",
-      description: "The unique OneDrive item ID",
+      placeholder: "e.g., {{trigger.id}} or {{node-123.id}}",
+      description: "Use a variable from a previous step like {{trigger.id}} or {{search-node.items[0].id}}",
       supportsAI: true,
       uiTab: "basic"
     },

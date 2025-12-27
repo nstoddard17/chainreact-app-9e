@@ -12,14 +12,16 @@ export async function moveMondayItem(
   try {
     // Resolve configuration values
     const itemId = await resolveValue(config.itemId, input)
-    const groupId = await resolveValue(config.groupId, input)
+    const targetGroupId = await resolveValue(config.targetGroupId, input)
+    const sourceBoardId = await resolveValue(config.sourceBoardId, input)
+    const targetBoardId = await resolveValue(config.targetBoardId, input)
 
     // Validate required fields
     if (!itemId) {
       throw new Error('Item ID is required')
     }
-    if (!groupId) {
-      throw new Error('Group ID is required')
+    if (!targetGroupId) {
+      throw new Error('Target Group ID is required')
     }
 
     // Get access token
@@ -41,7 +43,7 @@ export async function moveMondayItem(
 
     const variables = {
       itemId: itemId.toString(),
-      groupId: groupId.toString()
+      groupId: targetGroupId.toString()
     }
 
     // Make API request
@@ -73,18 +75,20 @@ export async function moveMondayItem(
       throw new Error('Failed to move item: No data returned')
     }
 
-    logger.info('✅ Monday.com item moved successfully', { itemId, groupId, userId })
+    logger.info('✅ Monday.com item moved successfully', { itemId, targetGroupId, userId })
 
     return {
       success: true,
       output: {
         itemId: item.id,
         itemName: item.name,
-        newGroupId: item.group?.id || groupId,
-        newGroupTitle: item.group?.title,
+        sourceBoardId: sourceBoardId,
+        sourceGroupId: '', // Original group not available from move response
+        targetBoardId: targetBoardId,
+        targetGroupId: item.group?.id || targetGroupId,
         movedAt: new Date().toISOString()
       },
-      message: `Item ${itemId} moved successfully to group ${groupId}`
+      message: `Item ${itemId} moved successfully to group ${targetGroupId}`
     }
 
   } catch (error: any) {

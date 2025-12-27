@@ -215,3 +215,129 @@ function pageHasContent(page: any, title: string): boolean {
         }
     })
 }
+
+/**
+ * Get archived pages from Notion
+ * Similar to getNotionPages but only returns archived pages
+ */
+export const getNotionArchivedPages: NotionDataHandler<NotionPage> = async (
+    integration: NotionIntegration,
+    context?: any
+): Promise<NotionPage[]> => {
+    validateNotionIntegration(integration)
+
+    const { workspaceId: requestedWorkspace } = getNotionRequestOptions(context)
+    const cacheKey = `archived_${integration.id}_${requestedWorkspace || 'all'}`
+    const cached = pageCache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        logger.debug('[Notion Archived Pages] Returning cached result', {
+            integrationId: integration.id,
+            workspace: requestedWorkspace || 'all'
+        })
+        return cached.data
+    }
+
+    const workspaceMap = integration.metadata?.workspaces || {}
+    const workspaceIds = Object.keys(workspaceMap)
+
+    if (workspaceIds.length === 0) {
+        throw new Error('No workspaces found in Notion integration metadata')
+    }
+
+    const workspacesToProcess = requestedWorkspace
+        ? workspaceIds.filter(id => id === requestedWorkspace)
+        : workspaceIds
+
+    if (!workspacesToProcess.length) {
+        logger.warn('[Notion Archived Pages] Requested workspace not found', {
+            integrationId: integration.id,
+            requestedWorkspace
+        })
+        return []
+    }
+
+    const allPages: NotionPage[] = []
+
+    for (const workspaceId of workspacesToProcess) {
+        const workspace = workspaceMap[workspaceId]
+        const workspaceName = workspace?.workspace_name || workspace?.name || workspaceId
+
+        try {
+            const accessToken = resolveNotionAccessToken(integration, workspaceId)
+
+            // Search for pages - Notion search doesn't have a direct "archived" filter
+            // so we fetch more pages and filter client-side
+            const response = await makeNotionApiRequest(
+                'https://api.notion.com/v1/search',
+                accessToken,
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        filter: { property: 'object', value: 'page' },
+                        sort: { direction: 'descending', timestamp: 'last_edited_time' },
+                        page_size: 100 // Fetch more to find archived pages
+                    })
+                }
+            )
+
+            const data = await response.json()
+            const pages = (data.results || []).filter((item: any) => item.object === 'page')
+
+            logger.debug('[Notion Archived Pages] Workspace pages fetched', {
+                workspaceId,
+                workspaceName,
+                totalCount: pages.length
+            })
+
+            // Filter to ONLY archived pages
+            const transformedPages = pages
+                .filter((page: any) => page.archived === true)
+                .map((page: any) => transformArchivedPage(page, workspaceName, workspaceId))
+                .filter((page): page is NotionPage => Boolean(page))
+
+            logger.debug('[Notion Archived Pages] Archived pages found', {
+                workspaceId,
+                archivedCount: transformedPages.length
+            })
+
+            allPages.push(...transformedPages)
+        } catch (error: any) {
+            logger.error('[Notion Archived Pages] Workspace fetch failed', {
+                workspaceId,
+                workspaceName,
+                message: error.message
+            })
+        }
+    }
+
+    pageCache.set(cacheKey, { data: allPages, timestamp: Date.now() })
+
+    logger.debug('[Notion Archived Pages] Total archived pages returned', {
+        integrationId: integration.id,
+        workspace: requestedWorkspace || 'all',
+        count: allPages.length
+    })
+
+    return allPages
+}
+
+function transformArchivedPage(page: any, workspaceName: string, workspaceId: string): NotionPage | null {
+    const title = extractTitle(page)
+
+    return {
+        id: page.id,
+        name: title,
+        title,
+        value: page.id,
+        label: `${title} (archived)`,
+        url: page.url,
+        created_time: page.created_time,
+        last_edited_time: page.last_edited_time,
+        workspace: workspaceName,
+        workspaceId,
+        object: page.object,
+        parent: page.parent,
+        archived: page.archived,
+        properties: page.properties
+    }
+}

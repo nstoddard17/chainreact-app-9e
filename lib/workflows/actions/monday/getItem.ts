@@ -21,7 +21,7 @@ export async function getMondayItem(
     // Get access token
     const accessToken = await getDecryptedAccessToken(userId, 'monday')
 
-    // Build GraphQL query
+    // Build GraphQL query - Note: column_values doesn't have 'title' in API 2024-01
     const query = `
       query($itemId: [ID!]) {
         items(ids: $itemId) {
@@ -38,10 +38,13 @@ export async function getMondayItem(
           }
           column_values {
             id
-            title
             type
             text
             value
+            column {
+              id
+              title
+            }
           }
           created_at
           updated_at
@@ -90,6 +93,15 @@ export async function getMondayItem(
 
     logger.info('✅ Monday.com item retrieved successfully', { itemId, userId })
 
+    // Map column values to include title from nested column object
+    const columnValues = (item.column_values || []).map((cv: any) => ({
+      id: cv.id,
+      title: cv.column?.title || cv.id,
+      type: cv.type,
+      text: cv.text,
+      value: cv.value
+    }))
+
     return {
       success: true,
       output: {
@@ -100,7 +112,7 @@ export async function getMondayItem(
         boardName: item.board?.name,
         groupId: item.group?.id,
         groupTitle: item.group?.title,
-        columnValues: item.column_values || [],
+        columnValues: columnValues,
         createdAt: item.created_at,
         updatedAt: item.updated_at,
         creatorId: item.creator?.id,

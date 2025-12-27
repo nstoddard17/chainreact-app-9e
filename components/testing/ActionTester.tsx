@@ -159,6 +159,30 @@ export function ActionTester({ userId }: ActionTesterProps) {
       const options: Record<string, any> = { ...configValues }
       if (parentValue !== undefined && parentField) {
         options[parentField] = parentValue
+
+        // Normalize board-related parent fields to 'boardId' for Monday.com API
+        // The API expects 'boardId' but schemas may use 'sourceBoardId' or 'targetBoardId'
+        if (selectedProvider === 'monday' &&
+            (parentField === 'sourceBoardId' || parentField === 'targetBoardId') &&
+            (fieldName === 'itemId' || fieldName === 'groupId' || fieldName === 'targetGroupId' ||
+             fieldName === 'columnId' || fieldName === 'parentItemId')) {
+          options.boardId = parentValue
+        }
+
+        // Normalize database field to databaseId for Notion API
+        // The Notion data handlers expect 'databaseId' but schema uses 'database'
+        if (selectedProvider === 'notion' && parentField === 'database') {
+          options.databaseId = parentValue
+        }
+      }
+
+      // Also normalize workspace field to workspaceId for Notion API
+      if (selectedProvider === 'notion' && configValues.workspace && !options.workspaceId) {
+        options.workspaceId = configValues.workspace
+      }
+      // And normalize database field to databaseId if it exists in configValues
+      if (selectedProvider === 'notion' && configValues.database && !options.databaseId) {
+        options.databaseId = configValues.database
       }
 
       const response = await fetchWithTimeout(
@@ -305,6 +329,8 @@ export function ActionTester({ userId }: ActionTesterProps) {
         configKeys: Object.keys(configValues)
       })
 
+      const executionTimeoutMs = selectedNode.recommendedTimeoutMs || 30000
+
       const response = await fetchWithTimeout(
         '/api/test-action',
         {
@@ -317,7 +343,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
             integrationId: selectedIntegrationId
           })
         },
-        30000 // 30 second timeout for action execution
+        executionTimeoutMs
       )
 
       const result = await response.json()

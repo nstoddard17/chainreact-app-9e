@@ -24,7 +24,7 @@ import { notionBlockActions } from './block-actions'
 
 // Import granular page content actions
 import { listPageContentActionSchema } from './actions/listPageContent.schema'
-import { getPageContentActionSchema } from './actions/getPageContent.schema'
+// NOTE: getPageContentActionSchema removed - duplicate of listPageContentActionSchema
 import { appendPageContentActionSchema } from './actions/appendPageContent.schema'
 import { updatePageContentActionSchema } from './actions/updatePageContent.schema'
 import { deletePageContentActionSchema } from './actions/deletePageContent.schema'
@@ -35,11 +35,6 @@ import { makeApiCallActionSchema } from './actions/makeApiCall.schema'
 const listPageContent: NodeComponent = {
   ...listPageContentActionSchema,
   icon: List
-}
-
-const getPageContent: NodeComponent = {
-  ...getPageContentActionSchema,
-  icon: FileText
 }
 
 const appendPageContent: NodeComponent = {
@@ -96,7 +91,7 @@ export const notionNodes: NodeComponent[] = [
 
   // === Granular Page Content Actions (Advanced Content Management) ===
   listPageContent,
-  getPageContent,
+  // NOTE: getPageContent removed - duplicate of listPageContent
   appendPageContent,
   updatePageContent,
   deletePageContent,
@@ -358,7 +353,7 @@ export const notionNodes: NodeComponent[] = [
 export {
   // Granular page content actions
   listPageContent,
-  getPageContent,
+  // NOTE: getPageContent removed - duplicate of listPageContent
   appendPageContent,
   updatePageContent,
   deletePageContent,

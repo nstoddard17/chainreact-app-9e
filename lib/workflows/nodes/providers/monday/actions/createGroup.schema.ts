@@ -32,13 +32,6 @@ export const createGroupActionSchema: NodeComponent = {
       example: "1234567890"
     },
     {
-      name: "position",
-      label: "Position",
-      type: "string",
-      description: "The position of the group in the board",
-      example: "0"
-    },
-    {
       name: "createdAt",
       label: "Created At",
       type: "string",
@@ -65,18 +58,6 @@ export const createGroupActionSchema: NodeComponent = {
       placeholder: "Enter group title...",
       description: "The title of the new group",
       supportsAI: true
-    },
-    {
-      name: "position",
-      label: "Position",
-      type: "select",
-      required: false,
-      options: [
-        { label: "Top", value: "top" },
-        { label: "Bottom", value: "bottom" }
-      ],
-      placeholder: "Select position (default: bottom)...",
-      description: "Where to place the new group in the board"
     },
     {
       name: "color",

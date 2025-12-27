@@ -10,12 +10,14 @@ export async function duplicateMondayBoard(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    // Resolve configuration values
+    // Resolve configuration values - support both newBoardName (schema) and boardName (legacy)
     const boardId = await resolveValue(config.boardId, input)
     const duplicateType = await resolveValue(config.duplicateType, input) || 'duplicate_board_with_structure'
-    const boardName = config.boardName
-      ? await resolveValue(config.boardName, input)
-      : undefined
+    const boardName = config.newBoardName
+      ? await resolveValue(config.newBoardName, input)
+      : config.boardName
+        ? await resolveValue(config.boardName, input)
+        : undefined
 
     // Validate required fields
     if (!boardId) {
@@ -25,14 +27,16 @@ export async function duplicateMondayBoard(
     // Get access token
     const accessToken = await getDecryptedAccessToken(userId, 'monday')
 
-    // Build GraphQL mutation
+    // Build GraphQL mutation - duplicate_board returns BoardDuplication with a board field
     let mutation = `
-      mutation($boardId: ID!, $duplicateType: BoardDuplicateType!) {
+      mutation($boardId: ID!, $duplicateType: DuplicateBoardType!) {
         duplicate_board(board_id: $boardId, duplicate_type: $duplicateType) {
-          id
-          name
-          description
-          board_kind
+          board {
+            id
+            name
+            description
+            board_kind
+          }
         }
       }
     `
@@ -45,12 +49,14 @@ export async function duplicateMondayBoard(
     // Add board name if provided
     if (boardName) {
       mutation = `
-        mutation($boardId: ID!, $duplicateType: BoardDuplicateType!, $boardName: String!) {
+        mutation($boardId: ID!, $duplicateType: DuplicateBoardType!, $boardName: String!) {
           duplicate_board(board_id: $boardId, duplicate_type: $duplicateType, board_name: $boardName) {
-            id
-            name
-            description
-            board_kind
+            board {
+              id
+              name
+              description
+              board_kind
+            }
           }
         }
       `
@@ -80,7 +86,7 @@ export async function duplicateMondayBoard(
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
 
-    const newBoard = data.data?.duplicate_board
+    const newBoard = data.data?.duplicate_board?.board
 
     if (!newBoard) {
       throw new Error('Failed to duplicate board: No data returned')

@@ -1,4 +1,4 @@
-import { FileText, FilePlus, FileEdit, FileStack, Archive, Copy } from "lucide-react"
+import { FileText, FilePlus, FileEdit, FileStack, Copy } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 /**
@@ -420,77 +420,6 @@ export const notionPageActions: NodeComponent[] = [
         label: "Archived",
         type: "boolean",
         description: "Whether the page is archived"
-      }
-    ]
-  },
-
-  // ============= ARCHIVE/UNARCHIVE PAGE =============
-  {
-    type: "notion_action_archive_page",
-    title: "Archive/Unarchive Page",
-    description: "Archive or restore a Notion page",
-    icon: Archive,
-    providerId: "notion",
-    requiredScopes: ["content.write"],
-    category: "Productivity",
-    isTrigger: false,
-    configSchema: [
-      {
-        name: "workspace",
-        label: "Workspace",
-        type: "select",
-        dynamic: "notion_workspaces",
-        required: true,
-        loadOnMount: true,
-        placeholder: "Select Notion workspace"
-      },
-      {
-        name: "page",
-        label: "Page",
-        type: "combobox",
-        dynamic: "notion_pages",
-        required: true,
-        loadOnMount: true,
-        placeholder: "Search for a page...",
-        description: "Only pages shared with your Notion integration will appear",
-        dependsOn: "workspace",
-        searchable: true,
-        loadingText: "Loading pages...",
-        hidden: {
-          $deps: ["workspace"],
-          $condition: { workspace: { $exists: false } }
-        }
-      },
-      {
-        name: "archiveAction",
-        label: "Action",
-        type: "select",
-        required: true,
-        clearable: false,
-        defaultValue: "archive",
-        options: [
-          { value: "archive", label: "Archive Page" },
-          { value: "unarchive", label: "Unarchive Page" }
-        ],
-        description: "Choose whether to archive or restore the page",
-        hidden: {
-          $deps: ["page"],
-          $condition: { page: { $exists: false } }
-        }
-      }
-    ],
-    outputSchema: [
-      {
-        name: "page_id",
-        label: "Page ID",
-        type: "string",
-        description: "The ID of the page"
-      },
-      {
-        name: "archived",
-        label: "Archived",
-        type: "boolean",
-        description: "Current archived status of the page"
       }
     ]
   },

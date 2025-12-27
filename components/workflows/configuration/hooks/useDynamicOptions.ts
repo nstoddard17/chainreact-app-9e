@@ -1526,7 +1526,12 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       }
 
       // Check if this field depends on another field and the dependency value is missing
-      if (dependsOn && !dependsOnValue) {
+      // Exception: OneDrive files can load without a folder (loads root files)
+      // Also exception: Google Drive files, Dropbox files - storage providers allow root access
+      const allowOptionalDependency = resourceType === 'onedrive-files' ||
+                                       resourceType === 'google-drive-files' ||
+                                       resourceType === 'dropbox-files';
+      if (dependsOn && !dependsOnValue && !allowOptionalDependency) {
         logger.debug(`⚠️ [useDynamicOptions] Skipping load for ${fieldName} - missing dependency value for ${dependsOn}`);
         setDynamicOptions(prev => ({
           ...prev,

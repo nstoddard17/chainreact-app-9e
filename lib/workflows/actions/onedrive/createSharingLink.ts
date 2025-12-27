@@ -23,11 +23,17 @@ export async function createOnedriveSharingLink(
     const password = context.dataFlowManager.resolveVariable(config.password)
 
     // Determine which item to share
+    // Note: 'root' is a virtual folder ID - cannot share root directly, select a specific folder
     let targetItemId: string | null = null
     if (itemType === 'file' && fileId) {
       targetItemId = fileId
-    } else if (itemType === 'folder' && folderIdToShare) {
+    } else if (itemType === 'folder' && folderIdToShare && folderIdToShare !== 'root') {
       targetItemId = folderIdToShare
+    }
+
+    // Check if user tried to select root folder
+    if (folderIdToShare === 'root') {
+      throw new Error("Cannot create a sharing link for the root folder. Please select a specific folder.")
     }
 
     if (!targetItemId) {

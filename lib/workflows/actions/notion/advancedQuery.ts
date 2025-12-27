@@ -57,19 +57,15 @@ export async function executeNotionAdvancedQuery(
       }
     }
 
+    // Build sorts array from user-friendly fields
     let sorts = null;
-    if (config.sorts) {
-      try {
-        sorts = typeof config.sorts === 'string'
-          ? JSON.parse(config.sorts)
-          : config.sorts;
-      } catch (error) {
-        return {
-          success: false,
-          output: {},
-          message: 'Invalid sorts JSON: ' + (error as Error).message
-        };
-      }
+    if (config.sortProperty) {
+      sorts = [
+        {
+          property: config.sortProperty,
+          direction: config.sortDirection || 'descending'
+        }
+      ];
     }
 
     const queryConfig = {
@@ -78,6 +74,16 @@ export async function executeNotionAdvancedQuery(
       sorts,
       page_size: config.pageSize || 100
     };
+
+    logger.info('[Notion Advanced Query] Executing with config:', {
+      database_id: config.database,
+      sortProperty: config.sortProperty,
+      sortDirection: config.sortDirection,
+      hasSorts: !!sorts,
+      sorts: sorts,
+      hasFilter: !!filter,
+      pageSize: config.pageSize
+    });
 
     const result = await notionAdvancedDatabaseQuery(queryConfig, context);
 

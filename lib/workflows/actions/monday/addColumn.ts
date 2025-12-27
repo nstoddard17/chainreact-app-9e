@@ -32,26 +32,15 @@ export async function addMondayColumn(
     // Build column defaults based on type
     const defaults = await buildColumnDefaults(config, input, columnType)
 
-    // Determine which mutation to use based on column type
+    // Build mutation - conditionally include defaults
     let mutation = ''
-    let variables: Record<string, any> = {
+    const variables: Record<string, any> = {
       boardId: boardId.toString(),
-      title: columnTitle.toString()
+      title: columnTitle.toString(),
+      columnType: columnType
     }
 
-    // Use specific mutations for status and dropdown columns
-    if (columnType === 'status') {
-      mutation = buildStatusColumnMutation(defaults)
-      if (defaults) {
-        variables.defaults = defaults
-      }
-    } else if (columnType === 'dropdown') {
-      mutation = buildDropdownColumnMutation(defaults)
-      if (defaults) {
-        variables.defaults = defaults
-      }
-    } else {
-      // Generic column creation for other types
+    if (defaults) {
       mutation = `
         mutation($boardId: ID!, $title: String!, $columnType: ColumnType!, $defaults: JSON) {
           create_column(
@@ -66,11 +55,31 @@ export async function addMondayColumn(
           }
         }
       `
-      variables.columnType = columnType
-      if (defaults) {
-        variables.defaults = JSON.stringify(defaults)
-      }
+      variables.defaults = JSON.stringify(defaults)
+    } else {
+      mutation = `
+        mutation($boardId: ID!, $title: String!, $columnType: ColumnType!) {
+          create_column(
+            board_id: $boardId
+            title: $title
+            column_type: $columnType
+          ) {
+            id
+            title
+            type
+          }
+        }
+      `
     }
+
+    // Log the request for debugging
+    logger.debug('[Monday.com] Creating column', {
+      boardId,
+      columnTitle,
+      columnType,
+      defaults,
+      variables
+    })
 
     // Make API request
     const response = await fetch('https://api.monday.com/v2', {
@@ -95,7 +104,7 @@ export async function addMondayColumn(
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
 
-    const column = data.data?.create_column || data.data?.create_status_column || data.data?.create_dropdown_column
+    const column = data.data?.create_column
 
     if (!column) {
       throw new Error('Failed to create column: No data returned')
@@ -135,27 +144,19 @@ async function buildColumnDefaults(
 ): Promise<any> {
   if (columnType === 'status') {
     const statusLabels = await resolveValue(config.statusLabels, input)
-    const statusColors = await resolveValue(config.statusColors, input)
 
     if (!statusLabels) return null
 
     // Parse comma-separated labels
     const labels = statusLabels.split(',').map((l: string) => l.trim()).filter((l: string) => l)
-    const colors = statusColors
-      ? statusColors.split(',').map((c: string) => c.trim()).filter((c: string) => c)
-      : []
 
-    // Default colors if not provided
-    const defaultColors = ['working_orange', 'done_green', 'stuck_red', 'sky', 'dark_orange', 'purple', 'blue', 'dark_blue']
+    // Build simple labels object - Monday.com will assign default colors
+    const labelsObj: Record<string, string> = {}
+    labels.forEach((label: string, index: number) => {
+      labelsObj[(index + 1).toString()] = label
+    })
 
-    // Build labels array
-    return {
-      labels: labels.map((label: string, index: number) => ({
-        label,
-        color: colors[index] || defaultColors[index % defaultColors.length],
-        index: index + 1
-      }))
-    }
+    return { labels: labelsObj }
   } else if (columnType === 'dropdown') {
     const dropdownLabels = await resolveValue(config.dropdownLabels, input)
     const allowMultiple = await resolveValue(config.allowMultipleSelection, input)
@@ -192,70 +193,3 @@ async function buildColumnDefaults(
   return null
 }
 
-/**
- * Build mutation for creating a status column
- */
-function buildStatusColumnMutation(defaults: any): string {
-  if (!defaults || !defaults.labels) {
-    return `
-      mutation($boardId: ID!, $title: String!) {
-        create_status_column(
-          board_id: $boardId
-          title: $title
-        ) {
-          id
-          title
-          type
-        }
-      }
-    `
-  }
-
-  return `
-    mutation($boardId: ID!, $title: String!, $defaults: StatusColumnDefaultsInput!) {
-      create_status_column(
-        board_id: $boardId
-        title: $title
-        defaults: $defaults
-      ) {
-        id
-        title
-        type
-      }
-    }
-  `
-}
-
-/**
- * Build mutation for creating a dropdown column
- */
-function buildDropdownColumnMutation(defaults: any): string {
-  if (!defaults || !defaults.labels) {
-    return `
-      mutation($boardId: ID!, $title: String!) {
-        create_dropdown_column(
-          board_id: $boardId
-          title: $title
-        ) {
-          id
-          title
-          type
-        }
-      }
-    `
-  }
-
-  return `
-    mutation($boardId: ID!, $title: String!, $defaults: DropdownColumnDefaultsInput!) {
-      create_dropdown_column(
-        board_id: $boardId
-        title: $title
-        defaults: $defaults
-      ) {
-        id
-        title
-        type
-      }
-    }
-  `
-}

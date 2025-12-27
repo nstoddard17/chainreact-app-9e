@@ -107,4 +107,5 @@ export interface NodeComponent {
   actionParamsSchema?: any
   comingSoon?: boolean
   supportsChains?: boolean
+  recommendedTimeoutMs?: number
 }

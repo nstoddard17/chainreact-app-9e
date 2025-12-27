@@ -3,7 +3,7 @@
  */
 
 import { NotionIntegration, NotionWorkspace, NotionDataHandler } from '../types'
-import { validateNotionIntegration } from '../utils'
+import { validateNotionIntegration, resolveNotionAccessToken } from '../utils'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -18,6 +18,7 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (
     const metadata = integration.metadata || {}
     let workspaces = metadata.workspaces || {}
 
+    // Check for workspace data in metadata first
     if (Object.keys(workspaces).length === 0 && metadata.workspace_id && metadata.workspace_name) {
       workspaces = {
         [metadata.workspace_id]: {
@@ -28,6 +29,52 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (
           owner_type: metadata.owner_type,
           user_info: metadata.user_info
         }
+      }
+    }
+
+    // If still no workspaces, fetch from Notion API directly
+    if (Object.keys(workspaces).length === 0) {
+      logger.debug('[Notion Workspaces] No workspace in metadata, fetching from Notion API')
+
+      try {
+        const accessToken = resolveNotionAccessToken(integration)
+
+        // Get current user/bot info to determine workspace
+        const response = await fetch('https://api.notion.com/v1/users/me', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Notion-Version': '2022-06-28',
+          },
+        })
+
+        if (response.ok) {
+          const userData = await response.json()
+
+          // The bot info contains workspace details
+          if (userData.bot?.workspace_name) {
+            const workspaceId = userData.bot.owner?.workspace ? 'workspace' : userData.id
+            workspaces = {
+              [workspaceId]: {
+                workspace_id: workspaceId,
+                workspace_name: userData.bot.workspace_name,
+                workspace_icon: null,
+                bot_id: userData.id,
+                owner_type: userData.bot.owner?.type || 'workspace',
+              }
+            }
+            logger.debug('[Notion Workspaces] Got workspace from API', {
+              workspaceName: userData.bot.workspace_name
+            })
+          }
+        } else {
+          logger.warn('[Notion Workspaces] Failed to fetch from API', {
+            status: response.status
+          })
+        }
+      } catch (apiError: any) {
+        logger.warn('[Notion Workspaces] API fetch failed, continuing with empty', {
+          error: apiError.message
+        })
       }
     }
 

@@ -24,11 +24,17 @@ export async function renameOnedriveItem(
     }
 
     // Determine which item to rename
+    // Note: 'root' is a virtual folder ID - cannot rename the root folder
     let targetItemId: string | null = null
     if (itemType === 'file' && fileId) {
       targetItemId = fileId
-    } else if (itemType === 'folder' && folderIdToRename) {
+    } else if (itemType === 'folder' && folderIdToRename && folderIdToRename !== 'root') {
       targetItemId = folderIdToRename
+    }
+
+    // Check if user tried to select root folder
+    if (folderIdToRename === 'root') {
+      throw new Error("Cannot rename the root folder")
     }
 
     if (!targetItemId) {
