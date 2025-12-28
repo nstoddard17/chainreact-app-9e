@@ -129,6 +129,7 @@ export async function GET(
     const totalNodes = workflow?.nodes?.length || 0
     const completedNodes = progress.completed_nodes || []
     const failedNodes = progress.failed_nodes || []
+    const nodeOutputs = progress.node_outputs || {}
     const currentNode = progress.current_node_id
       ? workflow?.nodes?.find((n: any) => n.id === progress.current_node_id)
       : null
@@ -152,6 +153,7 @@ export async function GET(
         currentNode,
         completedNodes,
         failedNodes,
+        nodeOutputs,
         totalNodes,
         progressPercentage: progress.progress_percentage,
         errorMessage: progress.error_message,

@@ -693,6 +693,7 @@ export async function POST(request: NextRequest) {
 
         for (const nextNode of nextNodes) {
           const nodeTitle = nextNode.data?.title || nextNode.data?.type || nextNode.id
+          const nodeType = nextNode.data?.type
 
           // Update progress: starting this node
           await progressTracker.update({
@@ -702,12 +703,14 @@ export async function POST(request: NextRequest) {
 
           logger.info(`[HITL Resume] Executing: ${nextNode.id} (${nodeTitle})`)
 
+          const startTime = Date.now()
           const result = await nodeExecutionService.executeNode(
             nextNode,
             nodes,
             edges,
             executionContext
           )
+          const executionTime = Date.now() - startTime
 
           if (result?.pauseExecution) {
             logger.info('[HITL Resume] Paused again at', nextNode.id)
@@ -715,9 +718,18 @@ export async function POST(request: NextRequest) {
             break
           }
 
-          // Mark this node as completed
-          await progressTracker.updateNodeCompleted(nextNode.id, result)
-          logger.info(`[HITL Resume] Node completed: ${nextNode.id}`)
+          // Mark this node as completed with execution time metadata
+          const resultWithMetadata = {
+            ...result,
+            metadata: {
+              ...(result?.metadata || {}),
+              executionTime,
+              nodeType,
+              nodeTitle
+            }
+          }
+          await progressTracker.updateNodeCompleted(nextNode.id, resultWithMetadata)
+          logger.info(`[HITL Resume] Node completed: ${nextNode.id} in ${executionTime}ms`)
         }
 
         await progressTracker.complete(true)

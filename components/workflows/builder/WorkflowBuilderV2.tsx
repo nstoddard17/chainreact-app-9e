@@ -3359,18 +3359,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           const newlyCompleted = progress.completedNodes.filter(
             (nodeId: string) => !lastSynced.completedNodes.includes(nodeId)
           )
+          const nodeOutputs = progress.nodeOutputs || {}
           newlyCompleted.forEach((nodeId: string) => {
-            console.log('[POLL] Setting node completed:', nodeId)
-            setNodeCompletedWithDetails(nodeId, {}, 'Completed', 0)
+            const nodeOutput = nodeOutputs[nodeId] || {}
+            // Get execution time from output - could be 'duration' (HITL) or 'executionTime' or from metadata
+            const executionTimeMs = nodeOutput.metadata?.executionTime ||
+                                    (nodeOutput.duration ? nodeOutput.duration * 1000 : 0) ||
+                                    nodeOutput.executionTime ||
+                                    0
+            const preview = nodeOutput.conversationSummary ||
+                           nodeOutput.message ||
+                           nodeOutput.preview ||
+                           'Completed'
+            console.log('[POLL] Setting node completed:', nodeId, { executionTimeMs, preview })
+            setNodeCompletedWithDetails(nodeId, nodeOutput, preview, executionTimeMs)
           })
           lastSyncedProgressRef.current.completedNodes = [...progress.completedNodes]
         }
 
         // Sync failed nodes
         if (progress.failedNodes) {
+          const nodeOutputs = progress.nodeOutputs || {}
           progress.failedNodes.forEach((failed: { nodeId: string; error: string }) => {
+            const nodeOutput = nodeOutputs[failed.nodeId] || {}
+            const executionTimeMs = nodeOutput.metadata?.executionTime || 0
             console.log('[POLL] Setting node failed:', failed.nodeId)
-            setNodeFailedWithDetails(failed.nodeId, failed.error, 0)
+            setNodeFailedWithDetails(failed.nodeId, failed.error, executionTimeMs)
           })
         }
 
