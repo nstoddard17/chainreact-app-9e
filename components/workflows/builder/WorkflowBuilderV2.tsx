@@ -360,6 +360,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const testSessionIdRef = useRef<string | null>(null)
   const isMountedRef = useRef(true)
 
+  // Refs for polling execution status after HITL pause
+  const pausedExecutionIdRef = useRef<string | null>(null)
+  const executionPollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSyncedProgressRef = useRef<{
+    currentNodeId: string | null
+    completedNodes: string[]
+  }>({ currentNodeId: null, completedNodes: [] })
+
   // Cleanup function to deactivate webhooks when test ends
   const cleanupTestTrigger = useCallback(async () => {
     const sessionId = testSessionIdRef.current
@@ -394,6 +402,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // Abort any ongoing test when unmounting
       if (testAbortControllerRef.current) {
         testAbortControllerRef.current.abort()
+      }
+      // Stop execution polling on unmount
+      if (executionPollIntervalRef.current) {
+        clearInterval(executionPollIntervalRef.current)
+        executionPollIntervalRef.current = null
       }
       // Cleanup test trigger on unmount
       cleanupTestTrigger()
@@ -3288,9 +3301,100 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     resetTestFlow,
     // NEW: Enhanced node execution methods
     setNodeRunning,
+    setNodePaused,
     setNodeCompletedWithDetails,
     setNodeFailedWithDetails,
   } = useWorkflowTestStore()
+
+  // Stop execution polling
+  const stopExecutionPolling = useCallback(() => {
+    if (executionPollIntervalRef.current) {
+      clearInterval(executionPollIntervalRef.current)
+      executionPollIntervalRef.current = null
+    }
+    pausedExecutionIdRef.current = null
+    lastSyncedProgressRef.current = { currentNodeId: null, completedNodes: [] }
+  }, [])
+
+  // Start polling for execution status (after HITL pause resumes via external webhook)
+  const startExecutionPolling = useCallback((executionId: string) => {
+    if (executionPollIntervalRef.current) return // Already polling
+
+    console.log('[POLL] Starting execution polling for:', executionId)
+
+    const pollExecution = async () => {
+      try {
+        const response = await fetch(`/api/workflows/${flowId}/execution-status/${executionId}`)
+        if (!response.ok) {
+          console.log('[POLL] Response not ok:', response.status)
+          return
+        }
+
+        const data = await response.json()
+        const progress = data.progress
+        console.log('[POLL] Got progress:', progress)
+
+        if (!progress) return
+
+        // Sync with workflow test store for node visual states
+        const lastSynced = lastSyncedProgressRef.current
+
+        // Sync current running/paused node
+        if (progress.currentNodeId && progress.currentNodeId !== lastSynced.currentNodeId) {
+          if (progress.status === 'paused') {
+            console.log('[POLL] Setting node paused:', progress.currentNodeId)
+            setNodePaused(progress.currentNodeId, undefined, progress.currentNodeName)
+          } else {
+            console.log('[POLL] Setting node running:', progress.currentNodeId)
+            setNodeRunning(progress.currentNodeId, undefined, progress.currentNodeName)
+          }
+          lastSyncedProgressRef.current.currentNodeId = progress.currentNodeId
+        } else if (progress.status === 'paused' && progress.currentNodeId) {
+          // If status changed to paused for the same node, update it
+          setNodePaused(progress.currentNodeId, undefined, progress.currentNodeName)
+        }
+
+        // Sync completed nodes
+        if (progress.completedNodes) {
+          const newlyCompleted = progress.completedNodes.filter(
+            (nodeId: string) => !lastSynced.completedNodes.includes(nodeId)
+          )
+          newlyCompleted.forEach((nodeId: string) => {
+            console.log('[POLL] Setting node completed:', nodeId)
+            setNodeCompletedWithDetails(nodeId, {}, 'Completed', 0)
+          })
+          lastSyncedProgressRef.current.completedNodes = [...progress.completedNodes]
+        }
+
+        // Sync failed nodes
+        if (progress.failedNodes) {
+          progress.failedNodes.forEach((failed: { nodeId: string; error: string }) => {
+            console.log('[POLL] Setting node failed:', failed.nodeId)
+            setNodeFailedWithDetails(failed.nodeId, failed.error, 0)
+          })
+        }
+
+        // Check if execution completed or failed
+        if (progress.status === 'completed' || progress.status === 'failed') {
+          console.log('[POLL] Execution finished:', progress.status)
+          stopExecutionPolling()
+          finishTestFlow(progress.status === 'completed' ? 'completed' : 'error', progress.errorMessage)
+          toast({
+            title: progress.status === 'completed' ? 'Workflow completed' : 'Workflow failed',
+            description: progress.errorMessage || (progress.status === 'completed' ? 'All steps executed successfully' : 'An error occurred'),
+            variant: progress.status === 'completed' ? 'default' : 'destructive'
+          })
+        }
+        // Note: Don't stop polling when paused - we want to detect when it resumes
+      } catch (error) {
+        console.error('[POLL] Error polling execution status:', error)
+      }
+    }
+
+    // Poll immediately and then every 1 second
+    pollExecution()
+    executionPollIntervalRef.current = setInterval(pollExecution, 1000)
+  }, [flowId, setNodeRunning, setNodePaused, setNodeCompletedWithDetails, setNodeFailedWithDetails, finishTestFlow, toast])
 
   // Get trigger type for the TestModeDialog
   const triggerNode = builder?.nodes?.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
@@ -3524,6 +3628,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
               console.log('[SSE] Event received:', event)
 
               switch (event.type) {
+                case 'workflow_started':
+                  console.log('[SSE] Workflow started, executionId:', event.executionId)
+                  // Store executionId for potential polling after HITL pause
+                  pausedExecutionIdRef.current = event.executionId
+                  break
+
                 case 'node_started':
                   console.log('[SSE] Setting node running:', event.nodeId)
                   setNodeRunning(
@@ -3557,8 +3667,34 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
                   )
                   break
 
+                case 'node_paused':
+                  console.log('[SSE] Setting node paused:', event.nodeId)
+                  setNodePaused(
+                    event.nodeId,
+                    event.nodeType,
+                    event.nodeTitle,
+                    event.preview || 'Waiting for human input...'
+                  )
+                  break
+
+                case 'workflow_paused':
+                  console.log('[SSE] Workflow paused at:', event.pausedAt)
+                  // Note: setNodePaused already sets testFlowStatus to 'paused'
+                  // Show toast notification
+                  toast({
+                    title: "Workflow paused",
+                    description: event.reason || "Waiting for human input...",
+                  })
+                  // Start polling for execution status to detect when workflow resumes
+                  if (pausedExecutionIdRef.current) {
+                    console.log('[SSE] Starting polling for resumed execution:', pausedExecutionIdRef.current)
+                    startExecutionPolling(pausedExecutionIdRef.current)
+                  }
+                  break
+
                 case 'workflow_completed':
                   console.log('[SSE] Workflow completed')
+                  stopExecutionPolling() // Stop polling if it was running
                   finishTestFlow('completed')
                   // Deactivate the test webhook now that workflow is complete
                   cleanupTestTrigger()
@@ -3570,6 +3706,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
                 case 'workflow_failed':
                   console.log('[SSE] Workflow failed:', event.error)
+                  stopExecutionPolling() // Stop polling if it was running
                   finishTestFlow('error', event.error)
                   // Deactivate the test webhook even on failure
                   cleanupTestTrigger()

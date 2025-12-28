@@ -53,8 +53,17 @@ const nextConfig = {
     'puppeteer',
     'puppeteer-core',
     '@sparticuz/chromium',
-    'pyodide'
+    'pyodide',
+    'fstream',
+    'rimraf'
   ],
+  // Turbopack configuration (used by next dev --turbo)
+  turbopack: {
+    resolveAlias: {
+      // Alias fstream's rimraf dependency to the installed version
+      'rimraf': 'rimraf',
+    },
+  },
   // Optimize production builds
   compress: true,
   poweredByHeader: false,

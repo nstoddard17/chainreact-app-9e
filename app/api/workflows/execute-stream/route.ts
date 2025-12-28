@@ -101,7 +101,7 @@ function generateRunningPreview(nodeType: string, nodeTitle: string, config: any
 }
 
 interface StreamEvent {
-  type: 'node_started' | 'node_completed' | 'node_failed' | 'workflow_completed' | 'workflow_failed' | 'trigger_listening' | 'trigger_received'
+  type: 'workflow_started' | 'node_started' | 'node_completed' | 'node_paused' | 'node_failed' | 'workflow_completed' | 'workflow_paused' | 'workflow_failed' | 'trigger_listening' | 'trigger_received'
   nodeId?: string
   nodeType?: string
   nodeTitle?: string
@@ -109,6 +109,9 @@ interface StreamEvent {
   error?: string
   preview?: string
   executionTime?: number
+  pausedAt?: string
+  reason?: string
+  executionId?: string
   timestamp: number
 }
 
@@ -201,6 +204,13 @@ export async function POST(request: NextRequest) {
         console.error('[ExecuteStream] Failed to create execution record:', insertError)
         // Continue anyway - non-HITL workflows don't need this
       }
+
+      // Send workflow_started event with executionId so frontend can poll for resume
+      await sendEvent({
+        type: 'workflow_started',
+        executionId,
+        timestamp: Date.now()
+      })
 
       const context = {
         data: inputData,
@@ -358,13 +368,14 @@ export async function POST(request: NextRequest) {
           if (actionResult.pauseExecution) {
             console.log(`[ExecuteStream] Execution paused at node: ${currentNode.id}`)
 
+            // Send node_paused event (NOT node_completed) to show paused state in UI
             await sendEvent({
-              type: 'node_completed',
+              type: 'node_paused',
               nodeId: currentNode.id,
               nodeType,
               nodeTitle,
               output: actionResult,
-              preview: generateOutputPreview(nodeType, actionResult),
+              preview: actionResult.message || 'Waiting for human input...',
               executionTime,
               timestamp: Date.now()
             })

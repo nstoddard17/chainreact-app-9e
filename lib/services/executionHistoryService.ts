@@ -196,6 +196,38 @@ export class ExecutionHistoryService {
   }
 
   /**
+   * Mark a step as paused (for HITL nodes)
+   * This sets the step status to 'paused' to indicate it's waiting for user input
+   */
+  async pauseStep(
+    executionHistoryId: string,
+    nodeId: string,
+    pauseData?: any
+  ): Promise<void> {
+    try {
+      const supabase = await this.getSupabase()
+
+      const { error } = await supabase
+        .from('workflow_execution_steps')
+        .update({
+          status: 'paused',
+          output_data: pauseData
+        })
+        .eq('execution_history_id', executionHistoryId)
+        .eq('node_id', nodeId)
+
+      if (error) {
+        logger.error('Error pausing execution step:', error)
+        throw error
+      }
+
+      logger.debug(`⏸️  Step ${nodeId} paused for user input`)
+    } catch (error) {
+      logger.error('Failed to pause execution step:', error)
+    }
+  }
+
+  /**
    * Pause execution (for HITL)
    */
   async pauseExecution(

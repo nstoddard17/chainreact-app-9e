@@ -27,7 +27,7 @@ export interface NodeExecutionData {
   nodeId: string
   nodeType?: string
   nodeTitle?: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'paused'
   preview?: string  // Short description of what's happening/happened
   output?: any      // Full output data
   error?: string    // Error message if failed
@@ -35,7 +35,7 @@ export interface NodeExecutionData {
   startedAt?: number
 }
 
-export type TestFlowStatus = 'idle' | 'listening' | 'running' | 'completed' | 'error' | 'cancelled'
+export type TestFlowStatus = 'idle' | 'listening' | 'running' | 'paused' | 'completed' | 'error' | 'cancelled'
 
 interface WorkflowTestState {
   // Current test session data
@@ -79,6 +79,7 @@ interface WorkflowTestState {
 
   // NEW: Enhanced node execution actions
   setNodeRunning: (nodeId: string, nodeType?: string, nodeTitle?: string, preview?: string) => void
+  setNodePaused: (nodeId: string, nodeType?: string, nodeTitle?: string, preview?: string) => void
   setNodeCompletedWithDetails: (nodeId: string, output: any, preview: string, executionTime: number, nodeType?: string, nodeTitle?: string) => void
   setNodeFailedWithDetails: (nodeId: string, error: string, executionTime: number, nodeType?: string, nodeTitle?: string) => void
   getNodeExecutionData: (nodeId: string) => NodeExecutionData | null
@@ -267,6 +268,25 @@ export const useWorkflowTestStore = create<WorkflowTestState>((set, get) => ({
           status: 'running',
           preview,
           startedAt: Date.now()
+        }
+      }
+    })
+  },
+
+  setNodePaused: (nodeId: string, nodeType?: string, nodeTitle?: string, preview?: string) => {
+    const { nodeExecutionData } = get()
+    set({
+      testFlowStatus: 'paused',
+      currentExecutingNodeId: nodeId,
+      nodeExecutionData: {
+        ...nodeExecutionData,
+        [nodeId]: {
+          nodeId,
+          nodeType: nodeType || nodeExecutionData[nodeId]?.nodeType,
+          nodeTitle: nodeTitle || nodeExecutionData[nodeId]?.nodeTitle,
+          status: 'paused',
+          preview: preview || 'Waiting for human input...',
+          startedAt: nodeExecutionData[nodeId]?.startedAt || Date.now()
         }
       }
     })

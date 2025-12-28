@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
 import { logger } from '@/lib/utils/logger'
+import { useWorkflowTestStore } from '@/stores/workflowTestStore'
 
-export type LiveTestStatus = 'idle' | 'starting' | 'listening' | 'executing' | 'completed' | 'failed' | 'stopped'
+export type LiveTestStatus = 'idle' | 'starting' | 'listening' | 'executing' | 'paused' | 'completed' | 'failed' | 'stopped'
 
 export interface LiveTestSession {
   sessionId: string
@@ -13,7 +14,7 @@ export interface LiveTestSession {
 }
 
 export interface ExecutionProgress {
-  status: 'running' | 'completed' | 'failed'
+  status: 'running' | 'completed' | 'failed' | 'paused'
   currentNodeId: string | null
   currentNodeName: string | null
   completedNodes: string[]
@@ -42,6 +43,21 @@ export function useLiveTestMode(workflowId: string) {
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const executionPollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSyncedProgressRef = useRef<{
+    currentNodeId: string | null
+    completedNodes: string[]
+  }>({ currentNodeId: null, completedNodes: [] })
+
+  // Get workflow test store methods to sync node states
+  const {
+    setNodeRunning,
+    setNodePaused,
+    setNodeCompleted,
+    setNodeFailed,
+    startExecution,
+    finishTestFlow,
+    resetTestFlow
+  } = useWorkflowTestStore()
 
   /**
    * Start live test mode - registers webhook and starts listening
@@ -95,6 +111,12 @@ export function useLiveTestMode(workflowId: string) {
       stopSessionPolling()
       stopExecutionPolling()
 
+      // Reset the workflow test store
+      resetTestFlow()
+
+      // Reset sync refs
+      lastSyncedProgressRef.current = { currentNodeId: null, completedNodes: [] }
+
       setState({
         status: 'stopped',
         session: null,
@@ -106,7 +128,7 @@ export function useLiveTestMode(workflowId: string) {
     } catch (error: any) {
       logger.error('Failed to stop live test:', error)
     }
-  }, [workflowId])
+  }, [workflowId, resetTestFlow])
 
   /**
    * Poll for session status (checking if webhook triggered)
@@ -177,21 +199,61 @@ export function useLiveTestMode(workflowId: string) {
         if (!response.ok) return
 
         const data = await response.json()
+        const progress = data.progress
+
+        // Sync with workflow test store for node visual states
+        const lastSynced = lastSyncedProgressRef.current
+
+        // Sync current running/paused node
+        if (progress.currentNodeId && progress.currentNodeId !== lastSynced.currentNodeId) {
+          if (progress.status === 'paused') {
+            setNodePaused(progress.currentNodeId, undefined, progress.currentNodeName)
+          } else {
+            setNodeRunning(progress.currentNodeId, undefined, progress.currentNodeName)
+          }
+          lastSyncedProgressRef.current.currentNodeId = progress.currentNodeId
+        } else if (progress.status === 'paused' && progress.currentNodeId) {
+          // If status changed to paused for the same node, update it
+          setNodePaused(progress.currentNodeId, undefined, progress.currentNodeName)
+        }
+
+        // Sync completed nodes
+        if (progress.completedNodes) {
+          const newlyCompleted = progress.completedNodes.filter(
+            (nodeId: string) => !lastSynced.completedNodes.includes(nodeId)
+          )
+          newlyCompleted.forEach((nodeId: string) => {
+            setNodeCompleted(nodeId)
+          })
+          lastSyncedProgressRef.current.completedNodes = [...progress.completedNodes]
+        }
+
+        // Sync failed nodes
+        if (progress.failedNodes) {
+          progress.failedNodes.forEach((failed: { nodeId: string; error: string }) => {
+            setNodeFailed(failed.nodeId, failed.error)
+          })
+        }
 
         setState(prev => ({
           ...prev,
-          progress: data.progress,
+          progress: progress,
+          // Update status to reflect paused state
+          status: progress.status === 'paused' ? 'paused' :
+                  progress.status === 'running' ? 'executing' : prev.status,
         }))
 
-        // Check if execution completed
-        if (data.progress.status === 'completed' || data.progress.status === 'failed') {
+        // Check if execution completed or failed
+        if (progress.status === 'completed' || progress.status === 'failed') {
           stopExecutionPolling()
+          finishTestFlow(progress.status === 'completed' ? 'completed' : 'error', progress.errorMessage)
           setState(prev => ({
             ...prev,
-            status: data.progress.status === 'completed' ? 'completed' : 'failed',
-            error: data.progress.errorMessage || null,
+            status: progress.status === 'completed' ? 'completed' : 'failed',
+            error: progress.errorMessage || null,
           }))
         }
+        // Note: Don't stop polling when paused - we want to detect when it resumes
       } catch (error) {
         logger.error('Error polling execution status:', error)
       }
@@ -200,7 +262,7 @@ export function useLiveTestMode(workflowId: string) {
     // Poll immediately and then every interval
     pollExecution()
     executionPollIntervalRef.current = setInterval(pollExecution, POLL_INTERVAL)
-  }, [workflowId])
+  }, [workflowId, setNodeRunning, setNodePaused, setNodeCompleted, setNodeFailed, finishTestFlow])
 
   /**
    * Stop execution polling
@@ -226,8 +288,9 @@ export function useLiveTestMode(workflowId: string) {
     ...state,
     startLiveTest,
     stopLiveTest,
-    isActive: state.status === 'listening' || state.status === 'executing',
+    isActive: state.status === 'listening' || state.status === 'executing' || state.status === 'paused',
     isListening: state.status === 'listening',
     isExecuting: state.status === 'executing',
+    isPaused: state.status === 'paused',
   }
 }

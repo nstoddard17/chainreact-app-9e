@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database, PauseCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -76,7 +76,7 @@ export interface CustomNodeData {
   hasAddButton?: boolean
   isPlaceholder?: boolean
   error?: string
-  executionStatus?: 'pending' | 'running' | 'completed' | 'error' | null
+  executionStatus?: 'pending' | 'running' | 'completed' | 'error' | 'paused' | null
   isActiveExecution?: boolean
   isListening?: boolean
   errorMessage?: string
@@ -217,7 +217,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const nodeExecutionData = useWorkflowTestStore((state) => state.nodeExecutionData[id])
 
   const isTestListeningForNode = testFlowStatus === 'listening' && nodeData.isTrigger
-  const isTestRunningForNode = currentExecutingNodeId === id
+  // Check if this node is paused (HITL waiting for input) - must check before running
+  const isTestPausedForNode = nodeExecutionData?.status === 'paused' ||
+    (testFlowStatus === 'paused' && currentExecutingNodeId === id)
+  // Only mark as running if not paused
+  const isTestRunningForNode = currentExecutingNodeId === id && !isTestPausedForNode
   const isTestCompletedForNode = completedNodeIds.includes(id)
   const isTestFailedForNode = failedNodeIds.includes(id)
 
@@ -228,31 +232,34 @@ function CustomNode({ id, data, selected }: NodeProps) {
         testFlowStatus,
         currentExecutingNodeId,
         isTestListeningForNode,
+        isTestPausedForNode,
         isTestRunningForNode,
         isTestCompletedForNode,
         isTestFailedForNode,
         nodeExecutionData
       })
     }
-  }, [testFlowStatus, currentExecutingNodeId, isTestListeningForNode, isTestRunningForNode, isTestCompletedForNode, isTestFailedForNode, nodeExecutionData, id])
+  }, [testFlowStatus, currentExecutingNodeId, isTestListeningForNode, isTestPausedForNode, isTestRunningForNode, isTestCompletedForNode, isTestFailedForNode, nodeExecutionData, id])
 
   const visualNodeState = useMemo<NodeState>(() => {
     if (nodeState === 'running' || nodeState === 'passed' || nodeState === 'failed' || nodeState === 'paused' || nodeState === 'listening') {
       return nodeState
     }
     // Check for test flow states first (from workflowTestStore)
+    // IMPORTANT: Check paused BEFORE running, as paused nodes have currentExecutingNodeId set
     if (isTestListeningForNode) return 'listening'
+    if (isTestPausedForNode) return 'paused'
     if (isTestRunningForNode) return 'running'
     if (isTestCompletedForNode) return 'passed'
     if (isTestFailedForNode) return 'failed'
     // Check for listening state (trigger waiting for event)
     if (nodeData.isListening) return 'listening'
+    if (nodeData.executionStatus === 'paused') return 'paused'
     if (nodeData.executionStatus === 'running' || nodeData.isActiveExecution) return 'running'
     if (nodeData.executionStatus === 'completed' || nodeData.executionStatus === 'success') return 'passed'
     if (nodeData.executionStatus === 'error') return 'failed'
-    if (nodeData.executionStatus === 'paused') return 'paused'
     return nodeState
-  }, [nodeData.executionStatus, nodeData.isActiveExecution, nodeData.isListening, nodeState, isTestListeningForNode, isTestRunningForNode, isTestCompletedForNode, isTestFailedForNode])
+  }, [nodeData.executionStatus, nodeData.isActiveExecution, nodeData.isListening, nodeState, isTestListeningForNode, isTestPausedForNode, isTestRunningForNode, isTestCompletedForNode, isTestFailedForNode])
 
 
   // Helper function to get handle styling based on node state
@@ -2465,11 +2472,15 @@ function CustomNode({ id, data, selected }: NodeProps) {
       <div className={cn(
         "mt-1 mx-auto flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all",
         nodeExecutionData.status === 'running' && "text-blue-600 dark:text-blue-400",
+        nodeExecutionData.status === 'paused' && "text-amber-600 dark:text-amber-400",
         nodeExecutionData.status === 'completed' && "text-emerald-600 dark:text-emerald-400",
         nodeExecutionData.status === 'failed' && "text-red-600 dark:text-red-400"
       )}>
         {nodeExecutionData.status === 'running' && (
           <Loader2 className="w-3 h-3 animate-spin" />
+        )}
+        {nodeExecutionData.status === 'paused' && (
+          <PauseCircle className="w-3 h-3 animate-pulse" />
         )}
         {nodeExecutionData.status === 'completed' && (
           <CheckCircle2 className="w-3 h-3" />
@@ -2480,11 +2491,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
         <span>
           {nodeExecutionData.preview || (
             nodeExecutionData.status === 'running' ? 'Running...' :
+            nodeExecutionData.status === 'paused' ? 'Waiting for input...' :
             nodeExecutionData.status === 'completed' ? 'Completed successfully' :
             nodeExecutionData.status === 'failed' ? 'Failed' : ''
           )}
         </span>
-        {nodeExecutionData.executionTime !== undefined && nodeExecutionData.status !== 'running' && (
+        {nodeExecutionData.executionTime !== undefined && nodeExecutionData.status !== 'running' && nodeExecutionData.status !== 'paused' && (
           <>
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">

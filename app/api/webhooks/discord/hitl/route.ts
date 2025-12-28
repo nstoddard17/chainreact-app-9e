@@ -671,19 +671,36 @@ export async function POST(request: NextRequest) {
           dataFlowManagerNodeIds: Object.keys(dataFlowManager.getContext().nodeMetadata)
         })
 
-        // Execute next nodes
+        // Resume progress tracking (don't create new record, continue existing one)
         const progressTracker = new ExecutionProgressTracker()
-        await progressTracker.initialize(
-          conversation.execution_id,
-          conversation.workflow_id,
-          conversation.user_id,
-          nodes.length
-        )
+        const resumed = await progressTracker.resume(conversation.execution_id)
+
+        if (!resumed) {
+          logger.warn('[HITL Resume] Could not resume progress tracker, initializing new one')
+          await progressTracker.initialize(
+            conversation.execution_id,
+            conversation.workflow_id,
+            conversation.user_id,
+            nodes.length
+          )
+        }
+
+        // Mark the HITL node as completed first
+        await progressTracker.updateNodeCompleted(pausedNodeId, hitlOutput)
+        logger.info('[HITL Resume] Marked HITL node as completed', { pausedNodeId })
 
         const nodeExecutionService = new NodeExecutionService()
 
         for (const nextNode of nextNodes) {
-          logger.info(`[HITL Resume] Executing: ${nextNode.id}`)
+          const nodeTitle = nextNode.data?.title || nextNode.data?.type || nextNode.id
+
+          // Update progress: starting this node
+          await progressTracker.update({
+            currentNodeId: nextNode.id,
+            currentNodeName: `Executing: ${nodeTitle}`,
+          })
+
+          logger.info(`[HITL Resume] Executing: ${nextNode.id} (${nodeTitle})`)
 
           const result = await nodeExecutionService.executeNode(
             nextNode,
@@ -694,9 +711,13 @@ export async function POST(request: NextRequest) {
 
           if (result?.pauseExecution) {
             logger.info('[HITL Resume] Paused again at', nextNode.id)
-            await progressTracker.pause(nextNode.id)
+            await progressTracker.pause(nextNode.id, `Waiting: ${nodeTitle}`)
             break
           }
+
+          // Mark this node as completed
+          await progressTracker.updateNodeCompleted(nextNode.id, result)
+          logger.info(`[HITL Resume] Node completed: ${nextNode.id}`)
         }
 
         await progressTracker.complete(true)

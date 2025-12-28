@@ -165,7 +165,31 @@ export class NodeExecutionService {
       }
       // Execute connected nodes ONLY if this node succeeded AND is not pausing
       else if (nodeResult?.success !== false) {
-        await this.executeConnectedNodes(node, allNodes, connections, context, dataToPass)
+        const childResult = await this.executeConnectedNodes(node, allNodes, connections, context, dataToPass)
+        // If a child node requested pause (HITL), propagate it up
+        if (childResult?.pauseExecution) {
+          logger.info(`⏸️  Child node requested workflow pause, propagating up from ${node.id}`)
+
+          // Mark THIS node as completed before propagating the child's pause
+          // (This node executed successfully, only the child is paused)
+          const executionTime = Date.now() - startTime
+          if (stepRecorded && context.executionHistoryId) {
+            try {
+              await executionHistoryService.completeStep(
+                context.executionHistoryId,
+                node.id,
+                'completed',
+                nodeResult?.output || nodeResult,
+                undefined,
+                undefined
+              )
+            } catch (error) {
+              logger.error('Failed to complete parent step before pause:', error)
+            }
+          }
+
+          return childResult
+        }
       } else {
         logger.warn(`⚠️ Node ${node.id} failed, stopping execution of connected nodes`, {
           error: nodeResult?.error,
@@ -176,8 +200,9 @@ export class NodeExecutionService {
       const executionTime = Date.now() - startTime
       logger.debug(`✅ Node ${node.id} completed in ${executionTime}ms`)
 
-      // Record successful step completion
-      if (stepRecorded && context.executionHistoryId) {
+      // Record step completion - but NOT if the workflow is pausing (HITL)
+      // When pauseExecution is true, the node is actually waiting for input, not completed
+      if (stepRecorded && context.executionHistoryId && !nodeResult?.pauseExecution) {
         try {
           await executionHistoryService.completeStep(
             context.executionHistoryId,
@@ -189,6 +214,17 @@ export class NodeExecutionService {
           )
         } catch (error) {
           logger.error('Failed to complete execution step:', error)
+        }
+      } else if (stepRecorded && context.executionHistoryId && nodeResult?.pauseExecution) {
+        // For HITL/pause nodes, mark as paused instead of completed
+        try {
+          await executionHistoryService.pauseStep(
+            context.executionHistoryId,
+            node.id,
+            nodeResult?.output || nodeResult
+          )
+        } catch (error) {
+          logger.error('Failed to mark step as paused:', error)
         }
       }
 
@@ -269,12 +305,12 @@ export class NodeExecutionService {
   }
 
   private async executeConnectedNodes(
-    sourceNode: any, 
-    allNodes: any[], 
-    connections: any[], 
-    context: ExecutionContext, 
+    sourceNode: any,
+    allNodes: any[],
+    connections: any[],
+    context: ExecutionContext,
     result: any
-  ) {
+  ): Promise<any> {
     const outgoingConnections = connections.filter((conn: any) => conn.source === sourceNode.id)
     const routedConnections = filterConnectionsForNode(sourceNode, outgoingConnections, result)
 
@@ -307,8 +343,16 @@ export class NodeExecutionService {
         logger.error('Original context userId:', context.userId)
       }
 
-      await this.executeNode(connectedNode, allNodes, connections, updatedContext)
+      const childResult = await this.executeNode(connectedNode, allNodes, connections, updatedContext)
+
+      // If a child node requested pause (HITL), return it immediately to propagate up
+      if (childResult?.pauseExecution) {
+        logger.info(`⏸️  Child node ${connectedNode.id} requested pause, stopping further execution`)
+        return childResult
+      }
     }
+
+    return null
   }
 
   private isTriggerNode(nodeType: string): boolean {

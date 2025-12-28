@@ -20,15 +20,15 @@ export function LiveTestModeBanner({
 
   // Track elapsed time
   useEffect(() => {
-    if (status === 'listening' || status === 'executing') {
+    if (status === 'listening' || status === 'executing' || status === 'paused') {
       const interval = setInterval(() => {
         setElapsedTime(prev => prev + 1)
       }, 1000)
 
       return () => clearInterval(interval)
-    } 
+    }
       setElapsedTime(0)
-    
+
   }, [status])
 
   const formatTime = (seconds: number) => {
@@ -43,6 +43,8 @@ export function LiveTestModeBanner({
         return 'bg-blue-500/10 border-blue-500/20 text-blue-400'
       case 'executing':
         return 'bg-purple-500/10 border-purple-500/20 text-purple-400'
+      case 'paused':
+        return 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
       case 'completed':
         return 'bg-green-500/10 border-green-500/20 text-green-400'
       case 'failed':
@@ -89,6 +91,18 @@ export function LiveTestModeBanner({
             </svg>
             <span className="font-medium">
               Executing workflow... {progress?.currentNodeName && `(${progress.currentNodeName})`}
+            </span>
+          </div>
+        )
+      case 'paused':
+        return (
+          <div className="flex items-center gap-2">
+            <div className="relative flex h-3 w-3">
+              <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+            </div>
+            <span className="font-medium">
+              Waiting for human input... {progress?.currentNodeName && `(${progress.currentNodeName})`}
             </span>
           </div>
         )
@@ -148,7 +162,7 @@ export function LiveTestModeBanner({
           <div className="flex items-center gap-4 flex-1">
             {getStatusIcon()}
 
-            {progress && status === 'executing' && (
+            {progress && (status === 'executing' || status === 'paused') && (
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <div className="w-32 h-2 bg-gray-700 rounded-full overflow-hidden">
@@ -172,7 +186,7 @@ export function LiveTestModeBanner({
             </span>
           </div>
 
-          {(status === 'listening' || status === 'executing') && (
+          {(status === 'listening' || status === 'executing' || status === 'paused') && (
             <button
               onClick={onStop}
               className="px-4 py-1.5 text-sm font-medium text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 rounded-md transition-colors"

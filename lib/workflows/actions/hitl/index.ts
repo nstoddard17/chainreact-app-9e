@@ -822,7 +822,9 @@ export async function executeHITL(
         status: 'waiting_for_input'
       },
       message: `Workflow paused - waiting for user input via ${config.channel}${timeoutMinutes > 0 ? ` (timeout: ${timeoutMinutes} minutes)` : ' (no timeout)'}`,
-      pauseExecution: true // Critical flag to pause execution
+      pauseExecution: true, // Critical flag to pause execution
+      pausedNodeId: context.nodeId, // ID of the node that initiated the pause
+      pausedNodeName: context.nodeName || 'HITL Conversation' // Name for display
     }
 
   } catch (error: any) {

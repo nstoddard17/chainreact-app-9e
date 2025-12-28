@@ -259,14 +259,29 @@ export class WorkflowExecutionService {
 
       // Check if this node is requesting workflow pause (HITL)
       if (result?.pauseExecution) {
-        logger.info(`⏸️  Workflow paused at node ${startNode.id} (HITL conversation initiated)`)
+        // Use the actual paused node ID from the result (for child nodes like HITL)
+        // Falls back to startNode.id if not provided (for direct HITL triggers)
+        const actualPausedNodeId = result.pausedNodeId || startNode.id
+        const actualPausedNodeName = result.pausedNodeName || startNode.data.title || 'Human input required'
+
+        logger.info(`⏸️  Workflow paused at node ${actualPausedNodeId} (HITL conversation initiated)`)
+
+        // If the pause came from a child node, mark the parent (startNode) as completed
+        // since it executed successfully before the child paused
+        if (result.pausedNodeId && result.pausedNodeId !== startNode.id) {
+          completedNodeIds.push(startNode.id)
+          // Update progress to show parent as completed
+          await progressTracker.update({
+            completedNodes: completedNodeIds,
+          })
+        }
 
         // Update workflow_executions record to paused status
         const { error: pauseError } = await supabase
           .from("workflow_executions")
           .update({
             status: "paused",
-            paused_node_id: startNode.id,
+            paused_node_id: actualPausedNodeId,
             paused_at: new Date().toISOString(),
             resume_data: result.output,
             updated_at: new Date().toISOString()
@@ -277,14 +292,14 @@ export class WorkflowExecutionService {
           logger.error('Failed to update execution to paused status:', pauseError)
         }
 
-        // Update progress tracker to paused state
-        await progressTracker.pause(startNode.id, startNode.data.title || 'Human input required')
+        // Update progress tracker to paused state with the correct HITL node
+        await progressTracker.pause(actualPausedNodeId, actualPausedNodeName)
 
         // Update execution history with pause info
         if (executionHistoryId) {
           await executionHistoryService.pauseExecution(
             executionHistoryId,
-            startNode.id,
+            actualPausedNodeId,
             result.output
           )
         }
@@ -293,7 +308,7 @@ export class WorkflowExecutionService {
         return {
           results: [result],
           paused: true,
-          pausedNodeId: startNode.id,
+          pausedNodeId: actualPausedNodeId,
           conversationId: result.output?.conversationId,
           executionId,
           executionHistoryId,

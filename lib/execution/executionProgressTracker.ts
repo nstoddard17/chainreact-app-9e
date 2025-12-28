@@ -32,7 +32,7 @@ export interface ExecutionProgressUpdate {
   pendingNodes?: string[]
   failedNodes?: Array<{ nodeId: string; error: string }>
   nodeOutputs?: Record<string, any>
-  status?: 'running' | 'completed' | 'failed'
+  status?: 'running' | 'completed' | 'failed' | 'paused'
   errorMessage?: string
   progressPercentage?: number
 }
@@ -246,12 +246,65 @@ export class ExecutionProgressTracker {
    */
   async pause(nodeId?: string, nodeName?: string): Promise<void> {
     await this.update({
-      status: 'running', // Keep as running but update message
+      status: 'paused',
       currentNodeId: nodeId,
       currentNodeName: nodeName || 'Paused for human input',
     })
 
     logger.debug(`⏸️  Execution paused${nodeId ? ` at node ${nodeId}` : ''}`)
+  }
+
+  /**
+   * Resume an existing execution (for HITL resume)
+   * Instead of creating a new record, this finds and continues the existing one
+   */
+  async resume(executionId: string): Promise<boolean> {
+    try {
+      logger.debug('🔄 ExecutionProgressTracker.resume called', { executionId })
+
+      // Find the existing progress record
+      const { data, error } = await this.supabase
+        .from('execution_progress')
+        .select('*')
+        .eq('execution_id', executionId)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (error) {
+        logger.error('Failed to find execution progress for resume:', error)
+        return false
+      }
+
+      if (!data) {
+        logger.warn('No existing progress record found for resume:', executionId)
+        return false
+      }
+
+      this.progressId = data.id
+
+      // Restore completed nodes from existing record
+      if (data.completed_nodes && Array.isArray(data.completed_nodes)) {
+        data.completed_nodes.forEach((nodeId: string) => this.completedNodes.add(nodeId))
+      }
+
+      // Restore failed nodes
+      if (data.failed_nodes && Array.isArray(data.failed_nodes)) {
+        this.failedNodes = data.failed_nodes
+      }
+
+      // Update status to running
+      await this.update({
+        status: 'running',
+        currentNodeName: 'Resuming execution...',
+      })
+
+      logger.debug('✅ Execution progress tracker resumed:', this.progressId)
+      return true
+    } catch (error) {
+      logger.error('Error resuming execution progress:', error)
+      return false
+    }
   }
 
   /**
