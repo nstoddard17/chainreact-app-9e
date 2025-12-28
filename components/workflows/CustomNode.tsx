@@ -2467,15 +2467,18 @@ function CustomNode({ id, data, selected }: NodeProps) {
     </div>
     {/* End of main node div */}
 
-    {/* External Status Bar - Compact status below the node card */}
+    {/* External Status Bar - Compact status below the node card, absolutely positioned to not affect layout */}
     {nodeExecutionData && (
-      <div className={cn(
-        "mt-1 mx-auto flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all",
-        nodeExecutionData.status === 'running' && "text-blue-600 dark:text-blue-400",
-        nodeExecutionData.status === 'paused' && "text-amber-600 dark:text-amber-400",
-        nodeExecutionData.status === 'completed' && "text-emerald-600 dark:text-emerald-400",
-        nodeExecutionData.status === 'failed' && "text-red-600 dark:text-red-400"
-      )}>
+      <div
+        className={cn(
+          "absolute left-1/2 -translate-x-1/2 flex items-center justify-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all max-w-[340px] text-center pointer-events-none",
+          nodeExecutionData.status === 'running' && "text-blue-600 dark:text-blue-400",
+          nodeExecutionData.status === 'paused' && "text-amber-600 dark:text-amber-400",
+          nodeExecutionData.status === 'completed' && "text-emerald-600 dark:text-emerald-400",
+          nodeExecutionData.status === 'failed' && "text-red-600 dark:text-red-400"
+        )}
+        style={{ top: '100%', marginTop: '4px', zIndex: 5 }}
+      >
         {nodeExecutionData.status === 'running' && (
           <Loader2 className="w-3 h-3 animate-spin" />
         )}
@@ -2488,13 +2491,17 @@ function CustomNode({ id, data, selected }: NodeProps) {
         {nodeExecutionData.status === 'failed' && (
           <AlertCircle className="w-3 h-3" />
         )}
-        <span>
-          {nodeExecutionData.preview || (
-            nodeExecutionData.status === 'running' ? 'Running...' :
-            nodeExecutionData.status === 'paused' ? 'Waiting for input...' :
-            nodeExecutionData.status === 'completed' ? 'Completed successfully' :
-            nodeExecutionData.status === 'failed' ? 'Failed' : ''
-          )}
+        <span className="truncate">
+          {(() => {
+            const preview = nodeExecutionData.preview || (
+              nodeExecutionData.status === 'running' ? 'Running...' :
+              nodeExecutionData.status === 'paused' ? 'Waiting for input...' :
+              nodeExecutionData.status === 'completed' ? 'Completed' :
+              nodeExecutionData.status === 'failed' ? 'Failed' : ''
+            )
+            // Truncate long previews to keep status bar compact
+            return preview.length > 50 ? preview.substring(0, 47) + '...' : preview
+          })()}
         </span>
         {nodeExecutionData.executionTime !== undefined && nodeExecutionData.status !== 'running' && nodeExecutionData.status !== 'paused' && (
           <>
