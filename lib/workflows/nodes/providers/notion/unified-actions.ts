@@ -1097,11 +1097,10 @@ export const notionUnifiedActions: NodeComponent[] = [
       {
         name: "selectOptions",
         label: "Select Options",
-        type: "code",
-        language: "json",
+        type: "notion-select-options",
         required: false,
-        placeholder: '[\n  {"name": "Option 1", "color": "blue"},\n  {"name": "Option 2", "color": "green"}\n]',
-        description: "Options for select/multi-select properties",
+        placeholder: "Add options for your select field",
+        description: "Add the options that will appear in this select/multi-select field",
         visibilityCondition: {
           or: [
             {
@@ -1118,7 +1117,6 @@ export const notionUnifiedActions: NodeComponent[] = [
             }
           ]
         },
-        tooltip: "JSON array of options with name and color",
         dependsOn: "operation",
         hidden: {
           $deps: ["operation"],

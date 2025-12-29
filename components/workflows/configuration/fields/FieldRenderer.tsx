@@ -98,6 +98,7 @@ import { LoadingFieldState } from "./shared/LoadingFieldState";
 import { NotionBlockFields } from "./notion/NotionBlockFields";
 import { NotionDatabaseRowsField } from "./notion/NotionDatabaseRowsField";
 import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
+import { NotionSelectOptionsField } from "./notion/NotionSelectOptionsField";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
 import { AIRouterOutputPathsField } from "./ai/AIRouterOutputPathsField";
 import { UnifiedDocumentPicker } from "./UnifiedDocumentPicker";
@@ -2813,6 +2814,18 @@ export function FieldRenderer({
         }
         // Add more custom field types here as needed
         return null;
+
+      case "notion-select-options":
+        // User-friendly interface for adding select/multi-select options
+        return (
+          <NotionSelectOptionsField
+            value={value}
+            onChange={onChange}
+            placeholder={field.placeholder}
+            disabled={field.disabled}
+            error={error}
+          />
+        );
 
       case "custom_multiple_records":
         // Multiple Records Field for Airtable bulk create
