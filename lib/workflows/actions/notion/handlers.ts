@@ -638,8 +638,15 @@ export async function notionUpdateDatabase(
 ): Promise<ActionResult> {
   try {
     const accessToken = await getDecryptedAccessToken(context.userId, "notion")
-    
-    const databaseId = context.dataFlowManager.resolveVariable(config.database_id)
+
+    // Support both 'database' (from schema) and 'database_id' (legacy)
+    const rawDatabaseId = context.dataFlowManager.resolveVariable(config.database_id || config.database)
+    const databaseId = normalizeNotionId(rawDatabaseId)
+
+    if (!databaseId) {
+      throw new Error('Database is required')
+    }
+
     const title = context.dataFlowManager.resolveVariable(config.title)
     const description = context.dataFlowManager.resolveVariable(config.description)
     const propertiesUpdate = context.dataFlowManager.resolveVariable(config.properties_update)
@@ -2181,11 +2188,21 @@ export async function notionAddDatabaseProperty(
 
     logger.info("[Notion Add Database Property] Adding property:", { databaseId, propertyName, propertyType })
 
+    // Notion only allows one title property per database (created automatically)
+    if (propertyType === "title") {
+      return {
+        success: false,
+        output: {},
+        message: "Cannot add a title property. Notion databases can only have one title property, which is created automatically. Use 'Rich Text' for additional text properties."
+      }
+    }
+
     // Build property definition based on type
     let propertyDefinition: any = {}
 
     switch (propertyType) {
       case "title":
+        // This case is kept for safety but should never be reached due to the check above
         propertyDefinition = { title: {} }
         break
       case "rich_text":
