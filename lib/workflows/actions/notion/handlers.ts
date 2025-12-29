@@ -67,6 +67,48 @@ function formatNotionPropertyValue(propertyType: string, value: any) {
       return { phone_number: value || null }
     case 'url':
       return { url: value || null }
+    case 'people':
+      // People property requires array of objects with 'id' field
+      // Value might be array of user objects (with id/name), user IDs, or names
+      if (!value || (Array.isArray(value) && value.length === 0)) {
+        return { people: [] }
+      }
+      const peopleArray = Array.isArray(value) ? value : [value]
+      // Process each person entry
+      const peopleObjects = peopleArray.map((person: any) => {
+        if (typeof person === 'object' && person.id) {
+          // Already has id - use it directly
+          return { object: 'user', id: person.id }
+        }
+        // If it's a string that looks like a UUID, treat it as an ID
+        if (typeof person === 'string' && /^[0-9a-f-]{32,36}$/i.test(person)) {
+          return { object: 'user', id: person }
+        }
+        // For plain names, we can't resolve without user lookup
+        // This shouldn't happen if pageBlocks returns proper objects
+        logger.warn(`People property received name instead of ID: ${person}. This entry will be skipped.`)
+        return null
+      }).filter(Boolean)
+      return { people: peopleObjects }
+    case 'relation':
+      // Relation property requires array of objects with 'id' field
+      if (!value || (Array.isArray(value) && value.length === 0)) {
+        return { relation: [] }
+      }
+      const relationArray = Array.isArray(value) ? value : [value]
+      const relationObjects = relationArray.map((item: any) => {
+        if (typeof item === 'object' && item.id) {
+          return { id: item.id }
+        }
+        if (typeof item === 'string') {
+          return { id: item }
+        }
+        return null
+      }).filter(Boolean)
+      return { relation: relationObjects }
+    case 'files':
+      // Files property - typically read-only from UI
+      return { files: [] }
     default:
       return { rich_text: [{ type: 'text', text: { content: value ?? '' } }] }
   }
@@ -294,6 +336,33 @@ export async function notionUpdatePage(
     const archived = context.dataFlowManager.resolveVariable(config.archived)
     const title = context.dataFlowManager.resolveVariable(config.title)
 
+    // Fetch the page to determine if it's a database page and get property schema
+    let propertySchema: Record<string, { type: string }> = {}
+    try {
+      const pageData = await notionApiRequest(`/pages/${pageId}`, "GET", accessToken)
+
+      // If this is a database page, fetch the database schema to get property types
+      if (pageData.parent?.type === 'database_id') {
+        const databaseId = pageData.parent.database_id
+        logger.debug('Fetching database schema for property types:', databaseId)
+
+        const dbData = await notionApiRequest(`/databases/${databaseId}`, "GET", accessToken)
+        if (dbData.properties) {
+          // Build a map of property ID/name to type
+          for (const [propName, propConfig] of Object.entries(dbData.properties) as any) {
+            propertySchema[propName] = { type: propConfig.type }
+            // Also map by ID for encoded property names
+            if (propConfig.id) {
+              propertySchema[propConfig.id] = { type: propConfig.type }
+            }
+          }
+          logger.debug('Property schema loaded:', Object.keys(propertySchema))
+        }
+      }
+    } catch (error) {
+      logger.warn('Could not fetch property schema, will use heuristics:', error)
+    }
+
     // Process properties to ensure proper format
     const processedProperties: any = {}
 
@@ -302,16 +371,7 @@ export async function notionUpdatePage(
 
     // Check if title is provided as a separate config field
     if (title && title !== '') {
-      processedProperties.title = {
-        title: [
-          {
-            type: 'text',
-            text: {
-              content: title
-            }
-          }
-        ]
-      }
+      processedProperties.title = formatNotionPropertyValue('title', title)
       titleHandled = true
     }
 
@@ -324,18 +384,8 @@ export async function notionUpdatePage(
         }
         // Check if title needs formatting
         if (typeof value === 'string' && value !== '') {
-          // Format string title properly
-          processedProperties.title = {
-            title: [
-              {
-                type: 'text',
-                text: {
-                  content: value
-                }
-              }
-            ]
-          }
-        } else if (typeof value === 'object' && value !== null && value.title) {
+          processedProperties.title = formatNotionPropertyValue('title', value)
+        } else if (typeof value === 'object' && value !== null && (value as any).title) {
           // Already formatted, use as-is
           processedProperties.title = value
         }
@@ -364,40 +414,94 @@ export async function notionUpdatePage(
         continue
       }
 
-      // Skip empty values
+      // Skip empty values (but allow false for checkboxes)
       if (value === undefined || value === null || value === '') {
         continue
       }
 
-      // For object values, check if they're properly formatted Notion properties
-      if (typeof value === 'object' && value !== null) {
-        // Check if this looks like a Notion property (has a type field)
-        if (value.type && typeof value.type === 'string') {
-          // This appears to be a properly formatted Notion property
+      // Check if this property is already in Notion API format
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        const valueObj = value as any
+        // Check if this looks like a Notion property (has a type-specific key like 'title', 'rich_text', 'select', etc.)
+        const notionPropertyKeys = ['title', 'rich_text', 'number', 'select', 'multi_select', 'date',
+                                     'people', 'files', 'checkbox', 'url', 'email', 'phone_number',
+                                     'status', 'relation', 'rollup', 'formula', 'created_time',
+                                     'created_by', 'last_edited_time', 'last_edited_by']
+        const hasNotionKey = notionPropertyKeys.some(nk => nk in valueObj)
+
+        if (hasNotionKey) {
+          // Already formatted, use as-is
           processedProperties[key] = value
-        } else if (value.items || value.blocks || value.children) {
+          continue
+        }
+
+        if (valueObj.items || valueObj.blocks || valueObj.children) {
           // This looks like block content, skip it
           logger.debug(`Skipping property ${key} - appears to be block content`)
           continue
-        } else {
-          // For other objects, add them as-is and let Notion API validate
-          processedProperties[key] = value
         }
-      } else {
-        // Add simple string/number/boolean values
-        processedProperties[key] = value
       }
+
+      // Look up property type from schema
+      const propInfo = propertySchema[key]
+      if (propInfo?.type) {
+        logger.debug(`Formatting property ${key} as type ${propInfo.type}`)
+
+        // Special handling for people properties - skip if value can't be resolved to IDs
+        if (propInfo.type === 'people') {
+          const peopleValue = Array.isArray(value) ? value : [value]
+          const hasValidIds = peopleValue.some((p: any) =>
+            (typeof p === 'object' && p.id) ||
+            (typeof p === 'string' && /^[0-9a-f-]{32,36}$/i.test(p))
+          )
+          if (!hasValidIds && peopleValue.length > 0) {
+            logger.debug(`Skipping people property ${key} - values are names without IDs, cannot resolve`)
+            continue
+          }
+        }
+
+        processedProperties[key] = formatNotionPropertyValue(propInfo.type, value)
+        continue
+      }
+
+      // Fallback: Use heuristics to determine property type
+      let inferredType = 'rich_text'
+
+      if (typeof value === 'boolean') {
+        inferredType = 'checkbox'
+      } else if (typeof value === 'number') {
+        inferredType = 'number'
+      } else if (Array.isArray(value)) {
+        // Check if array contains user objects (people) or plain strings (multi_select)
+        const hasUserObjects = value.some((v: any) => typeof v === 'object' && v.id && v.object === 'user')
+        if (hasUserObjects) {
+          inferredType = 'people'
+        } else {
+          // Arrays of strings are typically multi_select
+          inferredType = 'multi_select'
+        }
+      } else if (typeof value === 'string') {
+        // Check if it looks like a date
+        if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+          inferredType = 'date'
+        } else if (value.includes('@') && value.includes('.')) {
+          inferredType = 'email'
+        } else if (/^https?:\/\//.test(value)) {
+          inferredType = 'url'
+        }
+      }
+
+      logger.debug(`Inferred property ${key} as type ${inferredType}`)
+      processedProperties[key] = formatNotionPropertyValue(inferredType, value)
     }
 
-    properties = processedProperties
-
     // Debug logging
-    logger.debug('Processed properties for Notion update:', JSON.stringify(properties, null, 2))
+    logger.debug('Processed properties for Notion update:', JSON.stringify(processedProperties, null, 2))
 
     // Only include properties in payload if we have any to update
     const payload: any = {}
-    if (Object.keys(properties).length > 0) {
-      payload.properties = properties
+    if (Object.keys(processedProperties).length > 0) {
+      payload.properties = processedProperties
     }
 
     if (archived !== undefined) {

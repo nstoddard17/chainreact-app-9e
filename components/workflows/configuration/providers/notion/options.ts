@@ -99,8 +99,13 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         if (formValues?.workspace) {
           requestBody.options.workspaceId = formValues.workspace
         }
-      } else if (fieldName === 'pageFields' && dependsOnValue) {
-        requestBody.options.pageId = dependsOnValue
+      } else if (fieldName === 'pageFields') {
+        // pageFields depends on page - get from dependsOnValue or fall back to formValues.page
+        if (dependsOnValue) {
+          requestBody.options.pageId = dependsOnValue
+        } else if (formValues?.page) {
+          requestBody.options.pageId = formValues.page
+        }
         if (formValues?.workspace) {
           requestBody.options.workspaceId = formValues.workspace
         }
@@ -130,6 +135,19 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
           dependsOnValue,
           formValuesDatabase: formValues?.database,
           formValuesDatabaseId: formValues?.databaseId,
+          formValuesKeys: formValues ? Object.keys(formValues) : []
+        })
+        return []
+      }
+
+      // pageFields requires pageId
+      if (fieldName === 'pageFields' && !requestBody.options.pageId) {
+        logger.debug('⚠️ [Notion Options] Skipping Notion request - missing pageId', {
+          fieldName,
+          dataType,
+          integrationId,
+          dependsOnValue,
+          formValuesPage: formValues?.page,
           formValuesKeys: formValues ? Object.keys(formValues) : []
         })
         return []

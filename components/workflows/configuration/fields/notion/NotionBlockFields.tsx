@@ -786,16 +786,25 @@ export function NotionBlockFields({
         )
 
       case 'people':
+        // People values are objects with {id, name} - display names but preserve the full objects
+        const peopleDisplayValue = Array.isArray(currentValue)
+          ? currentValue.map((p: any) => typeof p === 'object' ? p.name : p).join(', ')
+          : (typeof currentValue === 'object' ? currentValue?.name : currentValue) || ''
+
         return (
           <div key={fieldKey} className="space-y-2">
             <Label htmlFor={fieldKey}>{property.label}</Label>
             <Input
               id={fieldKey}
               type="text"
-              value={Array.isArray(currentValue) ? currentValue.join(', ') : currentValue || ''}
-              onChange={(e) => handleFieldChange(fieldKey, e.target.value.split(',').map(s => s.trim()))}
-              placeholder={`Enter ${property.label.toLowerCase()} (comma-separated)`}
+              value={peopleDisplayValue}
+              disabled={true}
+              className="bg-muted"
+              placeholder="People assigned to this item (read-only)"
             />
+            <p className="text-xs text-muted-foreground">
+              People properties cannot be edited through this interface. Use Notion directly to change assignments.
+            </p>
           </div>
         )
 

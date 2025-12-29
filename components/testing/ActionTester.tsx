@@ -174,6 +174,12 @@ export function ActionTester({ userId }: ActionTesterProps) {
         if (selectedProvider === 'notion' && parentField === 'database') {
           options.databaseId = parentValue
         }
+
+        // Normalize page field to pageId for Notion API
+        // The Notion data handlers expect 'pageId' but schema uses 'page'
+        if (selectedProvider === 'notion' && parentField === 'page') {
+          options.pageId = parentValue
+        }
       }
 
       // Also normalize workspace field to workspaceId for Notion API
@@ -183,6 +189,10 @@ export function ActionTester({ userId }: ActionTesterProps) {
       // And normalize database field to databaseId if it exists in configValues
       if (selectedProvider === 'notion' && configValues.database && !options.databaseId) {
         options.databaseId = configValues.database
+      }
+      // And normalize page field to pageId if it exists in configValues
+      if (selectedProvider === 'notion' && configValues.page && !options.pageId) {
+        options.pageId = configValues.page
       }
 
       const response = await fetchWithTimeout(
