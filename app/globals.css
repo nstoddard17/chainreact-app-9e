@@ -312,6 +312,62 @@ body {
   .animate-shimmer-overlay {
     animation: shimmer-overlay 2s ease-in-out infinite;
   }
+
+  /* Futuristic blob animation for AI Agent v2 */
+  @keyframes blob {
+    0%, 100% {
+      transform: translate(0, 0) scale(1);
+    }
+    25% {
+      transform: translate(20px, -30px) scale(1.1);
+    }
+    50% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+    75% {
+      transform: translate(30px, 10px) scale(1.05);
+    }
+  }
+
+  /* Scan line effect for futuristic feel */
+  @keyframes scan {
+    0% {
+      transform: translateY(-100vh);
+    }
+    100% {
+      transform: translateY(100vh);
+    }
+  }
+
+  /* Glow pulse animation */
+  @keyframes glow-pulse {
+    0%, 100% {
+      opacity: 0.5;
+      box-shadow: 0 0 20px currentColor;
+    }
+    50% {
+      opacity: 1;
+      box-shadow: 0 0 40px currentColor, 0 0 60px currentColor;
+    }
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  /* Float animation */
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
 }
 
 @layer base {
