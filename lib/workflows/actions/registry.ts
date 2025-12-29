@@ -1058,11 +1058,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
       ...config,
       block_id: config.pageId || config.page || config.block_id,
     }, context)),
-  "notion_action_update_page_content": createExecutionContextWrapper((config: any, context: any) =>
-    notionUpdateBlock({
-      ...config,
-      block_id: config.blockId || config.block || config.block_id,
-    }, context)),
+  // NOTE: notion_action_update_page_content removed - redundant with Update Page action
   "notion_action_delete_page_content": createExecutionContextWrapper((config: any, context: any) =>
     notionDeleteBlock({
       ...config,
