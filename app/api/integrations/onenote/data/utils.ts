@@ -35,16 +35,19 @@ export function validateOneNoteIntegration(integration: any): void {
   if (!integration) {
     throw new Error('OneNote integration not found')
   }
-  
+
   if (!integration.access_token) {
     throw new Error('Microsoft authentication required. Please reconnect your account.')
   }
-  
-  if (integration.provider !== 'onenote' && integration.provider !== 'microsoft-onenote') {
-    throw new Error('Invalid integration provider. Expected OneNote.')
+
+  // Accept OneNote and Microsoft Outlook providers (same Microsoft Graph API)
+  const validProviders = ['onenote', 'microsoft-onenote', 'microsoft-outlook', 'outlook']
+  if (!validProviders.includes(integration.provider?.toLowerCase())) {
+    throw new Error('Invalid integration provider. Expected OneNote or Microsoft Outlook.')
   }
-  
-  if (integration.status !== 'connected') {
+
+  // Accept both 'connected' and 'active' statuses
+  if (integration.status !== 'connected' && integration.status !== 'active') {
     throw new Error(`OneNote integration not connected, status: ${integration.status}`)
   }
 }

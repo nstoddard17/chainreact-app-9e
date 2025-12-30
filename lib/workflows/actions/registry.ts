@@ -358,17 +358,26 @@ import { listOnedriveDrives } from './onedrive/listDrives'
 
 // Microsoft Teams actions
 import {
+  sendTeamsMessage,
   replyToTeamsMessage,
   editTeamsMessage,
   findTeamsMessage,
   deleteTeamsMessage,
+  sendTeamsChatMessage,
   createTeamsGroupChat,
   getTeamsChannelDetails,
+  sendTeamsAdaptiveCard,
   addTeamsReaction,
   removeTeamsReaction,
+  createTeamsMeeting,
+  scheduleTeamsMeeting,
   startTeamsMeeting,
   endTeamsMeeting,
-  updateTeamsMeeting
+  updateTeamsMeeting,
+  createTeamsChannel,
+  addTeamsMemberToTeam,
+  getTeamsTeamMembers,
+  createTeamsTeam
 } from './teams'
 
 // Facebook actions
@@ -1199,6 +1208,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
     downloadOutlookAttachment(params.config, params.userId, params.input),
 
   // Microsoft Teams actions - wrapped to handle new calling convention
+  "teams_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendTeamsMessage(params.config, params.userId, params.input),
   "teams_action_reply_to_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     replyToTeamsMessage(params.config, params.userId, params.input),
   "teams_action_edit_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1207,20 +1218,36 @@ export const actionHandlerRegistry: Record<string, Function> = {
     findTeamsMessage(params.config, params.userId, params.input),
   "teams_action_delete_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     deleteTeamsMessage(params.config, params.userId, params.input),
+  "teams_action_send_chat_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendTeamsChatMessage(params.config, params.userId, params.input),
   "teams_action_create_group_chat": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createTeamsGroupChat(params.config, params.userId, params.input),
   "teams_action_get_channel_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
     getTeamsChannelDetails(params.config, params.userId, params.input),
+  "teams_action_send_adaptive_card": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    sendTeamsAdaptiveCard(params.config, params.userId, params.input),
   "teams_action_add_reaction": (params: { config: any; userId: string; input: Record<string, any> }) =>
     addTeamsReaction(params.config, params.userId, params.input),
   "teams_action_remove_reaction": (params: { config: any; userId: string; input: Record<string, any> }) =>
     removeTeamsReaction(params.config, params.userId, params.input),
+  "teams_action_create_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTeamsMeeting(params.config, params.userId, params.input),
+  "teams_action_schedule_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    scheduleTeamsMeeting(params.config, params.userId, params.input),
   "teams_action_start_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
     startTeamsMeeting(params.config, params.userId, params.input),
   "teams_action_end_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
     endTeamsMeeting(params.config, params.userId, params.input),
   "teams_action_update_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
     updateTeamsMeeting(params.config, params.userId, params.input),
+  "teams_action_create_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTeamsChannel(params.config, params.userId, params.input),
+  "teams_action_add_member_to_team": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addTeamsMemberToTeam(params.config, params.userId, params.input),
+  "teams_action_get_team_members": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getTeamsTeamMembers(params.config, params.userId, params.input),
+  "teams_action_create_team": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createTeamsTeam(params.config, params.userId, params.input),
 
   // HubSpot actions - wrapped to handle new calling convention
   "hubspot_action_create_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1289,45 +1316,25 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "hubspot_action_remove_line_item": createExecutionContextWrapper(hubspotRemoveLineItem),
   "hubspot_action_get_line_items": createExecutionContextWrapper(hubspotGetLineItems),
 
-  // Microsoft OneNote actions - wrapped to handle new calling convention
-  "microsoft-onenote_action_create_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteCreatePage(params.config, params.userId, params.input),
-  "microsoft-onenote_action_create_notebook": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteCreateNotebook(params.config, params.userId, params.input),
-  "microsoft-onenote_action_create_section": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteCreateSection(params.config, params.userId, params.input),
-  "microsoft-onenote_action_update_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteUpdatePage(params.config, params.userId, params.input),
-  "microsoft-onenote_action_get_page_content": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteGetPageContent(params.config, params.userId, params.input),
-  "microsoft-onenote_action_get_pages": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteGetPages(params.config, params.userId, params.input),
-  "microsoft-onenote_action_copy_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteCopyPage(params.config, params.userId, params.input),
-  "microsoft-onenote_action_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteSearch(params.config, params.userId, params.input),
-  "microsoft-onenote_action_delete_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteDeletePage(params.config, params.userId, params.input),
-
-  // New OneNote actions
-  "microsoft-onenote_action_delete_section": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteDeleteSection(params.config, params.userId, params.input),
-  "microsoft-onenote_action_delete_notebook": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteDeleteNotebook(params.config, params.userId, params.input),
-  "microsoft-onenote_action_create_note_from_url": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteCreateNoteFromUrl(params.config, params.userId, params.input),
-  "microsoft-onenote_action_create_quick_note": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteCreateQuickNote(params.config, params.userId, params.input),
-  "microsoft-onenote_action_create_image_note": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteCreateImageNote(params.config, params.userId, params.input),
-  "microsoft-onenote_action_list_notebooks": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteListNotebooks(params.config, params.userId, params.input),
-  "microsoft-onenote_action_list_sections": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteListSections(params.config, params.userId, params.input),
-  "microsoft-onenote_action_get_notebook_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteGetNotebookDetails(params.config, params.userId, params.input),
-  "microsoft-onenote_action_get_section_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    onenoteGetSectionDetails(params.config, params.userId, params.input),
+  // Microsoft OneNote actions - wrapped with ExecutionContext
+  "microsoft-onenote_action_create_page": createExecutionContextWrapper(onenoteCreatePage),
+  "microsoft-onenote_action_create_notebook": createExecutionContextWrapper(onenoteCreateNotebook),
+  "microsoft-onenote_action_create_section": createExecutionContextWrapper(onenoteCreateSection),
+  "microsoft-onenote_action_update_page": createExecutionContextWrapper(onenoteUpdatePage),
+  "microsoft-onenote_action_get_page_content": createExecutionContextWrapper(onenoteGetPageContent),
+  "microsoft-onenote_action_get_pages": createExecutionContextWrapper(onenoteGetPages),
+  "microsoft-onenote_action_copy_page": createExecutionContextWrapper(onenoteCopyPage),
+  "microsoft-onenote_action_search": createExecutionContextWrapper(onenoteSearch),
+  "microsoft-onenote_action_delete_page": createExecutionContextWrapper(onenoteDeletePage),
+  "microsoft-onenote_action_delete_section": createExecutionContextWrapper(onenoteDeleteSection),
+  "microsoft-onenote_action_delete_notebook": createExecutionContextWrapper(onenoteDeleteNotebook),
+  "microsoft-onenote_action_create_note_from_url": createExecutionContextWrapper(onenoteCreateNoteFromUrl),
+  "microsoft-onenote_action_create_quick_note": createExecutionContextWrapper(onenoteCreateQuickNote),
+  "microsoft-onenote_action_create_image_note": createExecutionContextWrapper(onenoteCreateImageNote),
+  "microsoft-onenote_action_list_notebooks": createExecutionContextWrapper(onenoteListNotebooks),
+  "microsoft-onenote_action_list_sections": createExecutionContextWrapper(onenoteListSections),
+  "microsoft-onenote_action_get_notebook_details": createExecutionContextWrapper(onenoteGetNotebookDetails),
+  "microsoft-onenote_action_get_section_details": createExecutionContextWrapper(onenoteGetSectionDetails),
 
   // OneDrive actions - wrapped to handle new calling convention
   "onedrive_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
