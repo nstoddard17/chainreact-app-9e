@@ -737,14 +737,6 @@ const onenoteMappings: Record<string, FieldMapping> = {
     pageId: "onenote_pages",
   },
   // NOTE: delete_section and delete_notebook are NOT supported by Microsoft Graph API
-  "microsoft-onenote_action_create_note_from_url": {
-    notebookId: "onenote_notebooks",
-    sectionId: "onenote_sections",
-  },
-  "microsoft-onenote_action_create_image_note": {
-    notebookId: "onenote_notebooks",
-    sectionId: "onenote_sections",
-  },
   "microsoft-onenote_action_list_sections": {
     notebookId: "onenote_notebooks",
   },

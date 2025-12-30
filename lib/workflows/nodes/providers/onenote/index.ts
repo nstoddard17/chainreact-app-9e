@@ -7,8 +7,6 @@ import {
   Download,
   List,
   Trash2,
-  Link,
-  Image,
   Book,
   BookOpen,
   FolderOpen
@@ -620,167 +618,6 @@ const onenoteActionDeletePage: NodeComponent = {
   ]
 }
 
-const onenoteActionCreateNoteFromUrl: NodeComponent = {
-  type: "microsoft-onenote_action_create_note_from_url",
-  title: "Create Note from URL",
-  description: "Download content from a URL and create a OneNote page",
-  icon: Link,
-  providerId: "microsoft-onenote",
-  requiredScopes: ["Notes.ReadWrite.All"],
-  category: "Productivity",
-  isTrigger: false,
-  configSchema: [
-    {
-      name: "notebookId",
-      label: "Notebook",
-      type: "select",
-      dynamic: "onenote_notebooks",
-      required: true,
-      placeholder: "Select a notebook",
-      loadOnMount: true,
-      description: "The notebook where the page will be created"
-    },
-    {
-      name: "sectionId",
-      label: "Section",
-      type: "select",
-      dynamic: "onenote_sections",
-      required: false,
-      placeholder: "Select a section",
-      dependsOn: "notebookId",
-      description: "The section where the page will be created (uses default section if not specified)"
-    },
-    {
-      name: "sourceUrl",
-      label: "Source URL",
-      type: "text",
-      required: true,
-      placeholder: "https://example.com/page",
-      description: "The URL to download content from"
-    },
-    {
-      name: "title",
-      label: "Page Title",
-      type: "text",
-      required: false,
-      placeholder: "Auto-detect from page (optional)",
-      description: "The title for the new page. If not provided, will use the page title from the URL."
-    }
-  ],
-  outputSchema: [
-    { name: "id", label: "Page ID", type: "string", description: "The unique ID of the created page" },
-    { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
-    { name: "sourceUrl", label: "Source URL", type: "string", description: "The original URL" },
-    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
-    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
-    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" }
-  ]
-}
-
-// NOTE: Delete Section and Delete Notebook actions are NOT supported by Microsoft Graph API
-// Only Delete Page is supported. See: https://learn.microsoft.com/en-us/graph/api/resources/onenotesection
-// The API only supports: GET (read), POST (create pages), and copy operations for sections/notebooks
-
-
-const onenoteActionCreateImageNote: NodeComponent = {
-  type: "microsoft-onenote_action_create_image_note",
-  title: "Create Note with Image",
-  description: "Create a OneNote page with an embedded image from a URL",
-  icon: Image,
-  providerId: "microsoft-onenote",
-  requiredScopes: ["Notes.ReadWrite.All"],
-  category: "Productivity",
-  isTrigger: false,
-  configSchema: [
-    {
-      name: "notebookId",
-      label: "Notebook",
-      type: "select",
-      dynamic: "onenote_notebooks",
-      required: true,
-      placeholder: "Select a notebook",
-      loadOnMount: true,
-      description: "The notebook where the page will be created"
-    },
-    {
-      name: "sectionId",
-      label: "Section",
-      type: "select",
-      dynamic: "onenote_sections",
-      required: false,
-      placeholder: "Select a section",
-      dependsOn: "notebookId",
-      description: "The section where the page will be created (uses default section if not specified)",
-      hidden: {
-        $deps: ["notebookId"],
-        $condition: { notebookId: { $exists: false } }
-      }
-    },
-    {
-      name: "title",
-      label: "Page Title",
-      type: "text",
-      required: true,
-      placeholder: "Enter page title",
-      description: "The title of the new page",
-      dependsOn: "notebookId",
-      hidden: {
-        $deps: ["notebookId"],
-        $condition: { notebookId: { $exists: false } }
-      }
-    },
-    {
-      name: "imageUrl",
-      label: "Image URL",
-      type: "text",
-      required: true,
-      placeholder: "https://example.com/image.jpg",
-      description: "The public URL of the image to embed (must be publicly accessible)",
-      dependsOn: "notebookId",
-      hidden: {
-        $deps: ["notebookId"],
-        $condition: { notebookId: { $exists: false } }
-      }
-    },
-    {
-      name: "caption",
-      label: "Image Caption",
-      type: "text",
-      required: false,
-      placeholder: "Optional caption",
-      description: "Optional caption text to display below the image",
-      dependsOn: "notebookId",
-      hidden: {
-        $deps: ["notebookId"],
-        $condition: { notebookId: { $exists: false } }
-      }
-    },
-    {
-      name: "additionalContent",
-      label: "Additional Content",
-      type: "textarea",
-      required: false,
-      placeholder: "Additional text or HTML content",
-      description: "Optional additional content to include on the page",
-      hasVariablePicker: true,
-      hasConnectButton: true,
-      dependsOn: "notebookId",
-      hidden: {
-        $deps: ["notebookId"],
-        $condition: { notebookId: { $exists: false } }
-      }
-    }
-  ],
-  outputSchema: [
-    { name: "id", label: "Page ID", type: "string", description: "The unique ID of the created page" },
-    { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
-    { name: "imageUrl", label: "Image URL", type: "string", description: "The URL of the embedded image" },
-    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
-    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
-    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" }
-  ]
-}
-
 const onenoteActionListNotebooks: NodeComponent = {
   type: "microsoft-onenote_action_list_notebooks",
   title: "List Notebooks",
@@ -969,13 +806,11 @@ export const onenoteNodes: NodeComponent[] = [
   // Triggers (1) - Polling-based
   onenoteTriggerNewNote,
 
-  // Actions (16) - Note: Delete Section/Notebook not supported by Microsoft Graph API
+  // Actions - Note: Delete Section/Notebook not supported by Microsoft Graph API
   // Create actions
   onenoteActionCreatePage,
   onenoteActionCreateNotebook,
   onenoteActionCreateSection,
-  onenoteActionCreateImageNote,
-  onenoteActionCreateNoteFromUrl,
 
   // Read actions
   onenoteActionGetPageContent,

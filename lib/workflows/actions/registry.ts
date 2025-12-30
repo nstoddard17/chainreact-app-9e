@@ -332,8 +332,6 @@ import {
   onenoteGetPages,
   onenoteCopyPage,
   onenoteDeletePage,
-  onenoteCreateNoteFromUrl,
-  onenoteCreateImageNote,
   onenoteListNotebooks,
   onenoteListSections,
   onenoteGetNotebookDetails,
@@ -1323,8 +1321,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "microsoft-onenote_action_copy_page": createExecutionContextWrapper(onenoteCopyPage),
   "microsoft-onenote_action_delete_page": createExecutionContextWrapper(onenoteDeletePage),
   // NOTE: delete_section and delete_notebook are NOT supported by Microsoft Graph API
-  "microsoft-onenote_action_create_note_from_url": createExecutionContextWrapper(onenoteCreateNoteFromUrl),
-  "microsoft-onenote_action_create_image_note": createExecutionContextWrapper(onenoteCreateImageNote),
   "microsoft-onenote_action_list_notebooks": createExecutionContextWrapper(onenoteListNotebooks),
   "microsoft-onenote_action_list_sections": createExecutionContextWrapper(onenoteListSections),
   "microsoft-onenote_action_get_notebook_details": createExecutionContextWrapper(onenoteGetNotebookDetails),
