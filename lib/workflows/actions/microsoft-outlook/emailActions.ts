@@ -269,7 +269,15 @@ export async function moveOutlookEmail(
       destinationId: destinationFolderId
     }
 
+    // Microsoft Graph message IDs should not be URL encoded as they are already URL-safe
+    // However, some IDs from webhooks may have different formats
     const endpoint = `https://graph.microsoft.com/v1.0/me/messages/${emailId}/move`
+
+    logger.debug('[Outlook] Move email request', {
+      emailId: emailId.substring(0, 50) + '...',
+      destinationFolderId: destinationFolderId.substring(0, 50) + '...',
+      endpoint
+    })
 
     const makeRequest = async (token: string) => {
       return fetch(endpoint, {
@@ -292,12 +300,27 @@ export async function moveOutlookEmail(
     if (!response.ok) {
       const errorText = await response.text()
       let errorMessage = `Failed to move email: ${response.statusText}`
+      let errorCode = ''
       try {
         const errorJson = JSON.parse(errorText)
+        errorCode = errorJson.error?.code || ''
         if (errorJson.error?.message) {
           errorMessage = `Failed to move email: ${errorJson.error.message}`
         }
       } catch {}
+
+      logger.error('[Outlook] Move email failed', {
+        status: response.status,
+        errorCode,
+        errorMessage,
+        emailId: emailId.substring(0, 50) + '...'
+      })
+
+      // Provide more helpful error messages
+      if (errorCode === 'ErrorItemNotFound' || errorMessage.includes('not found')) {
+        throw new Error('Email not found. It may have been moved or deleted.')
+      }
+
       throw new Error(errorMessage)
     }
 

@@ -39,34 +39,39 @@ export async function getOutlookCalendarEvents(
 
     const { calendarId, search } = options
 
-    // Build the endpoint - use specific calendar or default
-    let endpoint = 'https://graph.microsoft.com/v1.0/me/events'
+    // Use calendarView endpoint for date-range queries (more reliable than $filter on /events)
+    // calendarView returns all events (including recurring) within a time range
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    const sixMonthsFromNow = new Date()
+    sixMonthsFromNow.setMonth(sixMonthsFromNow.getMonth() + 6)
+
+    // Build the calendarView endpoint
+    let endpoint: string
     if (calendarId && calendarId !== 'default') {
-      endpoint = `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events`
+      endpoint = `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/calendarView`
+    } else {
+      endpoint = 'https://graph.microsoft.com/v1.0/me/calendarView'
     }
 
     // Build query parameters
     const params = new URLSearchParams()
+    // calendarView requires startDateTime and endDateTime
+    params.append('startDateTime', thirtyDaysAgo.toISOString())
+    params.append('endDateTime', sixMonthsFromNow.toISOString())
     params.append('$top', '50') // Limit to 50 events
     params.append('$orderby', 'start/dateTime desc')
     params.append('$select', 'id,subject,start,end,location,organizer')
 
-    // Filter to only future events and recent past events (last 30 days)
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    params.append('$filter', `start/dateTime ge '${thirtyDaysAgo.toISOString()}'`)
-
-    // Add search filter if provided
-    if (search && search.trim()) {
-      // Note: Microsoft Graph doesn't support $search on events, so we'll filter client-side
-    }
+    // Note: Microsoft Graph doesn't support $search on calendarView, so we filter client-side
 
     const fullEndpoint = `${endpoint}?${params.toString()}`
 
     const response = await fetch(fullEndpoint, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Prefer': 'outlook.timezone="UTC"' // Ensure consistent timezone handling
       }
     })
 

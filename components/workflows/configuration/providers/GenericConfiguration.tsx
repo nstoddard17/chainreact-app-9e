@@ -708,8 +708,9 @@ export function GenericConfiguration({
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        setPreviewResult({ error: error.message || 'Failed to fetch email preview' });
+        const errorData = await response.json().catch(() => ({}));
+        // API returns { error: "message" } format
+        setPreviewResult({ error: errorData.error || errorData.message || 'Failed to fetch email preview' });
       } else {
         const data = await response.json();
         setPreviewResult(data);
@@ -723,7 +724,7 @@ export function GenericConfiguration({
     }
   };
 
-  // Handle email-only preview for Outlook Forward/Delete Email actions
+  // Handle email-only preview for Outlook Reply/Forward/Delete Email actions
   const handleOutlookEmailByIdPreview = async () => {
     setPreviewLoading(true);
     setPreviewResult(null);
@@ -740,8 +741,9 @@ export function GenericConfiguration({
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        setPreviewResult({ error: error.message || 'Failed to fetch email preview' });
+        const errorData = await response.json().catch(() => ({}));
+        // API returns { error: "message" } format
+        setPreviewResult({ error: errorData.error || errorData.message || 'Failed to fetch email preview' });
       } else {
         const data = await response.json();
         // Mark this as email-only preview (no attachment section needed)
@@ -1592,8 +1594,9 @@ export function GenericConfiguration({
           )}
         </div>
       )}
-      {/* Email Preview Button - For Outlook Forward/Delete Email actions when email ID is provided */}
-      {(nodeInfo?.type === 'microsoft-outlook_action_forward_email' ||
+      {/* Email Preview Button - For Outlook Reply/Forward/Delete Email actions when email ID is provided */}
+      {(nodeInfo?.type === 'microsoft-outlook_action_reply_to_email' ||
+        nodeInfo?.type === 'microsoft-outlook_action_forward_email' ||
         nodeInfo?.type === 'microsoft-outlook_action_delete_email') &&
        values.emailId && (
         <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-6">
@@ -1662,6 +1665,15 @@ export function GenericConfiguration({
                   </div>
 
                   {/* Action-specific info */}
+                  {nodeInfo?.type === 'microsoft-outlook_action_reply_to_email' && (
+                    <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+                      <Mail className="inline-block mr-1 h-3 w-3" />
+                      {values.replyAll ?
+                        'Your reply will be sent to all recipients of this email.' :
+                        'Your reply will be sent to the original sender only.'
+                      }
+                    </div>
+                  )}
                   {nodeInfo?.type === 'microsoft-outlook_action_delete_email' && (
                     <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2">
                       <AlertTriangle className="inline-block mr-1 h-3 w-3" />

@@ -1837,25 +1837,6 @@ const outlookActionGetAttachment: NodeComponent = {
   ]
 }
 
-const outlookActionListAttachments: NodeComponent = {
-  type: "microsoft-outlook_action_list_attachments",
-  title: "List Attachments",
-  description: "Get list of attachments from an email",
-  icon: Paperclip,
-  providerId: "microsoft-outlook",
-  category: "Communication",
-  isTrigger: false,
-  requiredScopes: ["Mail.Read"],
-  configSchema: [
-    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email", description: "The ID of the email to get attachments from" }
-  ],
-  producesOutput: true,
-  outputSchema: [
-    { name: "attachments", label: "Attachments", type: "array", description: "Array of attachment metadata (id, name, size, contentType)" },
-    { name: "count", label: "Count", type: "number", description: "Number of attachments" }
-  ]
-}
-
 // Export all Microsoft Outlook nodes
 export const outlookNodes: NodeComponent[] = [
   // Email Triggers (4)
@@ -1897,7 +1878,6 @@ export const outlookNodes: NodeComponent[] = [
   outlookActionDeleteContact,
   outlookActionFindContact,
 
-  // Attachment Actions (2)
+  // Attachment Actions (1)
   outlookActionGetAttachment,
-  outlookActionListAttachments,
 ]

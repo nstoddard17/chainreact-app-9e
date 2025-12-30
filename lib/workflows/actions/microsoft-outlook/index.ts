@@ -32,6 +32,5 @@ export {
 
 // Attachment actions
 export {
-  downloadOutlookAttachment,
-  listOutlookAttachments
+  downloadOutlookAttachment
 } from './attachmentActions'

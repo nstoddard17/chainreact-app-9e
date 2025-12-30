@@ -17,6 +17,13 @@ export async function POST(request: NextRequest) {
       return errorResponse('Email ID is required', 400)
     }
 
+    // Debug: Log what we receive
+    logger.debug('[Outlook Get Email By ID] Request received', {
+      emailIdLength: emailId?.length,
+      emailIdStart: emailId?.substring(0, 30),
+      emailIdEnd: emailId?.substring(emailId.length - 30)
+    })
+
     const supabase = await createSupabaseRouteHandlerClient()
     const {
       data: { user },

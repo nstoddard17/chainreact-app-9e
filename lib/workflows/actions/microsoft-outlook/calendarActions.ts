@@ -391,12 +391,21 @@ export async function getOutlookCalendarEvents(
     params.append('$select', 'id,subject,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting,webLink,importance,sensitivity')
 
     // Add date filters if provided
+    // For date ranges: we want events that START on or after startDate AND START before endDate
+    // When endDate is provided as a date (not datetime), set it to end of day to include all events on that date
     const filters: string[] = []
     if (startDate) {
       filters.push(`start/dateTime ge '${new Date(startDate).toISOString()}'`)
     }
     if (endDate) {
-      filters.push(`end/dateTime le '${new Date(endDate).toISOString()}'`)
+      // Parse the endDate and set to end of day (23:59:59.999) to include events on that day
+      const endDateTime = new Date(endDate)
+      // Check if only a date was provided (no time component)
+      if (!endDate.includes('T')) {
+        endDateTime.setHours(23, 59, 59, 999)
+      }
+      // Filter events that START before the end of the date range
+      filters.push(`start/dateTime le '${endDateTime.toISOString()}'`)
     }
 
     if (filters.length > 0) {

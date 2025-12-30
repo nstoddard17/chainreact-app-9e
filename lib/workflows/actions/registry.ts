@@ -274,8 +274,7 @@ import {
   updateOutlookContact,
   deleteOutlookContact,
   findOutlookContact,
-  downloadOutlookAttachment,
-  listOutlookAttachments
+  downloadOutlookAttachment
 } from './microsoft-outlook'
 
 // HubSpot actions
@@ -1198,8 +1197,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     findOutlookContact(params.config, params.userId, params.input),
   "microsoft-outlook_action_get_attachment": (params: { config: any; userId: string; input: Record<string, any> }) =>
     downloadOutlookAttachment(params.config, params.userId, params.input),
-  "microsoft-outlook_action_list_attachments": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    listOutlookAttachments(params.config, params.userId, params.input),
 
   // Microsoft Teams actions - wrapped to handle new calling convention
   "teams_action_reply_to_message": (params: { config: any; userId: string; input: Record<string, any> }) =>

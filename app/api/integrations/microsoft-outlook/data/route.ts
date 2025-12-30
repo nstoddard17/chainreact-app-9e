@@ -6,6 +6,7 @@ import { getOutlookEnhancedRecipients } from "./handlers/enhanced-recipients"
 import { getOutlookCalendars } from "./handlers/calendars"
 import { getOutlookCalendarEvents } from "./handlers/calendar-events"
 import { getOutlookContacts } from "./handlers/contacts"
+import { getOutlookFolders } from "./handlers/folders"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -62,13 +63,8 @@ async function buildResponse(
     }
 
     case 'outlook_folders': {
-      return [
-        { value: 'inbox', label: 'Inbox' },
-        { value: 'sentitems', label: 'Sent Items' },
-        { value: 'drafts', label: 'Drafts' },
-        { value: 'deleteditems', label: 'Deleted Items' },
-        { value: 'archive', label: 'Archive' }
-      ]
+      const folders = await getOutlookFolders(integration)
+      return folders
     }
 
     case 'outlook_messages': {

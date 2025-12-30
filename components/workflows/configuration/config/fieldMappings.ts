@@ -645,9 +645,6 @@ const outlookMappings: Record<string, FieldMapping> = {
   "microsoft-outlook_action_get_attachment": {
     emailId: "outlook_messages",
   },
-  "microsoft-outlook_action_list_attachments": {
-    emailId: "outlook_messages",
-  },
 
   // Legacy mappings (may be deprecated)
   "microsoft-outlook_action_create_meeting": {

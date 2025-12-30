@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server"
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { NextRequest } from "next/server"
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { decryptToken } from "@/lib/integrations/tokenUtils"
 
@@ -73,12 +73,15 @@ export async function POST(request: NextRequest) {
       return errorResponse("Failed to decrypt Microsoft Outlook access token" , 401)
     }
 
+    // Build the base URL for the messages endpoint
+    // folderId can be either a well-known name (inbox, sentitems) or an actual folder ID (AAMkAGI2...)
     let baseUrl = "https://graph.microsoft.com/v1.0/me/"
-    const normalizedFolder = typeof folderId === "string" ? folderId.toLowerCase() : null
 
-    if (normalizedFolder && normalizedFolder !== "inbox") {
-      baseUrl += `mailFolders/${normalizedFolder}/messages`
+    if (folderId && typeof folderId === "string" && folderId.trim()) {
+      // Use the folder ID directly - don't lowercase as folder IDs are case-sensitive
+      baseUrl += `mailFolders/${folderId}/messages`
     } else {
+      // Default to all messages (inbox)
       baseUrl += "messages"
     }
 
@@ -147,7 +150,7 @@ export async function POST(request: NextRequest) {
 
     if (!graphResponse.ok) {
       const errorText = await graphResponse.text()
-      logger.error("[Outlook Preview] API Error:", graphResponse.status, errorText, { url: lastUrl })
+      logger.error("[Outlook Preview] API Error:", { status: graphResponse.status, errorText, url: lastUrl })
 
       if (graphResponse.status === 401) {
         return errorResponse("Microsoft Outlook authentication failed. Please reconnect your account." , 401)
