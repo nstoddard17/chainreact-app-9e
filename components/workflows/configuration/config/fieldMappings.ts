@@ -615,13 +615,16 @@ const outlookMappings: Record<string, FieldMapping> = {
   },
   "microsoft-outlook_action_update_calendar_event": {
     calendarId: "outlook_calendars",
+    eventId: "outlook_calendar_events",
     attendees: "outlook-enhanced-recipients",
   },
   "microsoft-outlook_action_delete_calendar_event": {
     calendarId: "outlook_calendars",
+    eventId: "outlook_calendar_events",
   },
   "microsoft-outlook_action_add_attendees": {
     calendarId: "outlook_calendars",
+    eventId: "outlook_calendar_events",
     attendees: "outlook-enhanced-recipients",
   },
   "microsoft-outlook_action_get_calendar_events": {
@@ -630,12 +633,16 @@ const outlookMappings: Record<string, FieldMapping> = {
 
   // Contact Actions
   "microsoft-outlook_action_create_contact": {},
-  "microsoft-outlook_action_update_contact": {},
-  "microsoft-outlook_action_delete_contact": {},
+  "microsoft-outlook_action_update_contact": {
+    contactId: "outlook_contacts",
+  },
+  "microsoft-outlook_action_delete_contact": {
+    contactId: "outlook_contacts",
+  },
   "microsoft-outlook_action_find_contact": {},
 
   // Attachment Actions
-  "microsoft-outlook_action_download_attachment": {
+  "microsoft-outlook_action_get_attachment": {
     emailId: "outlook_messages",
   },
   "microsoft-outlook_action_list_attachments": {

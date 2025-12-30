@@ -5,7 +5,8 @@ import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Download an attachment from an Outlook email
+ * Download attachments from an Outlook email
+ * Supports downloading all attachments, filtering by extension, or filtering by name
  */
 export async function downloadOutlookAttachment(
   config: any,
@@ -14,21 +15,19 @@ export async function downloadOutlookAttachment(
 ): Promise<ActionResult> {
   try {
     const resolvedConfig = resolveValue(config, input)
-    const { emailId, attachmentId } = resolvedConfig
+    const { emailId, downloadMode = 'all', fileExtensions, fileNameFilter, excludeInline = true } = resolvedConfig
 
     if (!emailId) {
       throw new Error('Email ID is required')
     }
-    if (!attachmentId) {
-      throw new Error('Attachment ID is required')
-    }
 
     let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
 
-    const endpoint = `https://graph.microsoft.com/v1.0/me/messages/${emailId}/attachments/${attachmentId}`
+    // First, list all attachments to get their IDs and metadata
+    const listEndpoint = `https://graph.microsoft.com/v1.0/me/messages/${emailId}/attachments`
 
-    const makeRequest = async (token: string) => {
-      return fetch(endpoint, {
+    const makeListRequest = async (token: string) => {
+      return fetch(listEndpoint, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -37,71 +36,126 @@ export async function downloadOutlookAttachment(
       })
     }
 
-    let response = await makeRequest(accessToken)
+    let listResponse = await makeListRequest(accessToken)
 
-    if (response.status === 401) {
+    if (listResponse.status === 401) {
       accessToken = await refreshMicrosoftToken(userId, "microsoft-outlook")
-      response = await makeRequest(accessToken)
+      listResponse = await makeListRequest(accessToken)
     }
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      let errorMessage = `Failed to download attachment: ${response.statusText}`
+    if (!listResponse.ok) {
+      const errorText = await listResponse.text()
+      let errorMessage = `Failed to list attachments: ${listResponse.statusText}`
       try {
         const errorJson = JSON.parse(errorText)
         if (errorJson.error?.message) {
-          errorMessage = `Failed to download attachment: ${errorJson.error.message}`
+          errorMessage = `Failed to list attachments: ${errorJson.error.message}`
         }
       } catch {}
       throw new Error(errorMessage)
     }
 
-    const attachment = await response.json()
+    const listData = await listResponse.json()
+    let attachmentList = listData.value || []
 
-    // Handle different attachment types
-    // FileAttachment has contentBytes, ItemAttachment has item
-    if (attachment['@odata.type'] === '#microsoft.graph.fileAttachment') {
+    // Filter out inline attachments if requested
+    if (excludeInline) {
+      attachmentList = attachmentList.filter((att: any) => !att.isInline)
+    }
+
+    // Apply filters based on download mode
+    if (downloadMode === 'by_extension' && fileExtensions) {
+      const extensions = fileExtensions.split(',').map((ext: string) => ext.trim().toLowerCase().replace(/^\./, ''))
+      attachmentList = attachmentList.filter((att: any) => {
+        const fileName = att.name || ''
+        const fileExt = fileName.split('.').pop()?.toLowerCase() || ''
+        return extensions.includes(fileExt)
+      })
+    } else if (downloadMode === 'by_name' && fileNameFilter) {
+      const filterLower = fileNameFilter.toLowerCase()
+      attachmentList = attachmentList.filter((att: any) => {
+        const fileName = att.name || ''
+        return fileName.toLowerCase().includes(filterLower)
+      })
+    }
+
+    if (attachmentList.length === 0) {
       return {
         success: true,
         output: {
-          id: attachment.id,
-          name: attachment.name,
-          contentType: attachment.contentType,
-          size: attachment.size,
-          contentBytes: attachment.contentBytes, // Base64 encoded content
-          isInline: attachment.isInline,
-          lastModifiedDateTime: attachment.lastModifiedDateTime
-        }
-      }
-    } else if (attachment['@odata.type'] === '#microsoft.graph.itemAttachment') {
-      // Item attachment (attached email or calendar event)
-      return {
-        success: true,
-        output: {
-          id: attachment.id,
-          name: attachment.name,
-          contentType: attachment.contentType,
-          size: attachment.size,
-          isInline: attachment.isInline,
-          itemType: attachment.item?.['@odata.type'],
-          item: attachment.item
-        }
-      }
-    } else {
-      // Reference attachment or unknown type
-      return {
-        success: true,
-        output: {
-          id: attachment.id,
-          name: attachment.name,
-          contentType: attachment.contentType,
-          size: attachment.size,
-          isInline: attachment.isInline
+          attachments: [],
+          count: 0,
+          totalSize: 0
         }
       }
     }
+
+    // Download each matching attachment
+    const downloadedAttachments: any[] = []
+    let totalSize = 0
+
+    for (const att of attachmentList) {
+      const downloadEndpoint = `https://graph.microsoft.com/v1.0/me/messages/${emailId}/attachments/${att.id}`
+
+      const makeDownloadRequest = async (token: string) => {
+        return fetch(downloadEndpoint, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      }
+
+      let downloadResponse = await makeDownloadRequest(accessToken)
+
+      if (downloadResponse.status === 401) {
+        accessToken = await refreshMicrosoftToken(userId, "microsoft-outlook")
+        downloadResponse = await makeDownloadRequest(accessToken)
+      }
+
+      if (!downloadResponse.ok) {
+        logger.error(`[Outlook Attachments] Failed to download attachment ${att.name}:`, downloadResponse.statusText)
+        continue // Skip failed downloads but continue with others
+      }
+
+      const attachment = await downloadResponse.json()
+
+      // Only include file attachments with content
+      if (attachment['@odata.type'] === '#microsoft.graph.fileAttachment' && attachment.contentBytes) {
+        downloadedAttachments.push({
+          id: attachment.id,
+          name: attachment.name,
+          contentType: attachment.contentType,
+          size: attachment.size,
+          contentBytes: attachment.contentBytes,
+          lastModifiedDateTime: attachment.lastModifiedDateTime
+        })
+        totalSize += attachment.size || 0
+      } else if (attachment['@odata.type'] === '#microsoft.graph.itemAttachment') {
+        // Item attachment (attached email or calendar event) - include without content
+        downloadedAttachments.push({
+          id: attachment.id,
+          name: attachment.name,
+          contentType: attachment.contentType,
+          size: attachment.size,
+          itemType: attachment.item?.['@odata.type']?.replace('#microsoft.graph.', ''),
+          lastModifiedDateTime: attachment.lastModifiedDateTime
+        })
+        totalSize += attachment.size || 0
+      }
+    }
+
+    return {
+      success: true,
+      output: {
+        attachments: downloadedAttachments,
+        count: downloadedAttachments.length,
+        totalSize
+      }
+    }
   } catch (error: any) {
-    logger.error('[Outlook Attachments] Error downloading attachment:', error)
+    logger.error('[Outlook Attachments] Error downloading attachments:', error)
     throw error
   }
 }

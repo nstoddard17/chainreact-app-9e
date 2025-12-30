@@ -120,7 +120,9 @@ export async function updateOutlookContact(
   try {
     const resolvedConfig = resolveValue(config, input)
     const {
+      contactSelectionMode,
       contactId,
+      contactIdManual,
       givenName,
       surname,
       emailAddress,
@@ -130,7 +132,10 @@ export async function updateOutlookContact(
       companyName
     } = resolvedConfig
 
-    if (!contactId) {
+    // Determine which contact ID to use based on selection mode
+    const effectiveContactId = contactSelectionMode === 'manual' ? contactIdManual : contactId
+
+    if (!effectiveContactId) {
       throw new Error('Contact ID is required')
     }
 
@@ -159,7 +164,7 @@ export async function updateOutlookContact(
       updateData.mobilePhone = mobilePhone
     }
 
-    const endpoint = `https://graph.microsoft.com/v1.0/me/contacts/${contactId}`
+    const endpoint = `https://graph.microsoft.com/v1.0/me/contacts/${effectiveContactId}`
 
     const makeRequest = async (token: string) => {
       return fetch(endpoint, {
@@ -218,15 +223,18 @@ export async function deleteOutlookContact(
 ): Promise<ActionResult> {
   try {
     const resolvedConfig = resolveValue(config, input)
-    const { contactId } = resolvedConfig
+    const { contactSelectionMode, contactId, contactIdManual } = resolvedConfig
 
-    if (!contactId) {
+    // Determine which contact ID to use based on selection mode
+    const effectiveContactId = contactSelectionMode === 'manual' ? contactIdManual : contactId
+
+    if (!effectiveContactId) {
       throw new Error('Contact ID is required')
     }
 
     let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
 
-    const endpoint = `https://graph.microsoft.com/v1.0/me/contacts/${contactId}`
+    const endpoint = `https://graph.microsoft.com/v1.0/me/contacts/${effectiveContactId}`
 
     const makeRequest = async (token: string) => {
       return fetch(endpoint, {
@@ -260,7 +268,7 @@ export async function deleteOutlookContact(
       success: true,
       output: {
         deleted: true,
-        contactId
+        contactId: effectiveContactId
       }
     }
   } catch (error: any) {

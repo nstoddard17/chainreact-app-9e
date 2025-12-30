@@ -1196,7 +1196,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
     deleteOutlookContact(params.config, params.userId, params.input),
   "microsoft-outlook_action_find_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
     findOutlookContact(params.config, params.userId, params.input),
-  "microsoft-outlook_action_download_attachment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+  "microsoft-outlook_action_get_attachment": (params: { config: any; userId: string; input: Record<string, any> }) =>
     downloadOutlookAttachment(params.config, params.userId, params.input),
   "microsoft-outlook_action_list_attachments": (params: { config: any; userId: string; input: Record<string, any> }) =>
     listOutlookAttachments(params.config, params.userId, params.input),

@@ -16,6 +16,8 @@ export async function updateOutlookCalendarEvent(
     const resolvedConfig = resolveValue(config, input)
     const {
       eventId,
+      eventIdManual,
+      eventSelectionMode,
       calendarId,
       subject,
       body,
@@ -25,8 +27,11 @@ export async function updateOutlookCalendarEvent(
       attendees
     } = resolvedConfig
 
-    if (!eventId) {
-      throw new Error('Event ID is required')
+    // Use eventIdManual if manual mode is selected, otherwise use eventId from list selection
+    const resolvedEventId = eventSelectionMode === 'manual' ? eventIdManual : eventId
+
+    if (!resolvedEventId) {
+      throw new Error('Event ID is required - either select an event from the list or enter an ID manually')
     }
 
     let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
@@ -45,20 +50,58 @@ export async function updateOutlookCalendarEvent(
       }
     }
 
-    if (startDateTime) {
-      // Detect timezone
+    // Microsoft Graph API requires both start and end times when updating either one
+    // If only one is provided, we need to fetch the current event to get the other value
+    if (startDateTime || endDateTime) {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      updateData.start = {
-        dateTime: startDateTime,
-        timeZone
-      }
-    }
 
-    if (endDateTime) {
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      updateData.end = {
-        dateTime: endDateTime,
-        timeZone
+      // Helper to format datetime for Graph API (remove trailing Z if present)
+      const formatDateTime = (dt: string) => {
+        // If it ends with Z, remove it (Graph API expects local time with separate timeZone)
+        if (dt.endsWith('Z')) {
+          return dt.slice(0, -1)
+        }
+        // If it has timezone offset like +00:00, remove it
+        return dt.replace(/[+-]\d{2}:\d{2}$/, '')
+      }
+
+      if (startDateTime && endDateTime) {
+        // Both provided - use them directly
+        updateData.start = {
+          dateTime: formatDateTime(startDateTime),
+          timeZone
+        }
+        updateData.end = {
+          dateTime: formatDateTime(endDateTime),
+          timeZone
+        }
+      } else {
+        // Only one provided - need to calculate the other or fetch current event
+        // For simplicity, if only start is provided, set end to 1 hour later
+        // If only end is provided, set start to 1 hour before
+        if (startDateTime) {
+          const startDate = new Date(startDateTime)
+          const endDate = new Date(startDate.getTime() + 60 * 60 * 1000) // +1 hour
+          updateData.start = {
+            dateTime: formatDateTime(startDateTime),
+            timeZone
+          }
+          updateData.end = {
+            dateTime: formatDateTime(endDate.toISOString()),
+            timeZone
+          }
+        } else if (endDateTime) {
+          const endDate = new Date(endDateTime)
+          const startDate = new Date(endDate.getTime() - 60 * 60 * 1000) // -1 hour
+          updateData.start = {
+            dateTime: formatDateTime(startDate.toISOString()),
+            timeZone
+          }
+          updateData.end = {
+            dateTime: formatDateTime(endDateTime),
+            timeZone
+          }
+        }
       }
     }
 
@@ -80,8 +123,8 @@ export async function updateOutlookCalendarEvent(
 
     // Determine endpoint based on calendar selection
     const endpoint = calendarId && calendarId !== 'default'
-      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${eventId}`
-      : `https://graph.microsoft.com/v1.0/me/events/${eventId}`
+      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${resolvedEventId}`
+      : `https://graph.microsoft.com/v1.0/me/events/${resolvedEventId}`
 
     const makeRequest = async (token: string) => {
       return fetch(endpoint, {
@@ -135,6 +178,8 @@ export async function updateOutlookCalendarEvent(
 
 /**
  * Delete an Outlook calendar event
+ * Note: Microsoft Graph API always sends cancellation notifications to attendees when deleting an event.
+ * There is no API option to suppress this behavior.
  */
 export async function deleteOutlookCalendarEvent(
   config: any,
@@ -143,22 +188,21 @@ export async function deleteOutlookCalendarEvent(
 ): Promise<ActionResult> {
   try {
     const resolvedConfig = resolveValue(config, input)
-    const { eventId, calendarId, sendCancellation = true } = resolvedConfig
+    const { eventId, eventIdManual, eventSelectionMode, calendarId } = resolvedConfig
 
-    if (!eventId) {
-      throw new Error('Event ID is required')
+    // Use eventIdManual if manual mode is selected, otherwise use eventId from list selection
+    const resolvedEventId = eventSelectionMode === 'manual' ? eventIdManual : eventId
+
+    if (!resolvedEventId) {
+      throw new Error('Event ID is required - either select an event from the list or enter an ID manually')
     }
 
     let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
 
     // Determine endpoint based on calendar selection
     const endpoint = calendarId && calendarId !== 'default'
-      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${eventId}`
-      : `https://graph.microsoft.com/v1.0/me/events/${eventId}`
-
-    // If sendCancellation is false, we need to cancel it differently
-    // Microsoft Graph doesn't have a direct way to skip cancellation emails
-    // The DELETE method will send cancellation notices by default
+      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${resolvedEventId}`
+      : `https://graph.microsoft.com/v1.0/me/events/${resolvedEventId}`
 
     const makeRequest = async (token: string) => {
       return fetch(endpoint, {
@@ -192,8 +236,7 @@ export async function deleteOutlookCalendarEvent(
       success: true,
       output: {
         deleted: true,
-        eventId,
-        cancellationSent: sendCancellation !== false && sendCancellation !== 'false'
+        eventId: resolvedEventId
       }
     }
   } catch (error: any) {
@@ -212,10 +255,13 @@ export async function addOutlookAttendees(
 ): Promise<ActionResult> {
   try {
     const resolvedConfig = resolveValue(config, input)
-    const { eventId, calendarId, attendees, sendInvitation = true } = resolvedConfig
+    const { eventId, eventIdManual, eventSelectionMode, calendarId, attendees, sendInvitation = true } = resolvedConfig
 
-    if (!eventId) {
-      throw new Error('Event ID is required')
+    // Use eventIdManual if manual mode is selected, otherwise use eventId from list selection
+    const resolvedEventId = eventSelectionMode === 'manual' ? eventIdManual : eventId
+
+    if (!resolvedEventId) {
+      throw new Error('Event ID is required - either select an event from the list or enter an ID manually')
     }
     if (!attendees || attendees.length === 0) {
       throw new Error('At least one attendee is required')
@@ -225,8 +271,8 @@ export async function addOutlookAttendees(
 
     // First, get the current event to preserve existing attendees
     const getEndpoint = calendarId && calendarId !== 'default'
-      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${eventId}`
-      : `https://graph.microsoft.com/v1.0/me/events/${eventId}`
+      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${resolvedEventId}`
+      : `https://graph.microsoft.com/v1.0/me/events/${resolvedEventId}`
 
     const getRequest = async (token: string) => {
       return fetch(getEndpoint, {

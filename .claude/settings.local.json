@@ -25,7 +25,9 @@
       "Bash(node check-scopes.js:*)",
       "Bash(findstr:*)",
       "Bash(npx tsc:*)",
-      "Bash(node -e \"require(''''typescript'''').parseJsonConfigFileContent(require(''''./tsconfig.json''''), require(''''typescript'''').sys, ''''.'''')\")"
+      "Bash(node -e \"require(''''typescript'''').parseJsonConfigFileContent(require(''''./tsconfig.json''''), require(''''typescript'''').sys, ''''.'''')\")",
+      "Bash(node -e \"require\\(''./app/api/integrations/microsoft-outlook/data/handlers/calendar-events.ts''\\)\")",
+      "Bash(npm run lint:*)"
     ],
     "deny": [],
     "ask": [],

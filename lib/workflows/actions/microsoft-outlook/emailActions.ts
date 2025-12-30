@@ -477,6 +477,8 @@ export async function addOutlookCategories(
 
 /**
  * Get/fetch emails from Outlook
+ * Note: Microsoft Graph API doesn't support $filter and $search together.
+ * When search is used, we fetch more results and filter by date client-side.
  */
 export async function getOutlookEmails(
   config: any,
@@ -497,27 +499,35 @@ export async function getOutlookEmails(
     }
 
     const params = new URLSearchParams()
-    params.append('$top', Math.min(Math.max(1, maxResults), 50).toString())
-    params.append('$orderby', 'receivedDateTime desc')
     params.append('$select', 'id,subject,from,toRecipients,ccRecipients,receivedDateTime,bodyPreview,hasAttachments,importance,isRead')
 
-    // Build filter conditions
-    const filters: string[] = []
+    // Microsoft Graph API limitation: $filter and $search cannot be used together
+    // If search query is provided, we skip $filter and do client-side date filtering
+    const hasSearch = query && query.trim()
+    const hasDateFilter = startDate || endDate
 
-    if (startDate) {
-      filters.push(`receivedDateTime ge ${new Date(startDate).toISOString()}`)
-    }
-    if (endDate) {
-      filters.push(`receivedDateTime le ${new Date(endDate).toISOString()}`)
-    }
-
-    if (filters.length > 0) {
-      params.append('$filter', filters.join(' and '))
-    }
-
-    // Add search query if provided
-    if (query) {
+    if (hasSearch) {
+      // When searching, fetch more results to allow for client-side date filtering
+      params.append('$top', Math.min(Math.max(1, maxResults) * 3, 100).toString())
       params.append('$search', `"${query}"`)
+      // Note: $orderby is not supported with $search in Microsoft Graph
+    } else {
+      params.append('$top', Math.min(Math.max(1, maxResults), 50).toString())
+      params.append('$orderby', 'receivedDateTime desc')
+
+      // Build filter conditions (only when not searching)
+      const filters: string[] = []
+
+      if (startDate) {
+        filters.push(`receivedDateTime ge ${new Date(startDate).toISOString()}`)
+      }
+      if (endDate) {
+        filters.push(`receivedDateTime le ${new Date(endDate).toISOString()}`)
+      }
+
+      if (filters.length > 0) {
+        params.append('$filter', filters.join(' and '))
+      }
     }
 
     const fullEndpoint = `${endpoint}?${params.toString()}`
@@ -553,7 +563,23 @@ export async function getOutlookEmails(
     }
 
     const data = await response.json()
-    const messages = data.value || []
+    let messages = data.value || []
+
+    // Client-side date filtering when search was used
+    if (hasSearch && hasDateFilter) {
+      const startDateObj = startDate ? new Date(startDate) : null
+      const endDateObj = endDate ? new Date(endDate) : null
+
+      messages = messages.filter((msg: any) => {
+        const msgDate = new Date(msg.receivedDateTime)
+        if (startDateObj && msgDate < startDateObj) return false
+        if (endDateObj && msgDate > endDateObj) return false
+        return true
+      })
+    }
+
+    // Limit results to maxResults after filtering
+    messages = messages.slice(0, Math.min(Math.max(1, maxResults), 50))
 
     return {
       success: true,
