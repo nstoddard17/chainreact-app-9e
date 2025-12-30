@@ -1379,9 +1379,13 @@ const notionMappings: Record<string, FieldMapping> = {
   },
   notion_action_get_block: {
     workspace: "notion_workspaces",
+    page: "notion_pages",
+    selectedBlock: "notion_page_blocks_selectable",
   },
   notion_action_get_block_children: {
     workspace: "notion_workspaces",
+    page: "notion_pages",
+    selectedBlock: "notion_page_blocks_selectable",
   },
   notion_action_get_page_with_children: {
     workspace: "notion_workspaces",

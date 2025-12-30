@@ -257,7 +257,26 @@ import {
 // Outlook actions
 import {
   sendOutlookEmail,
-} from './outlook'
+  replyToOutlookEmail,
+  forwardOutlookEmail,
+  createOutlookDraftEmail,
+  moveOutlookEmail,
+  deleteOutlookEmail,
+  addOutlookCategories,
+  getOutlookEmails,
+  searchOutlookEmail,
+  createOutlookCalendarEvent,
+  updateOutlookCalendarEvent,
+  deleteOutlookCalendarEvent,
+  addOutlookAttendees,
+  getOutlookCalendarEvents,
+  createOutlookContact,
+  updateOutlookContact,
+  deleteOutlookContact,
+  findOutlookContact,
+  downloadOutlookAttachment,
+  listOutlookAttachments
+} from './microsoft-outlook'
 
 // HubSpot actions
 import {
@@ -1143,6 +1162,44 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Outlook actions - wrapped to handle new calling convention
   "microsoft-outlook_action_send_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
     sendOutlookEmail(params.config, params.userId, params.input),
+  "microsoft-outlook_action_reply_to_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    replyToOutlookEmail(params.config, params.userId, params.input),
+  "microsoft-outlook_action_forward_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    forwardOutlookEmail(params.config, params.userId, params.input),
+  "microsoft-outlook_action_create_draft_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createOutlookDraftEmail(params.config, params.userId, params.input),
+  "microsoft-outlook_action_move_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    moveOutlookEmail(params.config, params.userId, params.input),
+  "microsoft-outlook_action_delete_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteOutlookEmail(params.config, params.userId, params.input),
+  "microsoft-outlook_action_add_categories": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addOutlookCategories(params.config, params.userId, params.input),
+  "microsoft-outlook_action_fetch_emails": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getOutlookEmails(params.config, params.userId, params.input),
+  "microsoft-outlook_action_search_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    searchOutlookEmail(params.config, params.userId, params.input),
+  "microsoft-outlook_action_create_calendar_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createOutlookCalendarEvent(params.config, params.userId, params.input),
+  "microsoft-outlook_action_update_calendar_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateOutlookCalendarEvent(params.config, params.userId, params.input),
+  "microsoft-outlook_action_delete_calendar_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteOutlookCalendarEvent(params.config, params.userId, params.input),
+  "microsoft-outlook_action_add_attendees": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    addOutlookAttendees(params.config, params.userId, params.input),
+  "microsoft-outlook_action_get_calendar_events": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getOutlookCalendarEvents(params.config, params.userId, params.input),
+  "microsoft-outlook_action_create_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createOutlookContact(params.config, params.userId, params.input),
+  "microsoft-outlook_action_update_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateOutlookContact(params.config, params.userId, params.input),
+  "microsoft-outlook_action_delete_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteOutlookContact(params.config, params.userId, params.input),
+  "microsoft-outlook_action_find_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    findOutlookContact(params.config, params.userId, params.input),
+  "microsoft-outlook_action_download_attachment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    downloadOutlookAttachment(params.config, params.userId, params.input),
+  "microsoft-outlook_action_list_attachments": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listOutlookAttachments(params.config, params.userId, params.input),
 
   // Microsoft Teams actions - wrapped to handle new calling convention
   "teams_action_reply_to_message": (params: { config: any; userId: string; input: Record<string, any> }) =>

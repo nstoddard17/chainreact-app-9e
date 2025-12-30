@@ -1801,13 +1801,18 @@ export async function notionGetBlock(
       }
     }
 
-    const blockId = context.dataFlowManager.resolveVariable(config.block_id)
+    // Support both selection modes:
+    // - "fromPage" mode: uses selectedBlock (selected from dropdown)
+    // - "manual" mode: uses blockId (entered manually)
+    const selectedBlock = context.dataFlowManager.resolveVariable(config.selectedBlock)
+    const manualBlockId = context.dataFlowManager.resolveVariable(config.blockId)
+    const blockId = selectedBlock || manualBlockId
 
     if (!blockId) {
       return {
         success: false,
         output: {},
-        message: "Block ID is required"
+        message: "Block ID is required. Select a block from a page or enter a block ID manually."
       }
     }
 
@@ -1861,21 +1866,33 @@ export async function notionGetBlockChildren(
       }
     }
 
-    const blockId = context.dataFlowManager.resolveVariable(config.block_id)
-    const pageSize = context.dataFlowManager.resolveVariable(config.page_size) || 100
+    // Support both selection modes:
+    // - "fromPage" mode: uses selectedBlock (selected from dropdown)
+    // - "manual" mode: uses blockId (entered manually)
+    const selectedBlock = context.dataFlowManager.resolveVariable(config.selectedBlock)
+    const manualBlockId = context.dataFlowManager.resolveVariable(config.blockId)
+    const blockId = selectedBlock || manualBlockId
+    const pageSize = context.dataFlowManager.resolveVariable(config.pageSize) || 100
+    const startCursor = context.dataFlowManager.resolveVariable(config.startCursor)
 
     if (!blockId) {
       return {
         success: false,
         output: {},
-        message: "Block ID is required"
+        message: "Block ID is required. Select a block from a page or enter a block ID manually."
       }
     }
 
-    logger.info("[Notion Get Block Children] Retrieving children:", { blockId, pageSize })
+    logger.info("[Notion Get Block Children] Retrieving children:", { blockId, pageSize, startCursor })
+
+    // Build query params
+    let queryParams = `page_size=${pageSize}`
+    if (startCursor) {
+      queryParams += `&start_cursor=${startCursor}`
+    }
 
     const result = await notionApiRequest(
-      `/blocks/${blockId}/children?page_size=${pageSize}`,
+      `/blocks/${blockId}/children?${queryParams}`,
       "GET",
       accessToken
     )

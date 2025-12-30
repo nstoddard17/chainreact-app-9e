@@ -352,7 +352,7 @@ export {
   listPageContent,
   // NOTE: getPageContent removed - duplicate of listPageContent
   appendPageContent,
-  updatePageContent,
+  // NOTE: updatePageContent removed - redundant with Update Page action
   deletePageContent,
   searchObjects,
   makeApiCall,

@@ -356,7 +356,7 @@ const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
   
   // Notion fields
   workspace: formatWorkspaceField,
-  
+
   // Google Drive fields
   folderId: formatFolderField,
   parentFolderId: formatFolderField,
