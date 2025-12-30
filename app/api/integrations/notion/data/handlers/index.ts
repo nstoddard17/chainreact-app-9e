@@ -11,6 +11,7 @@ import { getNotionWorkspaces } from './workspaces'
 import { getNotionDatabaseProperties } from './databaseProperties'
 import { getNotionTeamspaces } from './teamspaces'
 import { getNotionPageBlocks } from './pageBlocks'
+import { getNotionPageBlocksDeletable } from './pageBlocksDeletable'
 import { getNotionDatabaseFields } from './databaseFields'
 import { getNotionDatabaseMetadata } from './databaseMetadata'
 import { getNotionDatabaseRows } from './databaseRows'
@@ -42,6 +43,7 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   archived_pages: getNotionArchivedPages,
   blocks: getNotionPageBlocks,
   page_blocks: getNotionPageBlocks,
+  page_blocks_deletable: getNotionPageBlocksDeletable,
   userId: getNotionUsers, // Alias for user field variations
   user_id: getNotionUsers, // Alias for snake_case
   filter_types: () => Promise.resolve([
@@ -69,6 +71,7 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   notion_archived_items: getNotionArchivedItems,
   notion_archived_pages: getNotionArchivedPages,
   notion_page_blocks: getNotionPageBlocks,
+  notion_page_blocks_deletable: getNotionPageBlocksDeletable,
   notion_blocks: getNotionPageBlocks, // Alias for notion_page_blocks
   notion_filter_types: () => Promise.resolve([
     { value: 'page', label: 'Pages' },
@@ -97,4 +100,5 @@ export {
   getNotionDatabaseItems,
   getNotionArchivedItems,
   getNotionPageBlocks,
+  getNotionPageBlocksDeletable,
 }

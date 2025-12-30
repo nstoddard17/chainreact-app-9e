@@ -24,7 +24,8 @@
       "Bash(psql:*)",
       "Bash(node check-scopes.js:*)",
       "Bash(findstr:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"require(''''typescript'''').parseJsonConfigFileContent(require(''''./tsconfig.json''''), require(''''typescript'''').sys, ''''.'''')\")"
     ],
     "deny": [],
     "ask": [],

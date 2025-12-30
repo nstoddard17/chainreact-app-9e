@@ -1059,11 +1059,70 @@ export const actionHandlerRegistry: Record<string, Function> = {
       block_id: config.pageId || config.page || config.block_id,
     }, context)),
   // NOTE: notion_action_update_page_content removed - redundant with Update Page action
-  "notion_action_delete_page_content": createExecutionContextWrapper((config: any, context: any) =>
-    notionDeleteBlock({
-      ...config,
-      block_id: config.blockId || config.block || config.block_id,
-    }, context)),
+  "notion_action_delete_page_content": createExecutionContextWrapper(async (config: any, context: any) => {
+    // Handle both selection modes: manual blockId or selected blocks from page
+    const blockIds: string[] = []
+
+    if (config.selectionMode === 'manual' && config.blockId) {
+      // Manual mode: single block ID
+      blockIds.push(config.blockId)
+    } else if (config.selectionMode === 'fromPage' && config.blocksToDelete) {
+      // From page mode: extract selected block IDs
+      const blocksData = config.blocksToDelete
+      if (blocksData.selectedBlockIds && Array.isArray(blocksData.selectedBlockIds)) {
+        blockIds.push(...blocksData.selectedBlockIds)
+      } else {
+        // Fallback: check for any truthy values in the object (block IDs with true value)
+        Object.entries(blocksData).forEach(([key, value]) => {
+          if (key !== 'selectedBlockIds' && value === true) {
+            blockIds.push(key)
+          }
+        })
+      }
+    } else if (config.blockId) {
+      // Legacy support: direct blockId
+      blockIds.push(config.blockId)
+    }
+
+    if (blockIds.length === 0) {
+      return {
+        success: false,
+        output: {},
+        message: 'No blocks selected for deletion'
+      }
+    }
+
+    // Delete each block
+    const deletedBlocks: string[] = []
+    const errors: string[] = []
+
+    for (const blockId of blockIds) {
+      try {
+        const result = await notionDeleteBlock({ block_id: blockId }, context)
+        if (result.success) {
+          deletedBlocks.push(blockId)
+        } else {
+          errors.push(`${blockId}: ${result.message}`)
+        }
+      } catch (error: any) {
+        errors.push(`${blockId}: ${error.message}`)
+      }
+    }
+
+    return {
+      success: deletedBlocks.length > 0,
+      output: {
+        blockIds: deletedBlocks,
+        deletedCount: deletedBlocks.length,
+        archived: deletedBlocks.length > 0,
+        deletedAt: new Date().toISOString(),
+        errors: errors.length > 0 ? errors : undefined
+      },
+      message: errors.length > 0
+        ? `Deleted ${deletedBlocks.length} blocks, ${errors.length} failed`
+        : `Successfully deleted ${deletedBlocks.length} block${deletedBlocks.length > 1 ? 's' : ''}`
+    }
+  }),
 
   // Notion Make API Call action (this one already expects userId, input pattern)
   "notion_action_api_call": (params: { config: any; userId: string; input: Record<string, any> }) =>

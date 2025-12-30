@@ -1278,6 +1278,11 @@ const notionMappings: Record<string, FieldMapping> = {
     page: "notion_pages",
     pageFields: "notion_page_blocks",
   },
+  notion_action_delete_page_content: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+    blocksToDelete: "notion_page_blocks_deletable",
+  },
   notion_action_search_pages: {
     filter: "notion_filter_types",
   },
@@ -1663,6 +1668,8 @@ const defaultMappings: FieldMapping = {
   page: "notion_pages",
   pageId: "notion_pages",
   page_id: "notion_pages",
+  pageFields: "notion_page_blocks",
+  blocksToDelete: "notion_page_blocks_deletable",
   userId: "notion_users",
   user_id: "notion_users",
 };

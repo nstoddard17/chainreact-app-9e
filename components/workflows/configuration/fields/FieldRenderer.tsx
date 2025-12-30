@@ -97,6 +97,7 @@ import { LoadingFieldState } from "./shared/LoadingFieldState";
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
 import { NotionDatabaseRowsField } from "./notion/NotionDatabaseRowsField";
+import { NotionDeletableBlocksField } from "./notion/NotionDeletableBlocksField";
 import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { NotionSelectOptionsField } from "./notion/NotionSelectOptionsField";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
@@ -607,6 +608,7 @@ export function FieldRenderer({
       if (field.dynamic.includes('slack')) return 'slack';
       if (field.dynamic.includes('google-drive')) return 'google-drive';
       if (field.dynamic.includes('github')) return 'github';
+      if (field.dynamic.includes('notion')) return 'notion';
     }
     
     // Detect from field name patterns
@@ -1040,6 +1042,20 @@ export function FieldRenderer({
         if (integrationProvider === 'notion' && field.dynamic === 'notion_page_blocks') {
           return (
             <NotionBlockFields
+              value={value}
+              onChange={onChange}
+              field={field}
+              values={parentValues}
+              loadOptions={onDynamicLoad}
+              setFieldValue={setFieldValue}
+            />
+          );
+        }
+
+        // Dynamic fields for Notion deletable blocks (with checkboxes for selection)
+        if (integrationProvider === 'notion' && field.dynamic === 'notion_page_blocks_deletable') {
+          return (
+            <NotionDeletableBlocksField
               value={value}
               onChange={onChange}
               field={field}

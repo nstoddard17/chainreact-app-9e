@@ -271,23 +271,51 @@ export function GenericConfiguration({
     validateForm();
   }, [values, nodeInfo]);
 
+  // Track which default values have already been applied to prevent infinite loops
+  const appliedDefaultsRef = useRef<Set<string>>(new Set());
+  const lastNodeTypeRef = useRef<string | undefined>(undefined);
+
+  // Reset applied defaults tracking when node type changes
+  useEffect(() => {
+    if (nodeInfo?.type && nodeInfo.type !== lastNodeTypeRef.current) {
+      appliedDefaultsRef.current = new Set();
+      lastNodeTypeRef.current = nodeInfo.type;
+    }
+  }, [nodeInfo?.type]);
+
   // Apply default values to fields when they become visible
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
 
+    // Batch all default value applications to prevent multiple state updates
+    const defaultsToApply: { fieldName: string; value: any }[] = [];
+
     nodeInfo.configSchema.forEach((field: any) => {
       // Check if field has a default value defined
       if (field.defaultValue !== undefined) {
+        // Skip if we've already applied this default
+        if (appliedDefaultsRef.current.has(field.name)) {
+          return;
+        }
+
         // Check if field is now visible
         const isVisible = FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo);
 
         // Apply default if field is visible and doesn't have a value yet
         if (isVisible && (values[field.name] === undefined || values[field.name] === null)) {
-          logger.debug(`[GenericConfig] Applying default value to ${field.name}:`, field.defaultValue);
-          setValue(field.name, field.defaultValue);
+          defaultsToApply.push({ fieldName: field.name, value: field.defaultValue });
+          appliedDefaultsRef.current.add(field.name);
         }
       }
     });
+
+    // Apply all defaults in a single batch
+    if (defaultsToApply.length > 0) {
+      defaultsToApply.forEach(({ fieldName, value }) => {
+        logger.debug(`[GenericConfig] Applying default value to ${fieldName}:`, value);
+        setValue(fieldName, value);
+      });
+    }
   }, [values, nodeInfo, setValue]);
 
   // Handle field value changes and trigger dependent field loading
