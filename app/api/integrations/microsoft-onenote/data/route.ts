@@ -34,7 +34,7 @@ async function fetchIntegration({
 async function buildResponse(
   dataType: string,
   integration: any,
-  options: { notebookId?: string } = {}
+  options: { notebookId?: string; sectionId?: string } = {}
 ) {
   const { access_token } = integration
 
@@ -96,12 +96,13 @@ async function buildResponse(
     }
 
     case 'onenote_pages': {
-      if (!options.notebookId) {
+      // Pages must be fetched from a section, not a notebook
+      if (!options.sectionId) {
         return []
       }
 
-      // Build the appropriate endpoint based on what's provided
-      let endpoint = `https://graph.microsoft.com/v1.0/me/onenote/notebooks/${options.notebookId}/pages`
+      // Fetch pages from the section
+      const endpoint = `https://graph.microsoft.com/v1.0/me/onenote/sections/${options.sectionId}/pages`
 
       const response = await fetch(endpoint, {
         headers: {
@@ -113,7 +114,8 @@ async function buildResponse(
       if (!response.ok) {
         logger.error('Failed to fetch OneNote pages', {
           status: response.status,
-          statusText: response.statusText
+          statusText: response.statusText,
+          sectionId: options.sectionId
         })
         throw new Error(`Failed to fetch pages: ${response.statusText}`)
       }
@@ -166,5 +168,52 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     logger.error('Error in OneNote data endpoint:', error)
     return errorResponse(error instanceof Error ? error.message : 'Internal server error' , 500)
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseRouteHandlerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return errorResponse('Unauthorized', 401)
+    }
+
+    const body = await request.json()
+    const { integrationId, dataType, options = {} } = body
+
+    if (!dataType) {
+      return errorResponse('Missing dataType parameter', 400)
+    }
+
+    logger.debug('OneNote data POST request', { dataType, integrationId, options })
+
+    const { data: integration, error } = await fetchIntegration({
+      integrationId: integrationId || undefined,
+      userId: user.id
+    })
+
+    if (error || !integration) {
+      logger.error('Integration not found or not connected', { error })
+      return errorResponse('OneNote integration not connected', 404)
+    }
+
+    // Extract notebookId from options - it could come from various parent fields
+    const notebookId = options.notebookId || options.sourceNotebookId || options.targetNotebookId
+
+    // Extract sectionId from options - it could come from various parent fields
+    const sectionId = options.sectionId || options.sourceSectionId || options.targetSectionId
+
+    const result = await buildResponse(dataType, integration, {
+      notebookId: notebookId || undefined,
+      sectionId: sectionId || undefined
+    })
+
+    // POST endpoint returns data wrapped in { data: [...] } format
+    return jsonResponse({ data: result })
+  } catch (error) {
+    logger.error('Error in OneNote data POST endpoint:', error)
+    return errorResponse(error instanceof Error ? error.message : 'Internal server error', 500)
   }
 }
