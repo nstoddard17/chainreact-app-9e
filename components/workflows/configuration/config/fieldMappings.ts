@@ -740,6 +740,31 @@ const onenoteMappings: Record<string, FieldMapping> = {
     sectionId: "onenote_sections",
     pageId: "onenote_pages",
   },
+  "microsoft-onenote_action_delete_section": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+  },
+  "microsoft-onenote_action_delete_notebook": {
+    notebookId: "onenote_notebooks",
+  },
+  "microsoft-onenote_action_create_note_from_url": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+  },
+  "microsoft-onenote_action_create_image_note": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+  },
+  "microsoft-onenote_action_list_sections": {
+    notebookId: "onenote_notebooks",
+  },
+  "microsoft-onenote_action_get_notebook_details": {
+    notebookId: "onenote_notebooks",
+  },
+  "microsoft-onenote_action_get_section_details": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
+  },
 };
 
 // OneDrive field mappings

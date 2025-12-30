@@ -5,24 +5,16 @@ import { logger } from '@/lib/utils/logger'
 export async function onenoteDeleteNotebook(
   params: {
     notebookId: string
-    confirmDelete: boolean
   },
   context: ExecutionContext
 ) {
-  const { notebookId, confirmDelete } = params
-
-  if (!confirmDelete) {
-    return {
-      success: false,
-      error: "Deletion not confirmed. Please confirm you want to delete this notebook and all its contents."
-    }
-  }
+  const { notebookId } = params
 
   if (context.testMode) {
     logger.debug("[TEST MODE] Would delete OneNote notebook:", { notebookId })
     return {
       success: true,
-      data: {
+      output: {
         success: true,
         deletedNotebookId: notebookId,
         deletedAt: new Date().toISOString()
@@ -42,7 +34,7 @@ export async function onenoteDeleteNotebook(
 
     return {
       success: true,
-      data: {
+      output: {
         success: true,
         deletedNotebookId: notebookId,
         deletedAt: new Date().toISOString()
@@ -52,6 +44,7 @@ export async function onenoteDeleteNotebook(
     logger.error("Error deleting OneNote notebook:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to delete OneNote notebook"
     }
   }

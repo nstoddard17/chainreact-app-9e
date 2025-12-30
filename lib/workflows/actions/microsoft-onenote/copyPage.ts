@@ -17,7 +17,7 @@ export async function onenoteCopyPage(
     logger.debug("[TEST MODE] Would copy OneNote page:", { sourcePageId, targetSectionId })
     return {
       success: true,
-      data: {
+      output: {
         id: "test-copied-page-id",
         operationId: "test-operation-id",
         status: "completed"
@@ -47,7 +47,7 @@ export async function onenoteCopyPage(
     
     return {
       success: true,
-      data: {
+      output: {
         operationId: copyOperation.id || "operation-started",
         operationLocation: copyOperation["@odata.context"] || copyOperation.location,
         status: "initiated",
@@ -58,6 +58,7 @@ export async function onenoteCopyPage(
     logger.error("Error copying OneNote page:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to copy OneNote page"
     }
   }

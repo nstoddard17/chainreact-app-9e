@@ -14,7 +14,7 @@ export async function onenoteGetSectionDetails(
     logger.debug("[TEST MODE] Would get section details:", { sectionId })
     return {
       success: true,
-      data: {
+      output: {
         id: sectionId,
         displayName: "Test Section",
         createdDateTime: new Date().toISOString(),
@@ -40,7 +40,7 @@ export async function onenoteGetSectionDetails(
 
     return {
       success: true,
-      data: {
+      output: {
         id: section.id,
         displayName: section.displayName,
         createdDateTime: section.createdDateTime,
@@ -54,6 +54,7 @@ export async function onenoteGetSectionDetails(
     logger.error("Error getting OneNote section details:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to get OneNote section details"
     }
   }

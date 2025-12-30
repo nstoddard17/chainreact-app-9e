@@ -680,7 +680,11 @@ const onenoteActionDeletePage: NodeComponent = {
       required: true,
       placeholder: "Select a section",
       dependsOn: "notebookId",
-      description: "The section containing the page"
+      description: "The section containing the page",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
     },
     {
       name: "pageId",
@@ -690,15 +694,11 @@ const onenoteActionDeletePage: NodeComponent = {
       required: true,
       placeholder: "Select page to delete",
       dependsOn: "sectionId",
-      description: "The page to delete"
-    },
-    {
-      name: "confirmDelete",
-      label: "Confirm Deletion",
-      type: "boolean",
-      required: true,
-      defaultValue: false,
-      description: "Confirm that you want to permanently delete this page"
+      description: "The page to delete",
+      hidden: {
+        $deps: ["sectionId"],
+        $condition: { sectionId: { $exists: false } }
+      }
     }
   ],
   outputSchema: [
@@ -793,15 +793,11 @@ const onenoteActionDeleteSection: NodeComponent = {
       required: true,
       placeholder: "Select section to delete",
       dependsOn: "notebookId",
-      description: "The section to delete"
-    },
-    {
-      name: "confirmDelete",
-      label: "Confirm Deletion",
-      type: "boolean",
-      required: true,
-      defaultValue: false,
-      description: "Confirm that you want to permanently delete this section and all its pages"
+      description: "The section to delete",
+      hidden: {
+        $deps: ["notebookId"],
+        $condition: { notebookId: { $exists: false } }
+      }
     }
   ],
   outputSchema: [
@@ -830,14 +826,6 @@ const onenoteActionDeleteNotebook: NodeComponent = {
       placeholder: "Select notebook to delete",
       loadOnMount: true,
       description: "The notebook to delete"
-    },
-    {
-      name: "confirmDelete",
-      label: "Confirm Deletion",
-      type: "boolean",
-      required: true,
-      defaultValue: false,
-      description: "Confirm that you want to permanently delete this notebook and all its contents"
     }
   ],
   outputSchema: [

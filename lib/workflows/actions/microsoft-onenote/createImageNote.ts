@@ -19,7 +19,7 @@ export async function onenoteCreateImageNote(
     logger.debug("[TEST MODE] Would create OneNote page with image:", { title, imageUrl })
     return {
       success: true,
-      data: {
+      output: {
         id: "test-image-note-id",
         title,
         imageUrl,
@@ -74,7 +74,7 @@ export async function onenoteCreateImageNote(
 
     return {
       success: true,
-      data: {
+      output: {
         id: page.id,
         title: page.title || title,
         imageUrl,
@@ -87,6 +87,7 @@ export async function onenoteCreateImageNote(
     logger.error("Error creating OneNote page with image:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to create OneNote page with image"
     }
   }

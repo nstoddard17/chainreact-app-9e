@@ -17,7 +17,7 @@ export async function onenoteCreateNoteFromUrl(
     logger.debug("[TEST MODE] Would create OneNote page from URL:", { sourceUrl, title })
     return {
       success: true,
-      data: {
+      output: {
         id: "test-page-id",
         title: title || "Page from URL",
         sourceUrl,
@@ -96,7 +96,7 @@ export async function onenoteCreateNoteFromUrl(
 
     return {
       success: true,
-      data: {
+      output: {
         id: page.id,
         title: page.title || pageTitle,
         sourceUrl,
@@ -109,6 +109,7 @@ export async function onenoteCreateNoteFromUrl(
     logger.error("Error creating OneNote page from URL:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to create OneNote page from URL"
     }
   }

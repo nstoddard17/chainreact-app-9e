@@ -5,24 +5,16 @@ import { logger } from '@/lib/utils/logger'
 export async function onenoteDeleteSection(
   params: {
     sectionId: string
-    confirmDelete: boolean
   },
   context: ExecutionContext
 ) {
-  const { sectionId, confirmDelete } = params
-
-  if (!confirmDelete) {
-    return {
-      success: false,
-      error: "Deletion not confirmed. Please confirm you want to delete this section and all its pages."
-    }
-  }
+  const { sectionId } = params
 
   if (context.testMode) {
     logger.debug("[TEST MODE] Would delete OneNote section:", { sectionId })
     return {
       success: true,
-      data: {
+      output: {
         success: true,
         deletedSectionId: sectionId,
         deletedAt: new Date().toISOString()
@@ -42,7 +34,7 @@ export async function onenoteDeleteSection(
 
     return {
       success: true,
-      data: {
+      output: {
         success: true,
         deletedSectionId: sectionId,
         deletedAt: new Date().toISOString()
@@ -52,6 +44,7 @@ export async function onenoteDeleteSection(
     logger.error("Error deleting OneNote section:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to delete OneNote section"
     }
   }

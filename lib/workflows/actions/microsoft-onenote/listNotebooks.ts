@@ -14,7 +14,7 @@ export async function onenoteListNotebooks(
     logger.debug("[TEST MODE] Would list OneNote notebooks")
     return {
       success: true,
-      data: {
+      output: {
         notebooks: [
           {
             id: "test-notebook-1",
@@ -51,7 +51,7 @@ export async function onenoteListNotebooks(
 
     return {
       success: true,
-      data: {
+      output: {
         notebooks: notebooks.map((nb: any) => ({
           id: nb.id,
           displayName: nb.displayName,
@@ -67,6 +67,7 @@ export async function onenoteListNotebooks(
     logger.error("Error listing OneNote notebooks:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to list OneNote notebooks"
     }
   }

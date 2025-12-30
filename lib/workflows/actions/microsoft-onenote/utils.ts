@@ -56,5 +56,16 @@ export async function makeGraphRequest(
     throw new Error(`Microsoft Graph API error: ${response.status} - ${errorText}`)
   }
 
-  return response.json()
+  // Handle 204 No Content responses (common for DELETE operations)
+  if (response.status === 204 || response.headers.get('content-length') === '0') {
+    return null
+  }
+
+  // Check if response has content before parsing JSON
+  const text = await response.text()
+  if (!text) {
+    return null
+  }
+
+  return JSON.parse(text)
 }

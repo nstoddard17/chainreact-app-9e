@@ -15,7 +15,7 @@ export async function onenoteCreateQuickNote(
     logger.debug("[TEST MODE] Would create Quick Note:", { title })
     return {
       success: true,
-      data: {
+      output: {
         id: "test-quicknote-id",
         title,
         createdDateTime: new Date().toISOString(),
@@ -91,7 +91,7 @@ export async function onenoteCreateQuickNote(
 
     return {
       success: true,
-      data: {
+      output: {
         id: page.id,
         title: page.title || title,
         createdDateTime: page.createdDateTime,
@@ -103,6 +103,7 @@ export async function onenoteCreateQuickNote(
     logger.error("Error creating Quick Note:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to create Quick Note"
     }
   }

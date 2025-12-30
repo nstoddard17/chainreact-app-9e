@@ -17,7 +17,7 @@ export async function onenoteCreateNotebook(
     logger.debug("[TEST MODE] Would create OneNote notebook:", { displayName, userRole })
     return {
       success: true,
-      data: {
+      output: {
         id: "test-notebook-id",
         displayName,
         createdDateTime: new Date().toISOString(),
@@ -107,7 +107,7 @@ export async function onenoteCreateNotebook(
 
     return {
       success: true,
-      data: {
+      output: {
         id: notebook.id,
         displayName: notebook.displayName,
         createdDateTime: notebook.createdDateTime,
@@ -120,6 +120,7 @@ export async function onenoteCreateNotebook(
     logger.error("Error creating OneNote notebook:", error?.message || error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to create OneNote notebook"
     }
   }

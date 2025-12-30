@@ -19,7 +19,7 @@ export async function onenoteGetPages(
     logger.debug("[TEST MODE] Would get OneNote pages:", { notebookId, sectionId, filter })
     return {
       success: true,
-      data: {
+      output: {
         pages: [
           {
             id: "test-page-1",
@@ -84,7 +84,7 @@ export async function onenoteGetPages(
 
     return {
       success: true,
-      data: {
+      output: {
         pages,
         count: pages.length,
         nextLink: response["@odata.nextLink"]
@@ -94,6 +94,7 @@ export async function onenoteGetPages(
     logger.error("Error getting OneNote pages:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to get OneNote pages"
     }
   }

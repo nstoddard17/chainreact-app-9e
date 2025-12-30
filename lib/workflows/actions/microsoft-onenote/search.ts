@@ -19,7 +19,7 @@ export async function onenoteSearch(
     logger.debug("[TEST MODE] Would search OneNote:", { searchQuery, scope })
     return {
       success: true,
-      data: {
+      output: {
         results: [
           {
             id: "test-page-1",
@@ -89,7 +89,7 @@ export async function onenoteSearch(
 
     return {
       success: true,
-      data: {
+      output: {
         results: formattedResults,
         count: formattedResults.length,
         query: searchQuery
@@ -99,6 +99,7 @@ export async function onenoteSearch(
     logger.error("Error searching OneNote:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to search OneNote"
     }
   }
