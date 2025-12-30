@@ -322,6 +322,7 @@ import {
 } from './hubspotDynamic'
 
 // Microsoft OneNote actions
+// NOTE: deleteSection and deleteNotebook are NOT supported by Microsoft Graph API
 import {
   onenoteCreatePage,
   onenoteCreateNotebook,
@@ -330,12 +331,8 @@ import {
   onenoteGetPageContent,
   onenoteGetPages,
   onenoteCopyPage,
-  onenoteSearch,
   onenoteDeletePage,
-  onenoteDeleteSection,
-  onenoteDeleteNotebook,
   onenoteCreateNoteFromUrl,
-  onenoteCreateQuickNote,
   onenoteCreateImageNote,
   onenoteListNotebooks,
   onenoteListSections,
@@ -1322,14 +1319,11 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "microsoft-onenote_action_create_section": createExecutionContextWrapper(onenoteCreateSection),
   "microsoft-onenote_action_update_page": createExecutionContextWrapper(onenoteUpdatePage),
   "microsoft-onenote_action_get_page_content": createExecutionContextWrapper(onenoteGetPageContent),
-  "microsoft-onenote_action_get_pages": createExecutionContextWrapper(onenoteGetPages),
+  "microsoft-onenote_action_list_pages": createExecutionContextWrapper(onenoteGetPages),
   "microsoft-onenote_action_copy_page": createExecutionContextWrapper(onenoteCopyPage),
-  "microsoft-onenote_action_search": createExecutionContextWrapper(onenoteSearch),
   "microsoft-onenote_action_delete_page": createExecutionContextWrapper(onenoteDeletePage),
-  "microsoft-onenote_action_delete_section": createExecutionContextWrapper(onenoteDeleteSection),
-  "microsoft-onenote_action_delete_notebook": createExecutionContextWrapper(onenoteDeleteNotebook),
+  // NOTE: delete_section and delete_notebook are NOT supported by Microsoft Graph API
   "microsoft-onenote_action_create_note_from_url": createExecutionContextWrapper(onenoteCreateNoteFromUrl),
-  "microsoft-onenote_action_create_quick_note": createExecutionContextWrapper(onenoteCreateQuickNote),
   "microsoft-onenote_action_create_image_note": createExecutionContextWrapper(onenoteCreateImageNote),
   "microsoft-onenote_action_list_notebooks": createExecutionContextWrapper(onenoteListNotebooks),
   "microsoft-onenote_action_list_sections": createExecutionContextWrapper(onenoteListSections),

@@ -720,7 +720,7 @@ const onenoteMappings: Record<string, FieldMapping> = {
     sectionId: "onenote_sections",
     pageId: "onenote_pages",
   },
-  "microsoft-onenote_action_get_pages": {
+  "microsoft-onenote_action_list_pages": {
     notebookId: "onenote_notebooks",
     sectionId: "onenote_sections",
   },
@@ -731,22 +731,12 @@ const onenoteMappings: Record<string, FieldMapping> = {
     targetNotebookId: "onenote_notebooks",
     targetSectionId: "onenote_sections",
   },
-  "microsoft-onenote_action_search": {
-    notebookId: "onenote_notebooks",
-    sectionId: "onenote_sections",
-  },
   "microsoft-onenote_action_delete_page": {
     notebookId: "onenote_notebooks",
     sectionId: "onenote_sections",
     pageId: "onenote_pages",
   },
-  "microsoft-onenote_action_delete_section": {
-    notebookId: "onenote_notebooks",
-    sectionId: "onenote_sections",
-  },
-  "microsoft-onenote_action_delete_notebook": {
-    notebookId: "onenote_notebooks",
-  },
+  // NOTE: delete_section and delete_notebook are NOT supported by Microsoft Graph API
   "microsoft-onenote_action_create_note_from_url": {
     notebookId: "onenote_notebooks",
     sectionId: "onenote_sections",

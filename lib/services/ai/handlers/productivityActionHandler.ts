@@ -420,7 +420,7 @@ export class ProductivityActionHandler extends BaseActionHandler {
 
     const result = await this.executeAction(
       userId,
-      "microsoft-onenote_action_get_pages",
+      "microsoft-onenote_action_list_pages",
       {
         notebookId: parameters.notebookId || parameters.notebook_id,
         sectionId: parameters.sectionId || parameters.section_id,

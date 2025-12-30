@@ -1714,7 +1714,7 @@ export const OUTPUT_SCHEMA_FALLBACKS: Record<string, OutputField[]> = {
       description: "Collection of resource URLs referenced in the page.",
     },
   ],
-  "microsoft-onenote_action_get_pages": [
+  "microsoft-onenote_action_list_pages": [
     {
       name: "pages",
       label: "Pages",
@@ -1752,26 +1752,6 @@ export const OUTPUT_SCHEMA_FALLBACKS: Record<string, OutputField[]> = {
       label: "New Page URL",
       type: "string",
       description: "URL where the copied page can be accessed.",
-    },
-  ],
-  "microsoft-onenote_action_search": [
-    {
-      name: "query",
-      label: "Search Query",
-      type: "string",
-      description: "Query string that was executed against OneNote.",
-    },
-    {
-      name: "results",
-      label: "Results",
-      type: "array",
-      description: "Array of search hits returned by OneNote.",
-    },
-    {
-      name: "count",
-      label: "Result Count",
-      type: "number",
-      description: "Number of matching pages or sections.",
     },
   ],
   "microsoft-onenote_action_delete_page": [

@@ -6,14 +6,12 @@ import {
   Plus,
   Download,
   List,
-  Search,
   Trash2,
   Link,
   Image,
   Book,
   BookOpen,
-  FolderOpen,
-  Zap
+  FolderOpen
 } from "lucide-react"
 import { newNoteTriggerSchema } from "./triggers/newNote.schema"
 
@@ -405,9 +403,9 @@ const onenoteActionGetPageContent: NodeComponent = {
   ]
 }
 
-const onenoteActionGetPages: NodeComponent = {
-  type: "microsoft-onenote_action_get_pages",
-  title: "Get Pages",
+const onenoteActionListPages: NodeComponent = {
+  type: "microsoft-onenote_action_list_pages",
+  title: "List Pages",
   description: "List pages from OneNote with filtering options",
   icon: List,
   providerId: "microsoft-onenote",
@@ -465,9 +463,10 @@ const onenoteActionGetPages: NodeComponent = {
       type: "number",
       required: false,
       defaultValue: 20,
+      placeholder: "20",
       min: 1,
       max: 100,
-      description: "Maximum number of pages to return"
+      description: "Maximum number of pages to return (1-100)"
     }
   ],
   outputSchema: [
@@ -562,93 +561,6 @@ const onenoteActionCopyPage: NodeComponent = {
     { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the copied page in OneNote web app" },
     { name: "createdDateTime", label: "Created Date", type: "string", description: "When the copied page was created" },
     { name: "success", label: "Success", type: "boolean", description: "Whether the copy operation was successful" }
-  ]
-}
-
-const onenoteActionSearch: NodeComponent = {
-  type: "microsoft-onenote_action_search",
-  title: "Search OneNote",
-  description: "Search across OneNote content",
-  icon: Search,
-  providerId: "microsoft-onenote",
-  requiredScopes: ["Notes.Read", "Notes.ReadWrite.All"],
-  category: "Productivity",
-  isTrigger: false,
-  configSchema: [
-    { 
-      name: "searchQuery", 
-      label: "Search Query", 
-      type: "text",
-      required: true,
-      placeholder: "Enter search terms",
-      description: "The text to search for in OneNote"
-    },
-    {
-      name: "scope",
-      label: "Search Scope",
-      type: "select",
-      required: false,
-      defaultValue: "all",
-      options: [
-        { value: "all", label: "All Notebooks" },
-        { value: "notebook", label: "Specific Notebook" },
-        { value: "section", label: "Specific Section" }
-      ],
-      description: "Where to search"
-    },
-    { 
-      name: "notebookId", 
-      label: "Notebook", 
-      type: "select",
-      dynamic: "onenote_notebooks",
-      required: false,
-      placeholder: "Select notebook to search",
-      loadOnMount: true,
-      description: "Limit search to this notebook",
-      visibilityCondition: { field: "scope", operator: "equals", value: "notebook" }
-    },
-    { 
-      name: "sectionId", 
-      label: "Section", 
-      type: "select",
-      dynamic: "onenote_sections",
-      required: false,
-      placeholder: "Select section to search",
-      dependsOn: "notebookId",
-      description: "Limit search to this section",
-      visibilityCondition: { field: "scope", operator: "equals", value: "section" }
-    },
-    {
-      name: "maxResults",
-      label: "Maximum Results",
-      type: "number",
-      required: false,
-      defaultValue: 20,
-      min: 1,
-      max: 100,
-      description: "Maximum number of results to return"
-    }
-  ],
-  outputSchema: [
-    {
-      name: "results",
-      label: "Search Results",
-      type: "array",
-      description: "Array of pages matching the search query",
-      items: {
-        type: "object",
-        properties: [
-          { name: "id", label: "Page ID", type: "string", description: "The unique ID of the page" },
-          { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
-          { name: "preview", label: "Preview", type: "string", description: "A preview snippet of the page content" },
-          { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
-          { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
-          { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" },
-          { name: "lastModifiedDateTime", label: "Last Modified Date", type: "string", description: "When the page was last modified" }
-        ]
-      }
-    },
-    { name: "count", label: "Result Count", type: "number", description: "Total number of results found" }
   ]
 }
 
@@ -765,113 +677,10 @@ const onenoteActionCreateNoteFromUrl: NodeComponent = {
   ]
 }
 
-const onenoteActionDeleteSection: NodeComponent = {
-  type: "microsoft-onenote_action_delete_section",
-  title: "Delete Section",
-  description: "Delete a OneNote section and all its pages",
-  icon: Trash2,
-  providerId: "microsoft-onenote",
-  requiredScopes: ["Notes.ReadWrite.All"],
-  category: "Productivity",
-  isTrigger: false,
-  configSchema: [
-    {
-      name: "notebookId",
-      label: "Notebook",
-      type: "select",
-      dynamic: "onenote_notebooks",
-      required: true,
-      placeholder: "Select a notebook",
-      loadOnMount: true,
-      description: "The notebook containing the section"
-    },
-    {
-      name: "sectionId",
-      label: "Section",
-      type: "select",
-      dynamic: "onenote_sections",
-      required: true,
-      placeholder: "Select section to delete",
-      dependsOn: "notebookId",
-      description: "The section to delete",
-      hidden: {
-        $deps: ["notebookId"],
-        $condition: { notebookId: { $exists: false } }
-      }
-    }
-  ],
-  outputSchema: [
-    { name: "success", label: "Success", type: "boolean", description: "Whether the section was successfully deleted" },
-    { name: "deletedSectionId", label: "Deleted Section ID", type: "string", description: "The ID of the deleted section" },
-    { name: "deletedAt", label: "Deleted At", type: "string", description: "Timestamp when the section was deleted" }
-  ]
-}
+// NOTE: Delete Section and Delete Notebook actions are NOT supported by Microsoft Graph API
+// Only Delete Page is supported. See: https://learn.microsoft.com/en-us/graph/api/resources/onenotesection
+// The API only supports: GET (read), POST (create pages), and copy operations for sections/notebooks
 
-const onenoteActionDeleteNotebook: NodeComponent = {
-  type: "microsoft-onenote_action_delete_notebook",
-  title: "Delete Notebook",
-  description: "Delete a OneNote notebook and all its contents",
-  icon: Trash2,
-  providerId: "microsoft-onenote",
-  requiredScopes: ["Notes.ReadWrite.All"],
-  category: "Productivity",
-  isTrigger: false,
-  configSchema: [
-    {
-      name: "notebookId",
-      label: "Notebook",
-      type: "select",
-      dynamic: "onenote_notebooks",
-      required: true,
-      placeholder: "Select notebook to delete",
-      loadOnMount: true,
-      description: "The notebook to delete"
-    }
-  ],
-  outputSchema: [
-    { name: "success", label: "Success", type: "boolean", description: "Whether the notebook was successfully deleted" },
-    { name: "deletedNotebookId", label: "Deleted Notebook ID", type: "string", description: "The ID of the deleted notebook" },
-    { name: "deletedAt", label: "Deleted At", type: "string", description: "Timestamp when the notebook was deleted" }
-  ]
-}
-
-const onenoteActionCreateQuickNote: NodeComponent = {
-  type: "microsoft-onenote_action_create_quick_note",
-  title: "Create Quick Note",
-  description: "Create a new note in the Quick Notes section of your default notebook",
-  icon: Zap,
-  providerId: "microsoft-onenote",
-  requiredScopes: ["Notes.ReadWrite.All"],
-  category: "Productivity",
-  isTrigger: false,
-  configSchema: [
-    {
-      name: "title",
-      label: "Note Title",
-      type: "text",
-      required: true,
-      placeholder: "Enter note title",
-      description: "The title of the quick note"
-    },
-    {
-      name: "content",
-      label: "Content",
-      type: "textarea",
-      required: false,
-      placeholder: "Enter note content",
-      description: "The content of the quick note",
-      hasVariablePicker: true,
-      hasConnectButton: true
-    }
-  ],
-  outputSchema: [
-    { name: "id", label: "Page ID", type: "string", description: "The unique ID of the created page" },
-    { name: "title", label: "Page Title", type: "string", description: "The title of the page" },
-    { name: "contentUrl", label: "Content URL", type: "string", description: "URL to access the page content" },
-    { name: "webUrl", label: "Web URL", type: "string", description: "URL to view the page in OneNote web app" },
-    { name: "createdDateTime", label: "Created Date", type: "string", description: "When the page was created" }
-  ]
-}
 
 const onenoteActionCreateImageNote: NodeComponent = {
   type: "microsoft-onenote_action_create_image_note",
@@ -1160,18 +969,17 @@ export const onenoteNodes: NodeComponent[] = [
   // Triggers (1) - Polling-based
   onenoteTriggerNewNote,
 
-  // Actions (19)
+  // Actions (16) - Note: Delete Section/Notebook not supported by Microsoft Graph API
   // Create actions
   onenoteActionCreatePage,
   onenoteActionCreateNotebook,
   onenoteActionCreateSection,
-  onenoteActionCreateQuickNote,
   onenoteActionCreateImageNote,
   onenoteActionCreateNoteFromUrl,
 
   // Read actions
   onenoteActionGetPageContent,
-  onenoteActionGetPages,
+  onenoteActionListPages,
   onenoteActionListNotebooks,
   onenoteActionListSections,
   onenoteActionGetNotebookDetails,
@@ -1180,12 +988,9 @@ export const onenoteNodes: NodeComponent[] = [
   // Update actions
   onenoteActionUpdatePage,
 
-  // Copy/Search actions
+  // Copy actions
   onenoteActionCopyPage,
-  onenoteActionSearch,
 
-  // Delete actions
+  // Delete actions (only Delete Page is supported by Microsoft Graph API)
   onenoteActionDeletePage,
-  onenoteActionDeleteSection,
-  onenoteActionDeleteNotebook,
 ]
