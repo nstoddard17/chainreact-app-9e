@@ -7,8 +7,9 @@ import { getDecryptedAccessToken } from './core/getDecryptedAccessToken'
 import { resolveValue } from './core/resolveValue'
 import { sendSlackMessage as sendSlackMessageNew } from './slack/sendMessage'
 
-// Re-export delete message action so consumers of "./slack" continue working
+// Re-export actions so consumers of "./slack" continue working
 export { slackActionDeleteMessage } from './slack/deleteMessage'
+export { slackActionAddReaction } from './slack/addReaction'
 
 import { logger } from '@/lib/utils/logger'
 

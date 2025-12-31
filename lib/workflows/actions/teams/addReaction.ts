@@ -19,8 +19,11 @@ export async function addTeamsReaction(
     const teamId = input.teamId || config.teamId
     const channelId = input.channelId || config.channelId
     const chatId = input.chatId || config.chatId
-    // Support both messageId (for channel) and chatMessageId (for chat)
-    const messageId = input.messageId || config.messageId || input.chatMessageId || config.chatMessageId
+    // Support both dropdown selection and manual ID entry
+    // For channel messages: messageId (dropdown) or messageIdManual (text input)
+    // For chat messages: chatMessageId (dropdown) or chatMessageIdManual (text input)
+    const messageId = input.messageId || config.messageId || input.messageIdManual || config.messageIdManual ||
+                      input.chatMessageId || config.chatMessageId || input.chatMessageIdManual || config.chatMessageIdManual
     const reactionType = input.reactionType || config.reactionType
 
     if (!messageType || !reactionType) {

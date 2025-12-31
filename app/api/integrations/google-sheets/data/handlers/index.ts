@@ -6,6 +6,7 @@ import { getGoogleSheetsRecords } from './records'
 import { getGoogleSheetsSpreadsheets } from './spreadsheets'
 import { getGoogleSheetsSheets } from './sheets'
 import { getGoogleSheetsColumns } from './columns'
+import { getGoogleSheetsColumnValues } from './column-values'
 import { GoogleSheetsDataHandler } from '../types'
 
 export const googleSheetsHandlers: Record<string, GoogleSheetsDataHandler> = {
@@ -13,13 +14,16 @@ export const googleSheetsHandlers: Record<string, GoogleSheetsDataHandler> = {
   'google_sheets_spreadsheets': getGoogleSheetsSpreadsheets,
   'google_sheets_sheets': getGoogleSheetsSheets,
   'google_sheets_columns': getGoogleSheetsColumns,
+  'google_sheets_column_values': getGoogleSheetsColumnValues,
   // Also support hyphenated versions for consistency
   'google-sheets_records': getGoogleSheetsRecords,
   'google-sheets_spreadsheets': getGoogleSheetsSpreadsheets,
   'google-sheets_sheets': getGoogleSheetsSheets,
   'google-sheets_columns': getGoogleSheetsColumns,
+  'google-sheets_column_values': getGoogleSheetsColumnValues,
   // Support the format used in the field mappings
   'google-sheets-spreadsheets': getGoogleSheetsSpreadsheets,
   'google-sheets-sheets': getGoogleSheetsSheets,
   'google-sheets-columns': getGoogleSheetsColumns,
+  'google-sheets-column_values': getGoogleSheetsColumnValues,
 }

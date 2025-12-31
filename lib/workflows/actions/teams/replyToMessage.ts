@@ -17,7 +17,8 @@ export async function replyToTeamsMessage(
     // Support both config and input for field values
     const teamId = input.teamId || config.teamId
     const channelId = input.channelId || config.channelId
-    const messageId = input.messageId || config.messageId
+    // Support both dropdown selection and manual ID entry
+    const messageId = input.messageId || config.messageId || input.messageIdManual || config.messageIdManual
     const replyContent = input.replyContent || config.replyContent
 
     if (!teamId || !channelId || !messageId || !replyContent) {

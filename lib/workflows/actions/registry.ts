@@ -32,7 +32,7 @@ import { downloadGmailAttachment } from './gmail/downloadAttachment'
 import { updateGmailSignature } from './gmail/updateSignature'
 
 // Google Sheets actions
-import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, findGoogleSheetsRow, clearGoogleSheetsRange, formatGoogleSheetsRange, batchUpdateGoogleSheets } from './googleSheets'
+import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, findGoogleSheetsRow, clearGoogleSheetsRange, formatGoogleSheetsRange, batchUpdateGoogleSheets, updateGoogleSheetsCell, getGoogleSheetsCellValue, createGoogleSpreadsheet } from './googleSheets'
 
 // Microsoft Excel actions
 import {
@@ -131,7 +131,7 @@ import {
 } from './monday'
 
 // Slack actions
-import { createSlackChannel, slackActionSendMessage, slackActionDeleteMessage } from './slack'
+import { createSlackChannel, slackActionSendMessage, slackActionDeleteMessage, slackActionAddReaction } from './slack'
 
 // Trello actions
 import {
@@ -682,6 +682,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
     findGoogleSheetsRow(params.config, params.userId, params.input),
   "google-sheets_action_export_sheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
     exportGoogleSheetsData(params.config, params.userId, params.input),
+  "google_sheets_action_update_cell": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    updateGoogleSheetsCell(params.config, params.userId, params.input),
+  "google_sheets_action_get_cell_value": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGoogleSheetsCellValue(params.config, params.userId, params.input),
+  "google_sheets_action_create_spreadsheet": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGoogleSpreadsheet(params.config, params.userId, params.input),
 
   // Microsoft Excel actions - wrapped to handle new calling convention
   "microsoft_excel_unified_action": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -849,7 +855,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "slack_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     slackActionSendMessage(params.config, params.userId, params.input),
   "slack_action_delete_message": slackActionDeleteMessage,
-  
+  "slack_action_add_reaction": slackActionAddReaction,
+
   // Trello actions - wrapped to handle new calling convention
   "trello_action_create_list": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createTrelloList(params.config, params.userId, params.input),

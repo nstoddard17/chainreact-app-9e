@@ -19,8 +19,11 @@ export async function deleteTeamsMessage(
     const teamId = input.teamId || config.teamId
     const channelId = input.channelId || config.channelId
     const chatId = input.chatId || config.chatId
-    // For chat messages, the field is named chatMessageId; for channel messages, it's messageId
-    const messageId = input.messageId || config.messageId || input.chatMessageId || config.chatMessageId
+    // Support both dropdown selection and manual ID entry
+    // For channel messages: messageId (dropdown) or messageIdManual (text input)
+    // For chat messages: chatMessageId (dropdown) or chatMessageIdManual (text input)
+    const messageId = input.messageId || config.messageId || input.messageIdManual || config.messageIdManual ||
+                      input.chatMessageId || config.chatMessageId || input.chatMessageIdManual || config.chatMessageIdManual
 
     if (!messageType || !messageId) {
       return {

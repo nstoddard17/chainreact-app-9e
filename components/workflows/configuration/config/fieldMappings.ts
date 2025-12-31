@@ -398,6 +398,46 @@ const googleSheetsMappings: Record<string, FieldMapping> = {
     sheetName: "google-sheets_sheets",
     searchColumn: "google-sheets_columns",
   },
+  // Cell-level actions
+  "google_sheets_action_update_cell": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  "google_sheets_action_get_cell_value": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Append row action
+  "google_sheets_action_append_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Update row action (underscore version)
+  "google_sheets_action_update_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Delete row action (underscore version)
+  "google_sheets_action_delete_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Clear range action
+  "google_sheets_action_clear_range": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Format range action
+  "google_sheets_action_format_range": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Batch update action
+  "google_sheets_action_batch_update": {
+    spreadsheetId: "google-sheets_spreadsheets",
+  },
+  // Create spreadsheet action (no spreadsheet selector needed - creates new)
+  "google_sheets_action_create_spreadsheet": {},
 };
 
 // Google Drive field mappings
