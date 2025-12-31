@@ -43,7 +43,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
       case "public":
         return <Globe className="w-4 h-4 text-green-600" />
       case "organization":
-        return <Users className="w-4 h-4 text-blue-600" />
+        return <Users className="w-4 h-4 text-orange-600" />
       case "private":
         return <Lock className="w-4 h-4 text-gray-600" />
       default:
@@ -75,7 +75,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
             <CardTitle className="text-xl font-semibold text-slate-900">Organization Workflows</CardTitle>
             {canCreateWorkflows && (
               <Link href={`/workflows/builder?organizationId=${organizationId}`}>
-                <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                <Button className="bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Create Workflow
                 </Button>
@@ -122,7 +122,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
       {/* Workflows List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
         </div>
       ) : filteredWorkflows.length === 0 ? (
         <Card className="bg-white rounded-2xl shadow-lg border border-slate-200">
@@ -138,7 +138,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
             </p>
             {canCreateWorkflows && (
               <Link href={`/workflows/builder?organizationId=${organizationId}`}>
-                <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                <Button className="bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Create Workflow
                 </Button>
@@ -156,7 +156,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
               <CardHeader className="pb-3 flex-shrink-0">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-lg font-semibold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">{workflow.name}</CardTitle>
+                    <CardTitle className="text-lg font-semibold text-slate-900 mb-2 group-hover:text-orange-600 transition-colors">{workflow.name}</CardTitle>
                     {workflow.description ? (
                       <p className="text-sm text-slate-600">{workflow.description}</p>
                     ) : (

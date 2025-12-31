@@ -140,12 +140,12 @@ export default function WaitingConfirmationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 relative overflow-hidden">
       {/* Background Animation */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 animate-pulse"></div>
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-float-delayed"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-600/20 to-rose-600/20 animate-pulse"></div>
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-rose-500/10 rounded-full blur-3xl animate-float-delayed"></div>
       </div>
 
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
@@ -153,7 +153,7 @@ export default function WaitingConfirmationPage() {
           {/* Logo/Brand */}
           <div className="text-center">
             <Link href="/" className="inline-block">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent">
                 ChainReact
               </h1>
             </Link>
@@ -162,8 +162,8 @@ export default function WaitingConfirmationPage() {
           {/* Waiting Card */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-8">
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-500/20 mb-6">
-                <Mail className="h-8 w-8 text-blue-400" />
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-orange-500/20 mb-6">
+                <Mail className="h-8 w-8 text-orange-400" />
               </div>
               
               <h2 className="text-2xl font-bold text-white mb-4">
@@ -172,21 +172,21 @@ export default function WaitingConfirmationPage() {
               
               {!isConfirmed ? (
                 <>
-                  <p className="text-blue-200 mb-6 leading-relaxed">
+                  <p className="text-orange-200 mb-6 leading-relaxed">
                     We've sent a confirmation link to:
                   </p>
-                  
-                  <div className="bg-blue-600/20 rounded-lg p-3 mb-6">
+
+                  <div className="bg-orange-600/20 rounded-lg p-3 mb-6">
                     <p className="text-white font-medium">{email}</p>
                   </div>
 
-                  <p className="text-blue-200 mb-6 text-sm leading-relaxed">
-                    Click the link in your email to verify your account. This page will automatically 
+                  <p className="text-orange-200 mb-6 text-sm leading-relaxed">
+                    Click the link in your email to verify your account. This page will automatically
                     update when your email is confirmed.
                   </p>
 
                   {/* Status indicator */}
-                  <div className="flex items-center justify-center text-blue-300 mb-6">
+                  <div className="flex items-center justify-center text-orange-300 mb-6">
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                     <span className="text-sm">Waiting for email confirmation...</span>
                   </div>
@@ -197,18 +197,18 @@ export default function WaitingConfirmationPage() {
                     <CheckCircle className="h-8 w-8 text-green-400" />
                   </div>
                   
-                  <p className="text-blue-200 mb-6 leading-relaxed">
+                  <p className="text-orange-200 mb-6 leading-relaxed">
                     Your email has been verified successfully!
                   </p>
-                  
+
                   <div className="bg-green-600/20 rounded-lg p-3 mb-6">
                     <p className="text-green-200 text-sm">
                       Great! Your account is now active and ready to use.
                     </p>
                   </div>
-                  
+
                   <Link href="/workflows">
-                    <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
+                    <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                       <ArrowRight className="mr-2 h-4 w-4" />
                       Continue to Dashboard
                     </Button>
@@ -221,29 +221,29 @@ export default function WaitingConfirmationPage() {
                   <Button
                     onClick={handleResendEmail}
                     variant="outline"
-                    className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300"
+                    className="w-full border-orange-400 text-orange-400 hover:bg-orange-400/10 rounded-lg py-3 transition-all duration-300"
                     disabled={resendCooldown > 0}
                   >
                     <Mail className="mr-2 h-4 w-4" />
-                    {resendCooldown > 0 
-                      ? `Resend in ${resendCooldown}s` 
-                      : hasResent 
-                        ? "Email Resent!" 
+                    {resendCooldown > 0
+                      ? `Resend in ${resendCooldown}s`
+                      : hasResent
+                        ? "Email Resent!"
                         : "Resend Email"
                     }
                   </Button>
 
                   <Link href="/auth/register">
-                    <Button variant="ghost" className="w-full text-blue-300 hover:text-blue-200 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
+                    <Button variant="ghost" className="w-full text-orange-300 hover:text-orange-200 hover:bg-orange-400/10 rounded-lg py-3 transition-all duration-300">
                       Use Different Email
                     </Button>
                   </Link>
                 </div>
               )}
 
-              <div className="mt-6 text-xs text-blue-300/60">
+              <div className="mt-6 text-xs text-orange-300/60">
                 Didn't receive the email? Check your spam folder or{" "}
-                <Link href="/contact" className="text-blue-300 hover:text-blue-200 underline">
+                <Link href="/contact" className="text-orange-300 hover:text-orange-200 underline">
                   contact support
                 </Link>
               </div>

@@ -179,10 +179,10 @@ export default function DataDeletionSettings() {
               </CardContent>
             </Card>
 
-            <Card className="border-2 border-blue-200 hover:border-blue-300 transition-colors">
+            <Card className="border-2 border-orange-200 hover:border-orange-300 transition-colors">
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <Shield className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                  <Shield className="h-8 w-8 text-orange-500 mx-auto mb-2" />
                   <h3 className="font-semibold text-slate-900 mb-2">Integration Deletion</h3>
                   <p className="text-sm text-slate-600 mb-4">
                     Delete data from specific integrations only
@@ -318,7 +318,7 @@ export default function DataDeletionSettings() {
       <Dialog open={showIntegrationDeletionDialog} onOpenChange={setShowIntegrationDeletionDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-blue-600">
+            <DialogTitle className="flex items-center gap-2 text-orange-600">
               <Shield className="h-5 w-5" />
               Integration-Specific Deletion
             </DialogTitle>

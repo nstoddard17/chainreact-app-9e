@@ -1039,7 +1039,7 @@ export function VoiceModeSimple({ onClose, onTranscript }: VoiceModeProps) {
 
   const getStateColor = () => {
     switch (conversationState) {
-      case 'listening': return 'text-blue-500'
+      case 'listening': return 'text-orange-500'
       case 'thinking': return 'text-yellow-500'
       case 'speaking': return 'text-green-500'
       default: return 'text-muted-foreground'
@@ -1099,8 +1099,8 @@ export function VoiceModeSimple({ onClose, onTranscript }: VoiceModeProps) {
 
           {/* Current transcript being spoken */}
           {currentTranscript && (
-            <div className="mb-4 p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-              <div className="text-xs text-blue-600 dark:text-blue-400 mb-1">You're saying:</div>
+            <div className="mb-4 p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
+              <div className="text-xs text-orange-600 dark:text-orange-400 mb-1">You're saying:</div>
               <div className="text-sm italic">{currentTranscript}</div>
             </div>
           )}

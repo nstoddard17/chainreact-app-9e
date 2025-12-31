@@ -16,11 +16,11 @@ import {
 
 export function ComparisonSection() {
   return (
-    <section className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 lg:py-24 bg-gradient-to-br from-white/50 to-purple-50/30 dark:from-slate-900/50 dark:to-purple-900/10">
+    <section className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 lg:py-24 bg-gradient-to-br from-white/50 to-rose-50/30 dark:from-slate-900/50 dark:to-rose-900/10">
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-12">
-          <Badge variant="secondary" className="bg-blue-600/20 text-blue-300 dark:text-blue-300 border border-blue-500/30 mb-4">
+          <Badge variant="secondary" className="bg-orange-600/20 text-orange-300 dark:text-orange-300 border border-orange-500/30 mb-4">
             <Lightbulb className="w-3 h-3 mr-1" />
             What Makes Us Different
           </Badge>
@@ -125,16 +125,16 @@ export function ComparisonSection() {
           </Card>
 
           {/* ChainReact */}
-          <Card className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-500/10 dark:to-purple-500/10 border-2 border-blue-500 dark:border-blue-400 shadow-xl shadow-blue-500/20">
+          <Card className="bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-500/10 dark:to-rose-500/10 border-2 border-orange-500 dark:border-orange-400 shadow-xl shadow-orange-500/20">
             <CardContent className="p-6">
               <div className="text-center mb-4">
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 text-white mb-3">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-rose-500 text-white mb-3">
                   <TrendingUp className="w-6 h-6" />
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   ChainReact
                 </h3>
-                <p className="text-sm text-blue-700 dark:text-blue-300 font-semibold">
+                <p className="text-sm text-orange-700 dark:text-orange-300 font-semibold">
                   Trainable AI Copilot
                 </p>
               </div>
@@ -180,8 +180,8 @@ export function ComparisonSection() {
             <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10 h-full">
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  <div className="w-12 h-12 rounded-xl bg-rose-500/20 flex items-center justify-center flex-shrink-0">
+                    <MessageSquare className="w-6 h-6 text-rose-600 dark:text-rose-400" />
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -207,8 +207,8 @@ export function ComparisonSection() {
             <Card className="bg-white/90 dark:bg-slate-950/70 backdrop-blur-xl border-white/60 dark:border-white/10 h-full">
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                    <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <div className="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -234,7 +234,7 @@ export function ComparisonSection() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mt-8"
         >
-          <Card className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 border-blue-200 dark:border-blue-500/30">
+          <Card className="bg-gradient-to-r from-orange-500/10 via-rose-500/10 to-pink-500/10 border-orange-200 dark:border-orange-500/30">
             <CardContent className="p-6 md:p-8 text-center">
               <Zap className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">

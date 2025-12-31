@@ -111,8 +111,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           isUser
             ? 'bg-primary/10 text-primary'
             : isStatus
-            ? 'bg-blue-50 text-blue-600'
-            : 'bg-purple-50 text-purple-600'
+            ? 'bg-orange-50 text-orange-600'
+            : 'bg-rose-50 text-rose-600'
         }`}
       >
         <Icon className="w-4 h-4" />
@@ -129,7 +129,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             isUser
               ? 'bg-primary text-primary-foreground'
               : isStatus
-              ? 'bg-blue-50 text-blue-900 border border-blue-200'
+              ? 'bg-orange-50 text-orange-900 border border-orange-200'
               : 'bg-muted text-foreground'
           }`}
         >

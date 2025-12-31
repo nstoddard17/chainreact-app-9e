@@ -682,8 +682,8 @@ export function ActionTester({ userId }: ActionTesterProps) {
 
                         {/* Missing Fields in Schema */}
                         {validation.missingFields.length > 0 && (
-                          <div className="border rounded-md p-4 bg-blue-500/10 border-blue-500/30">
-                            <h4 className="text-base font-semibold mb-3 text-blue-700 dark:text-blue-400 flex items-center gap-2">
+                          <div className="border rounded-md p-4 bg-orange-500/10 border-orange-500/30">
+                            <h4 className="text-base font-semibold mb-3 text-orange-700 dark:text-orange-400 flex items-center gap-2">
                               <span className="text-lg">💡</span> Fields Not in Schema ({validation.missingFields.length})
                             </h4>
                             <p className="text-xs text-muted-foreground mb-3">
@@ -691,7 +691,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
                             </p>
                             <div className="flex flex-wrap gap-2 mb-4">
                               {validation.missingFields.map(field => (
-                                <span key={field} className="px-2 py-1 bg-blue-500/20 text-blue-700 dark:text-blue-300 rounded text-sm font-mono">
+                                <span key={field} className="px-2 py-1 bg-orange-500/20 text-orange-700 dark:text-orange-300 rounded text-sm font-mono">
                                   {field}
                                 </span>
                               ))}

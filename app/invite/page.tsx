@@ -146,7 +146,7 @@ function InvitePageContent() {
       case "admin":
         return <Crown className="w-4 h-4 text-yellow-600" />
       case "editor":
-        return <Shield className="w-4 h-4 text-blue-600" />
+        return <Shield className="w-4 h-4 text-orange-600" />
       case "viewer":
         return <Eye className="w-4 h-4 text-gray-600" />
       default:
@@ -159,7 +159,7 @@ function InvitePageContent() {
       case "admin":
         return "bg-yellow-100 text-yellow-700 border-yellow-200"
       case "editor":
-        return "bg-blue-100 text-blue-700 border-blue-200"
+        return "bg-orange-100 text-orange-700 border-orange-200"
       case "viewer":
         return "bg-gray-100 text-gray-700 border-gray-200"
       default:
@@ -169,9 +169,9 @@ function InvitePageContent() {
 
   if (loading || autoAccepting) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-rose-100">
         <div className="text-center">
-          <LightningLoader size="lg" color="blue" className="mx-auto mb-4" />
+          <LightningLoader size="lg" color="orange" className="mx-auto mb-4" />
           <p className="text-slate-600">
             {autoAccepting ? 'Joining organization...' : 'Validating invitation...'}
           </p>
@@ -182,7 +182,7 @@ function InvitePageContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-rose-100">
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <XCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -198,11 +198,11 @@ function InvitePageContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-rose-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Users className="w-8 h-8 text-blue-600" />
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Users className="w-8 h-8 text-orange-600" />
           </div>
           <CardTitle className="text-2xl font-bold text-slate-900">
             You're Invited!
@@ -229,9 +229,9 @@ function InvitePageContent() {
           {isLoggedIn ? (
             // User is logged in - show accept button (fallback in case auto-accept failed)
             <div className="space-y-3">
-              <Button 
-                onClick={acceptInvitation} 
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              <Button
+                onClick={acceptInvitation}
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white"
                 disabled={loading}
               >
                 {loading ? (
@@ -264,9 +264,9 @@ function InvitePageContent() {
                 </p>
               </div>
               
-              <Button 
+              <Button
                 onClick={handleSignIn}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white"
               >
                 <LogIn className="w-4 h-4 mr-2" />
                 Sign In to Accept

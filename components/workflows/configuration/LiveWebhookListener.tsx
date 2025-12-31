@@ -190,7 +190,7 @@ export function LiveWebhookListener({
       case 'idle':
         return <Badge variant="secondary">Ready</Badge>
       case 'activating':
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">Activating...</Badge>
+        return <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">Activating...</Badge>
       case 'listening':
         return <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 animate-pulse">Listening...</Badge>
       case 'received':

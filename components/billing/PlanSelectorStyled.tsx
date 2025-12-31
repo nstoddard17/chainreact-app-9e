@@ -240,7 +240,7 @@ function PlanCard({
       {/* Popular badge */}
       {isPopular && (
         <div className="absolute -top-2.5 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-md flex items-center gap-1">
+          <div className="bg-gradient-to-r from-orange-600 to-orange-500 text-white px-2.5 py-0.5 rounded-full text-[11px] font-bold shadow-md flex items-center gap-1">
             <Sparkles className="w-3 h-3" />
             POPULAR
           </div>
@@ -250,7 +250,7 @@ function PlanCard({
       <Card
         className={`relative rounded-2xl h-full transition-all duration-300 overflow-hidden ${
           isPopular
-            ? "bg-gradient-to-b from-blue-50 to-white dark:from-slate-800/90 dark:to-slate-850/90 border-2 border-blue-400 dark:border-blue-500/50 shadow-xl dark:shadow-blue-950/30 hover:border-blue-500 dark:hover:border-blue-500/70"
+            ? "bg-gradient-to-b from-orange-50 to-white dark:from-slate-800/90 dark:to-slate-850/90 border-2 border-orange-400 dark:border-orange-500/50 shadow-xl dark:shadow-orange-950/30 hover:border-orange-500 dark:hover:border-orange-500/70"
             : isFree
             ? "bg-white dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700/30 hover:border-gray-300 dark:hover:border-slate-600/50"
             : "bg-white dark:bg-slate-900/70 border border-gray-200 dark:border-slate-700/50 hover:border-gray-300 dark:hover:border-slate-600/70"
@@ -258,7 +258,7 @@ function PlanCard({
       >
         {/* Top highlight for Pro */}
         {isPopular && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-blue-400" />
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-orange-400" />
         )}
 
         <CardContent className={`${isModal ? 'p-4' : 'p-6'} flex flex-col h-full`}>
@@ -297,13 +297,13 @@ function PlanCard({
           {/* Key Limits */}
           <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
             <div className="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-2 text-center">
-              <div className="text-blue-600 dark:text-blue-300 font-semibold">
+              <div className="text-orange-600 dark:text-orange-300 font-semibold">
                 {limits.tasksPerMonth === -1 ? '∞' : limits.tasksPerMonth.toLocaleString()}
               </div>
               <div className="text-gray-500 dark:text-slate-500">tasks/mo</div>
             </div>
             <div className="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-2 text-center">
-              <div className="text-blue-600 dark:text-blue-300 font-semibold">
+              <div className="text-orange-600 dark:text-orange-300 font-semibold">
                 {limits.maxTeamMembers === -1 ? '∞' : limits.maxTeamMembers}
               </div>
               <div className="text-gray-500 dark:text-slate-500">members</div>
@@ -336,14 +336,14 @@ function PlanCard({
             <Button
               className={`w-full py-3 text-sm font-semibold transition-all ${
                 isPopular && !isCurrentPlan
-                  ? "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-lg"
+                  ? "bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white shadow-lg"
                   : isCurrentPlan
                   ? "bg-gray-200 dark:bg-slate-700 text-gray-500 dark:text-slate-400 cursor-default border border-gray-300 dark:border-slate-600"
                   : isEnterprise
-                  ? "bg-purple-600 hover:bg-purple-700 text-white shadow-md"
+                  ? "bg-rose-600 hover:bg-rose-700 text-white shadow-md"
                   : isFree && !isCurrentPlan
                   ? "bg-gray-600 hover:bg-gray-700 dark:bg-slate-600 dark:hover:bg-slate-500 text-white"
-                  : "bg-gray-900 hover:bg-gray-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white"
+                  : "bg-gray-900 hover:bg-gray-800 dark:bg-orange-600 dark:hover:bg-orange-500 text-white"
               }`}
               disabled={isProcessing || isCurrentPlan || (isDisabled && !isEnterprise)}
               onClick={onSelect}

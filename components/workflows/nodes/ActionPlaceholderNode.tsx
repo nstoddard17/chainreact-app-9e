@@ -98,7 +98,7 @@ export function ActionPlaceholderNode({ id, data, selected }: ActionPlaceholderN
         shadow-sm hover:shadow-md hover:border-gray-400 dark:hover:border-gray-500
         transition-all duration-200
         cursor-pointer
-        ${selected ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900' : ''}
+        ${selected ? 'ring-2 ring-orange-500 ring-offset-2 dark:ring-offset-gray-900' : ''}
       `}
       data-testid="action-placeholder"
       role="button"
@@ -115,7 +115,7 @@ export function ActionPlaceholderNode({ id, data, selected }: ActionPlaceholderN
       <Handle
         type="target"
         position={Position.Top}
-        className="!bg-blue-500 !w-3 !h-3 !border-2 !border-white dark:!border-gray-900"
+        className="!bg-orange-500 !w-3 !h-3 !border-2 !border-white dark:!border-gray-900"
         id="target"
         style={{
           left: "50%",
@@ -199,7 +199,7 @@ export function ActionPlaceholderNode({ id, data, selected }: ActionPlaceholderN
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!bg-blue-500 !w-3 !h-3 !border-2 !border-white dark:!border-gray-900"
+        className="!bg-orange-500 !w-3 !h-3 !border-2 !border-white dark:!border-gray-900"
         id="source"
         style={{
           left: "50%",

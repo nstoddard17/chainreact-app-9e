@@ -103,7 +103,7 @@ export function TeamInvitationCard({ invitation, onUpdate }: TeamInvitationCardP
       case 'admin':
         return <Badge variant="secondary">Admin</Badge>
       case 'manager':
-        return <Badge className="bg-purple-500">Manager</Badge>
+        return <Badge className="bg-rose-500">Manager</Badge>
       case 'member':
         return <Badge variant="outline">Member</Badge>
       default:
@@ -112,12 +112,12 @@ export function TeamInvitationCard({ invitation, onUpdate }: TeamInvitationCardP
   }
 
   return (
-    <Card className={isPending ? 'border-blue-200 bg-blue-50/30' : ''}>
+    <Card className={isPending ? 'border-orange-200 bg-orange-50/30' : ''}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-600" />
+              <Users className="h-5 w-5 text-orange-600" />
               {invitation.team.name}
             </CardTitle>
             <CardDescription>

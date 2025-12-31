@@ -664,9 +664,9 @@ export default function BetaTestersContent() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm text-muted-foreground truncate">Converted</p>
-                  <p className="text-xl sm:text-2xl font-bold text-blue-600">{stats.converted}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-orange-600">{stats.converted}</p>
                 </div>
-                <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
+                <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 flex-shrink-0" />
               </div>
             </CardContent>
           </Card>
@@ -1392,12 +1392,12 @@ export default function BetaTestersContent() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <Mail className="w-5 h-5 text-blue-600 dark:text-blue-500 mt-0.5" />
+                  <Mail className="w-5 h-5 text-orange-600 dark:text-orange-500 mt-0.5" />
                   <div className="text-sm">
-                    <p className="font-medium text-blue-900 dark:text-blue-100">This will send invitations to:</p>
-                    <ul className="mt-2 space-y-1 text-blue-800 dark:text-blue-200">
+                    <p className="font-medium text-orange-900 dark:text-orange-100">This will send invitations to:</p>
+                    <ul className="mt-2 space-y-1 text-orange-800 dark:text-orange-200">
                       <li>• All active beta testers</li>
                       <li>• Who haven't received an offer yet</li>
                       <li>• Total: {betaTesters.filter(t => t.status === 'active' && !t.conversion_offer_sent_at).length} testers</li>
@@ -1498,12 +1498,12 @@ export default function BetaTestersContent() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <Mail className="w-5 h-5 text-blue-600 dark:text-blue-500 mt-0.5" />
+                  <Mail className="w-5 h-5 text-orange-600 dark:text-orange-500 mt-0.5" />
                   <div className="text-sm">
-                    <p className="font-medium text-blue-900 dark:text-blue-100">Ready to send invitations to:</p>
-                    <ul className="mt-2 space-y-1 text-blue-800 dark:text-blue-200">
+                    <p className="font-medium text-orange-900 dark:text-orange-100">Ready to send invitations to:</p>
+                    <ul className="mt-2 space-y-1 text-orange-800 dark:text-orange-200">
                       <li>• {selectedTesters.size} selected tester{selectedTesters.size === 1 ? '' : 's'}</li>
                       <li>• All will receive personalized invitation emails</li>
                       <li>• Each gets a unique signup link with their email pre-filled</li>

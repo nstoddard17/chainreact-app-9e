@@ -31,18 +31,18 @@ function getActivityIcon(type: string, status: string) {
     case 'workflow_execution':
       return status === 'success' ? <Check className="w-4 h-4 text-green-500" /> :
              status === 'error' ? <AlertCircle className="w-4 h-4 text-red-500" /> :
-             status === 'running' ? <Play className="w-4 h-4 text-blue-500" /> :
+             status === 'running' ? <Play className="w-4 h-4 text-orange-500" /> :
              <Pause className="w-4 h-4 text-yellow-500" />
     case 'integration_connect':
       return <Link className="w-4 h-4 text-green-500" />
     case 'integration_disconnect':
       return <Link2Off className="w-4 h-4 text-red-500" />
     case 'workflow_create':
-      return <Plus className="w-4 h-4 text-blue-500" />
+      return <Plus className="w-4 h-4 text-orange-500" />
     case 'workflow_delete':
       return <Trash2 className="w-4 h-4 text-red-500" />
     case 'workflow_update':
-      return <Edit className="w-4 h-4 text-purple-500" />
+      return <Edit className="w-4 h-4 text-rose-500" />
     default:
       return <Clock className="w-4 h-4 text-gray-500" />
   }
@@ -56,7 +56,7 @@ function getStatusColor(status: string) {
     case 'error':
       return 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
     case 'running':
-      return 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+      return 'bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'
     case 'pending':
       return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300'
     default:

@@ -374,9 +374,9 @@ export default function WaitlistContent() {
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm text-muted-foreground truncate">Invited</p>
-                <p className="text-xl sm:text-2xl font-bold text-blue-600">{stats.invited}</p>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">{stats.invited}</p>
               </div>
-              <Mail className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 flex-shrink-0" />
+              <Mail className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 flex-shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -396,9 +396,9 @@ export default function WaitlistContent() {
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm text-muted-foreground truncate">AI Assistant</p>
-                <p className="text-xl sm:text-2xl font-bold text-purple-600">{stats.aiAssistantInterest}</p>
+                <p className="text-xl sm:text-2xl font-bold text-rose-600">{stats.aiAssistantInterest}</p>
               </div>
-              <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 flex-shrink-0" />
+              <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-rose-600 flex-shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -407,9 +407,9 @@ export default function WaitlistContent() {
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm text-muted-foreground truncate">AI Actions</p>
-                <p className="text-xl sm:text-2xl font-bold text-indigo-600">{stats.aiActionsInterest}</p>
+                <p className="text-xl sm:text-2xl font-bold text-orange-600">{stats.aiActionsInterest}</p>
               </div>
-              <Bot className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600 flex-shrink-0" />
+              <Bot className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 flex-shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -516,14 +516,14 @@ export default function WaitlistContent() {
                           <td className="p-4 lg:w-auto min-w-[240px]">
                             <div className="flex flex-wrap gap-1.5 items-center">
                               {member.wants_ai_assistant && (
-                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border-purple-200 dark:border-purple-800 whitespace-nowrap">
+                                <Badge variant="secondary" className="text-xs bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300 border-rose-200 dark:border-rose-800 whitespace-nowrap">
                                   <Sparkles className="w-3 h-3 mr-1" />
                                   Assistant
                                 </Badge>
                               )}
                               {member.wants_ai_actions && (
                                 <>
-                                  <Badge variant="secondary" className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
+                                  <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800 whitespace-nowrap">
                                     <Bot className="w-3 h-3 mr-1" />
                                     Actions
                                   </Badge>
@@ -821,12 +821,12 @@ export default function WaitlistContent() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
               <div className="flex items-start gap-2">
-                <Mail className="w-5 h-5 text-blue-600 dark:text-blue-500 mt-0.5" />
+                <Mail className="w-5 h-5 text-orange-600 dark:text-orange-500 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-medium text-blue-900 dark:text-blue-100">This will send invitations to:</p>
-                  <ul className="mt-2 space-y-1 text-blue-800 dark:text-blue-200">
+                  <p className="font-medium text-orange-900 dark:text-orange-100">This will send invitations to:</p>
+                  <ul className="mt-2 space-y-1 text-orange-800 dark:text-orange-200">
                     <li>• All pending waitlist members</li>
                     <li>• Who haven't received an invitation yet</li>
                     <li>• Total: {waitlistMembers.filter(m => m.status === 'pending' && !m.invitation_sent_at).length} members</li>
@@ -921,12 +921,12 @@ export default function WaitlistContent() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
               <div className="flex items-start gap-2">
-                <Mail className="w-5 h-5 text-blue-600 dark:text-blue-500 mt-0.5" />
+                <Mail className="w-5 h-5 text-orange-600 dark:text-orange-500 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-medium text-blue-900 dark:text-blue-100">Ready to send invitations to:</p>
-                  <ul className="mt-2 space-y-1 text-blue-800 dark:text-blue-200">
+                  <p className="font-medium text-orange-900 dark:text-orange-100">Ready to send invitations to:</p>
+                  <ul className="mt-2 space-y-1 text-orange-800 dark:text-orange-200">
                     <li>• {selectedMembers.size} selected member{selectedMembers.size === 1 ? '' : 's'}</li>
                     <li>• All will receive personalized invitation emails</li>
                     <li>• Each gets a unique signup link</li>

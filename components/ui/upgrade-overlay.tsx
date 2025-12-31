@@ -24,18 +24,18 @@ const roleIcons = {
 
 const roleColors = {
   free: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
-  pro: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
-  'beta-pro': 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
-  business: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300',
+  pro: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300',
+  'beta-pro': 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300',
+  business: 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300',
   enterprise: 'bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-300',
   admin: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
 }
 
 const roleGradients = {
   free: 'from-green-500 to-green-600',
-  pro: 'from-blue-500 to-blue-600',
-  'beta-pro': 'from-blue-500 to-blue-600',
-  business: 'from-indigo-500 to-purple-600',
+  pro: 'from-orange-500 to-orange-600',
+  'beta-pro': 'from-orange-500 to-orange-600',
+  business: 'from-orange-500 to-rose-600',
   enterprise: 'from-pink-500 to-rose-600',
   admin: 'from-red-500 to-orange-600'
 }

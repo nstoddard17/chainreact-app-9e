@@ -215,7 +215,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
       case "admin":
         return <Crown className="w-4 h-4 text-yellow-600" />
       case "editor":
-        return <Shield className="w-4 h-4 text-blue-600" />
+        return <Shield className="w-4 h-4 text-orange-600" />
       case "viewer":
         return <Eye className="w-4 h-4 text-gray-600" />
       default:
@@ -228,7 +228,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
       case "admin":
         return "bg-yellow-100 text-yellow-700 border-yellow-200"
       case "editor":
-        return "bg-blue-100 text-blue-700 border-blue-200"
+        return "bg-orange-100 text-orange-700 border-orange-200"
       case "viewer":
         return "bg-gray-100 text-gray-700 border-gray-200"
       default:
@@ -264,7 +264,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
             {canManageMembers && (
               <Button
                 onClick={() => setShowInviteDialog(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Invite Member
@@ -275,7 +275,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+              <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
             </div>
           ) : members.length === 0 ? (
             <div className="text-center py-8">
@@ -285,7 +285,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
               {canManageMembers && (
                 <Button 
                   onClick={() => setShowInviteDialog(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
                 >
                   Add Your First Member
                 </Button>
@@ -300,7 +300,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
                 >
                   <div className="flex items-center space-x-3">
                     <Avatar>
-                      <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                      <AvatarFallback className="bg-gradient-to-r from-orange-500 to-rose-600 text-white">
                         {member.user?.email?.charAt(0).toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
@@ -373,10 +373,10 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
                 >
                   <div className="flex items-center space-x-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      isExpired(invitation.expires_at) ? 'bg-red-100' : 'bg-blue-100'
+                      isExpired(invitation.expires_at) ? 'bg-red-100' : 'bg-orange-100'
                     }`}>
                       <Mail className={`w-5 h-5 ${
-                        isExpired(invitation.expires_at) ? 'text-red-600' : 'text-blue-600'
+                        isExpired(invitation.expires_at) ? 'text-red-600' : 'text-orange-600'
                       }`} />
                     </div>
                     <div>
@@ -393,7 +393,7 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
                     <Badge variant="outline" className={
                       isExpired(invitation.expires_at) 
                         ? 'bg-red-100 text-red-700 border-red-300 font-medium' 
-                        : 'bg-blue-100 text-blue-700 border-blue-300 font-medium'
+                        : 'bg-orange-100 text-orange-700 border-orange-300 font-medium'
                     }>
                       {isExpired(invitation.expires_at) ? 'Expired' : 'Pending'}
                     </Badge>

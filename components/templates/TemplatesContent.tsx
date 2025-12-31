@@ -81,7 +81,7 @@ const defaultTemplates: Template[] = [
     downloads: 1250,
     integrations: ["Slack", "Gmail"],
     icon: MessageSquare,
-    gradient: "from-indigo-500 to-purple-600",
+    gradient: "from-orange-500 to-rose-600",
     steps: [
       "Connect Slack workspace",
       "Select channels to monitor",
@@ -105,7 +105,7 @@ const defaultTemplates: Template[] = [
     downloads: 980,
     integrations: ["Google Calendar", "Trello"],
     icon: Calendar,
-    gradient: "from-purple-500 to-blue-600",
+    gradient: "from-rose-500 to-orange-600",
     steps: ["Connect Google Calendar", "Link Trello board", "Map calendar fields to card details", "Test automation"],
     is_public: true,
     is_personal: false,
@@ -124,7 +124,7 @@ const defaultTemplates: Template[] = [
     downloads: 2100,
     integrations: ["HubSpot", "Slack", "Gmail"],
     icon: Users,
-    gradient: "from-blue-500 to-green-600",
+    gradient: "from-orange-500 to-green-600",
     steps: [
       "Set up lead capture forms",
       "Connect CRM integration",
@@ -196,7 +196,7 @@ const defaultTemplates: Template[] = [
     downloads: 920,
     integrations: ["Google Drive", "Slack", "DocuSign"],
     icon: FileText,
-    gradient: "from-rose-500 to-indigo-600",
+    gradient: "from-rose-500 to-orange-600",
     steps: [
       "Set up document triggers",
       "Define approval hierarchy",
@@ -220,7 +220,7 @@ const defaultTemplates: Template[] = [
     downloads: 1400,
     integrations: ["Zendesk", "Slack", "Teams"],
     icon: MessageSquare,
-    gradient: "from-indigo-500 to-blue-600",
+    gradient: "from-orange-500 to-rose-600",
     steps: [
       "Connect support platform",
       "Set up routing rules",
@@ -244,7 +244,7 @@ const defaultTemplates: Template[] = [
     downloads: 2300,
     integrations: ["Google Drive", "Dropbox", "OneDrive"],
     icon: Database,
-    gradient: "from-purple-500 to-green-600",
+    gradient: "from-rose-500 to-green-600",
     steps: [
       "Connect cloud storage accounts",
       "Select files to backup",
@@ -329,7 +329,7 @@ export function TemplatesContent() {
       downloads: 0,
       time: "5 min",
       icon: Zap,
-      gradient: "from-blue-500 to-purple-600",
+      gradient: "from-orange-500 to-rose-600",
       created_by: profile?.id,
       is_personal: true,
       created_at: new Date().toISOString(),
@@ -384,7 +384,7 @@ export function TemplatesContent() {
     return (
       <Card
         key={template.id}
-        className="group hover:shadow-xl transition-all duration-300 border-gray-200 hover:border-indigo-300 bg-white hover:scale-105"
+        className="group hover:shadow-xl transition-all duration-300 border-gray-200 hover:border-orange-300 bg-white hover:scale-105"
       >
         <CardHeader className="pb-4">
           <div className="flex items-start justify-between mb-4">
@@ -396,7 +396,7 @@ export function TemplatesContent() {
               {template.rating}
             </div>
           </div>
-          <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+          <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors">
             {template.title}
           </CardTitle>
           <CardDescription className="text-gray-600 line-clamp-2">{template.description}</CardDescription>
@@ -405,7 +405,7 @@ export function TemplatesContent() {
         <CardContent className="space-y-4">
           {/* Badges */}
           <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary" className="bg-indigo-100 text-indigo-700">
+            <Badge variant="secondary" className="bg-orange-100 text-orange-700">
               {template.category}
             </Badge>
             <Badge
@@ -421,7 +421,7 @@ export function TemplatesContent() {
               {template.difficulty}
             </Badge>
             {template.is_personal && (
-              <Badge variant="outline" className="border-blue-300 text-blue-700">
+              <Badge variant="outline" className="border-orange-300 text-orange-700">
                 Personal
               </Badge>
             )}
@@ -453,15 +453,15 @@ export function TemplatesContent() {
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-4">
-            <Button 
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+            <Button
+              className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
               onClick={() => handleUseTemplate(template)}
             >
               Use Template
             </Button>
-            <Button 
-              variant="outline" 
-              className="border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+            <Button
+              variant="outline"
+              className="border-orange-300 text-orange-600 hover:bg-orange-50"
               onClick={() => handlePreviewTemplate(template)}
             >
               <Eye className="w-4 h-4" />
@@ -507,18 +507,18 @@ export function TemplatesContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <section className="relative py-20 bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 text-white overflow-hidden">
+      <section className="relative py-20 bg-gradient-to-br from-orange-600 via-rose-600 to-orange-700 text-white overflow-hidden">
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">Automation Templates</h1>
-          <p className="text-xl md:text-2xl mb-8 text-indigo-100 max-w-3xl mx-auto">
+          <p className="text-xl md:text-2xl mb-8 text-orange-100 max-w-3xl mx-auto">
             Get started quickly with pre-built workflows. Choose from hundreds of templates designed by automation
             experts.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
               <DialogTrigger asChild>
-                <Button className="bg-white text-indigo-600 hover:bg-indigo-50 px-8 py-3 text-lg">
+                <Button className="bg-white text-orange-600 hover:bg-orange-50 px-8 py-3 text-lg">
                   <Plus className="mr-2 h-5 w-5" />
                   Create Template
                 </Button>
@@ -611,7 +611,7 @@ export function TemplatesContent() {
                 </div>
               </DialogContent>
             </Dialog>
-            <Button className="border-2 border-white text-white bg-transparent hover:bg-white hover:text-indigo-600 px-8 py-3 text-lg">
+            <Button className="border-2 border-white text-white bg-transparent hover:bg-white hover:text-orange-600 px-8 py-3 text-lg">
               Browse Templates
             </Button>
           </div>
@@ -642,7 +642,7 @@ export function TemplatesContent() {
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-gray-50 hover:bg-white transition-colors appearance-none cursor-pointer"
+                    className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-gray-50 hover:bg-white transition-colors appearance-none cursor-pointer"
                   >
                     {categories.map((category) => (
                       <option key={category} value={category}>
@@ -661,7 +661,7 @@ export function TemplatesContent() {
                   <select
                     value={selectedDifficulty}
                     onChange={(e) => setSelectedDifficulty(e.target.value)}
-                    className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-gray-50 hover:bg-white transition-colors appearance-none cursor-pointer"
+                    className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-gray-50 hover:bg-white transition-colors appearance-none cursor-pointer"
                   >
                     {difficulties.map((difficulty) => (
                       <option key={difficulty} value={difficulty}>
@@ -683,7 +683,7 @@ export function TemplatesContent() {
                       setSearchQuery("")
                     }}
                     variant="outline"
-                    className="px-6 py-4 border-2 border-gray-200 text-gray-600 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+                    className="px-6 py-4 border-2 border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
                   >
                     Clear All
                   </Button>
@@ -697,17 +697,17 @@ export function TemplatesContent() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium text-gray-700">Active filters:</span>
                   {searchQuery && (
-                    <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 px-3 py-1">
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-700 px-3 py-1">
                       Search: "{searchQuery}"
                     </Badge>
                   )}
                   {selectedCategory !== "All" && (
-                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 px-3 py-1">
+                    <Badge variant="secondary" className="bg-rose-100 text-rose-700 px-3 py-1">
                       Category: {selectedCategory}
                     </Badge>
                   )}
                   {selectedDifficulty !== "All" && (
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 px-3 py-1">
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-700 px-3 py-1">
                       Level: {selectedDifficulty}
                     </Badge>
                   )}
@@ -750,7 +750,7 @@ export function TemplatesContent() {
                       setSelectedDifficulty("All")
                       setSearchQuery("")
                     }}
-                    className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white"
+                    className="mt-4 bg-orange-600 hover:bg-orange-700 text-white"
                   >
                     Clear Filters
                   </Button>
@@ -777,7 +777,7 @@ export function TemplatesContent() {
                   <p className="text-gray-500">Save templates from the public gallery or create your own</p>
                   <Button
                     onClick={() => setShowCreateModal(true)}
-                    className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white"
+                    className="mt-4 bg-orange-600 hover:bg-orange-700 text-white"
                   >
                     Create Template
                   </Button>
@@ -873,21 +873,21 @@ export function TemplatesContent() {
       </Dialog>
 
       {/* CTA Section */}
-      <section className="py-16 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+      <section className="py-16 bg-gradient-to-r from-orange-600 to-rose-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold mb-4">Can't find what you're looking for?</h2>
-          <p className="text-xl text-indigo-100 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-orange-100 mb-8 max-w-2xl mx-auto">
             Create your own custom automation workflow or request a template from our community
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
-              className="bg-white text-indigo-600 hover:bg-indigo-50 px-8 py-3 text-lg"
+              className="bg-white text-orange-600 hover:bg-orange-50 px-8 py-3 text-lg"
               onClick={() => window.location.href = '/workflows/builder'}
             >
               Create Custom Workflow
             </Button>
-            <Button 
-              className="border-2 border-white text-white bg-transparent hover:bg-white hover:text-indigo-600 px-8 py-3 text-lg"
+            <Button
+              className="border-2 border-white text-white bg-transparent hover:bg-white hover:text-orange-600 px-8 py-3 text-lg"
               onClick={() => setShowCreateModal(true)}
             >
               Create Template

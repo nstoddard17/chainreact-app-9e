@@ -28,10 +28,10 @@ const ChainLink = memo(({ className = "", delay = 0 }: { className?: string; del
     }}
   >
     <div className="relative w-16 h-16 md:w-20 md:h-20">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full opacity-20 blur-sm"></div>
-      <div className="absolute inset-1 bg-gradient-to-br from-blue-500 to-blue-700 rounded-full shadow-lg transform rotate-12">
-        <div className="absolute inset-2 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full"></div>
-        <div className="absolute inset-3 bg-gradient-to-br from-blue-300 to-blue-500 rounded-full"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full opacity-20 blur-sm"></div>
+      <div className="absolute inset-1 bg-gradient-to-br from-orange-500 to-orange-700 rounded-full shadow-lg transform rotate-12">
+        <div className="absolute inset-2 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full"></div>
+        <div className="absolute inset-3 bg-gradient-to-br from-orange-300 to-orange-500 rounded-full"></div>
         <div className="absolute top-1/2 left-1/2 w-6 h-6 bg-white rounded-full transform -translate-x-1/2 -translate-y-1/2 opacity-30"></div>
       </div>
     </div>
@@ -63,7 +63,7 @@ const FloatingShape = memo(({
         willChange: 'transform',
       }}
     >
-      <div className={`w-8 h-8 md:w-12 md:h-12 bg-gradient-to-br from-blue-400/30 to-purple-400/30 ${shapeClasses[shape]} backdrop-blur-sm border border-white/10`}></div>
+      <div className={`w-8 h-8 md:w-12 md:h-12 bg-gradient-to-br from-orange-400/30 to-rose-400/30 ${shapeClasses[shape]} backdrop-blur-sm border border-white/10`}></div>
     </div>
   )
 })
@@ -80,11 +80,11 @@ const FloatingIcon = memo(({
   color?: string;
 }) => {
   const colorClasses = useMemo(() => ({
-    blue: "text-blue-400/60",
-    purple: "text-purple-400/60",
+    blue: "text-orange-400/60",
+    purple: "text-rose-400/60",
     green: "text-green-400/60",
     pink: "text-pink-400/60",
-    indigo: "text-indigo-400/60"
+    indigo: "text-orange-400/60"
   }), [])
 
   return (
@@ -115,15 +115,15 @@ const AnalyticsCard = memo(({ className = "" }: { className?: string }) => (
   >
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-white font-semibold text-sm">Analytics</h3>
-      <BarChart3 className="w-4 h-4 text-blue-300" />
+      <BarChart3 className="w-4 h-4 text-orange-300" />
     </div>
     <div className="space-y-2">
       <div className="flex justify-between items-center">
-        <span className="text-blue-200 text-xs">Active Workflows</span>
+        <span className="text-orange-200 text-xs">Active Workflows</span>
         <span className="text-white text-xs font-medium">24</span>
       </div>
       <div className="w-full bg-white/20 rounded-full h-1">
-        <div className="bg-gradient-to-r from-blue-400 to-purple-400 h-1 rounded-full w-3/4"></div>
+        <div className="bg-gradient-to-r from-orange-400 to-rose-400 h-1 rounded-full w-3/4"></div>
       </div>
       <div className="flex items-center space-x-1">
         <TrendingUp className="w-3 h-3 text-green-400" />
@@ -144,17 +144,17 @@ const WorkflowCard = memo(({ className = "" }: { className?: string }) => (
   >
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-white font-semibold text-sm">Workflow</h3>
-      <Workflow className="w-4 h-4 text-blue-300" />
+      <Workflow className="w-4 h-4 text-orange-300" />
     </div>
     <div className="space-y-2">
       <div className="flex items-center space-x-2">
-        <div className="w-6 h-4 bg-blue-500 rounded-sm"></div>
+        <div className="w-6 h-4 bg-orange-500 rounded-sm"></div>
         <div className="w-1 h-1 bg-white rounded-full"></div>
-        <div className="w-6 h-4 bg-purple-500 rounded-sm"></div>
+        <div className="w-6 h-4 bg-rose-500 rounded-sm"></div>
         <div className="w-1 h-1 bg-white rounded-full"></div>
         <div className="w-6 h-4 bg-green-500 rounded-sm"></div>
       </div>
-      <div className="text-blue-200 text-xs">Gmail → Slack → Trello</div>
+      <div className="text-orange-200 text-xs">Gmail → Slack → Trello</div>
     </div>
   </div>
 ))
@@ -170,21 +170,21 @@ const TaskCard = memo(({ className = "" }: { className?: string }) => (
   >
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-white font-semibold text-sm">New Task</h3>
-      <Plus className="w-4 h-4 text-blue-300" />
+      <Plus className="w-4 h-4 text-orange-300" />
     </div>
     <div className="space-y-2">
       <div className="space-y-1">
-        <div className="text-blue-200 text-xs">Name</div>
+        <div className="text-orange-200 text-xs">Name</div>
         <div className="w-full h-2 bg-white/20 rounded"></div>
       </div>
       <div className="space-y-1">
-        <div className="text-blue-200 text-xs">Assignee</div>
+        <div className="text-orange-200 text-xs">Assignee</div>
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full"></div>
+          <div className="w-4 h-4 bg-gradient-to-br from-orange-400 to-rose-400 rounded-full"></div>
           <div className="w-12 h-2 bg-white/20 rounded"></div>
         </div>
       </div>
-      <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs h-6 transform hover:scale-105 transition-all duration-200">
+      <Button size="sm" className="w-full bg-orange-600 hover:bg-orange-700 text-white text-xs h-6 transform hover:scale-105 transition-all duration-200">
         Create
       </Button>
     </div>
@@ -232,10 +232,10 @@ const AnimatedBackground = memo(() => {
       
       <div className="absolute inset-0 overflow-hidden">
         {/* Floating Particles - Reduced number for performance */}
-        <div className="absolute top-10 left-10 w-2 h-2 bg-blue-400 rounded-full animate-pulse-slow"></div>
-        <div className="absolute top-20 right-20 w-1 h-1 bg-purple-400 rounded-full animate-pulse-slow" style={{animationDelay: '1s'}}></div>
-        <div className="absolute bottom-20 left-20 w-1 h-1 bg-blue-300 rounded-full animate-pulse-slow" style={{animationDelay: '2s'}}></div>
-        <div className="absolute bottom-10 right-10 w-2 h-2 bg-indigo-400 rounded-full animate-pulse-slow" style={{animationDelay: '0.5s'}}></div>
+        <div className="absolute top-10 left-10 w-2 h-2 bg-orange-400 rounded-full animate-pulse-slow"></div>
+        <div className="absolute top-20 right-20 w-1 h-1 bg-rose-400 rounded-full animate-pulse-slow" style={{animationDelay: '1s'}}></div>
+        <div className="absolute bottom-20 left-20 w-1 h-1 bg-orange-300 rounded-full animate-pulse-slow" style={{animationDelay: '2s'}}></div>
+        <div className="absolute bottom-10 right-10 w-2 h-2 bg-orange-400 rounded-full animate-pulse-slow" style={{animationDelay: '0.5s'}}></div>
         
         {/* 3D Chain Links - Reduced number */}
         <ChainLink className="top-20 right-1/4 hidden md:block" delay={0} />

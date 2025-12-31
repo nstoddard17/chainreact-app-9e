@@ -16,14 +16,14 @@ const LandingFooter = memo(({ isAuthenticated }: { isAuthenticated: boolean }) =
             <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
               Ready to automate your workflow?
             </h2>
-            <p className="text-xl text-blue-200 mb-8 max-w-2xl mx-auto">
+            <p className="text-xl text-orange-200 mb-8 max-w-2xl mx-auto">
               Join thousands of teams already using ChainReact to streamline their processes and boost productivity.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/auth/register">
                 <Button 
                   size="lg" 
-                  className="text-lg px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  className="text-lg px-8 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 >
                   Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
@@ -32,7 +32,7 @@ const LandingFooter = memo(({ isAuthenticated }: { isAuthenticated: boolean }) =
                 <Button
                   size="lg"
                   variant="outline"
-                  className="text-lg px-8 py-4 border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-full transition-all duration-300"
+                  className="text-lg px-8 py-4 border-orange-400 text-orange-400 hover:bg-orange-400/10 rounded-full transition-all duration-300"
                 >
                   Talk to Sales
                 </Button>
@@ -48,10 +48,10 @@ const LandingFooter = memo(({ isAuthenticated }: { isAuthenticated: boolean }) =
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Company Info - Always visible */}
             <div>
-              <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <h3 className="text-2xl font-bold mb-4 bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent">
                 ChainReact
               </h3>
-              <p className="text-blue-200 mb-4">
+              <p className="text-orange-200 mb-4">
                 Automate your workflows with ease. Connect apps, save time, and boost productivity.
               </p>
             </div>
@@ -61,7 +61,7 @@ const LandingFooter = memo(({ isAuthenticated }: { isAuthenticated: boolean }) =
               title="Product" 
               className="md:block"
             >
-              <ul className="space-y-2 text-blue-200">
+              <ul className="space-y-2 text-orange-200">
                 <li>
                   <Link href="#features" className="hover:text-white transition-colors duration-200">
                     Features
@@ -90,7 +90,7 @@ const LandingFooter = memo(({ isAuthenticated }: { isAuthenticated: boolean }) =
               title="Company" 
               className="md:block"
             >
-              <ul className="space-y-2 text-blue-200">
+              <ul className="space-y-2 text-orange-200">
                 <li>
                   <Link href="/community" className="hover:text-white transition-colors duration-200">
                     Community
@@ -119,7 +119,7 @@ const LandingFooter = memo(({ isAuthenticated }: { isAuthenticated: boolean }) =
               title="Legal" 
               className="md:block"
             >
-              <ul className="space-y-2 text-blue-200">
+              <ul className="space-y-2 text-orange-200">
                 <li>
                   <Link href="/privacy" className="hover:text-white transition-colors duration-200">
                     Privacy Policy
@@ -139,7 +139,7 @@ const LandingFooter = memo(({ isAuthenticated }: { isAuthenticated: boolean }) =
             </CollapsibleFooterSection>
           </div>
 
-          <div className="border-t border-white/10 mt-8 pt-8 text-center text-blue-200">
+          <div className="border-t border-white/10 mt-8 pt-8 text-center text-orange-200">
             <p>&copy; 2025 ChainReact. All rights reserved.</p>
           </div>
         </div>

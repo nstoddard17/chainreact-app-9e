@@ -87,8 +87,8 @@ export function SocialProofSection() {
           {/* On the Roadmap - MATCHING DESIGN */}
           <div>
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center">
-                <Rocket className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center">
+                <Rocket className="w-5 h-5 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -119,7 +119,7 @@ export function SocialProofSection() {
                   transition={{ delay: idx * 0.05 }}
                   className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-900"
                 >
-                  <item.icon className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                  <item.icon className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0" />
                   <span className="text-sm text-gray-900 dark:text-white">
                     {item.text}
                   </span>
@@ -182,7 +182,7 @@ export function SocialProofSection() {
             <Button
               size="lg"
               onClick={() => router.push('/waitlist')}
-              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20 px-6 py-3 rounded-lg font-medium"
+              className="bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20 px-6 py-3 rounded-lg font-medium"
             >
               Get Early Access
               <ArrowRight className="w-4 h-4 ml-2" />

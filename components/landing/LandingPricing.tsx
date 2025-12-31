@@ -39,12 +39,12 @@ const PricingCard = memo(({ tier, isAnnual, isAuthenticated }: PricingCardProps)
   return (
     <Card className={`relative p-6 bg-white/5 backdrop-blur-sm border transition-all duration-300 transform hover:scale-[1.02] flex flex-col h-full ${
       isPopular
-        ? 'border-blue-500/50 ring-2 ring-blue-500/30 bg-gradient-to-b from-blue-950/30 to-transparent'
+        ? 'border-orange-500/50 ring-2 ring-orange-500/30 bg-gradient-to-b from-orange-950/30 to-transparent'
         : 'border-white/10 hover:bg-white/10'
     }`}>
       {isPopular && (
         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-          <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 px-3 py-1">
+          <Badge className="bg-gradient-to-r from-orange-600 to-rose-600 text-white border-0 px-3 py-1">
             <Sparkles className="w-3 h-3 mr-1" />
             Most Popular
           </Badge>
@@ -54,7 +54,7 @@ const PricingCard = memo(({ tier, isAnnual, isAuthenticated }: PricingCardProps)
       <CardContent className="p-0 text-center flex flex-col flex-grow">
         {/* Plan Name */}
         <h3 className="text-xl font-bold text-white mb-1">{info.name}</h3>
-        <p className="text-sm text-blue-200/70 mb-4">{info.description}</p>
+        <p className="text-sm text-orange-200/70 mb-4">{info.description}</p>
 
         {/* Price */}
         <div className="mb-6">
@@ -64,7 +64,7 @@ const PricingCard = memo(({ tier, isAnnual, isAuthenticated }: PricingCardProps)
             <>
               <div className="flex items-baseline justify-center gap-1">
                 <span className="text-4xl font-bold text-white">${price === 0 ? '0' : price.toFixed(price % 1 === 0 ? 0 : 2)}</span>
-                <span className="text-blue-200/70">/mo</span>
+                <span className="text-orange-200/70">/mo</span>
               </div>
               {isAnnual && !isFree && (
                 <p className="text-xs text-green-400 mt-1">
@@ -78,16 +78,16 @@ const PricingCard = memo(({ tier, isAnnual, isAuthenticated }: PricingCardProps)
         {/* Key Metrics */}
         <div className="grid grid-cols-2 gap-2 mb-4 text-xs">
           <div className="bg-white/5 rounded-lg p-2">
-            <div className="text-blue-300 font-semibold">
+            <div className="text-orange-300 font-semibold">
               {limits.tasksPerMonth === -1 ? 'Unlimited' : limits.tasksPerMonth.toLocaleString()}
             </div>
-            <div className="text-blue-200/50">tasks/mo</div>
+            <div className="text-orange-200/50">tasks/mo</div>
           </div>
           <div className="bg-white/5 rounded-lg p-2">
-            <div className="text-blue-300 font-semibold">
+            <div className="text-orange-300 font-semibold">
               {limits.maxTeamMembers === -1 ? 'Unlimited' : limits.maxTeamMembers}
             </div>
-            <div className="text-blue-200/50">team members</div>
+            <div className="text-orange-200/50">team members</div>
           </div>
         </div>
 
@@ -96,7 +96,7 @@ const PricingCard = memo(({ tier, isAnnual, isAuthenticated }: PricingCardProps)
           {features.slice(0, 6).map((feature, index) => (
             <li key={index} className="flex items-start gap-2 text-sm">
               <CheckCircle className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
-              <span className="text-blue-200">{feature}</span>
+              <span className="text-orange-200">{feature}</span>
             </li>
           ))}
         </ul>
@@ -105,7 +105,7 @@ const PricingCard = memo(({ tier, isAnnual, isAuthenticated }: PricingCardProps)
         <Link href={getButtonHref()} className="mt-auto">
           <Button className={`w-full text-white transition-all duration-300 ${
             isPopular
-              ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-lg shadow-blue-500/25'
+              ? 'bg-gradient-to-r from-orange-600 to-rose-600 hover:from-orange-500 hover:to-rose-500 shadow-lg shadow-orange-500/25'
               : isFree
               ? 'bg-white/10 hover:bg-white/20 border border-white/20'
               : 'bg-white/10 hover:bg-white/20 border border-white/20'
@@ -116,7 +116,7 @@ const PricingCard = memo(({ tier, isAnnual, isAuthenticated }: PricingCardProps)
 
         {/* Overage Info */}
         {info.overageRate && (
-          <p className="text-xs text-blue-200/50 mt-3">
+          <p className="text-xs text-orange-200/50 mt-3">
             +${info.overageRate}/task overage
           </p>
         )}
@@ -176,13 +176,13 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <Badge variant="secondary" className="bg-blue-600/20 text-blue-300 border border-blue-500/30 mb-4">
+          <Badge variant="secondary" className="bg-orange-600/20 text-orange-300 border border-orange-500/30 mb-4">
             Pricing
           </Badge>
           <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">
             Simple, transparent pricing
           </h2>
-          <p className="text-xl text-blue-200 max-w-2xl mx-auto mb-8">
+          <p className="text-xl text-orange-200 max-w-2xl mx-auto mb-8">
             Start free and scale as you grow. No hidden fees, cancel anytime.
           </p>
 
@@ -230,7 +230,7 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
         <div className="text-center mb-8">
           <button
             onClick={() => setShowComparison(!showComparison)}
-            className="text-blue-400 hover:text-blue-300 underline underline-offset-4 transition-colors"
+            className="text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors"
           >
             {showComparison ? 'Hide comparison' : 'Compare all features'}
           </button>
@@ -242,7 +242,7 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-700">
-                  <th className="text-left py-4 px-4 text-blue-200 font-medium">Feature</th>
+                  <th className="text-left py-4 px-4 text-orange-200 font-medium">Feature</th>
                   {tiers.map((tier) => (
                     <th key={tier} className="text-center py-4 px-2 text-white font-bold">
                       {PLAN_INFO[tier].name}
@@ -253,7 +253,7 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
               <tbody>
                 {COMPARISON_FEATURES.map((feature, idx) => (
                   <tr key={feature.key} className={idx % 2 === 0 ? 'bg-slate-800/20' : ''}>
-                    <td className="py-3 px-4 text-blue-200">{feature.name}</td>
+                    <td className="py-3 px-4 text-orange-200">{feature.name}</td>
                     {tiers.map((tier) => (
                       <td key={tier} className="py-3 px-2 text-center text-slate-300">
                         {formatValue(PLAN_LIMITS[tier][feature.key as keyof typeof PLAN_LIMITS.free], feature.key)}
@@ -263,7 +263,7 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
                 ))}
                 {/* Pricing row */}
                 <tr className="border-t border-slate-700 bg-slate-800/40">
-                  <td className="py-4 px-4 text-blue-200 font-medium">Monthly price</td>
+                  <td className="py-4 px-4 text-orange-200 font-medium">Monthly price</td>
                   {tiers.map((tier) => (
                     <td key={tier} className="py-4 px-2 text-center text-white font-bold">
                       {tier === 'enterprise' ? 'Custom' : `$${PLAN_INFO[tier].price}`}
@@ -271,7 +271,7 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
                   ))}
                 </tr>
                 <tr className="bg-slate-800/40">
-                  <td className="py-4 px-4 text-blue-200 font-medium">Annual price (per month)</td>
+                  <td className="py-4 px-4 text-orange-200 font-medium">Annual price (per month)</td>
                   {tiers.map((tier) => (
                     <td key={tier} className="py-4 px-2 text-center text-green-400 font-bold">
                       {tier === 'enterprise' || tier === 'free' ? '-' : `$${PLAN_INFO[tier].priceAnnual.toFixed(2)}`}
@@ -279,7 +279,7 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
                   ))}
                 </tr>
                 <tr className="bg-slate-800/40">
-                  <td className="py-4 px-4 text-blue-200 font-medium">Overage rate</td>
+                  <td className="py-4 px-4 text-orange-200 font-medium">Overage rate</td>
                   {tiers.map((tier) => (
                     <td key={tier} className="py-4 px-2 text-center text-slate-400">
                       {PLAN_INFO[tier].overageRate ? `$${PLAN_INFO[tier].overageRate}/task` : '-'}
@@ -299,21 +299,21 @@ const LandingPricing = memo(({ isAuthenticated }: { isAuthenticated: boolean }) 
                 <CheckCircle className="w-6 h-6 text-green-400" />
               </div>
               <h4 className="text-white font-semibold mb-1">No hidden fees</h4>
-              <p className="text-blue-200/70 text-sm">Transparent pricing with no surprises</p>
+              <p className="text-orange-200/70 text-sm">Transparent pricing with no surprises</p>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mb-3">
-                <Users className="w-6 h-6 text-blue-400" />
+              <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center mb-3">
+                <Users className="w-6 h-6 text-orange-400" />
               </div>
               <h4 className="text-white font-semibold mb-1">Cancel anytime</h4>
-              <p className="text-blue-200/70 text-sm">No long-term contracts required</p>
+              <p className="text-orange-200/70 text-sm">No long-term contracts required</p>
             </div>
             <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mb-3">
-                <Building2 className="w-6 h-6 text-purple-400" />
+              <div className="w-12 h-12 rounded-full bg-rose-500/20 flex items-center justify-center mb-3">
+                <Building2 className="w-6 h-6 text-rose-400" />
               </div>
               <h4 className="text-white font-semibold mb-1">Enterprise ready</h4>
-              <p className="text-blue-200/70 text-sm">SOC2, SSO, and custom contracts</p>
+              <p className="text-orange-200/70 text-sm">SOC2, SSO, and custom contracts</p>
             </div>
           </div>
         </div>

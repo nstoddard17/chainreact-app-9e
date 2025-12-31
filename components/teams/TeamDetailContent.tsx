@@ -303,7 +303,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
                   {canCreateWorkflows && (
                     <Button
                       variant="outline"
-                      className="w-full justify-start hover:text-blue-500"
+                      className="w-full justify-start hover:text-orange-500"
                       onClick={handleCreateWorkflow}
                     >
                       <Workflow className="w-4 h-4 mr-2" />
@@ -313,7 +313,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
                   {canManageMembers && (
                     <Button
                       variant="outline"
-                      className="w-full justify-start hover:text-blue-500"
+                      className="w-full justify-start hover:text-orange-500"
                       onClick={handleViewMembers}
                     >
                       <Users className="w-4 h-4 mr-2" />
@@ -323,7 +323,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
                   {canManageSettings && (
                     <Button
                       variant="outline"
-                      className="w-full justify-start hover:text-blue-500"
+                      className="w-full justify-start hover:text-orange-500"
                       onClick={() => router.push(`/team-settings?team=${team.id}`)}
                     >
                       <Settings className="w-4 h-4 mr-2" />

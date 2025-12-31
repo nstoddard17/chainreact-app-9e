@@ -52,15 +52,15 @@ export function BetaBanner() {
   if (!isVisible) return null;
 
   return (
-    <div className="relative bg-gradient-to-r from-blue-600/10 via-purple-600/10 to-pink-600/10 border-b border-blue-200/20 dark:border-blue-800/20">
+    <div className="relative bg-gradient-to-r from-orange-600/10 via-rose-600/10 to-pink-600/10 border-b border-orange-200/20 dark:border-orange-800/20">
       <div className="px-4 py-2.5">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center gap-3 flex-1">
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <Sparkles className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                 <div className="absolute inset-0 animate-ping">
-                  <Sparkles className="w-5 h-5 text-blue-600/30 dark:text-blue-400/30" />
+                  <Sparkles className="w-5 h-5 text-orange-600/30 dark:text-orange-400/30" />
                 </div>
               </div>
               <span className="text-sm font-medium text-slate-700 dark:text-slate-200">

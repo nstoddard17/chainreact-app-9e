@@ -281,11 +281,11 @@ export default function IntegrationDiagnostics() {
 
                   {/* Recommendations */}
                   {diagnostic.recommendations.length > 0 && (
-                    <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-semibold mb-2 text-blue-800">Recommendations</h4>
+                    <div className="mt-6 p-4 bg-orange-50 rounded-lg">
+                      <h4 className="font-semibold mb-2 text-orange-800">Recommendations</h4>
                       <ul className="space-y-1">
                         {diagnostic.recommendations.map((rec, index) => (
-                          <li key={index} className="text-sm text-blue-700">
+                          <li key={index} className="text-sm text-orange-700">
                             • {rec}
                           </li>
                         ))}

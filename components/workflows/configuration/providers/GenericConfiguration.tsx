@@ -1755,7 +1755,7 @@ export function GenericConfiguration({
                         href={buildGoogleDriveSearchUrl()}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 whitespace-nowrap"
+                        className="flex items-center gap-1 text-xs text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 whitespace-nowrap"
                       >
                         View in Google Drive
                         <ExternalLink className="h-3 w-3" />
@@ -2033,7 +2033,7 @@ export function GenericConfiguration({
                                   <span className="text-xs text-yellow-500">⭐</span>
                                 )}
                                 {email.isUnread && (
-                                  <span className="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500"></span>
                                 )}
                               </div>
                             </div>
@@ -2229,7 +2229,7 @@ export function GenericConfiguration({
                                   <span className="text-xs text-yellow-500">⭐</span>
                                 )}
                                 {email.isUnread && (
-                                  <span className="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500"></span>
                                 )}
                               </div>
                             </div>
@@ -2422,7 +2422,7 @@ export function GenericConfiguration({
                                   <span className="text-xs text-yellow-500">⭐</span>
                                 )}
                                 {email.isUnread && (
-                                  <span className="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500"></span>
                                 )}
                               </div>
                             </div>
@@ -2584,7 +2584,7 @@ export function GenericConfiguration({
                                   <span className="text-xs text-yellow-500">⭐</span>
                                 )}
                                 {email.isUnread && (
-                                  <span className="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                                  <span className="inline-block w-2 h-2 rounded-full bg-orange-500"></span>
                                 )}
                               </div>
                             </div>

@@ -485,7 +485,7 @@ export function TemplateGallery() {
                     <div className="flex items-start gap-2 mb-2">
                       <CardTitle className="text-lg leading-tight">{template.name}</CardTitle>
                       {template.is_predefined && (
-                        <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0 flex-shrink-0">
+                        <Badge className="bg-gradient-to-r from-orange-500 to-rose-600 text-white border-0 flex-shrink-0">
                           Official
                         </Badge>
                       )}

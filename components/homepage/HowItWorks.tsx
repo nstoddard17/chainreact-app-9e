@@ -87,9 +87,9 @@ export function HowItWorks() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-100 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/20 mb-6">
-              <CheckCircle className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-              <span className="text-sm font-semibold text-cyan-700 dark:text-cyan-300">How It Works</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 mb-6">
+              <CheckCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">How It Works</span>
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
               Three Steps to Automation
@@ -113,13 +113,13 @@ export function HowItWorks() {
                 onClick={() => setActiveStep(index)}
                 className={`cursor-pointer p-6 rounded-2xl border transition-all duration-300 ${
                   activeStep === index
-                    ? 'bg-blue-100 dark:bg-blue-500/10 border-blue-300 dark:border-blue-500/30 shadow-xl shadow-blue-500/10'
-                    : 'bg-white dark:bg-slate-900/50 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'
+                    ? 'bg-orange-100 dark:bg-orange-500/10 border-orange-300 dark:border-orange-500/30 shadow-xl shadow-orange-500/10'
+                    : 'bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'
                 }`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`text-3xl font-bold ${
-                    activeStep === index ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-white/20'
+                    activeStep === index ? 'text-orange-600 dark:text-orange-400' : 'text-gray-400 dark:text-white/20'
                   }`}>
                     {step.number}
                   </div>
@@ -133,7 +133,7 @@ export function HowItWorks() {
                   </div>
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
                     activeStep === index
-                      ? 'bg-gradient-to-br from-blue-500 to-purple-500'
+                      ? 'bg-gradient-to-br from-orange-500 to-rose-500'
                       : 'bg-gray-100 dark:bg-white/5'
                   }`}>
                     {React.createElement(step.icon, {
@@ -151,7 +151,7 @@ export function HowItWorks() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
-            className="order-1 lg:order-2 relative w-full max-w-[520px] mx-auto h-[360px] sm:h-96 bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/10 p-6 sm:p-8 overflow-hidden shadow-lg"
+            className="order-1 lg:order-2 relative w-full max-w-[520px] mx-auto h-[360px] sm:h-96 bg-white dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/10 p-6 sm:p-8 overflow-hidden shadow-lg"
           >
             {activeStep === 0 && (
               <div className="h-full flex flex-col">
@@ -627,7 +627,7 @@ export function HowItWorks() {
         >
           <button
             onClick={() => router.push('/waitlist')}
-            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-2xl shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 transform hover:scale-105 group"
+            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-semibold rounded-xl shadow-2xl shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 transform hover:scale-105 group"
           >
             Join the Waitlist
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />

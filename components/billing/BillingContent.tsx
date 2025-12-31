@@ -126,7 +126,7 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
     <div className={`${isModal ? "space-y-6" : "space-y-8"}`}>
         {/* Welcome Banner */}
         {!isModal && showWelcome && currentSubscription && (
-          <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 p-6 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-top-3 duration-500">
+          <div className="relative overflow-hidden bg-gradient-to-r from-orange-600 via-rose-600 to-orange-600 p-6 rounded-2xl shadow-2xl animate-in fade-in slide-in-from-top-3 duration-500">
             <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -147,10 +147,10 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
 
         {/* Beta Tester Banner */}
         {isBetaTester && (
-          <Card className="bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-950/50 dark:to-blue-950/50 border-purple-300 dark:border-purple-500/30">
+          <Card className="bg-gradient-to-r from-rose-100 to-orange-100 dark:from-rose-950/50 dark:to-orange-950/50 border-rose-300 dark:border-rose-500/30">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-3 rounded-xl">
+                <div className="bg-gradient-to-r from-rose-500 to-orange-500 p-3 rounded-xl">
                   <Crown className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -174,9 +174,9 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
                   <span className="text-sm text-gray-500 dark:text-slate-400">Current Plan</span>
                   <Badge variant="outline" className={`${
                     currentTier === 'free' ? 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600' :
-                    currentTier === 'pro' ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30' :
+                    currentTier === 'pro' ? 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30' :
                     currentTier === 'team' ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30' :
-                    currentTier === 'business' ? 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-500/20 dark:text-purple-400 dark:border-purple-500/30' :
+                    currentTier === 'business' ? 'bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30' :
                     'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30'
                   }`}>
                     {currentPlanInfo.name}
@@ -584,13 +584,13 @@ function FeatureComparisonTable() {
             <th className="text-center py-4 px-2 text-sm font-semibold text-gray-500 dark:text-gray-400">
               Free
             </th>
-            <th className="text-center py-4 px-2 text-sm font-semibold text-blue-600 dark:text-blue-400">
+            <th className="text-center py-4 px-2 text-sm font-semibold text-orange-600 dark:text-orange-400">
               Pro
             </th>
             <th className="text-center py-4 px-2 text-sm font-semibold text-green-600 dark:text-green-400">
               Team
             </th>
-            <th className="text-center py-4 px-2 text-sm font-semibold text-purple-600 dark:text-purple-400">
+            <th className="text-center py-4 px-2 text-sm font-semibold text-rose-600 dark:text-rose-400">
               Business
             </th>
             <th className="text-center py-4 px-2 text-sm font-semibold text-amber-600 dark:text-amber-400">
@@ -612,7 +612,7 @@ function FeatureComparisonTable() {
                   className="text-left w-full group"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <span className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                       {feature.name}
                     </span>
                     <HelpCircle className="w-3.5 h-3.5 text-gray-400 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -625,7 +625,7 @@ function FeatureComparisonTable() {
                 </button>
               </td>
               <td className="py-4 px-2 text-center">{renderValue(feature.free)}</td>
-              <td className="py-4 px-2 text-center bg-blue-50/50 dark:bg-blue-900/10">{renderValue(feature.pro)}</td>
+              <td className="py-4 px-2 text-center bg-orange-50/50 dark:bg-orange-900/10">{renderValue(feature.pro)}</td>
               <td className="py-4 px-2 text-center">{renderValue(feature.team)}</td>
               <td className="py-4 px-2 text-center">{renderValue(feature.business)}</td>
               <td className="py-4 px-2 text-center">{renderValue(feature.enterprise)}</td>

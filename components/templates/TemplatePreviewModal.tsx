@@ -90,7 +90,7 @@ export function TemplatePreviewModal({
           <div className="flex items-center gap-2">
             <DialogTitle>{template.name}</DialogTitle>
             {template.is_predefined && (
-              <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0">
+              <Badge className="bg-gradient-to-r from-orange-500 to-rose-600 text-white border-0">
                 Official
               </Badge>
             )}

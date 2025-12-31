@@ -9,8 +9,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md active:bg-blue-800",
-        primary: "bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow-md active:bg-blue-800",
+        default: "bg-orange-500 text-white hover:bg-orange-600 shadow-sm hover:shadow-md active:bg-orange-700",
+        primary: "bg-orange-500 text-white hover:bg-orange-600 shadow-sm hover:shadow-md active:bg-orange-700",
         destructive:
           "bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 hover:border-red-600 shadow-sm",
         outline:
@@ -18,7 +18,7 @@ const buttonVariants = cva(
         secondary:
           "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 hover:border-gray-400",
         ghost: "hover:bg-gray-100 hover:text-gray-900",
-        link: "text-blue-600 underline-offset-4 hover:underline hover:text-blue-700",
+        link: "text-orange-500 underline-offset-4 hover:underline hover:text-orange-600",
         success: "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 hover:border-green-300 shadow-sm",
       },
       size: {

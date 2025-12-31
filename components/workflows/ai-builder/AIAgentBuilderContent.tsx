@@ -924,7 +924,7 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
                     )}
                   >
                     {message.role !== 'user' && (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-rose-500/20 flex items-center justify-center shrink-0">
                         <Sparkles className="w-4 h-4 text-primary" />
                       </div>
                     )}
@@ -947,7 +947,7 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
                     </div>
 
                     {message.role === 'user' && (
-                      <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-primary-foreground text-xs font-bold">
+                      <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden bg-gradient-to-br from-primary to-rose-600 flex items-center justify-center text-primary-foreground text-xs font-bold">
                         {user?.user_metadata?.avatar_url ? (
                           <img
                             src={user.user_metadata.avatar_url}
@@ -964,7 +964,7 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
 
                 {isLoading && (
                   <div className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-rose-500/20 flex items-center justify-center">
                       <Sparkles className="w-4 h-4 text-primary" />
                     </div>
                     <div className="bg-card border rounded-2xl p-4">

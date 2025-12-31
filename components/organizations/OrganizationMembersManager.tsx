@@ -257,9 +257,9 @@ export function OrganizationMembersManager({
       case 'owner':
         return <Crown className="w-4 h-4 text-yellow-500" />
       case 'admin':
-        return <Shield className="w-4 h-4 text-blue-500" />
+        return <Shield className="w-4 h-4 text-orange-500" />
       case 'manager':
-        return <Briefcase className="w-4 h-4 text-purple-500" />
+        return <Briefcase className="w-4 h-4 text-rose-500" />
       case 'hr':
         return <UserCog className="w-4 h-4 text-green-500" />
       case 'finance':
@@ -272,8 +272,8 @@ export function OrganizationMembersManager({
   const getRoleBadge = (role: OrgRole) => {
     const colors = {
       owner: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-      admin: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-      manager: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+      admin: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
+      manager: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300",
       hr: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
       finance: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300"
     }

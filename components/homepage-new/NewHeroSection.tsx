@@ -18,10 +18,10 @@ export function NewHeroSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 mb-6"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 mb-6"
           >
-            <Brain className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+            <Brain className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+            <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
               Intelligent Workflow Automation
             </span>
           </motion.div>
@@ -35,7 +35,7 @@ export function NewHeroSection() {
           >
             Workflow automation
             <br />
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-orange-500 to-rose-500 dark:from-orange-400 dark:to-rose-400 bg-clip-text text-transparent">
               that thinks for itself
             </span>
           </motion.h1>
@@ -61,7 +61,7 @@ export function NewHeroSection() {
             <Button
               size="lg"
               onClick={() => router.push('/waitlist')}
-              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white border-0 px-6 py-3 rounded-lg font-medium transition-colors shadow-lg shadow-blue-500/20"
+              className="bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white border-0 px-6 py-3 rounded-lg font-medium transition-colors shadow-lg shadow-orange-500/20"
             >
               Start Building
               <ArrowRight className="w-4 h-4 ml-2" />
@@ -90,8 +90,8 @@ export function NewHeroSection() {
             className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto"
           >
             <div className="text-center">
-              <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-500/10 flex items-center justify-center mx-auto mb-4">
-                <Code className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <div className="w-12 h-12 rounded-lg bg-orange-100 dark:bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
+                <Code className="w-6 h-6 text-orange-600 dark:text-orange-400" />
               </div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
                 No Code Required
@@ -102,8 +102,8 @@ export function NewHeroSection() {
             </div>
 
             <div className="text-center">
-              <div className="w-12 h-12 rounded-lg bg-purple-100 dark:bg-purple-500/10 flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              <div className="w-12 h-12 rounded-lg bg-rose-100 dark:bg-rose-500/10 flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-6 h-6 text-rose-600 dark:text-rose-400" />
               </div>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
                 AI with Memory

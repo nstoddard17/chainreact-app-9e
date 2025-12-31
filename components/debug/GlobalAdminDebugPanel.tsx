@@ -166,10 +166,10 @@ export function GlobalAdminDebugPanel() {
 
   const getEventColor = (type: string) => {
     switch (type) {
-      case 'api_call': return 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300'
+      case 'api_call': return 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300'
       case 'api_response': return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300'
       case 'api_error': return 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300'
-      case 'state_change': return 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300'
+      case 'state_change': return 'bg-rose-100 dark:bg-rose-900/20 text-rose-800 dark:text-rose-300'
       case 'user_action': return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300'
       case 'error': return 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300'
       case 'warning': return 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300'
@@ -402,7 +402,7 @@ export function GlobalAdminDebugPanel() {
                   <div className="space-y-3 max-h-[480px] overflow-auto pb-2">
                     {Object.entries(snapshotData).map(([key, value]) => (
                       <div key={key} className="border rounded-lg p-3">
-                        <h3 className="font-semibold text-xs mb-1.5 text-blue-600 dark:text-blue-400">
+                        <h3 className="font-semibold text-xs mb-1.5 text-orange-600 dark:text-orange-400">
                           {key}
                         </h3>
                         <pre className="bg-slate-100 dark:bg-slate-900 p-2 rounded text-[10px] overflow-x-auto">

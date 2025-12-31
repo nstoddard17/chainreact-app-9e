@@ -35,16 +35,16 @@ interface SupportTicket {
 
 const priorityColors = {
   low: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-  medium: "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200",
+  medium: "bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-200",
   high: "bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-200",
   urgent: "bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-200",
 }
 
 const statusColors = {
   open: "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-200",
-  in_progress: "bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200",
+  in_progress: "bg-orange-100 text-orange-800 dark:bg-orange-800 dark:text-orange-200",
   waiting_for_user: "bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200",
-  resolved: "bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-200",
+  resolved: "bg-rose-100 text-rose-800 dark:bg-rose-800 dark:text-rose-200",
   closed: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
 }
 
@@ -326,7 +326,7 @@ const TicketCreationForm = ({
         <Button 
           onClick={createTicket}
           disabled={creatingTicket || !newTicket.subject || !newTicket.description}
-          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+          className="bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700"
         >
           {creatingTicket ? 'Creating...' : 'Create Ticket'}
         </Button>
@@ -491,7 +491,7 @@ export default function SupportPage() {
         <div className="flex items-center justify-end">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+              <Button className="bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700">
                 <Plus className="w-4 h-4 mr-2" />
                 New Ticket
               </Button>
@@ -526,11 +526,11 @@ export default function SupportPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Link 
                 href="/learn" 
-                className="flex items-center space-x-3 p-3 rounded-lg border hover:border-blue-500 hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                className="flex items-center space-x-3 p-3 rounded-lg border hover:border-orange-500 hover:bg-orange-50/50 transition-colors cursor-pointer group"
               >
-                <FileText className="w-8 h-8 text-blue-500 group-hover:text-blue-600" />
+                <FileText className="w-8 h-8 text-orange-500 group-hover:text-orange-600" />
                 <div>
-                  <h3 className="font-medium group-hover:text-blue-600">Documentation</h3>
+                  <h3 className="font-medium group-hover:text-orange-600">Documentation</h3>
                   <p className="text-sm text-muted-foreground">Browse our guides</p>
                 </div>
               </Link>
@@ -572,7 +572,7 @@ export default function SupportPage() {
           <TabsContent value="open" className="space-y-4">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <LightningLoader size="lg" color="blue" />
+                <LightningLoader size="lg" color="orange" />
               </div>
             ) : openTickets.length === 0 ? (
               <Card>
@@ -618,7 +618,7 @@ export default function SupportPage() {
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
                               <CategoryIcon className="w-5 h-5 text-muted-foreground" />
-                              <h3 className="font-semibold hover:text-blue-600 transition-colors">{ticket.subject}</h3>
+                              <h3 className="font-semibold hover:text-orange-600 transition-colors">{ticket.subject}</h3>
                               <Badge variant="outline" className="text-xs">
                                 {ticket.ticket_number}
                               </Badge>
@@ -653,7 +653,7 @@ export default function SupportPage() {
           <TabsContent value="closed" className="space-y-4">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <LightningLoader size="lg" color="blue" />
+                <LightningLoader size="lg" color="orange" />
               </div>
             ) : closedTickets.length === 0 ? (
               <Card>
@@ -676,7 +676,7 @@ export default function SupportPage() {
                           <div className="flex-1">
                             <div className="flex items-center space-x-3 mb-2">
                               <CategoryIcon className="w-5 h-5 text-muted-foreground" />
-                              <h3 className="font-semibold hover:text-blue-600 transition-colors">{ticket.subject}</h3>
+                              <h3 className="font-semibold hover:text-orange-600 transition-colors">{ticket.subject}</h3>
                               <Badge variant="outline" className="text-xs">
                                 {ticket.ticket_number}
                               </Badge>

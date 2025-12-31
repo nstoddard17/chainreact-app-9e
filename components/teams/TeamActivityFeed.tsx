@@ -113,7 +113,7 @@ export function TeamActivityFeed({ teamId }: TeamActivityFeedProps) {
       return 'text-red-600 dark:text-red-400'
     }
     if (type.includes('updated') || type.includes('changed')) {
-      return 'text-blue-600 dark:text-blue-400'
+      return 'text-orange-600 dark:text-orange-400'
     }
     return 'text-slate-600 dark:text-slate-400'
   }

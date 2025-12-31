@@ -45,12 +45,12 @@ export default function ConfirmationSuccessPage() {
   }, [initialize])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 relative overflow-hidden">
       {/* Background Animation */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 animate-pulse"></div>
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-float-delayed"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-600/20 to-rose-600/20 animate-pulse"></div>
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-rose-500/10 rounded-full blur-3xl animate-float-delayed"></div>
       </div>
 
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
@@ -58,7 +58,7 @@ export default function ConfirmationSuccessPage() {
           {/* Logo/Brand */}
           <div className="text-center">
             <Link href="/" className="inline-block">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent">
                 ChainReact
               </h1>
             </Link>
@@ -76,15 +76,15 @@ export default function ConfirmationSuccessPage() {
                 Email Confirmed!
               </h2>
               
-              <p className="text-blue-200 mb-6 leading-relaxed">
+              <p className="text-orange-200 mb-6 leading-relaxed">
                 Your email has been successfully verified. Welcome to ChainReact!
               </p>
 
-              <div className="bg-blue-600/20 rounded-lg p-4 mb-6">
+              <div className="bg-orange-600/20 rounded-lg p-4 mb-6">
                 <p className="text-white font-medium mb-2">
                   You're all set! 🎉
                 </p>
-                <p className="text-blue-200 text-sm">
+                <p className="text-orange-200 text-sm">
                   Your account has been created and email verified successfully.
                 </p>
               </div>
@@ -93,14 +93,14 @@ export default function ConfirmationSuccessPage() {
               {isCheckingSession ? (
                 <div className="flex flex-col items-center justify-center mb-6">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
-                  <p className="text-blue-200 text-sm">Verifying your session...</p>
+                  <p className="text-orange-200 text-sm">Verifying your session...</p>
                 </div>
               ) : (
                 <>
                   {/* Primary CTA based on session status */}
                   {hasValidSession ? (
                     <Link href="/workflows">
-                      <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105 mb-4">
+                      <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105 mb-4">
                         <ArrowRight className="mr-2 h-4 w-4" />
                         Continue to Dashboard
                       </Button>
@@ -116,7 +116,7 @@ export default function ConfirmationSuccessPage() {
                       </div>
                       
                       <Link href="/auth/login">
-                        <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105 mb-4">
+                        <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105 mb-4">
                           <LogIn className="mr-2 h-4 w-4" />
                           Sign In Manually
                         </Button>
@@ -127,15 +127,15 @@ export default function ConfirmationSuccessPage() {
                   {/* Secondary option to close tab */}
                   <button
                     onClick={() => window.close()}
-                    className="w-full text-blue-300 hover:text-blue-200 text-sm py-2 transition-colors"
+                    className="w-full text-orange-300 hover:text-orange-200 text-sm py-2 transition-colors"
                   >
                     Or close this tab and return to the original window
                   </button>
                 </>
               )}
 
-              <div className="mt-6 text-xs text-blue-300/60">
-                Having trouble? <Link href="/contact" className="text-blue-300 hover:text-blue-200 underline">Contact support</Link>
+              <div className="mt-6 text-xs text-orange-300/60">
+                Having trouble? <Link href="/contact" className="text-orange-300 hover:text-orange-200 underline">Contact support</Link>
               </div>
             </div>
           </div>

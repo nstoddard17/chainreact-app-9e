@@ -8,7 +8,7 @@ export function StandardHeader() {
   return (
     <nav className="relative z-20 px-4 sm:px-6 lg:px-8 py-6">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
+        <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
           ChainReact
         </Link>
 

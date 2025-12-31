@@ -272,7 +272,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <Shield className="w-5 h-5 text-purple-600" />
+            <Shield className="w-5 h-5 text-rose-600" />
             Single Sign-On (SSO)
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -286,7 +286,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
               setEditingConfig(null)
               setShowAddDialog(true)
             }}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
+            className="bg-rose-600 hover:bg-rose-700 text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add SSO Provider
@@ -295,17 +295,17 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
       </div>
 
       {/* Service Provider Info */}
-      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/50">
+      <Card className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/50">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-blue-900 dark:text-blue-100">
+          <CardTitle className="text-sm font-medium text-orange-900 dark:text-orange-100">
             Service Provider Information
           </CardTitle>
-          <CardDescription className="text-blue-700 dark:text-blue-300">
+          <CardDescription className="text-orange-700 dark:text-orange-300">
             Use these values when configuring your Identity Provider
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded border border-blue-200 dark:border-blue-900">
+          <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded border border-orange-200 dark:border-orange-900">
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">SAML ACS URL</p>
               <p className="text-sm font-mono text-gray-900 dark:text-white">{acsUrl}</p>
@@ -314,7 +314,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
               <Copy className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded border border-blue-200 dark:border-blue-900">
+          <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded border border-orange-200 dark:border-orange-900">
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">OIDC Callback URL</p>
               <p className="text-sm font-mono text-gray-900 dark:text-white">{oidcCallbackUrl}</p>
@@ -365,7 +365,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
                         <Badge variant="outline" className={
                           config.provider === "saml"
                             ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800"
-                            : "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
+                            : "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800"
                         }>
                           {config.provider.toUpperCase()}
                         </Badge>
@@ -595,7 +595,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="bg-rose-600 hover:bg-rose-700"
             >
               {saving ? (
                 <>

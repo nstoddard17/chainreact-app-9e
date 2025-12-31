@@ -58,7 +58,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   if (!isReady) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
       </div>
     )
   }
@@ -93,7 +93,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   height={32}
                   className="w-8 h-8"
                 />
-                <h1 className="text-2xl font-bold text-indigo-600 cursor-pointer">ChainReact</h1>
+                <h1 className="text-2xl font-bold text-orange-600 cursor-pointer">ChainReact</h1>
               </Link>
             </div>
 
@@ -102,34 +102,34 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               <div className="flex items-center space-x-8">
                 <Link
                   href="/#features"
-                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                  className="text-slate-600 hover:text-orange-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
                 >
                   Features
                 </Link>
                 <Link
                   href="/#integrations"
-                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                  className="text-slate-600 hover:text-orange-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
                 >
                   Integrations
                 </Link>
                 {!isAuthenticated && (
                   <Link
                     href="/#pricing"
-                    className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                    className="text-slate-600 hover:text-orange-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
                   >
                     Pricing
                   </Link>
                 )}
                 <Link
                   href="/templates"
-                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                  className="text-slate-600 hover:text-orange-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
                   onClick={() => handlePageNavigation("/templates")}
                 >
                   Templates
                 </Link>
                 <Link
                   href="/support"
-                  className="text-slate-600 hover:text-indigo-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
+                  className="text-slate-600 hover:text-orange-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
                   onClick={() => handlePageNavigation("/support")}
                 >
                   Support
@@ -149,7 +149,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   <Link href="/dashboard">
                     <Button
                       size="sm"
-                      className="bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200"
+                      className="bg-orange-600 text-white hover:bg-orange-700 transition-colors duration-200"
                     >
                       Dashboard
                     </Button>
@@ -181,7 +181,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-slate-600 hover:text-indigo-600 transition-colors duration-200"
+                      className="text-slate-600 hover:text-orange-600 transition-colors duration-200"
                     >
                       Login
                     </Button>
@@ -189,7 +189,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   <Link href="/auth/register">
                     <Button
                       size="sm"
-                      className="bg-indigo-600 text-white hover:bg-indigo-700 transition-colors duration-200"
+                      className="bg-orange-600 text-white hover:bg-orange-700 transition-colors duration-200"
                     >
                       Sign Up
                     </Button>
@@ -201,13 +201,13 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             {/* Medium screens: Simplified layout */}
             <div className="hidden md:flex lg:hidden items-center space-x-6 flex-1 justify-end">
               <div className="flex items-center space-x-6">
-                <Link href="/#features" className="text-slate-600 hover:text-indigo-600 text-sm font-medium">
+                <Link href="/#features" className="text-slate-600 hover:text-orange-600 text-sm font-medium">
                   Features
                 </Link>
-                <Link href="/#integrations" className="text-slate-600 hover:text-indigo-600 text-sm font-medium">
+                <Link href="/#integrations" className="text-slate-600 hover:text-orange-600 text-sm font-medium">
                   Integrations
                 </Link>
-                <Link href="/support" className="text-slate-600 hover:text-indigo-600 text-sm font-medium">
+                <Link href="/support" className="text-slate-600 hover:text-orange-600 text-sm font-medium">
                   Support
                 </Link>
               </div>
@@ -217,7 +217,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   <span className="text-sm text-slate-600">Hi, {displayName}!</span>
                   <RoleBadgeCompact role={userRole} />
                   <Link href="/dashboard">
-                    <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700">
+                    <Button size="sm" className="bg-orange-600 text-white hover:bg-orange-700">
                       Dashboard
                     </Button>
                   </Link>
@@ -250,7 +250,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                     </Button>
                   </Link>
                   <Link href="/auth/register">
-                    <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700">
+                    <Button size="sm" className="bg-orange-600 text-white hover:bg-orange-700">
                       Sign Up
                     </Button>
                   </Link>
@@ -262,7 +262,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             <div className="md:hidden flex items-center">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-slate-600 hover:text-indigo-600 p-2 transition-colors duration-200"
+                className="text-slate-600 hover:text-orange-600 p-2 transition-colors duration-200"
               >
                 {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
               </button>
@@ -278,14 +278,14 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               <div className="space-y-2">
                 <Link
                   href="/#features"
-                  className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
+                  className="block text-slate-600 hover:text-orange-600 py-2 text-base font-medium transition-colors duration-200"
                   onClick={handleMobileMenuClose}
                 >
                   Features
                 </Link>
                 <Link
                   href="/#integrations"
-                  className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
+                  className="block text-slate-600 hover:text-orange-600 py-2 text-base font-medium transition-colors duration-200"
                   onClick={handleMobileMenuClose}
                 >
                   Integrations
@@ -293,7 +293,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 {!isAuthenticated && (
                   <Link
                     href="/#pricing"
-                    className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
+                    className="block text-slate-600 hover:text-orange-600 py-2 text-base font-medium transition-colors duration-200"
                     onClick={handleMobileMenuClose}
                   >
                     Pricing
@@ -301,14 +301,14 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 )}
                 <Link
                   href="/templates"
-                  className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
+                  className="block text-slate-600 hover:text-orange-600 py-2 text-base font-medium transition-colors duration-200"
                   onClick={() => handlePageNavigation("/templates")}
                 >
                   Templates
                 </Link>
                 <Link
                   href="/support"
-                  className="block text-slate-600 hover:text-indigo-600 py-2 text-base font-medium transition-colors duration-200"
+                  className="block text-slate-600 hover:text-orange-600 py-2 text-base font-medium transition-colors duration-200"
                   onClick={() => handlePageNavigation("/support")}
                 >
                   Support
@@ -326,7 +326,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                     </div>
                     <div className="flex space-x-3">
                       <Link href="/dashboard" className="flex-1">
-                        <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Dashboard</Button>
+                        <Button className="w-full bg-orange-600 text-white hover:bg-orange-700">Dashboard</Button>
                       </Link>
                       {isAdmin && (
                         <Link href="/admin" className="flex-1">
@@ -352,12 +352,12 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 ) : (
                   <div className="flex space-x-3">
                     <Link href="/auth/login" className="flex-1">
-                      <Button variant="outline" className="w-full border-indigo-600 text-indigo-600 hover:bg-indigo-50">
+                      <Button variant="outline" className="w-full border-orange-600 text-orange-600 hover:bg-orange-50">
                         Login
                       </Button>
                     </Link>
                     <Link href="/auth/register" className="flex-1">
-                      <Button className="w-full bg-indigo-600 text-white hover:bg-indigo-700">Sign Up</Button>
+                      <Button className="w-full bg-orange-600 text-white hover:bg-orange-700">Sign Up</Button>
                     </Link>
                   </div>
                 )}
@@ -383,7 +383,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                   height={32}
                   className="w-8 h-8"
                 />
-                <h3 className="text-2xl font-bold text-indigo-400">ChainReact</h3>
+                <h3 className="text-2xl font-bold text-orange-400">ChainReact</h3>
               </div>
               <p className="text-slate-400 mb-4">
                 Automate your workflows with ease. Connect apps, save time, and boost productivity.
@@ -391,21 +391,21 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             </div>
 
             <div>
-              <h4 className="font-semibold mb-4 text-indigo-300">Product</h4>
+              <h4 className="font-semibold mb-4 text-orange-300">Product</h4>
               <ul className="space-y-2 text-slate-400">
                 <li>
-                  <Link href="/#features" className="hover:text-indigo-300 transition-colors duration-200">
+                  <Link href="/#features" className="hover:text-orange-300 transition-colors duration-200">
                     Features
                   </Link>
                 </li>
                 <li>
-                  <Link href="/#integrations" className="hover:text-indigo-300 transition-colors duration-200">
+                  <Link href="/#integrations" className="hover:text-orange-300 transition-colors duration-200">
                     Integrations
                   </Link>
                 </li>
                 {!isAuthenticated && (
                   <li>
-                    <Link href="/#pricing" className="hover:text-indigo-300 transition-colors duration-200">
+                    <Link href="/#pricing" className="hover:text-orange-300 transition-colors duration-200">
                       Pricing
                     </Link>
                   </li>
@@ -413,7 +413,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <li>
                   <Link
                     href="/templates"
-                    className="hover:text-indigo-300 transition-colors duration-200"
+                    className="hover:text-orange-300 transition-colors duration-200"
                     onClick={() => handlePageNavigation("/templates")}
                   >
                     Templates
@@ -423,27 +423,27 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             </div>
 
             <div>
-              <h4 className="font-semibold mb-4 text-indigo-300">Company</h4>
+              <h4 className="font-semibold mb-4 text-orange-300">Company</h4>
               <ul className="space-y-2 text-slate-400">
                 <li>
-                  <Link href="/community" className="hover:text-indigo-300 transition-colors duration-200">
+                  <Link href="/community" className="hover:text-orange-300 transition-colors duration-200">
                     Community
                   </Link>
                 </li>
                 <li>
-                  <Link href="/learn" className="hover:text-indigo-300 transition-colors duration-200">
+                  <Link href="/learn" className="hover:text-orange-300 transition-colors duration-200">
                     Learn
                   </Link>
                 </li>
                 <li>
-                  <Link href="/enterprise" className="hover:text-indigo-300 transition-colors duration-200">
+                  <Link href="/enterprise" className="hover:text-orange-300 transition-colors duration-200">
                     Enterprise
                   </Link>
                 </li>
                 <li>
                   <Link
                     href="/support"
-                    className="hover:text-indigo-300 transition-colors duration-200"
+                    className="hover:text-orange-300 transition-colors duration-200"
                     onClick={() => handlePageNavigation("/support")}
                   >
                     Support
@@ -453,27 +453,27 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             </div>
 
             <div>
-              <h4 className="font-semibold mb-4 text-indigo-300">Legal</h4>
+              <h4 className="font-semibold mb-4 text-orange-300">Legal</h4>
               <ul className="space-y-2 text-slate-400">
                 <li>
-                  <Link href="/privacy" className="hover:text-indigo-300 transition-colors duration-200">
+                  <Link href="/privacy" className="hover:text-orange-300 transition-colors duration-200">
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link href="/terms" className="hover:text-indigo-300 transition-colors duration-200">
+                  <Link href="/terms" className="hover:text-orange-300 transition-colors duration-200">
                     Terms of Service
                   </Link>
                 </li>
                 <li>
-                  <Link href="/sub-processors" className="hover:text-indigo-300 transition-colors duration-200">
+                  <Link href="/sub-processors" className="hover:text-orange-300 transition-colors duration-200">
                     Sub-processors
                   </Link>
                 </li>
                 <li>
                   <Link
                     href="/support"
-                    className="hover:text-indigo-300 transition-colors duration-200"
+                    className="hover:text-orange-300 transition-colors duration-200"
                     onClick={() => handlePageNavigation("/support")}
                   >
                     Support

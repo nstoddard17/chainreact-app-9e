@@ -333,7 +333,7 @@ export function VoiceMode({ onClose, onTranscript }: VoiceModeProps) {
 
   const getStateColor = () => {
     switch (conversationState) {
-      case 'listening': return 'text-blue-500'
+      case 'listening': return 'text-orange-500'
       case 'thinking': return 'text-yellow-500'
       case 'speaking': return 'text-green-500'
       default: return 'text-muted-foreground'

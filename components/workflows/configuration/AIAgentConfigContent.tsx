@@ -664,7 +664,7 @@ Example:
                         <div className="flex items-center gap-1">
                           <Brain className="w-2.5 h-2.5" />
                           {[1, 2, 3].map((i) => (
-                            <div key={i} className={cn("w-1 h-1 rounded-full", i <= model.quality ? "bg-blue-500" : "bg-muted")} />
+                            <div key={i} className={cn("w-1 h-1 rounded-full", i <= model.quality ? "bg-orange-500" : "bg-muted")} />
                           ))}
                         </div>
                       </div>

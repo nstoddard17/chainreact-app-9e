@@ -77,21 +77,21 @@ export function Footer() {
       name: 'X',
       icon: XIcon,
       href: 'https://x.com/ChainReact_App',
-      color: 'hover:text-gray-300',
+      color: 'hover:text-orange-400',
       isExternal: true
     },
     {
       name: 'LinkedIn',
       icon: Linkedin,
       href: 'https://www.linkedin.com/company/chainreactapp',
-      color: 'hover:text-blue-400',
+      color: 'hover:text-rose-400',
       isExternal: true
     },
     {
       name: 'Email',
       icon: emailCopied ? Check : Mail,
       href: '#',
-      color: 'hover:text-green-400',
+      color: 'hover:text-amber-400',
       onClick: handleEmailClick,
       title: emailCopied ? 'Copied!' : `Copy email or send to ${email}`
     },
@@ -176,7 +176,7 @@ export function Footer() {
           </div>
           <div className="flex items-center gap-2 text-gray-600 dark:text-white/40 text-sm">
             <span>Built with</span>
-            <Heart className="w-4 h-4 text-red-400" />
+            <Heart className="w-4 h-4 text-rose-500" />
             <span>for automation enthusiasts</span>
           </div>
         </div>

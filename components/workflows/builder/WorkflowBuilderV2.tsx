@@ -53,10 +53,14 @@ import { ProviderSelectionUI } from "../ai-agent/ProviderSelectionUI"
 import { ProviderBadge } from "../ai-agent/ProviderBadge"
 import {
   detectVagueTerms,
+  detectSpecificApps,
   getProviderOptions,
   replaceVagueTermWithProvider,
+  getProviderDisplayName,
   type ProviderCategory,
+  type DetectedApp,
 } from "@/lib/workflows/ai-agent/providerDisambiguation"
+import { loadWorkflowPreferences } from "@/stores/workflowPreferencesStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
 import {
@@ -446,6 +450,26 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const [providerCategory, setProviderCategory] = useState<any>(null)
 
+  // Enhanced chat flow state
+  const [pendingConnectionProvider, setPendingConnectionProvider] = useState<string | null>(null)
+  const [pendingNodeConfigType, setPendingNodeConfigType] = useState<string | null>(null)
+  const [collectedPreferences, setCollectedPreferences] = useState<Array<{
+    id: string
+    category: string
+    provider: string
+    providerName: string
+    channel?: {
+      providerId: string
+      channelId: string
+      channelName: string
+    }
+    nodeConfig?: {
+      nodeType: string
+      nodeDisplayName: string
+      config: Record<string, any>
+    }
+  }>>([])
+
   // Build state machine (Kadabra-style animated build)
   const [buildMachine, setBuildMachine] = useState<BuildStateMachine>(getInitialState())
 
@@ -563,6 +587,19 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     })
 
     console.log('[WorkflowBuilder] Initial mount complete - integrations loading')
+
+    // Load workflow preferences for pre-filling defaults
+    loadWorkflowPreferences().then(prefs => {
+      if (prefs) {
+        console.log('[WorkflowBuilder] Loaded workflow preferences:', {
+          email: prefs.default_email_provider,
+          calendar: prefs.default_calendar_provider,
+          notification: prefs.default_notification_provider,
+        })
+      }
+    }).catch(error => {
+      console.warn('[WorkflowBuilder] Failed to load workflow preferences:', error)
+    })
   }, [appReady, fetchIntegrations])
 
   // Sync workspace context to integration store when builder loads
@@ -1210,6 +1247,220 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     console.log('[Provider Change] ✅ Provider swapped instantly (no LLM call, cost: $0.00)')
   }, [agentMessages, buildMachine.plan, toast])
 
+  // Enhanced chat flow handlers
+  const handleProviderDropdownSelect = useCallback(async (providerId: string, isConnected: boolean) => {
+    console.log('[Provider Dropdown] User selected:', providerId, 'isConnected:', isConnected)
+
+    // Track selected provider
+    setSelectedProviderId(providerId)
+
+    if (!isConnected) {
+      // Need to show connection card
+      setPendingConnectionProvider(providerId)
+
+      // Add connection status message to chat
+      const localId = generateLocalId()
+      setAgentMessages(prev => [...prev, {
+        id: localId,
+        role: 'assistant',
+        text: `To use ${getProviderDisplayName(providerId)}, you'll need to connect your account.`,
+        meta: {
+          connectionStatus: {
+            providerId,
+            isConnected: false,
+          }
+        }
+      }])
+    } else {
+      // Already connected, proceed with flow
+      // Add preference to collection
+      const category = providerCategory?.vagueTerm || 'unknown'
+      setCollectedPreferences(prev => [...prev, {
+        id: `provider-${providerId}`,
+        category,
+        provider: providerId,
+        providerName: getProviderDisplayName(providerId),
+      }])
+
+      // Continue with the prompt using the selected provider
+      if (pendingPrompt) {
+        handleProviderSelect(providerId)
+      }
+    }
+  }, [generateLocalId, pendingPrompt, providerCategory, handleProviderSelect])
+
+  const handleConnectionComplete = useCallback(async (providerId: string, email?: string) => {
+    console.log('[Connection Complete]', providerId, 'email:', email)
+
+    // Clear pending connection
+    setPendingConnectionProvider(null)
+
+    // Add to collected preferences
+    const category = providerCategory?.vagueTerm || 'unknown'
+    setCollectedPreferences(prev => [...prev, {
+      id: `provider-${providerId}`,
+      category,
+      provider: providerId,
+      providerName: getProviderDisplayName(providerId),
+    }])
+
+    // Update the last message to show connected status
+    setAgentMessages(prev => {
+      const updated = [...prev]
+      const lastIndex = updated.findIndex(m =>
+        m.meta?.connectionStatus?.providerId === providerId
+      )
+      if (lastIndex !== -1) {
+        updated[lastIndex] = {
+          ...updated[lastIndex],
+          text: `Connected to ${getProviderDisplayName(providerId)}${email ? ` (${email})` : ''}!`,
+          meta: {
+            ...updated[lastIndex].meta,
+            connectionStatus: {
+              providerId,
+              isConnected: true,
+              email,
+            }
+          }
+        }
+      }
+      return updated
+    })
+
+    // Continue with the flow
+    if (pendingPrompt) {
+      setTimeout(() => {
+        handleProviderSelect(providerId)
+      }, 500)
+    }
+  }, [providerCategory, pendingPrompt, handleProviderSelect])
+
+  const handleConnectionSkip = useCallback((providerId: string) => {
+    console.log('[Connection Skip]', providerId)
+
+    // Clear pending connection
+    setPendingConnectionProvider(null)
+
+    // Remove the connection card message and add skip note
+    setAgentMessages(prev => {
+      const filtered = prev.filter(m =>
+        !m.meta?.connectionStatus || m.meta?.connectionStatus?.providerId !== providerId
+      )
+      return [...filtered, {
+        id: generateLocalId(),
+        role: 'assistant',
+        text: `Skipped connecting ${getProviderDisplayName(providerId)}. You'll need to connect it later to use this workflow.`,
+      }]
+    })
+
+    // Still proceed with the flow, but the workflow won't work until connected
+    if (pendingPrompt) {
+      handleProviderSelect(providerId)
+    }
+  }, [generateLocalId, pendingPrompt, handleProviderSelect])
+
+  const handleNodeConfigComplete = useCallback((nodeType: string, config: Record<string, any>) => {
+    console.log('[Node Config Complete]', nodeType, config)
+
+    // Clear pending config
+    setPendingNodeConfigType(null)
+
+    // Store the config
+    setNodeConfigs(prev => ({
+      ...prev,
+      [nodeType]: { ...prev[nodeType], ...config }
+    }))
+
+    // Add to preferences if there's a channel or significant config
+    if (config.channel || config.channelId) {
+      const displayName = NODE_DISPLAY_NAME_MAP[nodeType] || nodeType
+      setCollectedPreferences(prev => [...prev, {
+        id: `config-${nodeType}`,
+        category: 'configuration',
+        provider: nodeType.split('_')[0],
+        providerName: displayName,
+        nodeConfig: {
+          nodeType,
+          nodeDisplayName: displayName,
+          config,
+        }
+      }])
+    }
+
+    // Update the chat to show config was applied
+    setAgentMessages(prev => {
+      const updated = [...prev]
+      const lastIndex = updated.findIndex(m =>
+        m.meta?.nodeConfig?.nodeType === nodeType
+      )
+      if (lastIndex !== -1) {
+        updated[lastIndex] = {
+          ...updated[lastIndex],
+          text: `Configuration applied for ${NODE_DISPLAY_NAME_MAP[nodeType] || nodeType}.`,
+          meta: {
+            ...updated[lastIndex].meta,
+            nodeConfig: {
+              ...updated[lastIndex].meta?.nodeConfig,
+              completed: true,
+            }
+          }
+        }
+      }
+      return updated
+    })
+  }, [])
+
+  const handleNodeConfigSkip = useCallback((nodeType: string) => {
+    console.log('[Node Config Skip]', nodeType)
+
+    // Clear pending config
+    setPendingNodeConfigType(null)
+
+    // Update the chat to show config was skipped
+    setAgentMessages(prev => {
+      const updated = [...prev]
+      const lastIndex = updated.findIndex(m =>
+        m.meta?.nodeConfig?.nodeType === nodeType
+      )
+      if (lastIndex !== -1) {
+        updated[lastIndex] = {
+          ...updated[lastIndex],
+          text: `Using default configuration for ${NODE_DISPLAY_NAME_MAP[nodeType] || nodeType}.`,
+          meta: {
+            ...updated[lastIndex].meta,
+            nodeConfig: {
+              ...updated[lastIndex].meta?.nodeConfig,
+              skipped: true,
+            }
+          }
+        }
+      }
+      return updated
+    })
+  }, [])
+
+  const handlePreferencesSave = useCallback(async (selectedIds: string[]) => {
+    console.log('[Preferences Save]', selectedIds)
+
+    // This is handled by the PreferencesSaveCard component internally
+    // using saveSelectedPreferences from the store
+
+    // Clear collected preferences
+    setCollectedPreferences([])
+
+    toast({
+      title: "Preferences Saved",
+      description: `${selectedIds.length} preference${selectedIds.length !== 1 ? 's' : ''} saved as defaults.`,
+    })
+  }, [toast])
+
+  const handlePreferencesSkip = useCallback(() => {
+    console.log('[Preferences Skip]')
+
+    // Clear collected preferences without saving
+    setCollectedPreferences([])
+  }, [])
+
   // Handle prompt parameter from URL (e.g., from AI agent page)
   useEffect(() => {
     if (!actions) return
@@ -1386,7 +1637,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             transitionTo(BuildState.PURPOSE)
 
             const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-              actions, finalPrompt, selectedProvider?.id, user?.id, flowId
+              actions, finalPrompt, providerMetadata?.provider?.id, user?.id, flowId
             )
             console.log('[URL Prompt Handler] Received result from askAgent:', {
               workflowName: result.workflowName,
@@ -4109,120 +4360,37 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       const connectedProviders = providerOptions.filter(p => p.isConnected)
       console.log('[Provider Disambiguation] Connected providers:', connectedProviders.length)
 
-      if (connectedProviders.length === 0) {
-        // No providers connected - ask user to connect
-        console.log('[Provider Disambiguation] No providers connected, showing selection UI')
-        setAwaitingProviderSelection(true)
-        setPendingPrompt(userPrompt)
-        setProviderCategory(vagueTermResult.category)
-        setIsAgentLoading(false)
+      // Always show dropdown for provider selection (even if 1 is connected)
+      // This gives user control to choose or change provider
+      console.log('[Provider Disambiguation] Showing provider dropdown selector')
+      setAwaitingProviderSelection(true)
+      setPendingPrompt(userPrompt)
+      setProviderCategory(vagueTermResult.category)
+      setIsAgentLoading(false)
 
-        // Add assistant message asking user to connect a provider
-        const askMessage: ChatMessage = {
-          id: generateLocalId(),
-          flowId,
-          role: 'assistant',
-          text: `To continue, please connect one of your ${vagueTermResult.category.displayName.toLowerCase()} apps.`,
-          meta: {
-            providerSelection: {
-              category: vagueTermResult.category,
-              providers: providerOptions,
-              reason: 'no_providers_connected'
-            }
-          },
-          createdAt: new Date().toISOString(),
-        }
-        setAgentMessages(prev => [...prev, askMessage])
-        return
-      } else if (connectedProviders.length === 1) {
-        // Exactly 1 provider - auto-select and continue with modified prompt
-        const selectedProvider = connectedProviders[0]
-        console.log('[Provider Disambiguation] Auto-selecting provider:', selectedProvider.displayName)
+      // Determine pre-selected provider (first connected, or none)
+      const preSelectedProvider = connectedProviders.length > 0 ? connectedProviders[0] : null
 
-        // Replace vague term with specific provider in prompt
-        const modifiedPrompt = replaceVagueTermWithProvider(
-          userPrompt,
-          vagueTermResult.category.vagueTerm,
-          selectedProvider.id
-        )
-
-        console.log('[Provider Disambiguation] Modified prompt:', modifiedPrompt)
-
-        // Prepare provider metadata to include in plan message
-        const providerMetadata = {
-          category: vagueTermResult.category,
-          provider: selectedProvider,
-          allProviders: providerOptions
-        }
-
-        // Start animated build progression
-        transitionTo(BuildState.THINKING)
-
-        try {
-          // Simulate staged progression through planning states
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          transitionTo(BuildState.SUBTASKS)
-
-          await new Promise(resolve => setTimeout(resolve, 800))
-          transitionTo(BuildState.COLLECT_NODES)
-
-          await new Promise(resolve => setTimeout(resolve, 800))
-          transitionTo(BuildState.OUTLINE)
-
-          await new Promise(resolve => setTimeout(resolve, 800))
-          transitionTo(BuildState.PURPOSE)
-
-          // Call actual askAgent API with MODIFIED prompt (template matching first)
-          const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-            actions, modifiedPrompt, selectedProvider.id, user?.id, flowId
-          )
-          console.log('[WorkflowBuilderV2] Received result from askAgent:', {
-            workflowName: result.workflowName,
-            editsCount: result.edits?.length,
-            rationale: result.rationale,
-            usedTemplate,
-            cost: usedTemplate ? '$0.00 (template)' : '~$0.03 (LLM)',
-            promptId
-          })
-
-          // Pass provider metadata to include in plan message
-          await continueWithPlanGeneration(result, modifiedPrompt, providerMetadata)
-        } catch (error: any) {
-          toast({
-            title: "Failed to create plan",
-            description: error?.message || "Unable to generate workflow plan",
-            variant: "destructive",
-          })
-          transitionTo(BuildState.IDLE)
-          setIsAgentLoading(false)
-        }
-        return
-      } else {
-        // 2+ providers connected - ask user to choose
-        console.log('[Provider Disambiguation] Multiple providers connected, showing selection UI')
-        setAwaitingProviderSelection(true)
-        setPendingPrompt(userPrompt)
-        setProviderCategory(vagueTermResult.category)
-        setIsAgentLoading(false)
-
-        // Add assistant message asking user to select
-        const askMessage: ChatMessage = {
-          id: generateLocalId(),
-          flowId,
-          role: 'assistant',
-          text: `I found multiple ${vagueTermResult.category.displayName.toLowerCase()} apps connected. Which one would you like to use?`,
-          meta: {
-            providerSelection: {
-              category: vagueTermResult.category,
-              providers: providerOptions,
-              reason: 'multiple_providers'
-            }
-          },
-          createdAt: new Date().toISOString(),
-        }
-        setAgentMessages(prev => [...prev, askMessage])
-        return
+      // Add assistant message with provider dropdown
+      const dropdownMessage: ChatMessage = {
+        id: generateLocalId(),
+        flowId,
+        role: 'assistant',
+        text: connectedProviders.length === 0
+          ? `Which ${vagueTermResult.category.displayName.toLowerCase()} app would you like to use?`
+          : `I'll use ${preSelectedProvider?.displayName} for this. You can change it if needed.`,
+        meta: {
+          providerDropdown: {
+            category: vagueTermResult.category,
+            providers: providerOptions,
+            preSelectedProviderId: preSelectedProvider?.id,
+          }
+        },
+        createdAt: new Date().toISOString(),
       }
+      setAgentMessages(prev => [...prev, dropdownMessage])
+      return
+
     }
 
     // No vague terms detected - proceed normally
@@ -4553,27 +4721,34 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           console.log('[handleBuild] ⚠️ Cannot transition first node - missing ID or instance')
         }
 
-        // STEP 7: Zoom to first node with animation
-        console.log('[handleBuild] Starting zoom animation to first node')
-        if (reactFlowInstanceRef.current && firstNode) {
+        // STEP 7: Fit view to show ALL nodes, accounting for agent panel
+        console.log('[handleBuild] Starting fitView animation to show all nodes')
+        if (reactFlowInstanceRef.current) {
           const instance = reactFlowInstanceRef.current
 
-          // Pan to the LEFT (negative adjustment) so nodes appear more to the RIGHT
-          // This keeps them out from under the agent panel
-          const nodeCenterX = firstNode.position.x - 150 // Pan 150px to the left
-          const nodeCenterY = firstNode.position.y + 50 // Vertical center
+          // Calculate the bounding box of all nodes
+          const minX = Math.min(...allNodes.map(n => n.position.x))
+          const maxX = Math.max(...allNodes.map(n => n.position.x)) + 360 // Add node width
+          const minY = Math.min(...allNodes.map(n => n.position.y))
+          const maxY = Math.max(...allNodes.map(n => n.position.y)) + 100 // Add node height
+          const centerX = (minX + maxX) / 2
+          const centerY = (minY + maxY) / 2
 
-          console.log('[handleBuild] Zoom calculation:', {
-            agentPanelWidth,
-            nodeCenterX,
-            nodeCenterY,
-            nodePosition: firstNode.position,
-            panAdjustment: '-150px to left'
+          console.log('[handleBuild] Fitting view to show all nodes:', {
+            nodeCount: allNodes.length,
+            nodePositions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
+            boundingBox: { minX, maxX, minY, maxY },
+            center: { x: centerX, y: centerY }
           })
 
-          // Zoom to first node with smooth animation
-          instance.setCenter(nodeCenterX, nodeCenterY, {
-            zoom: 1.0, // Keep at 1x zoom to ensure all nodes stay visible
+          // Calculate zoom to fit all nodes with padding
+          // Account for agent panel by shifting center to the right
+          const panelOffset = agentPanelWidth / 2 // Offset to account for panel
+          const adjustedCenterX = centerX - panelOffset // Shift left in flow coords = shift right in view
+
+          // Use setCenter to position view, accounting for panel
+          instance.setCenter(adjustedCenterX, centerY, {
+            zoom: 0.85, // Zoom out slightly to ensure both nodes are visible
             duration: 1200, // 1.2 second animation (smooth)
           })
 
@@ -5597,6 +5772,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
               onProviderSelect: handleProviderSelect,
               onProviderConnect: handleProviderConnect,
               onProviderChange: handleProviderChange,
+              // Enhanced chat flow handlers
+              onProviderDropdownSelect: handleProviderDropdownSelect,
+              onConnectionComplete: handleConnectionComplete,
+              onConnectionSkip: handleConnectionSkip,
+              onNodeConfigComplete: handleNodeConfigComplete,
+              onNodeConfigSkip: handleNodeConfigSkip,
+              onPreferencesSave: handlePreferencesSave,
+              onPreferencesSkip: handlePreferencesSkip,
             }}
           />
 

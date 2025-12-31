@@ -1006,7 +1006,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
           <a 
             key={`link-${i}`}
             href={parts[i + 2]} 
-            className="text-blue-600 hover:text-blue-800 underline"
+            className="text-orange-600 hover:text-orange-800 underline"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -1138,7 +1138,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                           )}
                           
                           {/* Calendar name */}
-                          <div className="text-xs text-blue-600 font-medium">
+                          <div className="text-xs text-orange-600 font-medium">
                             {event.calendar}
                           </div>
                         </div>
@@ -1540,7 +1540,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                                               href={item.url}
                                               target="_blank"
                                               rel="noopener noreferrer"
-                                              className="text-blue-600 hover:text-blue-800 underline"
+                                              className="text-orange-600 hover:text-orange-800 underline"
                                             >
                                               {item.title}
                                             </a>
@@ -1571,13 +1571,13 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                                       <div className="ml-6 space-y-3">
                                         {item.databases.map((database: any, dbIndex: number) => (
                                           <div key={dbIndex} className="space-y-2">
-                                            <div className="flex items-start gap-3 p-2 bg-blue-50 dark:bg-blue-950/20 rounded-md border-l-2 border-blue-200 dark:border-blue-800">
-                                              <div className="flex-shrink-0 w-1.5 h-1.5 bg-blue-500 rounded-full mt-2"></div>
+                                            <div className="flex items-start gap-3 p-2 bg-orange-50 dark:bg-orange-950/20 rounded-md border-l-2 border-orange-200 dark:border-orange-800">
+                                              <div className="flex-shrink-0 w-1.5 h-1.5 bg-orange-500 rounded-full mt-2"></div>
                                               <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-xs mb-1 text-blue-700 dark:text-blue-300">
+                                                <div className="font-medium text-xs mb-1 text-orange-700 dark:text-orange-300">
                                                   📊 {database.title}
                                                 </div>
-                                                <div className="text-xs text-blue-600 dark:text-blue-400">
+                                                <div className="text-xs text-orange-600 dark:text-orange-400">
                                                   {database.totalEntries} entries
                                                 </div>
                                               </div>
@@ -1599,7 +1599,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                                                             href={entry.url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-blue-600 hover:text-blue-800 underline"
+                                                            className="text-orange-600 hover:text-orange-800 underline"
                                                           >
                                                             {entry.title}
                                                           </a>
@@ -1635,7 +1635,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                                                     href={subpage.url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="text-blue-600 hover:text-blue-800 underline"
+                                                    className="text-orange-600 hover:text-orange-800 underline"
                                                   >
                                                     {subpage.title}
                                                   </a>
@@ -1663,17 +1663,17 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                     })()}
                     
                     {message.metadata?.type === "integration_not_connected" && (
-                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
-                          <AlertCircle className="w-4 h-4 text-blue-600" />
-                          <span className="font-medium text-blue-800">Integration Not Connected</span>
+                          <AlertCircle className="w-4 h-4 text-orange-600" />
+                          <span className="font-medium text-orange-800">Integration Not Connected</span>
                         </div>
-                        <p className="text-sm text-blue-700 mb-3">
+                        <p className="text-sm text-orange-700 mb-3">
                           You need to connect {message.metadata.integration} to use this feature.
                         </p>
-                        <a 
-                          href="/integrations" 
-                          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                        <a
+                          href="/integrations"
+                          className="inline-flex items-center gap-2 text-sm text-orange-600 hover:text-orange-800 underline"
                         >
                           Go to Integrations Page
                         </a>
@@ -1691,7 +1691,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                     
                     {message.metadata?.type === "notion_page_hierarchy" && message.metadata.pages && (
                       <div className="mt-3 p-3 bg-background rounded-lg border">
-                        <div className="font-medium mb-2 text-lg text-blue-700">Notion Page Hierarchy</div>
+                        <div className="font-medium mb-2 text-lg text-orange-700">Notion Page Hierarchy</div>
                         <ul className="space-y-4">
                           {message.metadata.pages.map((page: any) => (
                             <li key={page.id}>
@@ -1699,7 +1699,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                                 href={page.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-lg font-semibold text-blue-500 hover:underline"
+                                className="text-lg font-semibold text-orange-500 hover:underline"
                               >
                                 {page.title}
                               </a>
@@ -1711,7 +1711,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                                         href={sub.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-blue-400 hover:underline"
+                                        className="text-orange-400 hover:underline"
                                       >
                                         {sub.title}
                                       </a>
@@ -1839,7 +1839,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                     top: '-32px',
                   }}
                 >
-                  <div className="bg-blue-500 text-white rounded-full p-2 shadow-lg animate-pulse">
+                  <div className="bg-orange-500 text-white rounded-full p-2 shadow-lg animate-pulse">
                     <Mic className="w-4 h-4" />
                   </div>
                 </div>

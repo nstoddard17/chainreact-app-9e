@@ -427,7 +427,7 @@ function BetaSignupContent() {
 
   if (validatingToken) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-rose-100 dark:from-gray-900 dark:to-gray-800">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="flex flex-col items-center justify-center space-y-4">
@@ -442,7 +442,7 @@ function BetaSignupContent() {
 
   if (!tokenValid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-rose-100 dark:from-gray-900 dark:to-gray-800">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Invalid Invitation</CardTitle>
@@ -464,12 +464,12 @@ function BetaSignupContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-rose-100 dark:from-gray-900 dark:to-gray-800 p-4">
       <div className="w-full max-w-5xl grid md:grid-cols-2 gap-8 items-center">
         {/* Left side - Benefits */}
         <div className="hidden md:block space-y-6">
           <div className="space-y-2">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-rose-600 bg-clip-text text-transparent">
               Welcome to ChainReact Beta
             </h1>
             <p className="text-xl text-muted-foreground">
@@ -479,8 +479,8 @@ function BetaSignupContent() {
 
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Sparkles className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
                 <h3 className="font-semibold">Exclusive Early Access</h3>
@@ -489,8 +489,8 @@ function BetaSignupContent() {
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                <Zap className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
+                <Zap className="h-5 w-5 text-rose-600 dark:text-rose-400" />
               </div>
               <div>
                 <h3 className="font-semibold">Pro Features Free</h3>
@@ -509,8 +509,8 @@ function BetaSignupContent() {
             </div>
 
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                <Users className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
                 <h3 className="font-semibold">Shape the Product</h3>
@@ -524,7 +524,7 @@ function BetaSignupContent() {
         <Card className="w-full max-w-md mx-auto">
           <CardHeader>
             <div className="flex items-center gap-2 mb-2">
-              <div className="p-1 bg-gradient-to-r from-purple-600 to-indigo-600 rounded">
+              <div className="p-1 bg-gradient-to-r from-orange-600 to-rose-600 rounded">
                 <CheckCircle className="h-5 w-5 text-white" />
               </div>
               <span className="text-sm font-medium text-green-600 dark:text-green-400">
@@ -706,7 +706,7 @@ function BetaSignupContent() {
 // Loading fallback component
 function BetaSignupLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-rose-100 dark:from-gray-900 dark:to-gray-800">
       <Card className="w-full max-w-md">
         <CardContent className="pt-6">
           <div className="flex flex-col items-center justify-center space-y-4">

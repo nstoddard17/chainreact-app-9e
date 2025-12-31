@@ -183,7 +183,7 @@ export function NotificationsDropdown() {
               <DropdownMenuItem
                 key={notification.id}
                 className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${
-                  !notification.is_read ? 'bg-blue-50/50' : ''
+                  !notification.is_read ? 'bg-orange-50/50' : ''
                 }`}
                 onClick={() => handleNotificationClick(notification)}
               >
@@ -194,7 +194,7 @@ export function NotificationsDropdown() {
                         {notification.title}
                       </p>
                       {!notification.is_read && (
-                        <div className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />
+                        <div className="h-2 w-2 rounded-full bg-orange-500 flex-shrink-0" />
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">

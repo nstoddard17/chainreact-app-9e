@@ -980,10 +980,10 @@ export default function IntegrationWebhookManager() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Triggers</CardTitle>
-            <Activity className="h-4 w-4 text-blue-600" />
+            <Activity className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-orange-600">
               {webhooks.reduce((sum, w) => sum + (w.trigger_types?.length || 0), 0)}
             </div>
           </CardContent>
@@ -1098,14 +1098,14 @@ export default function IntegrationWebhookManager() {
                               </TabsList>
                               
                               <TabsContent value="setup" className="space-y-4">
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                  <h4 className="font-medium text-blue-900 mb-2">Setup Instructions</h4>
-                                  <p className="text-blue-800 mb-4">
+                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                  <h4 className="font-medium text-orange-900 mb-2">Setup Instructions</h4>
+                                  <p className="text-orange-800 mb-4">
                                     {webhook.external_config?.instructions || 'No setup instructions available.'}
                                   </p>
                                   <div className="flex items-center space-x-2">
-                                    <BookOpen className="w-4 h-4 text-blue-600" />
-                                    <span className="text-sm text-blue-700">
+                                    <BookOpen className="w-4 h-4 text-orange-600" />
+                                    <span className="text-sm text-orange-700">
                                       Follow the instructions in your {webhook.external_config?.integration_name} developer portal
                                     </span>
                                   </div>

@@ -34,8 +34,8 @@ export default function RedirectLoadingOverlay({ provider, isVisible }: Redirect
         <CardContent className="p-8 text-center">
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">
-              <LightningLoader size="xl" color="blue" />
-              <ExternalLink className="w-4 h-4 absolute -top-1 -right-1 text-blue-600" />
+              <LightningLoader size="xl" color="orange" />
+              <ExternalLink className="w-4 h-4 absolute -top-1 -right-1 text-orange-600" />
             </div>
 
             <div className="space-y-2">
@@ -45,7 +45,7 @@ export default function RedirectLoadingOverlay({ provider, isVisible }: Redirect
 
             <div className="text-xs text-slate-500 bg-slate-50 rounded-lg p-3 w-full">
               <div className="flex items-center justify-center space-x-2">
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-orange-600 rounded-full animate-pulse"></div>
                 <span>Preparing secure connection</span>
               </div>
             </div>

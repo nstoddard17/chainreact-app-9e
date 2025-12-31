@@ -138,15 +138,15 @@ export function SupportContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50 border-b border-indigo-100">
+      <div className="bg-gradient-to-br from-orange-50 via-rose-50 to-orange-50 border-b border-orange-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
-            <Badge variant="secondary" className="mb-4 bg-indigo-100 text-indigo-800 hover:bg-indigo-200">
+            <Badge variant="secondary" className="mb-4 bg-orange-100 text-orange-800 hover:bg-orange-200">
               💬 We're here to help
             </Badge>
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
               How can we
-              <span className="text-indigo-600 block">help you?</span>
+              <span className="text-orange-600 block">help you?</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
               Get the support you need to succeed with ChainReact. Search our knowledge base, contact our team, or
@@ -155,13 +155,13 @@ export function SupportContent() {
 
             {/* Enhanced Search Bar */}
             <div className="max-w-2xl mx-auto">
-              <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 hover:border-indigo-300 transition-colors">
+              <div className="bg-white rounded-xl shadow-lg border-2 border-gray-200 hover:border-orange-300 transition-colors">
                 <ProfessionalSearch
                   placeholder="Search for help articles, FAQs, and more..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onClear={() => setSearchQuery('')}
-                  className="py-6 text-lg text-black bg-transparent border-0 focus:ring-2 focus:ring-indigo-500 focus:border-transparent rounded-xl placeholder:text-gray-500"
+                  className="py-6 text-lg text-black bg-transparent border-0 focus:ring-2 focus:ring-orange-500 focus:border-transparent rounded-xl placeholder:text-gray-500"
                 />
                 {searchQuery && (
                   <button
@@ -185,26 +185,26 @@ export function SupportContent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Quick Help Cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-          <Card className="bg-gradient-to-br from-white to-indigo-50 border border-indigo-100 hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105">
+          <Card className="bg-gradient-to-br from-white to-orange-50 border border-orange-100 hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105">
             <CardHeader className="text-center">
-              <Book className="h-12 w-12 text-indigo-600 mx-auto mb-4" />
-              <CardTitle className="text-indigo-900">Documentation</CardTitle>
+              <Book className="h-12 w-12 text-orange-600 mx-auto mb-4" />
+              <CardTitle className="text-orange-900">Documentation</CardTitle>
               <CardDescription className="text-gray-600">Comprehensive guides and API documentation</CardDescription>
             </CardHeader>
           </Card>
 
-          <Card className="bg-gradient-to-br from-white to-purple-50 border border-purple-100 hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105">
+          <Card className="bg-gradient-to-br from-white to-rose-50 border border-rose-100 hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105">
             <CardHeader className="text-center">
-              <Video className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-              <CardTitle className="text-purple-900">Video Tutorials</CardTitle>
+              <Video className="h-12 w-12 text-rose-600 mx-auto mb-4" />
+              <CardTitle className="text-rose-900">Video Tutorials</CardTitle>
               <CardDescription className="text-gray-600">Step-by-step video guides for common tasks</CardDescription>
             </CardHeader>
           </Card>
 
-          <Card className="bg-gradient-to-br from-white to-blue-50 border border-blue-100 hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105">
+          <Card className="bg-gradient-to-br from-white to-orange-50 border border-orange-100 hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105">
             <CardHeader className="text-center">
-              <Users className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-              <CardTitle className="text-blue-900">Community</CardTitle>
+              <Users className="h-12 w-12 text-orange-600 mx-auto mb-4" />
+              <CardTitle className="text-orange-900">Community</CardTitle>
               <CardDescription className="text-gray-600">Connect with other ChainReact users</CardDescription>
             </CardHeader>
           </Card>
@@ -214,25 +214,25 @@ export function SupportContent() {
           <TabsList className="grid w-full grid-cols-4 bg-white border-2 border-gray-200 rounded-xl shadow-lg">
             <TabsTrigger
               value="faq"
-              className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white rounded-lg"
+              className="data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg"
             >
               FAQ
             </TabsTrigger>
             <TabsTrigger
               value="contact"
-              className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white rounded-lg"
+              className="data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg"
             >
               Contact Support
             </TabsTrigger>
             <TabsTrigger
               value="status"
-              className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white rounded-lg"
+              className="data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg"
             >
               System Status
             </TabsTrigger>
             <TabsTrigger
               value="resources"
-              className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white rounded-lg"
+              className="data-[state=active]:bg-orange-600 data-[state=active]:text-white rounded-lg"
             >
               Resources
             </TabsTrigger>
@@ -249,18 +249,18 @@ export function SupportContent() {
               {filteredFaqs.map((faq) => (
                 <Card
                   key={faq.id}
-                  className="overflow-hidden bg-white border-2 border-gray-200 hover:shadow-xl hover:border-indigo-300 transition-all duration-300"
+                  className="overflow-hidden bg-white border-2 border-gray-200 hover:shadow-xl hover:border-orange-300 transition-all duration-300"
                 >
                   <CardHeader
-                    className="cursor-pointer hover:bg-indigo-50 transition-colors"
+                    className="cursor-pointer hover:bg-orange-50 transition-colors"
                     onClick={() => setExpandedFaq(expandedFaq === faq.id ? null : faq.id)}
                   >
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg text-gray-900">{faq.question}</CardTitle>
                       {expandedFaq === faq.id ? (
-                        <ChevronDown className="h-5 w-5 text-indigo-600" />
+                        <ChevronDown className="h-5 w-5 text-orange-600" />
                       ) : (
-                        <ChevronRight className="h-5 w-5 text-indigo-600" />
+                        <ChevronRight className="h-5 w-5 text-orange-600" />
                       )}
                     </div>
                   </CardHeader>
@@ -281,7 +281,7 @@ export function SupportContent() {
                   We couldn't find any FAQs matching "{searchQuery}". Try a different search term or contact our support
                   team.
                 </p>
-                <Button onClick={() => setSearchQuery("")} className="bg-indigo-600 hover:bg-indigo-700">
+                <Button onClick={() => setSearchQuery("")} className="bg-orange-600 hover:bg-orange-700">
                   Clear Search
                 </Button>
               </div>
@@ -295,12 +295,12 @@ export function SupportContent() {
               <div className="space-y-6">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">Get in Touch</h2>
 
-                <Card className="bg-gradient-to-br from-white to-indigo-50 border-2 border-indigo-100 hover:shadow-xl transition-all duration-300">
+                <Card className="bg-gradient-to-br from-white to-orange-50 border-2 border-orange-100 hover:shadow-xl transition-all duration-300">
                   <CardHeader>
                     <div className="flex items-center space-x-3">
-                      <MessageCircle className="h-6 w-6 text-indigo-600" />
+                      <MessageCircle className="h-6 w-6 text-orange-600" />
                       <div>
-                        <CardTitle className="text-indigo-900">Live Chat</CardTitle>
+                        <CardTitle className="text-orange-900">Live Chat</CardTitle>
                         <CardDescription className="text-gray-600">
                           Available 24/7 for immediate assistance
                         </CardDescription>
@@ -308,7 +308,7 @@ export function SupportContent() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700">Start Live Chat</Button>
+                    <Button className="w-full bg-orange-600 hover:bg-orange-700">Start Live Chat</Button>
                   </CardContent>
                 </Card>
 
@@ -327,12 +327,12 @@ export function SupportContent() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-white to-purple-50 border-2 border-purple-100 hover:shadow-xl transition-all duration-300">
+                <Card className="bg-gradient-to-br from-white to-rose-50 border-2 border-rose-100 hover:shadow-xl transition-all duration-300">
                   <CardHeader>
                     <div className="flex items-center space-x-3">
-                      <Phone className="h-6 w-6 text-purple-600" />
+                      <Phone className="h-6 w-6 text-rose-600" />
                       <div>
-                        <CardTitle className="text-purple-900">Phone Support</CardTitle>
+                        <CardTitle className="text-rose-900">Phone Support</CardTitle>
                         <CardDescription className="text-gray-600">Enterprise customers only</CardDescription>
                       </div>
                     </div>
@@ -376,7 +376,7 @@ export function SupportContent() {
                             type="text"
                             value={ticketForm.name}
                             onChange={(e) => setTicketForm({ ...ticketForm, name: e.target.value })}
-                            className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                            className="border-2 border-gray-200 focus:border-orange-500 focus:ring-orange-500 text-black"
                             required
                           />
                         </div>
@@ -386,7 +386,7 @@ export function SupportContent() {
                             type="email"
                             value={ticketForm.email}
                             onChange={(e) => setTicketForm({ ...ticketForm, email: e.target.value })}
-                            className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                            className="border-2 border-gray-200 focus:border-orange-500 focus:ring-orange-500 text-black"
                             required
                           />
                         </div>
@@ -398,7 +398,7 @@ export function SupportContent() {
                           type="text"
                           value={ticketForm.subject}
                           onChange={(e) => setTicketForm({ ...ticketForm, subject: e.target.value })}
-                          className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                          className="border-2 border-gray-200 focus:border-orange-500 focus:ring-orange-500 text-black"
                           required
                         />
                       </div>
@@ -407,7 +407,7 @@ export function SupportContent() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
                           <select
-                            className="w-full p-2 border-2 border-gray-200 rounded-md focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                            className="w-full p-2 border-2 border-gray-200 rounded-md focus:border-orange-500 focus:ring-orange-500 text-black"
                             value={ticketForm.priority}
                             onChange={(e) => setTicketForm({ ...ticketForm, priority: e.target.value })}
                           >
@@ -420,7 +420,7 @@ export function SupportContent() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                           <select
-                            className="w-full p-2 border-2 border-gray-200 rounded-md focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                            className="w-full p-2 border-2 border-gray-200 rounded-md focus:border-orange-500 focus:ring-orange-500 text-black"
                             value={ticketForm.category}
                             onChange={(e) => setTicketForm({ ...ticketForm, category: e.target.value })}
                           >
@@ -440,12 +440,12 @@ export function SupportContent() {
                           value={ticketForm.description}
                           onChange={(e) => setTicketForm({ ...ticketForm, description: e.target.value })}
                           placeholder="Please describe your issue in detail..."
-                          className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-indigo-500 text-black"
+                          className="border-2 border-gray-200 focus:border-orange-500 focus:ring-orange-500 text-black"
                           required
                         />
                       </div>
 
-                      <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700">
+                      <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-700">
                         Submit Ticket
                       </Button>
                     </form>
@@ -505,7 +505,7 @@ export function SupportContent() {
                   icon: Book,
                   title: "Getting Started Guide",
                   description: "Learn the basics of ChainReact",
-                  color: "bg-gradient-to-br from-white to-indigo-50 border-indigo-100 text-indigo-600",
+                  color: "bg-gradient-to-br from-white to-orange-50 border-orange-100 text-orange-600",
                 },
                 {
                   icon: Zap,
@@ -529,7 +529,7 @@ export function SupportContent() {
                   icon: Users,
                   title: "Team Management",
                   description: "How to collaborate with your team",
-                  color: "bg-gradient-to-br from-white to-purple-50 border-purple-100 text-purple-600",
+                  color: "bg-gradient-to-br from-white to-rose-50 border-rose-100 text-rose-600",
                 },
                 {
                   icon: HelpCircle,

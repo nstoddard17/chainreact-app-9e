@@ -104,19 +104,19 @@ export default function UpgradePrompt({
             <div 
               className={`p-4 border rounded-lg cursor-pointer transition-all ${
                 selectedPlan === "pro" 
-                  ? "border-blue-500 bg-blue-50" 
+                  ? "border-orange-500 bg-orange-50" 
                   : "border-slate-200 hover:border-slate-300"
               }`}
               onClick={() => setSelectedPlan("pro")}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Crown className="w-5 h-5 text-blue-600" />
+                  <Crown className="w-5 h-5 text-orange-600" />
                   <h4 className="font-semibold text-slate-900">Pro</h4>
                   <Badge variant="secondary">$20/month</Badge>
                 </div>
                 {selectedPlan === "pro" && (
-                  <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                  <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
                     <div className="w-2 h-2 bg-white rounded-full"></div>
                   </div>
                 )}
@@ -124,7 +124,7 @@ export default function UpgradePrompt({
               <ul className="space-y-1 text-sm text-slate-600">
                 {planFeatures.pro.map((feature, index) => (
                   <li key={index} className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                    <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
                     {feature}
                   </li>
                 ))}
@@ -135,19 +135,19 @@ export default function UpgradePrompt({
             <div 
               className={`p-4 border rounded-lg cursor-pointer transition-all ${
                 selectedPlan === "business" 
-                  ? "border-purple-500 bg-purple-50" 
+                  ? "border-rose-500 bg-rose-50" 
                   : "border-slate-200 hover:border-slate-300"
               }`}
               onClick={() => setSelectedPlan("business")}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-purple-600" />
+                  <Users className="w-5 h-5 text-rose-600" />
                   <h4 className="font-semibold text-slate-900">Business</h4>
                   <Badge variant="secondary">$100/month</Badge>
                 </div>
                 {selectedPlan === "business" && (
-                  <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                  <div className="w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center">
                     <div className="w-2 h-2 bg-white rounded-full"></div>
                   </div>
                 )}
@@ -155,7 +155,7 @@ export default function UpgradePrompt({
               <ul className="space-y-1 text-sm text-slate-600">
                 {planFeatures.business.map((feature, index) => (
                   <li key={index} className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                    <div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
                     {feature}
                   </li>
                 ))}

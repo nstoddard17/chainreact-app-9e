@@ -77,8 +77,8 @@ const priorityColors = {
 }
 
 const statusColors = {
-  open: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-  in_progress: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+  open: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
+  in_progress: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300",
   waiting_for_user: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
   resolved: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
   closed: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
@@ -237,7 +237,7 @@ export default function TicketDetailPage() {
     return (
       <NewAppLayout title="Loading Ticket..." subtitle="">
         <div className="flex items-center justify-center py-8">
-          <LightningLoader size="lg" color="blue" />
+          <LightningLoader size="lg" color="orange" />
         </div>
       </NewAppLayout>
     )
@@ -335,8 +335,8 @@ export default function TicketDetailPage() {
                   {responses.map((response) => (
                     <Card key={response.id} className={cn(
                       "border-l-4",
-                      response.is_staff_response 
-                        ? "border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20" 
+                      response.is_staff_response
+                        ? "border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/20" 
                         : "border-l-green-500 bg-green-50/50 dark:bg-green-950/20"
                     )}>
                       <CardContent className="p-4">
@@ -395,7 +395,7 @@ export default function TicketDetailPage() {
                     <Button 
                       onClick={sendResponse}
                       disabled={sendingResponse || !newResponse.trim()}
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                      className="bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700"
                     >
                       <Send className="w-4 h-4 mr-2" />
                       {sendingResponse ? 'Sending...' : 'Send Response'}

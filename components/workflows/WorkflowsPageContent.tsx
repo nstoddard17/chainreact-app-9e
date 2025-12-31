@@ -1591,7 +1591,7 @@ function WorkflowsContent() {
                     size="sm"
                     className={cn(
                       "h-9 px-3 justify-between border-2 bg-white text-slate-700",
-                      ownershipMenuOpen ? "border-indigo-500" : "border-indigo-400"
+                      ownershipMenuOpen ? "border-orange-500" : "border-orange-400"
                     )}
                   >
                     <span className="mr-2">{getCurrentFilterLabel()}</span>
@@ -1643,7 +1643,7 @@ function WorkflowsContent() {
                   setCurrentFolderId(null)
                   setSelectedFolderFilter(null)
                 }}
-                className="flex items-center gap-1.5 text-blue-600 hover:underline transition-all font-medium group"
+                className="flex items-center gap-1.5 text-orange-600 hover:underline transition-all font-medium group"
               >
                 <Home className="w-4 h-4" />
                 {profile?.full_name || profile?.username || 'DaBoss'}'s {activeTab === 'workflows' ? 'Workflows' : 'Folders'}
@@ -1660,7 +1660,7 @@ function WorkflowsContent() {
                       "group/breadcrumb flex items-center gap-1.5 transition-all",
                       index === folderPath.length - 1
                         ? "text-slate-900 font-semibold cursor-default" // Current folder
-                        : "text-blue-600 hover:underline font-medium" // Parent folders
+                        : "text-orange-600 hover:underline font-medium" // Parent folders
                     )}
                   >
                     <Folder className={cn(
@@ -1677,8 +1677,8 @@ function WorkflowsContent() {
 
           {/* Batch Actions Bar */}
           {selectedIds.length > 0 && activeTab === 'workflows' && (
-            <div className="border-b border-slate-200 bg-indigo-50 px-6 py-2 flex items-center justify-between">
-              <div className="text-sm font-medium text-indigo-900">
+            <div className="border-b border-slate-200 bg-orange-50 px-6 py-2 flex items-center justify-between">
+              <div className="text-sm font-medium text-orange-900">
                 {selectedIds.length} selected
               </div>
               <div className="flex items-center gap-2">
@@ -1715,7 +1715,7 @@ function WorkflowsContent() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-indigo-700 hover:bg-indigo-100 h-8"
+                      className="text-orange-700 hover:bg-orange-100 h-8"
                       onClick={() => handleBulkDuplicate(selectedIds)}
                       disabled={bulkDuplicateLoading}
                     >
@@ -1729,7 +1729,7 @@ function WorkflowsContent() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-indigo-700 hover:bg-indigo-100 h-8"
+                      className="text-orange-700 hover:bg-orange-100 h-8"
                       onClick={() => handleBulkMove(selectedIds)}
                     >
                       <FolderInput className="w-4 h-4 mr-1.5" />
@@ -1738,7 +1738,7 @@ function WorkflowsContent() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-indigo-700 hover:bg-indigo-100 h-8"
+                      className="text-orange-700 hover:bg-orange-100 h-8"
                       onClick={() => handleBulkShare(selectedIds)}
                     >
                       <Share2 className="w-4 h-4 mr-1.5" />
@@ -1864,7 +1864,7 @@ function WorkflowsContent() {
                         key={workflow.id}
                         className={cn(
                           'group hover:bg-slate-50 transition-colors',
-                          selectedIds.includes(workflow.id) && 'bg-indigo-50 hover:bg-indigo-100 [&>td]:!text-slate-900 [&>td>*]:!text-slate-900 [&>td>div]:!text-slate-700 [&>td>span]:!text-slate-900'
+                          selectedIds.includes(workflow.id) && 'bg-orange-50 hover:bg-orange-100 [&>td]:!text-slate-900 [&>td>*]:!text-slate-900 [&>td>div]:!text-slate-700 [&>td>span]:!text-slate-900'
                         )}
                       >
                         <td className="px-6 py-4">
@@ -1891,9 +1891,9 @@ function WorkflowsContent() {
                                         variant="outline"
                                         className={`text-xs px-1.5 py-0.5 flex items-center gap-0.5 ${
                                           workflow.user_permission === 'admin'
-                                            ? 'bg-purple-100 text-purple-800'
+                                            ? 'bg-rose-100 text-rose-800'
                                             : workflow.user_permission === 'manage'
-                                            ? 'bg-blue-100 text-blue-800'
+                                            ? 'bg-orange-100 text-orange-800'
                                             : 'bg-gray-100 text-gray-800'
                                         }`}
                                       >
@@ -2156,8 +2156,8 @@ function WorkflowsContent() {
                         <div
                           key={workflow.id}
                           className={cn(
-                            "group relative bg-white rounded-xl border-2 p-5 hover:shadow-lg hover:border-blue-300 transition-all cursor-pointer",
-                            selectedIds.includes(workflow.id) ? "border-indigo-400 bg-indigo-50" : "border-slate-200"
+                            "group relative bg-white rounded-xl border-2 p-5 hover:shadow-lg hover:border-orange-300 transition-all cursor-pointer",
+                            selectedIds.includes(workflow.id) ? "border-orange-400 bg-orange-50" : "border-slate-200"
                           )}
                           onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
                         >
@@ -2288,9 +2288,9 @@ function WorkflowsContent() {
                                       variant="outline"
                                       className={`text-xs px-1.5 py-0.5 flex items-center gap-0.5 ${
                                         workflow.user_permission === 'admin'
-                                          ? 'bg-purple-100 text-purple-800'
+                                          ? 'bg-rose-100 text-rose-800'
                                           : workflow.user_permission === 'manage'
-                                          ? 'bg-blue-100 text-blue-800'
+                                          ? 'bg-orange-100 text-orange-800'
                                           : 'bg-gray-100 text-gray-800'
                                       }`}
                                     >
@@ -2391,7 +2391,7 @@ function WorkflowsContent() {
                                             "w-10 h-10 rounded-md flex items-center justify-center p-1.5 flex-shrink-0",
                                             node.data?.isTrigger
                                               ? "bg-green-100 border border-green-300"
-                                              : "bg-blue-100 border border-blue-300"
+                                              : "bg-orange-100 border border-orange-300"
                                           )}
                                           title={node.data?.title || node.data?.type || 'Node'}
                                         >
@@ -2526,7 +2526,7 @@ function WorkflowsContent() {
                     return (
                       <div
                         key={folder.id}
-                        className="group relative bg-white rounded-xl border-2 border-slate-200 p-5 hover:shadow-lg hover:border-blue-300 transition-all cursor-pointer"
+                        className="group relative bg-white rounded-xl border-2 border-slate-200 p-5 hover:shadow-lg hover:border-orange-300 transition-all cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation()
                           // Single click: navigate into folder
@@ -3057,7 +3057,7 @@ function WorkflowsContent() {
                     className={cn(
                       "flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
                       selectedTeamIds.includes(team.id)
-                        ? "border-indigo-500 bg-indigo-50"
+                        ? "border-orange-500 bg-orange-50"
                         : "border-slate-200 hover:bg-slate-50"
                     )}
                   >

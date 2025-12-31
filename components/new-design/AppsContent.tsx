@@ -636,7 +636,7 @@ export function AppsContent() {
                               <TooltipTrigger asChild>
                                 <Badge
                                   variant="outline"
-                                  className="text-xs px-1.5 py-0.5 flex items-center gap-0.5 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300"
+                                  className="text-xs px-1.5 py-0.5 flex items-center gap-0.5 bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300"
                                 >
                                   <CheckCircle2 className="w-3 h-3" />
                                   <span className="hidden sm:inline">via {providers.find(p => p.id === sharedWith)?.name || sharedWith}</span>
@@ -657,9 +657,9 @@ export function AppsContent() {
                                   variant="outline"
                                   className={`text-xs px-1.5 py-0.5 flex items-center gap-0.5 ${
                                     integration.user_permission === 'admin'
-                                      ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300'
+                                      ? 'bg-rose-100 dark:bg-rose-900/20 text-rose-800 dark:text-rose-300'
                                       : integration.user_permission === 'manage'
-                                      ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300'
+                                      ? 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300'
                                       : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300'
                                   }`}
                                 >
@@ -740,7 +740,7 @@ export function AppsContent() {
                   {integration && (
                     <div className="text-xs text-muted-foreground space-y-1">
                       {isSharedAuth && (
-                        <p className="text-blue-600 dark:text-blue-400">Shares connection with {providers.find(p => p.id === sharedWith)?.name || sharedWith}</p>
+                        <p className="text-orange-600 dark:text-orange-400">Shares connection with {providers.find(p => p.id === sharedWith)?.name || sharedWith}</p>
                       )}
                       {integration.account_name && <p className="truncate">Account: {integration.account_name}</p>}
                       {integration.email && <p className="truncate">{integration.email}</p>}

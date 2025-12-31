@@ -704,12 +704,12 @@ export function HomeContent() {
                 <p className="text-3xl font-bold">{stats.total}</p>
                 <p className="text-xs text-muted-foreground">All Workflows</p>
               </div>
-              <div className="rounded-full bg-blue-500/10 p-3">
-                <Layers className="h-6 w-6 text-blue-500" />
+              <div className="rounded-full bg-orange-500/10 p-3">
+                <Layers className="h-6 w-6 text-orange-500" />
               </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-blue-500/20">
-              <div className="h-full bg-blue-500" style={{ width: '100%' }} />
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-500/20">
+              <div className="h-full bg-orange-500" style={{ width: '100%' }} />
             </div>
           </div>
 
@@ -721,12 +721,12 @@ export function HomeContent() {
                 <p className="text-3xl font-bold">{todayExecutions}</p>
                 <p className="text-xs text-muted-foreground">Executions</p>
               </div>
-              <div className="rounded-full bg-purple-500/10 p-3">
-                <TrendingUp className="h-6 w-6 text-purple-500" />
+              <div className="rounded-full bg-rose-500/10 p-3">
+                <TrendingUp className="h-6 w-6 text-rose-500" />
               </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-purple-500/20">
-              <div className="h-full bg-purple-500" style={{ width: `${Math.min((todayExecutions / 100) * 100, 100)}%` }} />
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-rose-500/20">
+              <div className="h-full bg-rose-500" style={{ width: `${Math.min((todayExecutions / 100) * 100, 100)}%` }} />
             </div>
           </div>
 
@@ -837,8 +837,8 @@ export function HomeContent() {
           </div>
 
           {connectedCount === 0 && (
-            <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg max-w-md">
-              <p className="text-sm text-center text-blue-900 dark:text-blue-100">
+            <div className="mt-8 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-lg max-w-md">
+              <p className="text-sm text-center text-orange-900 dark:text-orange-100">
                 <strong>Tip:</strong> Connect your apps first to see available actions
               </p>
               <Button

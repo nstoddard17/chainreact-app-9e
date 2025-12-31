@@ -32,7 +32,7 @@ export default function NewHomePage() {
           {/* Hero Content */}
           <div className="text-center mb-16 relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 mb-6 text-sm">
-              <Sparkles className="w-4 h-4 text-blue-400" />
+              <Sparkles className="w-4 h-4 text-orange-400" />
               <span className="text-gray-300">New: AI-Powered Workflow Automation</span>
               <ArrowRight className="w-4 h-4 text-gray-400" />
             </div>
@@ -40,7 +40,7 @@ export default function NewHomePage() {
             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight tracking-tight">
               Purpose-built tool for
               <br />
-              <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-orange-400 via-rose-400 to-pink-400 bg-clip-text text-transparent">
                 automating workflows
               </span>
             </h1>
@@ -72,7 +72,7 @@ export default function NewHomePage() {
       <section className="relative py-12 px-4 md:px-8 lg:px-12">
         <div className="relative mx-auto" style={{ maxWidth: '1800px' }}>
           {/* Enhanced Gradient glow effect */}
-          <div className="absolute -inset-32 bg-gradient-to-b from-blue-500/30 via-purple-500/20 to-pink-500/10 blur-[100px] -z-10" />
+          <div className="absolute -inset-32 bg-gradient-to-b from-orange-500/30 via-rose-500/20 to-pink-500/10 blur-[100px] -z-10" />
           <div className="absolute -inset-24 bg-gradient-to-tr from-cyan-500/20 to-transparent blur-3xl -z-10" />
 
           {/* Main screenshot container with reduced tilt for better readability */}
@@ -115,32 +115,32 @@ export default function NewHomePage() {
                     className="w-full h-auto"
                   />
                   {/* Subtle inner glow */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-blue-500/5 to-transparent pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-orange-500/5 to-transparent pointer-events-none" />
                 </div>
               </div>
 
               {/* Enhanced reflection effect */}
               <div
-                className="absolute inset-0 bg-gradient-to-br from-blue-400/10 via-transparent to-purple-400/10 pointer-events-none rounded-2xl"
+                className="absolute inset-0 bg-gradient-to-br from-orange-400/10 via-transparent to-rose-400/10 pointer-events-none rounded-2xl"
                 style={{ transform: 'translateZ(10px)' }}
               />
             </div>
 
             {/* Ambient light spots */}
-            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] -z-20" />
-            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] -z-20" />
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-[120px] -z-20" />
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-500/10 rounded-full blur-[120px] -z-20" />
           </div>
 
           {/* Stats bar below screenshot */}
           <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
             <div className="text-center space-y-1">
-              <div className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+              <div className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent">
                 20+
               </div>
               <div className="text-sm text-gray-500">Integrations</div>
             </div>
             <div className="text-center space-y-1">
-              <div className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <div className="text-3xl font-bold bg-gradient-to-r from-rose-400 to-pink-400 bg-clip-text text-transparent">
                 AI
               </div>
               <div className="text-sm text-gray-500">Powered</div>
@@ -175,8 +175,8 @@ export default function NewHomePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
             <div className="group space-y-4 p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10 transition-all duration-300">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Sparkles className="w-6 h-6 text-blue-400" />
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 border border-orange-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Sparkles className="w-6 h-6 text-orange-400" />
               </div>
               <h3 className="text-xl font-semibold">AI-Powered Automation</h3>
               <p className="text-gray-400 leading-relaxed">
@@ -185,8 +185,8 @@ export default function NewHomePage() {
             </div>
 
             <div className="group space-y-4 p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/10 transition-all duration-300">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <svg className="w-6 h-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500/20 to-pink-500/20 border border-rose-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <svg className="w-6 h-6 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
@@ -224,7 +224,7 @@ export default function NewHomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="p-8 rounded-2xl border border-white/5 bg-gradient-to-br from-blue-500/5 to-transparent hover:border-white/10 transition-all">
+            <div className="p-8 rounded-2xl border border-white/5 bg-gradient-to-br from-orange-500/5 to-transparent hover:border-white/10 transition-all">
               <h3 className="text-xl font-semibold mb-3">Customer Support</h3>
               <p className="text-gray-400 mb-4">
                 Route inquiries, analyze sentiment, create tickets, and respond automatically with AI-powered workflows.
@@ -237,7 +237,7 @@ export default function NewHomePage() {
               </div>
             </div>
 
-            <div className="p-8 rounded-2xl border border-white/5 bg-gradient-to-br from-purple-500/5 to-transparent hover:border-white/10 transition-all">
+            <div className="p-8 rounded-2xl border border-white/5 bg-gradient-to-br from-rose-500/5 to-transparent hover:border-white/10 transition-all">
               <h3 className="text-xl font-semibold mb-3">Lead Management</h3>
               <p className="text-gray-400 mb-4">
                 Capture leads, enrich data, send follow-ups, and sync with your CRM—all automatically.
@@ -282,10 +282,10 @@ export default function NewHomePage() {
       {/* CTA Section */}
       <section className="relative py-32 px-6">
         <div className="container mx-auto max-w-4xl">
-          <div className="relative rounded-3xl border border-white/10 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-pink-500/10 p-12 md:p-16 text-center overflow-hidden">
+          <div className="relative rounded-3xl border border-white/10 bg-gradient-to-br from-orange-500/10 via-rose-500/5 to-pink-500/10 p-12 md:p-16 text-center overflow-hidden">
             {/* Background decoration */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/20 rounded-full blur-[120px] -z-10" />
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/20 rounded-full blur-[120px] -z-10" />
+            <div className="absolute top-0 right-0 w-96 h-96 bg-orange-500/20 rounded-full blur-[120px] -z-10" />
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-rose-500/20 rounded-full blur-[120px] -z-10" />
 
             <h2 className="text-4xl md:text-5xl font-bold mb-6 relative z-10">
               Ready to automate your workflows?

@@ -33,7 +33,7 @@ export function HeroSection() {
 
   return (
     <section id="overview" className="relative z-10 px-4 sm:px-6 lg:px-8 pt-20 pb-24 lg:pt-28 lg:pb-32">
-      <div className="absolute inset-x-0 -top-32 h-80 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-transparent blur-3xl pointer-events-none" aria-hidden />
+      <div className="absolute inset-x-0 -top-32 h-80 bg-gradient-to-br from-orange-500/10 via-rose-500/10 to-transparent blur-3xl pointer-events-none" aria-hidden />
       <div className="max-w-7xl mx-auto">
         <div className="relative text-center">
           {/* Badge */}
@@ -41,10 +41,10 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 dark:from-blue-500/10 to-purple-100 dark:to-purple-500/10 border border-blue-200 dark:border-blue-500/20 mb-8"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-orange-100 dark:from-orange-500/10 to-rose-100 dark:to-rose-500/10 border border-orange-200 dark:border-orange-500/20 mb-8"
           >
-            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+            <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+            <span className="text-sm font-semibold text-orange-700 dark:text-orange-300">
               AI-Powered Workflow Automation
             </span>
           </motion.div>
@@ -58,7 +58,7 @@ export function HeroSection() {
           >
             Automate Your Work
             <br />
-            <span className="bg-gradient-to-r from-blue-600 dark:from-blue-400 via-purple-600 dark:via-purple-400 to-pink-600 dark:to-pink-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-orange-500 dark:from-orange-400 via-rose-500 dark:via-rose-400 to-pink-500 dark:to-pink-400 bg-clip-text text-transparent">
               Like Magic
             </span>
           </motion.h1>
@@ -84,7 +84,7 @@ export function HeroSection() {
             <Button
               size="lg"
               onClick={() => router.push('/waitlist')}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-semibold rounded-xl shadow-2xl shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 transform hover:scale-105 group"
+              className="bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white px-8 py-6 text-lg font-semibold rounded-xl shadow-2xl shadow-orange-500/25 hover:shadow-orange-500/40 transition-all duration-300 transform hover:scale-105 group"
             >
               <Zap className="w-5 h-5 mr-2" />
               Join the Waitlist
@@ -113,7 +113,7 @@ export function HeroSection() {
             className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 text-gray-600 dark:text-gray-300"
           >
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-500 dark:text-purple-400" />
+              <Sparkles className="w-5 h-5 text-orange-500 dark:text-orange-400" />
               <span className="text-sm">
                 <strong className="text-gray-900 dark:text-white">Join</strong> early access
               </span>
@@ -125,7 +125,7 @@ export function HeroSection() {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />
+              <Zap className="w-4 h-4 text-amber-500 dark:text-amber-400" />
               <span className="text-sm">
                 <strong className="text-gray-900 dark:text-white">10x</strong> faster workflows
               </span>
@@ -139,7 +139,7 @@ export function HeroSection() {
             transition={{ duration: 0.6, delay: 0.35 }}
             className="relative mt-16"
           >
-            <div className="absolute inset-x-0 -top-6 -bottom-6 rounded-[48px] bg-gradient-to-r from-blue-500/20 via-purple-500/15 to-pink-500/10 blur-3xl opacity-70 dark:opacity-60 pointer-events-none" aria-hidden />
+            <div className="absolute inset-x-0 -top-6 -bottom-6 rounded-[48px] bg-gradient-to-r from-orange-500/15 via-rose-500/10 to-pink-500/10 blur-3xl opacity-70 dark:opacity-60 pointer-events-none" aria-hidden />
             <div className="relative grid gap-6 md:grid-cols-3">
               {heroSteps.map((step, index) => (
                 <motion.div
@@ -147,17 +147,17 @@ export function HeroSection() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.35 + index * 0.08 }}
-                  className="group relative overflow-hidden rounded-3xl border border-white/60 dark:border-white/10 bg-white/80 dark:bg-slate-950/60 backdrop-blur-xl p-6 text-left shadow-xl shadow-purple-500/5"
+                  className="group relative overflow-hidden rounded-3xl border border-orange-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 backdrop-blur-xl p-6 text-left shadow-xl shadow-orange-500/5"
                 >
-                  <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 transition-opacity" aria-hidden />
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-10 bg-gradient-to-br from-orange-500 via-rose-500 to-pink-500 transition-opacity" aria-hidden />
                   <div className="flex items-start gap-4 relative">
                     <div className="flex flex-col items-center">
-                      <span className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-600/80 dark:text-blue-300/70">Step</span>
-                      <span className="text-2xl font-bold text-blue-600 dark:text-blue-300">{step.number}</span>
+                      <span className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-600/80 dark:text-orange-300/70">Step</span>
+                      <span className="text-2xl font-bold text-orange-600 dark:text-orange-300">{step.number}</span>
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-300">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500/10 dark:bg-orange-500/20 text-orange-600 dark:text-orange-300">
                           <step.icon className="w-5 h-5" />
                         </div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

@@ -518,7 +518,7 @@ export default function UserRoleManagement() {
                       </div>
                       
                       <Avatar>
-                        <AvatarFallback className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                        <AvatarFallback className="bg-gradient-to-r from-orange-500 to-rose-600 text-white">
                           {user.full_name?.charAt(0) || user.email?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>

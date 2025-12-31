@@ -150,11 +150,11 @@ export default function BillingOverview() {
   const getPlanColor = (plan: string) => {
     switch (plan.toLowerCase()) {
       case 'pro':
-        return 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20'
+        return 'bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/20'
       case 'enterprise':
-        return 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20'
+        return 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20'
       case 'beta':
-        return 'bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20'
+        return 'bg-gradient-to-r from-rose-500/10 to-orange-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20'
       default:
         return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20'
     }
@@ -196,10 +196,10 @@ export default function BillingOverview() {
   if (isBetaTester) {
     return (
       <div className="space-y-6">
-        <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30">
+        <Card className="bg-gradient-to-r from-rose-500/10 to-orange-500/10 border-rose-500/30">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
-              <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-3 rounded-full">
+              <div className="bg-gradient-to-r from-rose-500 to-orange-500 p-3 rounded-full">
                 <Sparkles className="h-6 w-6 text-white" />
               </div>
               <div className="flex-1">
@@ -216,7 +216,7 @@ export default function BillingOverview() {
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 p-3 bg-blue-500/10 rounded-lg">
+                <div className="mt-4 p-3 bg-orange-500/10 rounded-lg">
                   <p className="text-sm">
                     <strong>Note:</strong> As a beta tester, you have free access to Pro features.
                     When your beta period ends, you'll receive a special discount to continue with a paid plan.

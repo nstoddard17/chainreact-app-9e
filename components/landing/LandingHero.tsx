@@ -10,18 +10,18 @@ const LandingHero = memo(({ isAuthenticated }: { isAuthenticated: boolean }) => 
   return (
     <section className="relative z-10 px-4 sm:px-6 lg:px-8 pt-32 pb-16 md:pt-40 md:pb-24">
       <div className="max-w-7xl mx-auto text-center">
-        <Badge variant="secondary" className="bg-blue-600/20 text-blue-300 border border-blue-500/30 mb-6">
+        <Badge variant="secondary" className="bg-orange-600/20 text-orange-300 border border-orange-500/30 mb-6">
           🚀 Now in Public Beta
         </Badge>
         
         <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-8 leading-tight">
           Automate your workflow
-          <span className="block bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent pb-2">
+          <span className="block bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent pb-2">
             effortlessly
           </span>
         </h1>
         
-        <p className="text-xl md:text-2xl text-blue-200 mb-10 max-w-4xl mx-auto leading-relaxed">
+        <p className="text-xl md:text-2xl text-orange-200 mb-10 max-w-4xl mx-auto leading-relaxed">
           Connect your favorite apps and automate repetitive tasks with our powerful visual workflow builder. 
           No coding required.
         </p>
@@ -31,7 +31,7 @@ const LandingHero = memo(({ isAuthenticated }: { isAuthenticated: boolean }) => 
             <Link href="/auth/register">
               <Button 
                 size="lg" 
-                className="text-lg px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                className="text-lg px-8 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
               >
                 Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -39,7 +39,7 @@ const LandingHero = memo(({ isAuthenticated }: { isAuthenticated: boolean }) => 
             <Button
               size="lg"
               variant="outline"
-              className="text-lg px-8 py-4 border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-full transition-all duration-300"
+              className="text-lg px-8 py-4 border-orange-400 text-orange-400 hover:bg-orange-400/10 rounded-full transition-all duration-300"
             >
               <Play className="mr-2 h-5 w-5" />
               Watch Demo
@@ -50,7 +50,7 @@ const LandingHero = memo(({ isAuthenticated }: { isAuthenticated: boolean }) => 
             <Link href="/dashboard">
               <Button 
                 size="lg" 
-                className="text-lg px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                className="text-lg px-8 py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
               >
                 Go to Dashboard <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -59,7 +59,7 @@ const LandingHero = memo(({ isAuthenticated }: { isAuthenticated: boolean }) => 
               <Button
                 size="lg"
                 variant="outline"
-                className="text-lg px-8 py-4 border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-full transition-all duration-300"
+                className="text-lg px-8 py-4 border-orange-400 text-orange-400 hover:bg-orange-400/10 rounded-full transition-all duration-300"
               >
                 Create Workflow
               </Button>

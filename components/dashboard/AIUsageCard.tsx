@@ -94,7 +94,7 @@ export default function AIUsageCard() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-            <Zap className="w-5 h-5 text-blue-600" />
+            <Zap className="w-5 h-5 text-orange-600" />
             AI Usage This Month
           </CardTitle>
           {totalPercentage >= 90 && (
@@ -129,7 +129,7 @@ export default function AIUsageCard() {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-blue-500" />
+                <MessageSquare className="w-4 h-4 text-orange-500" />
                 <span className="text-sm font-medium text-slate-700">AI Assistant</span>
               </div>
               <span className={`text-sm font-semibold ${getUsageColor(assistantPercentage)}`}>
@@ -169,7 +169,7 @@ export default function AIUsageCard() {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-purple-500" />
+                <Zap className="w-4 h-4 text-rose-500" />
                 <span className="text-sm font-medium text-slate-700">AI Agent</span>
               </div>
               <span className={`text-sm font-semibold ${getUsageColor(agentPercentage)}`}>
@@ -188,18 +188,18 @@ export default function AIUsageCard() {
 
         {/* Upgrade Prompt */}
         {totalPercentage >= 75 && (
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
             <div className="flex items-start gap-3">
-              <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5" />
+              <TrendingUp className="w-5 h-5 text-orange-600 mt-0.5" />
               <div className="flex-1">
-                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                <h4 className="text-sm font-semibold text-orange-900 mb-1">
                   Need More AI Power?
                 </h4>
-                <p className="text-sm text-blue-700 mb-3">
+                <p className="text-sm text-orange-700 mb-3">
                   You're using {Math.round(totalPercentage)}% of your AI usage limit. Upgrade your plan for more AI messages.
                 </p>
                 <Link href="/settings/billing">
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                  <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
                     Upgrade Plan
                   </Button>
                 </Link>

@@ -54,7 +54,7 @@ export function AppHeader() {
             <Button variant="ghost" className="gap-2 pl-2 pr-3">
               <Avatar className="w-8 h-8">
                 <AvatarImage src="" />
-                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-600 text-white text-sm">
+                <AvatarFallback className="bg-gradient-to-br from-orange-600 to-rose-600 text-white text-sm">
                   U
                 </AvatarFallback>
               </Avatar>

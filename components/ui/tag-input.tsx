@@ -119,7 +119,7 @@ export function TagInput({
             "transition-all duration-300"
           )}>
             {isFocused && (
-              <span className="absolute inset-0 rounded border-2 border-blue-400 animate-pulse-border" />
+              <span className="absolute inset-0 rounded border-2 border-orange-400 animate-pulse-border" />
             )}
             <span className="relative">↵ Enter</span>
           </kbd>
