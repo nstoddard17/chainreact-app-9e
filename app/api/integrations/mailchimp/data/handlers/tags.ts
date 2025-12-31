@@ -17,11 +17,13 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
   integration: MailchimpIntegration,
   options: any = {}
 ): Promise<MailchimpTag[]> => {
-  const { audienceId } = options
+  // Support both audienceId and audience_id (field name varies by context)
+  const audienceId = options.audienceId || options.audience_id
 
   logger.debug("🔍 [Mailchimp] Fetching tags:", {
     integrationId: integration.id,
-    audienceId
+    audienceId,
+    options
   })
 
   try {
@@ -52,7 +54,16 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
     const result = await response.json()
 
     // Tags come back in a different format - they're in a tags array
-    const tags = result.tags || []
+    const rawTags = result.tags || []
+
+    // Format tags for dropdown: use name as both value and label
+    // The Mailchimp API expects tag NAMES (not IDs) when adding/removing tags
+    const tags = rawTags.map((tag: any) => ({
+      value: tag.name,  // Use name as value - this is what the API expects
+      label: tag.name,
+      id: tag.id,       // Keep ID for reference
+      member_count: tag.member_count
+    }))
 
     logger.debug(`✅ [Mailchimp] Tags fetched successfully: ${tags.length} tags`)
     return tags

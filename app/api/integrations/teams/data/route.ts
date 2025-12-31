@@ -413,12 +413,99 @@ export async function POST(request: NextRequest) {
           });
         break;
 
+      case 'outlook-enhanced-recipients':
+        // Support for email autocomplete in Teams meetings
+        // Fetches organization users and contacts for attendee selection
+        const { search: recipientSearch } = mergedParams;
+        const recipients: any[] = [];
+
+        // Fetch organization users - don't use $filter as it requires specific permissions
+        // Instead fetch all and filter client-side
+        try {
+          const orgUsersResponse = await fetch(
+            'https://graph.microsoft.com/v1.0/users?$top=100&$select=id,displayName,mail,userPrincipalName',
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (orgUsersResponse.ok) {
+            const orgUsersData = await orgUsersResponse.json();
+            for (const user of orgUsersData.value || []) {
+              const email = user.mail || user.userPrincipalName;
+              if (email) {
+                recipients.push({
+                  value: email,
+                  label: user.displayName || email,
+                  email: email,
+                  description: email
+                });
+              }
+            }
+          } else {
+            const errorText = await orgUsersResponse.text();
+            console.error('[Teams Data API] Error fetching organization users:', orgUsersResponse.status, errorText);
+          }
+        } catch (e) {
+          console.error('[Teams Data API] Exception fetching organization users:', e);
+        }
+
+        // Fetch contacts - don't use $filter to avoid permission issues
+        try {
+          const contactsResponse = await fetch(
+            'https://graph.microsoft.com/v1.0/me/contacts?$top=100&$select=id,displayName,emailAddresses',
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (contactsResponse.ok) {
+            const contactsData = await contactsResponse.json();
+            for (const contact of contactsData.value || []) {
+              if (contact.emailAddresses && contact.emailAddresses.length > 0) {
+                const email = contact.emailAddresses[0].address;
+                if (email && !recipients.find(r => r.email === email)) {
+                  recipients.push({
+                    value: email,
+                    label: contact.displayName || email,
+                    email: email,
+                    description: email
+                  });
+                }
+              }
+            }
+          } else {
+            // Contacts API might fail if user doesn't have Contacts.Read permission - that's OK
+            console.log('[Teams Data API] Could not fetch contacts (may not have permission)');
+          }
+        } catch (e) {
+          console.error('[Teams Data API] Exception fetching contacts:', e);
+        }
+
+        // Filter by search if provided (client-side filtering)
+        if (recipientSearch) {
+          const searchLower = recipientSearch.toLowerCase();
+          responseData = recipients.filter(r =>
+            r.label.toLowerCase().includes(searchLower) ||
+            r.email.toLowerCase().includes(searchLower)
+          );
+        } else {
+          responseData = recipients;
+        }
+        break;
+
       default:
         console.error('[Teams Data API] Unknown data type:', dataType);
         return errorResponse(
           `Unknown data type: ${dataType}`,
           400,
-          { validTypes: ['teams_teams', 'teams_channels', 'teams_chats', 'teams_members', 'teams_users', 'teams_messages'] }
+          { validTypes: ['teams_teams', 'teams_channels', 'teams_chats', 'teams_members', 'teams_users', 'teams_messages', 'outlook-enhanced-recipients'] }
         );
     }
 

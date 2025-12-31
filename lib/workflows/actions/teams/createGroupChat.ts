@@ -4,9 +4,87 @@ import { ActionResult } from '../index'
 import { logger } from '@/lib/utils/logger'
 
 /**
+ * Validate email format
+ */
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+/**
+ * Invite an external user to Azure AD as a guest
+ * Returns the invited user's ID if successful
+ */
+async function inviteGuestUser(
+  accessToken: string,
+  email: string,
+  sendInvitationMessage: boolean = true
+): Promise<{ success: boolean; userId?: string; error?: string }> {
+  try {
+    // Validate email format before calling API
+    if (!isValidEmail(email)) {
+      logger.warn('[Teams] Invalid email format for invitation:', email)
+      return {
+        success: false,
+        error: `Invalid email format: ${email}`
+      }
+    }
+
+    logger.debug('[Teams] Attempting to invite guest user:', { email, sendInvitationMessage })
+
+    const inviteResponse = await fetch('https://graph.microsoft.com/v1.0/invitations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        invitedUserEmailAddress: email,
+        inviteRedirectUrl: 'https://teams.microsoft.com',
+        sendInvitationMessage: sendInvitationMessage
+      })
+    })
+
+    if (!inviteResponse.ok) {
+      const errorData = await inviteResponse.json()
+      logger.error('[Teams] Invitation API error:', {
+        email,
+        status: inviteResponse.status,
+        error: errorData
+      })
+      return {
+        success: false,
+        error: errorData.error?.message || `API error ${inviteResponse.status}`
+      }
+    }
+
+    const inviteResult = await inviteResponse.json()
+    logger.info('[Teams] Successfully invited guest user:', {
+      email,
+      userId: inviteResult.invitedUser?.id
+    })
+    return {
+      success: true,
+      userId: inviteResult.invitedUser?.id
+    }
+  } catch (error: any) {
+    logger.error('[Teams] Exception during invitation:', { email, error: error.message })
+    return {
+      success: false,
+      error: error.message || 'Failed to invite user'
+    }
+  }
+}
+
+/**
  * Create a new group chat in Microsoft Teams
  *
  * API Reference: https://learn.microsoft.com/en-us/graph/api/chat-post
+ *
+ * Supports:
+ * - Internal tenant users (regular members)
+ * - In-tenant guest users (already invited to Azure AD)
+ * - External users (can be auto-invited if inviteExternalUsers is true)
  */
 export async function createTeamsGroupChat(
   config: Record<string, any>,
@@ -18,6 +96,8 @@ export async function createTeamsGroupChat(
     const topic = input.topic || config.topic
     const members = input.members || config.members
     const initialMessage = input.initialMessage || config.initialMessage
+    const inviteExternalUsers = input.inviteExternalUsers ?? config.inviteExternalUsers ?? false
+    const sendInvitationEmail = input.sendInvitationEmail ?? config.sendInvitationEmail ?? true
 
     if (!members || members.length === 0) {
       return {
@@ -63,7 +143,16 @@ export async function createTeamsGroupChat(
     const currentUser = await userResponse.json()
 
     // Format members array - needs to be array of user IDs or email addresses
-    const memberEmails = Array.isArray(members) ? members : [members]
+    // Handle comma-separated or newline-separated strings
+    let memberEmails: string[] = []
+    if (Array.isArray(members)) {
+      // Flatten in case array contains comma-separated strings
+      memberEmails = members.flatMap((m: string) =>
+        m.split(/[,\n]/).map((e: string) => e.trim()).filter(Boolean)
+      )
+    } else if (typeof members === 'string') {
+      memberEmails = members.split(/[,\n]/).map((e: string) => e.trim()).filter(Boolean)
+    }
 
     // Build members list
     const chatMembers: any[] = [
@@ -74,16 +163,21 @@ export async function createTeamsGroupChat(
       }
     ]
 
-    // Add other members
+    // Track results
     const failedMembers: string[] = []
+    const invitedMembers: string[] = []
+    const addedMembers: string[] = []
+
     for (const memberEmail of memberEmails) {
       const isEmail = memberEmail.includes('@')
       let memberId = memberEmail
+      let isGuest = false
 
       if (isEmail) {
-        // Search for user by email (works for both native and guest users)
+        // Search for user by email in Azure AD
+        // This finds both regular users and existing guest users
         const userSearchResponse = await fetch(
-          `https://graph.microsoft.com/v1.0/users?$filter=mail eq '${encodeURIComponent(memberEmail)}' or userPrincipalName eq '${encodeURIComponent(memberEmail)}'&$select=id,mail,userPrincipalName,displayName`,
+          `https://graph.microsoft.com/v1.0/users?$filter=mail eq '${encodeURIComponent(memberEmail)}' or userPrincipalName eq '${encodeURIComponent(memberEmail)}'&$select=id,mail,userPrincipalName,displayName,userType`,
           {
             headers: {
               'Authorization': `Bearer ${accessToken}`
@@ -94,23 +188,50 @@ export async function createTeamsGroupChat(
         if (userSearchResponse.ok) {
           const searchResult = await userSearchResponse.json()
           if (searchResult.value && searchResult.value.length > 0) {
-            memberId = searchResult.value[0].id
-            logger.debug('[Teams] Resolved member email to ID:', { email: memberEmail, userId: memberId })
+            const foundUser = searchResult.value[0]
+            memberId = foundUser.id
+            isGuest = foundUser.userType === 'Guest'
+            addedMembers.push(memberEmail)
+            logger.debug('[Teams] Resolved member email to ID:', {
+              email: memberEmail,
+              userId: memberId,
+              userType: foundUser.userType
+            })
           } else {
-            logger.warn('[Teams] User not found in directory:', memberEmail)
-            failedMembers.push(memberEmail)
-            continue
+            // User not found in directory - try to invite if enabled
+            if (inviteExternalUsers) {
+              logger.info('[Teams] User not found, attempting to invite:', memberEmail)
+              const inviteResult = await inviteGuestUser(accessToken, memberEmail, sendInvitationEmail)
+
+              if (inviteResult.success && inviteResult.userId) {
+                memberId = inviteResult.userId
+                isGuest = true
+                invitedMembers.push(memberEmail)
+                logger.info('[Teams] Successfully invited guest user:', { email: memberEmail, userId: memberId })
+              } else {
+                logger.warn('[Teams] Failed to invite user:', { email: memberEmail, error: inviteResult.error })
+                failedMembers.push(`${memberEmail} (invite failed: ${inviteResult.error})`)
+                continue
+              }
+            } else {
+              logger.warn('[Teams] User not found in directory (auto-invite disabled):', memberEmail)
+              failedMembers.push(`${memberEmail} (not in directory - enable "Invite External Users" to auto-invite)`)
+              continue
+            }
           }
         } else {
           logger.warn('[Teams] Failed to search for user:', memberEmail)
-          failedMembers.push(memberEmail)
+          failedMembers.push(`${memberEmail} (search failed)`)
           continue
         }
       }
 
+      // Add member with appropriate role
+      // Guest users in the tenant should have "guest" role
+      // Regular users and owners have "owner" role
       chatMembers.push({
         "@odata.type": "#microsoft.graph.aadUserConversationMember",
-        "roles": ["owner"],
+        "roles": isGuest ? ["guest"] : ["owner"],
         "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${memberId}')`
       })
     }
@@ -169,15 +290,33 @@ export async function createTeamsGroupChat(
       })
     }
 
+    const output: any = {
+      chatId: chat.id,
+      chatType: chat.chatType,
+      topic: chat.topic || '',
+      createdDateTime: chat.createdDateTime,
+      membersAdded: chatMembers.length - 1, // Exclude current user from count
+      success: true
+    }
+
+    // Include details about what happened with each member
+    if (addedMembers.length > 0) {
+      output.addedMembers = addedMembers
+    }
+
+    if (invitedMembers.length > 0) {
+      output.invitedMembers = invitedMembers
+      output.inviteNote = `${invitedMembers.length} external user(s) were invited to your organization and added to the chat`
+    }
+
+    if (failedMembers.length > 0) {
+      output.failedMembers = failedMembers
+      output.warning = `Some members could not be added: ${failedMembers.join(', ')}`
+    }
+
     return {
       success: true,
-      output: {
-        chatId: chat.id,
-        chatType: chat.chatType,
-        topic: chat.topic || '',
-        createdDateTime: chat.createdDateTime,
-        success: true
-      }
+      output
     }
   } catch (error: any) {
     logger.error('[Teams] Error creating group chat:', error)

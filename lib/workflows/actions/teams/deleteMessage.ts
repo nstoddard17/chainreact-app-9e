@@ -19,7 +19,8 @@ export async function deleteTeamsMessage(
     const teamId = input.teamId || config.teamId
     const channelId = input.channelId || config.channelId
     const chatId = input.chatId || config.chatId
-    const messageId = input.messageId || config.messageId
+    // For chat messages, the field is named chatMessageId; for channel messages, it's messageId
+    const messageId = input.messageId || config.messageId || input.chatMessageId || config.chatMessageId
 
     if (!messageType || !messageId) {
       return {
@@ -62,12 +63,34 @@ export async function deleteTeamsMessage(
 
     const accessToken = await decrypt(integration.access_token)
 
+    // Get the current user's ID for chat message deletion
+    let graphUserId: string | null = null
+    if (messageType === 'chat') {
+      const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+      if (meResponse.ok) {
+        const meData = await meResponse.json()
+        graphUserId = meData.id
+      }
+      if (!graphUserId) {
+        return {
+          success: false,
+          error: 'Failed to get user ID for chat message deletion'
+        }
+      }
+    }
+
     // Construct API endpoint based on message type
+    // For chat messages, must use /users/{userId}/chats/{chatId}/messages/{messageId}/softDelete
+    // For channel messages, use /teams/{teamId}/channels/{channelId}/messages/{messageId}/softDelete
     let endpoint: string
     if (messageType === 'channel') {
       endpoint = `https://graph.microsoft.com/v1.0/teams/${teamId}/channels/${channelId}/messages/${messageId}/softDelete`
     } else {
-      endpoint = `https://graph.microsoft.com/v1.0/chats/${chatId}/messages/${messageId}/softDelete`
+      endpoint = `https://graph.microsoft.com/v1.0/users/${graphUserId}/chats/${chatId}/messages/${messageId}/softDelete`
     }
 
     // Delete the message (soft delete)

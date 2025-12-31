@@ -69,34 +69,6 @@ export const teamsNodes: NodeComponent[] = [
     ]
   },
   {
-    type: "teams_action_create_meeting",
-    title: "Create Meeting",
-    description: "Create a new online meeting",
-    icon: Calendar,
-    providerId: "teams",
-    requiredScopes: ["OnlineMeetings.ReadWrite"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject", supportsAI: true },
-      { name: "startTime", label: "Start Time", type: "datetime", required: true, supportsAI: true },
-      { name: "endTime", label: "End Time", type: "datetime", required: true, supportsAI: true },
-      { name: "attendees", label: "Attendees", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Select or enter attendee email addresses", supportsAI: true },
-      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Meeting description", supportsAI: true },
-      { name: "allowMeetingChat", label: "Allow Meeting Chat", type: "boolean", required: false, defaultValue: true },
-      { name: "allowCamera", label: "Allow Camera", type: "boolean", required: false, defaultValue: true },
-      { name: "allowMic", label: "Allow Microphone", type: "boolean", required: false, defaultValue: true }
-    ],
-    outputSchema: [
-      { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the created meeting" },
-      { name: "joinUrl", label: "Join URL", type: "string", description: "The URL to join the meeting" },
-      { name: "subject", label: "Meeting Subject", type: "string", description: "The subject of the meeting" },
-      { name: "startTime", label: "Start Time", type: "string", description: "When the meeting starts (ISO 8601 format)" },
-      { name: "endTime", label: "End Time", type: "string", description: "When the meeting ends (ISO 8601 format)" },
-      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was created successfully" }
-    ]
-  },
-  {
     type: "teams_action_send_chat_message",
     title: "Send Chat Message",
     description: "Send a message to a specific chat or user",
@@ -384,8 +356,8 @@ export const teamsNodes: NodeComponent[] = [
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to reply to", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" }, supportsAI: true },
-      { name: "replyContent", label: "Reply Message", type: "email-rich-text", required: true, placeholder: "Enter your reply", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" } }
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message to reply to", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" } },
+      { name: "replyContent", label: "Reply Message", type: "email-rich-text", required: true, placeholder: "Enter your reply", dependsOn: "messageId", visibilityCondition: { field: "messageId", operator: "isNotEmpty" } }
     ],
     outputSchema: [
       { name: "replyId", label: "Reply ID", type: "string", description: "The ID of the reply message" },
@@ -408,10 +380,11 @@ export const teamsNodes: NodeComponent[] = [
         { value: "channel", label: "Channel Message" },
         { value: "chat", label: "Chat Message" }
       ] },
-      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to edit", supportsAI: true },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
       { name: "newContent", label: "New Message Content", type: "email-rich-text", required: true, placeholder: "Enter the new message content" }
     ],
     outputSchema: [
@@ -434,10 +407,11 @@ export const teamsNodes: NodeComponent[] = [
         { value: "channel", label: "Channel Message" },
         { value: "chat", label: "Chat Message" }
       ] },
-      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID" }
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } }
     ],
     outputSchema: [
       { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message" },
@@ -463,10 +437,11 @@ export const teamsNodes: NodeComponent[] = [
         { value: "channel", label: "Channel Message" },
         { value: "chat", label: "Chat Message" }
       ] },
-      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to delete" }
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } }
     ],
     outputSchema: [
       { name: "success", label: "Success Status", type: "boolean", description: "Whether the message was deleted successfully" },
@@ -476,15 +451,17 @@ export const teamsNodes: NodeComponent[] = [
   {
     type: "teams_action_create_group_chat",
     title: "Create Group Chat",
-    description: "Create a new group chat with multiple users",
+    description: "Create a new group chat with multiple users (supports external guests)",
     icon: Users,
     providerId: "teams",
-    requiredScopes: ["Chat.Create"],
+    requiredScopes: ["Chat.Create", "User.Invite.All"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
       { name: "topic", label: "Chat Topic", type: "text", required: false, placeholder: "Enter chat topic (optional)", supportsAI: true },
-      { name: "members", label: "Members", type: "textarea", required: true, placeholder: "Enter member email addresses (comma-separated)", supportsAI: true },
+      { name: "members", label: "Members", type: "textarea", required: true, placeholder: "Enter member email addresses (one per line or comma-separated)", supportsAI: true, info: "Enter email addresses of users to add to the chat. Internal users will be added directly. For external users, enable 'Invite External Users' below." },
+      { name: "inviteExternalUsers", label: "Invite External Users", type: "boolean", required: false, defaultValue: false, info: "If enabled, users not found in your organization will be automatically invited as guest users to your Azure AD tenant." },
+      { name: "sendInvitationEmail", label: "Send Invitation Email", type: "boolean", required: false, defaultValue: true, visibilityCondition: { field: "inviteExternalUsers", operator: "equals", value: true }, info: "Send an email invitation to external users being invited to your organization." },
       { name: "initialMessage", label: "Initial Message", type: "email-rich-text", required: false, placeholder: "Send an initial message (optional)" }
     ],
     outputSchema: [
@@ -492,6 +469,10 @@ export const teamsNodes: NodeComponent[] = [
       { name: "chatType", label: "Chat Type", type: "string", description: "Type of chat (group)" },
       { name: "topic", label: "Chat Topic", type: "string", description: "The topic of the chat" },
       { name: "createdDateTime", label: "Created Time", type: "string", description: "When the chat was created (ISO 8601 format)" },
+      { name: "membersAdded", label: "Members Added", type: "number", description: "Number of members successfully added to the chat" },
+      { name: "addedMembers", label: "Added Members", type: "array", description: "List of email addresses of members who were already in the directory and added" },
+      { name: "invitedMembers", label: "Invited Members", type: "array", description: "List of email addresses of external users who were invited and added" },
+      { name: "failedMembers", label: "Failed Members", type: "array", description: "List of email addresses that could not be added" },
       { name: "success", label: "Success Status", type: "boolean", description: "Whether the chat was created successfully" }
     ]
   },

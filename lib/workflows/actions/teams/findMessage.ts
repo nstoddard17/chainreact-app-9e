@@ -19,7 +19,8 @@ export async function findTeamsMessage(
     const teamId = input.teamId || config.teamId
     const channelId = input.channelId || config.channelId
     const chatId = input.chatId || config.chatId
-    const messageId = input.messageId || config.messageId
+    // For chat messages, the field is named chatMessageId; for channel messages, it's messageId
+    const messageId = input.messageId || config.messageId || input.chatMessageId || config.chatMessageId
 
     if (!messageType || !messageId) {
       return {

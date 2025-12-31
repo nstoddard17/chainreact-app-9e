@@ -712,21 +712,28 @@ const teamsMappings: Record<string, FieldMapping> = {
   "teams_action_reply_to_message": {
     teamId: "teams_teams",
     channelId: "teams_channels",
+    messageId: "teams_messages",
   },
   "teams_action_edit_message": {
     teamId: "teams_teams",
     channelId: "teams_channels",
     chatId: "teams_chats",
+    messageId: "teams_messages",
+    chatMessageId: "teams_messages",
   },
   "teams_action_find_message": {
     teamId: "teams_teams",
     channelId: "teams_channels",
     chatId: "teams_chats",
+    messageId: "teams_messages",
+    chatMessageId: "teams_messages",
   },
   "teams_action_delete_message": {
     teamId: "teams_teams",
     channelId: "teams_channels",
     chatId: "teams_chats",
+    messageId: "teams_messages",
+    chatMessageId: "teams_messages",
   },
   "teams_action_get_channel_details": {
     teamId: "teams_teams",
@@ -749,6 +756,9 @@ const teamsMappings: Record<string, FieldMapping> = {
   "microsoft-teams_action_add_team_member": {
     userEmail: "outlook-enhanced-recipients",
     teamId: "teams_teams",
+  },
+  "teams_action_schedule_meeting": {
+    attendees: "outlook-enhanced-recipients",
   },
 };
 
@@ -1011,8 +1021,12 @@ const mailchimpMappings: Record<string, FieldMapping> = {
   mailchimp_action_add_subscriber: {
     audience_id: "mailchimp_audiences",
   },
+  mailchimp_action_add_note: {
+    audience_id: "mailchimp_audiences",
+  },
   mailchimp_action_update_subscriber: {
     audience_id: "mailchimp_audiences",
+    subscriber_email: "mailchimp_subscribers",
   },
   mailchimp_action_remove_subscriber: {
     audience_id: "mailchimp_audiences",
@@ -1035,7 +1049,25 @@ const mailchimpMappings: Record<string, FieldMapping> = {
     // No dynamic fields - creates new audience
   },
   mailchimp_action_create_event: {
-    audienceId: "mailchimp_audiences",
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_get_subscriber: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_get_campaign: {
+    campaign_id: "mailchimp_campaigns",
+  },
+  mailchimp_action_get_campaign_stats: {
+    campaign_id: "mailchimp_campaigns",
+  },
+  mailchimp_action_schedule_campaign: {
+    campaign_id: "mailchimp_campaigns",
+  },
+  mailchimp_action_unsubscribe_subscriber: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_create_segment: {
+    audience_id: "mailchimp_audiences",
   },
 };
 

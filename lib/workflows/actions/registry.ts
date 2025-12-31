@@ -364,7 +364,6 @@ import {
   sendTeamsAdaptiveCard,
   addTeamsReaction,
   removeTeamsReaction,
-  createTeamsMeeting,
   scheduleTeamsMeeting,
   startTeamsMeeting,
   endTeamsMeeting,
@@ -493,6 +492,13 @@ import { mailchimpSendCampaign } from './mailchimp/sendCampaign'
 import { mailchimpCreateCampaign } from './mailchimp/createCampaign'
 import { mailchimpCreateAudience } from './mailchimp/createAudience'
 import { mailchimpCreateEvent } from './mailchimp/createEvent'
+import { mailchimpAddNote } from './mailchimp/addNote'
+import { mailchimpGetSubscriber } from './mailchimp/getSubscriber'
+import { mailchimpGetCampaign } from './mailchimp/getCampaign'
+import { mailchimpGetCampaignStats } from './mailchimp/getCampaignStats'
+import { mailchimpScheduleCampaign } from './mailchimp/scheduleCampaign'
+import { mailchimpUnsubscribeSubscriber } from './mailchimp/unsubscribeSubscriber'
+import { mailchimpCreateSegment } from './mailchimp/createSegment'
 import { stripeGetPayments } from './stripe/getPayments'
 import { stripeCreateCustomer } from './stripe/createCustomer'
 import { stripeUpdateCustomer } from './stripe/updateCustomer'
@@ -1225,8 +1231,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     addTeamsReaction(params.config, params.userId, params.input),
   "teams_action_remove_reaction": (params: { config: any; userId: string; input: Record<string, any> }) =>
     removeTeamsReaction(params.config, params.userId, params.input),
-  "teams_action_create_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    createTeamsMeeting(params.config, params.userId, params.input),
   "teams_action_schedule_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
     scheduleTeamsMeeting(params.config, params.userId, params.input),
   "teams_action_start_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1382,6 +1386,13 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "mailchimp_action_create_campaign": createExecutionContextWrapper(mailchimpCreateCampaign),
   "mailchimp_action_create_audience": createExecutionContextWrapper(mailchimpCreateAudience),
   "mailchimp_action_create_event": createExecutionContextWrapper(mailchimpCreateEvent),
+  "mailchimp_action_add_note": createExecutionContextWrapper(mailchimpAddNote),
+  "mailchimp_action_get_subscriber": createExecutionContextWrapper(mailchimpGetSubscriber),
+  "mailchimp_action_get_campaign": createExecutionContextWrapper(mailchimpGetCampaign),
+  "mailchimp_action_get_campaign_stats": createExecutionContextWrapper(mailchimpGetCampaignStats),
+  "mailchimp_action_schedule_campaign": createExecutionContextWrapper(mailchimpScheduleCampaign),
+  "mailchimp_action_unsubscribe_subscriber": createExecutionContextWrapper(mailchimpUnsubscribeSubscriber),
+  "mailchimp_action_create_segment": createExecutionContextWrapper(mailchimpCreateSegment),
 
   // Stripe actions
   "stripe_action_create_customer": createExecutionContextWrapper(stripeCreateCustomer),
