@@ -14,7 +14,10 @@ export async function createTeamsGroupChat(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { topic, members, initialMessage } = input
+    // Support both config and input for field values
+    const topic = input.topic || config.topic
+    const members = input.members || config.members
+    const initialMessage = input.initialMessage || config.initialMessage
 
     if (!members || members.length === 0) {
       return {
@@ -72,24 +75,51 @@ export async function createTeamsGroupChat(
     ]
 
     // Add other members
+    const failedMembers: string[] = []
     for (const memberEmail of memberEmails) {
-      // Get user ID from email
-      const memberResponse = await fetch(
-        `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(memberEmail)}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        }
-      )
+      const isEmail = memberEmail.includes('@')
+      let memberId = memberEmail
 
-      if (memberResponse.ok) {
-        const member = await memberResponse.json()
-        chatMembers.push({
-          "@odata.type": "#microsoft.graph.aadUserConversationMember",
-          "roles": ["owner"],
-          "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${member.id}')`
-        })
+      if (isEmail) {
+        // Search for user by email (works for both native and guest users)
+        const userSearchResponse = await fetch(
+          `https://graph.microsoft.com/v1.0/users?$filter=mail eq '${encodeURIComponent(memberEmail)}' or userPrincipalName eq '${encodeURIComponent(memberEmail)}'&$select=id,mail,userPrincipalName,displayName`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        )
+
+        if (userSearchResponse.ok) {
+          const searchResult = await userSearchResponse.json()
+          if (searchResult.value && searchResult.value.length > 0) {
+            memberId = searchResult.value[0].id
+            logger.debug('[Teams] Resolved member email to ID:', { email: memberEmail, userId: memberId })
+          } else {
+            logger.warn('[Teams] User not found in directory:', memberEmail)
+            failedMembers.push(memberEmail)
+            continue
+          }
+        } else {
+          logger.warn('[Teams] Failed to search for user:', memberEmail)
+          failedMembers.push(memberEmail)
+          continue
+        }
+      }
+
+      chatMembers.push({
+        "@odata.type": "#microsoft.graph.aadUserConversationMember",
+        "roles": ["owner"],
+        "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${memberId}')`
+      })
+    }
+
+    // Check if we have enough members (at least 2 including the current user for a group chat)
+    if (chatMembers.length < 2) {
+      return {
+        success: false,
+        error: `Could not create group chat: no valid members found. Failed to resolve: ${failedMembers.join(', ')}`
       }
     }
 
@@ -141,7 +171,7 @@ export async function createTeamsGroupChat(
 
     return {
       success: true,
-      data: {
+      output: {
         chatId: chat.id,
         chatType: chat.chatType,
         topic: chat.topic || '',

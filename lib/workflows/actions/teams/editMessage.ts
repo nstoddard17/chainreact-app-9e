@@ -14,7 +14,13 @@ export async function editTeamsMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { messageType, teamId, channelId, chatId, messageId, newContent } = input
+    // Support both config and input for field values
+    const messageType = input.messageType || config.messageType
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const chatId = input.chatId || config.chatId
+    const messageId = input.messageId || config.messageId
+    const newContent = input.newContent || config.newContent
 
     if (!messageType || !messageId || !newContent) {
       return {
@@ -92,7 +98,7 @@ export async function editTeamsMessage(
 
     return {
       success: true,
-      data: {
+      output: {
         messageId: updatedMessage.id,
         updatedDateTime: updatedMessage.lastModifiedDateTime,
         success: true

@@ -150,7 +150,7 @@ export const teamsNodes: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
-      { name: "userEmail", label: "User Email", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: true, placeholder: "Select or enter user's email address", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" }, supportsAI: true },
+      { name: "userEmail", label: "User Email", type: "text", required: true, placeholder: "Enter the user's email address", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" }, supportsAI: true },
       { name: "role", label: "Role", type: "select", required: true, defaultValue: "member", dependsOn: "userEmail", visibilityCondition: { field: "userEmail", operator: "isNotEmpty" }, options: [
         { value: "member", label: "Member" },
         { value: "owner", label: "Owner" }
@@ -408,9 +408,9 @@ export const teamsNodes: NodeComponent[] = [
         { value: "channel", label: "Channel Message" },
         { value: "chat", label: "Chat Message" }
       ] },
-      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
       { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to edit", supportsAI: true },
       { name: "newContent", label: "New Message Content", type: "email-rich-text", required: true, placeholder: "Enter the new message content" }
     ],
@@ -434,9 +434,9 @@ export const teamsNodes: NodeComponent[] = [
         { value: "channel", label: "Channel Message" },
         { value: "chat", label: "Chat Message" }
       ] },
-      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
       { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID" }
     ],
     outputSchema: [
@@ -463,9 +463,9 @@ export const teamsNodes: NodeComponent[] = [
         { value: "channel", label: "Channel Message" },
         { value: "chat", label: "Chat Message" }
       ] },
-      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
       { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to delete" }
     ],
     outputSchema: [
@@ -535,15 +535,16 @@ export const teamsNodes: NodeComponent[] = [
       ] },
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message" },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
       { name: "reactionType", label: "Reaction", type: "select", required: true, options: [
-        { value: "like", label: "👍 Like" },
-        { value: "heart", label: "❤️ Heart" },
-        { value: "laugh", label: "😂 Laugh" },
-        { value: "surprised", label: "😮 Surprised" },
-        { value: "sad", label: "😢 Sad" },
-        { value: "angry", label: "😠 Angry" }
+        { value: "👍", label: "👍 Like" },
+        { value: "❤️", label: "❤️ Heart" },
+        { value: "😂", label: "😂 Laugh" },
+        { value: "😮", label: "😮 Surprised" },
+        { value: "😢", label: "😢 Sad" },
+        { value: "😠", label: "😠 Angry" }
       ] }
     ],
     outputSchema: [
@@ -568,15 +569,16 @@ export const teamsNodes: NodeComponent[] = [
       ] },
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message" },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
       { name: "reactionType", label: "Reaction", type: "select", required: true, options: [
-        { value: "like", label: "👍 Like" },
-        { value: "heart", label: "❤️ Heart" },
-        { value: "laugh", label: "😂 Laugh" },
-        { value: "surprised", label: "😮 Surprised" },
-        { value: "sad", label: "😢 Sad" },
-        { value: "angry", label: "😠 Angry" }
+        { value: "👍", label: "👍 Like" },
+        { value: "❤️", label: "❤️ Heart" },
+        { value: "😂", label: "😂 Laugh" },
+        { value: "😮", label: "😮 Surprised" },
+        { value: "😢", label: "😢 Sad" },
+        { value: "😠", label: "😠 Angry" }
       ] }
     ],
     outputSchema: [

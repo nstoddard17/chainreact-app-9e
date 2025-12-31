@@ -14,7 +14,12 @@ export async function findTeamsMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { messageType, teamId, channelId, chatId, messageId } = input
+    // Support both config and input for field values
+    const messageType = input.messageType || config.messageType
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const chatId = input.chatId || config.chatId
+    const messageId = input.messageId || config.messageId
 
     if (!messageType || !messageId) {
       return {
@@ -87,7 +92,7 @@ export async function findTeamsMessage(
 
     return {
       success: true,
-      data: {
+      output: {
         messageId: message.id,
         content: message.body?.content || '',
         senderId: message.from?.user?.id || '',

@@ -15,7 +15,12 @@ export async function sendTeamsAdaptiveCard(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { teamId, channelId, cardTitle, cardText, cardType } = input
+    // Support both config and input for field values
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const cardTitle = input.cardTitle || config.cardTitle
+    const cardText = input.cardText || config.cardText
+    const cardType = input.cardType || config.cardType
 
     if (!teamId || !channelId || !cardTitle || !cardText) {
       return {
@@ -193,7 +198,7 @@ export async function sendTeamsAdaptiveCard(
 
     return {
       success: true,
-      data: {
+      output: {
         messageId: sentMessage.id,
         cardTitle: cardTitle,
         cardType: cardType || 'hero',

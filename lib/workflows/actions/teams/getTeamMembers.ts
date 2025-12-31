@@ -14,7 +14,8 @@ export async function getTeamsTeamMembers(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { teamId } = input
+    // Support both config and input for field values
+    const teamId = input.teamId || config.teamId
 
     if (!teamId) {
       return {
@@ -79,7 +80,7 @@ export async function getTeamsTeamMembers(
 
     return {
       success: true,
-      data: {
+      output: {
         members: formattedMembers,
         memberCount: formattedMembers.length,
         teamId: teamId,

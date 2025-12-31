@@ -671,6 +671,23 @@ const teamsMappings: Record<string, FieldMapping> = {
     teamId: "teams_teams",
     channelId: "teams_channels",
   },
+  "teams_trigger_new_reply": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+  },
+  "teams_trigger_channel_mention": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+  },
+  "teams_trigger_new_chat_message": {
+    chatId: "teams_chats",
+  },
+  "teams_trigger_new_channel": {
+    teamId: "teams_teams",
+  },
+  "teams_trigger_user_joins_team": {
+    teamId: "teams_teams",
+  },
   "teams_action_send_message": {
     teamId: "teams_teams",
     channelId: "teams_channels",
@@ -683,7 +700,7 @@ const teamsMappings: Record<string, FieldMapping> = {
   },
   "teams_action_add_member_to_team": {
     teamId: "teams_teams",
-    userEmail: "outlook-enhanced-recipients",
+    userEmail: "teams_users",
   },
   "teams_action_send_adaptive_card": {
     teamId: "teams_teams",
@@ -692,8 +709,42 @@ const teamsMappings: Record<string, FieldMapping> = {
   "teams_action_get_team_members": {
     teamId: "teams_teams",
   },
-  "teams_trigger_user_joins_team": {
+  "teams_action_reply_to_message": {
     teamId: "teams_teams",
+    channelId: "teams_channels",
+  },
+  "teams_action_edit_message": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+  },
+  "teams_action_find_message": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+  },
+  "teams_action_delete_message": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+  },
+  "teams_action_get_channel_details": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+  },
+  "teams_action_add_reaction": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+    messageId: "teams_messages",
+    chatMessageId: "teams_messages",
+  },
+  "teams_action_remove_reaction": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+    messageId: "teams_messages",
+    chatMessageId: "teams_messages",
   },
   "microsoft-teams_action_add_team_member": {
     userEmail: "outlook-enhanced-recipients",

@@ -14,7 +14,11 @@ export async function updateTeamsMeeting(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { meetingId, subject, startDateTime, endDateTime } = input
+    // Support both config and input for field values
+    const meetingId = input.meetingId || config.meetingId
+    const subject = input.subject || config.subject
+    const startDateTime = input.startDateTime || config.startDateTime
+    const endDateTime = input.endDateTime || config.endDateTime
 
     if (!meetingId) {
       return {
@@ -91,7 +95,7 @@ export async function updateTeamsMeeting(
 
     return {
       success: true,
-      data: {
+      output: {
         meetingId: meeting.id,
         subject: meeting.subject,
         success: true

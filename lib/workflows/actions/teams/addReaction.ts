@@ -14,12 +14,26 @@ export async function addTeamsReaction(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { messageType, teamId, channelId, chatId, messageId, reactionType } = input
+    // Support both config and input for field values
+    const messageType = input.messageType || config.messageType
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const chatId = input.chatId || config.chatId
+    // Support both messageId (for channel) and chatMessageId (for chat)
+    const messageId = input.messageId || config.messageId || input.chatMessageId || config.chatMessageId
+    const reactionType = input.reactionType || config.reactionType
 
-    if (!messageType || !messageId || !reactionType) {
+    if (!messageType || !reactionType) {
       return {
         success: false,
-        error: 'Missing required fields: messageType, messageId, and reactionType are required'
+        error: 'Missing required fields: messageType and reactionType are required'
+      }
+    }
+
+    if (!messageId) {
+      return {
+        success: false,
+        error: 'Missing required field: messageId (for channel) or chatMessageId (for chat) is required'
       }
     }
 
@@ -88,7 +102,7 @@ export async function addTeamsReaction(
 
     return {
       success: true,
-      data: {
+      output: {
         success: true,
         messageId,
         reactionType

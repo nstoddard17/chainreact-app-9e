@@ -14,7 +14,11 @@ export async function replyToTeamsMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { teamId, channelId, messageId, replyContent } = input
+    // Support both config and input for field values
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const messageId = input.messageId || config.messageId
+    const replyContent = input.replyContent || config.replyContent
 
     if (!teamId || !channelId || !messageId || !replyContent) {
       return {
@@ -74,7 +78,7 @@ export async function replyToTeamsMessage(
 
     return {
       success: true,
-      data: {
+      output: {
         replyId: reply.id,
         parentMessageId: messageId,
         timestamp: reply.createdDateTime,

@@ -14,7 +14,15 @@ export async function createTeamsMeeting(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { subject, startTime, endTime, attendees, description, allowMeetingChat, allowCamera, allowMic } = input
+    // Support both config and input for field values
+    const subject = input.subject || config.subject
+    const startTime = input.startTime || config.startTime
+    const endTime = input.endTime || config.endTime
+    const attendees = input.attendees || config.attendees
+    const description = input.description || config.description
+    const allowMeetingChat = input.allowMeetingChat ?? config.allowMeetingChat
+    const allowCamera = input.allowCamera ?? config.allowCamera
+    const allowMic = input.allowMic ?? config.allowMic
 
     if (!subject || !startTime || !endTime) {
       return {
@@ -101,7 +109,7 @@ export async function createTeamsMeeting(
 
     return {
       success: true,
-      data: {
+      output: {
         meetingId: meeting.id,
         joinUrl: meeting.joinUrl || meeting.joinWebUrl,
         subject: meeting.subject,

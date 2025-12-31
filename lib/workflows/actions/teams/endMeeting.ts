@@ -14,7 +14,8 @@ export async function endTeamsMeeting(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { meetingId } = input
+    // Support both config and input for field values
+    const meetingId = input.meetingId || config.meetingId
 
     if (!meetingId) {
       return {
@@ -65,7 +66,7 @@ export async function endTeamsMeeting(
 
     return {
       success: true,
-      data: {
+      output: {
         success: true,
         meetingId
       }

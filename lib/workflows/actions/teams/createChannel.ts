@@ -14,7 +14,11 @@ export async function createTeamsChannel(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { teamId, channelName, description, isPrivate } = input
+    // Support both config and input for field values (different callers use different conventions)
+    const teamId = input.teamId || config.teamId
+    const channelName = input.channelName || config.channelName
+    const description = input.description || config.description
+    const isPrivate = input.isPrivate ?? config.isPrivate
 
     if (!teamId || !channelName) {
       return {
@@ -80,7 +84,7 @@ export async function createTeamsChannel(
 
     return {
       success: true,
-      data: {
+      output: {
         channelId: channel.id,
         channelName: channel.displayName,
         teamId: teamId,

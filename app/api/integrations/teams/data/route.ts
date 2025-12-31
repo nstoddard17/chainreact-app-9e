@@ -97,8 +97,8 @@ export async function GET(request: NextRequest) {
         break;
 
       case 'teams_chats':
-        // Fetch all chats the user is part of
-        const chatsResponse = await fetch('https://graph.microsoft.com/v1.0/me/chats', {
+        // Fetch all chats with members expanded to get participant names
+        const chatsResponse = await fetch('https://graph.microsoft.com/v1.0/me/chats?$expand=members&$top=50', {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
@@ -109,12 +109,45 @@ export async function GET(request: NextRequest) {
           throw new Error(`Failed to fetch chats: ${chatsResponse.statusText}`);
         }
 
+        // Get current user to filter them out of member lists
+        const meResponseForChats = await fetch('https://graph.microsoft.com/v1.0/me', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        const currentUserForChats = meResponseForChats.ok ? await meResponseForChats.json() : null;
+        const currentUserIdForChats = currentUserForChats?.id;
+
         const chatsData = await chatsResponse.json();
-        responseData = (chatsData.value || []).map((chat: any) => ({
-          value: chat.id,
-          label: chat.topic || `Chat with ${chat.chatType}`,
-          description: `Type: ${chat.chatType}`
-        }));
+        responseData = (chatsData.value || []).map((chat: any) => {
+          // For 1:1 chats, show the other person's name
+          // For group chats, show the topic or list of members
+          let label = chat.topic;
+
+          if (!label && chat.members && chat.members.length > 0) {
+            // Filter out current user and get other members' names
+            const otherMembers = chat.members
+              .filter((m: any) => m.userId !== currentUserIdForChats)
+              .map((m: any) => m.displayName)
+              .filter(Boolean);
+
+            if (otherMembers.length > 0) {
+              label = otherMembers.join(', ');
+            } else {
+              label = chat.chatType === 'oneOnOne' ? 'Direct Message' : 'Group Chat';
+            }
+          }
+
+          if (!label) {
+            label = chat.chatType === 'oneOnOne' ? 'Direct Message' : 'Group Chat';
+          }
+
+          return {
+            value: chat.id,
+            label: label,
+            description: `Type: ${chat.chatType}`
+          };
+        });
         break;
 
       default:
@@ -134,9 +167,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { integrationId, dataType, params = {} } = body;
+    // Accept both 'params' and 'options' for compatibility with different callers
+    const { integrationId, dataType, params = {}, options = {} } = body;
+    const mergedParams = { ...params, ...options };
 
-    console.log('[Teams Data API] POST request received:', { integrationId, dataType, params, fullBody: body });
+    console.log('[Teams Data API] POST request received:', { integrationId, dataType, params: mergedParams, fullBody: body });
 
     if (!integrationId) {
       return errorResponse('Integration ID is required', 400);
@@ -201,7 +236,7 @@ export async function POST(request: NextRequest) {
 
       case 'teams_channels':
         // Fetch channels for a specific team
-        const { teamId } = params;
+        const { teamId } = mergedParams;
         if (!teamId) {
           return errorResponse('Team ID is required for fetching channels', 400);
         }
@@ -226,29 +261,62 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'teams_chats':
-        // Fetch all chats the user is part of
-        const chatsResponse = await fetch('https://graph.microsoft.com/v1.0/me/chats', {
+        // Fetch all chats with members expanded to get participant names
+        const postChatsResponse = await fetch('https://graph.microsoft.com/v1.0/me/chats?$expand=members&$top=50', {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
           }
         });
 
-        if (!chatsResponse.ok) {
-          throw new Error(`Failed to fetch chats: ${chatsResponse.statusText}`);
+        if (!postChatsResponse.ok) {
+          throw new Error(`Failed to fetch chats: ${postChatsResponse.statusText}`);
         }
 
-        const chatsData = await chatsResponse.json();
-        responseData = (chatsData.value || []).map((chat: any) => ({
-          value: chat.id,
-          label: chat.topic || `Chat with ${chat.chatType}`,
-          description: `Type: ${chat.chatType}`
-        }));
+        // Get current user to filter them out of member lists
+        const postMeResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        const postCurrentUser = postMeResponse.ok ? await postMeResponse.json() : null;
+        const postCurrentUserId = postCurrentUser?.id;
+
+        const postChatsData = await postChatsResponse.json();
+        responseData = (postChatsData.value || []).map((chat: any) => {
+          // For 1:1 chats, show the other person's name
+          // For group chats, show the topic or list of members
+          let label = chat.topic;
+
+          if (!label && chat.members && chat.members.length > 0) {
+            // Filter out current user and get other members' names
+            const otherMembers = chat.members
+              .filter((m: any) => m.userId !== postCurrentUserId)
+              .map((m: any) => m.displayName)
+              .filter(Boolean);
+
+            if (otherMembers.length > 0) {
+              label = otherMembers.join(', ');
+            } else {
+              label = chat.chatType === 'oneOnOne' ? 'Direct Message' : 'Group Chat';
+            }
+          }
+
+          if (!label) {
+            label = chat.chatType === 'oneOnOne' ? 'Direct Message' : 'Group Chat';
+          }
+
+          return {
+            value: chat.id,
+            label: label,
+            description: `Type: ${chat.chatType}`
+          };
+        });
         break;
 
       case 'teams_members':
         // Fetch members of a specific team
-        const { teamId: memberTeamId } = params;
+        const { teamId: memberTeamId } = mergedParams;
         if (!memberTeamId) {
           return errorResponse('Team ID is required for fetching members', 400);
         }
@@ -293,12 +361,64 @@ export async function POST(request: NextRequest) {
         }));
         break;
 
+      case 'teams_messages':
+        // Fetch recent messages from a chat or channel
+        const { chatId: msgChatId, teamId: msgTeamId, channelId: msgChannelId } = mergedParams;
+
+        let messagesEndpoint: string;
+        if (msgChatId) {
+          // Fetch messages from a chat
+          messagesEndpoint = `https://graph.microsoft.com/v1.0/chats/${msgChatId}/messages?$top=25&$orderby=createdDateTime desc`;
+        } else if (msgTeamId && msgChannelId) {
+          // Fetch messages from a channel
+          messagesEndpoint = `https://graph.microsoft.com/v1.0/teams/${msgTeamId}/channels/${msgChannelId}/messages?$top=25`;
+        } else {
+          return errorResponse('Either chatId or both teamId and channelId are required for fetching messages', 400);
+        }
+
+        const messagesResponse = await fetch(messagesEndpoint, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!messagesResponse.ok) {
+          const errorText = await messagesResponse.text();
+          console.error('[Teams Data API] Failed to fetch messages:', errorText);
+          throw new Error(`Failed to fetch messages: ${messagesResponse.statusText}`);
+        }
+
+        const messagesData = await messagesResponse.json();
+        responseData = (messagesData.value || [])
+          .filter((msg: any) => msg.messageType === 'message') // Filter out system messages
+          .map((msg: any) => {
+            // Extract plain text from HTML content
+            let content = msg.body?.content || '';
+            // Remove HTML tags for display
+            content = content.replace(/<[^>]*>/g, '').trim();
+            // Truncate long messages
+            if (content.length > 50) {
+              content = content.substring(0, 50) + '...';
+            }
+
+            const senderName = msg.from?.user?.displayName || msg.from?.application?.displayName || 'Unknown';
+            const timestamp = msg.createdDateTime ? new Date(msg.createdDateTime).toLocaleString() : '';
+
+            return {
+              value: msg.id,
+              label: content || '[No text content]',
+              description: `From: ${senderName} • ${timestamp}`
+            };
+          });
+        break;
+
       default:
         console.error('[Teams Data API] Unknown data type:', dataType);
         return errorResponse(
           `Unknown data type: ${dataType}`,
           400,
-          { validTypes: ['teams_teams', 'teams_channels', 'teams_chats', 'teams_members', 'teams_users'] }
+          { validTypes: ['teams_teams', 'teams_channels', 'teams_chats', 'teams_members', 'teams_users', 'teams_messages'] }
         );
     }
 

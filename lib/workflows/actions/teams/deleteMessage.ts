@@ -14,7 +14,12 @@ export async function deleteTeamsMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { messageType, teamId, channelId, chatId, messageId } = input
+    // Support both config and input for field values
+    const messageType = input.messageType || config.messageType
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const chatId = input.chatId || config.chatId
+    const messageId = input.messageId || config.messageId
 
     if (!messageType || !messageId) {
       return {
@@ -85,7 +90,7 @@ export async function deleteTeamsMessage(
 
     return {
       success: true,
-      data: {
+      output: {
         success: true,
         deletedMessageId: messageId
       }

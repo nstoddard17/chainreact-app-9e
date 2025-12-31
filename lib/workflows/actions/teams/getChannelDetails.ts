@@ -14,7 +14,9 @@ export async function getTeamsChannelDetails(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { teamId, channelId } = input
+    // Support both config and input for field values
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
 
     if (!teamId || !channelId) {
       return {
@@ -68,7 +70,7 @@ export async function getTeamsChannelDetails(
 
     return {
       success: true,
-      data: {
+      output: {
         channelId: channel.id,
         displayName: channel.displayName,
         description: channel.description || '',
