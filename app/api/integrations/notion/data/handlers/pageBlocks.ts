@@ -383,7 +383,13 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
             
           case 'people':
             if (propData.people && propData.people.length > 0) {
-              property.value = propData.people.map((person: any) => person.name || person.id)
+              // Return array of objects with both id and name for proper API updates
+              // The id is required for Notion API, name is for display
+              property.value = propData.people.map((person: any) => ({
+                id: person.id,
+                name: person.name || person.id,
+                object: 'user'
+              }))
             }
             property.type = 'people'
             break

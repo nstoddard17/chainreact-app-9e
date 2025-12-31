@@ -6,24 +6,16 @@ import { logger } from '@/lib/utils/logger'
 export async function onenoteDeletePage(
   params: {
     pageId: string
-    confirmDelete: boolean
   },
   context: ExecutionContext
 ) {
-  const { pageId, confirmDelete } = params
-
-  if (!confirmDelete) {
-    return {
-      success: false,
-      error: "Deletion not confirmed. Please confirm you want to delete this page."
-    }
-  }
+  const { pageId } = params
 
   if (context.testMode) {
     logger.debug("[TEST MODE] Would delete OneNote page:", { pageId })
     return {
       success: true,
-      data: {
+      output: {
         id: pageId,
         deleted: true,
         deletedDateTime: new Date().toISOString()
@@ -43,7 +35,7 @@ export async function onenoteDeletePage(
 
     return {
       success: true,
-      data: {
+      output: {
         id: pageId,
         deleted: true,
         deletedDateTime: new Date().toISOString(),
@@ -54,6 +46,7 @@ export async function onenoteDeletePage(
     logger.error("Error deleting OneNote page:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to delete OneNote page"
     }
   }

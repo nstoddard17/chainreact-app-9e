@@ -615,13 +615,16 @@ const outlookMappings: Record<string, FieldMapping> = {
   },
   "microsoft-outlook_action_update_calendar_event": {
     calendarId: "outlook_calendars",
+    eventId: "outlook_calendar_events",
     attendees: "outlook-enhanced-recipients",
   },
   "microsoft-outlook_action_delete_calendar_event": {
     calendarId: "outlook_calendars",
+    eventId: "outlook_calendar_events",
   },
   "microsoft-outlook_action_add_attendees": {
     calendarId: "outlook_calendars",
+    eventId: "outlook_calendar_events",
     attendees: "outlook-enhanced-recipients",
   },
   "microsoft-outlook_action_get_calendar_events": {
@@ -630,15 +633,16 @@ const outlookMappings: Record<string, FieldMapping> = {
 
   // Contact Actions
   "microsoft-outlook_action_create_contact": {},
-  "microsoft-outlook_action_update_contact": {},
-  "microsoft-outlook_action_delete_contact": {},
+  "microsoft-outlook_action_update_contact": {
+    contactId: "outlook_contacts",
+  },
+  "microsoft-outlook_action_delete_contact": {
+    contactId: "outlook_contacts",
+  },
   "microsoft-outlook_action_find_contact": {},
 
   // Attachment Actions
-  "microsoft-outlook_action_download_attachment": {
-    emailId: "outlook_messages",
-  },
-  "microsoft-outlook_action_list_attachments": {
+  "microsoft-outlook_action_get_attachment": {
     emailId: "outlook_messages",
   },
 
@@ -716,7 +720,7 @@ const onenoteMappings: Record<string, FieldMapping> = {
     sectionId: "onenote_sections",
     pageId: "onenote_pages",
   },
-  "microsoft-onenote_action_get_pages": {
+  "microsoft-onenote_action_list_pages": {
     notebookId: "onenote_notebooks",
     sectionId: "onenote_sections",
   },
@@ -727,14 +731,21 @@ const onenoteMappings: Record<string, FieldMapping> = {
     targetNotebookId: "onenote_notebooks",
     targetSectionId: "onenote_sections",
   },
-  "microsoft-onenote_action_search": {
-    notebookId: "onenote_notebooks",
-    sectionId: "onenote_sections",
-  },
   "microsoft-onenote_action_delete_page": {
     notebookId: "onenote_notebooks",
     sectionId: "onenote_sections",
     pageId: "onenote_pages",
+  },
+  // NOTE: delete_section and delete_notebook are NOT supported by Microsoft Graph API
+  "microsoft-onenote_action_list_sections": {
+    notebookId: "onenote_notebooks",
+  },
+  "microsoft-onenote_action_get_notebook_details": {
+    notebookId: "onenote_notebooks",
+  },
+  "microsoft-onenote_action_get_section_details": {
+    notebookId: "onenote_notebooks",
+    sectionId: "onenote_sections",
   },
 };
 
@@ -1278,6 +1289,11 @@ const notionMappings: Record<string, FieldMapping> = {
     page: "notion_pages",
     pageFields: "notion_page_blocks",
   },
+  notion_action_delete_page_content: {
+    workspace: "notion_workspaces",
+    page: "notion_pages",
+    blocksToDelete: "notion_page_blocks_deletable",
+  },
   notion_action_search_pages: {
     filter: "notion_filter_types",
   },
@@ -1374,9 +1390,13 @@ const notionMappings: Record<string, FieldMapping> = {
   },
   notion_action_get_block: {
     workspace: "notion_workspaces",
+    page: "notion_pages",
+    selectedBlock: "notion_page_blocks_selectable",
   },
   notion_action_get_block_children: {
     workspace: "notion_workspaces",
+    page: "notion_pages",
+    selectedBlock: "notion_page_blocks_selectable",
   },
   notion_action_get_page_with_children: {
     workspace: "notion_workspaces",
@@ -1663,6 +1683,8 @@ const defaultMappings: FieldMapping = {
   page: "notion_pages",
   pageId: "notion_pages",
   page_id: "notion_pages",
+  pageFields: "notion_page_blocks",
+  blocksToDelete: "notion_page_blocks_deletable",
   userId: "notion_users",
   user_id: "notion_users",
 };

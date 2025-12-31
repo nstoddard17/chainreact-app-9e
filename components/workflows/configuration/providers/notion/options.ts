@@ -35,6 +35,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         'databaseProperties': 'properties',
         'databaseFields': 'database_fields',
         'pageFields': 'page_blocks',
+        'blocksToDelete': 'page_blocks_deletable',
         'after': 'blocks',
         'block_id': 'blocks',
         'user_id': 'users',
@@ -99,8 +100,13 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         if (formValues?.workspace) {
           requestBody.options.workspaceId = formValues.workspace
         }
-      } else if (fieldName === 'pageFields' && dependsOnValue) {
-        requestBody.options.pageId = dependsOnValue
+      } else if (fieldName === 'pageFields' || fieldName === 'blocksToDelete') {
+        // pageFields and blocksToDelete depend on page - get from dependsOnValue or fall back to formValues.page
+        if (dependsOnValue) {
+          requestBody.options.pageId = dependsOnValue
+        } else if (formValues?.page) {
+          requestBody.options.pageId = formValues.page
+        }
         if (formValues?.workspace) {
           requestBody.options.workspaceId = formValues.workspace
         }
@@ -130,6 +136,19 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
           dependsOnValue,
           formValuesDatabase: formValues?.database,
           formValuesDatabaseId: formValues?.databaseId,
+          formValuesKeys: formValues ? Object.keys(formValues) : []
+        })
+        return []
+      }
+
+      // pageFields and blocksToDelete require pageId
+      if ((fieldName === 'pageFields' || fieldName === 'blocksToDelete') && !requestBody.options.pageId) {
+        logger.debug('⚠️ [Notion Options] Skipping Notion request - missing pageId', {
+          fieldName,
+          dataType,
+          integrationId,
+          dependsOnValue,
+          formValuesPage: formValues?.page,
           formValuesKeys: formValues ? Object.keys(formValues) : []
         })
         return []
@@ -234,6 +253,11 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
           // This is used for the pageFields dynamic_fields type
           return Array.isArray(data) ? data : []
 
+        case 'page_blocks_deletable':
+          // Page blocks deletable returns blocks formatted for deletion selection with checkboxes
+          // This is used for the blocksToDelete dynamic_fields type
+          return Array.isArray(data) ? data : []
+
         case 'database_rows':
           // Database rows returns all pages/entries in the database with their properties
           // This is used for the databaseRows dynamic_fields type
@@ -312,6 +336,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       'databaseFields': ['database'],
       'databaseRows': ['database'],
       'pageFields': ['page'],
+      'blocksToDelete': ['page'],
       'itemToArchive': ['database'],
       'itemToRestore': ['database'],
       'sortProperty': ['database'],

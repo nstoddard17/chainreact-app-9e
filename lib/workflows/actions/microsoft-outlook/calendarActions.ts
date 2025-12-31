@@ -1,0 +1,477 @@
+import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
+import { refreshMicrosoftToken } from '../core/refreshMicrosoftToken'
+import { resolveValue } from '../core/resolveValue'
+import { ActionResult } from '../core/executeWait'
+import { logger } from '@/lib/utils/logger'
+
+/**
+ * Update an existing Outlook calendar event
+ */
+export async function updateOutlookCalendarEvent(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const {
+      eventId,
+      eventIdManual,
+      eventSelectionMode,
+      calendarId,
+      subject,
+      body,
+      startDateTime,
+      endDateTime,
+      location,
+      attendees
+    } = resolvedConfig
+
+    // Use eventIdManual if manual mode is selected, otherwise use eventId from list selection
+    const resolvedEventId = eventSelectionMode === 'manual' ? eventIdManual : eventId
+
+    if (!resolvedEventId) {
+      throw new Error('Event ID is required - either select an event from the list or enter an ID manually')
+    }
+
+    let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
+
+    // Build update payload - only include fields that are provided
+    const updateData: any = {}
+
+    if (subject !== undefined && subject !== '') {
+      updateData.subject = subject
+    }
+
+    if (body !== undefined && body !== '') {
+      updateData.body = {
+        contentType: 'HTML',
+        content: body
+      }
+    }
+
+    // Microsoft Graph API requires both start and end times when updating either one
+    // If only one is provided, we need to fetch the current event to get the other value
+    if (startDateTime || endDateTime) {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+      // Helper to format datetime for Graph API (remove trailing Z if present)
+      const formatDateTime = (dt: string) => {
+        // If it ends with Z, remove it (Graph API expects local time with separate timeZone)
+        if (dt.endsWith('Z')) {
+          return dt.slice(0, -1)
+        }
+        // If it has timezone offset like +00:00, remove it
+        return dt.replace(/[+-]\d{2}:\d{2}$/, '')
+      }
+
+      if (startDateTime && endDateTime) {
+        // Both provided - use them directly
+        updateData.start = {
+          dateTime: formatDateTime(startDateTime),
+          timeZone
+        }
+        updateData.end = {
+          dateTime: formatDateTime(endDateTime),
+          timeZone
+        }
+      } else {
+        // Only one provided - need to calculate the other or fetch current event
+        // For simplicity, if only start is provided, set end to 1 hour later
+        // If only end is provided, set start to 1 hour before
+        if (startDateTime) {
+          const startDate = new Date(startDateTime)
+          const endDate = new Date(startDate.getTime() + 60 * 60 * 1000) // +1 hour
+          updateData.start = {
+            dateTime: formatDateTime(startDateTime),
+            timeZone
+          }
+          updateData.end = {
+            dateTime: formatDateTime(endDate.toISOString()),
+            timeZone
+          }
+        } else if (endDateTime) {
+          const endDate = new Date(endDateTime)
+          const startDate = new Date(endDate.getTime() - 60 * 60 * 1000) // -1 hour
+          updateData.start = {
+            dateTime: formatDateTime(startDate.toISOString()),
+            timeZone
+          }
+          updateData.end = {
+            dateTime: formatDateTime(endDateTime),
+            timeZone
+          }
+        }
+      }
+    }
+
+    if (location !== undefined && location !== '') {
+      updateData.location = {
+        displayName: location
+      }
+    }
+
+    if (attendees && attendees.length > 0) {
+      const attendeeList = Array.isArray(attendees) ? attendees : [attendees]
+      updateData.attendees = attendeeList
+        .filter((email: string) => email && email.includes('@'))
+        .map((email: string) => ({
+          emailAddress: { address: email.trim() },
+          type: 'required'
+        }))
+    }
+
+    // Determine endpoint based on calendar selection
+    const endpoint = calendarId && calendarId !== 'default'
+      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${resolvedEventId}`
+      : `https://graph.microsoft.com/v1.0/me/events/${resolvedEventId}`
+
+    const makeRequest = async (token: string) => {
+      return fetch(endpoint, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      })
+    }
+
+    let response = await makeRequest(accessToken)
+
+    if (response.status === 401) {
+      accessToken = await refreshMicrosoftToken(userId, "microsoft-outlook")
+      response = await makeRequest(accessToken)
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      let errorMessage = `Failed to update calendar event: ${response.statusText}`
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson.error?.message) {
+          errorMessage = `Failed to update calendar event: ${errorJson.error.message}`
+        }
+      } catch {}
+      throw new Error(errorMessage)
+    }
+
+    const updatedEvent = await response.json()
+
+    return {
+      success: true,
+      output: {
+        id: updatedEvent.id,
+        updated: true,
+        subject: updatedEvent.subject,
+        start: updatedEvent.start,
+        end: updatedEvent.end,
+        location: updatedEvent.location?.displayName,
+        webLink: updatedEvent.webLink
+      }
+    }
+  } catch (error: any) {
+    logger.error('[Outlook Calendar] Error updating event:', error)
+    throw error
+  }
+}
+
+/**
+ * Delete an Outlook calendar event
+ * Note: Microsoft Graph API always sends cancellation notifications to attendees when deleting an event.
+ * There is no API option to suppress this behavior.
+ */
+export async function deleteOutlookCalendarEvent(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const { eventId, eventIdManual, eventSelectionMode, calendarId } = resolvedConfig
+
+    // Use eventIdManual if manual mode is selected, otherwise use eventId from list selection
+    const resolvedEventId = eventSelectionMode === 'manual' ? eventIdManual : eventId
+
+    if (!resolvedEventId) {
+      throw new Error('Event ID is required - either select an event from the list or enter an ID manually')
+    }
+
+    let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
+
+    // Determine endpoint based on calendar selection
+    const endpoint = calendarId && calendarId !== 'default'
+      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${resolvedEventId}`
+      : `https://graph.microsoft.com/v1.0/me/events/${resolvedEventId}`
+
+    const makeRequest = async (token: string) => {
+      return fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+    }
+
+    let response = await makeRequest(accessToken)
+
+    if (response.status === 401) {
+      accessToken = await refreshMicrosoftToken(userId, "microsoft-outlook")
+      response = await makeRequest(accessToken)
+    }
+
+    if (!response.ok && response.status !== 204) {
+      const errorText = await response.text()
+      let errorMessage = `Failed to delete calendar event: ${response.statusText}`
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson.error?.message) {
+          errorMessage = `Failed to delete calendar event: ${errorJson.error.message}`
+        }
+      } catch {}
+      throw new Error(errorMessage)
+    }
+
+    return {
+      success: true,
+      output: {
+        deleted: true,
+        eventId: resolvedEventId
+      }
+    }
+  } catch (error: any) {
+    logger.error('[Outlook Calendar] Error deleting event:', error)
+    throw error
+  }
+}
+
+/**
+ * Add attendees to an existing calendar event
+ */
+export async function addOutlookAttendees(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const { eventId, eventIdManual, eventSelectionMode, calendarId, attendees, sendInvitation = true } = resolvedConfig
+
+    // Use eventIdManual if manual mode is selected, otherwise use eventId from list selection
+    const resolvedEventId = eventSelectionMode === 'manual' ? eventIdManual : eventId
+
+    if (!resolvedEventId) {
+      throw new Error('Event ID is required - either select an event from the list or enter an ID manually')
+    }
+    if (!attendees || attendees.length === 0) {
+      throw new Error('At least one attendee is required')
+    }
+
+    let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
+
+    // First, get the current event to preserve existing attendees
+    const getEndpoint = calendarId && calendarId !== 'default'
+      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events/${resolvedEventId}`
+      : `https://graph.microsoft.com/v1.0/me/events/${resolvedEventId}`
+
+    const getRequest = async (token: string) => {
+      return fetch(getEndpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+    }
+
+    let getResponse = await getRequest(accessToken)
+
+    if (getResponse.status === 401) {
+      accessToken = await refreshMicrosoftToken(userId, "microsoft-outlook")
+      getResponse = await getRequest(accessToken)
+    }
+
+    if (!getResponse.ok) {
+      throw new Error(`Failed to get event: ${getResponse.statusText}`)
+    }
+
+    const currentEvent = await getResponse.json()
+    const existingAttendees = currentEvent.attendees || []
+
+    // Process new attendees
+    const attendeeList = Array.isArray(attendees) ? attendees : [attendees]
+    const newAttendees = attendeeList
+      .filter((email: string) => email && email.includes('@'))
+      .map((email: string) => ({
+        emailAddress: { address: email.trim() },
+        type: 'required'
+      }))
+
+    // Merge existing and new attendees (avoid duplicates)
+    const existingEmails = new Set(
+      existingAttendees.map((a: any) => a.emailAddress?.address?.toLowerCase())
+    )
+    const mergedAttendees = [
+      ...existingAttendees,
+      ...newAttendees.filter((a: any) => !existingEmails.has(a.emailAddress.address.toLowerCase()))
+    ]
+
+    // Update the event with merged attendees
+    const updateEndpoint = getEndpoint
+
+    const updateRequest = async (token: string) => {
+      return fetch(updateEndpoint, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ attendees: mergedAttendees })
+      })
+    }
+
+    let updateResponse = await updateRequest(accessToken)
+
+    if (updateResponse.status === 401) {
+      accessToken = await refreshMicrosoftToken(userId, "microsoft-outlook")
+      updateResponse = await updateRequest(accessToken)
+    }
+
+    if (!updateResponse.ok) {
+      const errorText = await updateResponse.text()
+      let errorMessage = `Failed to add attendees: ${updateResponse.statusText}`
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson.error?.message) {
+          errorMessage = `Failed to add attendees: ${errorJson.error.message}`
+        }
+      } catch {}
+      throw new Error(errorMessage)
+    }
+
+    const updatedEvent = await updateResponse.json()
+
+    return {
+      success: true,
+      output: {
+        id: updatedEvent.id,
+        attendeesAdded: newAttendees.map((a: any) => a.emailAddress.address),
+        totalAttendees: mergedAttendees.length,
+        invitationSent: sendInvitation !== false && sendInvitation !== 'false'
+      }
+    }
+  } catch (error: any) {
+    logger.error('[Outlook Calendar] Error adding attendees:', error)
+    throw error
+  }
+}
+
+/**
+ * Get calendar events from Outlook
+ */
+export async function getOutlookCalendarEvents(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+    const { calendarId, startDate, endDate, limit = 25 } = resolvedConfig
+
+    let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
+
+    // Build the endpoint
+    let endpoint = calendarId && calendarId !== 'default'
+      ? `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events`
+      : 'https://graph.microsoft.com/v1.0/me/events'
+
+    const params = new URLSearchParams()
+    params.append('$top', Math.min(Math.max(1, parseInt(limit)), 100).toString())
+    params.append('$orderby', 'start/dateTime')
+    params.append('$select', 'id,subject,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting,webLink,importance,sensitivity')
+
+    // Add date filters if provided
+    // For date ranges: we want events that START on or after startDate AND START before endDate
+    // When endDate is provided as a date (not datetime), set it to end of day to include all events on that date
+    const filters: string[] = []
+    if (startDate) {
+      filters.push(`start/dateTime ge '${new Date(startDate).toISOString()}'`)
+    }
+    if (endDate) {
+      // Parse the endDate and set to end of day (23:59:59.999) to include events on that day
+      const endDateTime = new Date(endDate)
+      // Check if only a date was provided (no time component)
+      if (!endDate.includes('T')) {
+        endDateTime.setHours(23, 59, 59, 999)
+      }
+      // Filter events that START before the end of the date range
+      filters.push(`start/dateTime le '${endDateTime.toISOString()}'`)
+    }
+
+    if (filters.length > 0) {
+      params.append('$filter', filters.join(' and '))
+    }
+
+    const fullEndpoint = `${endpoint}?${params.toString()}`
+
+    const makeRequest = async (token: string) => {
+      return fetch(fullEndpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+    }
+
+    let response = await makeRequest(accessToken)
+
+    if (response.status === 401) {
+      accessToken = await refreshMicrosoftToken(userId, "microsoft-outlook")
+      response = await makeRequest(accessToken)
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      let errorMessage = `Failed to fetch calendar events: ${response.statusText}`
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson.error?.message) {
+          errorMessage = `Failed to fetch calendar events: ${errorJson.error.message}`
+        }
+      } catch {}
+      throw new Error(errorMessage)
+    }
+
+    const data = await response.json()
+    const events = data.value || []
+
+    return {
+      success: true,
+      output: {
+        events: events.map((event: any) => ({
+          id: event.id,
+          subject: event.subject,
+          start: event.start,
+          end: event.end,
+          location: event.location?.displayName,
+          attendees: event.attendees?.map((a: any) => ({
+            email: a.emailAddress?.address,
+            name: a.emailAddress?.name,
+            status: a.status?.response
+          })),
+          organizer: event.organizer?.emailAddress,
+          isOnlineMeeting: event.isOnlineMeeting,
+          onlineMeetingUrl: event.onlineMeeting?.joinUrl,
+          webLink: event.webLink,
+          importance: event.importance,
+          sensitivity: event.sensitivity
+        })),
+        count: events.length
+      }
+    }
+  } catch (error: any) {
+    logger.error('[Outlook Calendar] Error fetching events:', error)
+    throw error
+  }
+}

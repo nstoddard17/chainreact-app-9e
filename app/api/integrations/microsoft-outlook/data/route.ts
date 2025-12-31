@@ -4,11 +4,15 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { getOutlookEnhancedRecipients } from "./handlers/enhanced-recipients"
 import { getOutlookCalendars } from "./handlers/calendars"
+import { getOutlookCalendarEvents } from "./handlers/calendar-events"
+import { getOutlookContacts } from "./handlers/contacts"
+import { getOutlookFolders } from "./handlers/folders"
 
 import { logger } from '@/lib/utils/logger'
 
 interface OutlookOptions {
   search?: string
+  calendarId?: string
 }
 
 async function getServiceClient() {
@@ -59,13 +63,8 @@ async function buildResponse(
     }
 
     case 'outlook_folders': {
-      return [
-        { value: 'inbox', label: 'Inbox' },
-        { value: 'sentitems', label: 'Sent Items' },
-        { value: 'drafts', label: 'Drafts' },
-        { value: 'deleteditems', label: 'Deleted Items' },
-        { value: 'archive', label: 'Archive' }
-      ]
+      const folders = await getOutlookFolders(integration)
+      return folders
     }
 
     case 'outlook_messages': {
@@ -75,6 +74,21 @@ async function buildResponse(
     case 'outlook_calendars': {
       const calendars = await getOutlookCalendars(integration)
       return calendars
+    }
+
+    case 'outlook_calendar_events': {
+      const events = await getOutlookCalendarEvents(integration, {
+        calendarId: options.calendarId,
+        search: options.search
+      })
+      return events
+    }
+
+    case 'outlook_contacts': {
+      const contacts = await getOutlookContacts(integration, {
+        search: options.search
+      })
+      return contacts
     }
 
     default:
@@ -88,6 +102,7 @@ export async function GET(request: NextRequest) {
     const dataType = url.searchParams.get('type')
     const search = url.searchParams.get('search') || undefined
     const integrationId = url.searchParams.get('integrationId') || undefined
+    const calendarId = url.searchParams.get('calendarId') || undefined
 
     if (!dataType) {
       return errorResponse('Data type required' , 400)
@@ -110,7 +125,7 @@ export async function GET(request: NextRequest) {
       return errorResponse('No connected Microsoft Outlook integration found' , 404)
     }
 
-    const data = await buildResponse(dataType, integration, { search })
+    const data = await buildResponse(dataType, integration, { search, calendarId })
     return jsonResponse({ data })
   } catch (error: any) {
     logger.error('[Outlook Data API] Error:', error)

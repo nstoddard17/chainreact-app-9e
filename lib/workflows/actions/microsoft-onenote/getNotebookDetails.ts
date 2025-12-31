@@ -14,7 +14,7 @@ export async function onenoteGetNotebookDetails(
     logger.debug("[TEST MODE] Would get notebook details:", { notebookId })
     return {
       success: true,
-      data: {
+      output: {
         id: notebookId,
         displayName: "Test Notebook",
         createdDateTime: new Date().toISOString(),
@@ -42,7 +42,7 @@ export async function onenoteGetNotebookDetails(
 
     return {
       success: true,
-      data: {
+      output: {
         id: notebook.id,
         displayName: notebook.displayName,
         createdDateTime: notebook.createdDateTime,
@@ -58,6 +58,7 @@ export async function onenoteGetNotebookDetails(
     logger.error("Error getting OneNote notebook details:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to get OneNote notebook details"
     }
   }

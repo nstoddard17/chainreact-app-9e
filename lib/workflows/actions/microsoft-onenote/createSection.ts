@@ -16,7 +16,7 @@ export async function onenoteCreateSection(
     logger.debug("[TEST MODE] Would create OneNote section:", { notebookId, displayName })
     return {
       success: true,
-      data: {
+      output: {
         id: "test-section-id",
         displayName,
         createdDateTime: new Date().toISOString()
@@ -41,7 +41,7 @@ export async function onenoteCreateSection(
 
     return {
       success: true,
-      data: {
+      output: {
         id: section.id,
         displayName: section.displayName,
         createdDateTime: section.createdDateTime,
@@ -53,6 +53,7 @@ export async function onenoteCreateSection(
     logger.error("Error creating OneNote section:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to create OneNote section"
     }
   }

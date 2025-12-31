@@ -240,14 +240,14 @@ export class IntegrationNodeHandlers {
           }
           return result
         }
-        case 'microsoft-onenote_action_get_pages': {
+        case 'microsoft-onenote_action_list_pages': {
           const { onenoteGetPages } = await import('@/lib/workflows/actions/microsoft-onenote')
           const result = await onenoteGetPages({
             notebookId: config.notebookId,
             sectionId: config.sectionId
           }, context as any)
           if (!result?.success) {
-            throw new Error(result?.error || result?.message || 'Failed to get OneNote pages')
+            throw new Error(result?.error || result?.message || 'Failed to list OneNote pages')
           }
           return result
         }
@@ -259,18 +259,6 @@ export class IntegrationNodeHandlers {
           }, context as any)
           if (!result?.success) {
             throw new Error(result?.error || result?.message || 'Failed to copy OneNote page')
-          }
-          return result
-        }
-        case 'microsoft-onenote_action_search': {
-          const { onenoteSearch } = await import('@/lib/workflows/actions/microsoft-onenote')
-          const result = await onenoteSearch({
-            query: config.query,
-            notebookId: config.notebookId,
-            sectionId: config.sectionId
-          }, context as any)
-          if (!result?.success) {
-            throw new Error(result?.error || result?.message || 'Failed to search OneNote')
           }
           return result
         }

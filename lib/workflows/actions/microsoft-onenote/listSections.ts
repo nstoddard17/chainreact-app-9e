@@ -15,7 +15,7 @@ export async function onenoteListSections(
     logger.debug("[TEST MODE] Would list sections for notebook:", { notebookId })
     return {
       success: true,
-      data: {
+      output: {
         sections: [
           {
             id: "test-section-1",
@@ -50,7 +50,7 @@ export async function onenoteListSections(
 
     return {
       success: true,
-      data: {
+      output: {
         sections: sections.map((section: any) => ({
           id: section.id,
           displayName: section.displayName,
@@ -65,6 +65,7 @@ export async function onenoteListSections(
     logger.error("Error listing OneNote sections:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to list OneNote sections"
     }
   }

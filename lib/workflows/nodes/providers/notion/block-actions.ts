@@ -188,18 +188,81 @@ export const notionBlockActions: NodeComponent[] = [
         loadOnMount: true
       },
       {
-        name: "blockId",
-        label: "Block ID",
-        type: "text",
+        name: "selectionMode",
+        label: "Block Selection Method",
+        type: "select",
         required: true,
-        placeholder: "Enter block ID (e.g., block_abc123...)",
-        description: "The ID of the block to retrieve",
-        supportsVariables: true,
-        hasConnectButton: true,
-        dependsOn: "workspace",
+        options: [
+          { value: "fromPage", label: "Select from page (recommended)" },
+          { value: "manual", label: "Enter block ID manually" }
+        ],
+        defaultValue: "fromPage",
+        description: "Choose how to select the block to retrieve",
         hidden: {
           $deps: ["workspace"],
           $condition: { workspace: { $exists: false } }
+        }
+      },
+      // Manual mode - direct block ID input
+      {
+        name: "blockId",
+        label: "Block ID",
+        type: "text",
+        required: false,
+        placeholder: "{{trigger.blockId}} or block_123abc",
+        supportsAI: true,
+        description: "The ID of the block to retrieve",
+        tooltip: "Get block IDs from 'List Page Content' action or from triggers.",
+        hidden: {
+          $deps: ["selectionMode", "workspace"],
+          $condition: {
+            $or: [
+              { workspace: { $exists: false } },
+              { selectionMode: { $ne: "manual" } }
+            ]
+          }
+        }
+      },
+      // Page selection mode - select page first
+      {
+        name: "page",
+        label: "Page",
+        type: "combobox",
+        dynamic: "notion_pages",
+        required: false,
+        placeholder: "Search for a page...",
+        description: "Select the page containing the block",
+        dependsOn: "workspace",
+        searchable: true,
+        loadingText: "Loading pages...",
+        hidden: {
+          $deps: ["selectionMode", "workspace"],
+          $condition: {
+            $or: [
+              { workspace: { $exists: false } },
+              { selectionMode: { $ne: "fromPage" } }
+            ]
+          }
+        }
+      },
+      // Block selection from page
+      {
+        name: "selectedBlock",
+        label: "Block to Retrieve",
+        type: "select",
+        dynamic: "notion_page_blocks_selectable",
+        dependsOn: "page",
+        required: false,
+        placeholder: "Select a block...",
+        description: "Select the block you want to retrieve",
+        hidden: {
+          $deps: ["page", "selectionMode"],
+          $condition: {
+            $or: [
+              { page: { $exists: false } },
+              { selectionMode: { $ne: "fromPage" } }
+            ]
+          }
         }
       }
     ],
@@ -264,18 +327,81 @@ export const notionBlockActions: NodeComponent[] = [
         loadOnMount: true
       },
       {
-        name: "blockId",
-        label: "Block ID",
-        type: "text",
+        name: "selectionMode",
+        label: "Block Selection Method",
+        type: "select",
         required: true,
-        placeholder: "Enter parent block ID",
-        description: "The ID of the parent block whose children to retrieve",
-        supportsVariables: true,
-        hasConnectButton: true,
-        dependsOn: "workspace",
+        options: [
+          { value: "fromPage", label: "Select from page (recommended)" },
+          { value: "manual", label: "Enter block ID manually" }
+        ],
+        defaultValue: "fromPage",
+        description: "Choose how to select the parent block",
         hidden: {
           $deps: ["workspace"],
           $condition: { workspace: { $exists: false } }
+        }
+      },
+      // Manual mode - direct block ID input
+      {
+        name: "blockId",
+        label: "Block ID",
+        type: "text",
+        required: false,
+        placeholder: "{{trigger.blockId}} or block_123abc",
+        supportsAI: true,
+        description: "The ID of the parent block whose children to retrieve",
+        tooltip: "Get block IDs from 'List Page Content' action or from triggers.",
+        hidden: {
+          $deps: ["selectionMode", "workspace"],
+          $condition: {
+            $or: [
+              { workspace: { $exists: false } },
+              { selectionMode: { $ne: "manual" } }
+            ]
+          }
+        }
+      },
+      // Page selection mode - select page first
+      {
+        name: "page",
+        label: "Page",
+        type: "combobox",
+        dynamic: "notion_pages",
+        required: false,
+        placeholder: "Search for a page...",
+        description: "Select the page containing the parent block",
+        dependsOn: "workspace",
+        searchable: true,
+        loadingText: "Loading pages...",
+        hidden: {
+          $deps: ["selectionMode", "workspace"],
+          $condition: {
+            $or: [
+              { workspace: { $exists: false } },
+              { selectionMode: { $ne: "fromPage" } }
+            ]
+          }
+        }
+      },
+      // Block selection from page
+      {
+        name: "selectedBlock",
+        label: "Parent Block",
+        type: "select",
+        dynamic: "notion_page_blocks_selectable",
+        dependsOn: "page",
+        required: false,
+        placeholder: "Select a parent block...",
+        description: "Select the block whose children you want to retrieve",
+        hidden: {
+          $deps: ["page", "selectionMode"],
+          $condition: {
+            $or: [
+              { page: { $exists: false } },
+              { selectionMode: { $ne: "fromPage" } }
+            ]
+          }
         }
       },
       {
@@ -287,10 +413,9 @@ export const notionBlockActions: NodeComponent[] = [
         max: 100,
         placeholder: "100",
         description: "Number of children to retrieve (max 100)",
-        dependsOn: "blockId",
         hidden: {
-          $deps: ["blockId"],
-          $condition: { blockId: { $exists: false } }
+          $deps: ["workspace"],
+          $condition: { workspace: { $exists: false } }
         }
       },
       {
@@ -302,10 +427,9 @@ export const notionBlockActions: NodeComponent[] = [
         description: "For pagination - use next_cursor from previous query",
         supportsVariables: true,
         hasConnectButton: true,
-        dependsOn: "blockId",
         hidden: {
-          $deps: ["blockId"],
-          $condition: { blockId: { $exists: false } }
+          $deps: ["workspace"],
+          $condition: { workspace: { $exists: false } }
         }
       }
     ],

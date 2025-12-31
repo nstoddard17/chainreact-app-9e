@@ -24,7 +24,15 @@
       "Bash(psql:*)",
       "Bash(node check-scopes.js:*)",
       "Bash(findstr:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"require(''''typescript'''').parseJsonConfigFileContent(require(''''./tsconfig.json''''), require(''''typescript'''').sys, ''''.'''')\")",
+      "Bash(node -e \"require\\(''./app/api/integrations/microsoft-outlook/data/handlers/calendar-events.ts''\\)\")",
+      "Bash(npm run lint:*)",
+      "Bash(node -e:*)",
+      "Bash(grep:*)",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\microsoft-onenote\\\\deleteSection.ts\")",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\microsoft-onenote\\\\deleteNotebook.ts\")",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\microsoft-onenote\\\\search.ts\")"
     ],
     "deny": [],
     "ask": [],

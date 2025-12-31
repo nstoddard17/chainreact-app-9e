@@ -17,7 +17,7 @@ export async function onenoteGetPageContent(
     logger.debug("[TEST MODE] Would get OneNote page content:", { pageId, includeIDs })
     return {
       success: true,
-      data: {
+      output: {
         id: pageId,
         content: "<html><body><p>Test page content</p></body></html>",
         title: "Test Page"
@@ -66,7 +66,7 @@ export async function onenoteGetPageContent(
 
     return {
       success: true,
-      data: {
+      output: {
         id: page.id,
         title: page.title,
         content: content,
@@ -79,6 +79,7 @@ export async function onenoteGetPageContent(
     logger.error("Error getting OneNote page content:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to get OneNote page content"
     }
   }

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, ChevronLeft, ChevronDown, ChevronUp, Mail, Loader2, Search, ExternalLink, FolderOpen } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronDown, ChevronUp, Mail, Loader2, Search, ExternalLink, FolderOpen, Paperclip } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { AIFieldWrapper } from '../fields/AIFieldWrapper';
@@ -271,23 +271,51 @@ export function GenericConfiguration({
     validateForm();
   }, [values, nodeInfo]);
 
+  // Track which default values have already been applied to prevent infinite loops
+  const appliedDefaultsRef = useRef<Set<string>>(new Set());
+  const lastNodeTypeRef = useRef<string | undefined>(undefined);
+
+  // Reset applied defaults tracking when node type changes
+  useEffect(() => {
+    if (nodeInfo?.type && nodeInfo.type !== lastNodeTypeRef.current) {
+      appliedDefaultsRef.current = new Set();
+      lastNodeTypeRef.current = nodeInfo.type;
+    }
+  }, [nodeInfo?.type]);
+
   // Apply default values to fields when they become visible
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
 
+    // Batch all default value applications to prevent multiple state updates
+    const defaultsToApply: { fieldName: string; value: any }[] = [];
+
     nodeInfo.configSchema.forEach((field: any) => {
       // Check if field has a default value defined
       if (field.defaultValue !== undefined) {
+        // Skip if we've already applied this default
+        if (appliedDefaultsRef.current.has(field.name)) {
+          return;
+        }
+
         // Check if field is now visible
         const isVisible = FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo);
 
         // Apply default if field is visible and doesn't have a value yet
         if (isVisible && (values[field.name] === undefined || values[field.name] === null)) {
-          logger.debug(`[GenericConfig] Applying default value to ${field.name}:`, field.defaultValue);
-          setValue(field.name, field.defaultValue);
+          defaultsToApply.push({ fieldName: field.name, value: field.defaultValue });
+          appliedDefaultsRef.current.add(field.name);
         }
       }
     });
+
+    // Apply all defaults in a single batch
+    if (defaultsToApply.length > 0) {
+      defaultsToApply.forEach(({ fieldName, value }) => {
+        logger.debug(`[GenericConfig] Applying default value to ${fieldName}:`, value);
+        setValue(fieldName, value);
+      });
+    }
   }, [values, nodeInfo, setValue]);
 
   // Handle field value changes and trigger dependent field loading
@@ -657,6 +685,73 @@ export function GenericConfiguration({
       setShowPreview(true);
     } catch (error: any) {
       setPreviewResult({ error: error.message || 'Failed to fetch preview' });
+      setShowPreview(true);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Handle attachment preview for Outlook Download Attachments action
+  const handleAttachmentPreview = async () => {
+    setPreviewLoading(true);
+    setPreviewResult(null);
+
+    try {
+      const response = await fetch('/api/integrations/microsoft-outlook/get-email-by-id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emailId: values.emailId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        // API returns { error: "message" } format
+        setPreviewResult({ error: errorData.error || errorData.message || 'Failed to fetch email preview' });
+      } else {
+        const data = await response.json();
+        setPreviewResult(data);
+      }
+      setShowPreview(true);
+    } catch (error: any) {
+      setPreviewResult({ error: error.message || 'Failed to fetch email preview' });
+      setShowPreview(true);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Handle email-only preview for Outlook Reply/Forward/Delete Email actions
+  const handleOutlookEmailByIdPreview = async () => {
+    setPreviewLoading(true);
+    setPreviewResult(null);
+
+    try {
+      const response = await fetch('/api/integrations/microsoft-outlook/get-email-by-id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emailId: values.emailId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        // API returns { error: "message" } format
+        setPreviewResult({ error: errorData.error || errorData.message || 'Failed to fetch email preview' });
+      } else {
+        const data = await response.json();
+        // Mark this as email-only preview (no attachment section needed)
+        setPreviewResult({ ...data, emailOnlyPreview: true });
+      }
+      setShowPreview(true);
+    } catch (error: any) {
+      setPreviewResult({ error: error.message || 'Failed to fetch email preview' });
       setShowPreview(true);
     } finally {
       setPreviewLoading(false);
@@ -1364,6 +1459,236 @@ export function GenericConfiguration({
                   </div>
                 )
               })()}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Attachment Preview Button - For Outlook Get Attachments action when email ID is provided */}
+      {(nodeInfo?.type === 'microsoft-outlook_action_get_attachment' ||
+        nodeInfo?.type === 'microsoft-outlook_action_download_attachment') &&
+       values.emailId && (
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAttachmentPreview}
+            disabled={previewLoading}
+            className="w-full"
+          >
+            {previewLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading Preview...
+              </>
+            ) : (
+              <>
+                <Mail className="mr-2 h-4 w-4" />
+                Preview Email & Attachments
+              </>
+            )}
+          </Button>
+
+          {/* Preview Result */}
+          {showPreview && previewResult && (
+            <div className="mt-4 p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800">
+              {previewResult.error ? (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  <AlertTriangle className="inline-block mr-2 h-4 w-4" />
+                  {previewResult.error}
+                </div>
+              ) : previewResult.email ? (
+                <div className="space-y-4">
+                  {/* Email Info */}
+                  <div className="rounded border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        {previewResult.email.subject || '(No subject)'}
+                      </div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {previewResult.email.receivedDateTime ? new Date(previewResult.email.receivedDateTime).toLocaleString() : 'Unknown time'}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      From: {previewResult.email.fromName ? `${previewResult.email.fromName} <${previewResult.email.from}>` : previewResult.email.from || 'Unknown sender'}
+                    </div>
+                    {previewResult.email.to && previewResult.email.to.length > 0 && (
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        To: {previewResult.email.to.join(', ')}
+                      </div>
+                    )}
+                    <div className="mt-2 rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                      {previewResult.email.bodyPreview || 'No preview available'}
+                    </div>
+                  </div>
+
+                  {/* Attachments List */}
+                  <div>
+                    <h4 className="font-medium text-sm text-slate-700 dark:text-slate-300 mb-2">
+                      Attachments ({previewResult.fileCount || 0} file{previewResult.fileCount !== 1 ? 's' : ''}{previewResult.inlineCount > 0 ? `, ${previewResult.inlineCount} inline` : ''})
+                    </h4>
+                    {previewResult.attachments && previewResult.attachments.length > 0 ? (
+                      <div className="space-y-2">
+                        {previewResult.attachments.map((att: any, index: number) => (
+                          <div
+                            key={att.id || index}
+                            className={`flex items-center justify-between rounded border p-2 text-sm ${
+                              att.isInline
+                                ? 'border-slate-200 bg-slate-100 dark:border-slate-600 dark:bg-slate-700'
+                                : 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/30'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Paperclip className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                              <span className="text-slate-600 dark:text-slate-300 truncate">{att.name}</span>
+                              {att.isInline && (
+                                <span className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">(inline)</span>
+                              )}
+                            </div>
+                            <span className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0 ml-2">
+                              {att.size ? `${(att.size / 1024).toFixed(1)} KB` : 'Unknown size'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-500 dark:text-slate-400">
+                        No attachments found in this email
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Download Mode Info */}
+                  {values.downloadMode && values.downloadMode !== 'all' && previewResult.attachments && previewResult.attachments.length > 0 && (
+                    <div className="text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700 pt-3">
+                      {values.downloadMode === 'by_extension' && values.fileExtensions && (
+                        <span>
+                          With your current filter ({values.fileExtensions}), {
+                            previewResult.attachments.filter((att: any) => {
+                              if (att.isInline && values.excludeInline !== false) return false;
+                              const extensions = values.fileExtensions.split(',').map((ext: string) => ext.trim().toLowerCase().replace(/^\./, ''));
+                              const fileExt = att.name?.split('.').pop()?.toLowerCase() || '';
+                              return extensions.includes(fileExt);
+                            }).length
+                          } attachment(s) would be downloaded.
+                        </span>
+                      )}
+                      {values.downloadMode === 'by_name' && values.fileNameFilter && (
+                        <span>
+                          With your current filter ("{values.fileNameFilter}"), {
+                            previewResult.attachments.filter((att: any) => {
+                              if (att.isInline && values.excludeInline !== false) return false;
+                              return att.name?.toLowerCase().includes(values.fileNameFilter.toLowerCase());
+                            }).length
+                          } attachment(s) would be downloaded.
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  No email data available
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Email Preview Button - For Outlook Reply/Forward/Delete Email actions when email ID is provided */}
+      {(nodeInfo?.type === 'microsoft-outlook_action_reply_to_email' ||
+        nodeInfo?.type === 'microsoft-outlook_action_forward_email' ||
+        nodeInfo?.type === 'microsoft-outlook_action_delete_email') &&
+       values.emailId && (
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-4 mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleOutlookEmailByIdPreview}
+            disabled={previewLoading}
+            className="w-full"
+          >
+            {previewLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading Preview...
+              </>
+            ) : (
+              <>
+                <Mail className="mr-2 h-4 w-4" />
+                Preview Email
+              </>
+            )}
+          </Button>
+
+          {/* Preview Result */}
+          {showPreview && previewResult && (
+            <div className="mt-4 p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800">
+              {previewResult.error ? (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  <AlertTriangle className="inline-block mr-2 h-4 w-4" />
+                  {previewResult.error}
+                </div>
+              ) : previewResult.email ? (
+                <div className="space-y-4">
+                  {/* Email Info */}
+                  <div className="rounded border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                        {previewResult.email.subject || '(No subject)'}
+                      </div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {previewResult.email.receivedDateTime ? new Date(previewResult.email.receivedDateTime).toLocaleString() : 'Unknown time'}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      From: {previewResult.email.fromName ? `${previewResult.email.fromName} <${previewResult.email.from}>` : previewResult.email.from || 'Unknown sender'}
+                    </div>
+                    {previewResult.email.to && previewResult.email.to.length > 0 && (
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        To: {previewResult.email.to.join(', ')}
+                      </div>
+                    )}
+                    {previewResult.email.cc && previewResult.email.cc.length > 0 && (
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        CC: {previewResult.email.cc.join(', ')}
+                      </div>
+                    )}
+                    <div className="mt-2 rounded border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                      {previewResult.email.bodyPreview || 'No preview available'}
+                    </div>
+                    {previewResult.email.hasAttachments && (
+                      <div className="mt-2 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                        <Paperclip className="w-3 h-3" />
+                        <span>Has attachments</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action-specific info */}
+                  {nodeInfo?.type === 'microsoft-outlook_action_reply_to_email' && (
+                    <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2">
+                      <Mail className="inline-block mr-1 h-3 w-3" />
+                      {values.replyAll ?
+                        'Your reply will be sent to all recipients of this email.' :
+                        'Your reply will be sent to the original sender only.'
+                      }
+                    </div>
+                  )}
+                  {nodeInfo?.type === 'microsoft-outlook_action_delete_email' && (
+                    <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded p-2">
+                      <AlertTriangle className="inline-block mr-1 h-3 w-3" />
+                      {values.permanentDelete ?
+                        'This email will be permanently deleted and cannot be recovered.' :
+                        'This email will be moved to the Deleted Items folder.'
+                      }
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-slate-600 dark:text-slate-400">
+                  No email data available
+                </div>
+              )}
             </div>
           )}
         </div>

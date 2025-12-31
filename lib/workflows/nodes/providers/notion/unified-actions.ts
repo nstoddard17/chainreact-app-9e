@@ -1064,7 +1064,8 @@ export const notionUnifiedActions: NodeComponent[] = [
         type: "select",
         required: true,
         options: [
-          { value: "title", label: "Title" },
+          // Note: Title cannot be added (databases have one by default)
+          // Note: Formula, Relation, Rollup require additional config not yet supported
           { value: "rich_text", label: "Rich Text" },
           { value: "number", label: "Number" },
           { value: "select", label: "Select" },
@@ -1076,9 +1077,6 @@ export const notionUnifiedActions: NodeComponent[] = [
           { value: "url", label: "URL" },
           { value: "email", label: "Email" },
           { value: "phone_number", label: "Phone Number" },
-          { value: "formula", label: "Formula" },
-          { value: "relation", label: "Relation" },
-          { value: "rollup", label: "Rollup" },
           { value: "created_time", label: "Created Time" },
           { value: "created_by", label: "Created By" },
           { value: "last_edited_time", label: "Last Edited Time" },
@@ -1099,11 +1097,10 @@ export const notionUnifiedActions: NodeComponent[] = [
       {
         name: "selectOptions",
         label: "Select Options",
-        type: "code",
-        language: "json",
+        type: "notion-select-options",
         required: false,
-        placeholder: '[\n  {"name": "Option 1", "color": "blue"},\n  {"name": "Option 2", "color": "green"}\n]',
-        description: "Options for select/multi-select properties",
+        placeholder: "Add options for your select field",
+        description: "Add the options that will appear in this select/multi-select field",
         visibilityCondition: {
           or: [
             {
@@ -1120,7 +1117,6 @@ export const notionUnifiedActions: NodeComponent[] = [
             }
           ]
         },
-        tooltip: "JSON array of options with name and color",
         dependsOn: "operation",
         hidden: {
           $deps: ["operation"],

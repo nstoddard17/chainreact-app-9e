@@ -1211,26 +1211,6 @@ const outlookActionGetCalendarEvents: NodeComponent = {
   ]
 }
 
-const outlookActionSearchEmail: NodeComponent = {
-  type: "microsoft-outlook_action_search_email",
-  title: "Search Email",
-  description: "Search for a specific email",
-  icon: Search,
-  providerId: "microsoft-outlook",
-  category: "Communication",
-  isTrigger: false,
-  requiredScopes: ["Mail.Read"],
-  configSchema: [
-    { name: "query", label: "Search Query", type: "text", required: true, placeholder: "Enter search terms (e.g., from:john@example.com subject:meeting)" },
-    { name: "folderId", label: "Search in Folder", type: "select", required: false, dynamic: "outlook_folders", placeholder: "Select a folder (optional, searches all folders if not specified)" },
-  ],
-  producesOutput: true,
-  outputSchema: [
-    { name: "messages", label: "Messages", type: "array", description: "Array of email messages matching the search query" },
-    { name: "count", label: "Count", type: "number", description: "Number of messages found" }
-  ]
-}
-
 const outlookActionReplyToEmail: NodeComponent = {
   type: "microsoft-outlook_action_reply_to_email",
   title: "Reply to Email",
@@ -1376,14 +1356,107 @@ const outlookActionUpdateCalendarEvent: NodeComponent = {
   isTrigger: false,
   requiredScopes: ["Calendars.ReadWrite"],
   configSchema: [
-    { name: "eventId", label: "Event ID", type: "text", required: true, placeholder: "ID of event to update", description: "The ID of the calendar event you want to update" },
-    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: true, loadOnMount: true, placeholder: "Select calendar (optional)" },
-    { name: "subject", label: "Subject", type: "text", required: false, placeholder: "New event subject" },
-    { name: "body", label: "Description", type: "textarea", required: false, placeholder: "New event description", supportsAI: true },
-    { name: "startDateTime", label: "Start Date/Time", type: "datetime-local", required: false },
-    { name: "endDateTime", label: "End Date/Time", type: "datetime-local", required: false },
-    { name: "location", label: "Location", type: "location-autocomplete", required: false, placeholder: "New location" },
-    { name: "attendees", label: "Attendees", type: "email-autocomplete", required: false, placeholder: "Update attendees...", dynamic: "outlook-enhanced-recipients" }
+    {
+      name: "calendarId",
+      label: "Calendar",
+      type: "select",
+      required: false,
+      dynamic: true,
+      loadOnMount: true,
+      placeholder: "Select calendar (default: primary)"
+    },
+    {
+      name: "eventSelectionMode",
+      label: "How to select event",
+      type: "select",
+      required: true,
+      defaultValue: "list",
+      options: [
+        { value: "list", label: "Select from event list" },
+        { value: "manual", label: "Enter event ID manually" }
+      ],
+      description: "Choose how to specify the calendar event",
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "eventId",
+      label: "Select Event",
+      type: "combobox",
+      required: true,
+      dynamic: "outlook_calendar_events",
+      loadOnMount: true,
+      placeholder: "Select an event by title...",
+      description: "Search and select a calendar event to update",
+      visibilityCondition: { field: "eventSelectionMode", operator: "equals", value: "list" },
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "eventIdManual",
+      label: "Event ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter the event ID...",
+      description: "The unique ID of the calendar event (from a previous workflow step or external source)",
+      visibilityCondition: { field: "eventSelectionMode", operator: "equals", value: "manual" },
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "subject",
+      label: "Subject",
+      type: "text",
+      required: false,
+      placeholder: "New event subject",
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "body",
+      label: "Description",
+      type: "textarea",
+      required: false,
+      placeholder: "New event description",
+      supportsAI: true,
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "startDateTime",
+      label: "Start Date/Time",
+      type: "datetime-local",
+      required: false,
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "endDateTime",
+      label: "End Date/Time",
+      type: "datetime-local",
+      required: false,
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "location",
+      label: "Location",
+      type: "location-autocomplete",
+      required: false,
+      placeholder: "New location",
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "attendees",
+      label: "Attendees",
+      type: "email-autocomplete",
+      required: false,
+      placeholder: "Update attendees...",
+      dynamic: "outlook-enhanced-recipients",
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    }
   ],
   producesOutput: true,
   outputSchema: [
@@ -1403,9 +1476,53 @@ const outlookActionDeleteCalendarEvent: NodeComponent = {
   isTrigger: false,
   requiredScopes: ["Calendars.ReadWrite"],
   configSchema: [
-    { name: "eventId", label: "Event ID", type: "text", required: true, placeholder: "ID of event to delete", description: "The ID of the calendar event you want to delete" },
-    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: true, loadOnMount: true, placeholder: "Select calendar (optional)" },
-    { name: "sendCancellation", label: "Send Cancellation Notice", type: "boolean", required: false, defaultValue: true, description: "Send cancellation notice to attendees" }
+    {
+      name: "calendarId",
+      label: "Calendar",
+      type: "select",
+      required: false,
+      dynamic: true,
+      loadOnMount: true,
+      placeholder: "Select calendar (default: primary)"
+    },
+    {
+      name: "eventSelectionMode",
+      label: "How to select event",
+      type: "select",
+      required: true,
+      defaultValue: "list",
+      options: [
+        { value: "list", label: "Select from event list" },
+        { value: "manual", label: "Enter event ID manually" }
+      ],
+      description: "Choose how to specify the calendar event",
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "eventId",
+      label: "Select Event",
+      type: "combobox",
+      required: true,
+      dynamic: "outlook_calendar_events",
+      loadOnMount: true,
+      placeholder: "Select an event by title...",
+      description: "Search and select a calendar event to delete",
+      visibilityCondition: { field: "eventSelectionMode", operator: "equals", value: "list" },
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "eventIdManual",
+      label: "Event ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter the event ID...",
+      description: "The unique ID of the calendar event (from a previous workflow step or external source)",
+      visibilityCondition: { field: "eventSelectionMode", operator: "equals", value: "manual" },
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    }
   ],
   producesOutput: true,
   outputSchema: [
@@ -1424,15 +1541,80 @@ const outlookActionAddAttendees: NodeComponent = {
   isTrigger: false,
   requiredScopes: ["Calendars.ReadWrite"],
   configSchema: [
-    { name: "eventId", label: "Event ID", type: "text", required: true, placeholder: "ID of event", description: "The ID of the calendar event" },
-    { name: "calendarId", label: "Calendar", type: "select", required: false, dynamic: true, loadOnMount: true, placeholder: "Select calendar (optional)" },
-    { name: "attendees", label: "Attendees to Add", type: "email-autocomplete", required: true, placeholder: "Enter attendee email addresses...", dynamic: "outlook-enhanced-recipients" },
-    { name: "sendInvitation", label: "Send Invitation", type: "boolean", required: false, defaultValue: true, description: "Send meeting invitation to new attendees" }
+    {
+      name: "calendarId",
+      label: "Calendar",
+      type: "select",
+      required: false,
+      dynamic: true,
+      loadOnMount: true,
+      placeholder: "Select calendar (default: primary)"
+    },
+    {
+      name: "eventSelectionMode",
+      label: "How to select event",
+      type: "select",
+      required: true,
+      defaultValue: "list",
+      options: [
+        { value: "list", label: "Select from event list" },
+        { value: "manual", label: "Enter event ID manually" }
+      ],
+      description: "Choose how to specify the calendar event",
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "eventId",
+      label: "Select Event",
+      type: "combobox",
+      required: true,
+      dynamic: "outlook_calendar_events",
+      loadOnMount: true,
+      placeholder: "Select an event by title...",
+      description: "Search and select a calendar event",
+      visibilityCondition: { field: "eventSelectionMode", operator: "equals", value: "list" },
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "eventIdManual",
+      label: "Event ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter the event ID...",
+      description: "The unique ID of the calendar event (from a previous workflow step or external source)",
+      visibilityCondition: { field: "eventSelectionMode", operator: "equals", value: "manual" },
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "attendees",
+      label: "Attendees to Add",
+      type: "email-autocomplete",
+      required: true,
+      placeholder: "Enter attendee email addresses...",
+      dynamic: "outlook-enhanced-recipients",
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    },
+    {
+      name: "sendInvitation",
+      label: "Send Invitation",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Send meeting invitation to new attendees",
+      dependsOn: "calendarId",
+      hidden: { $deps: ["calendarId"], $condition: { calendarId: { $exists: false } } }
+    }
   ],
   producesOutput: true,
   outputSchema: [
     { name: "id", label: "Event ID", type: "string", description: "ID of the event" },
-    { name: "attendeesAdded", label: "Attendees Added", type: "array", description: "List of newly added attendees" }
+    { name: "attendeesAdded", label: "Attendees Added", type: "array", description: "List of newly added attendees" },
+    { name: "totalAttendees", label: "Total Attendees", type: "number", description: "Total number of attendees after adding" },
+    { name: "invitationSent", label: "Invitation Sent", type: "boolean", description: "Whether invitations were sent to new attendees" }
   ]
 }
 
@@ -1473,7 +1655,38 @@ const outlookActionUpdateContact: NodeComponent = {
   isTrigger: false,
   requiredScopes: ["Contacts.ReadWrite"],
   configSchema: [
-    { name: "contactId", label: "Contact ID", type: "text", required: true, placeholder: "ID of contact to update", description: "The ID of the contact you want to update" },
+    {
+      name: "contactSelectionMode",
+      label: "How to select contact",
+      type: "select",
+      required: true,
+      defaultValue: "list",
+      options: [
+        { value: "list", label: "Select from contact list" },
+        { value: "manual", label: "Enter contact ID manually" }
+      ],
+      description: "Choose how to specify the contact to update"
+    },
+    {
+      name: "contactId",
+      label: "Select Contact",
+      type: "combobox",
+      required: true,
+      dynamic: "outlook_contacts",
+      loadOnMount: true,
+      placeholder: "Search and select a contact...",
+      description: "Search and select a contact to update",
+      visibilityCondition: { field: "contactSelectionMode", operator: "equals", value: "list" }
+    },
+    {
+      name: "contactIdManual",
+      label: "Contact ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter the contact ID...",
+      description: "The unique ID of the contact (from a previous workflow step or external source)",
+      visibilityCondition: { field: "contactSelectionMode", operator: "equals", value: "manual" }
+    },
     { name: "givenName", label: "First Name", type: "text", required: false, placeholder: "First name" },
     { name: "surname", label: "Last Name", type: "text", required: false, placeholder: "Last name" },
     { name: "emailAddress", label: "Email Address", type: "text", required: false, placeholder: "email@example.com" },
@@ -1499,7 +1712,38 @@ const outlookActionDeleteContact: NodeComponent = {
   isTrigger: false,
   requiredScopes: ["Contacts.ReadWrite"],
   configSchema: [
-    { name: "contactId", label: "Contact ID", type: "text", required: true, placeholder: "ID of contact to delete", description: "The ID of the contact you want to delete" }
+    {
+      name: "contactSelectionMode",
+      label: "How to select contact",
+      type: "select",
+      required: true,
+      defaultValue: "list",
+      options: [
+        { value: "list", label: "Select from contact list" },
+        { value: "manual", label: "Enter contact ID manually" }
+      ],
+      description: "Choose how to specify the contact to delete"
+    },
+    {
+      name: "contactId",
+      label: "Select Contact",
+      type: "combobox",
+      required: true,
+      dynamic: "outlook_contacts",
+      loadOnMount: true,
+      placeholder: "Search and select a contact...",
+      description: "Search and select a contact to delete",
+      visibilityCondition: { field: "contactSelectionMode", operator: "equals", value: "list" }
+    },
+    {
+      name: "contactIdManual",
+      label: "Contact ID",
+      type: "text",
+      required: true,
+      placeholder: "Enter the contact ID...",
+      description: "The unique ID of the contact (from a previous workflow step or external source)",
+      visibilityCondition: { field: "contactSelectionMode", operator: "equals", value: "manual" }
+    }
   ],
   producesOutput: true,
   outputSchema: [
@@ -1527,44 +1771,69 @@ const outlookActionFindContact: NodeComponent = {
   ]
 }
 
-const outlookActionDownloadAttachment: NodeComponent = {
-  type: "microsoft-outlook_action_download_attachment",
-  title: "Download Attachment",
-  description: "Download an email attachment",
+const outlookActionGetAttachment: NodeComponent = {
+  type: "microsoft-outlook_action_get_attachment",
+  title: "Get Attachments",
+  description: "Get attachments from an email",
   icon: Paperclip,
   providerId: "microsoft-outlook",
   category: "Communication",
   isTrigger: false,
   requiredScopes: ["Mail.Read"],
   configSchema: [
-    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email", description: "The ID of the email containing the attachment" },
-    { name: "attachmentId", label: "Attachment ID", type: "text", required: true, placeholder: "ID of attachment", description: "The ID of the attachment to download" }
+    {
+      name: "emailId",
+      label: "Email ID",
+      type: "text",
+      required: true,
+      placeholder: "ID of email",
+      description: "The ID of the email containing attachments (from a previous step like Get Emails or trigger)"
+    },
+    {
+      name: "downloadMode",
+      label: "What to download",
+      type: "select",
+      required: true,
+      defaultValue: "all",
+      options: [
+        { value: "all", label: "All attachments" },
+        { value: "by_extension", label: "Filter by file extension" },
+        { value: "by_name", label: "Filter by file name" }
+      ],
+      description: "Choose which attachments to download"
+    },
+    {
+      name: "fileExtensions",
+      label: "File Extensions",
+      type: "text",
+      required: false,
+      placeholder: "pdf, docx, xlsx (comma-separated)",
+      description: "Only download files with these extensions",
+      visibilityCondition: { field: "downloadMode", operator: "equals", value: "by_extension" }
+    },
+    {
+      name: "fileNameFilter",
+      label: "File Name Contains",
+      type: "text",
+      required: false,
+      placeholder: "invoice, report, etc.",
+      description: "Only download files whose name contains this text (case-insensitive)",
+      visibilityCondition: { field: "downloadMode", operator: "equals", value: "by_name" }
+    },
+    {
+      name: "excludeInline",
+      label: "Exclude Inline Images",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Skip inline images embedded in the email body (signatures, etc.)"
+    }
   ],
   producesOutput: true,
   outputSchema: [
-    { name: "name", label: "File Name", type: "string", description: "Name of the attachment file" },
-    { name: "contentType", label: "Content Type", type: "string", description: "MIME type of the file" },
-    { name: "size", label: "Size", type: "number", description: "File size in bytes" },
-    { name: "contentBytes", label: "Content", type: "string", description: "Base64-encoded file content" }
-  ]
-}
-
-const outlookActionListAttachments: NodeComponent = {
-  type: "microsoft-outlook_action_list_attachments",
-  title: "List Attachments",
-  description: "Get list of attachments from an email",
-  icon: Paperclip,
-  providerId: "microsoft-outlook",
-  category: "Communication",
-  isTrigger: false,
-  requiredScopes: ["Mail.Read"],
-  configSchema: [
-    { name: "emailId", label: "Email ID", type: "text", required: true, placeholder: "ID of email", description: "The ID of the email to get attachments from" }
-  ],
-  producesOutput: true,
-  outputSchema: [
-    { name: "attachments", label: "Attachments", type: "array", description: "Array of attachment metadata (id, name, size, contentType)" },
-    { name: "count", label: "Count", type: "number", description: "Number of attachments" }
+    { name: "attachments", label: "Attachments", type: "array", description: "Array of attachments with name, contentType, size, and contentBytes (base64)" },
+    { name: "count", label: "Count", type: "number", description: "Number of attachments retrieved" },
+    { name: "totalSize", label: "Total Size", type: "number", description: "Total size of all attachments in bytes" }
   ]
 }
 
@@ -1586,7 +1855,7 @@ export const outlookNodes: NodeComponent[] = [
   outlookTriggerNewContact,
   outlookTriggerUpdatedContact,
 
-  // Email Actions (9)
+  // Email Actions (8)
   outlookActionSendEmail,
   outlookActionReplyToEmail,
   outlookActionForwardEmail,
@@ -1595,7 +1864,6 @@ export const outlookNodes: NodeComponent[] = [
   outlookActionDeleteEmail,
   outlookActionAddCategories,
   outlookActionGetEmails,
-  outlookActionSearchEmail,
 
   // Calendar Actions (6)
   outlookActionCreateCalendarEvent,
@@ -1610,7 +1878,6 @@ export const outlookNodes: NodeComponent[] = [
   outlookActionDeleteContact,
   outlookActionFindContact,
 
-  // Attachment Actions (2)
-  outlookActionDownloadAttachment,
-  outlookActionListAttachments,
+  // Attachment Actions (1)
+  outlookActionGetAttachment,
 ]

@@ -26,7 +26,7 @@ import { notionBlockActions } from './block-actions'
 import { listPageContentActionSchema } from './actions/listPageContent.schema'
 // NOTE: getPageContentActionSchema removed - duplicate of listPageContentActionSchema
 import { appendPageContentActionSchema } from './actions/appendPageContent.schema'
-import { updatePageContentActionSchema } from './actions/updatePageContent.schema'
+// NOTE: updatePageContentActionSchema removed - redundant with Update Page action
 import { deletePageContentActionSchema } from './actions/deletePageContent.schema'
 import { searchObjectsActionSchema } from './actions/searchObjects.schema'
 import { makeApiCallActionSchema } from './actions/makeApiCall.schema'
@@ -42,10 +42,7 @@ const appendPageContent: NodeComponent = {
   icon: FilePlus
 }
 
-const updatePageContent: NodeComponent = {
-  ...updatePageContentActionSchema,
-  icon: Edit
-}
+// NOTE: updatePageContent removed - redundant with Update Page action
 
 const deletePageContent: NodeComponent = {
   ...deletePageContentActionSchema,
@@ -93,7 +90,7 @@ export const notionNodes: NodeComponent[] = [
   listPageContent,
   // NOTE: getPageContent removed - duplicate of listPageContent
   appendPageContent,
-  updatePageContent,
+  // NOTE: updatePageContent removed - redundant with Update Page action
   deletePageContent,
 
   // === Advanced Features ===
@@ -355,7 +352,7 @@ export {
   listPageContent,
   // NOTE: getPageContent removed - duplicate of listPageContent
   appendPageContent,
-  updatePageContent,
+  // NOTE: updatePageContent removed - redundant with Update Page action
   deletePageContent,
   searchObjects,
   makeApiCall,

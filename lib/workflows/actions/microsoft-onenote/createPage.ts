@@ -19,7 +19,7 @@ export async function onenoteCreatePage(
     logger.debug("[TEST MODE] Would create OneNote page:", { notebookId, sectionId, title })
     return {
       success: true,
-      data: {
+      output: {
         id: "test-page-id",
         title,
         createdDateTime: new Date().toISOString(),
@@ -86,7 +86,7 @@ export async function onenoteCreatePage(
 
     return {
       success: true,
-      data: {
+      output: {
         id: page.id,
         title: page.title || title,
         createdDateTime: page.createdDateTime,
@@ -99,6 +99,7 @@ export async function onenoteCreatePage(
     logger.error("Error creating OneNote page:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to create OneNote page"
     }
   }

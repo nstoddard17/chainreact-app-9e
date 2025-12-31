@@ -19,7 +19,7 @@ export async function onenoteUpdatePage(
     logger.debug("[TEST MODE] Would update OneNote page:", { pageId, updateMode, target })
     return {
       success: true,
-      data: {
+      output: {
         id: pageId,
         updatedDateTime: new Date().toISOString()
       }
@@ -101,7 +101,7 @@ export async function onenoteUpdatePage(
 
     return {
       success: true,
-      data: {
+      output: {
         id: page.id,
         title: page.title,
         lastModifiedDateTime: page.lastModifiedDateTime,
@@ -112,6 +112,7 @@ export async function onenoteUpdatePage(
     logger.error("Error updating OneNote page:", error)
     return {
       success: false,
+      output: {},
       error: error.message || "Failed to update OneNote page"
     }
   }

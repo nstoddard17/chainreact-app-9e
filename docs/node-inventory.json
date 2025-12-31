@@ -1123,15 +1123,6 @@
     "outputSchemaLength": 3
   },
   {
-    "type": "microsoft-onenote_action_search",
-    "title": "Search OneNote",
-    "providerId": "microsoft-onenote",
-    "isTrigger": false,
-    "category": "Productivity",
-    "configSchemaLength": 5,
-    "outputSchemaLength": 3
-  },
-  {
     "type": "microsoft-onenote_action_update_page",
     "title": "Update Page",
     "providerId": "microsoft-onenote",
