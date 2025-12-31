@@ -202,7 +202,7 @@ export default function WebhookManager() {
         </div>
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-orange-600 hover:bg-orange-700">
               <Plus className="w-4 h-4 mr-2" />
               Create Webhook
             </Button>
@@ -366,7 +366,7 @@ export default function WebhookManager() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Webhook className="w-5 h-5 text-blue-600" />
+                  <Webhook className="w-5 h-5 text-orange-600" />
                   <CardTitle className="text-lg font-semibold text-slate-900">
                     {getWorkflowName(webhook.workflowId)}
                   </CardTitle>

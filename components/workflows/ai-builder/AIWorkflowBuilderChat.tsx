@@ -445,7 +445,7 @@ export function AIWorkflowBuilderChat({
   return (
     <div className={cn("flex flex-col h-full bg-card border-r", className)}>
       {/* Header */}
-      <div className="p-4 border-b bg-gradient-to-r from-primary/10 to-purple-500/10">
+      <div className="p-4 border-b bg-gradient-to-r from-primary/10 to-rose-500/10">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/20">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -590,7 +590,7 @@ export function AIWorkflowBuilderChat({
               </div>
 
               {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-primary-foreground text-xs font-bold">
+                <div className="w-8 h-8 rounded-full shrink-0 overflow-hidden bg-gradient-to-br from-primary to-rose-600 flex items-center justify-center text-primary-foreground text-xs font-bold">
                   {user?.user_metadata?.avatar_url ? (
                     <img
                       src={user.user_metadata.avatar_url}

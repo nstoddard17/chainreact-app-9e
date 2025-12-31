@@ -176,7 +176,7 @@ const renderNodeBadge = (nodeInfo?: NodeComponent) => {
 
   // Final fallback
   return (
-    <div className="p-1.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg text-white flex-shrink-0">
+    <div className="p-1.5 bg-gradient-to-br from-orange-500 to-rose-600 rounded-lg text-white flex-shrink-0">
       {getFallbackNodeIcon(nodeInfo?.type || '')}
     </div>
   )
@@ -187,13 +187,13 @@ const renderNodeBadge = (nodeInfo?: NodeComponent) => {
  */
 const getNodeTypeBadge = (nodeType: string) => {
   if (nodeType.includes('trigger')) {
-    return <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 text-xs sm:text-sm">Trigger</Badge>
+    return <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-xs sm:text-sm">Trigger</Badge>
   }
   if (nodeType.includes('action')) {
     return <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs sm:text-sm">Action</Badge>
   }
   if (nodeType.includes('ai') || nodeType.includes('agent')) {
-    return <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200 text-xs sm:text-sm">AI</Badge>
+    return <Badge variant="secondary" className="bg-rose-100 text-rose-800 border-rose-200 text-xs sm:text-sm">AI</Badge>
   }
   return <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-gray-200 text-xs sm:text-sm">Node</Badge>
 }

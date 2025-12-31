@@ -184,9 +184,9 @@ export default function WebhookSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-200/20 rounded-2xl p-6">
+      <div className="bg-gradient-to-r from-orange-500/10 to-rose-500/10 border border-orange-200/20 rounded-2xl p-6">
         <div className="flex items-center space-x-3">
-          <Webhook className="w-6 h-6 text-blue-500" />
+          <Webhook className="w-6 h-6 text-orange-500" />
           <div>
             <h2 className="text-xl font-bold">Webhook Settings</h2>
             <p className="text-sm text-muted-foreground">

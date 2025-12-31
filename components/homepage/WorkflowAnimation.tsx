@@ -39,13 +39,13 @@ interface Particle {
 }
 
 const nodes: Node[] = [
-  { id: 'trigger', x: 150, y: 200, icon: Mail, label: 'New Email', color: 'from-blue-500 to-cyan-500', delay: 0.5 },
-  { id: 'ai', x: 400, y: 150, icon: Sparkles, label: 'AI Analysis', color: 'from-purple-500 to-pink-500', delay: 1 },
-  { id: 'condition', x: 400, y: 250, icon: Shield, label: 'Filter Spam', color: 'from-orange-500 to-red-500', delay: 1.2 },
-  { id: 'database', x: 650, y: 100, icon: Database, label: 'Store Data', color: 'from-green-500 to-emerald-500', delay: 1.5 },
-  { id: 'slack', x: 650, y: 200, icon: MessageSquare, label: 'Slack Alert', color: 'from-indigo-500 to-purple-500', delay: 1.7 },
-  { id: 'webhook', x: 650, y: 300, icon: Globe, label: 'Webhook', color: 'from-cyan-500 to-blue-500', delay: 1.9 },
-  { id: 'complete', x: 900, y: 200, icon: Activity, label: 'Complete', color: 'from-green-500 to-teal-500', delay: 2.2 }
+  { id: 'trigger', x: 150, y: 200, icon: Mail, label: 'New Email', color: 'from-orange-500 to-amber-500', delay: 0.5 },
+  { id: 'ai', x: 400, y: 150, icon: Sparkles, label: 'AI Analysis', color: 'from-rose-500 to-pink-500', delay: 1 },
+  { id: 'condition', x: 400, y: 250, icon: Shield, label: 'Filter Spam', color: 'from-orange-600 to-red-500', delay: 1.2 },
+  { id: 'database', x: 650, y: 100, icon: Database, label: 'Store Data', color: 'from-amber-500 to-orange-500', delay: 1.5 },
+  { id: 'slack', x: 650, y: 200, icon: MessageSquare, label: 'Slack Alert', color: 'from-rose-600 to-rose-400', delay: 1.7 },
+  { id: 'webhook', x: 650, y: 300, icon: Globe, label: 'Webhook', color: 'from-amber-600 to-yellow-500', delay: 1.9 },
+  { id: 'complete', x: 900, y: 200, icon: Activity, label: 'Complete', color: 'from-green-500 to-emerald-500', delay: 2.2 }
 ]
 
 const connections: Connection[] = [
@@ -185,7 +185,7 @@ export function WorkflowAnimation() {
       particles.forEach(particle => {
         ctx.beginPath()
         ctx.arc(particle.x, particle.y, 1, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(147, 197, 253, ${particle.life / 100})`
+        ctx.fillStyle = `rgba(251, 146, 60, ${particle.life / 100})`
         ctx.fill()
       })
 
@@ -225,9 +225,9 @@ export function WorkflowAnimation() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-blue-100 dark:from-blue-500/10 to-purple-100 dark:to-purple-500/10 border border-blue-200 dark:border-blue-500/20 mb-6">
-              <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Intelligent Automation</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-orange-100 dark:from-orange-500/10 to-rose-100 dark:to-rose-500/10 border border-orange-200 dark:border-orange-500/20 mb-6">
+              <Zap className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              <span className="text-sm font-semibold text-orange-700 dark:text-orange-300">Intelligent Automation</span>
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
               Watch Your Workflows Come to Life
@@ -246,8 +246,8 @@ export function WorkflowAnimation() {
           >
             {/* Glow effects */}
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500 rounded-full filter blur-[128px] opacity-20 animate-pulse"></div>
-              <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500 rounded-full filter blur-[128px] opacity-20 animate-pulse [animation-delay:1s]"></div>
+              <div className="absolute top-20 left-20 w-96 h-96 bg-orange-500 rounded-full filter blur-[128px] opacity-20 animate-pulse"></div>
+              <div className="absolute bottom-20 right-20 w-96 h-96 bg-rose-500 rounded-full filter blur-[128px] opacity-20 animate-pulse [animation-delay:1s]"></div>
             </div>
 
             <div
@@ -285,9 +285,9 @@ export function WorkflowAnimation() {
                 >
                   <defs>
                     <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
-                      <stop offset="50%" stopColor="#a855f7" stopOpacity="0.5" />
-                      <stop offset="100%" stopColor="#ec4899" stopOpacity="0.2" />
+                      <stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
+                      <stop offset="50%" stopColor="#f43f5e" stopOpacity="0.5" />
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.2" />
                     </linearGradient>
                     <filter id="glow">
                       <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
@@ -443,8 +443,8 @@ export function WorkflowAnimation() {
               transition={{ delay: index * 0.1 }}
               className="bg-white dark:bg-slate-800/40 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/20 p-6 text-center hover:shadow-lg dark:hover:bg-slate-800/60 transition-all"
             >
-              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-500 dark:to-purple-500 p-2.5 border border-blue-200 dark:border-transparent">
-                <div className="w-full h-full rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 p-1.5 flex items-center justify-center">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-br from-orange-100 to-rose-100 dark:from-orange-500 dark:to-rose-500 p-2.5 border border-orange-200 dark:border-transparent">
+                <div className="w-full h-full rounded-lg bg-gradient-to-br from-orange-500 to-rose-500 p-1.5 flex items-center justify-center">
                   {React.createElement(feature.icon, {
                     className: 'w-full h-full text-white'
                   })}

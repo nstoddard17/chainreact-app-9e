@@ -140,7 +140,7 @@ export default function SetupUsernamePage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-rose-50 p-4">
       <Card className="w-full max-w-md bg-white rounded-2xl shadow-lg border border-slate-200">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">Complete Your Profile</CardTitle>
@@ -255,7 +255,7 @@ export default function SetupUsernamePage() {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+              className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white"
               disabled={saving || checking || !isAvailable || username.length < 3}
             >
               {saving ? (

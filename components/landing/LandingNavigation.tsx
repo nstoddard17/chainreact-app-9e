@@ -87,7 +87,7 @@ const LandingNavigation = memo(({
         <div className="hidden lg:grid max-w-7xl mx-auto grid-cols-3 items-center">
           {/* Left Section: Logo */}
           <div className="flex justify-start">
-            <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent">
               ChainReact
             </Link>
           </div>
@@ -98,7 +98,7 @@ const LandingNavigation = memo(({
               <Link href="#features">
                 <Button 
                   variant="ghost" 
-                  className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
+                  className="button-animated text-orange-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
                 >
                   Features
                 </Button>
@@ -106,7 +106,7 @@ const LandingNavigation = memo(({
               <Link href="#pricing">
                 <Button 
                   variant="ghost" 
-                  className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
+                  className="button-animated text-orange-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full transition-all duration-300 text-base"
                 >
                   Pricing
                 </Button>
@@ -119,7 +119,7 @@ const LandingNavigation = memo(({
             {!isAuthenticated ? (
               <Link href="/auth/login">
                 <Button 
-                  className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl text-base"
+                  className="button-animated bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-full shadow-lg hover:shadow-xl text-base"
                 >
                   Sign In <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -129,7 +129,7 @@ const LandingNavigation = memo(({
                 <Link href="/dashboard">
                   <Button 
                     variant="outline" 
-                    className="button-animated border-blue-400 text-blue-400 hover:bg-blue-400/10 px-4 py-2 rounded-full text-base"
+                    className="button-animated border-orange-400 text-orange-400 hover:bg-orange-400/10 px-4 py-2 rounded-full text-base"
                   >
                     Dashboard
                   </Button>
@@ -146,7 +146,7 @@ const LandingNavigation = memo(({
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="ghost" 
-                      className="button-animated flex items-center space-x-2 text-blue-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full text-base"
+                      className="button-animated flex items-center space-x-2 text-orange-200 hover:text-white hover:bg-white/10 px-4 py-2 rounded-full text-base"
                     >
                       <User className="h-4 w-4" />
                       <span className="max-w-[120px] truncate">{profile?.username || profile?.full_name || "User"}</span>
@@ -203,7 +203,7 @@ const LandingNavigation = memo(({
         <div className="hidden md:flex lg:hidden max-w-7xl mx-auto items-center justify-between">
           {/* Left Section: Logo */}
           <div className="flex items-center">
-            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent">
               ChainReact
             </Link>
           </div>
@@ -213,7 +213,7 @@ const LandingNavigation = memo(({
             <Link href="#features">
               <Button 
                 variant="ghost" 
-                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-3 py-2 rounded-full transition-all duration-300"
+                className="button-animated text-orange-200 hover:text-white hover:bg-white/10 px-3 py-2 rounded-full transition-all duration-300"
               >
                 Features
               </Button>
@@ -221,7 +221,7 @@ const LandingNavigation = memo(({
             <Link href="#pricing">
               <Button 
                 variant="ghost" 
-                className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-3 py-2 rounded-full transition-all duration-300"
+                className="button-animated text-orange-200 hover:text-white hover:bg-white/10 px-3 py-2 rounded-full transition-all duration-300"
               >
                 Pricing
               </Button>
@@ -233,7 +233,7 @@ const LandingNavigation = memo(({
             {!isAuthenticated ? (
               <Link href="/auth/login">
                 <Button 
-                  className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-lg hover:shadow-xl"
+                  className="button-animated bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-full shadow-lg hover:shadow-xl"
                 >
                   Sign In <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -243,7 +243,7 @@ const LandingNavigation = memo(({
                 <Link href="/dashboard">
                   <Button 
                     variant="outline" 
-                    className="button-animated border-blue-400 text-blue-400 hover:bg-blue-400/10 px-3 py-2 rounded-full"
+                    className="button-animated border-orange-400 text-orange-400 hover:bg-orange-400/10 px-3 py-2 rounded-full"
                   >
                     Dashboard
                   </Button>
@@ -256,7 +256,7 @@ const LandingNavigation = memo(({
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="ghost" 
-                      className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-3 py-2 rounded-full"
+                      className="button-animated text-orange-200 hover:text-white hover:bg-white/10 px-3 py-2 rounded-full"
                     >
                       <User className="h-4 w-4" />
                       <ChevronDown className="h-4 w-4 ml-1" />
@@ -310,7 +310,7 @@ const LandingNavigation = memo(({
 
         {/* Mobile Navigation (small screens only) */}
         <div className="md:hidden flex items-center justify-between">
-          <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent">
             ChainReact
           </Link>
           
@@ -318,7 +318,7 @@ const LandingNavigation = memo(({
             <Link href="/auth/login">
               <Button 
                 size="sm"
-                className="button-animated bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-lg"
+                className="button-animated bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-full shadow-lg"
               >
                 Sign In
               </Button>
@@ -329,7 +329,7 @@ const LandingNavigation = memo(({
                 <Button 
                   size="sm"
                   variant="outline" 
-                  className="button-animated border-blue-400 text-blue-400 hover:bg-blue-400/10 px-3 py-2 rounded-full"
+                  className="button-animated border-orange-400 text-orange-400 hover:bg-orange-400/10 px-3 py-2 rounded-full"
                 >
                   Dashboard
                 </Button>
@@ -343,7 +343,7 @@ const LandingNavigation = memo(({
                   <Button 
                     size="sm"
                     variant="ghost" 
-                    className="button-animated text-blue-200 hover:text-white hover:bg-white/10 px-3 py-2 rounded-full"
+                    className="button-animated text-orange-200 hover:text-white hover:bg-white/10 px-3 py-2 rounded-full"
                   >
                     <User className="h-4 w-4" />
                     <ChevronDown className="h-4 w-4 ml-1" />

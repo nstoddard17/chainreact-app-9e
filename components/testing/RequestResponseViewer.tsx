@@ -54,7 +54,7 @@ export function RequestResponseViewer({
           {requestDetails && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
+                <Badge variant="outline" className="bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300">
                   {requestDetails.method}
                 </Badge>
                 <code className="text-xs text-muted-foreground">{requestDetails.endpoint}</code>

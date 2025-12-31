@@ -96,7 +96,7 @@ export default function VariableManager({ workflowId }: VariableManagerProps) {
       case "boolean":
         return "bg-yellow-100 text-yellow-700"
       case "object":
-        return "bg-purple-100 text-purple-700"
+        return "bg-rose-100 text-rose-700"
       case "array":
         return "bg-pink-100 text-pink-700"
       default:

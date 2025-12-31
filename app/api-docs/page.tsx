@@ -24,9 +24,9 @@ export default function ApiDocsPage() {
       <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 mb-6">
-              <Code className="w-4 h-4 text-purple-400" />
-              <span className="text-sm font-semibold text-purple-300">Developer API</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-500/10 border border-rose-500/20 mb-6">
+              <Code className="w-4 h-4 text-rose-400" />
+              <span className="text-sm font-semibold text-rose-300">Developer API</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
               Build Custom Integrations
@@ -40,7 +40,7 @@ export default function ApiDocsPage() {
           {/* Features Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
             <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-white/20 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 p-2.5 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 p-2.5 mb-4">
                 <Webhook className="w-full h-full text-white" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">Webhooks</h3>
@@ -50,7 +50,7 @@ export default function ApiDocsPage() {
             </div>
 
             <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-white/20 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 p-2.5 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-rose-500 to-pink-500 p-2.5 mb-4">
                 <Database className="w-full h-full text-white" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">Data Access</h3>
@@ -80,7 +80,7 @@ export default function ApiDocsPage() {
             </div>
 
             <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-white/10 p-6 hover:border-white/20 transition-all">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 p-2.5 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-rose-500 p-2.5 mb-4">
                 <GitBranch className="w-full h-full text-white" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-2">Workflow Management</h3>
@@ -127,7 +127,7 @@ console.log('Workflow triggered:', result.execution_id);`}</code>
 
           {/* CTA Section */}
           <div className="text-center">
-            <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-purple-500/20 rounded-2xl p-8 inline-block">
+            <div className="bg-gradient-to-r from-rose-900/20 to-pink-900/20 border border-rose-500/20 rounded-2xl p-8 inline-block">
               <h2 className="text-3xl font-bold text-white mb-4">
                 Ready to Build?
               </h2>
@@ -138,7 +138,7 @@ console.log('Workflow triggered:', result.execution_id);`}</code>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
                   href="/request-integration"
-                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-2xl shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 transform hover:scale-105"
+                  className="px-8 py-3 bg-gradient-to-r from-orange-600 to-rose-600 hover:from-orange-700 hover:to-rose-700 text-white font-semibold rounded-xl shadow-2xl shadow-rose-500/25 hover:shadow-rose-500/40 transition-all duration-300 transform hover:scale-105"
                 >
                   Request Integration Access
                 </Link>

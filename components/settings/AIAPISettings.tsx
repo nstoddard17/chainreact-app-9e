@@ -328,11 +328,11 @@ export default function AIAPISettings() {
           </div>
 
           {/* Info Box */}
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+          <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
             <div className="flex gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
               <div className="text-sm space-y-1">
-                <p className="font-medium text-blue-500">How to get your OpenAI API Key:</p>
+                <p className="font-medium text-orange-500">How to get your OpenAI API Key:</p>
                 <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
                   <li>Visit <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">platform.openai.com/api-keys</a></li>
                   <li>Click "Create new secret key"</li>

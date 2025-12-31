@@ -16,7 +16,7 @@ import { logger } from '@/lib/utils/logger'
 // Heavy components loaded dynamically for better performance
 const AnimatedBackground = dynamic(() => import('./AnimatedBackground'), {
   ssr: false, // Don't render on server for better initial load
-  loading: () => <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900" />
+  loading: () => <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900" />
 })
 
 const LandingFeatures = dynamic(() => import('./LandingFeatures'), {
@@ -24,7 +24,7 @@ const LandingFeatures = dynamic(() => import('./LandingFeatures'), {
     <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 md:py-24">
       <div className="max-w-7xl mx-auto text-center">
         <div className="animate-pulse">
-          <div className="h-8 bg-blue-600/20 rounded-full w-32 mx-auto mb-4"></div>
+          <div className="h-8 bg-orange-600/20 rounded-full w-32 mx-auto mb-4"></div>
           <div className="h-12 bg-white/10 rounded-lg w-3/4 mx-auto mb-6"></div>
           <div className="h-6 bg-white/5 rounded-lg w-1/2 mx-auto"></div>
         </div>
@@ -38,7 +38,7 @@ const LandingPricing = dynamic(() => import('./LandingPricing'), {
     <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 md:py-24">
       <div className="max-w-7xl mx-auto text-center">
         <div className="animate-pulse">
-          <div className="h-8 bg-blue-600/20 rounded-full w-32 mx-auto mb-4"></div>
+          <div className="h-8 bg-orange-600/20 rounded-full w-32 mx-auto mb-4"></div>
           <div className="h-12 bg-white/10 rounded-lg w-2/3 mx-auto mb-6"></div>
         </div>
       </div>
@@ -98,9 +98,9 @@ export default function LandingPage() {
   // Landing page should ALWAYS render immediately - it's a public page!
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 relative overflow-hidden">
       {/* Animated Background - Loaded lazily */}
-      <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900" />}>
+      <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900" />}>
         <AnimatedBackground />
       </Suspense>
       
@@ -122,7 +122,7 @@ export default function LandingPage() {
         <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="max-w-7xl mx-auto text-center">
             <div className="animate-pulse">
-              <div className="h-8 bg-blue-600/20 rounded-full w-32 mx-auto mb-4"></div>
+              <div className="h-8 bg-orange-600/20 rounded-full w-32 mx-auto mb-4"></div>
               <div className="h-12 bg-white/10 rounded-lg w-3/4 mx-auto mb-6"></div>
               <div className="h-6 bg-white/5 rounded-lg w-1/2 mx-auto"></div>
             </div>
@@ -137,7 +137,7 @@ export default function LandingPage() {
         <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 md:py-24">
           <div className="max-w-7xl mx-auto text-center">
             <div className="animate-pulse">
-              <div className="h-8 bg-blue-600/20 rounded-full w-32 mx-auto mb-4"></div>
+              <div className="h-8 bg-orange-600/20 rounded-full w-32 mx-auto mb-4"></div>
               <div className="h-12 bg-white/10 rounded-lg w-2/3 mx-auto mb-6"></div>
             </div>
           </div>

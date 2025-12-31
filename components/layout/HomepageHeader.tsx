@@ -48,7 +48,7 @@ export function HomepageHeader() {
   ]
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#0A1628]/80 backdrop-blur-xl border-b border-gray-200 dark:border-white/10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto flex items-center justify-between h-16">
         <Link href="/" className="flex items-center gap-2">
           <ChainReactLogo />
@@ -82,7 +82,7 @@ export function HomepageHeader() {
           )}
 
           <Link href="/waitlist">
-            <Button className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20">
+            <Button className="bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white shadow-lg shadow-orange-500/20">
               Get Started
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
@@ -133,7 +133,7 @@ export function HomepageHeader() {
           ))}
           <Link
             href="/waitlist"
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-semibold shadow-lg shadow-blue-500/20 transition-colors"
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-semibold shadow-lg shadow-orange-500/20 transition-colors"
           >
             Get Started
             <ArrowRight className="w-4 h-4" />

@@ -595,8 +595,8 @@ export default function CommunityContent() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-blue-600" />
+                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-orange-600" />
                 </div>
                 <div>
                   <p className="text-sm text-slate-600">Active Members</p>
@@ -623,8 +623,8 @@ export default function CommunityContent() {
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-purple-600" />
+                <div className="w-10 h-10 bg-rose-100 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-rose-600" />
                 </div>
                 <div>
                   <p className="text-sm text-slate-600">Solutions Shared</p>
@@ -711,7 +711,7 @@ export default function CommunityContent() {
                           )}
                         </div>
 
-                        <h3 className="font-semibold text-slate-900 mb-2 hover:text-blue-600 transition-colors">
+                        <h3 className="font-semibold text-slate-900 mb-2 hover:text-orange-600 transition-colors">
                           {discussion.title}
                         </h3>
 
@@ -755,7 +755,7 @@ export default function CommunityContent() {
                                 handleBookmarkDiscussion(discussion.id)
                               }}
                             >
-                              <Bookmark className={`w-4 h-4 ${discussion.isBookmarked ? 'fill-current text-blue-600' : ''}`} />
+                              <Bookmark className={`w-4 h-4 ${discussion.isBookmarked ? 'fill-current text-orange-600' : ''}`} />
                             </Button>
                             <Button 
                               variant="ghost" 
@@ -874,7 +874,7 @@ export default function CommunityContent() {
                 <Card key={template.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader className="pb-4">
                     <div className="flex items-start justify-between mb-4">
-                      <div className="p-3 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+                      <div className="p-3 rounded-lg bg-gradient-to-r from-orange-500 to-rose-600 text-white">
                         <Zap className="h-6 w-6" />
                       </div>
                       <div className="flex items-center gap-1 text-sm text-gray-500">
@@ -890,7 +890,7 @@ export default function CommunityContent() {
 
                   <CardContent className="space-y-4">
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-700">
                         {template.category}
                       </Badge>
                       <Badge
@@ -926,15 +926,15 @@ export default function CommunityContent() {
                     </div>
 
                     <div className="flex gap-2 pt-4">
-                      <Button 
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      <Button
+                        className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
                         onClick={() => handleUseTemplate(template)}
                       >
                         Use Template
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                      <Button
+                        variant="outline"
+                        className="border-orange-300 text-orange-600 hover:bg-orange-50"
                         onClick={() => handleBookmarkTemplate(template.id)}
                       >
                         <Bookmark className={`w-4 h-4 ${template.isBookmarked ? 'fill-current' : ''}`} />
@@ -956,7 +956,7 @@ export default function CommunityContent() {
                 <Card key={event.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <div className="p-3 rounded-lg bg-gradient-to-r from-green-500 to-blue-600 text-white">
+                      <div className="p-3 rounded-lg bg-gradient-to-r from-green-500 to-orange-600 text-white">
                         <Calendar className="h-6 w-6" />
                       </div>
                       <Badge variant="outline">{event.type}</Badge>
@@ -979,8 +979,8 @@ export default function CommunityContent() {
                       </div>
                     </div>
 
-                    <Button 
-                      className={`w-full ${event.isRegistered ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    <Button
+                      className={`w-full ${event.isRegistered ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'}`}
                       onClick={() => handleRegisterEvent(event.id)}
                     >
                       {event.isRegistered ? 'Registered' : 'Register'}

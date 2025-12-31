@@ -719,27 +719,27 @@ export function SettingsContent() {
               <CardContent className="space-y-4">
                 {/* Current Default Display */}
                 {profile?.default_workspace_type ? (
-                  <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="p-4 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
                     <div className="flex items-center gap-3">
                       {profile.default_workspace_type === 'personal' ? (
-                        <User className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <User className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                       ) : profile.default_workspace_type === 'team' ? (
-                        <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <Users className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                       ) : (
-                        <Building2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <Building2 className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                       )}
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
                           Current Default: {workspaces.find(w =>
                             w.type === profile.default_workspace_type &&
                             (w.id || '') === (profile.default_workspace_id || '')
                           )?.name || profile.default_workspace_type}
                         </p>
-                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                        <p className="text-xs text-orange-700 dark:text-orange-300">
                           New workflows will be created here automatically
                         </p>
                       </div>
-                      <Check className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <Check className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                     </div>
                   </div>
                 ) : (
@@ -919,8 +919,8 @@ export function SettingsContent() {
                       <div className="group">
                         <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-primary/50 transition-all duration-200">
                           <div className="flex items-start gap-4 flex-1">
-                            <div className="mt-1 p-2.5 rounded-lg bg-blue-500/10">
-                              <Bell className="w-4 h-4 text-blue-500" />
+                            <div className="mt-1 p-2.5 rounded-lg bg-orange-500/10">
+                              <Bell className="w-4 h-4 text-orange-500" />
                             </div>
                             <div className="space-y-1 flex-1">
                               <Label className="text-sm font-semibold cursor-pointer">Slack Notifications</Label>
@@ -932,7 +932,7 @@ export function SettingsContent() {
                           <Switch
                             checked={notifications.slack}
                             onCheckedChange={(checked) => setNotifications({ ...notifications, slack: checked })}
-                            className="data-[state=checked]:bg-blue-500"
+                            className="data-[state=checked]:bg-orange-500"
                           />
                         </div>
                       </div>
@@ -1052,10 +1052,10 @@ export function SettingsContent() {
                     <p className="text-xs text-muted-foreground mb-4">Receive periodic summaries of your activity</p>
                     <div className="space-y-3">
                       <div className="group">
-                        <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-purple-500/50 transition-all duration-200">
+                        <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-rose-500/50 transition-all duration-200">
                           <div className="flex items-start gap-4 flex-1">
-                            <div className="mt-1 p-2.5 rounded-lg bg-purple-500/10">
-                              <Bell className="w-4 h-4 text-purple-500" />
+                            <div className="mt-1 p-2.5 rounded-lg bg-rose-500/10">
+                              <Bell className="w-4 h-4 text-rose-500" />
                             </div>
                             <div className="space-y-1 flex-1">
                               <Label className="text-sm font-semibold cursor-pointer">Weekly Digest</Label>
@@ -1067,7 +1067,7 @@ export function SettingsContent() {
                           <Switch
                             checked={notifications.weekly_digest}
                             onCheckedChange={(checked) => setNotifications({ ...notifications, weekly_digest: checked })}
-                            className="data-[state=checked]:bg-purple-500"
+                            className="data-[state=checked]:bg-rose-500"
                           />
                         </div>
                       </div>

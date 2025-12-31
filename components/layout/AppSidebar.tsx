@@ -77,7 +77,7 @@ export function AppSidebar() {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-blue-50 text-blue-700'
+                  ? 'bg-orange-50 text-orange-700'
                   : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
               )}
               title={collapsed ? item.name : undefined}

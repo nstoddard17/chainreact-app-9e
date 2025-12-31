@@ -760,7 +760,7 @@ export function OrganizationSettingsContent() {
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="font-medium truncate">{provider.name}</span>
-                                <Badge variant="outline" className="text-xs bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-400 dark:border-indigo-800/50">
+                                <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-800/50">
                                   Shared
                                 </Badge>
                               </div>
@@ -902,8 +902,8 @@ export function OrganizationSettingsContent() {
                 </div>
 
                 {organization?.billing?.billing_source === 'owner' && (
-                  <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
-                    <p className="text-sm text-blue-900 dark:text-blue-200">
+                  <div className="p-4 border rounded-lg bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900">
+                    <p className="text-sm text-orange-900 dark:text-orange-200">
                       <strong>Note:</strong> This organization uses the owner's personal plan and quota.
                       To upgrade, the organization owner should manage their plan in personal settings.
                     </p>

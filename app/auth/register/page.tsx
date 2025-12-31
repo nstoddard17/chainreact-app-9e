@@ -30,7 +30,7 @@ const FloatingShape = ({
         animationDelay: `${delay}s`,
       }}
     >
-      <div className={`w-8 h-8 md:w-12 md:h-12 bg-gradient-to-br from-blue-400/30 to-purple-400/30 ${shapeClasses[shape as keyof typeof shapeClasses]} backdrop-blur-sm border border-white/10`}></div>
+      <div className={`w-8 h-8 md:w-12 md:h-12 bg-gradient-to-br from-orange-400/30 to-rose-400/30 ${shapeClasses[shape as keyof typeof shapeClasses]} backdrop-blur-sm border border-white/10`}></div>
     </div>
   )
 }
@@ -44,7 +44,7 @@ export default function RegisterPage() {
           50% { transform: translateY(-10px); }
         }
       `}</style>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 flex items-center justify-center p-4 relative overflow-hidden">
         <div className="absolute inset-0 z-0">
           <FloatingShape className="top-10 left-10" shape="circle" delay={0} />
           <FloatingShape className="top-1/4 right-1/4" shape="square" delay={1} />
@@ -55,7 +55,7 @@ export default function RegisterPage() {
         </div>
         <div className="w-full max-w-md z-10">
           <div className="text-center mb-6">
-            <Link href="/" className="inline-flex items-center text-blue-300 hover:text-blue-100 transition-colors">
+            <Link href="/" className="inline-flex items-center text-orange-300 hover:text-orange-100 transition-colors">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Home
             </Link>
@@ -71,7 +71,7 @@ export default function RegisterPage() {
               />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Join ChainReact</h1>
-            <p className="text-blue-200">Start automating your workflows today</p>
+            <p className="text-orange-200">Start automating your workflows today</p>
           </div>
           <RegisterForm />
         </div>

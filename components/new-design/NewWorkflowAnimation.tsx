@@ -167,7 +167,7 @@ export function NewWorkflowAnimation() {
       particles.forEach(particle => {
         ctx.beginPath()
         ctx.arc(particle.x, particle.y, 1, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(37, 99, 235, ${particle.life / 100})`
+        ctx.fillStyle = `rgba(249, 115, 22, ${particle.life / 100})`
         ctx.fill()
       })
 
@@ -203,9 +203,9 @@ export function NewWorkflowAnimation() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 mb-6">
-              <Zap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Intelligent Automation</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-100 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/20 mb-6">
+              <Zap className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+              <span className="text-sm font-semibold text-orange-700 dark:text-orange-300">Intelligent Automation</span>
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-neutral-900 dark:text-white mb-4">
               Watch Your Workflows Come to Life
@@ -221,8 +221,8 @@ export function NewWorkflowAnimation() {
           <div className="relative bg-white dark:bg-slate-900/50 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-8 overflow-hidden">
             {/* Subtle glow effect */}
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500 rounded-full filter blur-[128px] opacity-10"></div>
-              <div className="absolute bottom-20 right-20 w-96 h-96 bg-blue-500 rounded-full filter blur-[128px] opacity-10"></div>
+              <div className="absolute top-20 left-20 w-96 h-96 bg-orange-500 rounded-full filter blur-[128px] opacity-10"></div>
+              <div className="absolute bottom-20 right-20 w-96 h-96 bg-orange-500 rounded-full filter blur-[128px] opacity-10"></div>
             </div>
 
             {/* Canvas for particles */}
@@ -242,9 +242,9 @@ export function NewWorkflowAnimation() {
             >
               <defs>
                 <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#2563eb" stopOpacity="0.2" />
-                  <stop offset="50%" stopColor="#2563eb" stopOpacity="0.5" />
-                  <stop offset="100%" stopColor="#2563eb" stopOpacity="0.2" />
+                  <stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
+                  <stop offset="50%" stopColor="#f97316" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="#f97316" stopOpacity="0.2" />
                 </linearGradient>
                 <filter id="glow">
                   <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
@@ -319,7 +319,7 @@ export function NewWorkflowAnimation() {
                   >
                     {/* Node glow effect */}
                     <motion.div
-                      className="absolute inset-0 bg-blue-600 rounded-2xl blur-xl"
+                      className="absolute inset-0 bg-orange-600 rounded-2xl blur-xl"
                       animate={{
                         opacity: showDataFlow ? [0.3, 0.6, 0.3] : 0.3
                       }}
@@ -331,7 +331,7 @@ export function NewWorkflowAnimation() {
                     />
 
                     {/* Node content */}
-                    <div className="relative bg-blue-600 rounded-2xl p-4 shadow-2xl border border-blue-500/20">
+                    <div className="relative bg-orange-600 rounded-2xl p-4 shadow-2xl border border-orange-500/20">
                       <div className="flex flex-col items-center gap-2">
                         {React.createElement(node.icon, {
                           className: 'w-6 h-6 text-white'
@@ -398,7 +398,7 @@ export function NewWorkflowAnimation() {
               transition={{ delay: index * 0.1 }}
               className="bg-white dark:bg-slate-800/50 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-6 text-center hover:shadow-lg transition-all"
             >
-              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-blue-600 flex items-center justify-center">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-orange-600 flex items-center justify-center">
                 {React.createElement(feature.icon, {
                   className: 'w-6 h-6 text-white'
                 })}

@@ -53,18 +53,18 @@ export default function WorkflowChart({ data = [] }: WorkflowChartProps) {
                   borderRadius: "0.5rem",
                 }}
               />
-              <Line type="monotone" dataKey="executions" stroke="#3b82f6" strokeWidth={2} />
-              <Line type="monotone" dataKey="completions" stroke="#8b5cf6" strokeWidth={2} />
+              <Line type="monotone" dataKey="executions" stroke="#f97316" strokeWidth={2} />
+              <Line type="monotone" dataKey="completions" stroke="#f43f5e" strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </div>
         <div className="flex flex-col sm:flex-row justify-center mt-4 space-y-2 sm:space-y-0 sm:space-x-6">
           <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
+            <div className="w-3 h-3 rounded-full bg-orange-500 mr-2"></div>
             <span className="text-sm text-slate-600">Executions</span>
           </div>
           <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-purple-500 mr-2"></div>
+            <div className="w-3 h-3 rounded-full bg-rose-500 mr-2"></div>
             <span className="text-sm text-slate-600">Completions</span>
           </div>
         </div>

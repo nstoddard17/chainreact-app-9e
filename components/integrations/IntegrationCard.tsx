@@ -156,14 +156,14 @@ export const IntegrationCard = memo(function IntegrationCard({
         return {
           icon: <Shield className="w-3 h-3" />,
           label: 'Admin',
-          className: 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300',
+          className: 'bg-rose-100 dark:bg-rose-900/20 text-rose-800 dark:text-rose-300',
           tooltip: 'Full control: connect, disconnect, manage permissions'
         }
       case 'manage':
         return {
           icon: <Settings className="w-3 h-3" />,
           label: 'Manage',
-          className: 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300',
+          className: 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-300',
           tooltip: 'Can reconnect and view details'
         }
       case 'use':
@@ -281,7 +281,7 @@ export const IntegrationCard = memo(function IntegrationCard({
                         }}
                         className="p-0 hover:scale-110 transition-transform"
                       >
-                        <Info className="w-4 h-4 text-blue-500" />
+                        <Info className="w-4 h-4 text-orange-500" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -301,7 +301,7 @@ export const IntegrationCard = memo(function IntegrationCard({
                         }}
                         className="p-0 hover:scale-110 transition-transform"
                       >
-                        <Info className="w-4 h-4 text-blue-500" />
+                        <Info className="w-4 h-4 text-orange-500" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -381,13 +381,13 @@ export const IntegrationCard = memo(function IntegrationCard({
         <div className="text-sm text-muted-foreground mt-2 line-clamp-2">
           {provider.description}
           {provider.additionalInfo && provider.id === 'onedrive' && (
-            <div className="mt-1 text-xs text-blue-600 dark:text-blue-400">
+            <div className="mt-1 text-xs text-orange-600 dark:text-orange-400">
               {provider.additionalInfo}
             </div>
           )}
           {provider.id === 'microsoft-onenote' && (
             <div>
-              <span className="block mt-1 text-xs text-blue-600 dark:text-blue-400">
+              <span className="block mt-1 text-xs text-orange-600 dark:text-orange-400">
                 ⚡ Forces fresh OAuth consent for each connection
               </span>
               {process.env.NODE_ENV === 'development' && (
@@ -595,10 +595,10 @@ export const IntegrationCard = memo(function IntegrationCard({
             </div>
             
             {showTeamsUpgradeMessage && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md">
                 <div className="flex items-start gap-2">
-                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <Info className="w-4 h-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-orange-800 dark:text-orange-200">
                     <strong>Business Plan Required:</strong> Teams integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access this integration.
                   </div>
                 </div>
@@ -629,7 +629,7 @@ export const IntegrationCard = memo(function IntegrationCard({
               Please review these requirements before connecting Microsoft OneNote.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
               <div className="flex items-start gap-2">
@@ -639,12 +639,12 @@ export const IntegrationCard = memo(function IntegrationCard({
                 </div>
               </div>
             </div>
-            
+
             {showTeamsUpgradeMessage && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md">
                 <div className="flex items-start gap-2">
-                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <Info className="w-4 h-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-orange-800 dark:text-orange-200">
                     <strong>Business Plan Required:</strong> OneNote integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access this integration.
                   </div>
                 </div>
@@ -682,7 +682,7 @@ export const IntegrationCard = memo(function IntegrationCard({
               Please review these requirements before connecting Microsoft Outlook.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md">
               <div className="flex items-start gap-2">
@@ -692,12 +692,12 @@ export const IntegrationCard = memo(function IntegrationCard({
                 </div>
               </div>
             </div>
-            
+
             {showTeamsUpgradeMessage && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md">
                 <div className="flex items-start gap-2">
-                  <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <Info className="w-4 h-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-orange-800 dark:text-orange-200">
                     <strong>Business Plan Required:</strong> Outlook integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access this integration.
                   </div>
                 </div>
@@ -727,7 +727,7 @@ export const IntegrationCard = memo(function IntegrationCard({
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+              <FileSpreadsheet className="w-5 h-5 text-orange-600" />
               OneDrive Integration
             </DialogTitle>
             <DialogDescription>
@@ -758,10 +758,10 @@ export const IntegrationCard = memo(function IntegrationCard({
               </ul>
             </div>
 
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md">
               <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-800 dark:text-blue-200">
+                <Info className="w-4 h-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-orange-800 dark:text-orange-200">
                   <strong>Note:</strong> For Excel spreadsheet automation, connect Microsoft Excel separately from the Apps page.
                 </div>
               </div>

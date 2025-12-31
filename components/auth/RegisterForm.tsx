@@ -233,7 +233,7 @@ function RegisterFormContent() {
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="First name"
                   />
                 </div>
@@ -250,7 +250,7 @@ function RegisterFormContent() {
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     placeholder="Last name"
                   />
                 </div>
@@ -268,7 +268,7 @@ function RegisterFormContent() {
                   type="text"
                   value={username}
                   onChange={handleUsernameChange}
-                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   placeholder="Choose a username"
                   required
                   minLength={3}
@@ -284,7 +284,7 @@ function RegisterFormContent() {
                 </div>
               )}
               {usernameChecking && (
-                <div className="text-sm text-blue-600 mt-1">
+                <div className="text-sm text-orange-500 mt-1">
                   Checking username availability...
                 </div>
               )}
@@ -304,7 +304,7 @@ function RegisterFormContent() {
                   type="email"
                   value={email}
                   onChange={handleEmailChange}
-                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   placeholder="Enter your email"
                   required
                   autoComplete="email"
@@ -328,7 +328,7 @@ function RegisterFormContent() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-10 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   placeholder="Create a password"
                   required
                   minLength={8}
@@ -359,7 +359,7 @@ function RegisterFormContent() {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+              className="w-full bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white"
               disabled={loading || !!providerError || !!usernameError || usernameChecking}
             >
               {loading ? "Creating account..." : "Create Account"}
@@ -404,7 +404,7 @@ function RegisterFormContent() {
 
           <div className="text-center text-sm text-slate-600">
             Already have an account?{" "}
-            <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link href="/auth/login" className="text-orange-500 hover:text-orange-600 font-medium">
               Sign in
             </Link>
           </div>

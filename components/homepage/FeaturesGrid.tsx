@@ -85,9 +85,9 @@ export function FeaturesGrid() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-100 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 mb-6">
-              <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-              <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Features</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-100 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 mb-6">
+              <Sparkles className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+              <span className="text-sm font-semibold text-rose-700 dark:text-rose-300">Features</span>
             </div>
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
               Everything You Need to Automate
@@ -108,7 +108,7 @@ export function FeaturesGrid() {
               transition={{ duration: 0.5, delay: index * 0.05 }}
               className="group relative"
             >
-              <div className="h-full bg-white dark:bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/10 p-6 hover:border-gray-300 dark:hover:border-white/20 transition-all duration-300 hover:shadow-xl dark:hover:shadow-2xl dark:hover:shadow-purple-500/10">
+              <div className="h-full bg-white dark:bg-white/5 backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-white/10 p-6 hover:border-gray-300 dark:hover:border-white/20 transition-all duration-300 hover:shadow-xl dark:hover:shadow-2xl dark:hover:shadow-orange-500/5">
                 {/* Icon */}
                 <div className="mb-4">
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} p-2.5 shadow-lg group-hover:scale-110 transition-transform duration-300`}>

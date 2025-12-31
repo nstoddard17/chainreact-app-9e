@@ -22,13 +22,13 @@ function ErrorPageContent() {
           actions: (
             <>
               <Link href="/auth/register">
-                <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
+                <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                   <Mail className="mr-2 h-4 w-4" />
                   Sign Up Again
                 </Button>
               </Link>
               <Link href="/auth/login">
-                <Button variant="outline" className="w-full border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
+                <Button variant="outline" className="w-full border-orange-400 text-orange-400 hover:bg-orange-400/10 rounded-lg py-3 transition-all duration-300">
                   Already Confirmed? Sign In
                 </Button>
               </Link>
@@ -39,11 +39,11 @@ function ErrorPageContent() {
         return {
           title: 'Link Already Used',
           description: 'This confirmation link has already been used. Each link can only be used once for security.',
-          icon: <AlertCircle className="h-12 w-12 text-blue-400" />,
-          bgColor: 'bg-blue-500/20',
+          icon: <AlertCircle className="h-12 w-12 text-orange-400" />,
+          bgColor: 'bg-orange-500/20',
           actions: (
             <Link href="/auth/login">
-              <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
+              <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Go to Sign In
               </Button>
@@ -59,12 +59,12 @@ function ErrorPageContent() {
           actions: (
             <>
               <Link href="/auth/login">
-                <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
+                <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                   Try Again
                 </Button>
               </Link>
               <Link href="/">
-                <Button variant="ghost" className="w-full text-blue-300 hover:text-blue-200 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300">
+                <Button variant="ghost" className="w-full text-orange-300 hover:text-orange-200 hover:bg-orange-400/10 rounded-lg py-3 transition-all duration-300">
                   Go to Homepage
                 </Button>
               </Link>
@@ -77,12 +77,12 @@ function ErrorPageContent() {
   const errorDetails = getErrorDetails()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 relative overflow-hidden">
       {/* Background Animation */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 animate-pulse"></div>
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-float-delayed"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-600/20 to-rose-600/20 animate-pulse"></div>
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-rose-500/10 rounded-full blur-3xl animate-float-delayed"></div>
       </div>
 
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
@@ -90,7 +90,7 @@ function ErrorPageContent() {
           {/* Logo/Brand */}
           <div className="text-center">
             <Link href="/" className="inline-block">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent">
                 ChainReact
               </h1>
             </Link>
@@ -108,7 +108,7 @@ function ErrorPageContent() {
                 {errorDetails.title}
               </h2>
               
-              <p className="text-blue-200 mb-6 leading-relaxed">
+              <p className="text-orange-200 mb-6 leading-relaxed">
                 {errorDetails.description}
               </p>
 
@@ -116,8 +116,8 @@ function ErrorPageContent() {
                 {errorDetails.actions}
               </div>
 
-              <div className="mt-6 text-xs text-blue-300/60">
-                Need help? <Link href="/contact" className="text-blue-300 hover:text-blue-200 underline">Contact support</Link>
+              <div className="mt-6 text-xs text-orange-300/60">
+                Need help? <Link href="/contact" className="text-orange-300 hover:text-orange-200 underline">Contact support</Link>
               </div>
             </div>
           </div>

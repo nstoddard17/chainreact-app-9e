@@ -80,12 +80,12 @@ export function WaitlistSuccess() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-orange-950 to-rose-950 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-orange-500/5 rounded-full blur-3xl" />
       </div>
 
       {/* Grid Pattern Overlay */}
@@ -101,7 +101,7 @@ export function WaitlistSuccess() {
       {/* Navigation */}
       <nav className="relative z-20 px-4 sm:px-6 lg:px-8 py-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
+          <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
             ChainReact
           </Link>
 
@@ -148,9 +148,9 @@ export function WaitlistSuccess() {
                 </div>
 
                 {/* What's Next Section */}
-                <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-6 mb-8">
+                <div className="bg-orange-50 dark:bg-orange-950/30 rounded-xl p-6 mb-8">
                   <div className="flex items-center gap-2 mb-4">
-                    <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <Mail className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                     <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
                       What happens next?
                     </h2>
@@ -176,9 +176,9 @@ export function WaitlistSuccess() {
                 </div>
 
                 {/* Share Section */}
-                <div className="bg-purple-50 dark:bg-purple-950/30 rounded-xl p-6 mb-8">
+                <div className="bg-rose-50 dark:bg-rose-950/30 rounded-xl p-6 mb-8">
                   <div className="flex items-center gap-2 mb-4">
-                    <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    <Sparkles className="h-5 w-5 text-rose-600 dark:text-rose-400" />
                     <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
                       Want to move up the waitlist?
                     </h2>
@@ -188,7 +188,7 @@ export function WaitlistSuccess() {
                       Share ChainReact with colleagues who might benefit from workflow automation!
                     </p>
                     {shareTip && (
-                      <p className="text-xs sm:text-sm text-purple-700 dark:text-purple-200 sm:text-right sm:pl-4">
+                      <p className="text-xs sm:text-sm text-rose-700 dark:text-rose-200 sm:text-right sm:pl-4">
                         {shareTip}
                       </p>
                     )}
@@ -251,7 +251,7 @@ export function WaitlistSuccess() {
                   >
                     <Button
                       size="lg"
-                      className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                      className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white"
                     >
                       Contact Us
                       <ArrowRight className="ml-2 h-5 w-5" />
@@ -272,11 +272,11 @@ export function WaitlistSuccess() {
             <p>Have questions? Reach out at support@chainreact.app</p>
             <p className="mt-2">
               Follow us on{' '}
-              <a href="https://x.com/ChainReact_App" className="text-blue-400 hover:underline">
+              <a href="https://x.com/ChainReact_App" className="text-orange-400 hover:underline">
                 X
               </a>{' '}
               and{' '}
-              <a href="https://www.linkedin.com/company/chainreactapp" className="text-blue-400 hover:underline">
+              <a href="https://www.linkedin.com/company/chainreactapp" className="text-orange-400 hover:underline">
                 LinkedIn
               </a>
             </p>

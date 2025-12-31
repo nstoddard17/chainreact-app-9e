@@ -120,7 +120,7 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
       <Button
         onClick={() => setIsOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 z-50",
+          "fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 z-50",
           className,
         )}
         size="icon"
@@ -134,7 +134,7 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
     <Card className={cn("fixed bottom-6 right-6 w-96 h-[500px] shadow-xl z-50 flex flex-col", className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
         <CardTitle className="text-lg font-semibold flex items-center gap-2">
-          <Bot className="h-5 w-5 text-blue-500" />
+          <Bot className="h-5 w-5 text-orange-500" />
           Workflow AI
         </CardTitle>
         <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8">
@@ -151,15 +151,15 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
                 className={cn("flex gap-3", message.type === "user" ? "justify-end" : "justify-start")}
               >
                 {message.type === "assistant" && (
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-blue-600" />
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                    <Bot className="h-4 w-4 text-orange-600" />
                   </div>
                 )}
 
                 <div
                   className={cn(
                     "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                    message.type === "user" ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-900",
+                    message.type === "user" ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-900",
                   )}
                 >
                   {message.content}
@@ -175,8 +175,8 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
 
             {isLoading && (
               <div className="flex gap-3 justify-start">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-blue-600" />
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <Bot className="h-4 w-4 text-orange-600" />
                 </div>
                 <div className="bg-gray-100 rounded-lg px-3 py-2 text-sm flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -203,7 +203,7 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isLoading}
               size="icon"
-              className="bg-blue-500 hover:bg-blue-600"
+              className="bg-orange-500 hover:bg-orange-600"
             >
               <Send className="h-4 w-4" />
             </Button>

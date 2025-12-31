@@ -13,7 +13,7 @@ import { CheckCircle, XCircle, Clock, TrendingUp } from "lucide-react"
 
 import { logger } from '@/lib/utils/logger'
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"]
+const COLORS = ["#f97316", "#10b981", "#f59e0b", "#ef4444", "#f43f5e"]
 
 export default function AnalyticsContent() {
   const { metrics, chartData, executions, fetchMetrics, fetchChartData, fetchExecutions } = useAnalyticsStore()
@@ -93,10 +93,10 @@ export default function AnalyticsContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-600">Avg Execution Time</p>
-                  <p className="text-2xl font-bold text-blue-600">2.4s</p>
+                  <p className="text-2xl font-bold text-orange-600">2.4s</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>
@@ -121,10 +121,10 @@ export default function AnalyticsContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-600">Growth Rate</p>
-                  <p className="text-2xl font-bold text-purple-600">+24%</p>
+                  <p className="text-2xl font-bold text-rose-600">+24%</p>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-6 h-6 text-purple-600" />
+                <div className="w-12 h-12 bg-rose-100 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-rose-600" />
                 </div>
               </div>
             </CardContent>
@@ -187,7 +187,7 @@ export default function AnalyticsContent() {
                         boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                       }}
                     />
-                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="count" fill="#f97316" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

@@ -14,7 +14,7 @@ export default function TemplateMarketplace() {
             <p>A template for common data processing tasks</p>
           </CardContent>
           <CardFooter>
-            <button className="bg-blue-500 text-white px-4 py-2 rounded">Use Template</button>
+            <button className="bg-orange-500 text-white px-4 py-2 rounded">Use Template</button>
           </CardFooter>
         </Card>
       </div>

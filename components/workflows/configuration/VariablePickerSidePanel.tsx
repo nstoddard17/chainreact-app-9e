@@ -861,11 +861,11 @@ export function VariablePickerSidePanel({
     </div>
 
       {activeField && (
-        <div className="px-3 py-2 border-b border-slate-200 bg-blue-50 dark:bg-blue-950 dark:border-slate-700">
+        <div className="px-3 py-2 border-b border-slate-200 bg-orange-50 dark:bg-orange-950 dark:border-slate-700">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+            <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></div>
             <span className="text-xs text-slate-800 dark:text-slate-200 font-medium truncate" title={activeField.label || activeField.id}>
-              Inserting into: <span className="text-blue-800 dark:text-blue-300 font-semibold">{activeField.label || activeField.id}</span>
+              Inserting into: <span className="text-orange-800 dark:text-orange-300 font-semibold">{activeField.label || activeField.id}</span>
             </span>
           </div>
         </div>
@@ -880,7 +880,7 @@ export function VariablePickerSidePanel({
               <span className="text-slate-600">Real data</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded bg-blue-100 border border-blue-300"></div>
+              <div className="w-3 h-3 rounded bg-orange-100 border border-orange-300"></div>
               <span className="text-slate-600">Example</span>
             </div>
           </div>
@@ -1048,7 +1048,7 @@ export function VariablePickerSidePanel({
                                           <Badge
                                             className={`text-[10px] h-5 px-1.5 font-medium flex-shrink-0 max-w-[150px] inline-block overflow-hidden whitespace-nowrap cursor-pointer transition-colors ${
                                               isMockData
-                                                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300'
+                                                ? 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 hover:border-orange-300'
                                                 : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300'
                                             }`}
                                             style={{ textOverflow: 'ellipsis' }}
@@ -1122,7 +1122,7 @@ export function VariablePickerSidePanel({
         <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col bg-white dark:bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <span className={selectedDataInfo?.isMock ? "text-blue-600 dark:text-blue-600" : "text-green-600 dark:text-green-600"}>
+              <span className={selectedDataInfo?.isMock ? "text-orange-600 dark:text-orange-600" : "text-green-600 dark:text-green-600"}>
                 {selectedDataInfo?.isMock ? 'Example Data:' : 'Test Data:'}
               </span>
               <span className="text-slate-900 dark:text-slate-900">{selectedDataInfo?.label}</span>

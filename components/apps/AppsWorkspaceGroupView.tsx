@@ -135,7 +135,7 @@ export function AppsWorkspaceGroupView({ integrations, renderAppCard }: AppsWork
       {renderSection(
         'personal',
         'Personal Workspace',
-        <User className="w-5 h-5 text-blue-600" />,
+        <User className="w-5 h-5 text-orange-600" />,
         grouped.personal,
         'Your private integrations'
       )}
@@ -145,7 +145,7 @@ export function AppsWorkspaceGroupView({ integrations, renderAppCard }: AppsWork
         return renderSection(
           `org-${orgId}`,
           getOrgName(orgId),
-          <Building2 className="w-5 h-5 text-purple-600" />,
+          <Building2 className="w-5 h-5 text-rose-600" />,
           orgApps,
           `${orgApps.length} connected apps`
         )

@@ -78,7 +78,7 @@ export function ZapierSidebar() {
                 <item.icon className="w-4 h-4" />
                 <span>{item.name}</span>
                 {item.badge && (
-                  <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
+                  <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded">
                     {item.badge}
                   </span>
                 )}
@@ -115,7 +115,7 @@ export function ZapierSidebar() {
           <div>Plan tasks</div>
           <div className="font-semibold text-gray-700">0 / 100</div>
           <div className="text-[11px] text-gray-400">Usage resets in 2 weeks</div>
-          <Link href="/settings/billing" className="text-blue-600 hover:text-blue-700 text-xs font-medium block mt-2">
+          <Link href="/settings/billing" className="text-orange-500 hover:text-orange-600 text-xs font-medium block mt-2">
             Manage plan
           </Link>
         </div>

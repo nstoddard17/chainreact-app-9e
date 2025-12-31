@@ -161,7 +161,7 @@ function PlanCard({
   return (
     <Card
       className={`bg-white rounded-2xl shadow-lg border transition-all duration-300 transform hover:-translate-y-1 ${
-        isCurrentPlan ? "border-blue-500 ring-2 ring-blue-200" : isExpanded ? "border-blue-300" : "border-slate-200"
+        isCurrentPlan ? "border-orange-500 ring-2 ring-orange-200" : isExpanded ? "border-orange-300" : "border-slate-200"
       } ${isDisabled ? "opacity-60" : ""}`}
     >
       <CardContent className="p-6">

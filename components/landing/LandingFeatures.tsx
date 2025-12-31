@@ -27,21 +27,21 @@ const FeatureCard = memo(({ icon: Icon, title, description }: {
 }) => (
   <Card className="p-6 bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105">
     <CardContent className="p-0 text-center">
-      <div className="mb-4 p-3 bg-blue-600/20 rounded-full w-fit mx-auto">
-        <Icon className="h-8 w-8 text-blue-400" />
+      <div className="mb-4 p-3 bg-orange-600/20 rounded-full w-fit mx-auto">
+        <Icon className="h-8 w-8 text-orange-400" />
       </div>
       <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
-      <p className="text-blue-200">{description}</p>
+      <p className="text-orange-200">{description}</p>
     </CardContent>
   </Card>
 ))
 
 const IntegrationIcon = memo(({ icon: Icon, name }: { icon: any; name: string }) => (
   <div className="group flex flex-col items-center p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 hover:bg-white/10 transition-all duration-300 transform hover:scale-105">
-    <div className="mb-2 p-3 bg-blue-600/20 rounded-full">
-      <Icon className="h-6 w-6 text-blue-400" />
+    <div className="mb-2 p-3 bg-orange-600/20 rounded-full">
+      <Icon className="h-6 w-6 text-orange-400" />
     </div>
-    <span className="text-sm text-blue-200 group-hover:text-white transition-colors">{name}</span>
+    <span className="text-sm text-orange-200 group-hover:text-white transition-colors">{name}</span>
   </div>
 ))
 
@@ -52,13 +52,13 @@ const LandingFeatures = memo(() => {
       <section id="features" className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 md:py-24">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <Badge variant="secondary" className="bg-blue-600/20 text-blue-300 border border-blue-500/30 mb-4">
+            <Badge variant="secondary" className="bg-orange-600/20 text-orange-300 border border-orange-500/30 mb-4">
               Features
             </Badge>
             <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
               Everything you need to automate
             </h2>
-            <p className="text-xl text-blue-200 max-w-3xl mx-auto">
+            <p className="text-xl text-orange-200 max-w-3xl mx-auto">
               From simple task automation to complex workflow orchestration, ChainReact provides all the tools you need.
             </p>
           </div>

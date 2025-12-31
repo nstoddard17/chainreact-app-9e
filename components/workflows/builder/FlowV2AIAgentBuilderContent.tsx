@@ -1,7 +1,7 @@
 "use client"
 
-import { AIAgentBuilderContent } from "../ai-builder/AIAgentBuilderContent"
+import { AIAgentCoralContent } from "../ai-builder/AIAgentCoralContent"
 
 export function FlowV2AIAgentBuilderContent() {
-  return <AIAgentBuilderContent variant="v2" />
+  return <AIAgentCoralContent />
 }

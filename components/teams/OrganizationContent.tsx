@@ -72,28 +72,28 @@ export default function OrganizationContent({ organization }: Props) {
               <TabsList className="w-full justify-start rounded-none border-b border-slate-200 bg-transparent p-0">
                 <TabsTrigger
                   value="overview"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-orange-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                   <Activity className="w-4 h-4 mr-2" />
                   Overview
                 </TabsTrigger>
                 <TabsTrigger
                   value="teams"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-orange-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                   <Building2 className="w-4 h-4 mr-2" />
                   Teams
                 </TabsTrigger>
                 <TabsTrigger
                   value="workflows"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-orange-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                   <Workflow className="w-4 h-4 mr-2" />
                   Workflows
                 </TabsTrigger>
                 <TabsTrigger
                   value="members"
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                  className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-orange-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                 >
                   <Users className="w-4 h-4 mr-2" />
                   Members
@@ -101,7 +101,7 @@ export default function OrganizationContent({ organization }: Props) {
                 {userRole === "admin" && (
                   <TabsTrigger
                     value="settings"
-                    className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+                    className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-orange-500 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
                   >
                     <Settings className="w-4 h-4 mr-2" />
                     Settings
@@ -118,7 +118,7 @@ export default function OrganizationContent({ organization }: Props) {
                   <CardTitle className="text-lg font-semibold text-slate-900">Team Members</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-blue-600">{currentOrganization.member_count || 1}</div>
+                  <div className="text-3xl font-bold text-orange-600">{currentOrganization.member_count || 1}</div>
                   <p className="text-sm text-slate-500">Active members</p>
                 </CardContent>
               </Card>
@@ -138,7 +138,7 @@ export default function OrganizationContent({ organization }: Props) {
                   <CardTitle className="text-lg font-semibold text-slate-900">Workflows</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-purple-600">{currentOrganization.workflow_count || 0}</div>
+                  <div className="text-3xl font-bold text-rose-600">{currentOrganization.workflow_count || 0}</div>
                   <p className="text-sm text-slate-500">Organization workflows</p>
                 </CardContent>
               </Card>

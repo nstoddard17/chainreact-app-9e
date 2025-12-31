@@ -158,9 +158,9 @@ export default function WebhookConfigurationPanel({ className }: WebhookConfigur
             </TabsContent>
             
             <TabsContent value="development" className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-800 mb-2">Development Configuration</h4>
-                <p className="text-sm text-blue-700">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <h4 className="font-semibold text-orange-800 mb-2">Development Configuration</h4>
+                <p className="text-sm text-orange-700">
                   Use these URLs for local development and testing. They automatically detect your environment.
                 </p>
               </div>

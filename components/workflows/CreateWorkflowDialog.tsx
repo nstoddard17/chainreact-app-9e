@@ -12,7 +12,7 @@ export default function CreateWorkflowDialog() {
     <>
       <Button 
         onClick={() => setOpen(true)}
-        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+        className="bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700"
       >
         <Plus className="w-4 h-4 mr-2" />
         Create Workflow

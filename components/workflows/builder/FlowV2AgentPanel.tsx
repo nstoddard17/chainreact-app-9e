@@ -37,7 +37,12 @@ import { useDynamicOptions } from "../configuration/hooks/useDynamicOptions"
 import type { DynamicOptionsState } from "../configuration/utils/types"
 import { ProviderSelectionUI } from "../ai-agent/ProviderSelectionUI"
 import { ProviderBadge } from "../ai-agent/ProviderBadge"
+import { ProviderDropdownSelector } from "../ai-agent/ProviderDropdownSelector"
+import { ConnectionStatusCard } from "../ai-agent/ConnectionStatusCard"
+import { NodeConfigurationCard } from "../ai-agent/NodeConfigurationCard"
+import { PreferencesSaveCard } from "../ai-agent/PreferencesSaveCard"
 import { getProviderOptions } from "@/lib/workflows/ai-agent/providerDisambiguation"
+import { getNodeConfigQuestions } from "@/lib/workflows/ai-agent/nodeConfigQuestions"
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from "../configuration/utils/connectionExemptions"
 
 interface PanelLayoutProps {
@@ -68,6 +73,14 @@ interface PanelActions {
   onProviderSelect?: (providerId: string) => void
   onProviderConnect?: (providerId: string) => void
   onProviderChange?: (providerId: string) => void
+  // New handlers for enhanced chat flow
+  onProviderDropdownSelect?: (providerId: string, isConnected: boolean) => void
+  onConnectionComplete?: (providerId: string, email?: string) => void
+  onConnectionSkip?: (providerId: string) => void
+  onNodeConfigComplete?: (nodeType: string, config: Record<string, any>) => void
+  onNodeConfigSkip?: (nodeType: string) => void
+  onPreferencesSave?: (selectedIds: string[]) => void
+  onPreferencesSkip?: () => void
 }
 
 interface FlowV2AgentPanelProps {
@@ -103,6 +116,14 @@ export function FlowV2AgentPanel({
     onProviderSelect,
     onProviderConnect,
     onProviderChange,
+    // New handlers for enhanced chat flow
+    onProviderDropdownSelect,
+    onConnectionComplete,
+    onConnectionSkip,
+    onNodeConfigComplete,
+    onNodeConfigSkip,
+    onPreferencesSave,
+    onPreferencesSkip,
   } = actions
 
   // Use state for viewport dimensions to avoid hydration mismatch
@@ -865,21 +886,80 @@ export function FlowV2AgentPanel({
                 )
               })}
 
-              {/* Assistant messages - only shown in IDLE state if they have text content */}
+              {/* Assistant messages - only shown in IDLE state if they have text content or interactive meta */}
               {buildMachine.state === BuildState.IDLE && agentMessages.filter(m => {
                 if (!m || m.role !== 'assistant') return false
                 const text = (m as any).text ?? (m as any).content ?? ''
-                return text.trim().length > 0
+                const meta = (m as any).meta ?? {}
+                // Show if has text OR has interactive components
+                return text.trim().length > 0 ||
+                       meta.providerDropdown ||
+                       meta.connectionStatus ||
+                       meta.nodeConfig ||
+                       meta.preferencesSave
               }).map((msg, index) => {
                 const text = (msg as any).text ?? (msg as any).content ?? ''
+                const meta = (msg as any).meta ?? {}
 
                 return (
                   <div key={`assistant-${index}`} className="flex w-full flex-col gap-2">
-                    <div className="max-w-[80%] rounded-lg px-4 py-3 bg-blue-50 text-gray-900 dark:bg-blue-900/20 dark:text-gray-100">
-                      <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
-                        {text}
-                      </p>
-                    </div>
+                    {/* Text bubble */}
+                    {text.trim().length > 0 && (
+                      <div className="max-w-[80%] rounded-lg px-4 py-3 bg-orange-50 text-gray-900 dark:bg-orange-900/20 dark:text-gray-100">
+                        <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
+                          {text}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Interactive components from meta */}
+                    {meta.providerDropdown && onProviderDropdownSelect && (
+                      <div className="w-full max-w-[90%]">
+                        <ProviderDropdownSelector
+                          categoryName={meta.providerDropdown.category.displayName}
+                          categoryKey={meta.providerDropdown.category.vagueTerm}
+                          providers={meta.providerDropdown.providers}
+                          onSelect={onProviderDropdownSelect}
+                        />
+                      </div>
+                    )}
+
+                    {meta.connectionStatus && onConnectionComplete && (
+                      <div className="w-full max-w-[90%]">
+                        <ConnectionStatusCard
+                          providerId={meta.connectionStatus.providerId}
+                          onConnected={(email) => onConnectionComplete(meta.connectionStatus.providerId, email)}
+                          onSkip={onConnectionSkip ? () => onConnectionSkip(meta.connectionStatus.providerId) : undefined}
+                        />
+                      </div>
+                    )}
+
+                    {meta.nodeConfig && onNodeConfigComplete && onNodeConfigSkip && (() => {
+                      const definition = getNodeConfigQuestions(meta.nodeConfig.nodeType)
+                      if (definition) {
+                        return (
+                          <div className="w-full max-w-[90%]">
+                            <NodeConfigurationCard
+                              nodeType={meta.nodeConfig.nodeType}
+                              definition={definition}
+                              onComplete={(config) => onNodeConfigComplete(meta.nodeConfig.nodeType, config)}
+                              onSkip={() => onNodeConfigSkip(meta.nodeConfig.nodeType)}
+                            />
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
+
+                    {meta.preferencesSave && onPreferencesSave && onPreferencesSkip && (
+                      <div className="w-full max-w-[90%]">
+                        <PreferencesSaveCard
+                          selections={meta.preferencesSave.selections}
+                          onComplete={onPreferencesSkip}
+                          onSkip={onPreferencesSkip}
+                        />
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -977,7 +1057,64 @@ export function FlowV2AgentPanel({
                                 const lastMessage = assistantMessages[assistantMessages.length - 1]
                                 const meta = (lastMessage as any)?.meta ?? {}
 
-                                // Show provider selection UI if user needs to choose
+                                // NEW: Provider dropdown selector (enhanced UI)
+                                if (meta.providerDropdown && onProviderDropdownSelect) {
+                                  return (
+                                    <div className="pt-2 pb-1">
+                                      <ProviderDropdownSelector
+                                        categoryName={meta.providerDropdown.category.displayName}
+                                        categoryKey={meta.providerDropdown.category.vagueTerm}
+                                        providers={meta.providerDropdown.providers}
+                                        onSelect={onProviderDropdownSelect}
+                                      />
+                                    </div>
+                                  )
+                                }
+
+                                // NEW: Connection status card (after provider selected)
+                                if (meta.connectionStatus && onConnectionComplete) {
+                                  return (
+                                    <div className="pt-2 pb-1">
+                                      <ConnectionStatusCard
+                                        providerId={meta.connectionStatus.providerId}
+                                        onConnected={(email) => onConnectionComplete(meta.connectionStatus.providerId, email)}
+                                        onSkip={onConnectionSkip ? () => onConnectionSkip(meta.connectionStatus.providerId) : undefined}
+                                      />
+                                    </div>
+                                  )
+                                }
+
+                                // NEW: Node configuration questions
+                                if (meta.nodeConfig && onNodeConfigComplete && onNodeConfigSkip) {
+                                  const definition = getNodeConfigQuestions(meta.nodeConfig.nodeType)
+                                  if (definition) {
+                                    return (
+                                      <div className="pt-2 pb-1">
+                                        <NodeConfigurationCard
+                                          nodeType={meta.nodeConfig.nodeType}
+                                          definition={definition}
+                                          onComplete={(config) => onNodeConfigComplete(meta.nodeConfig.nodeType, config)}
+                                          onSkip={() => onNodeConfigSkip(meta.nodeConfig.nodeType)}
+                                        />
+                                      </div>
+                                    )
+                                  }
+                                }
+
+                                // NEW: Preferences save card (at end of workflow)
+                                if (meta.preferencesSave && onPreferencesSave && onPreferencesSkip) {
+                                  return (
+                                    <div className="pt-2 pb-1">
+                                      <PreferencesSaveCard
+                                        selections={meta.preferencesSave.selections}
+                                        onComplete={onPreferencesSkip}
+                                        onSkip={onPreferencesSkip}
+                                      />
+                                    </div>
+                                  )
+                                }
+
+                                // Show provider selection UI if user needs to choose (legacy)
                                 if (meta.providerSelection && onProviderSelect && onProviderConnect) {
                                   return (
                                     <div className="pt-2 pb-1">
@@ -1313,7 +1450,7 @@ export function FlowV2AgentPanel({
                           <Button
                             onClick={onUndoToPreviousStage}
                             variant="ghost"
-                            className="text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-2"
+                            className="text-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 gap-2"
                             size="sm"
                           >
                             <ArrowLeft className="h-4 w-4" />
@@ -1358,7 +1495,7 @@ export function FlowV2AgentPanel({
                   className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent/50 gap-0.5"
                   disabled={isAgentLoading}
                 >
-                  <AtSign className="w-2.5 h-2.5 text-blue-500" />
+                  <AtSign className="w-2.5 h-2.5 text-orange-500" />
                   add context
                 </Button>
                 {isAgentLoading && (

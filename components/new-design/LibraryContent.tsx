@@ -202,7 +202,7 @@ export function LibraryContent() {
               <Card key={template.id} className="group hover:shadow-lg transition-all overflow-hidden">
                 <CardContent className="p-0">
                   {/* Preview Area - Mini Workflow Canvas */}
-                  <div className="h-48 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-b relative overflow-hidden">
+                  <div className="h-48 bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-950/20 dark:to-rose-950/20 border-b relative overflow-hidden">
                     {template.nodes && template.nodes.length > 0 ? (
                       <TemplateWorkflowPreview
                         nodes={template.nodes}
@@ -211,7 +211,7 @@ export function LibraryContent() {
                       />
                     ) : (
                       <div className="flex items-center justify-center h-full">
-                        <Sparkles className="w-12 h-12 text-blue-500" />
+                        <Sparkles className="w-12 h-12 text-orange-500" />
                       </div>
                     )}
 

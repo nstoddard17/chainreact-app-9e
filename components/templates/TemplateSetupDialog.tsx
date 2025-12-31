@@ -66,8 +66,8 @@ export function TemplateSetupDialog({
       <DialogContent className="max-w-3xl">
         <DialogHeader className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-blue-100 dark:bg-blue-900/50 p-2.5">
-              <Table2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="rounded-lg bg-orange-100 dark:bg-orange-900/50 p-2.5">
+              <Table2 className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             </div>
             <DialogTitle className="text-2xl font-bold">{primaryTargetLabel} Setup Overview</DialogTitle>
           </div>
@@ -77,14 +77,14 @@ export function TemplateSetupDialog({
         </DialogHeader>
 
         <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-5">
-          <div className="rounded-xl border border-blue-300 dark:border-blue-700 bg-gradient-to-r from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 px-4 py-3.5 text-sm text-blue-900 dark:text-blue-100 shadow-sm">
+          <div className="rounded-xl border border-orange-300 dark:border-orange-700 bg-gradient-to-r from-orange-50 to-orange-100/50 dark:from-orange-950/50 dark:to-orange-900/30 px-4 py-3.5 text-sm text-orange-900 dark:text-orange-100 shadow-sm">
             <p className="font-medium">
               💡 Access this checklist anytime via the shield icon in the top right corner of the builder toolbar.
             </p>
           </div>
 
           {overview?.summary && (
-            <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-white/80 dark:bg-blue-950/30 px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
+            <div className="rounded-lg border border-orange-200 dark:border-orange-800 bg-white/80 dark:bg-orange-950/30 px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
               {overview.summary}
             </div>
           )}
@@ -195,7 +195,7 @@ interface AirtableSummaryProps {
 
 function AirtableSummary({ requirement }: AirtableSummaryProps) {
   return (
-    <div className="rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-slate-900/30 p-5 space-y-4 shadow-sm">
+    <div className="rounded-xl border border-orange-200/80 bg-gradient-to-br from-orange-50/80 to-white dark:from-orange-950/30 dark:to-slate-900/30 p-5 space-y-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="font-semibold text-lg text-slate-900 dark:text-slate-100">
@@ -300,7 +300,7 @@ function RequirementSummary({ requirement }: RequirementSummaryProps) {
                       href={sheet.downloadUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-sm font-medium text-orange-600 dark:text-orange-400 hover:underline"
                     >
                       {sheet.sheetName}
                     </a>
@@ -324,13 +324,13 @@ function RequirementSummary({ requirement }: RequirementSummaryProps) {
                   key={`${resource.name}-${index}`}
                   className="flex items-start gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                 >
-                  <ExternalLink className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                  <ExternalLink className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <a
                       href={resource.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-sm font-medium text-orange-600 dark:text-orange-400 hover:underline"
                     >
                       {resource.name}
                     </a>
@@ -350,7 +350,7 @@ function RequirementSummary({ requirement }: RequirementSummaryProps) {
   const genericRequirement = requirement as { title?: string; instructions?: string[] }
 
   return (
-    <div className="rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-slate-900/30 p-5 space-y-3 shadow-sm">
+    <div className="rounded-xl border border-orange-200/80 bg-gradient-to-br from-orange-50/80 to-white dark:from-orange-950/30 dark:to-slate-900/30 p-5 space-y-3 shadow-sm">
       <div className="flex items-center gap-3">
         <Badge variant="outline" className="font-medium">
           {display.badge}

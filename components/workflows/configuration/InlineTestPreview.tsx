@@ -935,19 +935,19 @@ export function InlineTestPreview({
 
             {/* Results Hint - When test runs but doesn't return inline results */}
             {showResultsHint && !testResult && (
-              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 p-3">
-                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+              <div className="rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/30 p-3">
+                <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300">
                   <CheckCircle2 className="h-4 w-4" />
                   <span className="text-xs font-medium">Test Running</span>
                 </div>
-                <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">
+                <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-1">
                   Check the <strong>Results</strong> tab to see output when complete.
                 </p>
                 {onSwitchToResults && (
                   <Button
                     variant="link"
                     size="sm"
-                    className="h-auto p-0 mt-1 text-[10px] text-blue-600 dark:text-blue-400"
+                    className="h-auto p-0 mt-1 text-[10px] text-orange-600 dark:text-orange-400"
                     onClick={onSwitchToResults}
                   >
                     Go to Results →

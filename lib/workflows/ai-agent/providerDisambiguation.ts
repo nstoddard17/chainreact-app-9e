@@ -259,3 +259,118 @@ export function replaceVagueTermWithProvider(
 
   return result
 }
+
+/**
+ * Specific app pattern definitions for detecting explicitly mentioned apps
+ */
+interface SpecificAppPattern {
+  patterns: RegExp[]
+  provider: string
+  category: string // Which category this provider belongs to
+}
+
+const SPECIFIC_APP_PATTERNS: SpecificAppPattern[] = [
+  // Email
+  { patterns: [/\bgmail\b/i, /\bgoogle\s*mail\b/i], provider: 'gmail', category: 'email' },
+  { patterns: [/\boutlook\b/i, /\bmicrosoft\s*(outlook|mail)\b/i, /\bhotmail\b/i], provider: 'outlook', category: 'email' },
+  { patterns: [/\byahoo\s*mail\b/i], provider: 'yahoo-mail', category: 'email' },
+
+  // Calendar
+  { patterns: [/\bgoogle\s*calendar\b/i, /\bgcal\b/i], provider: 'google-calendar', category: 'calendar' },
+  { patterns: [/\boutlook\s*calendar\b/i], provider: 'outlook', category: 'calendar' },
+
+  // Chat/Messaging
+  { patterns: [/\bslack\b/i], provider: 'slack', category: 'notification' },
+  { patterns: [/\bdiscord\b/i], provider: 'discord', category: 'notification' },
+  { patterns: [/\bteams\b/i, /\bmicrosoft\s*teams\b/i, /\bms\s*teams\b/i], provider: 'microsoft-teams', category: 'notification' },
+
+  // Storage
+  { patterns: [/\bgoogle\s*drive\b/i, /\bgdrive\b/i], provider: 'google-drive', category: 'storage' },
+  { patterns: [/\bdropbox\b/i], provider: 'dropbox', category: 'storage' },
+  { patterns: [/\bonedrive\b/i, /\bone\s*drive\b/i], provider: 'onedrive', category: 'storage' },
+
+  // Spreadsheets
+  { patterns: [/\bgoogle\s*sheets?\b/i, /\bgsheets?\b/i], provider: 'google-sheets', category: 'spreadsheet' },
+  { patterns: [/\bairtable\b/i], provider: 'airtable', category: 'spreadsheet' },
+  { patterns: [/\bexcel\b/i, /\bmicrosoft\s*excel\b/i], provider: 'microsoft-excel', category: 'spreadsheet' },
+
+  // Documents/Notes
+  { patterns: [/\bgoogle\s*docs?\b/i, /\bgdocs?\b/i], provider: 'google-docs', category: 'documents' },
+  { patterns: [/\bnotion\b/i], provider: 'notion', category: 'documents' },
+  { patterns: [/\bonenote\b/i, /\bone\s*note\b/i], provider: 'onenote', category: 'notes' },
+  { patterns: [/\bevernote\b/i], provider: 'evernote', category: 'notes' },
+
+  // CRM
+  { patterns: [/\bhubspot\b/i], provider: 'hubspot', category: 'crm' },
+  { patterns: [/\bsalesforce\b/i, /\bsfdc\b/i], provider: 'salesforce', category: 'crm' },
+
+  // Task Management
+  { patterns: [/\btrello\b/i], provider: 'trello', category: 'task' },
+  { patterns: [/\basana\b/i], provider: 'asana', category: 'task' },
+
+  // Social Media
+  { patterns: [/\btwitter\b/i, /\bx\.com\b/i], provider: 'twitter', category: 'social' },
+  { patterns: [/\bfacebook\b/i, /\bfb\b/i], provider: 'facebook', category: 'social' },
+  { patterns: [/\blinkedin\b/i], provider: 'linkedin', category: 'social' },
+  { patterns: [/\binstagram\b/i, /\big\b/i], provider: 'instagram', category: 'social' },
+
+  // Other integrations
+  { patterns: [/\bstripe\b/i], provider: 'stripe', category: 'payment' },
+  { patterns: [/\bshopify\b/i], provider: 'shopify', category: 'ecommerce' },
+  { patterns: [/\bgithub\b/i], provider: 'github', category: 'development' },
+  { patterns: [/\bmailchimp\b/i], provider: 'mailchimp', category: 'marketing' },
+  { patterns: [/\bgumroad\b/i], provider: 'gumroad', category: 'ecommerce' },
+]
+
+export interface DetectedApp {
+  provider: string
+  category: string
+  displayName: string
+}
+
+/**
+ * Detects specific apps mentioned in a prompt
+ * Use this to avoid re-asking users which app to use when they already specified it
+ *
+ * @example
+ * detectSpecificApps("When I receive an email, send to Slack")
+ * // Returns: [{ provider: 'slack', category: 'notification', displayName: 'Slack' }]
+ *
+ * @example
+ * detectSpecificApps("Sync Gmail to Google Sheets")
+ * // Returns: [
+ * //   { provider: 'gmail', category: 'email', displayName: 'Gmail' },
+ * //   { provider: 'google-sheets', category: 'spreadsheet', displayName: 'Google Sheets' }
+ * // ]
+ */
+export function detectSpecificApps(prompt: string): DetectedApp[] {
+  const detectedApps: DetectedApp[] = []
+  const seenProviders = new Set<string>()
+
+  for (const appPattern of SPECIFIC_APP_PATTERNS) {
+    // Skip if we already detected this provider
+    if (seenProviders.has(appPattern.provider)) continue
+
+    for (const pattern of appPattern.patterns) {
+      if (pattern.test(prompt)) {
+        seenProviders.add(appPattern.provider)
+        detectedApps.push({
+          provider: appPattern.provider,
+          category: appPattern.category,
+          displayName: getProviderDisplayName(appPattern.provider),
+        })
+        break // Found a match for this app, move to next
+      }
+    }
+  }
+
+  return detectedApps
+}
+
+/**
+ * Get the category for a specific provider
+ */
+export function getProviderCategory(providerId: string): string | null {
+  const appPattern = SPECIFIC_APP_PATTERNS.find(p => p.provider === providerId)
+  return appPattern?.category || null
+}

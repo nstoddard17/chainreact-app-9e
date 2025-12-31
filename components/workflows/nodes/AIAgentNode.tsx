@@ -71,12 +71,12 @@ export const AIAgentNode = memo(({ data, selected, id }: AIAgentNodeProps) => {
       case 'error':
         return <AlertCircle className="w-4 h-4 text-red-500" />
       default:
-        return <Bot className="w-4 h-4 text-blue-500" />
+        return <Bot className="w-4 h-4 text-orange-500" />
     }
   }
 
   const getNodeBorderColor = () => {
-    if (selected) return 'border-blue-500 shadow-lg'
+    if (selected) return 'border-orange-500 shadow-lg'
     switch (nodeData.status) {
       case 'processing':
         return 'border-yellow-500 animate-pulse'
@@ -94,18 +94,18 @@ export const AIAgentNode = memo(({ data, selected, id }: AIAgentNodeProps) => {
       <Card className={cn(
         'min-w-[280px] max-w-[320px] transition-all duration-200',
         getNodeBorderColor(),
-        selected && 'ring-2 ring-blue-500 ring-offset-2'
+        selected && 'ring-2 ring-orange-500 ring-offset-2'
       )}>
         {/* Input Handle */}
         <Handle
           type="target"
           position={Position.Left}
-          className="!bg-blue-500 !w-3 !h-3 !border-2 !border-white"
+          className="!bg-orange-500 !w-3 !h-3 !border-2 !border-white"
           style={{ left: -6 }}
         />
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-3 rounded-t-lg">
+        <div className="bg-gradient-to-r from-orange-500 to-rose-500 text-white p-3 rounded-t-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {getStatusIcon()}
@@ -234,7 +234,7 @@ export const AIAgentNode = memo(({ data, selected, id }: AIAgentNodeProps) => {
         <Handle
           type="source"
           position={Position.Right}
-          className="!bg-purple-500 !w-3 !h-3 !border-2 !border-white"
+          className="!bg-rose-500 !w-3 !h-3 !border-2 !border-white"
           style={{ right: -6 }}
         />
 

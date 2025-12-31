@@ -315,7 +315,7 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
       case 'owner':
         return <Crown className="w-3 h-3 text-yellow-500" />
       case 'admin':
-        return <Shield className="w-3 h-3 text-blue-500" />
+        return <Shield className="w-3 h-3 text-orange-500" />
       default:
         return <UserIcon className="w-3 h-3 text-muted-foreground" />
     }

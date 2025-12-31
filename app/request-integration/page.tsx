@@ -67,9 +67,9 @@ export default function RequestIntegrationPage() {
       <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-20">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 mb-6">
-              <Send className="w-4 h-4 text-purple-400" />
-              <span className="text-sm font-semibold text-purple-300">Integration Request</span>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-500/10 border border-rose-500/20 mb-6">
+              <Send className="w-4 h-4 text-rose-400" />
+              <span className="text-sm font-semibold text-rose-300">Integration Request</span>
             </div>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-4">
               Request a New Integration
@@ -102,7 +102,7 @@ export default function RequestIntegrationPage() {
                     required
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors"
                     placeholder="John Doe"
                   />
                 </div>
@@ -119,7 +119,7 @@ export default function RequestIntegrationPage() {
                     required
                     value={formData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors"
                     placeholder="john@company.com"
                   />
                 </div>
@@ -135,7 +135,7 @@ export default function RequestIntegrationPage() {
                     name="company"
                     value={formData.company}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors"
                     placeholder="Acme Inc."
                   />
                 </div>
@@ -152,7 +152,7 @@ export default function RequestIntegrationPage() {
                     required
                     value={formData.integration}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors"
                     placeholder="e.g., Salesforce, Monday.com, Zendesk"
                   />
                 </div>
@@ -167,7 +167,7 @@ export default function RequestIntegrationPage() {
                     name="priority"
                     value={formData.priority}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors"
                   >
                     <option value="low">Low - Nice to have</option>
                     <option value="medium">Medium - Would be helpful</option>
@@ -187,7 +187,7 @@ export default function RequestIntegrationPage() {
                     rows={4}
                     value={formData.useCase}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors resize-none"
                     placeholder="Describe how you would use this integration and what workflows you'd like to automate..."
                   />
                 </div>
@@ -203,7 +203,7 @@ export default function RequestIntegrationPage() {
                     name="apiDocs"
                     value={formData.apiDocs}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition-colors"
                     placeholder="https://docs.example.com/api"
                   />
                   <p className="text-xs text-gray-400 mt-1">
@@ -215,7 +215,7 @@ export default function RequestIntegrationPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl shadow-2xl shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                  className="w-full px-8 py-4 bg-gradient-to-r from-orange-600 to-rose-600 hover:from-orange-700 hover:to-rose-700 text-white font-semibold rounded-xl shadow-2xl shadow-rose-500/25 hover:shadow-rose-500/40 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -234,15 +234,15 @@ export default function RequestIntegrationPage() {
           )}
 
           {/* Info Box */}
-          <div className="mt-8 bg-blue-500/10 border border-blue-500/20 rounded-xl p-6">
+          <div className="mt-8 bg-orange-500/10 border border-orange-500/20 rounded-xl p-6">
             <div className="flex gap-3">
-              <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="text-white font-semibold mb-1">Enterprise Customers</h3>
                 <p className="text-gray-300 text-sm">
                   Need a custom integration built specifically for your organization?
                   Contact our enterprise team at{' '}
-                  <a href="mailto:enterprise@chainreact.ai" className="text-blue-400 hover:text-blue-300">
+                  <a href="mailto:enterprise@chainreact.ai" className="text-orange-400 hover:text-orange-300">
                     enterprise@chainreact.ai
                   </a>
                 </p>

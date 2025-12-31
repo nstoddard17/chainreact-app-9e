@@ -260,7 +260,7 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
       case 'admin':
         return <Badge variant="secondary">Admin</Badge>
       case 'manager':
-        return <Badge className="bg-purple-500">Manager</Badge>
+        return <Badge className="bg-rose-500">Manager</Badge>
       case 'member':
         return <Badge variant="outline">Member</Badge>
       default:
@@ -349,8 +349,8 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
                         {/* Member Name */}
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                              <UserIcon className="w-5 h-5 text-blue-600" />
+                            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                              <UserIcon className="w-5 h-5 text-orange-600" />
                             </div>
                             <div>
                               <div className="font-semibold text-slate-900">
@@ -499,7 +499,7 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
                                 size="sm"
                                 onClick={() => handleResendInvitation(invitation.id)}
                                 disabled={resendingInvitation === invitation.id}
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                               >
                                 {resendingInvitation === invitation.id ? (
                                   <Loader2 className="w-4 h-4 animate-spin" />

@@ -83,7 +83,7 @@ export default function ProfileSettings() {
     <div className="space-y-6">
       {/* Membership Status Card - Show for beta testers */}
       {isBetaTester && (
-        <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30">
+        <Card className="bg-gradient-to-r from-rose-500/10 to-orange-500/10 border-rose-500/30">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl font-semibold">Membership Status</CardTitle>
@@ -92,7 +92,7 @@ export default function ProfileSettings() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-r from-purple-500 to-blue-500 p-2 rounded-full">
+              <div className="bg-gradient-to-r from-rose-500 to-orange-500 p-2 rounded-full">
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div className="flex-1">

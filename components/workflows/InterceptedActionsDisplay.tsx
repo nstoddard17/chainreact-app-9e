@@ -73,13 +73,13 @@ export function InterceptedActionsDisplay({
 
   const getActionColor = (type: string) => {
     if (type.includes('email') || type.includes('gmail')) {
-      return 'text-blue-600 bg-blue-50 dark:bg-blue-950/20'
+      return 'text-orange-600 bg-orange-50 dark:bg-orange-950/20'
     }
     if (type.includes('slack')) {
-      return 'text-purple-600 bg-purple-50 dark:bg-purple-950/20'
+      return 'text-rose-600 bg-rose-50 dark:bg-rose-950/20'
     }
     if (type.includes('discord')) {
-      return 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20'
+      return 'text-orange-600 bg-orange-50 dark:bg-orange-950/20'
     }
     if (type.includes('sheets') || type.includes('airtable')) {
       return 'text-green-600 bg-green-50 dark:bg-green-950/20'

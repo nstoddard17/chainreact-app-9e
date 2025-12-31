@@ -172,7 +172,7 @@ function LoginFormContent() {
                   type="email"
                   value={email}
                   onChange={handleEmailChange}
-                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   placeholder="Enter your email"
                   required
                 />
@@ -198,7 +198,7 @@ function LoginFormContent() {
                     setPassword(e.target.value)
                     // Don't clear login error - let user see what went wrong
                   }}
-                  className="w-full pl-10 pr-10 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-10 pr-10 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   placeholder="Enter your password"
                   required
                 />
@@ -241,7 +241,7 @@ function LoginFormContent() {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+              className="w-full bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white"
               disabled={loading || !!providerError}
             >
               {loading ? "Signing in..." : "Sign In"}
@@ -286,7 +286,7 @@ function LoginFormContent() {
 
           <div className="text-center text-sm text-slate-600">
             {"Don't have an account? "}
-            <Link href="/auth/register" className="text-blue-600 hover:text-blue-700 font-medium">
+            <Link href="/auth/register" className="text-orange-500 hover:text-orange-600 font-medium">
               Sign up
             </Link>
           </div>

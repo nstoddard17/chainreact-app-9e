@@ -33,7 +33,7 @@ export default function UsageStats({ usage, subscription }: UsageStatsProps) {
       icon: Workflow,
       current: usage.workflow_count,
       limit: plan.max_workflows,
-      color: "blue",
+      color: "orange",
     },
     {
       name: "Executions",
@@ -47,7 +47,7 @@ export default function UsageStats({ usage, subscription }: UsageStatsProps) {
       icon: Puzzle,
       current: usage.integration_count,
       limit: plan.max_integrations,
-      color: "purple",
+      color: "rose",
     },
     {
       name: "Storage",
@@ -103,12 +103,12 @@ function UsageMetric({ metric }: UsageMetricProps) {
     if (isNearLimit) return "text-yellow-600"
 
     switch (color) {
-      case "blue":
-        return "text-blue-600"
+      case "orange":
+        return "text-orange-600"
       case "green":
         return "text-green-600"
-      case "purple":
-        return "text-purple-600"
+      case "rose":
+        return "text-rose-600"
       case "yellow":
         return "text-yellow-600"
       case "pink":
@@ -123,12 +123,12 @@ function UsageMetric({ metric }: UsageMetricProps) {
     if (isNearLimit) return "bg-yellow-500"
 
     switch (color) {
-      case "blue":
-        return "bg-blue-500"
+      case "orange":
+        return "bg-orange-500"
       case "green":
         return "bg-green-500"
-      case "purple":
-        return "bg-purple-500"
+      case "rose":
+        return "bg-rose-500"
       case "yellow":
         return "bg-yellow-500"
       case "pink":

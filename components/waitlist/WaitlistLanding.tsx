@@ -19,12 +19,12 @@ import {
 
 export function WaitlistLanding() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-orange-950 to-rose-950 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-orange-500/5 rounded-full blur-3xl" />
       </div>
 
       {/* Grid Pattern Overlay */}
@@ -40,7 +40,7 @@ export function WaitlistLanding() {
       {/* Navigation */}
       <nav className="relative z-20 px-4 sm:px-6 lg:px-8 py-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
+          <Link href="/" className="text-3xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent hover:opacity-80 transition-opacity">
             ChainReact
           </Link>
 
@@ -60,7 +60,7 @@ export function WaitlistLanding() {
             <div className="inline-block animate-pulse">
               <Badge
                 variant="outline"
-                className="px-6 py-3 text-base sm:text-lg font-semibold border-2 border-blue-400 text-white bg-gradient-to-r from-blue-500/30 to-purple-500/30 backdrop-blur-sm shadow-lg shadow-blue-500/20"
+                className="px-6 py-3 text-base sm:text-lg font-semibold border-2 border-orange-400 text-white bg-gradient-to-r from-orange-500/30 to-rose-500/30 backdrop-blur-sm shadow-lg shadow-orange-500/20"
               >
                 <Sparkles className="h-5 w-5 mr-2 inline animate-spin" style={{ animationDuration: '3s' }} />
                 Early Access Program
@@ -70,7 +70,7 @@ export function WaitlistLanding() {
             <div className="space-y-6">
               <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight">
                 The Future of
-                <span className="block bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                <span className="block bg-gradient-to-r from-orange-400 via-rose-400 to-pink-400 bg-clip-text text-transparent">
                   Workflow Automation
                 </span>
               </h1>
@@ -158,7 +158,7 @@ export function WaitlistLanding() {
                   'Limited-time founder benefits',
                 ].map((benefit, index) => (
                   <li key={index} className="flex items-start gap-3">
-                    <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-1 rounded-full mt-0.5 flex-shrink-0">
+                    <div className="bg-gradient-to-br from-orange-500 to-rose-600 p-1 rounded-full mt-0.5 flex-shrink-0">
                       <Check className="h-4 w-4 text-white" />
                     </div>
                     <span className="text-slate-200 text-lg">{benefit}</span>
@@ -178,7 +178,7 @@ export function WaitlistLanding() {
             </p>
             <Button
               size="lg"
-              className="group relative bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white text-lg sm:text-xl font-bold px-8 py-6 h-auto shadow-2xl shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105"
+              className="group relative bg-gradient-to-r from-orange-500 via-rose-500 to-pink-500 hover:from-orange-600 hover:via-rose-600 hover:to-pink-600 text-white text-lg sm:text-xl font-bold px-8 py-6 h-auto shadow-2xl shadow-rose-500/30 hover:shadow-rose-500/50 transition-all duration-300 hover:scale-105"
               onClick={() => {
                 document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' })
               }}
@@ -206,8 +206,8 @@ interface FeatureCardProps {
 function FeatureCard({ icon, title, description }: FeatureCardProps) {
   return (
     <div className="group relative bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300">
-      <div className="bg-gradient-to-br from-blue-500/20 to-purple-600/20 p-3 rounded-lg w-fit mb-4 group-hover:scale-110 transition-transform">
-        <div className="text-blue-400">{icon}</div>
+      <div className="bg-gradient-to-br from-orange-500/20 to-rose-600/20 p-3 rounded-lg w-fit mb-4 group-hover:scale-110 transition-transform">
+        <div className="text-orange-400">{icon}</div>
       </div>
       <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
       <p className="text-slate-400 leading-relaxed">{description}</p>

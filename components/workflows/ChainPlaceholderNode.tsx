@@ -27,13 +27,13 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
 
       {/* Chain badge */}
       <div className="absolute -top-3 right-4 z-10">
-        <span className="bg-purple-100 text-purple-900 border border-purple-300 text-xs font-medium px-2 py-0.5 rounded-full">
+        <span className="bg-rose-100 text-rose-900 border border-rose-300 text-xs font-medium px-2 py-0.5 rounded-full">
           Chain #{chainIndex + 1}
         </span>
       </div>
 
       <div
-        className="w-full bg-background border-2 border-dashed border-purple-500/30 rounded-lg hover:border-purple-500/50 transition-colors"
+        className="w-full bg-background border-2 border-dashed border-rose-500/30 rounded-lg hover:border-rose-500/50 transition-colors"
         style={{
           pointerEvents: 'auto',
           cursor: 'default'
@@ -42,7 +42,7 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-3">
-              <Layers className="h-8 w-8 text-purple-500/50" />
+              <Layers className="h-8 w-8 text-rose-500/50" />
               <div>
                 <h3 className="text-base font-semibold text-foreground">
                   Chain Placeholder
@@ -69,7 +69,7 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
               }}
               onMouseDown={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
-              className="gap-2 w-full max-w-[200px] border-purple-500/30 hover:border-purple-500 hover:text-purple-600"
+              className="gap-2 w-full max-w-[200px] border-rose-500/30 hover:border-rose-500 hover:text-rose-600"
             >
               <Plus className="w-4 h-4" />
               Add Action
@@ -80,7 +80,7 @@ export function ChainPlaceholderNode({ data }: NodeProps) {
         <Handle
           type="target"
           position={Position.Top}
-          className="!w-3 !h-3 !-top-1.5 !bg-purple-500/50 !border-purple-500"
+          className="!w-3 !h-3 !-top-1.5 !bg-rose-500/50 !border-rose-500"
           style={{ left: '50%', transform: 'translateX(-50%)' }}
           isConnectable={false}
         />

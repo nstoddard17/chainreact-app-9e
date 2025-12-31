@@ -101,11 +101,11 @@ export function AIFieldResolutionDisplay({
     switch (type) {
       case 'select':
       case 'dropdown':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-orange-100 text-orange-800'
       case 'text':
         return 'bg-green-100 text-green-800'
       case 'template':
-        return 'bg-purple-100 text-purple-800'
+        return 'bg-rose-100 text-rose-800'
       case 'number':
         return 'bg-orange-100 text-orange-800'
       default:
@@ -165,7 +165,7 @@ export function AIFieldResolutionDisplay({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Brain className="h-5 w-5 text-purple-600" />
+            <Brain className="h-5 w-5 text-rose-600" />
             <CardTitle>AI Field Resolutions</CardTitle>
           </div>
           <div className="flex items-center space-x-4 text-sm">
@@ -318,7 +318,7 @@ export function AIFieldResolutionSummary({
   return (
     <div className={cn("flex items-center space-x-4 text-sm", className)}>
       <div className="flex items-center space-x-1">
-        <Brain className="h-4 w-4 text-purple-600" />
+        <Brain className="h-4 w-4 text-rose-600" />
         <span>{summary.totalResolutions} AI fields</span>
       </div>
       <div className="flex items-center space-x-1">

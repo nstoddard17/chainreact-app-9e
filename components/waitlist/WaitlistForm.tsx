@@ -148,7 +148,7 @@ export function WaitlistForm() {
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
+    <Card className="w-full max-w-2xl mx-auto border-2 border-orange-200 dark:border-orange-800 shadow-2xl">
       <CardContent className="pt-8 pb-8 px-6 sm:px-10">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Name Input */}
@@ -281,7 +281,7 @@ export function WaitlistForm() {
                   <Badge
                     key={custom}
                     variant="outline"
-                    className="px-3 py-1.5 text-sm border-blue-500 text-blue-700 dark:text-blue-300"
+                    className="px-3 py-1.5 text-sm border-orange-500 text-orange-700 dark:text-orange-300"
                   >
                     {custom}
                     <button
@@ -328,7 +328,7 @@ export function WaitlistForm() {
           {/* AI Features Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <Sparkles className="h-5 w-5 text-orange-600 dark:text-orange-400" />
               <h3 className="text-lg font-semibold">AI Features</h3>
             </div>
             <p className="text-sm text-muted-foreground -mt-2 mb-4">
@@ -336,11 +336,11 @@ export function WaitlistForm() {
             </p>
 
             {/* AI Assistant Toggle */}
-            <div className="p-4 rounded-lg border-2 border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20">
+            <div className="p-4 rounded-lg border-2 border-rose-200 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/20">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <Label htmlFor="ai-assistant-toggle" className="text-base font-semibold cursor-pointer flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    <Sparkles className="h-4 w-4 text-rose-600 dark:text-rose-400" />
                     AI Assistant
                   </Label>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -360,11 +360,11 @@ export function WaitlistForm() {
             </div>
 
             {/* AI Actions Toggle & Importance */}
-            <div className="p-4 rounded-lg border-2 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 space-y-4">
+            <div className="p-4 rounded-lg border-2 border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/20 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <Label htmlFor="ai-actions-toggle" className="text-base font-semibold cursor-pointer flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <Sparkles className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                     AI Actions
                   </Label>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -384,7 +384,7 @@ export function WaitlistForm() {
 
               {/* AI Actions Importance Selector */}
               {formData.wantsAiActions && (
-                <div className="space-y-2 pt-2 border-t border-blue-200 dark:border-blue-700">
+                <div className="space-y-2 pt-2 border-t border-orange-200 dark:border-orange-700">
                   <Label className="text-sm font-medium">
                     How important are AI actions in your workflows?
                   </Label>
@@ -408,8 +408,8 @@ export function WaitlistForm() {
                         className={cn(
                           'p-3 rounded-lg border-2 text-left transition-all',
                           formData.aiActionsImportance === option.value
-                            ? 'border-blue-500 bg-blue-100 dark:bg-blue-900/30 shadow-md'
-                            : 'border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700'
+                            ? 'border-orange-500 bg-orange-100 dark:bg-orange-900/30 shadow-md'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-700'
                         )}
                       >
                         <div className="font-semibold text-sm">{option.label}</div>

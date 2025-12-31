@@ -445,7 +445,7 @@ export function Combobox({
             aria-expanded={open}
             className={cn(
               "w-full justify-between min-w-0",
-              isDragOver && "ring-2 ring-blue-500 bg-blue-50"
+              isDragOver && "ring-2 ring-orange-500 bg-orange-50"
             )}
             disabled={disabled}
           >
@@ -527,7 +527,7 @@ export function Combobox({
                           disabled={option.disabled}
                           className={cn(
                             option.disabled && "opacity-50 pointer-events-none cursor-not-allowed",
-                            isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                            isSelected && "!bg-orange-100 dark:!bg-orange-900/30 !text-orange-900 dark:!text-orange-100",
                             !isSelected && "hover:bg-accent hover:text-accent-foreground"
                           )}
                         >
@@ -628,7 +628,7 @@ export function Combobox({
                           className={cn(
                             "pl-8",
                             option.disabled && "opacity-50 pointer-events-none cursor-not-allowed",
-                            isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                            isSelected && "!bg-orange-100 dark:!bg-orange-900/30 !text-orange-900 dark:!text-orange-100",
                             !isSelected && "hover:bg-accent hover:text-accent-foreground"
                           )}
                         >
@@ -661,7 +661,7 @@ export function Combobox({
         {/* Render create button outside Command to avoid cmdk filtering - only show if value doesn't exactly match an existing option */}
         {creatable && inputValue.trim() && !localOptions.some(option => option.value === inputValue.trim()) && (
           <div
-            className="border-t border-gray-200 dark:border-gray-700 p-2 bg-blue-50 dark:bg-blue-950/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+            className="border-t border-gray-200 dark:border-gray-700 p-2 bg-orange-50 dark:bg-orange-950/20 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
             onClick={() => {
               const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
               setLocalOptions((prev) => [...prev, newOption])
@@ -672,10 +672,10 @@ export function Combobox({
           >
             <div className="flex items-center w-full">
               <div className="flex items-center gap-2 flex-1">
-                <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
+                <div className="h-4 w-4 rounded bg-orange-500 flex items-center justify-center">
                   <span className="text-white text-xs font-bold">+</span>
                 </div>
-                <span className="text-blue-700 dark:text-blue-300 font-semibold">
+                <span className="text-orange-700 dark:text-orange-300 font-semibold">
                   {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
                     ? `Use variable: ${inputValue.trim()}`
                     : `Use custom value: "${inputValue.trim()}"`}
@@ -913,7 +913,7 @@ export function MultiCombobox({
             aria-expanded={open}
             className={cn(
               "w-full justify-between min-h-9 sm:min-h-10",
-              isDragOver && "ring-2 ring-blue-500 bg-blue-50"
+              isDragOver && "ring-2 ring-orange-500 bg-orange-50"
             )}
             disabled={disabled}
           >
@@ -1107,7 +1107,7 @@ export function MultiCombobox({
         {/* Render create button outside Command to avoid cmdk filtering - only show if value doesn't exactly match an existing option */}
         {creatable && inputValue.trim() && !options.some(option => option.value === inputValue.trim()) && (
           <div
-            className="border-t border-gray-200 dark:border-gray-700 p-2 bg-blue-50 dark:bg-blue-950/20 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+            className="border-t border-gray-200 dark:border-gray-700 p-2 bg-orange-50 dark:bg-orange-950/20 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
             onClick={() => {
               const newOption = { value: inputValue.trim(), label: inputValue.trim(), isExisting: false }
               setOptions((prev) => [...prev, newOption])
@@ -1117,10 +1117,10 @@ export function MultiCombobox({
           >
             <div className="flex items-center w-full">
               <div className="flex items-center gap-2 flex-1">
-                <div className="h-4 w-4 rounded bg-blue-500 flex items-center justify-center">
+                <div className="h-4 w-4 rounded bg-orange-500 flex items-center justify-center">
                   <span className="text-white text-xs font-bold">+</span>
                 </div>
-                <span className="text-blue-700 dark:text-blue-300 font-semibold">
+                <span className="text-orange-700 dark:text-orange-300 font-semibold">
                   {inputValue.trim().startsWith('{{') && inputValue.trim().endsWith('}}')
                     ? `Use variable: ${inputValue.trim()}`
                     : `Add custom value: "${inputValue.trim()}"`}
@@ -1283,7 +1283,7 @@ export function HierarchicalCombobox({
                                 className={cn(
                                   "pl-8",
                                   // Selected item: always blue (including on hover) - !important to override data-selected
-                                  isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                                  isSelected && "!bg-orange-100 dark:!bg-orange-900/30 !text-orange-900 dark:!text-orange-100",
                                   // Hover state: grey for non-selected items
                                   !isSelected && "hover:bg-accent hover:text-accent-foreground"
                                 )}
@@ -1310,7 +1310,7 @@ export function HierarchicalCombobox({
                     onSelect={handleSelect}
                     className={cn(
                       // Selected item: always blue (including on hover) - !important to override data-selected
-                      isSelected && "!bg-blue-100 dark:!bg-blue-900/30 !text-blue-900 dark:!text-blue-100",
+                      isSelected && "!bg-orange-100 dark:!bg-orange-900/30 !text-orange-900 dark:!text-orange-100",
                       // Hover state: grey for non-selected items
                       !isSelected && "hover:bg-accent hover:text-accent-foreground"
                     )}

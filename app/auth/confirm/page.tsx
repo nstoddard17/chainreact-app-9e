@@ -133,12 +133,12 @@ export default function EmailConfirmPage() {
   }, [router, initialize])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 relative overflow-hidden">
       {/* Background Animation */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 animate-pulse"></div>
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-float-delayed"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-600/20 to-rose-600/20 animate-pulse"></div>
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute top-3/4 right-1/4 w-48 h-48 bg-rose-500/10 rounded-full blur-3xl animate-float-delayed"></div>
       </div>
 
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8">
@@ -146,7 +146,7 @@ export default function EmailConfirmPage() {
           {/* Logo/Brand */}
           <div className="text-center">
             <Link href="/" className="inline-block">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-400 to-rose-400 bg-clip-text text-transparent">
                 ChainReact
               </h1>
             </Link>
@@ -163,7 +163,7 @@ export default function EmailConfirmPage() {
                 Email Confirmed Successfully!
               </h2>
               
-              <p className="text-blue-200 mb-6 leading-relaxed">
+              <p className="text-orange-200 mb-6 leading-relaxed">
                 Welcome to ChainReact! Your email has been verified and your account is now active.
                 {processing 
                   ? " We're setting up your profile..." 
@@ -175,38 +175,38 @@ export default function EmailConfirmPage() {
 
               {processing ? (
                 <div className="flex justify-center mb-6">
-                  <LightningLoader size="lg" color="blue" />
+                  <LightningLoader size="lg" color="orange" />
                 </div>
               ) : fromEmail ? (
                 <div className="space-y-6">
                   {/* Animated Chain Links */}
                   <div className="flex justify-center items-center space-x-2 mb-8">
-                    <div className="w-8 h-8 border-4 border-blue-400 rounded-full animate-pulse"></div>
-                    <div className="w-6 h-1 bg-gradient-to-r from-blue-400 to-purple-400 animate-pulse delay-100"></div>
-                    <div className="w-8 h-8 border-4 border-purple-400 rounded-full animate-pulse delay-200"></div>
-                    <div className="w-6 h-1 bg-gradient-to-r from-purple-400 to-green-400 animate-pulse delay-300"></div>
+                    <div className="w-8 h-8 border-4 border-orange-400 rounded-full animate-pulse"></div>
+                    <div className="w-6 h-1 bg-gradient-to-r from-orange-400 to-rose-400 animate-pulse delay-100"></div>
+                    <div className="w-8 h-8 border-4 border-rose-400 rounded-full animate-pulse delay-200"></div>
+                    <div className="w-6 h-1 bg-gradient-to-r from-rose-400 to-green-400 animate-pulse delay-300"></div>
                     <div className="w-8 h-8 border-4 border-green-400 rounded-full animate-pulse delay-400"></div>
-                    <div className="w-6 h-1 bg-gradient-to-r from-green-400 to-blue-400 animate-pulse delay-500"></div>
-                    <div className="w-8 h-8 border-4 border-blue-400 rounded-full animate-pulse delay-600"></div>
+                    <div className="w-6 h-1 bg-gradient-to-r from-green-400 to-orange-400 animate-pulse delay-500"></div>
+                    <div className="w-8 h-8 border-4 border-orange-400 rounded-full animate-pulse delay-600"></div>
                   </div>
 
                   <div className="text-center space-y-4">
-                    <h3 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-green-400 bg-clip-text text-transparent">
+                    <h3 className="text-3xl font-bold bg-gradient-to-r from-orange-400 via-rose-400 to-green-400 bg-clip-text text-transparent">
                       Welcome to ChainReact
                     </h3>
                     
-                    <div className="p-6 bg-gradient-to-r from-green-600/20 via-blue-600/20 to-purple-600/20 rounded-xl border border-green-500/30">
+                    <div className="p-6 bg-gradient-to-r from-green-600/20 via-orange-600/20 to-rose-600/20 rounded-xl border border-green-500/30">
                       <div className="flex items-center justify-center mb-3">
                         <CheckCircle className="h-8 w-8 text-green-400 mr-3" />
                         <span className="text-xl font-semibold text-green-200">Email Confirmed!</span>
                       </div>
-                      <p className="text-blue-200 text-lg">
+                      <p className="text-orange-200 text-lg">
                         Your account is now active and ready to automate your workflows.
                       </p>
                     </div>
 
-                    <div className="bg-blue-600/10 rounded-lg p-4 border border-blue-500/20">
-                      <p className="text-blue-200 text-lg font-medium">
+                    <div className="bg-orange-600/10 rounded-lg p-4 border border-orange-500/20">
+                      <p className="text-orange-200 text-lg font-medium">
                         You may now close this tab
                       </p>
                     </div>
@@ -214,13 +214,13 @@ export default function EmailConfirmPage() {
 
                   <Button
                     onClick={() => window.close()}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg py-4 text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="w-full bg-gradient-to-r from-orange-600 to-rose-600 hover:from-orange-700 hover:to-rose-700 text-white rounded-lg py-4 text-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     Close This Tab
                   </Button>
 
                   <Link href="/setup-username">
-                    <Button variant="outline" className="w-full border-2 border-blue-400 text-blue-400 hover:bg-blue-400/10 rounded-lg py-3 transition-all duration-300 hover:border-blue-300">
+                    <Button variant="outline" className="w-full border-2 border-orange-400 text-orange-400 hover:bg-orange-400/10 rounded-lg py-3 transition-all duration-300 hover:border-orange-300">
                       <ArrowRight className="mr-2 h-4 w-4" />
                       Continue in This Tab Instead
                     </Button>
@@ -229,7 +229,7 @@ export default function EmailConfirmPage() {
               ) : (
                 <div className="space-y-4">
                   <Link href="/workflows">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
+                    <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                       <ArrowRight className="mr-2 h-4 w-4" />
                       Continue to Dashboard
                     </Button>
@@ -237,8 +237,8 @@ export default function EmailConfirmPage() {
                 </div>
               )}
 
-              <div className="mt-6 p-4 bg-blue-600/20 rounded-lg border border-blue-500/30">
-                <p className="text-sm text-blue-200">
+              <div className="mt-6 p-4 bg-orange-600/20 rounded-lg border border-orange-500/30">
+                <p className="text-sm text-orange-200">
                   {processing 
                     ? "Setting up your account..." 
                     : fromEmail 
@@ -248,9 +248,9 @@ export default function EmailConfirmPage() {
                 </p>
               </div>
 
-              <div className="mt-6 text-xs text-blue-300/60">
+              <div className="mt-6 text-xs text-orange-300/60">
                 Need help getting started? Visit our{" "}
-                <Link href="/help" className="text-blue-300 hover:text-blue-200 underline">
+                <Link href="/help" className="text-orange-300 hover:text-orange-200 underline">
                   help center
                 </Link>
               </div>
