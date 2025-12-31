@@ -87,21 +87,37 @@ export async function editTeamsMessage(
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      logger.error('[Teams] Failed to edit message:', errorData)
+      const errorText = await response.text()
+      let errorMessage = response.statusText
+      try {
+        const errorData = JSON.parse(errorText)
+        errorMessage = errorData.error?.message || response.statusText
+      } catch {
+        // errorText is not JSON
+      }
+      logger.error('[Teams] Failed to edit message:', errorText)
       return {
         success: false,
-        error: `Failed to edit message: ${errorData.error?.message || response.statusText}`
+        error: `Failed to edit message: ${errorMessage}`
       }
     }
 
-    const updatedMessage = await response.json()
+    // Handle both 200 (with body) and 204 (no content) responses
+    let updatedMessage: any = null
+    const responseText = await response.text()
+    if (responseText) {
+      try {
+        updatedMessage = JSON.parse(responseText)
+      } catch {
+        // Response is not JSON, that's okay
+      }
+    }
 
     return {
       success: true,
       output: {
-        messageId: updatedMessage.id,
-        updatedDateTime: updatedMessage.lastModifiedDateTime,
+        messageId: updatedMessage?.id || messageId,
+        updatedDateTime: updatedMessage?.lastModifiedDateTime || new Date().toISOString(),
         success: true
       }
     }

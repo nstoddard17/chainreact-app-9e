@@ -93,6 +93,7 @@ import { GenericTextInput } from "./shared/GenericTextInput";
 import { ConnectButton } from "./shared/ConnectButton";
 import { VariableSelectionDropdown } from "./shared/VariableSelectionDropdown";
 import { LoadingFieldState } from "./shared/LoadingFieldState";
+import { KeyValueField } from "./shared/KeyValueField";
 
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
@@ -1247,6 +1248,17 @@ export function FieldRenderer({
 
       case "tags":
         return <TagsInput value={value} onChange={onChange} field={field} error={error} />;
+
+      case "keyvalue":
+        // Key-value pair input with toggle between visual editor and raw JSON
+        return (
+          <KeyValueField
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
+          />
+        );
 
       case "file":
         // Generic file upload handling - render FileUpload component for all file fields

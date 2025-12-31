@@ -6,7 +6,10 @@ import { logger } from '@/lib/utils/logger'
 /**
  * Update an online meeting in Microsoft Teams
  *
- * API Reference: https://learn.microsoft.com/en-us/graph/api/onlinemeeting-update
+ * This action updates the calendar event associated with the online meeting.
+ * The meeting dropdown returns a JSON object with eventId and joinWebUrl.
+ *
+ * API Reference: https://learn.microsoft.com/en-us/graph/api/event-update
  */
 export async function updateTeamsMeeting(
   config: Record<string, any>,
@@ -15,12 +18,12 @@ export async function updateTeamsMeeting(
 ): Promise<ActionResult> {
   try {
     // Support both config and input for field values
-    const meetingId = input.meetingId || config.meetingId
+    const meetingIdRaw = input.meetingId || config.meetingId
     const subject = input.subject || config.subject
     const startDateTime = input.startDateTime || config.startDateTime
     const endDateTime = input.endDateTime || config.endDateTime
 
-    if (!meetingId) {
+    if (!meetingIdRaw) {
       return {
         success: false,
         error: 'Meeting ID is required'
@@ -31,6 +34,24 @@ export async function updateTeamsMeeting(
       return {
         success: false,
         error: 'At least one field to update is required (subject, startDateTime, or endDateTime)'
+      }
+    }
+
+    // Parse the meeting ID - it may be a JSON string with eventId and joinWebUrl
+    let eventId: string
+
+    try {
+      const meetingData = JSON.parse(meetingIdRaw)
+      eventId = meetingData.eventId
+    } catch {
+      // If it's not JSON, assume it's a direct meeting/event ID
+      eventId = meetingIdRaw
+    }
+
+    if (!eventId) {
+      return {
+        success: false,
+        error: 'Could not determine event ID from meeting selection'
       }
     }
 
@@ -54,7 +75,7 @@ export async function updateTeamsMeeting(
 
     const accessToken = await decrypt(integration.access_token)
 
-    // Build update payload
+    // Build update payload for calendar event
     const updatePayload: any = {}
 
     if (subject) {
@@ -62,16 +83,22 @@ export async function updateTeamsMeeting(
     }
 
     if (startDateTime) {
-      updatePayload.startDateTime = new Date(startDateTime).toISOString()
+      updatePayload.start = {
+        dateTime: new Date(startDateTime).toISOString(),
+        timeZone: 'UTC'
+      }
     }
 
     if (endDateTime) {
-      updatePayload.endDateTime = new Date(endDateTime).toISOString()
+      updatePayload.end = {
+        dateTime: new Date(endDateTime).toISOString(),
+        timeZone: 'UTC'
+      }
     }
 
-    // Update the meeting
+    // Update the calendar event (which also updates the associated online meeting)
     const response = await fetch(
-      `https://graph.microsoft.com/v1.0/me/onlineMeetings/${meetingId}`,
+      `https://graph.microsoft.com/v1.0/me/events/${eventId}`,
       {
         method: 'PATCH',
         headers: {
@@ -83,21 +110,31 @@ export async function updateTeamsMeeting(
     )
 
     if (!response.ok) {
-      const errorData = await response.json()
-      logger.error('[Teams] Failed to update meeting:', errorData)
+      const errorText = await response.text()
+      let errorMessage = response.statusText
+      try {
+        const errorData = JSON.parse(errorText)
+        errorMessage = errorData.error?.message || response.statusText
+      } catch {
+        // Error text is not JSON
+      }
+      logger.error('[Teams] Failed to update meeting:', errorText)
       return {
         success: false,
-        error: `Failed to update meeting: ${errorData.error?.message || response.statusText}`
+        error: `Failed to update meeting: ${errorMessage}`
       }
     }
 
-    const meeting = await response.json()
+    const event = await response.json()
 
     return {
       success: true,
       output: {
-        meetingId: meeting.id,
-        subject: meeting.subject,
+        meetingId: event.id,
+        subject: event.subject,
+        startDateTime: event.start?.dateTime,
+        endDateTime: event.end?.dateTime,
+        joinUrl: event.onlineMeeting?.joinUrl,
         success: true
       }
     }

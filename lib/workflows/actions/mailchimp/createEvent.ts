@@ -34,15 +34,19 @@ export async function mailchimpCreateEvent(
       throw new Error("Invalid email address format")
     }
 
-    // Parse properties if provided
+    // Parse properties if provided (supports both object and JSON string formats)
     let properties: any = {}
     if (propertiesInput) {
-      try {
-        properties = typeof propertiesInput === 'string'
-          ? JSON.parse(propertiesInput)
-          : propertiesInput
-      } catch (e) {
-        throw new Error("Event properties must be valid JSON")
+      if (typeof propertiesInput === 'string') {
+        try {
+          properties = JSON.parse(propertiesInput)
+        } catch (e) {
+          throw new Error("Event properties must be valid JSON format")
+        }
+      } else if (typeof propertiesInput === 'object' && !Array.isArray(propertiesInput)) {
+        properties = propertiesInput
+      } else {
+        throw new Error("Event properties must be an object with key-value pairs")
       }
     }
 

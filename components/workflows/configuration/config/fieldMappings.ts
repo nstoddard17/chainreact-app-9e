@@ -718,8 +718,8 @@ const teamsMappings: Record<string, FieldMapping> = {
     teamId: "teams_teams",
     channelId: "teams_channels",
     chatId: "teams_chats",
-    messageId: "teams_messages",
-    chatMessageId: "teams_messages",
+    messageId: "teams_messages_own",
+    chatMessageId: "teams_messages_own",
   },
   "teams_action_find_message": {
     teamId: "teams_teams",
@@ -732,8 +732,8 @@ const teamsMappings: Record<string, FieldMapping> = {
     teamId: "teams_teams",
     channelId: "teams_channels",
     chatId: "teams_chats",
-    messageId: "teams_messages",
-    chatMessageId: "teams_messages",
+    messageId: "teams_messages_own",
+    chatMessageId: "teams_messages_own",
   },
   "teams_action_get_channel_details": {
     teamId: "teams_teams",
@@ -759,6 +759,12 @@ const teamsMappings: Record<string, FieldMapping> = {
   },
   "teams_action_schedule_meeting": {
     attendees: "outlook-enhanced-recipients",
+  },
+  "teams_action_end_meeting": {
+    meetingId: "teams_online_meetings",
+  },
+  "teams_action_update_meeting": {
+    meetingId: "teams_online_meetings",
   },
 };
 

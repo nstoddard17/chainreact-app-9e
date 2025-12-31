@@ -363,7 +363,7 @@ export async function POST(request: NextRequest) {
 
       case 'teams_messages':
         // Fetch recent messages from a chat or channel
-        const { chatId: msgChatId, teamId: msgTeamId, channelId: msgChannelId } = mergedParams;
+        const { chatId: msgChatId, teamId: msgTeamId, channelId: msgChannelId, ownMessagesOnly } = mergedParams;
 
         let messagesEndpoint: string;
         if (msgChatId) {
@@ -374,6 +374,20 @@ export async function POST(request: NextRequest) {
           messagesEndpoint = `https://graph.microsoft.com/v1.0/teams/${msgTeamId}/channels/${msgChannelId}/messages?$top=25`;
         } else {
           return errorResponse('Either chatId or both teamId and channelId are required for fetching messages', 400);
+        }
+
+        // Get current user ID if we need to filter to own messages only
+        let currentUserId: string | null = null;
+        if (ownMessagesOnly) {
+          const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          if (meResponse.ok) {
+            const meData = await meResponse.json();
+            currentUserId = meData.id;
+          }
         }
 
         const messagesResponse = await fetch(messagesEndpoint, {
@@ -391,7 +405,15 @@ export async function POST(request: NextRequest) {
 
         const messagesData = await messagesResponse.json();
         responseData = (messagesData.value || [])
-          .filter((msg: any) => msg.messageType === 'message') // Filter out system messages
+          .filter((msg: any) => {
+            // Filter out system messages
+            if (msg.messageType !== 'message') return false;
+            // Filter out deleted messages
+            if (msg.deletedDateTime) return false;
+            // If ownMessagesOnly is set, filter to only current user's messages
+            if (ownMessagesOnly && currentUserId && msg.from?.user?.id !== currentUserId) return false;
+            return true;
+          })
           .map((msg: any) => {
             // Extract plain text from HTML content
             let content = msg.body?.content || '';
@@ -500,12 +522,155 @@ export async function POST(request: NextRequest) {
         }
         break;
 
+      case 'teams_messages_own':
+        // Fetch only the current user's messages (for edit/delete actions)
+        // This is the same as teams_messages but with ownMessagesOnly=true
+        const { chatId: ownMsgChatId, teamId: ownMsgTeamId, channelId: ownMsgChannelId } = mergedParams;
+
+        let ownMessagesEndpoint: string;
+        if (ownMsgChatId) {
+          ownMessagesEndpoint = `https://graph.microsoft.com/v1.0/chats/${ownMsgChatId}/messages?$top=25&$orderby=createdDateTime desc`;
+        } else if (ownMsgTeamId && ownMsgChannelId) {
+          ownMessagesEndpoint = `https://graph.microsoft.com/v1.0/teams/${ownMsgTeamId}/channels/${ownMsgChannelId}/messages?$top=25`;
+        } else {
+          return errorResponse('Either chatId or both teamId and channelId are required for fetching messages', 400);
+        }
+
+        // Get current user ID to filter to own messages only
+        const ownMeResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        let ownCurrentUserId: string | null = null;
+        if (ownMeResponse.ok) {
+          const ownMeData = await ownMeResponse.json();
+          ownCurrentUserId = ownMeData.id;
+        }
+
+        const ownMessagesResponse = await fetch(ownMessagesEndpoint, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!ownMessagesResponse.ok) {
+          const errorText = await ownMessagesResponse.text();
+          console.error('[Teams Data API] Failed to fetch own messages:', errorText);
+          throw new Error(`Failed to fetch messages: ${ownMessagesResponse.statusText}`);
+        }
+
+        const ownMessagesData = await ownMessagesResponse.json();
+        responseData = (ownMessagesData.value || [])
+          .filter((msg: any) => {
+            // Filter out system messages
+            if (msg.messageType !== 'message') return false;
+            // Filter out deleted messages
+            if (msg.deletedDateTime) return false;
+            // Only include messages sent by the current user
+            if (ownCurrentUserId && msg.from?.user?.id !== ownCurrentUserId) return false;
+            return true;
+          })
+          .map((msg: any) => {
+            let content = msg.body?.content || '';
+            content = content.replace(/<[^>]*>/g, '').trim();
+            if (content.length > 50) {
+              content = content.substring(0, 50) + '...';
+            }
+
+            const timestamp = msg.createdDateTime ? new Date(msg.createdDateTime).toLocaleString() : '';
+
+            return {
+              value: msg.id,
+              label: content || '[No text content]',
+              description: `Sent: ${timestamp}`
+            };
+          });
+        break;
+
+      case 'teams_online_meetings':
+        // Fetch online meetings that the user organized (can end these)
+        // Use calendarView endpoint which properly supports date range queries
+        // Only show meetings where the user is the organizer (can end the meeting)
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfFuture = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()); // 3 months out
+
+        // Get current user to filter to meetings they organized
+        const meetingMeResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        let meetingCurrentUserEmail: string | null = null;
+        if (meetingMeResponse.ok) {
+          const meetingMeData = await meetingMeResponse.json();
+          meetingCurrentUserEmail = meetingMeData.mail || meetingMeData.userPrincipalName;
+        }
+
+        // Use calendarView endpoint which supports startDateTime and endDateTime as query params
+        // This is the recommended way to get events within a date range
+        const calendarViewEndpoint = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${startOfToday.toISOString()}&endDateTime=${endOfFuture.toISOString()}&$top=100&$select=id,subject,start,end,organizer,onlineMeeting,isOnlineMeeting&$orderby=start/dateTime`;
+
+        const eventsResponse = await fetch(calendarViewEndpoint, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'outlook.timezone="UTC"'
+          }
+        });
+
+        if (!eventsResponse.ok) {
+          const errorText = await eventsResponse.text();
+          console.error('[Teams Data API] Failed to fetch online meetings:', errorText);
+          throw new Error(`Failed to fetch online meetings: ${eventsResponse.statusText}`);
+        }
+
+        const eventsData = await eventsResponse.json();
+
+        // Process events and fetch online meeting IDs for each
+        const onlineMeetingEvents = (eventsData.value || [])
+          .filter((event: any) => {
+            // Only include online meetings
+            if (!event.isOnlineMeeting) return false;
+            // Only include meetings the current user organized (they can end these)
+            const organizerEmail = event.organizer?.emailAddress?.address?.toLowerCase();
+            return organizerEmail === meetingCurrentUserEmail?.toLowerCase();
+          });
+
+        // For each event with an online meeting, we need to get the actual online meeting ID
+        // The onlineMeeting object in the event contains joinWebUrl but not the meeting ID directly
+        // We'll use the joinWebUrl to query for the meeting
+        responseData = [];
+        for (const event of onlineMeetingEvents) {
+          const startTime = event.start?.dateTime ? new Date(event.start.dateTime).toLocaleString() : '';
+
+          // Try to get the online meeting details if we have a join URL
+          if (event.onlineMeeting?.joinWebUrl) {
+            // The joinMeetingIdSettings may contain the meeting ID
+            // For now, we'll use the event ID and update the handler to work with calendar events
+            // Since the OnlineMeetings API requires specific meeting IDs that aren't easily obtainable
+            // from calendar events, we'll store both the event ID and join URL
+            responseData.push({
+              value: JSON.stringify({
+                eventId: event.id,
+                joinWebUrl: event.onlineMeeting.joinWebUrl,
+                subject: event.subject
+              }),
+              label: event.subject || 'Untitled Meeting',
+              description: `Starts: ${startTime}`
+            });
+          }
+        }
+        break;
+
       default:
         console.error('[Teams Data API] Unknown data type:', dataType);
         return errorResponse(
           `Unknown data type: ${dataType}`,
           400,
-          { validTypes: ['teams_teams', 'teams_channels', 'teams_chats', 'teams_members', 'teams_users', 'teams_messages', 'outlook-enhanced-recipients'] }
+          { validTypes: ['teams_teams', 'teams_channels', 'teams_chats', 'teams_members', 'teams_users', 'teams_messages', 'teams_messages_own', 'teams_online_meetings', 'outlook-enhanced-recipients'] }
         );
     }
 

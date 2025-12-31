@@ -383,8 +383,8 @@ export const teamsNodes: NodeComponent[] = [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages_own", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages_own", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
       { name: "newContent", label: "New Message Content", type: "email-rich-text", required: true, placeholder: "Enter the new message content" }
     ],
     outputSchema: [
@@ -440,8 +440,8 @@ export const teamsNodes: NodeComponent[] = [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } }
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages_own", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages_own", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } }
     ],
     outputSchema: [
       { name: "success", label: "Success Status", type: "boolean", description: "Whether the message was deleted successfully" },
@@ -601,7 +601,7 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "meetingId", label: "Meeting ID", type: "text", required: true, placeholder: "Enter the ID of the meeting to end" }
+      { name: "meetingId", label: "Meeting", type: "select", dynamic: "teams_online_meetings", required: true, placeholder: "Select a meeting to end", loadOnMount: true }
     ],
     outputSchema: [
       { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was ended successfully" },
@@ -618,10 +618,10 @@ export const teamsNodes: NodeComponent[] = [
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "meetingId", label: "Meeting ID", type: "text", required: true, placeholder: "Enter the meeting ID" },
-      { name: "subject", label: "New Subject", type: "text", required: false, placeholder: "Enter new meeting subject (optional)" },
-      { name: "startDateTime", label: "New Start Time", type: "datetime-local", required: false, placeholder: "Change start time (optional)" },
-      { name: "endDateTime", label: "New End Time", type: "datetime-local", required: false, placeholder: "Change end time (optional)" }
+      { name: "meetingId", label: "Meeting", type: "select", dynamic: "teams_online_meetings", required: true, placeholder: "Select a meeting to update", loadOnMount: true },
+      { name: "subject", label: "New Subject", type: "text", required: false, placeholder: "Enter new meeting subject (optional)", dependsOn: "meetingId", visibilityCondition: { field: "meetingId", operator: "isNotEmpty" } },
+      { name: "startDateTime", label: "New Start Time", type: "datetime-local", required: false, placeholder: "Change start time (optional)", dependsOn: "meetingId", visibilityCondition: { field: "meetingId", operator: "isNotEmpty" } },
+      { name: "endDateTime", label: "New End Time", type: "datetime-local", required: false, placeholder: "Change end time (optional)", dependsOn: "meetingId", visibilityCondition: { field: "meetingId", operator: "isNotEmpty" } }
     ],
     outputSchema: [
       { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the meeting" },

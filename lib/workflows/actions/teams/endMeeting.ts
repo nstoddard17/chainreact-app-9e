@@ -4,9 +4,12 @@ import { ActionResult } from '../index'
 import { logger } from '@/lib/utils/logger'
 
 /**
- * End an online meeting in Microsoft Teams
+ * End/cancel an online meeting in Microsoft Teams
  *
- * API Reference: https://learn.microsoft.com/en-us/graph/api/onlinemeeting-delete
+ * This action cancels the calendar event associated with the online meeting.
+ * The meeting dropdown returns a JSON object with eventId and joinWebUrl.
+ *
+ * API Reference: https://learn.microsoft.com/en-us/graph/api/event-cancel
  */
 export async function endTeamsMeeting(
   config: Record<string, any>,
@@ -15,12 +18,32 @@ export async function endTeamsMeeting(
 ): Promise<ActionResult> {
   try {
     // Support both config and input for field values
-    const meetingId = input.meetingId || config.meetingId
+    const meetingIdRaw = input.meetingId || config.meetingId
 
-    if (!meetingId) {
+    if (!meetingIdRaw) {
       return {
         success: false,
         error: 'Meeting ID is required'
+      }
+    }
+
+    // Parse the meeting ID - it may be a JSON string with eventId and joinWebUrl
+    let eventId: string
+    let meetingSubject: string | undefined
+
+    try {
+      const meetingData = JSON.parse(meetingIdRaw)
+      eventId = meetingData.eventId
+      meetingSubject = meetingData.subject
+    } catch {
+      // If it's not JSON, assume it's a direct meeting/event ID
+      eventId = meetingIdRaw
+    }
+
+    if (!eventId) {
+      return {
+        success: false,
+        error: 'Could not determine event ID from meeting selection'
       }
     }
 
@@ -44,23 +67,35 @@ export async function endTeamsMeeting(
 
     const accessToken = await decrypt(integration.access_token)
 
-    // Delete the meeting
+    // Cancel the calendar event (which also cancels the online meeting)
+    // This sends cancellation notices to all attendees
     const response = await fetch(
-      `https://graph.microsoft.com/v1.0/me/onlineMeetings/${meetingId}`,
+      `https://graph.microsoft.com/v1.0/me/events/${eventId}/cancel`,
       {
-        method: 'DELETE',
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          comment: 'Meeting cancelled'
+        })
       }
     )
 
-    if (!response.ok && response.status !== 204) {
-      const errorData = await response.json()
-      logger.error('[Teams] Failed to end meeting:', errorData)
+    if (!response.ok && response.status !== 202 && response.status !== 204) {
+      const errorText = await response.text()
+      let errorMessage = response.statusText
+      try {
+        const errorData = JSON.parse(errorText)
+        errorMessage = errorData.error?.message || response.statusText
+      } catch {
+        // Error text is not JSON
+      }
+      logger.error('[Teams] Failed to cancel meeting:', errorText)
       return {
         success: false,
-        error: `Failed to end meeting: ${errorData.error?.message || response.statusText}`
+        error: `Failed to cancel meeting: ${errorMessage}`
       }
     }
 
@@ -68,7 +103,9 @@ export async function endTeamsMeeting(
       success: true,
       output: {
         success: true,
-        meetingId
+        meetingId: eventId,
+        subject: meetingSubject,
+        message: 'Meeting cancelled successfully. Cancellation notices sent to attendees.'
       }
     }
   } catch (error: any) {
