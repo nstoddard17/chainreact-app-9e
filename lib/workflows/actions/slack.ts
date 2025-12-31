@@ -10,6 +10,7 @@ import { sendSlackMessage as sendSlackMessageNew } from './slack/sendMessage'
 // Re-export actions so consumers of "./slack" continue working
 export { slackActionDeleteMessage } from './slack/deleteMessage'
 export { slackActionAddReaction } from './slack/addReaction'
+export { slackActionAddReminder } from './slack/addReminder'
 
 import { logger } from '@/lib/utils/logger'
 

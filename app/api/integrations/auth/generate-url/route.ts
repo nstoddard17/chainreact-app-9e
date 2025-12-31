@@ -312,8 +312,8 @@ function generateSlackAuthUrl(state: string): string {
     client_id: clientId,
     // Bot scopes for workspace-level actions
     scope: "channels:join,channels:read,chat:write,chat:write.public,files:write,groups:read,im:read,reactions:write,team:read,users:read",
-    // User scopes for user-level actions
-    user_scope: "channels:read,chat:write,groups:read,mpim:read,channels:history,groups:history,im:history,mpim:history,reactions:read",
+    // User scopes for user-level actions (includes reminders:write for reminder functionality)
+    user_scope: "channels:read,chat:write,groups:read,mpim:read,channels:history,groups:history,im:history,mpim:history,reactions:read,reminders:write,reminders:read,identity.basic,identity.email,identity.avatar",
     redirect_uri: `${redirectBase}/api/integrations/slack/callback`,
     state,
   })

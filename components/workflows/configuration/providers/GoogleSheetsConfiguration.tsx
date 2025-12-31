@@ -571,9 +571,19 @@ export function GoogleSheetsConfiguration({
 
   const visibleFields = getVisibleFields();
 
+  // Debug log visible fields for troubleshooting
+  logger.debug('📊 [GoogleSheets] visibleFields:', visibleFields.map((f: any) => ({
+    name: f.name,
+    type: f.type,
+    label: f.label
+  })));
+
   // Render fields helper
   const renderFields = (fields: any[]) => {
     return fields.map((field, index) => {
+      // Debug log each field being rendered
+      logger.debug(`📊 [GoogleSheets] Rendering field: ${field.name} (type: ${field.type})`);
+
       // Special handling for Google Sheets data preview field
       if (field.type === 'google_sheets_data_preview') {
         // Show for update, delete with column_value or conditions, or add action

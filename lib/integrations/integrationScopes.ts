@@ -4,7 +4,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 export const INTEGRATION_SCOPES = {
   slack: {
     required: ["chat:write", "chat:write.customize", "channels:read", "groups:write", "users:read", "team:read"],
-    optional: ["files:read", "groups:read", "im:read", "mpim:read"],
+    optional: ["files:read", "groups:read", "im:read", "mpim:read", "reminders:write", "reminders:read", "reactions:write", "reactions:read"],
   },
   discord: {
     required: ["identify", "guilds"],

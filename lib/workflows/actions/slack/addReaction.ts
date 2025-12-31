@@ -95,17 +95,44 @@ export async function addSlackReaction(params: {
       emoji: cleanEmoji
     })
 
-    // Call Slack API to add the reaction
-    const response = await fetch('https://slack.com/api/reactions.add', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json; charset=utf-8'
-      },
-      body: JSON.stringify(reactionPayload)
-    })
+    // Helper function to call Slack API
+    const callSlackApi = async (endpoint: string, payload: any) => {
+      const response = await fetch(`https://slack.com/api/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json; charset=utf-8'
+        },
+        body: JSON.stringify(payload)
+      })
+      return response.json()
+    }
 
-    const result = await response.json()
+    // Call Slack API to add the reaction
+    let result = await callSlackApi('reactions.add', reactionPayload)
+
+    // If not in channel, try to join first then retry
+    if (!result.ok && result.error === 'not_in_channel') {
+      logger.debug('[Slack Add Reaction] Bot not in channel, attempting to join:', channel)
+
+      const joinResult = await callSlackApi('conversations.join', { channel })
+
+      if (joinResult.ok) {
+        logger.debug('[Slack Add Reaction] Successfully joined channel, retrying reaction')
+        // Retry the reaction after joining
+        result = await callSlackApi('reactions.add', reactionPayload)
+      } else {
+        logger.error('[Slack Add Reaction] Failed to join channel:', joinResult.error)
+        // If join fails (e.g., private channel), provide helpful error
+        if (joinResult.error === 'method_not_supported_for_channel_type') {
+          throw new Error('Cannot add reaction: This is a private channel. Please invite the Slack bot to this channel first.')
+        } else if (joinResult.error === 'channel_not_found') {
+          throw new Error('Channel not found. Please check the channel ID.')
+        } else {
+          throw new Error(`Cannot join channel to add reaction: ${joinResult.error}`)
+        }
+      }
+    }
 
     if (!result.ok) {
       logger.error('[Slack Add Reaction] API error:', result.error)
@@ -124,6 +151,8 @@ export async function addSlackReaction(params: {
         errorMessage = 'Too many reactions on this message.'
       } else if (result.error === 'too_many_reactions') {
         errorMessage = 'You have added too many reactions to this message.'
+      } else if (result.error === 'not_in_channel') {
+        errorMessage = 'Bot is not in this channel and could not join automatically. Please invite the Slack bot to this channel first.'
       }
 
       throw new Error(`Slack API error: ${errorMessage}`)

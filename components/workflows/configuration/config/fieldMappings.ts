@@ -135,6 +135,7 @@ const slackMappings: Record<string, FieldMapping> = {
     userId: "slack_users",
   },
   slack_action_add_reminder: {
+    workspace: "slack_workspaces",
     userId: "slack_users",
   },
   slack_action_invite_users_to_channel: {

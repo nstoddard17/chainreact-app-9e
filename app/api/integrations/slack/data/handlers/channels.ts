@@ -20,12 +20,32 @@ export const getSlackChannels: SlackDataHandler<SlackChannel> = async (integrati
       integration.access_token
     )
 
+    // Handle HTTP-level errors (4xx)
+    if (!response.ok) {
+      logger.error("❌ [Slack Channels] HTTP error from Slack API:", {
+        status: response.status,
+        statusText: response.statusText
+      })
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("Slack authentication expired. Please reconnect your account.")
+      }
+      throw new Error(`Slack API error: ${response.status} - ${response.statusText}`)
+    }
+
     const data = await response.json()
 
     // Slack API returns ok: false for API errors even with 200 status
     if (!data.ok) {
+      logger.error("❌ [Slack Channels] Slack API returned error:", {
+        error: data.error,
+        needed: data.needed,
+        provided: data.provided
+      })
       if (data.error === "invalid_auth" || data.error === "token_revoked") {
         throw new Error("Slack authentication expired. Please reconnect your account.")
+      }
+      if (data.error === "missing_scope") {
+        throw new Error(`Missing required Slack scope: ${data.needed}. Please reconnect with the required permissions.`)
       }
       throw new Error(`Slack API error: ${data.error}`)
     }
@@ -65,11 +85,31 @@ export const getSlackPublicChannels: SlackDataHandler<SlackChannel> = async (int
       integration.access_token
     )
 
+    // Handle HTTP-level errors (4xx)
+    if (!response.ok) {
+      logger.error("❌ [Slack Public Channels] HTTP error from Slack API:", {
+        status: response.status,
+        statusText: response.statusText
+      })
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("Slack authentication expired. Please reconnect your account.")
+      }
+      throw new Error(`Slack API error: ${response.status} - ${response.statusText}`)
+    }
+
     const data = await response.json()
 
     if (!data.ok) {
+      logger.error("❌ [Slack Public Channels] Slack API returned error:", {
+        error: data.error,
+        needed: data.needed,
+        provided: data.provided
+      })
       if (data.error === "invalid_auth" || data.error === "token_revoked") {
         throw new Error("Slack authentication expired. Please reconnect your account.")
+      }
+      if (data.error === "missing_scope") {
+        throw new Error(`Missing required Slack scope: ${data.needed}. Please reconnect with the required permissions.`)
       }
       throw new Error(`Slack API error: ${data.error}`)
     }
@@ -109,11 +149,31 @@ export const getSlackPrivateChannels: SlackDataHandler<SlackChannel> = async (in
       integration.access_token
     )
 
+    // Handle HTTP-level errors (4xx)
+    if (!response.ok) {
+      logger.error("❌ [Slack Private Channels] HTTP error from Slack API:", {
+        status: response.status,
+        statusText: response.statusText
+      })
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("Slack authentication expired. Please reconnect your account.")
+      }
+      throw new Error(`Slack API error: ${response.status} - ${response.statusText}`)
+    }
+
     const data = await response.json()
 
     if (!data.ok) {
+      logger.error("❌ [Slack Private Channels] Slack API returned error:", {
+        error: data.error,
+        needed: data.needed,
+        provided: data.provided
+      })
       if (data.error === "invalid_auth" || data.error === "token_revoked") {
         throw new Error("Slack authentication expired. Please reconnect your account.")
+      }
+      if (data.error === "missing_scope") {
+        throw new Error(`Missing required Slack scope: ${data.needed}. Please reconnect with the required permissions.`)
       }
       throw new Error(`Slack API error: ${data.error}`)
     }
