@@ -50,12 +50,17 @@ export async function mailchimpScheduleCampaign(
       scheduledDateTime = new Date(scheduleTime)
     }
 
-    // Ensure the schedule time is at least 15 minutes in the future
+    // Mailchimp requires schedule time to be at least 15 minutes in the future
+    // If the time is too close, automatically add 15 minutes
     const minScheduleTime = new Date()
     minScheduleTime.setMinutes(minScheduleTime.getMinutes() + 15)
 
     if (scheduledDateTime < minScheduleTime) {
-      throw new Error("Schedule time must be at least 15 minutes in the future")
+      logger.info('Schedule time too close to now, adding 15 minutes buffer', {
+        originalTime: scheduledDateTime.toISOString(),
+        adjustedTime: minScheduleTime.toISOString()
+      })
+      scheduledDateTime = minScheduleTime
     }
 
     const url = `https://${dc}.api.mailchimp.com/3.0/campaigns/${campaignId}/actions/schedule`

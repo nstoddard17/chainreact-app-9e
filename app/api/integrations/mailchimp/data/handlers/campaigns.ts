@@ -2,21 +2,26 @@
  * Mailchimp Campaigns Handler
  */
 
-import { MailchimpIntegration, MailchimpCampaign, MailchimpDataHandler } from '../types'
+import { MailchimpIntegration, MailchimpDataHandler } from '../types'
 import {
   validateMailchimpIntegration,
   validateMailchimpToken,
   makeMailchimpApiRequest,
-  parseMailchimpApiResponse,
   buildMailchimpApiUrl
 } from '../utils'
 
 import { logger } from '@/lib/utils/logger'
 
-export const getMailchimpCampaigns: MailchimpDataHandler<MailchimpCampaign> = async (
+// Return type for dropdown options
+interface CampaignOption {
+  value: string
+  label: string
+}
+
+export const getMailchimpCampaigns: MailchimpDataHandler<CampaignOption> = async (
   integration: MailchimpIntegration,
   options: any = {}
-): Promise<MailchimpCampaign[]> => {
+): Promise<CampaignOption[]> => {
   logger.debug("🔍 [Mailchimp] Fetching campaigns for integration:", {
     id: integration.id,
     hasToken: !!integration.access_token
@@ -37,20 +42,32 @@ export const getMailchimpCampaigns: MailchimpDataHandler<MailchimpCampaign> = as
     logger.debug('🔍 [Mailchimp] Fetching campaigns from API...')
     const apiUrl = await buildMailchimpApiUrl(integration, '/campaigns')
 
-    // Add query parameters - get only unsent campaigns or draft campaigns
+    // Add query parameters - get campaigns for selection
     const url = new URL(apiUrl)
     url.searchParams.set('count', '1000')
-    url.searchParams.set('status', 'save') // Only get draft/saved campaigns
+    // Don't filter by status so we can see all campaigns
     url.searchParams.set('fields', 'campaigns.id,campaigns.web_id,campaigns.type,campaigns.create_time,campaigns.status,campaigns.settings,campaigns.recipients')
     url.searchParams.set('sort_field', 'create_time')
     url.searchParams.set('sort_dir', 'DESC')
 
     const response = await makeMailchimpApiRequest(url.toString(), tokenResult.token!)
+    const data = await response.json()
 
-    const campaigns = await parseMailchimpApiResponse<MailchimpCampaign>(response)
+    const campaigns = data.campaigns || []
 
-    logger.debug(`✅ [Mailchimp] Campaigns fetched successfully: ${campaigns.length} campaigns`)
-    return campaigns
+    // Format campaigns for dropdown with value and label
+    const formattedCampaigns: CampaignOption[] = campaigns.map((campaign: any) => {
+      const title = campaign.settings?.title || campaign.settings?.subject_line || 'Untitled Campaign'
+      const status = campaign.status ? ` (${campaign.status})` : ''
+
+      return {
+        value: campaign.id,
+        label: `${title}${status}`
+      }
+    })
+
+    logger.debug(`✅ [Mailchimp] Campaigns fetched successfully: ${formattedCampaigns.length} campaigns`)
+    return formattedCampaigns
 
   } catch (error: any) {
     logger.error("❌ [Mailchimp] Error fetching campaigns:", error)

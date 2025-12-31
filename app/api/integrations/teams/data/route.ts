@@ -590,14 +590,13 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'teams_online_meetings':
-        // Fetch online meetings that the user organized (can end these)
+        // Fetch online meetings that the user organized (can end/update these)
         // Use calendarView endpoint which properly supports date range queries
-        // Only show meetings where the user is the organizer (can end the meeting)
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfFuture = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()); // 3 months out
 
-        // Get current user to filter to meetings they organized
+        // Get current user email to check organizer
         const meetingMeResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
           headers: {
             'Authorization': `Bearer ${accessToken}`
@@ -607,11 +606,13 @@ export async function POST(request: NextRequest) {
         if (meetingMeResponse.ok) {
           const meetingMeData = await meetingMeResponse.json();
           meetingCurrentUserEmail = meetingMeData.mail || meetingMeData.userPrincipalName;
+          console.log('[Teams Data API] Current user email:', meetingCurrentUserEmail);
         }
 
         // Use calendarView endpoint which supports startDateTime and endDateTime as query params
-        // This is the recommended way to get events within a date range
         const calendarViewEndpoint = `https://graph.microsoft.com/v1.0/me/calendarView?startDateTime=${startOfToday.toISOString()}&endDateTime=${endOfFuture.toISOString()}&$top=100&$select=id,subject,start,end,organizer,onlineMeeting,isOnlineMeeting&$orderby=start/dateTime`;
+
+        console.log('[Teams Data API] Fetching calendar events:', calendarViewEndpoint);
 
         const eventsResponse = await fetch(calendarViewEndpoint, {
           headers: {
@@ -628,41 +629,52 @@ export async function POST(request: NextRequest) {
         }
 
         const eventsData = await eventsResponse.json();
+        console.log('[Teams Data API] Total events found:', eventsData.value?.length || 0);
 
-        // Process events and fetch online meeting IDs for each
-        const onlineMeetingEvents = (eventsData.value || [])
-          .filter((event: any) => {
-            // Only include online meetings
-            if (!event.isOnlineMeeting) return false;
-            // Only include meetings the current user organized (they can end these)
-            const organizerEmail = event.organizer?.emailAddress?.address?.toLowerCase();
-            return organizerEmail === meetingCurrentUserEmail?.toLowerCase();
-          });
-
-        // For each event with an online meeting, we need to get the actual online meeting ID
-        // The onlineMeeting object in the event contains joinWebUrl but not the meeting ID directly
-        // We'll use the joinWebUrl to query for the meeting
-        responseData = [];
-        for (const event of onlineMeetingEvents) {
-          const startTime = event.start?.dateTime ? new Date(event.start.dateTime).toLocaleString() : '';
-
-          // Try to get the online meeting details if we have a join URL
-          if (event.onlineMeeting?.joinWebUrl) {
-            // The joinMeetingIdSettings may contain the meeting ID
-            // For now, we'll use the event ID and update the handler to work with calendar events
-            // Since the OnlineMeetings API requires specific meeting IDs that aren't easily obtainable
-            // from calendar events, we'll store both the event ID and join URL
-            responseData.push({
-              value: JSON.stringify({
-                eventId: event.id,
-                joinWebUrl: event.onlineMeeting.joinWebUrl,
-                subject: event.subject
-              }),
-              label: event.subject || 'Untitled Meeting',
-              description: `Starts: ${startTime}`
+        // Log first few events for debugging
+        if (eventsData.value?.length > 0) {
+          eventsData.value.slice(0, 3).forEach((evt: any, idx: number) => {
+            console.log(`[Teams Data API] Event ${idx}:`, {
+              subject: evt.subject,
+              isOnlineMeeting: evt.isOnlineMeeting,
+              hasJoinUrl: !!evt.onlineMeeting?.joinWebUrl,
+              organizer: evt.organizer?.emailAddress?.address
             });
-          }
+          });
         }
+
+        // Filter to online meetings - be more lenient with the filter
+        // Include meetings where:
+        // 1. isOnlineMeeting is true OR onlineMeeting.joinWebUrl exists
+        // 2. User is the organizer (they can modify/cancel)
+        responseData = [];
+        for (const event of eventsData.value || []) {
+          // Check if it's an online meeting (either flag is set or join URL exists)
+          const hasOnlineMeeting = event.isOnlineMeeting || event.onlineMeeting?.joinWebUrl;
+          if (!hasOnlineMeeting) continue;
+
+          // Check if user is the organizer
+          const organizerEmail = event.organizer?.emailAddress?.address?.toLowerCase();
+          const isOrganizer = organizerEmail === meetingCurrentUserEmail?.toLowerCase();
+
+          // For now, show all online meetings the user has access to (not just organized)
+          // The API will reject operations they don't have permission for
+          const startTime = event.start?.dateTime ? new Date(event.start.dateTime).toLocaleString() : '';
+          const organizerInfo = isOrganizer ? '(You organized)' : `(Org: ${event.organizer?.emailAddress?.name || organizerEmail || 'Unknown'})`;
+
+          responseData.push({
+            value: JSON.stringify({
+              eventId: event.id,
+              joinWebUrl: event.onlineMeeting?.joinWebUrl || '',
+              subject: event.subject,
+              isOrganizer
+            }),
+            label: event.subject || 'Untitled Meeting',
+            description: `${startTime} ${organizerInfo}`
+          });
+        }
+
+        console.log('[Teams Data API] Online meetings found:', responseData.length);
         break;
 
       default:
