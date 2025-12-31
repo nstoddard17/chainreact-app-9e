@@ -185,6 +185,10 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
           if (typeof dependsOnValue === 'object') {
             if (dependsOnValue.workbookId) requestBody.options.workbookId = dependsOnValue.workbookId;
             if (dependsOnValue.worksheetName) requestBody.options.worksheetName = dependsOnValue.worksheetName;
+            // Pass hasHeaders to the API for column loading
+            if (dependsOnValue.hasHeaders !== undefined) {
+              requestBody.options.hasHeaders = dependsOnValue.hasHeaders;
+            }
           } else {
             requestBody.options.worksheetName = dependsOnValue;
             if (allValues?.workbookId) {
@@ -203,6 +207,11 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
             }
           }
         }
+      }
+
+      // Also check allValues for hasHeaders if not already set
+      if (allValues?.hasHeaders !== undefined && !requestBody.options.hasHeaders) {
+        requestBody.options.hasHeaders = allValues.hasHeaders === 'yes' || allValues.hasHeaders === true;
       }
 
       if (allValues?.workbookId && !requestBody.options.workbookId) {

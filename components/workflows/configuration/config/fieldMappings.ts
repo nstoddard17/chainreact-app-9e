@@ -832,6 +832,11 @@ const microsoftExcelMappings: Record<string, FieldMapping> = {
   "microsoft_excel_action_create_workbook": {
     folderPath: "microsoft-excel_folders",
   },
+  "microsoft_excel_action_add_row": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
+    columnMapping: "microsoft-excel_columns",
+  },
   "microsoft_excel_trigger_new_row": {
     workbookId: "microsoft-excel_workbooks",
     worksheetName: "microsoft-excel_worksheets",

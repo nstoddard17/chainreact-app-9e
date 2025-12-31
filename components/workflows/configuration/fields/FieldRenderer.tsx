@@ -98,6 +98,9 @@ import { LoadingFieldState } from "./shared/LoadingFieldState";
 import { NotionBlockFields } from "./notion/NotionBlockFields";
 import { NotionDatabaseRowsField } from "./notion/NotionDatabaseRowsField";
 import { NotionDeletableBlocksField } from "./notion/NotionDeletableBlocksField";
+
+// Microsoft Excel field components
+import { MicrosoftExcelColumnMapper } from "./microsoft-excel/MicrosoftExcelColumnMapper";
 import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { NotionSelectOptionsField } from "./notion/NotionSelectOptionsField";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
@@ -3043,6 +3046,22 @@ export function FieldRenderer({
             loadOnMount={field.loadOnMount}
             dynamic={field.dynamic}
             className={cn(error && "border-red-500")}
+          />
+        );
+
+      case "microsoft_excel_column_mapper":
+        return (
+          <MicrosoftExcelColumnMapper
+            value={value}
+            onChange={onChange}
+            field={field}
+            nodeInfo={nodeInfo}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            dynamicOptions={dynamicOptions}
+            loadingFields={loadingFields}
+            loadOptions={onDynamicLoad}
+            parentValues={parentValues}
           />
         );
 

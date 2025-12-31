@@ -417,6 +417,13 @@ export const microsoftExcelNodes: NodeComponent[] = [
         example: "Sheet1!A2:E2"
       },
       {
+        name: "rowNumber",
+        label: "Row Number",
+        type: "number",
+        description: "The row number where data was added",
+        example: 2
+      },
+      {
         name: "values",
         label: "Data Values",
         type: "array",
@@ -452,44 +459,76 @@ export const microsoftExcelNodes: NodeComponent[] = [
         dependsOn: "workbookId",
         placeholder: "Select a worksheet",
         description: "The specific worksheet (tab) within the workbook",
-        helpText: "Select which worksheet tab to work with"
+        helpText: "Select which worksheet tab to work with",
+        hidden: {
+          $deps: ["workbookId"],
+          $condition: { workbookId: { $exists: false } }
+        }
       },
       {
         name: "insertPosition",
         label: "Insert Position",
         type: "select",
-        required: false,
+        required: true,
         dependsOn: "worksheetName",
         options: [
           { value: "append", label: "Append at the end" },
-          { value: "prepend", label: "Insert at the beginning (after headers)" },
+          { value: "prepend", label: "Insert at the beginning" },
           { value: "specific_row", label: "Insert at specific row" }
         ],
         defaultValue: "append",
         description: "Where to insert the new row",
-        helpText: "Choose where in the worksheet to add the new row"
+        helpText: "Choose where in the worksheet to add the new row",
+        hidden: {
+          $deps: ["worksheetName"],
+          $condition: { worksheetName: { $exists: false } }
+        }
       },
       {
         name: "specificRow",
         label: "Row Number",
         type: "number",
-        required: false,
+        required: true,
         dependsOn: "insertPosition",
-        hidden: true,
-        showIf: (values: any) => values.insertPosition === "specific_row",
-        placeholder: "Enter row number",
-        description: "The specific row number to insert at",
-        min: 2,
-        helpText: "Row 1 is usually headers, so data starts at row 2"
+        placeholder: "Enter row number (e.g., 2)",
+        description: "The row number to insert at",
+        min: 1,
+        helpText: "Enter the row number where you want to insert the new data",
+        hidden: {
+          $deps: ["insertPosition"],
+          $condition: { insertPosition: { $ne: "specific_row" } }
+        }
+      },
+      {
+        name: "hasHeaders",
+        label: "Does your worksheet have headers in row 1?",
+        type: "select",
+        required: true,
+        dependsOn: "insertPosition",
+        options: [
+          { value: "yes", label: "Yes - Use column headers from row 1" },
+          { value: "no", label: "No - Use column letters (A, B, C, etc.)" }
+        ],
+        defaultValue: "yes",
+        description: "Whether the first row contains column headers",
+        helpText: "If your worksheet has headers in row 1, we'll use those as column names. Otherwise, we'll use column letters.",
+        hidden: {
+          $deps: ["insertPosition"],
+          $condition: { insertPosition: { $exists: false } }
+        }
       },
       {
         name: "columnMapping",
         label: "What Data to Add",
         type: "microsoft_excel_column_mapper",
         required: true,
-        dependsOn: "worksheetName",
+        dependsOn: "hasHeaders",
         description: "Choose which data goes into which columns",
-        helpText: "Select a column from your worksheet, then choose what data from your workflow should go there."
+        helpText: "Select a column, then enter the value or use a variable from a previous step.",
+        hidden: {
+          $deps: ["hasHeaders"],
+          $condition: { hasHeaders: { $exists: false } }
+        }
       }
     ],
   },
