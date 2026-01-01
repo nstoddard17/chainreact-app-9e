@@ -1,8 +1,10 @@
 "use client"
 
-import React, { useState, useEffect } from "react";
-import { Database } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Database, Plug } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { VariableSelectionDropdown } from '../../fields/shared/VariableSelectionDropdown';
 
 interface GoogleSheetsUpdateRowPreviewProps {
   values: Record<string, any>;
@@ -30,6 +32,7 @@ export function GoogleSheetsUpdateRowPreview({
   currentNodeId
 }: GoogleSheetsUpdateRowPreviewProps) {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [connectedFields, setConnectedFields] = useState<Set<string>>(new Set());
   const hasHeaders = true; // Assume headers for now
 
   // Get column headers from preview data
@@ -42,17 +45,49 @@ export function GoogleSheetsUpdateRowPreview({
     ? previewData.find(row => row.id === selectedRowId)
     : null;
 
+  // Toggle connect mode for a specific field
+  const toggleConnectMode = useCallback((fieldKey: string) => {
+    const isCurrentlyConnected = connectedFields.has(fieldKey);
+
+    setConnectedFields(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fieldKey)) {
+        newSet.delete(fieldKey);
+      } else {
+        newSet.add(fieldKey);
+      }
+      return newSet;
+    });
+
+    // Clear the value when disconnecting (after state update)
+    if (isCurrentlyConnected) {
+      setValue(fieldKey, '');
+    }
+  }, [connectedFields, setValue]);
+
+  // Check if a field value is a variable
+  const isVariableValue = (val: any) => {
+    if (typeof val !== 'string') return false;
+    const trimmed = val.trim();
+    return trimmed.startsWith('{{') && trimmed.endsWith('}}');
+  };
+
   // Handle row click to select it
   const handleRowClick = (row: any) => {
     setSelectedRowId(row.id);
     // Store the row number for the update
     setValue('rowNumber', row.rowNumber);
 
-    // Initialize all column fields with current values
+    // Initialize all column fields with current values from the selected row
     if (row.fields) {
       Object.entries(row.fields).forEach(([columnName, value]) => {
         if (!columnName.startsWith('_')) {
-          setValue(`column_${columnName}`, String(value ?? ''));
+          // Only set the current value if the field doesn't already have a value
+          // This preserves user edits when switching between rows
+          const fieldKey = `column_${columnName}`;
+          if (!values[fieldKey]) {
+            setValue(fieldKey, String(value ?? ''));
+          }
         }
       });
     }
@@ -215,65 +250,158 @@ export function GoogleSheetsUpdateRowPreview({
 
                   return (
                     <div key={columnName}>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
-                        {columnName}
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-sm font-medium text-slate-700">
+                          {columnName}
+                        </label>
+                        <Button
+                          type="button"
+                          variant={connectedFields.has(fieldKey) || isVariableValue(values[fieldKey]) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => toggleConnectMode(fieldKey)}
+                          className="h-7 text-xs gap-1.5"
+                          title={connectedFields.has(fieldKey) ? "Switch to text input" : "Connect variable"}
+                        >
+                          <Plug className="h-3.5 w-3.5" />
+                          Connect
+                        </Button>
+                      </div>
 
                       {/* Different input types based on detected field type */}
                       {fieldType === 'boolean' ? (
-                        <div className="flex items-center space-x-3">
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={values[fieldKey] === 'true' || values[fieldKey] === true}
-                              onChange={(e) => setValue(fieldKey, e.target.checked.toString())}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            <span className="ml-3 text-sm text-slate-600">
-                              {values[fieldKey] === 'true' || values[fieldKey] === true ? 'True' : 'False'}
-                            </span>
-                          </label>
+                        <div>
+                          <div className="flex items-center space-x-3">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={values[fieldKey] === 'true' || values[fieldKey] === true}
+                                onChange={(e) => setValue(fieldKey, e.target.checked.toString())}
+                                className="sr-only peer"
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                              <span className="ml-3 text-sm text-slate-600">
+                                {values[fieldKey] === 'true' || values[fieldKey] === true ? 'True' : 'False'}
+                              </span>
+                            </label>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Current value: {String(currentValue ?? '')}
+                          </p>
                         </div>
                       ) : fieldType === 'date' ? (
-                        <input
-                          type="date"
-                          value={values[fieldKey] ? String(values[fieldKey]).split('T')[0] : ''}
-                          onChange={(e) => setValue(fieldKey, e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
+                        <div>
+                          {connectedFields.has(fieldKey) && workflowData && currentNodeId ? (
+                            <VariableSelectionDropdown
+                              workflowData={workflowData}
+                              currentNodeId={currentNodeId}
+                              value={values[fieldKey] || ''}
+                              onChange={(val) => setValue(fieldKey, val)}
+                              placeholder="Select a variable..."
+                            />
+                          ) : (
+                            <input
+                              type="date"
+                              value={values[fieldKey] ? String(values[fieldKey]).split('T')[0] : ''}
+                              onChange={(e) => setValue(fieldKey, e.target.value)}
+                              className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                            />
+                          )}
+                          <p className="mt-1 text-xs text-slate-500">
+                            Current value: {String(currentValue ?? '')}
+                          </p>
+                        </div>
                       ) : fieldType === 'number' ? (
-                        <input
-                          type="number"
-                          value={values[fieldKey] ?? ''}
-                          onChange={(e) => setValue(fieldKey, e.target.value)}
-                          placeholder="Enter number or drag a variable"
-                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
+                        <div>
+                          {connectedFields.has(fieldKey) && workflowData && currentNodeId ? (
+                            <VariableSelectionDropdown
+                              workflowData={workflowData}
+                              currentNodeId={currentNodeId}
+                              value={values[fieldKey] || ''}
+                              onChange={(val) => setValue(fieldKey, val)}
+                              placeholder="Select a variable..."
+                            />
+                          ) : (
+                            <input
+                              type="number"
+                              value={values[fieldKey] ?? ''}
+                              onChange={(e) => setValue(fieldKey, e.target.value)}
+                              placeholder="Enter number or drag a variable"
+                              className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                            />
+                          )}
+                          <p className="mt-1 text-xs text-slate-500">
+                            Current value: {String(currentValue ?? '')}
+                          </p>
+                        </div>
                       ) : fieldType === 'email' ? (
-                        <input
-                          type="email"
-                          value={values[fieldKey] ?? ''}
-                          onChange={(e) => setValue(fieldKey, e.target.value)}
-                          placeholder="Enter email or drag a variable"
-                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
+                        <div>
+                          {connectedFields.has(fieldKey) && workflowData && currentNodeId ? (
+                            <VariableSelectionDropdown
+                              workflowData={workflowData}
+                              currentNodeId={currentNodeId}
+                              value={values[fieldKey] || ''}
+                              onChange={(val) => setValue(fieldKey, val)}
+                              placeholder="Select a variable..."
+                            />
+                          ) : (
+                            <input
+                              type="email"
+                              value={values[fieldKey] ?? ''}
+                              onChange={(e) => setValue(fieldKey, e.target.value)}
+                              placeholder="Enter email or drag a variable"
+                              className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                            />
+                          )}
+                          <p className="mt-1 text-xs text-slate-500">
+                            Current value: {String(currentValue ?? '')}
+                          </p>
+                        </div>
                       ) : fieldType === 'url' || fieldType === 'image' ? (
-                        <input
-                          type="url"
-                          value={values[fieldKey] ?? ''}
-                          onChange={(e) => setValue(fieldKey, e.target.value)}
-                          placeholder="Enter URL or drag a variable"
-                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
+                        <div>
+                          {connectedFields.has(fieldKey) && workflowData && currentNodeId ? (
+                            <VariableSelectionDropdown
+                              workflowData={workflowData}
+                              currentNodeId={currentNodeId}
+                              value={values[fieldKey] || ''}
+                              onChange={(val) => setValue(fieldKey, val)}
+                              placeholder="Select a variable..."
+                            />
+                          ) : (
+                            <input
+                              type="url"
+                              value={values[fieldKey] ?? ''}
+                              onChange={(e) => setValue(fieldKey, e.target.value)}
+                              placeholder="Enter URL or drag a variable"
+                              className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                            />
+                          )}
+                          <p className="mt-1 text-xs text-slate-500">
+                            Current value: {String(currentValue ?? '')}
+                          </p>
+                        </div>
                       ) : (
-                        <input
-                          type="text"
-                          value={values[fieldKey] ?? ''}
-                          onChange={(e) => setValue(fieldKey, e.target.value)}
-                          placeholder="Enter new value or drag a variable"
-                          className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                        />
+                        <div>
+                          {connectedFields.has(fieldKey) && workflowData && currentNodeId ? (
+                            <VariableSelectionDropdown
+                              workflowData={workflowData}
+                              currentNodeId={currentNodeId}
+                              value={values[fieldKey] || ''}
+                              onChange={(val) => setValue(fieldKey, val)}
+                              placeholder="Select a variable..."
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              value={values[fieldKey] ?? ''}
+                              onChange={(e) => setValue(fieldKey, e.target.value)}
+                              placeholder="Enter new value or drag a variable"
+                              className="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                            />
+                          )}
+                          <p className="mt-1 text-xs text-slate-500">
+                            Current value: {String(currentValue ?? '')}
+                          </p>
+                        </div>
                       )}
                     </div>
                   );

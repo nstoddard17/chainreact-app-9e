@@ -10,7 +10,6 @@ import { useWorkflowStore } from '@/stores/workflowStore';
 import { useDebugStore } from '@/stores/debugStore';
 import { ConfigurationLoadingScreen } from '@/components/ui/loading-screen';
 import { useFieldValidation } from './hooks/useFieldValidation';
-// import { saveNodeConfig } from '@/lib/workflows/configPersistence'; // Removed - was causing slow saves
 
 // Provider-specific components
 import { DiscordConfiguration } from './providers/DiscordConfiguration';

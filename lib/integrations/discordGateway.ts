@@ -942,7 +942,6 @@ class DiscordGateway extends SimpleEventEmitter {
       }
 
       // TODO: Check database for invite-role mappings
-      // const mapping = await checkDatabaseForInviteRole(inviteCode, guildId)
 
     } catch (error) {
       logger.error('Error assigning role based on invite:', error)

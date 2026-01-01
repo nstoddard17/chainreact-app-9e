@@ -775,20 +775,6 @@ export function useFieldChangeHandler({
     // Mark this change as being processed
     processingFieldChanges.current.add(changeKey);
 
-    // COMPREHENSIVE LOGGING for selectedProperties
-    if (fieldName === 'selectedProperties') {
-      console.log('🔄🔄🔄 [useFieldChangeHandler] selectedProperties value changed:', {
-        fieldName,
-        valueType: Array.isArray(value) ? 'array' : typeof value,
-        valueLength: Array.isArray(value) ? value.length : undefined,
-        dependentFields: dependentFields.map((f: any) => f.name),
-        hasLoadOnMount: changedField?.loadOnMount,
-        changeKey,
-        timestamp: new Date().toISOString(),
-        stackTrace: new Error().stack
-      });
-    }
-
     logger.debug('🔍 Generic dependent field change:', {
       fieldName,
       value,

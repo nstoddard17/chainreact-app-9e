@@ -47,7 +47,6 @@ import { EmailRichTextEditor } from "./EmailRichTextEditor";
 import { SlackMessageEditor } from "./SlackMessageEditor";
 // Use the full featured Discord rich text editor
 import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
-// import { DiscordRichTextEditor } from "./DiscordRichTextEditorOptimized";
 import { GmailLabelManager } from "./GmailLabelManager";
 import { GmailLabelSelector } from "./GmailLabelSelector";
 import { SlashCommandManager } from "./SlashCommandManager";

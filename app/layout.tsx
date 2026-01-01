@@ -18,8 +18,6 @@ import { GlobalAdminDebugPanel } from "@/components/debug/GlobalAdminDebugPanel"
 import { AppContextProvider } from "@/lib/contexts/AppContext"
 import { WebVitalsReporter } from "@/components/monitoring/WebVitalsReporter"
 // Discord bot now initialized server-side via instrumentation.ts
-// import DiscordBotProvider from "@/components/providers/DiscordBotProvider"
-// import ArchitectureProvider from "@/components/providers/ArchitectureProvider"
 
 // Optimize font loading with display: swap for better LCP
 const spaceGrotesk = localFont({

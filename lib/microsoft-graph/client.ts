@@ -340,8 +340,7 @@ export class MicrosoftGraphClient {
       // This is a placeholder for the actual decryption logic
       const crypto = require('crypto')
       // Implementation would use the private key to decrypt
-      // const decrypted = crypto.privateDecrypt(this.decryptionKey, Buffer.from(match[1], 'base64'))
-      
+
       // For now, just return a placeholder
       return 'Decrypted content would appear here'
     } catch (e) {
