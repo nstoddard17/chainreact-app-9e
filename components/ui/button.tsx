@@ -9,17 +9,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-orange-500 text-white hover:bg-orange-600 shadow-sm hover:shadow-md active:bg-orange-700",
-        primary: "bg-orange-500 text-white hover:bg-orange-600 shadow-sm hover:shadow-md active:bg-orange-700",
+        default: "bg-orange-500 text-white hover:bg-orange-600 shadow-sm hover:shadow-md active:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-500 dark:active:bg-orange-700",
+        primary: "bg-orange-500 text-white hover:bg-orange-600 shadow-sm hover:shadow-md active:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-500 dark:active:bg-orange-700",
         destructive:
-          "bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 hover:border-red-600 shadow-sm",
+          "bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-200 hover:border-red-600 shadow-sm dark:bg-red-900/30 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-700 dark:hover:text-white dark:hover:border-red-600",
         outline:
-          "border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 shadow-sm",
+          "border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 shadow-sm dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:border-slate-500",
         secondary:
-          "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 hover:border-gray-400",
-        ghost: "hover:bg-gray-100 hover:text-gray-900",
-        link: "text-orange-500 underline-offset-4 hover:underline hover:text-orange-600",
-        success: "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 hover:border-green-300 shadow-sm",
+          "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 hover:border-gray-400 dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-600 dark:hover:border-slate-500",
+        ghost: "hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-slate-800 dark:hover:text-slate-100",
+        link: "text-orange-500 underline-offset-4 hover:underline hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300",
+        success: "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 hover:border-green-300 shadow-sm dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-800/50 dark:hover:border-green-700",
       },
       size: {
         default: "h-10 px-4 py-2",

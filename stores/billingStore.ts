@@ -1,7 +1,7 @@
 "use client"
 
 import { create } from "zustand"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 import { queryWithTimeout, fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
 
 import { logger } from '@/lib/utils/logger'
@@ -85,7 +85,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       return
     }
 
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error("Supabase client not available")
     }
@@ -112,7 +112,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
   fetchSubscription: async () => {
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
       if (!supabase) {
         logger.debug("Supabase client not available for subscription fetch")
         return
@@ -155,7 +155,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
   fetchUsage: async () => {
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
       if (!supabase) {
         logger.debug("Supabase client not available for usage fetch")
         return
@@ -219,7 +219,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     }
 
     // Fetch all data in parallel for better performance
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       logger.debug("Supabase client not available")
       return
@@ -257,7 +257,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       logger.debug("Creating checkout session for plan:", planId, "billing cycle:", billingCycle)
 
       // Get the current session token
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
       logger.debug("Getting session...")
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       

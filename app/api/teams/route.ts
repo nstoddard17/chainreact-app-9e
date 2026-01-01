@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 201 })
   } catch (error: any) {
-    console.error('Error creating team:', error)
+    logger.error('[Teams API] Error creating team:', { error })
     return errorResponse(error.message || "Failed to create team", 500)
   }
 }

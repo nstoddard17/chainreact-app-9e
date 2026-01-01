@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from "@/lib/utils/api-response"
+import { logger } from "@/lib/utils/logger"
 
 export const dynamic = 'force-dynamic'
 
@@ -52,7 +53,7 @@ export async function PUT(request: NextRequest) {
 
     return jsonResponse({ success: true })
   } catch (error: any) {
-    console.error('Error changing password:', error)
+    logger.error('[User API] Error changing password:', { error: error.message })
     return errorResponse(error.message || "Failed to change password", 500)
   }
 }

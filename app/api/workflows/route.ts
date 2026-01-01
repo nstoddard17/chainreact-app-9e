@@ -3,6 +3,19 @@ import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
+import { queryWithTimeout } from '@/lib/utils/fetch-with-timeout'
+import { z } from 'zod'
+
+// Validation schema for workflow creation
+const createWorkflowSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200, 'Name is too long'),
+  description: z.string().max(2000, 'Description is too long').optional(),
+  organization_id: z.string().uuid().optional().nullable(),
+  status: z.enum(['draft', 'active', 'inactive', 'archived']).default('draft'),
+  folder_id: z.string().uuid().optional().nullable(),
+  workspace_type: z.enum(['personal', 'team', 'organization']).default('personal'),
+  workspace_id: z.string().uuid().optional().nullable()
+})
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -74,7 +87,7 @@ export async function GET(request: NextRequest) {
       }
 
       query = query.order("updated_at", { ascending: false })
-      const { data, error } = await query
+      const { data, error } = await queryWithTimeout(query, 8000)
 
       if (error) {
         logger.error('[API /api/workflows] Database error:', error)
@@ -88,48 +101,64 @@ export async function GET(request: NextRequest) {
 
       const queries = []
 
-      // 1. Personal workflows
+      // 1. Personal workflows (with timeout protection)
       queries.push(
-        supabaseService
-          .from("workflows")
-          .select('*')
-          .eq('workspace_type', 'personal')
-          .eq('user_id', user.id)
-      )
-
-      // 2. Team workflows
-      const { data: teamMemberships } = await supabaseService
-        .from('team_members')
-        .select('team_id')
-        .eq('user_id', user.id)
-
-      const teamIds = teamMemberships?.map(m => m.team_id) || []
-
-      if (teamIds.length > 0) {
-        queries.push(
+        queryWithTimeout(
           supabaseService
             .from("workflows")
             .select('*')
-            .eq('workspace_type', 'team')
-            .in('workspace_id', teamIds)
+            .eq('workspace_type', 'personal')
+            .eq('user_id', user.id),
+          8000
+        )
+      )
+
+      // 2. Fetch team and org memberships in parallel with timeout protection
+      const [teamMembershipsResult, orgMembershipsResult] = await Promise.all([
+        queryWithTimeout(
+          supabaseService
+            .from('team_members')
+            .select('team_id')
+            .eq('user_id', user.id),
+          8000
+        ),
+        queryWithTimeout(
+          supabaseService
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', user.id),
+          8000
+        )
+      ])
+
+      const teamIds = teamMembershipsResult.data?.map(m => m.team_id) || []
+      const orgIds = orgMembershipsResult.data?.map(m => m.organization_id) || []
+
+      // 3. Add team workflows query if user is a member of any teams
+      if (teamIds.length > 0) {
+        queries.push(
+          queryWithTimeout(
+            supabaseService
+              .from("workflows")
+              .select('*')
+              .eq('workspace_type', 'team')
+              .in('workspace_id', teamIds),
+            8000
+          )
         )
       }
 
-      // 3. Organization workflows
-      const { data: orgMemberships } = await supabaseService
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user.id)
-
-      const orgIds = orgMemberships?.map(m => m.organization_id) || []
-
+      // 4. Add organization workflows query if user is a member of any orgs
       if (orgIds.length > 0) {
         queries.push(
-          supabaseService
-            .from("workflows")
-            .select('*')
-            .eq('workspace_type', 'organization')
-            .in('workspace_id', orgIds)
+          queryWithTimeout(
+            supabaseService
+              .from("workflows")
+              .select('*')
+              .eq('workspace_type', 'organization')
+              .in('workspace_id', orgIds),
+            8000
+          )
         )
       }
 
@@ -196,15 +225,23 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
+
+    // Validate input with Zod
+    const validationResult = createWorkflowSchema.safeParse(body)
+    if (!validationResult.success) {
+      const errors = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+      return errorResponse(`Invalid input: ${errors}`, 400)
+    }
+
     const {
       name,
       description,
       organization_id,
       status,
       folder_id,
-      workspace_type = 'personal',
-      workspace_id = null
-    } = body
+      workspace_type,
+      workspace_id
+    } = validationResult.data
 
     logger.debug('[API /api/workflows] POST request', {
       name,

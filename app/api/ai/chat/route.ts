@@ -5,7 +5,8 @@ import { cookies } from "next/headers"
 import OpenAI from 'openai'
 import { v4 as uuidv4 } from 'uuid'
 import { formatAIResponse, extractStructuredData } from "@/lib/ai/smart-formatter"
-
+import { checkRateLimit } from '@/lib/utils/rate-limit'
+import { z } from 'zod'
 import { logger } from '@/lib/utils/logger'
 
 let cachedOpenAIClient: OpenAI | null = null
@@ -29,20 +30,35 @@ const MODEL_PRICING: Record<string, { prompt: number; completion: number }> = {
   'gpt-3.5-turbo-16k': { prompt: 0.003, completion: 0.004 },
 }
 
-interface ChatRequest {
-  messages?: Array<{ role: string; content: string }>
-  message?: string // Legacy support
-  model?: string
-  action?: string
-  requestId?: string
-  stream?: boolean
-  temperature?: number
-  max_tokens?: number
-  workflowId?: string
-  nodeId?: string
-}
+// Zod validation schema for chat requests
+const chatMessageSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string().max(100000, 'Message content is too long')
+})
+
+const chatRequestSchema = z.object({
+  messages: z.array(chatMessageSchema).optional(),
+  message: z.string().max(100000, 'Message is too long').optional(), // Legacy support
+  model: z.string().max(50).optional().default('gpt-3.5-turbo'),
+  action: z.string().max(50).optional().default('chat'),
+  requestId: z.string().uuid().optional(),
+  stream: z.boolean().optional().default(false),
+  temperature: z.number().min(0).max(2).optional().default(0.7),
+  max_tokens: z.number().int().min(1).max(128000).optional(),
+  workflowId: z.string().uuid().optional(),
+  nodeId: z.string().max(100).optional()
+})
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 20 AI chat requests per minute per IP
+  const rateLimitResult = checkRateLimit(request, {
+    limit: 20,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     const cookieStore = await cookies()
     const supabase = await createSupabaseRouteHandlerClient()
@@ -72,27 +88,36 @@ export async function POST(request: NextRequest) {
       userId = user.id
     }
 
-    const body: ChatRequest = await request.json()
-    
+    const rawBody = await request.json()
+
+    // Validate input with Zod
+    const validationResult = chatRequestSchema.safeParse(rawBody)
+    if (!validationResult.success) {
+      const errors = validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
+      return errorResponse(`Invalid input: ${errors}`, 400)
+    }
+
+    const body = validationResult.data
+
     // Support both new format (messages array) and legacy format (single message)
     const messages = body.messages || (body.message ? [
-      { role: 'user', content: body.message }
+      { role: 'user' as const, content: body.message }
     ] : null)
-    
+
     if (!messages || messages.length === 0) {
       return errorResponse("Messages are required" , 400)
     }
 
     const {
-      model = 'gpt-3.5-turbo',
-      action = 'chat',
-      requestId = uuidv4(),
-      stream = false,
-      temperature = 0.7,
+      model,
+      action,
+      stream,
+      temperature,
       max_tokens,
       workflowId,
       nodeId
     } = body
+    const requestId = body.requestId || uuidv4()
 
     // Check for existing request in ai_cost_logs (idempotency)
     const { data: existingRequest } = await supabase

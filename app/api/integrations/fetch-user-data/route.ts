@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { decrypt } from "@/lib/security/encryption"
 import { getBaseUrl } from "@/lib/utils/getBaseUrl"
+import { queryWithTimeout, fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       logger.debug('🔍 [SERVER] Routing Teams data request', { dataType, integrationId, options });
 
       const baseUrl = req.nextUrl.origin;
-      const teamsApiResponse = await fetch(`${baseUrl}/api/integrations/teams/data`, {
+      const teamsApiResponse = await fetchWithTimeout(`${baseUrl}/api/integrations/teams/data`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
           dataType,
           params: options,
         }),
-      });
+      }, 30000); // 30 second timeout for Teams data
 
       if (!teamsApiResponse.ok) {
         const errorText = await teamsApiResponse.text();
@@ -82,12 +83,15 @@ export async function POST(req: NextRequest) {
       logger.debug('🔍 [SERVER] Routing Gmail data request', { dataType, integrationId });
 
       try {
-        // Fetch the integration initiating the request
-        const { data: requestingIntegration, error: requestingError } = await getSupabase()
-          .from('integrations')
-          .select('*')
-          .eq('id', integrationId)
-          .single();
+        // Fetch the integration initiating the request (with timeout protection)
+        const { data: requestingIntegration, error: requestingError } = await queryWithTimeout(
+          getSupabase()
+            .from('integrations')
+            .select('*')
+            .eq('id', integrationId)
+            .single(),
+          8000
+        );
 
         if (requestingError || !requestingIntegration) {
           logger.error('❌ [SERVER] Requesting integration not found:', requestingError);
@@ -104,13 +108,16 @@ export async function POST(req: NextRequest) {
             dataType,
           });
 
-          const { data: resolvedGmailIntegration, error: gmailError } = await getSupabase()
-            .from('integrations')
-            .select('*')
-            .eq('user_id', requestingIntegration.user_id)
-            .eq('provider', 'gmail')
-            .in('status', ['connected', 'active', 'authorized', 'valid', 'ready', 'ok'])
-            .maybeSingle();
+          const { data: resolvedGmailIntegration, error: gmailError } = await queryWithTimeout(
+            getSupabase()
+              .from('integrations')
+              .select('*')
+              .eq('user_id', requestingIntegration.user_id)
+              .eq('provider', 'gmail')
+              .in('status', ['connected', 'active', 'authorized', 'valid', 'ready', 'ok'])
+              .maybeSingle(),
+            8000
+          );
 
           if (gmailError) {
             logger.error('❌ [SERVER] Gmail integration lookup error:', gmailError);
@@ -129,7 +136,7 @@ export async function POST(req: NextRequest) {
         }
 
         const baseUrl = req.nextUrl.origin;
-        const gmailApiResponse = await fetch(`${baseUrl}/api/integrations/gmail/data`, {
+        const gmailApiResponse = await fetchWithTimeout(`${baseUrl}/api/integrations/gmail/data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -139,7 +146,7 @@ export async function POST(req: NextRequest) {
             dataType,
             options,
           }),
-        });
+        }, 30000); // 30 second timeout for Gmail data
 
         if (!gmailApiResponse.ok) {
           const error = await gmailApiResponse.json();

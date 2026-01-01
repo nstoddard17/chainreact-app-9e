@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { cleanTranscription } from '@/lib/utils/text-cleanup'
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 import OpenAI from 'openai'
 
 /**
@@ -10,6 +11,15 @@ import OpenAI from 'openai'
  * Transcribes audio using OpenAI Whisper API
  */
 export async function POST(request: NextRequest) {
+  // Rate limiting: 10 transcription requests per minute per IP (expensive operation)
+  const rateLimitResult = checkRateLimit(request, {
+    limit: 10,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     // Authenticate user
     const supabase = await createSupabaseRouteHandlerClient()

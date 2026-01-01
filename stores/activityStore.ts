@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -30,7 +30,7 @@ export const useActivityStore = create<ActivityState>((set) => ({
     set({ loading: true, error: null })
     
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
       if (!supabase) {
         throw new Error("Supabase client not available")
       }

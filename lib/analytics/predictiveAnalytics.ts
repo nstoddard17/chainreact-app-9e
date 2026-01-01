@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -40,7 +40,7 @@ export interface ROICalculation {
 }
 
 export class PredictiveAnalytics {
-  private supabase = getSupabaseClient()
+  private supabase = createClient()
 
   async predictWorkflowFailure(workflowId: string): Promise<WorkflowFailurePrediction> {
     try {

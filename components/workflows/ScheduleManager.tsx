@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { Plus, Clock, Edit, Trash2 } from "lucide-react"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -66,7 +66,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
   }, [workflowId])
 
   const fetchSchedules = async () => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     try {
       const { data, error } = await supabase
@@ -87,7 +87,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     try {
       if (editingSchedule) {
@@ -124,7 +124,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to delete this schedule?")) {
-      const supabase = getSupabaseClient()
+      const supabase = createClient()
 
       try {
         const { error } = await supabase.from("workflow_schedules").delete().eq("id", id)
@@ -139,7 +139,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
   }
 
   const toggleSchedule = async (id: string, enabled: boolean) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     try {
       const { error } = await supabase.from("workflow_schedules").update({ enabled }).eq("id", id)

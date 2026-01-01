@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/availableNodes'
 import { computeAutoMappingEntries, extractNodeOutputs, sanitizeAlias, applyAutoMappingSuggestions, type AutoMappingEntry } from '@/lib/workflows/autoMapping'
+import { checkRateLimit, RateLimitPresets } from '@/lib/utils/rate-limit'
 import OpenAI from 'openai'
 
 export const dynamic = 'force-dynamic'
@@ -22,6 +23,15 @@ export const runtime = 'edge'
  * - error: Something went wrong
  */
 export async function POST(request: NextRequest) {
+  // Rate limiting: 20 AI streaming requests per minute per IP
+  const rateLimitResult = checkRateLimit(request, {
+    limit: 20,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     const supabase = await createSupabaseServerClient()
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { create } from "zustand"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 import { queryWithTimeout, fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
 
 import { logger } from '@/lib/utils/logger'
@@ -161,7 +161,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   updateOrganization: async (id: string, data: Partial<Organization>) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error('Supabase client not configured')
     }
@@ -186,7 +186,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   deleteOrganization: async (id: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error('Supabase client not configured')
     }
@@ -214,7 +214,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   fetchMembers: async (orgId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       set({ error: 'Supabase client not configured', loading: false })
       return
@@ -244,7 +244,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   inviteMember: async (orgId: string, email: string, role: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error('Supabase client not configured')
     }
@@ -274,7 +274,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   updateMemberRole: async (memberId: string, role: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error('Supabase client not configured')
     }
@@ -294,7 +294,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   removeMember: async (memberId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error('Supabase client not configured')
     }
@@ -314,7 +314,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   fetchInvitations: async (orgId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       set({ error: 'Supabase client not configured' })
       return
@@ -337,7 +337,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   cancelInvitation: async (invitationId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error('Supabase client not configured')
     }
@@ -357,7 +357,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   resendInvitation: async (invitationId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error('Supabase client not configured')
     }
@@ -384,7 +384,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   fetchAuditLogs: async (orgId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       set({ error: 'Supabase client not configured' })
       return
@@ -407,7 +407,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
   },
 
   logAction: async (action: string, resourceType: string, resourceId?: string, details?: any) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       logger.error("Supabase client not configured")
       return

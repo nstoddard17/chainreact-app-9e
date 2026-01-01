@@ -27,16 +27,26 @@ export function AppHeader() {
       {/* Actions */}
       <div className="flex items-center gap-2">
         {/* Help */}
-        <Button variant="ghost" size="icon" className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
-          <HelpCircle className="w-5 h-5" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+          aria-label="Help"
+        >
+          <HelpCircle className="w-5 h-5" aria-hidden="true" />
         </Button>
 
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 relative">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 relative"
+              aria-label="Notifications"
+            >
+              <Bell className="w-5 h-5" aria-hidden="true" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" aria-label="New notifications"></span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
@@ -51,9 +61,13 @@ export function AppHeader() {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2 pl-2 pr-3 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <Button
+              variant="ghost"
+              className="gap-2 pl-2 pr-3 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label="User menu"
+            >
               <Avatar className="w-8 h-8">
-                <AvatarImage src="" />
+                <AvatarImage src="" alt="User avatar" />
                 <AvatarFallback className="bg-gradient-to-br from-orange-600 to-rose-600 text-white text-sm">
                   U
                 </AvatarFallback>

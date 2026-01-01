@@ -12,7 +12,7 @@
  * Created: 2025-10-28
  */
 
-import { getSupabaseClient } from '@/lib/supabase'
+import { createClient } from '@/utils/supabaseClient'
 import { queryWithTimeout } from '@/lib/utils/fetch-with-timeout'
 import { logger } from '@/lib/utils/logger'
 
@@ -55,7 +55,7 @@ export async function canUserUseIntegration(
   userId: string,
   integrationId: string
 ): Promise<boolean> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     logger.error('Supabase client not available')
     return false
@@ -89,7 +89,7 @@ export async function canUserManageIntegration(
   userId: string,
   integrationId: string
 ): Promise<boolean> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     logger.error('Supabase client not available')
     return false
@@ -123,7 +123,7 @@ export async function canUserAdminIntegration(
   userId: string,
   integrationId: string
 ): Promise<boolean> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     logger.error('Supabase client not available')
     return false
@@ -157,7 +157,7 @@ export async function getUserIntegrationPermission(
   userId: string,
   integrationId: string
 ): Promise<IntegrationPermissionLevel | null> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     logger.error('Supabase client not available')
     return null
@@ -197,7 +197,7 @@ export async function grantIntegrationPermission(
   permission: IntegrationPermissionLevel,
   grantedBy: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     return { success: false, error: 'Supabase client not available' }
   }
@@ -239,7 +239,7 @@ export async function revokeIntegrationPermission(
   integrationId: string,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     return { success: false, error: 'Supabase client not available' }
   }
@@ -275,7 +275,7 @@ export async function updateIntegrationPermission(
   userId: string,
   newPermission: IntegrationPermissionLevel
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     return { success: false, error: 'Supabase client not available' }
   }
@@ -319,7 +319,7 @@ export async function autoGrantPermissionsForIntegration(
   workspaceContext: WorkspaceContext,
   connectedBy: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     return { success: false, error: 'Supabase client not available' }
   }
@@ -494,7 +494,7 @@ export async function autoGrantPermissionsForIntegration(
 export async function getIntegrationAdmins(
   integrationId: string
 ): Promise<IntegrationAdmin[]> {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   if (!supabase) {
     logger.error('Supabase client not available')
     return []

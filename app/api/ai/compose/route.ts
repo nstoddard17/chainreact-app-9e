@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import OpenAI from "openai"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -16,6 +17,15 @@ function getOpenAIClient() {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 20 AI compose requests per minute per IP
+  const rateLimitResult = checkRateLimit(request, {
+    limit: 20,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     const openai = getOpenAIClient()
     if (!openai) {

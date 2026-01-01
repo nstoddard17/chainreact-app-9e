@@ -1219,13 +1219,55 @@ export function FlowV2AgentPanel({
                                         const hasConfigQuestionsForNode = !!configDefinition
                                         const configQuestionsCompleted = completedConfigQuestions[planNode.id] || false
 
-                                        // If node has config questions and they haven't been completed, show NodeConfigurationCard
-                                        if (hasConfigQuestionsForNode && !configQuestionsCompleted && onNodeConfigComplete && onNodeConfigSkip) {
+                                        // Determine if connection is needed and if it's been set
+                                        const connectionIsSet = !requiresConnection || !!defaultConnectionValue
+
+                                        // If node has config questions, questions not completed, AND connection is already set
+                                        // Show NodeConfigurationCard (questions need connection for dynamic options)
+                                        if (hasConfigQuestionsForNode && !configQuestionsCompleted && connectionIsSet && onNodeConfigComplete && onNodeConfigSkip) {
+                                          // Create a loadDynamicOptions function for the NodeConfigurationCard
+                                          const loadDynamicOptionsForQuestions = async (optionType: string): Promise<Array<{value: string, label: string}>> => {
+                                            if (!defaultConnectionValue || !planNode.providerId) return []
+
+                                            try {
+                                              // Map optionType to API dataType
+                                              // e.g., 'slack_channels' -> 'channels', 'gmail_labels' -> 'labels'
+                                              const parts = optionType.split('_')
+                                              const dataType = parts.length > 1 ? parts.slice(1).join('_') : optionType
+
+                                              const response = await fetch(`/api/integrations/${planNode.providerId}/data`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({
+                                                  integrationId: defaultConnectionValue,
+                                                  dataType: dataType,
+                                                  options: {}
+                                                })
+                                              })
+
+                                              if (!response.ok) return []
+
+                                              const data = await response.json()
+                                              // Transform API response to option format
+                                              if (Array.isArray(data)) {
+                                                return data.map((item: any) => ({
+                                                  value: item.id || item.value || String(item),
+                                                  label: item.name || item.label || item.title || String(item)
+                                                }))
+                                              }
+                                              return []
+                                            } catch (error) {
+                                              console.error('Failed to load dynamic options:', error)
+                                              return []
+                                            }
+                                          }
+
                                           return (
                                             <div className="w-full mt-4 border-t border-border pt-4">
                                               <NodeConfigurationCard
                                                 nodeType={planNode.nodeType}
                                                 definition={configDefinition}
+                                                loadDynamicOptions={loadDynamicOptionsForQuestions}
                                                 onComplete={(config) => {
                                                   // Mark questions as completed for this node
                                                   setCompletedConfigQuestions(prev => ({
@@ -1252,6 +1294,8 @@ export function FlowV2AgentPanel({
                                         }
 
                                         // Show inline configuration (connection + required fields)
+                                        // If connection is not set, show connection first
+                                        // If connection is set but questions not completed, they'll be shown above
                                         return (
                                           <div className="w-full mt-4 space-y-3 border-t border-border pt-4">
                                             {requiresConnection && (

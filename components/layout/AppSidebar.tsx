@@ -35,11 +35,12 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div
+    <aside
       className={cn(
         'flex flex-col h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 transition-all duration-300',
         collapsed ? 'w-16' : 'w-64'
       )}
+      aria-label="Main navigation"
     >
       {/* Logo */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200 dark:border-slate-700">
@@ -67,7 +68,7 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" role="navigation">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
           return (
@@ -81,8 +82,10 @@ export function AppSidebar() {
                   : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
               )}
               title={collapsed ? item.name : undefined}
+              aria-label={collapsed ? item.name : undefined}
+              aria-current={isActive ? 'page' : undefined}
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <item.icon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
               {!collapsed && <span>{item.name}</span>}
             </Link>
           )
@@ -96,17 +99,19 @@ export function AppSidebar() {
           size="sm"
           onClick={() => setCollapsed(!collapsed)}
           className="w-full justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!collapsed}
         >
           {collapsed ? (
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-4 h-4" aria-hidden="true" />
           ) : (
             <>
-              <ChevronLeft className="w-4 h-4 mr-2" />
+              <ChevronLeft className="w-4 h-4 mr-2" aria-hidden="true" />
               Collapse
             </>
           )}
         </Button>
       </div>
-    </div>
+    </aside>
   )
 }

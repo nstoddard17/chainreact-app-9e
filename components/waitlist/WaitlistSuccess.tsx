@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { logger } from '@/lib/utils/logger'
 
 const XLogo = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -57,7 +58,7 @@ export function WaitlistSuccess() {
         setTimeout(() => setCopied(false), 2000)
         setShareTip(DEFAULT_SHARE_TIP)
       } catch (error) {
-        console.error('Failed to copy share message:', error)
+        logger.error('Failed to copy share message', { error })
         setShareTip('Copying the message failed. You can still click the button and paste manually.')
       }
     } else {
@@ -75,7 +76,7 @@ export function WaitlistSuccess() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      console.error('Failed to copy:', error)
+      logger.error('Failed to copy to clipboard', { error })
     }
   }
 

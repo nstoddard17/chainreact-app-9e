@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from "@/lib/utils/api-response"
+import { logger } from "@/lib/utils/logger"
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     return jsonResponse({ profile })
   } catch (error: any) {
-    console.error('Error fetching profile:', error)
+    logger.error('[User API] Error fetching profile:', { error })
     return errorResponse(error.message || "Failed to fetch profile", 500)
   }
 }
@@ -61,7 +62,7 @@ export async function PUT(request: NextRequest) {
 
     return jsonResponse({ profile })
   } catch (error: any) {
-    console.error('Error updating profile:', error)
+    logger.error('[User API] Error updating profile:', { error })
     return errorResponse(error.message || "Failed to update profile", 500)
   }
 }

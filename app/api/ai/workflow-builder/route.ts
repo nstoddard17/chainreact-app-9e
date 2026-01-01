@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,6 +12,15 @@ export const dynamic = 'force-dynamic'
  * Processes natural language requests and builds workflows progressively
  */
 export async function POST(request: NextRequest) {
+  // Rate limiting: 30 AI workflow builder requests per minute per IP
+  const rateLimitResult = checkRateLimit(request, {
+    limit: 30,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     const supabase = await createSupabaseServerClient()
 

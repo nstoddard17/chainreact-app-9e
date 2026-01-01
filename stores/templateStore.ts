@@ -1,7 +1,7 @@
 "use client"
 
 import { create } from "zustand"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 
 interface WorkflowTemplate {
   id: string
@@ -113,7 +113,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   selectedCategory: null,
 
   fetchPublicTemplates: async () => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, public: true },
       error: null
@@ -144,7 +144,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   fetchMyTemplates: async () => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, mine: true }
     }))
@@ -174,7 +174,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   fetchFeaturedTemplates: async () => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, featured: true }
     }))
@@ -206,7 +206,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   fetchTemplatesByCategory: async (category: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, category: true }
     }))
@@ -237,7 +237,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   searchTemplates: async (query: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, search: true },
       searchQuery: query
@@ -269,7 +269,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   createTemplate: async (data: Partial<WorkflowTemplate>) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     set((state) => ({
       loadingStates: { ...state.loadingStates, create: true }
@@ -306,7 +306,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   updateTemplate: async (id: string, data: Partial<WorkflowTemplate>) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     set((state) => ({
       loadingStates: { ...state.loadingStates, update: true }
@@ -332,7 +332,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   deleteTemplate: async (id: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     set((state) => ({
       loadingStates: { ...state.loadingStates, delete: true }
@@ -366,7 +366,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   downloadTemplate: async (templateId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     set((state) => ({
       loadingStates: { ...state.loadingStates, download: true }
@@ -406,7 +406,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   fetchTemplateReviews: async (templateId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, reviews: true }
     }))
@@ -436,7 +436,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   addReview: async (templateId: string, rating: number, reviewText?: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, reviewMutation: true }
     }))
@@ -469,7 +469,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   updateReview: async (reviewId: string, rating: number, reviewText?: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     set((state) => ({
       loadingStates: { ...state.loadingStates, reviewMutation: true }
@@ -499,7 +499,7 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   deleteReview: async (reviewId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     set((state) => ({
       loadingStates: { ...state.loadingStates, reviewMutation: true }

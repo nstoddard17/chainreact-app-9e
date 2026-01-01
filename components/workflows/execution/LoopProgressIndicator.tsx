@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress'
 import { Card } from '@/components/ui/card'
 import { Loader2, CheckCircle2, XCircle, Repeat } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { logger } from '@/lib/utils/logger'
 
 interface LoopExecution {
   id: string
@@ -55,7 +56,7 @@ export function LoopProgressIndicator({
       const { data, error } = await query
 
       if (error) {
-        console.error('Error fetching loop executions:', error)
+        logger.error('Error fetching loop executions', { error: error.message })
       } else if (data) {
         setLoopExecutions(data as LoopExecution[])
       }
