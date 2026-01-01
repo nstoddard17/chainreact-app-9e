@@ -1533,91 +1533,123 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         // Run the agent query
         ;(async () => {
           try {
+            // STEP 0: Check if user mentioned specific apps (e.g., "Gmail", "Outlook", "Slack")
+            const specificApps = detectSpecificApps(prompt)
+            console.log('[URL Prompt Handler] Detected specific apps:', specificApps.map(a => a.displayName))
+
             // Check for vague provider terms
             const vagueTermResult = detectVagueTerms(prompt)
             let finalPrompt = prompt
             let providerMetadata: { category: any; provider: any; allProviders: any[] } | undefined
 
             if (vagueTermResult.found && vagueTermResult.category) {
-              console.log('[URL Prompt Handler] Detected vague term:', vagueTermResult.category.vagueTerm)
+              // Check if user already specified an app for this category
+              const matchingSpecificApp = specificApps.find(app => app.category === vagueTermResult.category.vagueTerm)
 
-              // Use cached integrations (refreshed on mount, cached for 5s)
-              // No need to force fetch - integrations are already fresh from mount effect
-              const freshIntegrations = useIntegrationStore.getState().integrations
-              console.log('[URL Prompt Handler] Using cached integrations:', freshIntegrations.length)
-
-              const providerOptions = getProviderOptions(
-                vagueTermResult.category,
-                freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
-              )
-
-              const connectedProviders = providerOptions.filter(p => p.isConnected)
-              console.log('[URL Prompt Handler] Connected providers:', connectedProviders.length)
-
-              if (connectedProviders.length === 0) {
-                // No providers - stop and show selection UI
-                console.log('[URL Prompt Handler] No providers connected, showing selection UI')
-                setAwaitingProviderSelection(true)
-                setPendingPrompt(prompt)
-                setProviderCategory(vagueTermResult.category)
-                setIsAgentLoading(false)
-
-                const askMessage: ChatMessage = {
-                  id: generateLocalId(),
-                  flowId,
-                  role: 'assistant',
-                  text: `To continue, please connect one of your ${vagueTermResult.category.displayName.toLowerCase()} apps.`,
-                  meta: {
-                    providerSelection: {
-                      category: vagueTermResult.category,
-                      providers: providerOptions,
-                      reason: 'no_providers_connected'
-                    }
-                  },
-                  createdAt: new Date().toISOString(),
-                }
-                setAgentMessages(prev => [...prev, askMessage])
-                return
-              } else if (connectedProviders.length === 1) {
-                // Auto-select the only provider
-                const selectedProvider = connectedProviders[0]
-                console.log('[URL Prompt Handler] Auto-selecting provider:', selectedProvider.displayName)
+              if (matchingSpecificApp) {
+                // User mentioned a specific app (e.g., "Gmail email") - use it directly
+                console.log('[URL Prompt Handler] User specified:', matchingSpecificApp.displayName, '- using directly')
 
                 finalPrompt = replaceVagueTermWithProvider(
                   prompt,
                   vagueTermResult.category.vagueTerm,
-                  selectedProvider.id
+                  matchingSpecificApp.provider
                 )
 
-                providerMetadata = {
+                // Get fresh integrations for provider metadata
+                const freshIntegrations = useIntegrationStore.getState().integrations
+                const providerOptions = getProviderOptions(
+                  vagueTermResult.category,
+                  freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+                )
+                const selectedProvider = providerOptions.find(p => p.id === matchingSpecificApp.provider)
+
+                providerMetadata = selectedProvider ? {
                   category: vagueTermResult.category,
                   provider: selectedProvider,
                   allProviders: providerOptions
-                }
+                } : undefined
               } else {
-                // Multiple providers - stop and show selection UI
-                console.log('[URL Prompt Handler] Multiple providers connected, showing selection UI')
-                setAwaitingProviderSelection(true)
-                setPendingPrompt(prompt)
-                setProviderCategory(vagueTermResult.category)
-                setIsAgentLoading(false)
+                console.log('[URL Prompt Handler] Detected vague term:', vagueTermResult.category.vagueTerm)
 
-                const askMessage: ChatMessage = {
-                  id: generateLocalId(),
-                  flowId,
-                  role: 'assistant',
-                  text: `I found multiple ${vagueTermResult.category.displayName.toLowerCase()} apps connected. Which one would you like to use?`,
-                  meta: {
-                    providerSelection: {
-                      category: vagueTermResult.category,
-                      providers: providerOptions,
-                      reason: 'multiple_providers'
-                    }
-                  },
-                  createdAt: new Date().toISOString(),
+                // Use cached integrations (refreshed on mount, cached for 5s)
+                // No need to force fetch - integrations are already fresh from mount effect
+                const freshIntegrations = useIntegrationStore.getState().integrations
+                console.log('[URL Prompt Handler] Using cached integrations:', freshIntegrations.length)
+
+                const providerOptions = getProviderOptions(
+                  vagueTermResult.category,
+                  freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+                )
+
+                const connectedProviders = providerOptions.filter(p => p.isConnected)
+                console.log('[URL Prompt Handler] Connected providers:', connectedProviders.length)
+
+                if (connectedProviders.length === 0) {
+                  // No providers - stop and show selection UI
+                  console.log('[URL Prompt Handler] No providers connected, showing selection UI')
+                  setAwaitingProviderSelection(true)
+                  setPendingPrompt(prompt)
+                  setProviderCategory(vagueTermResult.category)
+                  setIsAgentLoading(false)
+
+                  const askMessage: ChatMessage = {
+                    id: generateLocalId(),
+                    flowId,
+                    role: 'assistant',
+                    text: `To continue, please connect one of your ${vagueTermResult.category.displayName.toLowerCase()} apps.`,
+                    meta: {
+                      providerSelection: {
+                        category: vagueTermResult.category,
+                        providers: providerOptions,
+                        reason: 'no_providers_connected'
+                      }
+                    },
+                    createdAt: new Date().toISOString(),
+                  }
+                  setAgentMessages(prev => [...prev, askMessage])
+                  return
+                } else if (connectedProviders.length === 1) {
+                  // Auto-select the only provider
+                  const selectedProvider = connectedProviders[0]
+                  console.log('[URL Prompt Handler] Auto-selecting provider:', selectedProvider.displayName)
+
+                  finalPrompt = replaceVagueTermWithProvider(
+                    prompt,
+                    vagueTermResult.category.vagueTerm,
+                    selectedProvider.id
+                  )
+
+                  providerMetadata = {
+                    category: vagueTermResult.category,
+                    provider: selectedProvider,
+                    allProviders: providerOptions
+                  }
+                } else {
+                  // Multiple providers - stop and show selection UI
+                  console.log('[URL Prompt Handler] Multiple providers connected, showing selection UI')
+                  setAwaitingProviderSelection(true)
+                  setPendingPrompt(prompt)
+                  setProviderCategory(vagueTermResult.category)
+                  setIsAgentLoading(false)
+
+                  const askMessage: ChatMessage = {
+                    id: generateLocalId(),
+                    flowId,
+                    role: 'assistant',
+                    text: `I found multiple ${vagueTermResult.category.displayName.toLowerCase()} apps connected. Which one would you like to use?`,
+                    meta: {
+                      providerSelection: {
+                        category: vagueTermResult.category,
+                        providers: providerOptions,
+                        reason: 'multiple_providers'
+                      }
+                    },
+                    createdAt: new Date().toISOString(),
+                  }
+                  setAgentMessages(prev => [...prev, askMessage])
+                  return
                 }
-                setAgentMessages(prev => [...prev, askMessage])
-                return
               }
             }
 
@@ -4340,10 +4372,80 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         })
     }
 
+    // STEP 0: Check if user mentioned specific apps (e.g., "Gmail", "Outlook", "Slack")
+    // If they did, we should NOT ask which provider to use for that category
+    const specificApps = detectSpecificApps(userPrompt)
+    const specificAppCategories = new Set(specificApps.map(app => app.category))
+    console.log('[Provider Disambiguation] Detected specific apps:', specificApps.map(a => a.displayName))
+
     // STEP 1: Check for vague provider terms
     const vagueTermResult = detectVagueTerms(userPrompt)
 
     if (vagueTermResult.found && vagueTermResult.category) {
+      // Check if user already specified an app for this category
+      const matchingSpecificApp = specificApps.find(app => app.category === vagueTermResult.category.vagueTerm)
+
+      if (matchingSpecificApp) {
+        // User mentioned a specific app (e.g., "Gmail email") - skip the provider selection
+        console.log('[Provider Disambiguation] User specified:', matchingSpecificApp.displayName, '- skipping provider selection')
+
+        // Replace vague term with the specific provider and continue
+        const modifiedPrompt = replaceVagueTermWithProvider(
+          userPrompt,
+          vagueTermResult.category.vagueTerm,
+          matchingSpecificApp.provider
+        )
+
+        // Continue with workflow generation using the specified provider
+        transitionTo(BuildState.THINKING)
+
+        try {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          transitionTo(BuildState.SUBTASKS)
+          await new Promise(resolve => setTimeout(resolve, 800))
+          transitionTo(BuildState.COLLECT_NODES)
+          await new Promise(resolve => setTimeout(resolve, 800))
+          transitionTo(BuildState.OUTLINE)
+          await new Promise(resolve => setTimeout(resolve, 800))
+          transitionTo(BuildState.PURPOSE)
+
+          const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
+            actions, modifiedPrompt, matchingSpecificApp.provider, user?.id, flowId
+          )
+
+          console.log('[Provider Disambiguation] Generated plan with specific app:', {
+            app: matchingSpecificApp.displayName,
+            workflowName: result.workflowName,
+            editsCount: result.edits?.length,
+          })
+
+          // Get fresh integrations for provider metadata
+          const freshIntegrations = useIntegrationStore.getState().integrations
+          const providerOptions = getProviderOptions(
+            vagueTermResult.category,
+            freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+          )
+          const selectedProvider = providerOptions.find(p => p.id === matchingSpecificApp.provider)
+
+          const providerMetadata = selectedProvider ? {
+            category: vagueTermResult.category,
+            provider: selectedProvider,
+            allProviders: providerOptions
+          } : undefined
+
+          await continueWithPlanGeneration(result, modifiedPrompt, providerMetadata)
+        } catch (error: any) {
+          toast({
+            title: "Failed to create plan",
+            description: error?.message || "Unable to generate workflow plan",
+            variant: "destructive",
+          })
+          transitionTo(BuildState.IDLE)
+          setIsAgentLoading(false)
+        }
+        return
+      }
+
       console.log('[Provider Disambiguation] Detected vague term:', vagueTermResult.category.vagueTerm)
 
       // Use cached integrations (refreshed on mount, cached for 5s)

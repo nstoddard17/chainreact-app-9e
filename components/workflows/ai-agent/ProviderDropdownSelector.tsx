@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
-import { Check, ChevronDown, Loader2 } from 'lucide-react'
+import { Check, ChevronDown, Loader2, ArrowRight } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
 import type { ProviderOption } from '@/lib/workflows/ai-agent/providerDisambiguation'
 import { useWorkflowPreferencesStore } from '@/stores/workflowPreferencesStore'
 
@@ -21,6 +22,7 @@ interface ProviderDropdownSelectorProps {
   categoryKey: string // "email", "calendar", "storage" - for preferences lookup
   providers: ProviderOption[]
   onSelect: (providerId: string, isConnected: boolean) => void
+  preSelectedProviderId?: string // Provider to pre-select (from the prompt handler)
   loading?: boolean
   disabled?: boolean
 }
@@ -43,21 +45,40 @@ export function ProviderDropdownSelector({
   categoryKey,
   providers,
   onSelect,
+  preSelectedProviderId,
   loading = false,
   disabled = false,
 }: ProviderDropdownSelectorProps) {
   const { getDefaultProvider } = useWorkflowPreferencesStore()
   const defaultProvider = getDefaultProvider(categoryKey)
 
-  // Pre-select saved default if it's in the providers list
+  // Pre-select: 1) preSelectedProviderId prop, 2) saved default, 3) first connected provider
   const initialValue = useMemo(() => {
+    // First priority: explicitly pre-selected provider from prompt handler
+    if (preSelectedProviderId && providers.find(p => p.id === preSelectedProviderId)) {
+      return preSelectedProviderId
+    }
+    // Second priority: saved default preference
     if (defaultProvider && providers.find(p => p.id === defaultProvider)) {
       return defaultProvider
     }
+    // Third priority: first connected provider
+    const firstConnected = providers.find(p => p.isConnected)
+    if (firstConnected) {
+      return firstConnected.id
+    }
     return ''
-  }, [defaultProvider, providers])
+  }, [defaultProvider, preSelectedProviderId, providers])
 
   const [selectedProvider, setSelectedProvider] = useState<string>(initialValue)
+  const [hasConfirmed, setHasConfirmed] = useState(false)
+
+  // Update selection if preSelectedProviderId changes
+  useEffect(() => {
+    if (preSelectedProviderId && providers.find(p => p.id === preSelectedProviderId)) {
+      setSelectedProvider(preSelectedProviderId)
+    }
+  }, [preSelectedProviderId, providers])
 
   const connectedProviders = useMemo(() =>
     providers.filter(p => p.isConnected),
@@ -70,9 +91,15 @@ export function ProviderDropdownSelector({
 
   const handleValueChange = (value: string) => {
     setSelectedProvider(value)
-    const provider = providers.find(p => p.id === value)
+    setHasConfirmed(false) // Reset confirmation when selection changes
+    // Don't immediately call onSelect - wait for Continue button
+  }
+
+  const handleContinue = () => {
+    const provider = providers.find(p => p.id === selectedProvider)
     if (provider) {
-      onSelect(value, provider.isConnected)
+      setHasConfirmed(true)
+      onSelect(selectedProvider, provider.isConnected)
     }
   }
 
@@ -196,10 +223,34 @@ export function ProviderDropdownSelector({
       </Select>
 
       {/* Show hint about default if one was pre-selected */}
-      {defaultProvider && selectedProvider === defaultProvider && (
+      {defaultProvider && selectedProvider === defaultProvider && !hasConfirmed && (
         <p className="text-xs text-muted-foreground">
           Pre-selected based on your saved preferences
         </p>
+      )}
+
+      {/* Continue button - shows when a connected provider is selected */}
+      {selectedProviderData && selectedProviderData.isConnected && !hasConfirmed && (
+        <Button
+          onClick={handleContinue}
+          className="w-full h-10 gap-2"
+          disabled={loading || disabled}
+        >
+          Continue with {selectedProviderData.displayName}
+          <ArrowRight className="w-4 h-4" />
+        </Button>
+      )}
+
+      {/* Connect prompt for unconnected provider */}
+      {selectedProviderData && !selectedProviderData.isConnected && !hasConfirmed && (
+        <Button
+          onClick={handleContinue}
+          variant="outline"
+          className="w-full h-10 gap-2"
+          disabled={loading || disabled}
+        >
+          Connect {selectedProviderData.displayName} to continue
+        </Button>
       )}
     </div>
   )
