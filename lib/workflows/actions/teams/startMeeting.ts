@@ -14,7 +14,11 @@ export async function startTeamsMeeting(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { subject, participants, startDateTime, endDateTime } = input
+    // Support both config and input for field values
+    const subject = input.subject || config.subject
+    const participants = input.participants || config.participants
+    const startDateTime = input.startDateTime || config.startDateTime
+    const endDateTime = input.endDateTime || config.endDateTime
 
     if (!subject) {
       return {
@@ -98,7 +102,7 @@ export async function startTeamsMeeting(
 
     return {
       success: true,
-      data: {
+      output: {
         meetingId: meeting.id,
         joinUrl: meeting.joinUrl || meeting.joinWebUrl,
         subject: meeting.subject,

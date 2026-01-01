@@ -95,15 +95,17 @@ export function MicrosoftExcelColumnMapper({
     return result;
   }, [dynamicOptions]);
 
-  // Get the worksheet name from parent values to load columns
+  // Get the worksheet name and hasHeaders from parent values to load columns
   const worksheetName = parentValues?.worksheetName;
   const workbookId = parentValues?.workbookId;
+  const hasHeaders = parentValues?.hasHeaders;
 
-  // Load columns when worksheet changes
+  // Load columns when worksheet or hasHeaders changes
   useEffect(() => {
     console.log('[ExcelColumnMapper] useEffect triggered:', {
       hasWorksheetName: !!worksheetName,
       hasWorkbookId: !!workbookId,
+      hasHeaders,
       hasLoadOptions: !!loadOptions,
       availableColumnsLength: availableColumns.length,
       worksheetName,
@@ -111,15 +113,20 @@ export function MicrosoftExcelColumnMapper({
       parentValues
     });
 
-    if (worksheetName && workbookId && loadOptions) {
-      // Always try to load when worksheet changes, even if we have columns
-      // This ensures we get fresh data when switching worksheets
+    if (worksheetName && workbookId && loadOptions && hasHeaders) {
+      // Always try to load when worksheet or hasHeaders changes
+      // This ensures we get fresh data when switching worksheets or changing hasHeaders
       setIsLoadingColumns(true);
       setError(null);
 
       // Try to load columns - use columnMapping field name so it maps to 'columns' dataType
-      // This matches how MicrosoftExcelOptionsLoader handles the columnMapping field
-      loadOptions('columnMapping', 'worksheetName', worksheetName, true)
+      // Pass hasHeaders as part of the dependsOnValue so the API knows how to format columns
+      const dependsOnValue = {
+        worksheetName,
+        hasHeaders: hasHeaders === 'yes' || hasHeaders === true
+      };
+
+      loadOptions('columnMapping', 'hasHeaders', dependsOnValue, true)
         .catch(err => {
           logger.error('[ExcelColumnMapper] Failed to load columns:', err);
           setError('Failed to load columns');
@@ -128,7 +135,7 @@ export function MicrosoftExcelColumnMapper({
           setIsLoadingColumns(false);
         });
     }
-  }, [worksheetName, workbookId, loadOptions]);
+  }, [worksheetName, workbookId, hasHeaders, loadOptions]);
 
   // Check if columns are currently loading
   const columnsLoading = isLoadingColumns ||
@@ -205,6 +212,18 @@ export function MicrosoftExcelColumnMapper({
         <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
           Select a worksheet first to configure column values
+        </p>
+      </div>
+    );
+  }
+
+  // Render empty state when hasHeaders is not yet selected
+  if (!hasHeaders) {
+    return (
+      <div className="p-4 border border-dashed rounded-md text-center space-y-2 bg-muted/30">
+        <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Please indicate whether your worksheet has headers to configure column values
         </p>
       </div>
     );

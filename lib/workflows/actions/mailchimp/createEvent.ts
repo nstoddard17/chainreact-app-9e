@@ -34,15 +34,26 @@ export async function mailchimpCreateEvent(
       throw new Error("Invalid email address format")
     }
 
-    // Parse properties if provided
-    let properties: any = {}
+    // Parse properties if provided (supports both object and JSON string formats)
+    let properties: Record<string, string> = {}
     if (propertiesInput) {
-      try {
-        properties = typeof propertiesInput === 'string'
-          ? JSON.parse(propertiesInput)
-          : propertiesInput
-      } catch (e) {
-        throw new Error("Event properties must be valid JSON")
+      let rawProperties: Record<string, any> = {}
+
+      if (typeof propertiesInput === 'string') {
+        try {
+          rawProperties = JSON.parse(propertiesInput)
+        } catch (e) {
+          throw new Error("Event properties must be valid JSON format")
+        }
+      } else if (typeof propertiesInput === 'object' && !Array.isArray(propertiesInput)) {
+        rawProperties = propertiesInput
+      } else {
+        throw new Error("Event properties must be an object with key-value pairs")
+      }
+
+      // Mailchimp requires all property values to be strings
+      for (const [key, value] of Object.entries(rawProperties)) {
+        properties[key] = typeof value === 'object' ? JSON.stringify(value) : String(value)
       }
     }
 
@@ -82,7 +93,19 @@ export async function mailchimpCreateEvent(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      const errorMessage = errorData.detail || errorData.title || `HTTP ${response.status}`
+      let errorMessage = errorData.detail || errorData.title || `HTTP ${response.status}`
+
+      // Provide clearer error message for 404 (subscriber not found)
+      if (response.status === 404) {
+        errorMessage = `Subscriber "${email}" not found in this audience. The subscriber must exist before you can create events for them.`
+      }
+
+      // Include field-specific validation errors if present
+      if (errorData.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+        const fieldErrors = errorData.errors.map((e: any) => `${e.field}: ${e.message}`).join('; ')
+        errorMessage = `${errorMessage} - ${fieldErrors}`
+      }
+
       logger.error('Mailchimp API error', {
         status: response.status,
         error: errorMessage,

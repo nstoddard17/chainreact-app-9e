@@ -35,8 +35,8 @@ export const addReminderActionSchema: NodeComponent = {
       name: "time",
       label: "Reminder Time",
       type: "string",
-      description: "When the reminder will fire",
-      example: "2024-01-15T15:00:00Z"
+      description: "When the reminder will fire (ISO 8601 format)",
+      example: "2024-01-15T15:00:00.000Z"
     },
     {
       name: "user",
@@ -46,11 +46,25 @@ export const addReminderActionSchema: NodeComponent = {
       example: "U1234567890"
     },
     {
+      name: "creator",
+      label: "Creator ID",
+      type: "string",
+      description: "The user who created the reminder",
+      example: "U1234567890"
+    },
+    {
       name: "recurring",
       label: "Is Recurring",
       type: "boolean",
       description: "Whether this is a recurring reminder",
       example: false
+    },
+    {
+      name: "completeTs",
+      label: "Complete Timestamp",
+      type: "number",
+      description: "Unix timestamp when the reminder was completed (0 if not completed)",
+      example: 0
     },
     {
       name: "success",

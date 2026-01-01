@@ -14,12 +14,29 @@ export async function addTeamsReaction(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { messageType, teamId, channelId, chatId, messageId, reactionType } = input
+    // Support both config and input for field values
+    const messageType = input.messageType || config.messageType
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const chatId = input.chatId || config.chatId
+    // Support both dropdown selection and manual ID entry
+    // For channel messages: messageId (dropdown) or messageIdManual (text input)
+    // For chat messages: chatMessageId (dropdown) or chatMessageIdManual (text input)
+    const messageId = input.messageId || config.messageId || input.messageIdManual || config.messageIdManual ||
+                      input.chatMessageId || config.chatMessageId || input.chatMessageIdManual || config.chatMessageIdManual
+    const reactionType = input.reactionType || config.reactionType
 
-    if (!messageType || !messageId || !reactionType) {
+    if (!messageType || !reactionType) {
       return {
         success: false,
-        error: 'Missing required fields: messageType, messageId, and reactionType are required'
+        error: 'Missing required fields: messageType and reactionType are required'
+      }
+    }
+
+    if (!messageId) {
+      return {
+        success: false,
+        error: 'Missing required field: messageId (for channel) or chatMessageId (for chat) is required'
       }
     }
 
@@ -88,7 +105,7 @@ export async function addTeamsReaction(
 
     return {
       success: true,
-      data: {
+      output: {
         success: true,
         messageId,
         reactionType

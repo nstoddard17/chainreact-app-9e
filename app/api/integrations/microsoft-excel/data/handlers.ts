@@ -226,10 +226,12 @@ const fetchWorksheets: ExcelDataHandler = async (integration: MicrosoftExcelInte
 
 /**
  * Fetch columns from a worksheet
- * Uses the same approach as findOrCreateRow.ts - fetching row 1 without URL encoding
+ * Supports two modes:
+ * 1. hasHeaders=true (default): Uses row 1 values as column names
+ * 2. hasHeaders=false: Returns column letters (A, B, C, etc.) based on used range or defaults to 10 columns
  */
 const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegration, options: ExcelHandlerOptions) => {
-  const { workbookId, worksheetName } = options
+  const { workbookId, worksheetName, hasHeaders = true } = options
 
   if (!workbookId || !worksheetName) {
     logger.error('[fetchColumns] Missing required parameters', {
@@ -243,7 +245,6 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
 
   try {
     // Use usedRange to get the actual data range with values
-    // This is the approach used in updateRow.ts and other working actions
     const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/usedRange`
 
     const usedRangeResponse = await fetchWithTimeout(usedRangeUrl, {
@@ -253,34 +254,78 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
       }
     })
 
+    // Handle case where worksheet is empty or usedRange fails
     if (!usedRangeResponse.ok) {
-      const error = await usedRangeResponse.text()
-      logger.error('[fetchColumns] Graph API error', { error });
-      throw new Error(`Failed to fetch used range: ${error}`)
+      const errorText = await usedRangeResponse.text()
+      logger.debug('[fetchColumns] usedRange returned error, worksheet may be empty', { errorText });
+
+      // For empty worksheets, return default column letters (A through J)
+      const defaultColumnCount = 10
+      return Array.from({ length: defaultColumnCount }, (_, index) => {
+        const letter = String.fromCharCode(65 + index)
+        return {
+          value: letter,
+          label: `Column ${letter}`,
+          description: `Column ${letter}`
+        }
+      })
     }
 
     const usedRangeData = await usedRangeResponse.json()
-
-    // Get the first row as headers
     const allRows = usedRangeData.values || []
-    if (allRows.length === 0) {
-      return []
+
+    // If worksheet is empty, return default column letters
+    if (allRows.length === 0 || (allRows.length === 1 && allRows[0].every((v: any) => !v))) {
+      const defaultColumnCount = 10
+      return Array.from({ length: defaultColumnCount }, (_, index) => {
+        const letter = String.fromCharCode(65 + index)
+        return {
+          value: letter,
+          label: `Column ${letter}`,
+          description: `Column ${letter}`
+        }
+      })
     }
 
+    // Determine column count from the data
+    const columnCount = Math.max(...allRows.map((row: any[]) => row.length))
+
+    // If hasHeaders is false, return column letters based on actual data width
+    if (!hasHeaders || hasHeaders === 'no') {
+      return Array.from({ length: columnCount }, (_, index) => {
+        const letter = String.fromCharCode(65 + index)
+        return {
+          value: letter,
+          label: `Column ${letter}`,
+          description: `Column ${letter}`
+        }
+      })
+    }
+
+    // hasHeaders is true - use row 1 as headers
     const headers = allRows[0] || []
 
-    // Format for dropdown - filter out empty cells
+    // Format for dropdown - filter out empty cells but preserve column positions
     const result = headers
       .map((header: any, index: number) => {
         const headerStr = header ? header.toString().trim() : ''
-        if (!headerStr) return null
+        const columnLetter = String.fromCharCode(65 + index)
+
+        // If header is empty, use the column letter instead
+        if (!headerStr) {
+          return {
+            value: columnLetter,
+            label: `Column ${columnLetter} (empty header)`,
+            description: `Column ${columnLetter}`
+          }
+        }
+
         return {
           value: headerStr,
           label: headerStr,
-          description: `Column ${String.fromCharCode(65 + index)}`
+          description: `Column ${columnLetter}`
         }
       })
-      .filter((item: any) => item !== null)
 
     return result
 
@@ -288,9 +333,20 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     logger.error('[Microsoft Excel] Error fetching columns', {
       error: error.message,
       workbookId,
-      worksheetName
+      worksheetName,
+      hasHeaders
     });
-    throw error
+
+    // On error, return default column letters so the UI doesn't break
+    const defaultColumnCount = 10
+    return Array.from({ length: defaultColumnCount }, (_, index) => {
+      const letter = String.fromCharCode(65 + index)
+      return {
+        value: letter,
+        label: `Column ${letter}`,
+        description: `Column ${letter}`
+      }
+    })
   }
 }
 

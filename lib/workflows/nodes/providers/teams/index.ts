@@ -1,4 +1,4 @@
-import { MessageSquare, Calendar, Hash, UserPlus, FileText, Users, Plus, Reply, AtSign, Edit, Trash2, Info, MessageCircle, Smile, Video, Play, Square } from "lucide-react"
+import { MessageSquare, Calendar, Hash, UserPlus, FileText, Users, Plus, Reply, AtSign, Edit, Trash2, Info, MessageCircle, Smile, Square } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 export const teamsNodes: NodeComponent[] = [
@@ -69,34 +69,6 @@ export const teamsNodes: NodeComponent[] = [
     ]
   },
   {
-    type: "teams_action_create_meeting",
-    title: "Create Meeting",
-    description: "Create a new online meeting",
-    icon: Calendar,
-    providerId: "teams",
-    requiredScopes: ["OnlineMeetings.ReadWrite"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject", supportsAI: true },
-      { name: "startTime", label: "Start Time", type: "datetime", required: true, supportsAI: true },
-      { name: "endTime", label: "End Time", type: "datetime", required: true, supportsAI: true },
-      { name: "attendees", label: "Attendees", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: false, placeholder: "Select or enter attendee email addresses", supportsAI: true },
-      { name: "description", label: "Description", type: "textarea", required: false, placeholder: "Meeting description", supportsAI: true },
-      { name: "allowMeetingChat", label: "Allow Meeting Chat", type: "boolean", required: false, defaultValue: true },
-      { name: "allowCamera", label: "Allow Camera", type: "boolean", required: false, defaultValue: true },
-      { name: "allowMic", label: "Allow Microphone", type: "boolean", required: false, defaultValue: true }
-    ],
-    outputSchema: [
-      { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the created meeting" },
-      { name: "joinUrl", label: "Join URL", type: "string", description: "The URL to join the meeting" },
-      { name: "subject", label: "Meeting Subject", type: "string", description: "The subject of the meeting" },
-      { name: "startTime", label: "Start Time", type: "string", description: "When the meeting starts (ISO 8601 format)" },
-      { name: "endTime", label: "End Time", type: "string", description: "When the meeting ends (ISO 8601 format)" },
-      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was created successfully" }
-    ]
-  },
-  {
     type: "teams_action_send_chat_message",
     title: "Send Chat Message",
     description: "Send a message to a specific chat or user",
@@ -150,7 +122,7 @@ export const teamsNodes: NodeComponent[] = [
     isTrigger: false,
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
-      { name: "userEmail", label: "User Email", type: "email-autocomplete", dynamic: "outlook-enhanced-recipients", required: true, placeholder: "Select or enter user's email address", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" }, supportsAI: true },
+      { name: "userEmail", label: "User Email", type: "text", required: true, placeholder: "Enter the user's email address", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" }, supportsAI: true },
       { name: "role", label: "Role", type: "select", required: true, defaultValue: "member", dependsOn: "userEmail", visibilityCondition: { field: "userEmail", operator: "isNotEmpty" }, options: [
         { value: "member", label: "Member" },
         { value: "owner", label: "Owner" }
@@ -384,8 +356,14 @@ export const teamsNodes: NodeComponent[] = [
     configSchema: [
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "teamId", operator: "isNotEmpty" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to reply to", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" }, supportsAI: true },
-      { name: "replyContent", label: "Reply Message", type: "email-rich-text", required: true, placeholder: "Enter your reply", dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" } }
+      // Message selection method
+      { name: "messageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], dependsOn: "channelId", visibilityCondition: { field: "channelId", operator: "isNotEmpty" } },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message to reply to", dependsOn: "channelId", visibilityCondition: { field: "messageSelection", operator: "equals", value: "dropdown" } },
+      { name: "messageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "messageSelection", operator: "equals", value: "manual" } },
+      { name: "replyContent", label: "Reply Message", type: "email-rich-text", required: true, placeholder: "Enter your reply" }
     ],
     outputSchema: [
       { name: "replyId", label: "Reply ID", type: "string", description: "The ID of the reply message" },
@@ -397,7 +375,7 @@ export const teamsNodes: NodeComponent[] = [
   {
     type: "teams_action_edit_message",
     title: "Edit Message",
-    description: "Edit an existing message in a channel or chat",
+    description: "Edit an existing message in a channel or chat (only your own messages)",
     icon: Edit,
     providerId: "teams",
     requiredScopes: ["ChannelMessage.Edit"],
@@ -410,8 +388,21 @@ export const teamsNodes: NodeComponent[] = [
       ] },
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to edit", supportsAI: true },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      // Message selection method - channel messages
+      { name: "channelMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages_own", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "messageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "manual" } },
+      // Message selection method - chat messages
+      { name: "chatMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], visibilityCondition: { field: "chatId", operator: "isNotEmpty" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages_own", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "chatMessageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "manual" } },
       { name: "newContent", label: "New Message Content", type: "email-rich-text", required: true, placeholder: "Enter the new message content" }
     ],
     outputSchema: [
@@ -422,7 +413,7 @@ export const teamsNodes: NodeComponent[] = [
   },
   {
     type: "teams_action_find_message",
-    title: "Find Message by ID",
+    title: "Get Message",
     description: "Retrieve details of a specific message",
     icon: Info,
     providerId: "teams",
@@ -436,8 +427,21 @@ export const teamsNodes: NodeComponent[] = [
       ] },
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID" }
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      // Message selection method - channel messages
+      { name: "channelMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "messageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "manual" } },
+      // Message selection method - chat messages
+      { name: "chatMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], visibilityCondition: { field: "chatId", operator: "isNotEmpty" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "chatMessageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "manual" } }
     ],
     outputSchema: [
       { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message" },
@@ -452,7 +456,7 @@ export const teamsNodes: NodeComponent[] = [
   {
     type: "teams_action_delete_message",
     title: "Delete Message",
-    description: "Delete a message from a channel or chat",
+    description: "Delete a message from a channel or chat (only your own messages)",
     icon: Trash2,
     providerId: "teams",
     requiredScopes: ["ChannelMessage.Edit"],
@@ -465,8 +469,21 @@ export const teamsNodes: NodeComponent[] = [
       ] },
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message to delete" }
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      // Message selection method - channel messages
+      { name: "channelMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages_own", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "messageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "manual" } },
+      // Message selection method - chat messages
+      { name: "chatMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], visibilityCondition: { field: "chatId", operator: "isNotEmpty" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages_own", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "chatMessageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "manual" } }
     ],
     outputSchema: [
       { name: "success", label: "Success Status", type: "boolean", description: "Whether the message was deleted successfully" },
@@ -476,15 +493,17 @@ export const teamsNodes: NodeComponent[] = [
   {
     type: "teams_action_create_group_chat",
     title: "Create Group Chat",
-    description: "Create a new group chat with multiple users",
+    description: "Create a new group chat with multiple users (supports external guests)",
     icon: Users,
     providerId: "teams",
-    requiredScopes: ["Chat.Create"],
+    requiredScopes: ["Chat.Create", "User.Invite.All"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
       { name: "topic", label: "Chat Topic", type: "text", required: false, placeholder: "Enter chat topic (optional)", supportsAI: true },
-      { name: "members", label: "Members", type: "textarea", required: true, placeholder: "Enter member email addresses (comma-separated)", supportsAI: true },
+      { name: "members", label: "Members", type: "textarea", required: true, placeholder: "Enter member email addresses (one per line or comma-separated)", supportsAI: true, info: "Enter email addresses of users to add to the chat. Internal users will be added directly. For external users, enable 'Invite External Users' below." },
+      { name: "inviteExternalUsers", label: "Invite External Users", type: "boolean", required: false, defaultValue: false, info: "If enabled, users not found in your organization will be automatically invited as guest users to your Azure AD tenant." },
+      { name: "sendInvitationEmail", label: "Send Invitation Email", type: "boolean", required: false, defaultValue: true, visibilityCondition: { field: "inviteExternalUsers", operator: "equals", value: true }, info: "Send an email invitation to external users being invited to your organization." },
       { name: "initialMessage", label: "Initial Message", type: "email-rich-text", required: false, placeholder: "Send an initial message (optional)" }
     ],
     outputSchema: [
@@ -492,6 +511,10 @@ export const teamsNodes: NodeComponent[] = [
       { name: "chatType", label: "Chat Type", type: "string", description: "Type of chat (group)" },
       { name: "topic", label: "Chat Topic", type: "string", description: "The topic of the chat" },
       { name: "createdDateTime", label: "Created Time", type: "string", description: "When the chat was created (ISO 8601 format)" },
+      { name: "membersAdded", label: "Members Added", type: "number", description: "Number of members successfully added to the chat" },
+      { name: "addedMembers", label: "Added Members", type: "array", description: "List of email addresses of members who were already in the directory and added" },
+      { name: "invitedMembers", label: "Invited Members", type: "array", description: "List of email addresses of external users who were invited and added" },
+      { name: "failedMembers", label: "Failed Members", type: "array", description: "List of email addresses that could not be added" },
       { name: "success", label: "Success Status", type: "boolean", description: "Whether the chat was created successfully" }
     ]
   },
@@ -535,15 +558,28 @@ export const teamsNodes: NodeComponent[] = [
       ] },
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message" },
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      // Message selection method - channel messages
+      { name: "channelMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "messageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "manual" } },
+      // Message selection method - chat messages
+      { name: "chatMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], visibilityCondition: { field: "chatId", operator: "isNotEmpty" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "chatMessageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "manual" } },
       { name: "reactionType", label: "Reaction", type: "select", required: true, options: [
-        { value: "like", label: "👍 Like" },
-        { value: "heart", label: "❤️ Heart" },
-        { value: "laugh", label: "😂 Laugh" },
-        { value: "surprised", label: "😮 Surprised" },
-        { value: "sad", label: "😢 Sad" },
-        { value: "angry", label: "😠 Angry" }
+        { value: "👍", label: "👍 Like" },
+        { value: "❤️", label: "❤️ Heart" },
+        { value: "😂", label: "😂 Laugh" },
+        { value: "😮", label: "😮 Surprised" },
+        { value: "😢", label: "😢 Sad" },
+        { value: "😠", label: "😠 Angry" }
       ] }
     ],
     outputSchema: [
@@ -555,7 +591,7 @@ export const teamsNodes: NodeComponent[] = [
   {
     type: "teams_action_remove_reaction",
     title: "Remove Reaction from Message",
-    description: "Remove an emoji reaction from a message",
+    description: "Remove your emoji reaction(s) from a message",
     icon: Smile,
     providerId: "teams",
     requiredScopes: ["ChannelMessage.Send"],
@@ -568,81 +604,69 @@ export const teamsNodes: NodeComponent[] = [
       ] },
       { name: "teamId", label: "Team", type: "select", dynamic: "teams_teams", required: true, placeholder: "Select a team", loadOnMount: true, visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
       { name: "channelId", label: "Channel", type: "select", dynamic: "teams_channels", required: true, placeholder: "Select a channel", dependsOn: "teamId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
-      { name: "messageId", label: "Message ID", type: "text", required: true, placeholder: "Enter the ID of the message" },
-      { name: "reactionType", label: "Reaction", type: "select", required: true, options: [
-        { value: "like", label: "👍 Like" },
-        { value: "heart", label: "❤️ Heart" },
-        { value: "laugh", label: "😂 Laugh" },
-        { value: "surprised", label: "😮 Surprised" },
-        { value: "sad", label: "😢 Sad" },
-        { value: "angry", label: "😠 Angry" }
-      ] }
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat", dependsOn: "messageType", visibilityCondition: { field: "messageType", operator: "equals", value: "chat" } },
+      // Message selection method - channel messages
+      { name: "channelMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], dependsOn: "channelId", visibilityCondition: { field: "messageType", operator: "equals", value: "channel" } },
+      { name: "messageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "channelId", visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "messageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "channelMessageSelection", operator: "equals", value: "manual" } },
+      // Message selection method - chat messages
+      { name: "chatMessageSelection", label: "Select Message By", type: "select", required: true, defaultValue: "dropdown", options: [
+        { value: "dropdown", label: "Choose from list" },
+        { value: "manual", label: "Enter Message ID" }
+      ], visibilityCondition: { field: "chatId", operator: "isNotEmpty" } },
+      { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "dropdown" } },
+      { name: "chatMessageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "manual" } }
     ],
     outputSchema: [
       { name: "success", label: "Success Status", type: "boolean", description: "Whether the reaction was removed successfully" },
-      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message" }
+      { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message" },
+      { name: "removedReactions", label: "Removed Reactions", type: "array", description: "The reactions that were removed" }
     ]
   },
   // Meeting Controls
   {
-    type: "teams_action_start_meeting",
-    title: "Start Online Meeting",
-    description: "Start an instant online meeting",
-    icon: Video,
-    providerId: "teams",
-    requiredScopes: ["OnlineMeetings.ReadWrite"],
-    category: "Communication",
-    isTrigger: false,
-    configSchema: [
-      { name: "subject", label: "Meeting Subject", type: "text", required: true, placeholder: "Enter meeting subject", supportsAI: true },
-      { name: "participants", label: "Participants", type: "textarea", required: false, placeholder: "Add participant email addresses (comma-separated, optional)", supportsAI: true },
-      { name: "startDateTime", label: "Start Time", type: "datetime-local", required: false, placeholder: "Leave empty to start immediately" },
-      { name: "endDateTime", label: "End Time", type: "datetime-local", required: false, placeholder: "Leave empty for no end time" }
-    ],
-    outputSchema: [
-      { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the meeting" },
-      { name: "joinUrl", label: "Join URL", type: "string", description: "URL to join the meeting" },
-      { name: "subject", label: "Subject", type: "string", description: "The meeting subject" },
-      { name: "startDateTime", label: "Start Time", type: "string", description: "When the meeting starts" },
-      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was created successfully" }
-    ]
-  },
-  {
     type: "teams_action_end_meeting",
-    title: "End Online Meeting",
-    description: "End an ongoing online meeting",
+    title: "Cancel Online Meeting",
+    description: "Cancel a scheduled meeting and notify attendees",
     icon: Square,
     providerId: "teams",
-    requiredScopes: ["OnlineMeetings.ReadWrite"],
+    requiredScopes: ["Calendars.ReadWrite"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "meetingId", label: "Meeting ID", type: "text", required: true, placeholder: "Enter the ID of the meeting to end" }
+      { name: "meetingId", label: "Meeting", type: "select", dynamic: "teams_online_meetings", required: true, placeholder: "Select a meeting to cancel", loadOnMount: true }
     ],
     outputSchema: [
-      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was ended successfully" },
-      { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the ended meeting" }
+      { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was cancelled successfully" },
+      { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the cancelled meeting" },
+      { name: "subject", label: "Subject", type: "string", description: "The subject of the cancelled meeting" },
+      { name: "message", label: "Message", type: "string", description: "Confirmation message" }
     ]
   },
   {
     type: "teams_action_update_meeting",
-    title: "Update Online Meeting",
-    description: "Update meeting details",
+    title: "Update Meeting",
+    description: "Update meeting subject, start time, or end time",
     icon: Edit,
     providerId: "teams",
-    requiredScopes: ["OnlineMeetings.ReadWrite"],
+    requiredScopes: ["Calendars.ReadWrite"],
     category: "Communication",
     isTrigger: false,
     configSchema: [
-      { name: "meetingId", label: "Meeting ID", type: "text", required: true, placeholder: "Enter the meeting ID" },
-      { name: "subject", label: "New Subject", type: "text", required: false, placeholder: "Enter new meeting subject (optional)" },
-      { name: "startDateTime", label: "New Start Time", type: "datetime-local", required: false, placeholder: "Change start time (optional)" },
-      { name: "endDateTime", label: "New End Time", type: "datetime-local", required: false, placeholder: "Change end time (optional)" }
+      { name: "meetingId", label: "Meeting", type: "select", dynamic: "teams_online_meetings", required: true, placeholder: "Select a meeting to update", loadOnMount: true },
+      { name: "subject", label: "New Subject", type: "text", required: false, placeholder: "Enter new meeting subject (optional)", dependsOn: "meetingId", visibilityCondition: { field: "meetingId", operator: "isNotEmpty" }, supportsAI: true },
+      { name: "startDateTime", label: "New Start Time", type: "datetime-local", required: false, placeholder: "Change start time (optional)", dependsOn: "meetingId", visibilityCondition: { field: "meetingId", operator: "isNotEmpty" } },
+      { name: "endDateTime", label: "New End Time", type: "datetime-local", required: false, placeholder: "Change end time (optional)", dependsOn: "meetingId", visibilityCondition: { field: "meetingId", operator: "isNotEmpty" } }
     ],
     outputSchema: [
       { name: "meetingId", label: "Meeting ID", type: "string", description: "The ID of the meeting" },
       { name: "subject", label: "Subject", type: "string", description: "The updated meeting subject" },
+      { name: "startDateTime", label: "Start Time", type: "string", description: "The updated start time" },
+      { name: "endDateTime", label: "End Time", type: "string", description: "The updated end time" },
+      { name: "joinUrl", label: "Join URL", type: "string", description: "The Teams meeting join URL" },
       { name: "success", label: "Success Status", type: "boolean", description: "Whether the meeting was updated successfully" }
     ]
   },

@@ -14,7 +14,10 @@ export async function createTeamsTeam(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { displayName, description, visibility } = input
+    // Support both config and input for field values
+    const displayName = input.displayName || config.displayName
+    const description = input.description || config.description
+    const visibility = input.visibility || config.visibility
 
     if (!displayName) {
       return {
@@ -43,6 +46,25 @@ export async function createTeamsTeam(
 
     const accessToken = await decrypt(integration.access_token)
 
+    // Get the current user's ID first (required for team creation)
+    const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    })
+
+    if (!meResponse.ok) {
+      const meError = await meResponse.json()
+      logger.error('[Teams] Failed to get current user:', meError)
+      return {
+        success: false,
+        error: `Failed to get current user: ${meError.error?.message || meResponse.statusText}`
+      }
+    }
+
+    const currentUser = await meResponse.json()
+    const currentUserId = currentUser.id
+
     // Build team payload
     // Teams must be created from a group template
     const teamPayload = {
@@ -54,7 +76,7 @@ export async function createTeamsTeam(
         {
           "@odata.type": "#microsoft.graph.aadUserConversationMember",
           "roles": ["owner"],
-          "user@odata.bind": `https://graph.microsoft.com/v1.0/me`
+          "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${currentUserId}')`
         }
       ]
     }
@@ -90,7 +112,7 @@ export async function createTeamsTeam(
       // For now, return success with the operation status
       return {
         success: true,
-        data: {
+        output: {
           teamId: teamId || 'pending',
           displayName: displayName,
           description: description || '',
@@ -115,7 +137,7 @@ export async function createTeamsTeam(
 
     return {
       success: true,
-      data: {
+      output: {
         teamId: team.id,
         displayName: team.displayName,
         description: team.description || '',

@@ -36,7 +36,7 @@ export const scheduleCampaignActionSchema: NodeComponent = {
       type: "datetime-local",
       required: false,
       visibleWhen: { field: "scheduleType", value: "absolute" },
-      description: "When to send the campaign (must be at least 15 minutes in the future)"
+      description: "When to send the campaign. If less than 15 minutes from now, it will be automatically adjusted to 15 minutes in the future."
     },
     {
       name: "relativeAmount",

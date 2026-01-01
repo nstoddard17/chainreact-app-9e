@@ -14,7 +14,16 @@ export async function deleteTeamsMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { messageType, teamId, channelId, chatId, messageId } = input
+    // Support both config and input for field values
+    const messageType = input.messageType || config.messageType
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const chatId = input.chatId || config.chatId
+    // Support both dropdown selection and manual ID entry
+    // For channel messages: messageId (dropdown) or messageIdManual (text input)
+    // For chat messages: chatMessageId (dropdown) or chatMessageIdManual (text input)
+    const messageId = input.messageId || config.messageId || input.messageIdManual || config.messageIdManual ||
+                      input.chatMessageId || config.chatMessageId || input.chatMessageIdManual || config.chatMessageIdManual
 
     if (!messageType || !messageId) {
       return {
@@ -57,12 +66,34 @@ export async function deleteTeamsMessage(
 
     const accessToken = await decrypt(integration.access_token)
 
+    // Get the current user's ID for chat message deletion
+    let graphUserId: string | null = null
+    if (messageType === 'chat') {
+      const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+      if (meResponse.ok) {
+        const meData = await meResponse.json()
+        graphUserId = meData.id
+      }
+      if (!graphUserId) {
+        return {
+          success: false,
+          error: 'Failed to get user ID for chat message deletion'
+        }
+      }
+    }
+
     // Construct API endpoint based on message type
+    // For chat messages, must use /users/{userId}/chats/{chatId}/messages/{messageId}/softDelete
+    // For channel messages, use /teams/{teamId}/channels/{channelId}/messages/{messageId}/softDelete
     let endpoint: string
     if (messageType === 'channel') {
       endpoint = `https://graph.microsoft.com/v1.0/teams/${teamId}/channels/${channelId}/messages/${messageId}/softDelete`
     } else {
-      endpoint = `https://graph.microsoft.com/v1.0/chats/${chatId}/messages/${messageId}/softDelete`
+      endpoint = `https://graph.microsoft.com/v1.0/users/${graphUserId}/chats/${chatId}/messages/${messageId}/softDelete`
     }
 
     // Delete the message (soft delete)
@@ -85,7 +116,7 @@ export async function deleteTeamsMessage(
 
     return {
       success: true,
-      data: {
+      output: {
         success: true,
         deletedMessageId: messageId
       }

@@ -45,14 +45,31 @@ export const getSlackEmojiCatalog: SlackDataHandler<SlackEmojiCatalogItem> = asy
       integration.access_token
     )
 
+    // Handle HTTP-level errors (4xx)
+    if (!response.ok) {
+      logger.error("❌ [Slack Emoji] HTTP error from Slack API:", {
+        status: response.status,
+        statusText: response.statusText
+      })
+      if (response.status === 401 || response.status === 403) {
+        throw new Error("Slack authentication expired. Please reconnect your account.")
+      }
+      throw new Error(`Slack API error: ${response.status} - ${response.statusText}`)
+    }
+
     const data = await response.json()
 
     if (!data.ok) {
+      logger.error("❌ [Slack Emoji] Slack API returned error:", {
+        error: data.error,
+        needed: data.needed,
+        provided: data.provided
+      })
       if (data.error === 'invalid_auth' || data.error === 'token_revoked') {
         throw new Error('Slack authentication expired. Please reconnect your account.')
       }
       if (data.error === 'missing_scope') {
-        throw new Error('Slack workspace is missing emoji.list scope. Reinstall the Slack app with emoji access.')
+        throw new Error(`Missing required Slack scope: ${data.needed || 'emoji:read'}. Please reconnect with the required permissions.`)
       }
       throw new Error(`Slack API error: ${data.error}`)
     }

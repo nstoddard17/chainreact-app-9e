@@ -135,6 +135,7 @@ const slackMappings: Record<string, FieldMapping> = {
     userId: "slack_users",
   },
   slack_action_add_reminder: {
+    workspace: "slack_workspaces",
     userId: "slack_users",
   },
   slack_action_invite_users_to_channel: {
@@ -398,6 +399,46 @@ const googleSheetsMappings: Record<string, FieldMapping> = {
     sheetName: "google-sheets_sheets",
     searchColumn: "google-sheets_columns",
   },
+  // Cell-level actions
+  "google_sheets_action_update_cell": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  "google_sheets_action_get_cell_value": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Append row action
+  "google_sheets_action_append_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Update row action (underscore version)
+  "google_sheets_action_update_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Delete row action (underscore version)
+  "google_sheets_action_delete_row": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Clear range action
+  "google_sheets_action_clear_range": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Format range action
+  "google_sheets_action_format_range": {
+    spreadsheetId: "google-sheets_spreadsheets",
+    sheetName: "google-sheets_sheets",
+  },
+  // Batch update action
+  "google_sheets_action_batch_update": {
+    spreadsheetId: "google-sheets_spreadsheets",
+  },
+  // Create spreadsheet action (no spreadsheet selector needed - creates new)
+  "google_sheets_action_create_spreadsheet": {},
 };
 
 // Google Drive field mappings
@@ -671,6 +712,23 @@ const teamsMappings: Record<string, FieldMapping> = {
     teamId: "teams_teams",
     channelId: "teams_channels",
   },
+  "teams_trigger_new_reply": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+  },
+  "teams_trigger_channel_mention": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+  },
+  "teams_trigger_new_chat_message": {
+    chatId: "teams_chats",
+  },
+  "teams_trigger_new_channel": {
+    teamId: "teams_teams",
+  },
+  "teams_trigger_user_joins_team": {
+    teamId: "teams_teams",
+  },
   "teams_action_send_message": {
     teamId: "teams_teams",
     channelId: "teams_channels",
@@ -683,7 +741,7 @@ const teamsMappings: Record<string, FieldMapping> = {
   },
   "teams_action_add_member_to_team": {
     teamId: "teams_teams",
-    userEmail: "outlook-enhanced-recipients",
+    userEmail: "teams_users",
   },
   "teams_action_send_adaptive_card": {
     teamId: "teams_teams",
@@ -692,12 +750,62 @@ const teamsMappings: Record<string, FieldMapping> = {
   "teams_action_get_team_members": {
     teamId: "teams_teams",
   },
-  "teams_trigger_user_joins_team": {
+  "teams_action_reply_to_message": {
     teamId: "teams_teams",
+    channelId: "teams_channels",
+    messageId: "teams_messages",
+  },
+  "teams_action_edit_message": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+    messageId: "teams_messages_own",
+    chatMessageId: "teams_messages_own",
+  },
+  "teams_action_find_message": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+    messageId: "teams_messages",
+    chatMessageId: "teams_messages",
+  },
+  "teams_action_delete_message": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+    messageId: "teams_messages_own",
+    chatMessageId: "teams_messages_own",
+  },
+  "teams_action_get_channel_details": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+  },
+  "teams_action_add_reaction": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+    messageId: "teams_messages",
+    chatMessageId: "teams_messages",
+  },
+  "teams_action_remove_reaction": {
+    teamId: "teams_teams",
+    channelId: "teams_channels",
+    chatId: "teams_chats",
+    messageId: "teams_messages",
+    chatMessageId: "teams_messages",
   },
   "microsoft-teams_action_add_team_member": {
     userEmail: "outlook-enhanced-recipients",
     teamId: "teams_teams",
+  },
+  "teams_action_schedule_meeting": {
+    attendees: "outlook-enhanced-recipients",
+  },
+  "teams_action_end_meeting": {
+    meetingId: "teams_online_meetings",
+  },
+  "teams_action_update_meeting": {
+    meetingId: "teams_online_meetings",
   },
 };
 
@@ -832,6 +940,11 @@ const microsoftExcelMappings: Record<string, FieldMapping> = {
   "microsoft_excel_action_create_workbook": {
     folderPath: "microsoft-excel_folders",
   },
+  "microsoft_excel_action_add_row": {
+    workbookId: "microsoft-excel_workbooks",
+    worksheetName: "microsoft-excel_worksheets",
+    columnMapping: "microsoft-excel_columns",
+  },
   "microsoft_excel_trigger_new_row": {
     workbookId: "microsoft-excel_workbooks",
     worksheetName: "microsoft-excel_worksheets",
@@ -955,8 +1068,12 @@ const mailchimpMappings: Record<string, FieldMapping> = {
   mailchimp_action_add_subscriber: {
     audience_id: "mailchimp_audiences",
   },
+  mailchimp_action_add_note: {
+    audience_id: "mailchimp_audiences",
+  },
   mailchimp_action_update_subscriber: {
     audience_id: "mailchimp_audiences",
+    subscriber_email: "mailchimp_subscribers",
   },
   mailchimp_action_remove_subscriber: {
     audience_id: "mailchimp_audiences",
@@ -979,7 +1096,25 @@ const mailchimpMappings: Record<string, FieldMapping> = {
     // No dynamic fields - creates new audience
   },
   mailchimp_action_create_event: {
-    audienceId: "mailchimp_audiences",
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_get_subscriber: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_get_campaign: {
+    campaign_id: "mailchimp_campaigns",
+  },
+  mailchimp_action_get_campaign_stats: {
+    campaign_id: "mailchimp_campaigns",
+  },
+  mailchimp_action_schedule_campaign: {
+    campaign_id: "mailchimp_campaigns",
+  },
+  mailchimp_action_unsubscribe_subscriber: {
+    audience_id: "mailchimp_audiences",
+  },
+  mailchimp_action_create_segment: {
+    audience_id: "mailchimp_audiences",
   },
 };
 

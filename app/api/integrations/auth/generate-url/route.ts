@@ -84,34 +84,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Special handling for Teams integration - check user role
-    if (provider.toLowerCase() === "teams") {
-      try {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        const userRole = profile?.role || 'free'
-        const allowedRoles = ['business', 'enterprise', 'admin']
-        
-        if (!allowedRoles.includes(userRole)) {
-          return jsonResponse({ 
-            error: "Teams integration requires a Business, Enterprise, or Admin plan. Please upgrade your account to access Teams integration.",
-            details: {
-              currentRole: userRole,
-              requiredRoles: allowedRoles
-            }
-          }, { status: 403 })
-        }
-      } catch (profileError) {
-        logger.error("Error checking user profile for Teams:", profileError)
-        return errorResponse("Unable to verify account permissions for Teams integration. Please try again or contact support.", 500, { details: "Profile lookup failed"
-         })
-      }
-    }
-
     // Create state object with workspace context
     const stateObject: {
       userId: string
@@ -340,8 +312,8 @@ function generateSlackAuthUrl(state: string): string {
     client_id: clientId,
     // Bot scopes for workspace-level actions
     scope: "channels:join,channels:read,chat:write,chat:write.public,files:write,groups:read,im:read,reactions:write,team:read,users:read",
-    // User scopes for user-level actions
-    user_scope: "channels:read,chat:write,groups:read,mpim:read,channels:history,groups:history,im:history,mpim:history,reactions:read",
+    // User scopes for user-level actions (includes reminders:write for reminder functionality)
+    user_scope: "channels:read,chat:write,groups:read,mpim:read,channels:history,groups:history,im:history,mpim:history,reactions:read,reminders:write,reminders:read,identity.basic,identity.email,identity.avatar",
     redirect_uri: `${redirectBase}/api/integrations/slack/callback`,
     state,
   })

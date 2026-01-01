@@ -36,7 +36,7 @@ export const addReactionActionSchema: NodeComponent = {
       required: true,
       placeholder: "{{trigger.ts}} or 1234567890.123456",
       supportsAI: true,
-      tooltip: "The timestamp of the message to react to. Use variables like {{trigger.ts}} or {{previous_node.ts}} from previous workflow steps.",
+      tooltip: "The unique Slack message ID (format: 1234567890.123456). To find manually: right-click a message → 'Copy link' → the URL contains 'p1234567890123456' - remove the 'p' and add a decimal after the 10th digit. Or use variables like {{trigger.ts}} from previous workflow steps.",
       dependsOn: "channel",
       hidden: {
         $deps: ["channel"],

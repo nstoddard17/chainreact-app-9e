@@ -1675,6 +1675,11 @@ function ConfigurationForm({
     
     // Google Services
     case 'google-sheets':
+      logger.debug('📊 [ConfigForm] Routing to GoogleSheetsConfiguration', {
+        nodeType: nodeInfo?.type,
+        providerId: provider,
+        configSchemaTypes: nodeInfo?.configSchema?.map((f: any) => f.type)
+      });
       return <GoogleSheetsConfiguration {...commonProps} />;
     
     case 'google-calendar':

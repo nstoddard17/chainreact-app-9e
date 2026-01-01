@@ -83,6 +83,7 @@ import { FieldMapperField } from "./airtable/FieldMapperField";
 import { ShopifyLineItemsField } from "./shopify/ShopifyLineItemsField";
 import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
 import { GoogleSheetsFindRowPreview } from "../components/google-sheets/GoogleSheetsFindRowPreview";
+import { GoogleSheetsAddRowFields } from "../components/google-sheets/GoogleSheetsAddRowFields";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Shared field components
@@ -93,11 +94,15 @@ import { GenericTextInput } from "./shared/GenericTextInput";
 import { ConnectButton } from "./shared/ConnectButton";
 import { VariableSelectionDropdown } from "./shared/VariableSelectionDropdown";
 import { LoadingFieldState } from "./shared/LoadingFieldState";
+import { KeyValueField } from "./shared/KeyValueField";
 
 // Notion-specific field components
 import { NotionBlockFields } from "./notion/NotionBlockFields";
 import { NotionDatabaseRowsField } from "./notion/NotionDatabaseRowsField";
 import { NotionDeletableBlocksField } from "./notion/NotionDeletableBlocksField";
+
+// Microsoft Excel field components
+import { MicrosoftExcelColumnMapper } from "./microsoft-excel/MicrosoftExcelColumnMapper";
 import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { NotionSelectOptionsField } from "./notion/NotionSelectOptionsField";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
@@ -1244,6 +1249,17 @@ export function FieldRenderer({
 
       case "tags":
         return <TagsInput value={value} onChange={onChange} field={field} error={error} />;
+
+      case "keyvalue":
+        // Key-value pair input with toggle between visual editor and raw JSON
+        return (
+          <KeyValueField
+            field={field}
+            value={value}
+            onChange={onChange}
+            error={error}
+          />
+        );
 
       case "file":
         // Generic file upload handling - render FileUpload component for all file fields
@@ -3045,6 +3061,68 @@ export function FieldRenderer({
             className={cn(error && "border-red-500")}
           />
         );
+
+      case "microsoft_excel_column_mapper":
+        return (
+          <MicrosoftExcelColumnMapper
+            value={value}
+            onChange={onChange}
+            field={field}
+            nodeInfo={nodeInfo}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+            dynamicOptions={dynamicOptions}
+            loadingFields={loadingFields}
+            loadOptions={onDynamicLoad}
+            parentValues={parentValues}
+          />
+        );
+
+      case "google_sheets_add_row_preview":
+        // Google Sheets Add Row Preview - shows sheet preview and position selection
+        // This is a simplified placeholder - full preview requires GoogleSheetsConfiguration
+        return (
+          <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              New rows will be appended to the end of the sheet by default.
+            </p>
+          </div>
+        );
+
+      case "google_sheets_add_row_fields":
+        // Google Sheets Add Row Fields - dynamic column fields for entering row data
+        // Component self-fetches data when preview data is not provided
+        return (
+          <GoogleSheetsAddRowFields
+            values={parentValues || {}}
+            setValue={(key, val) => {
+              if (setFieldValue) {
+                setFieldValue(key, val);
+              }
+            }}
+            action="add"
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+          />
+        );
+
+      case "google_sheets_find_row_preview":
+        // Google Sheets Find Row Preview
+        return (
+          <GoogleSheetsFindRowPreview
+            values={parentValues || {}}
+            fieldKey={`field-${field.name}`}
+          />
+        );
+
+      case "google_sheets_data_preview":
+      case "google_sheets_update_fields":
+      case "google_sheets_range_preview":
+      case "google_sheets_row_preview":
+      case "google_sheets_update_row_preview":
+        // These Google Sheets custom field types require provider-specific state management
+        // They're typically rendered by GoogleSheetsConfiguration with proper context
+        return null;
 
       default:
         return (

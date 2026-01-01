@@ -14,7 +14,13 @@ export async function scheduleTeamsMeeting(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { subject, startTime, endTime, attendees, description, isOnlineMeeting } = input
+    // Support both config and input for field values
+    const subject = input.subject || config.subject
+    const startTime = input.startTime || config.startTime
+    const endTime = input.endTime || config.endTime
+    const attendees = input.attendees || config.attendees
+    const description = input.description || config.description
+    const isOnlineMeeting = input.isOnlineMeeting ?? config.isOnlineMeeting
 
     if (!subject || !startTime || !endTime) {
       return {
@@ -106,7 +112,7 @@ export async function scheduleTeamsMeeting(
 
     return {
       success: true,
-      data: {
+      output: {
         eventId: event.id,
         subject: event.subject,
         startTime: event.start?.dateTime,

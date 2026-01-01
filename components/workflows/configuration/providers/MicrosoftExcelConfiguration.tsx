@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { FieldRenderer } from '../fields/FieldRenderer';
 import { useIntegrationStore } from '@/stores/integrationStore';
+import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility';
 import { MicrosoftExcelDataPreview } from '../components/microsoft-excel/MicrosoftExcelDataPreview';
 import { MicrosoftExcelUpdateFields } from '../components/microsoft-excel/MicrosoftExcelUpdateFields';
 import { MicrosoftExcelDeleteConfirmation } from '../components/microsoft-excel/MicrosoftExcelDeleteConfirmation';
@@ -361,6 +362,7 @@ export function MicrosoftExcelConfiguration({
   }, [values, onSubmit]);
 
   // Get visible fields based on current state
+  // Uses centralized FieldVisibilityEngine to properly evaluate $deps/$condition visibility rules
   const getVisibleFields = () => {
     if (!nodeInfo?.configSchema) return [];
 
@@ -368,31 +370,8 @@ export function MicrosoftExcelConfiguration({
       // Skip advanced fields and hidden type fields
       if (field.advanced || field.type === 'hidden') return false;
 
-      // Check if field depends on another field
-      if (field.dependsOn) {
-        const dependencyValue = values[field.dependsOn];
-        if (!dependencyValue) {
-          return false; // Hide field if dependency has no value
-        }
-      }
-
-      // Check if field should be shown based on showIf condition
-      if (field.showIf && typeof field.showIf === 'function') {
-        return field.showIf(values);
-      }
-
-      // If field is marked as hidden but has showIf, evaluate showIf
-      if (field.hidden && field.showIf) {
-        if (typeof field.showIf === 'function') {
-          return field.showIf(values);
-        }
-      }
-
-      // If field is hidden and no showIf, hide it
-      if (field.hidden) return false;
-
-      // Otherwise show the field
-      return true;
+      // Use FieldVisibilityEngine to properly evaluate visibility including $deps and $condition
+      return FieldVisibilityEngine.isFieldVisible(field, values, nodeInfo);
     });
   };
 
@@ -434,7 +413,13 @@ export function MicrosoftExcelConfiguration({
         {/* Regular fields */}
         {visibleFields.map((field: any) => {
           // Skip special fields that we handle separately
-          if (['dataPreview', 'columnMapping', 'updateMapping', 'hasHeaders'].includes(field.name)) {
+          // For add_row action, we want to render hasHeaders and columnMapping via FieldRenderer
+          const isAddRowAction = nodeInfo?.type === 'microsoft_excel_action_add_row';
+          const skipFields = isAddRowAction
+            ? ['dataPreview', 'updateMapping']
+            : ['dataPreview', 'columnMapping', 'updateMapping', 'hasHeaders'];
+
+          if (skipFields.includes(field.name)) {
             return null;
           }
 
@@ -451,11 +436,10 @@ export function MicrosoftExcelConfiguration({
               currentNodeId={currentNodeId}
               values={values}
               parentValues={values}
-              loadOptions={(forceReload?: boolean) => {
-                const dependsOn = field.dependsOn;
-                const parentValue = dependsOn ? values[dependsOn] : undefined;
-                return loadOptions(field.name, dependsOn, parentValue, forceReload);
+              onDynamicLoad={(fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => {
+                return loadOptions(fieldName, dependsOn, dependsOnValue, forceRefresh);
               }}
+              loadingFields={loadingFields}
               integrationId="microsoft-excel"
               nodeInfo={nodeInfo}
               isAIEnabled={aiFields[field.name] || false}
@@ -510,16 +494,18 @@ export function MicrosoftExcelConfiguration({
           />
         )}
 
-        {/* Add Row Fields */}
-        <MicrosoftExcelAddRowFields
-          values={values}
-          setValue={setValueWithColumnTracking}
-          previewData={previewData}
-          hasHeaders={microsoftExcelHasHeaders}
-          action={values.action}
-          showPreviewData={showPreviewData}
-          loadingPreview={loadingPreview}
-        />
+        {/* Add Row Fields - only show for legacy add actions, not add_row which uses MicrosoftExcelColumnMapper */}
+        {nodeInfo?.type !== 'microsoft_excel_action_add_row' && (
+          <MicrosoftExcelAddRowFields
+            values={values}
+            setValue={setValueWithColumnTracking}
+            previewData={previewData}
+            hasHeaders={microsoftExcelHasHeaders}
+            action={values.action}
+            showPreviewData={showPreviewData}
+            loadingPreview={loadingPreview}
+          />
+        )}
 
         {/* Update Row Fields - shown for update_row action when worksheet is selected */}
         {nodeInfo?.type === 'microsoft_excel_action_update_row' && values.worksheetName && values.workbookId && (() => {

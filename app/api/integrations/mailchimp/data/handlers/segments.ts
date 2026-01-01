@@ -17,11 +17,13 @@ export const getMailchimpSegments: MailchimpDataHandler<MailchimpSegment> = asyn
   integration: MailchimpIntegration,
   options: any = {}
 ): Promise<MailchimpSegment[]> => {
-  const { audienceId } = options
+  // Support both audienceId and audience_id (field name varies by context)
+  const audienceId = options.audienceId || options.audience_id
 
   logger.debug("🔍 [Mailchimp] Fetching segments:", {
     integrationId: integration.id,
-    audienceId
+    audienceId,
+    options
   })
 
   try {

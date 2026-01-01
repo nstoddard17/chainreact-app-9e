@@ -14,7 +14,17 @@ export async function editTeamsMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { messageType, teamId, channelId, chatId, messageId, newContent } = input
+    // Support both config and input for field values
+    const messageType = input.messageType || config.messageType
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const chatId = input.chatId || config.chatId
+    // Support both dropdown selection and manual ID entry
+    // For channel messages: messageId (dropdown) or messageIdManual (text input)
+    // For chat messages: chatMessageId (dropdown) or chatMessageIdManual (text input)
+    const messageId = input.messageId || config.messageId || input.messageIdManual || config.messageIdManual ||
+                      input.chatMessageId || config.chatMessageId || input.chatMessageIdManual || config.chatMessageIdManual
+    const newContent = input.newContent || config.newContent
 
     if (!messageType || !messageId || !newContent) {
       return {
@@ -80,21 +90,37 @@ export async function editTeamsMessage(
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      logger.error('[Teams] Failed to edit message:', errorData)
+      const errorText = await response.text()
+      let errorMessage = response.statusText
+      try {
+        const errorData = JSON.parse(errorText)
+        errorMessage = errorData.error?.message || response.statusText
+      } catch {
+        // errorText is not JSON
+      }
+      logger.error('[Teams] Failed to edit message:', errorText)
       return {
         success: false,
-        error: `Failed to edit message: ${errorData.error?.message || response.statusText}`
+        error: `Failed to edit message: ${errorMessage}`
       }
     }
 
-    const updatedMessage = await response.json()
+    // Handle both 200 (with body) and 204 (no content) responses
+    let updatedMessage: any = null
+    const responseText = await response.text()
+    if (responseText) {
+      try {
+        updatedMessage = JSON.parse(responseText)
+      } catch {
+        // Response is not JSON, that's okay
+      }
+    }
 
     return {
       success: true,
-      data: {
-        messageId: updatedMessage.id,
-        updatedDateTime: updatedMessage.lastModifiedDateTime,
+      output: {
+        messageId: updatedMessage?.id || messageId,
+        updatedDateTime: updatedMessage?.lastModifiedDateTime || new Date().toISOString(),
         success: true
       }
     }

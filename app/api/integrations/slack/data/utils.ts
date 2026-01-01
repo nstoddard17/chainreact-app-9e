@@ -47,20 +47,31 @@ export function validateSlackIntegration(integration: any): void {
  * Make authenticated request to Slack API
  */
 export async function makeSlackApiRequest(
-  url: string, 
-  accessToken: string, 
+  url: string,
+  accessToken: string,
   options: RequestInit = {}
 ): Promise<Response> {
+  // For GET requests, don't set Content-Type as it can cause issues
+  const method = options.method?.toUpperCase() || 'GET'
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${accessToken}`,
+    ...options.headers as Record<string, string>,
+  }
+
+  // Only add Content-Type for POST/PUT/PATCH requests with a body
+  if (['POST', 'PUT', 'PATCH'].includes(method) && options.body) {
+    headers['Content-Type'] = 'application/json'
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   })
 
-  if (!response.ok) {
+  // Slack API can return 200 with ok: false, so don't throw on HTTP errors
+  // Let the caller handle the response parsing and error checking
+  // Only throw for network-level errors or truly broken responses
+  if (!response.ok && response.status >= 500) {
     throw createSlackApiError(
       `Slack API error: ${response.status} - ${response.statusText}`,
       response.status,

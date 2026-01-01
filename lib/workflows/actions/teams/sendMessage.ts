@@ -14,7 +14,10 @@ export async function sendTeamsMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { teamId, channelId, message } = input
+    // Support both config and input for field values
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const message = input.message || config.message
 
     if (!teamId || !channelId || !message) {
       return {
@@ -75,7 +78,7 @@ export async function sendTeamsMessage(
 
     return {
       success: true,
-      data: {
+      output: {
         messageId: sentMessage.id,
         channelId: channelId,
         timestamp: sentMessage.createdDateTime,

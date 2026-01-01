@@ -14,7 +14,9 @@ export async function sendTeamsChatMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { chatId, message } = input
+    // Support both config and input for field values
+    const chatId = input.chatId || config.chatId
+    const message = input.message || config.message
 
     if (!chatId || !message) {
       return {
@@ -75,7 +77,7 @@ export async function sendTeamsChatMessage(
 
     return {
       success: true,
-      data: {
+      output: {
         messageId: sentMessage.id,
         chatId: chatId,
         timestamp: sentMessage.createdDateTime,

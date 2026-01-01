@@ -12,9 +12,9 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
   integration: GoogleSheetsIntegration,
   options: GoogleSheetsHandlerOptions = {}
 ): Promise<GoogleSheetsRecord[]> => {
-  const { 
-    spreadsheetId, 
-    sheetName, 
+  const {
+    spreadsheetId,
+    sheetName: rawSheetName,
     maxRows = 100,
     startRow = 1,
     endRow,
@@ -23,11 +23,17 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
     searchQuery,
     includeHeaders = true
   } = options
-  
+
+  // Handle sheetName being either a string or an object with a 'name' property
+  const sheetName = typeof rawSheetName === 'object' && rawSheetName !== null
+    ? (rawSheetName as any).name || String(rawSheetName)
+    : rawSheetName
+
   logger.debug("🔍 Google Sheets records fetcher called with:", {
     integrationId: integration.id,
     spreadsheetId,
     sheetName,
+    rawSheetName,
     maxRows,
     includeHeaders,
     hasToken: !!integration.access_token

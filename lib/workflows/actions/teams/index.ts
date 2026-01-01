@@ -20,7 +20,6 @@ export { addTeamsReaction } from './addReaction'
 export { removeTeamsReaction } from './removeReaction'
 
 // Meeting Actions
-export { createTeamsMeeting } from './createMeeting'
 export { scheduleTeamsMeeting } from './scheduleMeeting'
 export { startTeamsMeeting } from './startMeeting'
 export { endTeamsMeeting } from './endMeeting'

@@ -1548,12 +1548,11 @@ export const mailchimpNodes: NodeComponent[] = [
       },
       {
         name: "properties",
-        label: "Event Properties (JSON)",
-        type: "textarea",
+        label: "Event Properties",
+        type: "keyvalue",
         required: false,
-        placeholder: '{"product_name": "Premium Plan", "price": 99.99}',
-        description: "Additional event data as JSON object",
-        supportsAI: true
+        placeholder: "Add custom event properties",
+        description: "Additional event data (e.g., product_name: Premium Plan, price: 99.99)"
       },
       {
         name: "occurred_at",

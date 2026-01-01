@@ -14,7 +14,16 @@ export async function findTeamsMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    const { messageType, teamId, channelId, chatId, messageId } = input
+    // Support both config and input for field values
+    const messageType = input.messageType || config.messageType
+    const teamId = input.teamId || config.teamId
+    const channelId = input.channelId || config.channelId
+    const chatId = input.chatId || config.chatId
+    // Support both dropdown selection and manual ID entry
+    // For channel messages: messageId (dropdown) or messageIdManual (text input)
+    // For chat messages: chatMessageId (dropdown) or chatMessageIdManual (text input)
+    const messageId = input.messageId || config.messageId || input.messageIdManual || config.messageIdManual ||
+                      input.chatMessageId || config.chatMessageId || input.chatMessageIdManual || config.chatMessageIdManual
 
     if (!messageType || !messageId) {
       return {
@@ -87,7 +96,7 @@ export async function findTeamsMessage(
 
     return {
       success: true,
-      data: {
+      output: {
         messageId: message.id,
         content: message.body?.content || '',
         senderId: message.from?.user?.id || '',
