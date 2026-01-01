@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 import { apiClient } from "@/lib/apiClient"
 import { SessionManager } from "@/lib/auth/session"
 import { OAuthPopupManager } from "@/lib/oauth/popup-manager"

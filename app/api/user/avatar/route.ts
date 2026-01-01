@@ -1,5 +1,6 @@
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
+import { logger } from "@/lib/utils/logger"
 
 export async function GET(request: Request) {
   try {
@@ -35,13 +36,13 @@ export async function GET(request: Request) {
       .createSignedUrl(filePath, 3600) // 1 hour expiry
 
     if (error) {
-      console.error('Error creating signed URL:', error)
+      logger.error('[User API] Error creating signed URL:', { error })
       return NextResponse.json({ error: 'Failed to generate signed URL' }, { status: 500 })
     }
 
     return NextResponse.json({ signedUrl: data.signedUrl })
   } catch (error) {
-    console.error('Avatar API error:', error)
+    logger.error('[User API] Avatar API error:', { error })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

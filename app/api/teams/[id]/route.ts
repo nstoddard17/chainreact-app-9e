@@ -89,7 +89,7 @@ export async function GET(
       billing: billingInfo
     })
   } catch (error: any) {
-    console.error('Error fetching team:', error)
+    logger.error('[Teams API] Error fetching team:', { error })
     return errorResponse(error.message || "Failed to fetch team", 500)
   }
 }
@@ -135,7 +135,7 @@ export async function PUT(
 
     return jsonResponse({ team })
   } catch (error: any) {
-    console.error('Error updating team:', error)
+    logger.error('[Teams API] Error updating team:', { error })
     return errorResponse(error.message || "Failed to update team", 500)
   }
 }
@@ -170,7 +170,7 @@ export async function DELETE(
 
     return jsonResponse({ success: true })
   } catch (error: any) {
-    console.error('Error deleting team:', error)
+    logger.error('[Teams API] Error deleting team:', { error })
     return errorResponse(error.message || "Failed to delete team", 500)
   }
 }

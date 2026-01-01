@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from "@/lib/utils/api-response"
+import { logger } from "@/lib/utils/logger"
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     return jsonResponse({ members: members || [] })
   } catch (error: any) {
-    console.error('Error fetching team members:', error)
+    logger.error('[Team Members API] Error fetching team members:', { error })
     return errorResponse(error.message || "Failed to fetch team members", 500)
   }
 }
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     return jsonResponse({ invitation }, 201)
   } catch (error: any) {
-    console.error('Error inviting team member:', error)
+    logger.error('[Team Members API] Error inviting team member:', { error })
     return errorResponse(error.message || "Failed to invite team member", 500)
   }
 }
@@ -155,7 +156,7 @@ export async function DELETE(request: NextRequest) {
 
     return jsonResponse({ success: true })
   } catch (error: any) {
-    console.error('Error removing team member:', error)
+    logger.error('[Team Members API] Error removing team member:', { error })
     return errorResponse(error.message || "Failed to remove team member", 500)
   }
 }

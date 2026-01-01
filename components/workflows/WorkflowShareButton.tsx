@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Share2, UserPlus, Mail, Copy, Check } from 'lucide-react'
 import { LockedFeature } from '@/components/plan-restrictions'
 import { usePlanRestrictions } from '@/hooks/use-plan-restrictions'
+import { logger } from '@/lib/utils/logger'
 
 interface WorkflowShareButtonProps {
   workflowId: string
@@ -31,7 +32,7 @@ export function WorkflowShareButton({ workflowId, workflowName }: WorkflowShareB
 
   const handleInvite = () => {
     // TODO: Implement invite logic
-    console.log('Inviting:', inviteEmail)
+    logger.debug('Inviting user to workflow', { email: inviteEmail, workflowId })
     setInviteEmail('')
   }
 

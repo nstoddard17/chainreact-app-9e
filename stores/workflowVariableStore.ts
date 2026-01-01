@@ -1,7 +1,7 @@
 "use client"
 
 import { create } from "zustand"
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 
 interface WorkflowVariable {
   id: string
@@ -33,7 +33,7 @@ export const useWorkflowVariableStore = create<WorkflowVariableState & WorkflowV
   error: null,
 
   fetchVariables: async (workflowId: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     set({ loading: true, error: null })
 
@@ -53,7 +53,7 @@ export const useWorkflowVariableStore = create<WorkflowVariableState & WorkflowV
   },
 
   setVariable: async (workflowId: string, name: string, value: any, type = "string") => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     try {
       const { data, error } = await supabase
@@ -85,7 +85,7 @@ export const useWorkflowVariableStore = create<WorkflowVariableState & WorkflowV
   },
 
   deleteVariable: async (id: string) => {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     try {
       const { error } = await supabase.from("workflow_variables").delete().eq("id", id)

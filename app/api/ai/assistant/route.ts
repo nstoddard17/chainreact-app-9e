@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { AIAssistantService } from "@/lib/services/ai/aiAssistantService"
-
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 import { logger } from '@/lib/utils/logger'
 
 // Simple test endpoint
@@ -12,6 +12,15 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 30 AI assistant requests per minute per IP
+  const rateLimitResult = checkRateLimit(request, {
+    limit: 30,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   // Create a flag to check if connection was closed
   let connectionClosed = false
   

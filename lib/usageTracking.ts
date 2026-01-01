@@ -1,9 +1,9 @@
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 
 import { logger } from '@/lib/utils/logger'
 
 export async function trackUsage(userId: string, resourceType: string, action: string, quantity = 1, metadata?: any) {
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
 
   try {
     // Log the usage
@@ -43,7 +43,7 @@ export async function checkUsageLimit(
   logger.debug("🧪 Usage limits disabled for testing")
   return { allowed: true, limit: 999999, current: 0 }
   
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
 
   try {
     // Get current subscription and plan

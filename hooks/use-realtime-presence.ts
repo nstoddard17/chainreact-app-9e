@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js'
-import { getSupabaseClient } from '@/lib/supabase'
+import { createClient } from '@/utils/supabaseClient'
 import { useAuthStore } from '@/stores/authStore'
 
 import { logger } from '@/lib/utils/logger'
@@ -32,7 +32,7 @@ export function useRealtimePresence(options: UseRealtimePresenceOptions = {}) {
   const [isConnected, setIsConnected] = useState(false)
   const [userStatus, setUserStatus] = useState<'online' | 'away' | 'offline'>('online')
   const { user, profile } = useAuthStore()
-  const supabase = getSupabaseClient()
+  const supabase = createClient()
   const channelRef = useRef<RealtimeChannel | null>(null)
   const presenceRef = useRef<any>(null)
   const updateIntervalRef = useRef<NodeJS.Timeout | null>(null)

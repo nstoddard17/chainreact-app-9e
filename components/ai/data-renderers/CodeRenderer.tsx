@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { sanitizeHtml } from "@/lib/utils/sanitize-html"
 
 interface CodeRendererProps {
   code: string
@@ -48,9 +49,13 @@ export function CodeRenderer({
       'public', 'private', 'protected', 'static', 'readonly'
     ]
 
-    const operators = ['===', '==', '!==', '!=', '<=', '>=', '<', '>', '&&', '||', '!', '=', '+', '-', '*', '/', '%']
-
+    // First, escape HTML entities in the input to prevent XSS
     let highlighted = line
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
 
     // Comments
     if (lang === 'javascript' || lang === 'typescript' || lang === 'jsx' || lang === 'tsx') {
@@ -60,8 +65,8 @@ export function CodeRenderer({
       highlighted = highlighted.replace(/(#.*$)/g, '<span class="text-gray-500 italic">$1</span>')
     }
 
-    // Strings
-    highlighted = highlighted.replace(/(".*?"|'.*?'|`.*?`)/g, '<span class="text-green-600 dark:text-green-400">$1</span>')
+    // Strings (match escaped quotes)
+    highlighted = highlighted.replace(/(&quot;.*?&quot;|&#039;.*?&#039;|`.*?`)/g, '<span class="text-green-600 dark:text-green-400">$1</span>')
 
     // Numbers
     highlighted = highlighted.replace(/\b(\d+)\b/g, '<span class="text-blue-600 dark:text-blue-400">$1</span>')
@@ -72,7 +77,13 @@ export function CodeRenderer({
       highlighted = highlighted.replace(regex, '<span class="text-purple-600 dark:text-purple-400 font-semibold">$1</span>')
     })
 
-    return <span dangerouslySetInnerHTML={{ __html: highlighted }} />
+    // Sanitize the final output to ensure only our span tags are allowed
+    const sanitized = sanitizeHtml(highlighted, {
+      ALLOWED_TAGS: ['span'],
+      ALLOWED_ATTR: ['class']
+    })
+
+    return <span dangerouslySetInnerHTML={{ __html: sanitized }} />
   }
 
   const getLanguageLabel = (lang: string) => {

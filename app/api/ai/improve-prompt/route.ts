@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { logger } from '@/lib/utils/logger'
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 import OpenAI from 'openai'
 
 /**
@@ -41,6 +42,15 @@ IMPROVED: "Create a concise 3-bullet summary of the main points. Focus on: (1) t
 Now improve the user's prompt. Return ONLY the improved prompt text, nothing else.`
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 60 prompt improvements per minute per IP
+  const rateLimitResult = checkRateLimit(request, {
+    limit: 60,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     // Auth check
     const supabase = await createSupabaseRouteHandlerClient()

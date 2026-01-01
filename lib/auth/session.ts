@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -26,7 +26,7 @@ export class SessionManager {
    * @throws Error if authentication fails
    */
   static async getSecureUserAndSession(): Promise<UserSession> {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error("Supabase client not available")
     }
@@ -64,7 +64,7 @@ export class SessionManager {
    * @throws Error if refresh fails
    */
   static async refreshSession(): Promise<UserSession> {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       throw new Error("Supabase client not available")
     }
@@ -107,7 +107,7 @@ export class SessionManager {
    * @returns Promise<User | null> - Current user or null if not authenticated
    */
   static async getCurrentUser() {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       return null
     }
@@ -125,7 +125,7 @@ export class SessionManager {
    * @returns Promise<Session | null> - Current session or null if not available
    */
   static async getCurrentSession() {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       return null
     }

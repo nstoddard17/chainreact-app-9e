@@ -1,9 +1,10 @@
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { WorkflowExecutionService } from "@/lib/services/workflowExecutionService"
 import { trackBetaTesterActivity } from "@/lib/utils/beta-tester-tracking"
 import { sendWorkflowErrorNotifications, extractErrorMessage } from '@/lib/notifications/errorHandler'
+import { checkRateLimit, RateLimitPresets } from '@/lib/utils/rate-limit'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -77,7 +78,16 @@ function generateMockTriggerData(triggerType: string, userId: string): any {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // Rate limiting: 30 workflow executions per minute per IP
+  const rateLimitResult = checkRateLimit(request, {
+    limit: 30,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     logger.debug("=== Workflow Execution Started (Refactored) ===")
 

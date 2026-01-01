@@ -5,10 +5,20 @@ import { cookies } from "next/headers"
 import { generateDynamicWorkflow } from "@/lib/ai/dynamicWorkflowAI"
 import { nodeRegistry, getAllNodes } from "@/lib/workflows/nodes/registry"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting: 10 workflow generation requests per minute per IP (expensive operation)
+  const rateLimitResult = checkRateLimit(request, {
+    limit: 10,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     cookies()
     const supabase = await createSupabaseRouteHandlerClient()

@@ -1,13 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 import { validateAllIntegrations } from "@/lib/integrations/scopeValidation"
 
 import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
 
     if (!supabase) {
       return errorResponse("Supabase client not configured" , 500)

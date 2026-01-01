@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { getSupabaseClient } from "@/lib/supabase"
+import { createClient } from "@/utils/supabaseClient"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     logger.debug("Debug endpoint called")
 
-    const supabase = getSupabaseClient()
+    const supabase = createClient()
     if (!supabase) {
       return errorResponse("Database connection failed" , 500)
     }

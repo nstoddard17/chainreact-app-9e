@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import type { WorkflowPlan, NodePlan } from '@/lib/workflows/ai/SequentialWorkflowBuilder'
 import { logger } from '@/lib/utils/logger'
+import { checkRateLimit } from '@/lib/utils/rate-limit'
 
 let cachedOpenAIClient: OpenAI | null = null
 function getOpenAIClient() {
@@ -115,6 +116,15 @@ Return ONLY a JSON object with this structure:
 `
 
 export async function POST(req: NextRequest) {
+  // Rate limiting: 30 workflow plan generations per minute per IP
+  const rateLimitResult = checkRateLimit(req, {
+    limit: 30,
+    windowSeconds: 60
+  })
+  if (!rateLimitResult.success && rateLimitResult.response) {
+    return rateLimitResult.response
+  }
+
   try {
     // Check if API key is configured
     const openai = getOpenAIClient()
