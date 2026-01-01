@@ -618,6 +618,42 @@ setTimeout(() => {
 
 ## 🧪 TESTING
 
+### Test-Actions Page (`/test-actions`)
+
+**Purpose:** Test workflow action configuration and field loading WITHOUT building full workflows
+
+**CRITICAL:** ActionTester uses the SAME configuration logic as the workflow builder:
+- **Shared:** `useDynamicOptions` hook for field loading (imported from `components/workflows/configuration/hooks/useDynamicOptions.ts`)
+- **Shared:** Field validation, cascading fields, loadOnMount behavior
+- **Unique:** Test execution logic (executeTest, analyzeSchemaValidation, request/response viewing)
+
+**Pattern - Avoiding Feedback Loops:**
+```typescript
+// Create stable getFormValues callback using ref
+const configValuesRef = useRef(configValues)
+useEffect(() => {
+  configValuesRef.current = configValues
+}, [configValues])
+const getFormValuesStable = useCallback(() => configValuesRef.current, [])
+
+// Pass to useDynamicOptions - keeps callback stable
+const { loadOptions, dynamicOptions } = useDynamicOptions({
+  getFormValues: getFormValuesStable, // Never changes
+  // ... other props
+})
+```
+
+**Why This Matters:**
+- Fixes tested in test-actions automatically apply to workflow builder
+- No double work - test once, works everywhere
+- ConfigurationForm and ActionTester share the exact same field loading code path
+
+**Testing Workflow:**
+1. Test action configuration in `/test-actions`
+2. Verify field loading behavior (loadOnMount, cascading, dependent fields)
+3. Execute test to validate API integration
+4. Configuration behavior is identical to workflow builder
+
 **Unit:** Jest + RTL
 **Browser:** Follow `/PLAYWRIGHT.md` - Use Chrome, no new dev server, test from scratch
 

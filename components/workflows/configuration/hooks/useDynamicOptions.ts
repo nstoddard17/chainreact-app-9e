@@ -2355,40 +2355,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     
   }, [nodeType, providerId]);
 
-  // Track if we've already preloaded to prevent React 18 Strict Mode double-mount
-  const hasPreloadedRef = useRef(false);
-
-  // Preload independent fields when modal opens
+  // Cleanup when component unmounts
   useEffect(() => {
     if (!nodeType || !providerId) return;
 
-    // Prevent duplicate preload in React 18 Strict Mode (double-mount)
-    if (hasPreloadedRef.current) {
-      logger.debug('⏭️ [useDynamicOptions] Skipping preload - already loaded');
-      return;
-    }
-    hasPreloadedRef.current = true;
-
-    // Preload fields that don't depend on other fields
-    // Note: Exclude email fields (like 'email') since they should load on-demand only
-    // Also exclude dependent fields like messageId (depends on channelId), channelId (depends on guildId), etc.
-    // Also exclude fields with loadOnMount: true as they are handled by ConfigurationForm
-    const independentFields = ['baseId', 'guildId', 'workspace', 'workspaceId'];
-
-    // Load all independent fields in parallel for faster initial load
-    const fieldsToLoad = independentFields.filter(fieldName => {
-      const resourceType = getResourceTypeForField(fieldName, nodeType);
-      return !!resourceType;
-    });
-
-    if (fieldsToLoad.length > 0) {
-      logger.debug('🚀 [useDynamicOptions] Loading independent fields in parallel:', fieldsToLoad);
-      Promise.all(fieldsToLoad.map(fieldName => loadOptions(fieldName))).catch(err => {
-        logger.error('❌ [useDynamicOptions] Error loading independent fields:', err);
-      });
-    }
-    
-    // Cleanup function when component unmounts
     return () => {
       logger.debug('🧹 [useDynamicOptions] Cleanup triggered', { nodeType, providerId });
 
@@ -2418,13 +2388,9 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Reset auth retry count
       authErrorRetryCount = 0;
 
-      // Don't clear dynamic options here - they might be needed for saved values
-      // The options will be updated when new data loads
-      // setDynamicOptions({}); // REMOVED - this was clearing saved options
-
       logger.debug('✅ [useDynamicOptions] Cleanup complete');
     };
-  }, [nodeType, providerId]); // Removed loadOptions from dependencies to prevent loops
+  }, [nodeType, providerId]);
 
   // Clear cache when workflow changes for fresh data
   useEffect(() => {

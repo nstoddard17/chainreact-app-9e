@@ -14,9 +14,9 @@ import { RequestResponseViewer } from './RequestResponseViewer'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useDebugStore } from '@/stores/debugStore'
+import { useDynamicOptions } from '@/components/workflows/configuration/hooks/useDynamicOptions'
 import { logger } from '@/lib/utils/logger'
 import { fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
-import { getResourceTypeForField } from '@/components/workflows/configuration/config/fieldMappings'
 
 interface ActionTesterProps {
   userId: string
@@ -38,16 +38,15 @@ export function ActionTester({ userId }: ActionTesterProps) {
   // Configuration state
   const [configValues, setConfigValues] = useState<Record<string, any>>({})
   const [configErrors, setConfigErrors] = useState<Record<string, string>>({})
-  const [dynamicOptions, setDynamicOptions] = useState<Record<string, any[]>>({})
-  const [loadingDynamic, setLoadingDynamic] = useState(false)
   const [aiFields, setAiFields] = useState<Record<string, boolean>>({})
   const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set())
 
-  // Use ref to avoid recreating loadOptions on every configValues change
+  // Create stable getFormValues callback like ConfigurationForm does
   const configValuesRef = useRef(configValues)
   useEffect(() => {
     configValuesRef.current = configValues
   }, [configValues])
+  const getFormValuesStable = useCallback(() => configValuesRef.current, [])
 
   // Test data state
   const [testDataJson, setTestDataJson] = useState<string>('{}')
@@ -98,6 +97,29 @@ export function ActionTester({ userId }: ActionTesterProps) {
     return ALL_NODE_COMPONENTS.find(node => node.type === selectedAction)
   }, [selectedAction])
 
+  // Use shared hook for configuration field loading (same as workflow builder)
+  const {
+    dynamicOptions,
+    loading: loadingDynamic,
+    loadOptions,
+    loadOptionsParallel,
+  } = useDynamicOptions({
+    nodeType: selectedNode?.type,
+    providerId: selectedProvider,
+    workflowId: undefined, // ActionTester doesn't have a workflow
+    getFormValues: getFormValuesStable,
+    onLoadingChange: (fieldName, isLoading) => {
+      setLoadingFields(prev => {
+        const next = new Set(prev)
+        if (isLoading) next.add(fieldName)
+        else next.delete(fieldName)
+        return next
+      })
+    },
+    initialOptions: {}, // ActionTester doesn't persist options
+    onOptionsUpdated: () => {}, // No-op for ActionTester
+  })
+
   // Load integrations on mount
   useEffect(() => {
     fetchIntegrations()
@@ -109,7 +131,6 @@ export function ActionTester({ userId }: ActionTesterProps) {
     setSelectedIntegrationId('')
     setConfigValues({})
     setConfigErrors({})
-    setDynamicOptions({})
     setTestResult(null)
     setRequestDetails(null)
     setResponseDetails(null)
@@ -119,7 +140,6 @@ export function ActionTester({ userId }: ActionTesterProps) {
   useEffect(() => {
     setConfigValues({})
     setConfigErrors({})
-    setDynamicOptions({})
     setTestResult(null)
     setRequestDetails(null)
     setResponseDetails(null)
@@ -130,187 +150,8 @@ export function ActionTester({ userId }: ActionTesterProps) {
     }
   }, [selectedAction, integrationsForProvider, selectedIntegrationId])
 
-  // Load dynamic options
-  const loadOptions = useCallback(async (
-    fieldName: string,
-    parentField?: string,
-    parentValue?: any,
-    forceReload?: boolean
-  ) => {
-    if (!selectedProvider || !selectedIntegrationId) {
-      logger.debug('[ActionTester] Cannot load options - missing provider or integration')
-      return
-    }
-
-    setLoadingDynamic(true)
-    setLoadingFields(prev => new Set([...prev, fieldName]))
-
-    try {
-      const requestId = logApiCall('POST', `/api/integrations/${selectedProvider}/data`)
-
-      // Convert field name to resource type (e.g., "boardId" -> "trello_boards")
-      const resourceType = getResourceTypeForField(fieldName, selectedNode?.type)
-
-      logger.debug('[ActionTester] Loading options', {
-        fieldName,
-        nodeType: selectedNode?.type,
-        resourceType,
-        provider: selectedProvider
-      })
-
-      // If resourceType is undefined, fall back to fieldName
-      const dataType = resourceType || fieldName
-
-      // Build options from current config values and parent value
-      const options: Record<string, any> = { ...configValuesRef.current }
-      if (parentValue !== undefined && parentField) {
-        options[parentField] = parentValue
-
-        // Normalize board-related parent fields to 'boardId' for Monday.com API
-        // The API expects 'boardId' but schemas may use 'sourceBoardId' or 'targetBoardId'
-        if (selectedProvider === 'monday' &&
-            (parentField === 'sourceBoardId' || parentField === 'targetBoardId') &&
-            (fieldName === 'itemId' || fieldName === 'groupId' || fieldName === 'targetGroupId' ||
-             fieldName === 'columnId' || fieldName === 'parentItemId')) {
-          options.boardId = parentValue
-        }
-
-        // Normalize database field to databaseId for Notion API
-        // The Notion data handlers expect 'databaseId' but schema uses 'database'
-        if (selectedProvider === 'notion' && parentField === 'database') {
-          options.databaseId = parentValue
-        }
-
-        // Normalize page field to pageId for Notion API
-        // The Notion data handlers expect 'pageId' but schema uses 'page'
-        if (selectedProvider === 'notion' && parentField === 'page') {
-          options.pageId = parentValue
-        }
-      }
-
-      // Also normalize workspace field to workspaceId for Notion API
-      if (selectedProvider === 'notion' && configValuesRef.current.workspace && !options.workspaceId) {
-        options.workspaceId = configValuesRef.current.workspace
-      }
-      // And normalize database field to databaseId if it exists in configValues
-      if (selectedProvider === 'notion' && configValuesRef.current.database && !options.databaseId) {
-        options.databaseId = configValuesRef.current.database
-      }
-      // And normalize page field to pageId if it exists in configValues
-      if (selectedProvider === 'notion' && configValuesRef.current.page && !options.pageId) {
-        options.pageId = configValuesRef.current.page
-      }
-
-      const response = await fetchWithTimeout(
-        `/api/integrations/${selectedProvider}/data`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            integrationId: selectedIntegrationId,
-            dataType, // Use dataType (resourceType or fallback to fieldName)
-            options
-          })
-        },
-        8000
-      )
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        logger.error('[ActionTester] Load options failed', {
-          fieldName,
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        })
-        throw new Error(`Failed to load options: ${response.statusText}`)
-      }
-
-      const result = await response.json()
-      logApiResponse(requestId, response.status, result, Date.now())
-
-      // Transform raw API data to {value, label} format expected by GenericConfiguration
-      const rawData = result.data || []
-      const transformedData = rawData.map((item: any) => {
-        // Handle different data structures from various providers
-        if (item.value && item.label) {
-          // Already in correct format
-          return item
-        } else if (item.id && item.fullName) {
-          // Trello members: use fullName
-          return { value: item.id, label: item.fullName }
-        } else if (item.id && item.username) {
-          // Trello members fallback: use username
-          return { value: item.id, label: item.username }
-        } else if (item.id && item.name !== undefined) {
-          // Common format: id + name (Trello labels, etc.)
-          // For Trello labels with empty names, use color
-          const label = item.name || (item.color ? `${item.color} label` : item.id)
-          return { value: item.id, label }
-        } else if (item.id && item.title) {
-          // Alternative: id + title
-          return { value: item.id, label: item.title }
-        } else if (typeof item === 'string') {
-          // Simple string values
-          return { value: item, label: item }
-        } else {
-          // Fallback: use first available property as label
-          const value = item.id || item.value || JSON.stringify(item)
-          const label = item.fullName || item.username || item.name || item.label || item.title || (item.color ? `${item.color} label` : value)
-          return { value, label }
-        }
-      })
-
-      setDynamicOptions(prev => ({
-        ...prev,
-        [fieldName]: transformedData
-      }))
-
-      logEvent('info', 'ActionTester', `Loaded ${transformedData.length} options for ${fieldName}`)
-
-    } catch (error: any) {
-      logger.error('[ActionTester] Failed to load options', {
-        fieldName,
-        error: error.message
-      })
-      logApiError('load-options', error, Date.now())
-
-      // Don't throw - just log and continue
-      // This prevents the UI from breaking if one field fails to load
-    } finally {
-      setLoadingDynamic(false)
-      setLoadingFields(prev => {
-        const next = new Set(prev)
-        next.delete(fieldName)
-        return next
-      })
-    }
-  }, [selectedProvider, selectedIntegrationId, selectedNode, logApiCall, logApiResponse, logEvent, logApiError])
-
-  // Load fields with loadOnMount when integration and node are selected
-  useEffect(() => {
-    if (!selectedProvider || !selectedIntegrationId || !selectedNode) {
-      return
-    }
-
-    // Find all fields that should load on mount
-    const fieldsToLoad = selectedNode.configSchema?.filter((field: any) => {
-      return field.loadOnMount === true && field.dynamic && !field.dependsOn
-    }) || []
-
-    if (fieldsToLoad.length === 0) {
-      return
-    }
-
-    logger.debug('[ActionTester] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name))
-
-    // Load all fields in parallel
-    Promise.all(
-      fieldsToLoad.map(field => loadOptions(field.name))
-    ).catch(error => {
-      logger.error('[ActionTester] Error loading fields on mount:', error)
-    })
-  }, [selectedProvider, selectedIntegrationId, selectedNode, loadOptions])
+  // Note: loadOptions and field loading on mount are now handled by useDynamicOptions hook
+  // This ensures ActionTester uses the same configuration logic as the workflow builder
 
   // setValue handler
   const handleSetValue = useCallback((field: string, value: any) => {
