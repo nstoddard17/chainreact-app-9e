@@ -150,6 +150,9 @@ export function FlowV2AgentPanel({
   // Track which connections are being reconnected (to avoid showing duplicate message during reconnect)
   const [reconnectingConnections, setReconnectingConnections] = useState<Record<string, boolean>>({})
 
+  // Track which nodes have completed their configuration questions (from nodeConfigQuestions.ts)
+  const [completedConfigQuestions, setCompletedConfigQuestions] = useState<Record<string, boolean>>({})
+
   // Track which nodes are currently loading to prevent duplicate requests (infinite loop prevention)
   const loadingNodesRef = useRef<Set<string>>(new Set())
 
@@ -1211,6 +1214,44 @@ export function FlowV2AgentPanel({
                                         const defaultConnectionValue = getDefaultConnection(planNode.providerId || '', planNode.id, providerConnections)
                                         const hasAutoSelectedConnection = defaultConnectionValue && !nodeConfigs[planNode.id]?.connection
 
+                                        // Check if this node has config questions and if they've been completed
+                                        const configDefinition = getNodeConfigQuestions(planNode.nodeType)
+                                        const hasConfigQuestionsForNode = !!configDefinition
+                                        const configQuestionsCompleted = completedConfigQuestions[planNode.id] || false
+
+                                        // If node has config questions and they haven't been completed, show NodeConfigurationCard
+                                        if (hasConfigQuestionsForNode && !configQuestionsCompleted && onNodeConfigComplete && onNodeConfigSkip) {
+                                          return (
+                                            <div className="w-full mt-4 border-t border-border pt-4">
+                                              <NodeConfigurationCard
+                                                nodeType={planNode.nodeType}
+                                                definition={configDefinition}
+                                                onComplete={(config) => {
+                                                  // Mark questions as completed for this node
+                                                  setCompletedConfigQuestions(prev => ({
+                                                    ...prev,
+                                                    [planNode.id]: true
+                                                  }))
+                                                  // Apply the config answers
+                                                  Object.entries(config).forEach(([key, value]) => {
+                                                    onNodeConfigChange(planNode.id, key, value)
+                                                  })
+                                                  onNodeConfigComplete(planNode.nodeType, config as Record<string, any>)
+                                                }}
+                                                onSkip={() => {
+                                                  // Mark questions as completed (skipped)
+                                                  setCompletedConfigQuestions(prev => ({
+                                                    ...prev,
+                                                    [planNode.id]: true
+                                                  }))
+                                                  onNodeConfigSkip(planNode.nodeType)
+                                                }}
+                                              />
+                                            </div>
+                                          )
+                                        }
+
+                                        // Show inline configuration (connection + required fields)
                                         return (
                                           <div className="w-full mt-4 space-y-3 border-t border-border pt-4">
                                             {requiresConnection && (
