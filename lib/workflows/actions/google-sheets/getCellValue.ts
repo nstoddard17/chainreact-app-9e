@@ -1,6 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
 import { logger } from '@/lib/utils/logger'
+import { parseSheetName } from './utils'
 
 /**
  * Retrieves the value from a specific cell in a Google Sheet
@@ -14,7 +15,7 @@ export async function getGoogleSheetsCellValue(
     const accessToken = await getDecryptedAccessToken(userId, "google-sheets")
 
     const spreadsheetId = resolveValue(config.spreadsheetId, input)
-    const sheetName = resolveValue(config.sheetName, input)
+    const sheetName = parseSheetName(resolveValue(config.sheetName, input))
     const cellAddress = resolveValue(config.cellAddress, input)
 
     if (!spreadsheetId) {

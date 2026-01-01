@@ -73,6 +73,19 @@ export async function createGoogleDriveClient(integration: GoogleSheetsIntegrati
     expiry_date: integration.expires_at ? new Date(integration.expires_at).getTime() : undefined
   })
 
+  // Check if token needs refresh
+  if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
+    try {
+      const { credentials } = await oauth2Client.refreshAccessToken()
+      oauth2Client.setCredentials(credentials)
+      // Note: You should update the database with new tokens here
+      logger.debug('🔄 Refreshed Google Drive access token')
+    } catch (error) {
+      logger.error('Failed to refresh token:', error)
+      throw new Error('Authentication expired. Please reconnect your Google account.')
+    }
+  }
+
   return google.drive({ version: 'v3', auth: oauth2Client })
 }
 
@@ -112,6 +125,41 @@ export function convertRowsToRecords(
       value: `row_${startRowNumber + index}` // For selection
     }
   })
+}
+
+/**
+ * Parse sheet name from various formats.
+ * The sheetName might be:
+ * - A plain string: "Sheet1"
+ * - A JSON string: "{\"id\":0,\"name\":\"Sheet1\",...}"
+ * - An object: { id: 0, name: "Sheet1", ... }
+ */
+export function parseSheetName(rawSheetName: any): string {
+  if (!rawSheetName) {
+    return ''
+  }
+
+  // If it's an object with a 'name' property, extract it
+  if (typeof rawSheetName === 'object' && rawSheetName !== null) {
+    return (rawSheetName as any).name || String(rawSheetName)
+  }
+
+  // If it's a string, check if it's JSON
+  if (typeof rawSheetName === 'string') {
+    const trimmed = rawSheetName.trim()
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        return parsed?.name || rawSheetName
+      } catch {
+        // Not valid JSON, use as-is
+        return rawSheetName
+      }
+    }
+    return rawSheetName
+  }
+
+  return String(rawSheetName)
 }
 
 /**

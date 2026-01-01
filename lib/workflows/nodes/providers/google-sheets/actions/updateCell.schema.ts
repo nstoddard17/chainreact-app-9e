@@ -40,10 +40,10 @@ export const updateCellActionSchema: NodeComponent = {
       label: "Cell Address",
       type: "text",
       required: true,
-      placeholder: "A1, B5, etc.",
+      placeholder: "e.g., A1",
       supportsAI: true,
-      description: "Cell address in A1 notation",
-      tooltip: "Examples: A1, B10, AA100. Use column letter + row number."
+      description: "Single cell address in A1 notation",
+      tooltip: "Enter a single cell address (e.g., A1, B10, AA100). For multiple cells, use Update Row or run this action in a loop."
     },
     {
       name: "value",

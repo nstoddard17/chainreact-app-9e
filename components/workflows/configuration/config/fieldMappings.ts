@@ -139,10 +139,12 @@ const slackMappings: Record<string, FieldMapping> = {
     userId: "slack_users",
   },
   slack_action_invite_users_to_channel: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
     users: "slack_users",
   },
   slack_action_remove_user_from_channel: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
     userId: "slack_users",
   },
@@ -162,12 +164,15 @@ const slackMappings: Record<string, FieldMapping> = {
     emoji: "slack_emoji_catalog",
   },
   slack_action_archive_channel: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_unarchive_channel: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_cancel_scheduled_message: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_delete_message: {
@@ -176,52 +181,77 @@ const slackMappings: Record<string, FieldMapping> = {
     user: "slack_users",
   },
   slack_action_get_channel_info: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_get_thread_messages: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_join_channel: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_leave_channel: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_list_scheduled_messages: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_pin_message: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_unpin_message: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_post_interactive: {
     channel: "slack_channels",
   },
   slack_action_rename_channel: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_schedule_message: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_set_channel_purpose: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_set_channel_topic: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_update_message: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_upload_file: {
+    workspace: "slack_workspaces",
     channels: "slack_channels",
   },
   slack_action_download_file: {
+    workspace: "slack_workspaces",
     fileId: "slack_files",
   },
   slack_action_get_file_info: {
+    workspace: "slack_workspaces",
     fileId: "slack_files",
+  },
+  slack_action_list_users: {
+    workspace: "slack_workspaces",
+  },
+  slack_action_list_channels: {
+    workspace: "slack_workspaces",
+  },
+  slack_action_find_user: {
+    workspace: "slack_workspaces",
+    user: "slack_users",
   },
   slack_trigger_message_channels: {
     channel: "slack_public_channels",

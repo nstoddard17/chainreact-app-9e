@@ -3,7 +3,7 @@
  * Deletes a message from a Slack channel or DM
  */
 
-import { ActionResult } from '../index'
+import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
 
 export async function deleteSlackMessage(params: {

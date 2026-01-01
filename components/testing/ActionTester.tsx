@@ -281,6 +281,31 @@ export function ActionTester({ userId }: ActionTesterProps) {
     }
   }, [selectedProvider, selectedIntegrationId, selectedNode, configValues, logApiCall, logApiResponse, logEvent, logApiError])
 
+  // Load fields with loadOnMount when integration and node are selected
+  useEffect(() => {
+    if (!selectedProvider || !selectedIntegrationId || !selectedNode) {
+      return
+    }
+
+    // Find all fields that should load on mount
+    const fieldsToLoad = selectedNode.configSchema?.filter((field: any) => {
+      return field.loadOnMount === true && field.dynamic && !field.dependsOn
+    }) || []
+
+    if (fieldsToLoad.length === 0) {
+      return
+    }
+
+    logger.debug('[ActionTester] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name))
+
+    // Load all fields in parallel
+    Promise.all(
+      fieldsToLoad.map(field => loadOptions(field.name))
+    ).catch(error => {
+      logger.error('[ActionTester] Error loading fields on mount:', error)
+    })
+  }, [selectedProvider, selectedIntegrationId, selectedNode, loadOptions])
+
   // Analyze schema validation - compare config fields vs API response
   const analyzeSchemaValidation = useCallback((configSent: any, apiResponse: any) => {
     if (!selectedNode || !apiResponse) return null

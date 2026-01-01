@@ -33,7 +33,10 @@
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\microsoft-onenote\\\\deleteSection.ts\")",
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\microsoft-onenote\\\\deleteNotebook.ts\")",
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\microsoft-onenote\\\\search.ts\")",
-      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\teams\\\\createMeeting.ts\")"
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\teams\\\\createMeeting.ts\")",
+      "Bash(more:*)",
+      "Bash(cat:*)",
+      "Bash(if exist \".next\" rmdir /s /q \".next\")"
     ],
     "deny": [],
     "ask": [],

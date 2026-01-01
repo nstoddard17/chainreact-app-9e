@@ -1,4 +1,4 @@
-import { ActionResult } from '../index'
+import { ActionResult } from '../core/executeWait'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 

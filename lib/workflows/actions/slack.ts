@@ -11,6 +11,36 @@ import { sendSlackMessage as sendSlackMessageNew } from './slack/sendMessage'
 export { slackActionDeleteMessage } from './slack/deleteMessage'
 export { slackActionAddReaction } from './slack/addReaction'
 export { slackActionAddReminder } from './slack/addReminder'
+export { slackActionInviteUsersToChannel } from './slack/inviteUsersToChannel'
+export { slackActionArchiveChannel } from './slack/archiveChannel'
+export { slackActionUnarchiveChannel } from './slack/unarchiveChannel'
+export { slackActionJoinChannel } from './slack/joinChannel'
+export { slackActionLeaveChannel } from './slack/leaveChannel'
+export { slackActionRenameChannel } from './slack/renameChannel'
+export { slackActionSetChannelTopic } from './slack/setChannelTopic'
+export { slackActionSetChannelPurpose } from './slack/setChannelPurpose'
+export { slackActionGetChannelInfo } from './slack/getChannelInfo'
+export { slackActionListChannels } from './slack/listChannels'
+export { slackActionRemoveUserFromChannel } from './slack/removeUserFromChannel'
+export { slackActionGetUserInfo } from './slack/getUserInfo'
+export { slackActionListUsers } from './slack/listUsers'
+export { slackActionFindUser } from './slack/findUser'
+export { slackActionSendDirectMessage } from './slack/sendDirectMessage'
+export { slackActionUpdateMessage } from './slack/updateMessage'
+export { slackActionRemoveReaction } from './slack/removeReaction'
+export { slackActionPinMessage } from './slack/pinMessage'
+export { slackActionUnpinMessage } from './slack/unpinMessage'
+export { slackActionScheduleMessage } from './slack/scheduleMessage'
+export { slackActionCancelScheduledMessage } from './slack/cancelScheduledMessage'
+export { slackActionListScheduledMessages } from './slack/listScheduledMessages'
+export { slackActionGetThreadMessages } from './slack/getThreadMessages'
+export { slackActionFindMessage } from './slack/findMessage'
+export { slackActionUploadFile } from './slack/uploadFile'
+export { slackActionDownloadFile } from './slack/downloadFile'
+export { slackActionGetFileInfo } from './slack/getFileInfo'
+export { slackActionPostInteractive } from './slack/postInteractiveBlocks'
+export { slackActionSetUserPresence } from './slack/setUserPresence'
+export { slackActionUpdateUserStatus } from './slack/updateUserStatus'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -432,6 +462,20 @@ export async function createSlackChannel(
       throw new Error('Channel name is required')
     }
 
+    // Sanitize channel name - Slack requires lowercase, no spaces, only letters/numbers/hyphens/underscores
+    const sanitizedChannelName = channelName
+      .toLowerCase()
+      .replace(/\s+/g, '-')           // Replace spaces with hyphens
+      .replace(/[^a-z0-9-_]/g, '')    // Remove invalid characters
+      .replace(/^-+|-+$/g, '')        // Remove leading/trailing hyphens
+      .substring(0, 80)               // Max 80 characters
+
+    if (!sanitizedChannelName) {
+      throw new Error('Channel name contains no valid characters. Use letters, numbers, hyphens, or underscores.')
+    }
+
+    logger.debug('🔤 [Slack] Sanitized channel name:', { original: channelName, sanitized: sanitizedChannelName })
+
     // Get Slack integration
     const { createSupabaseServerClient } = await import('@/utils/supabase/server')
     const supabase = await createSupabaseServerClient()
@@ -455,7 +499,7 @@ export async function createSlackChannel(
       throw new Error('Failed to get Slack access token')
     }
 
-    logger.debug('📤 [Slack] Creating channel:', channelName)
+    logger.debug('📤 [Slack] Creating channel:', sanitizedChannelName)
 
     // Create the channel
     const createResponse = await fetch('https://slack.com/api/conversations.create', {
@@ -465,7 +509,7 @@ export async function createSlackChannel(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        name: channelName,
+        name: sanitizedChannelName,
         is_private: isPrivate
       })
     })
@@ -479,8 +523,10 @@ export async function createSlackChannel(
         throw new Error('Slack authentication expired. Please reconnect your account.')
       } else if (createResult.error === 'name_taken') {
         throw new Error('Channel name already exists. Please choose a different name.')
-      } else if (createResult.error === 'invalid_name') {
-        throw new Error('Invalid channel name. Use lowercase letters, numbers, and hyphens only.')
+      } else if (createResult.error === 'invalid_name' || createResult.error === 'invalid_name_specials') {
+        throw new Error('Invalid channel name. Channel names must be lowercase and can only contain letters, numbers, hyphens, and underscores (no spaces or special characters).')
+      } else if (createResult.error === 'missing_scope') {
+        throw new Error('Missing required Slack permissions. Please disconnect and reconnect your Slack account to grant the channels:manage scope.')
       } else {
         throw new Error(`Failed to create channel: ${createResult.error}`)
       }

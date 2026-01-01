@@ -311,9 +311,13 @@ function generateSlackAuthUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: clientId,
     // Bot scopes for workspace-level actions
-    scope: "channels:join,channels:read,chat:write,chat:write.public,files:write,groups:read,im:read,reactions:write,team:read,users:read",
-    // User scopes for user-level actions (includes reminders:write for reminder functionality)
-    user_scope: "channels:read,chat:write,groups:read,mpim:read,channels:history,groups:history,im:history,mpim:history,reactions:read,reminders:write,reminders:read,identity.basic,identity.email,identity.avatar",
+    // channels:manage - Create/archive/rename public channels
+    // groups:write - Create/archive/rename private channels
+    scope: "channels:join,channels:read,channels:manage,chat:write,chat:write.public,files:read,files:write,groups:read,groups:write,im:read,reactions:write,team:read,users:read",
+    // User scopes for user-level actions
+    // IMPORTANT: These must EXACTLY match the "User Token Scopes" configured in the Slack app settings
+    // Only request reminders scopes - other user-level features can use the bot token
+    user_scope: "reminders:write,reminders:read",
     redirect_uri: `${redirectBase}/api/integrations/slack/callback`,
     state,
   })

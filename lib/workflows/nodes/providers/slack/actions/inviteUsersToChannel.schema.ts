@@ -16,7 +16,18 @@ export const inviteUsersToChannelActionSchema: NodeComponent = {
   category: "Communication",
   isTrigger: false,
   configSchema: [
-    // Parent field - always visible
+    // Workspace field - always visible first
+    {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    // Channel field - cascaded from workspace
     {
       name: "channel",
       label: "Channel",
@@ -26,14 +37,19 @@ export const inviteUsersToChannelActionSchema: NodeComponent = {
       loadOnMount: true,
       searchable: true,
       placeholder: "Select a channel",
-      tooltip: "Select the channel to invite users to. Works with both public and private channels (if bot is a member)."
+      tooltip: "Select the channel to invite users to. Works with both public and private channels (if bot is a member).",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
 
-    // Cascaded fields - only show after channel selected
+    // Users field - cascaded from channel
     {
       name: "users",
       label: "Users",
-      type: "multi-combobox",
+      type: "multi-select",
       required: true,
       dynamic: "slack_users",
       loadOnMount: true,

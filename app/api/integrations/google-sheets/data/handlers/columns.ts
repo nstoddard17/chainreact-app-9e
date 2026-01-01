@@ -3,7 +3,7 @@
  */
 
 import { GoogleSheetsIntegration, GoogleSheetsDataHandler, GoogleSheetsHandlerOptions } from '../types'
-import { createGoogleSheetsClient } from '../utils'
+import { createGoogleSheetsClient, parseSheetName } from '../utils'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -11,8 +11,9 @@ export const getGoogleSheetsColumns: GoogleSheetsDataHandler<string[]> = async (
   integration: GoogleSheetsIntegration,
   options: GoogleSheetsHandlerOptions = {}
 ): Promise<string[]> => {
-  const { spreadsheetId, sheetName } = options
-  
+  const { spreadsheetId, sheetName: rawSheetName } = options
+  const sheetName = parseSheetName(rawSheetName)
+
   if (!spreadsheetId || !sheetName) {
     throw new Error('Spreadsheet ID and sheet name are required')
   }

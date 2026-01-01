@@ -1,5 +1,6 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 import { logger } from '@/lib/utils/logger'
+import { parseSheetName } from './utils'
 
 /**
  * Applies formatting to a range in a Google Sheets spreadsheet
@@ -14,7 +15,7 @@ export async function formatGoogleSheetsRange(
     const accessToken = await getDecryptedAccessToken(userId, "google-sheets")
 
     const spreadsheetId = resolveValue(config.spreadsheetId, input)
-    const sheetName = resolveValue(config.sheetName, input)
+    const sheetName = parseSheetName(resolveValue(config.sheetName, input))
     const rangeSelection = resolveValue(config.rangeSelection, input) || 'custom'
 
     if (!spreadsheetId || !sheetName) {

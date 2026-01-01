@@ -4,7 +4,7 @@
  */
 
 import { GoogleSheetsIntegration, GoogleSheetsDataHandler, GoogleSheetsHandlerOptions } from '../types'
-import { createGoogleSheetsClient } from '../utils'
+import { createGoogleSheetsClient, parseSheetName } from '../utils'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -12,7 +12,8 @@ export const getGoogleSheetsColumnValues: GoogleSheetsDataHandler<string[]> = as
   integration: GoogleSheetsIntegration,
   options: GoogleSheetsHandlerOptions = {}
 ): Promise<string[]> => {
-  const { spreadsheetId, sheetName, filterColumn } = options
+  const { spreadsheetId, sheetName: rawSheetName, filterColumn } = options
+  const sheetName = parseSheetName(rawSheetName)
 
   if (!spreadsheetId || !sheetName) {
     throw new Error('Spreadsheet ID and sheet name are required')

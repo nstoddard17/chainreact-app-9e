@@ -968,7 +968,7 @@ function ConfigurationForm({
         }
       });
     }
-  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, resetOptions]); // Also track nodeType and currentNodeId
+  }, [nodeInfo?.id, nodeInfo?.type, resetOptions]); // Track nodeId and nodeType changes
 
   // Load fields marked with loadOnMount immediately when form opens
   useEffect(() => {

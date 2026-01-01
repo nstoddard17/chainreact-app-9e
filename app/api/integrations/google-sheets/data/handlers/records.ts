@@ -4,7 +4,7 @@
  */
 
 import { GoogleSheetsIntegration, GoogleSheetsRecord, GoogleSheetsDataHandler, GoogleSheetsHandlerOptions } from '../types'
-import { createGoogleSheetsClient, convertRowsToRecords, filterRecords } from '../utils'
+import { createGoogleSheetsClient, convertRowsToRecords, filterRecords, parseSheetName } from '../utils'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -24,10 +24,8 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
     includeHeaders = true
   } = options
 
-  // Handle sheetName being either a string or an object with a 'name' property
-  const sheetName = typeof rawSheetName === 'object' && rawSheetName !== null
-    ? (rawSheetName as any).name || String(rawSheetName)
-    : rawSheetName
+  // Parse sheetName using the shared utility
+  const sheetName = parseSheetName(rawSheetName) || undefined
 
   logger.debug("🔍 Google Sheets records fetcher called with:", {
     integrationId: integration.id,

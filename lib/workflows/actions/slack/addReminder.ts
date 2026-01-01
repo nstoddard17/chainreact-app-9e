@@ -3,7 +3,7 @@
  * Creates a reminder for a user in Slack
  */
 
-import { ActionResult } from '../index'
+import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
 
 export async function addSlackReminder(params: {

@@ -1,6 +1,7 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 
 import { logger } from '@/lib/utils/logger'
+import { parseSheetName } from './utils'
 
 /**
  * Updates a specific cell value in a Google Sheet
@@ -14,7 +15,7 @@ export async function updateGoogleSheetsCell(
     const accessToken = await getDecryptedAccessToken(userId, "google-sheets")
 
     const spreadsheetId = resolveValue(config.spreadsheetId, input)
-    const sheetName = resolveValue(config.sheetName, input)
+    const sheetName = parseSheetName(resolveValue(config.sheetName, input))
     const cellAddress = resolveValue(config.cellAddress, input)
     const value = resolveValue(config.value, input)
 
