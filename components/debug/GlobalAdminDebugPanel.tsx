@@ -32,7 +32,16 @@ export function GlobalAdminDebugPanel() {
   const [copied, setCopied] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const logsEndRef = useRef<HTMLDivElement>(null)
+
+  // Get unique categories from events
+  const categories = Array.from(new Set(events.map(e => e.category))).sort()
+
+  // Filter events by category
+  const filteredEvents = categoryFilter === 'all'
+    ? events
+    : events.filter(e => e.category === categoryFilter)
 
   // Enable debug logging for admin users
   useEffect(() => {
@@ -46,7 +55,7 @@ export function GlobalAdminDebugPanel() {
     if (isOpen && !isMinimized) {
       logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [events.length, isOpen, isMinimized])
+  }, [filteredEvents.length, isOpen, isMinimized])
 
   // Only show for authenticated admin users
   // Wait for auth to initialize to avoid showing panel during auth loading
@@ -256,7 +265,7 @@ export function GlobalAdminDebugPanel() {
                   <TabsTrigger value="logs" className="text-xs">
                     Live Logs
                     <Badge variant="secondary" className="ml-2 text-xs">
-                      {events.length}
+                      {categoryFilter === 'all' ? events.length : `${filteredEvents.length}/${events.length}`}
                     </Badge>
                   </TabsTrigger>
                   <TabsTrigger value="snapshot" className="text-xs">Snapshot</TabsTrigger>
@@ -265,9 +274,21 @@ export function GlobalAdminDebugPanel() {
                 {/* Live Logs Tab */}
                 <TabsContent value="logs" className="flex-1 flex flex-col overflow-hidden mt-2">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="text-xs text-muted-foreground">
-                      Real-time event stream • Auto-scrolls to latest
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        Filter:
+                      </p>
+                      <select
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        className="h-7 text-xs border rounded px-2 bg-background"
+                      >
+                        <option value="all">All Categories</option>
+                        {categories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -303,13 +324,16 @@ export function GlobalAdminDebugPanel() {
                   </div>
 
                   <div className="flex-1 overflow-auto border rounded-lg bg-slate-950 p-3 font-mono text-xs">
-                    {events.length === 0 ? (
+                    {filteredEvents.length === 0 ? (
                       <div className="text-slate-400 text-center py-8 text-xs">
-                        No events captured yet. Navigate the app to see live logs.
+                        {events.length === 0
+                          ? 'No events captured yet. Navigate the app to see live logs.'
+                          : `No events in category "${categoryFilter}"`
+                        }
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {events.map((event) => (
+                        {filteredEvents.map((event) => (
                           <div
                             key={event.id}
                             className="border-l-2 border-slate-700 pl-2 py-1.5 hover:bg-slate-900/50 transition-colors group relative"

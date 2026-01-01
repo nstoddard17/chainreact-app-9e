@@ -7,6 +7,7 @@ import { useDynamicOptions } from './hooks/useDynamicOptions';
 import { useFieldChangeHandler } from './hooks/useFieldChangeHandler';
 import { useIntegrationStore } from '@/stores/integrationStore';
 import { useWorkflowStore } from '@/stores/workflowStore';
+import { useDebugStore } from '@/stores/debugStore';
 import { ConfigurationLoadingScreen } from '@/components/ui/loading-screen';
 import { useFieldValidation } from './hooks/useFieldValidation';
 // import { saveNodeConfig } from '@/lib/workflows/configPersistence'; // Removed - was causing slow saves
@@ -190,6 +191,7 @@ function ConfigurationForm({
   // Subscribe to integrations to trigger re-render when they change (important for shared auth like Excel/OneDrive)
   const integrations = useIntegrationStore(state => state.integrations);
   const { currentWorkflow, updateNode } = useWorkflowStore();
+  const { logEvent } = useDebugStore();
 
   // Extract provider and node type (safe even if nodeInfo is null)
   const provider = nodeInfo?.providerId;
@@ -387,6 +389,21 @@ function ConfigurationForm({
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
 
+    // Admin Debug Panel logging for Google Sheets Update Cell action
+    if (nodeInfo?.type === 'google_sheets_action_update_cell') {
+      logEvent('info', 'GoogleSheets-UpdateCell', `Field value changed: ${field}`, {
+        field,
+        newValue: value,
+        valueType: typeof value,
+        previousValues: {
+          spreadsheetId: values.spreadsheetId,
+          sheetName: values.sheetName,
+          cellAddress: values.cellAddress,
+          value: values.value
+        }
+      });
+    }
+
     setValues(prev => ({
       ...prev,
       [field]: value
@@ -398,7 +415,7 @@ function ConfigurationForm({
       delete newErrors[field];
       return newErrors;
     });
-  }, [provider, nodeInfo?.type]);
+  }, [provider, nodeInfo?.type, values, logEvent]);
 
   // Ref to track which fields have already loaded options to prevent infinite loops
   const loadedFieldsWithValues = useRef<Set<string>>(new Set());
@@ -971,31 +988,44 @@ function ConfigurationForm({
   }, [nodeInfo?.id, nodeInfo?.type, resetOptions]); // Track nodeId and nodeType changes
 
   // Load fields marked with loadOnMount immediately when form opens
+  /**
+   * PURPOSE: Unified field option loader - handles loadOnMount, saved values, and dependent fields
+   * TRIGGERS: Node changes, isInitialLoading, values changes, dynamicOptions changes, connection state
+   * LOADS: All dynamic field options (loadOnMount fields, fields with saved values, dependent fields)
+   * CONSOLIDATES: Former useEffect #9 (loadOnMount) + useEffect #10 (saved values + dependent fields)
+   */
   useEffect(() => {
-    const logData = {
-      hasConfigSchema: !!nodeInfo?.configSchema,
-      isInitialLoading,
-      nodeType: nodeInfo?.type,
-      nodeId: nodeInfo?.id,
-      providerId: nodeInfo?.providerId,
-      configSchemaLength: nodeInfo?.configSchema?.length
-    };
-
-    // Also log to window for debugging
-    if (nodeInfo?.providerId === 'hubspot') {
-      window.__HUBSPOT_LOAD_DEBUG = logData;
-      // console.warn('🔴 HUBSPOT CONFIG FORM LOAD EFFECT', logData);
+    // Debug logging for Google Sheets Update Cell
+    if (nodeInfo?.type === 'google_sheets_action_update_cell') {
+      logEvent('info', 'GoogleSheets-UpdateCell', 'Unified useEffect triggered', {
+        isInitialLoading,
+        hasConfigSchema: !!nodeInfo?.configSchema,
+        needsConnection,
+        hasLoadedOnMount: hasLoadedOnMount.current,
+        valuesKeys: Object.keys(values),
+        spreadsheetId: values.spreadsheetId,
+        sheetName: values.sheetName,
+        cellAddress: values.cellAddress,
+        value: values.value
+      });
     }
 
     if (!nodeInfo?.configSchema || isInitialLoading) {
+      if (nodeInfo?.type === 'google_sheets_action_update_cell') {
+        logEvent('info', 'GoogleSheets-UpdateCell', 'Exiting early - no schema or still loading', {
+          hasConfigSchema: !!nodeInfo?.configSchema,
+          isInitialLoading
+        });
+      }
       return;
     }
 
     if (needsConnection) {
-      logger.debug('⏭️ [ConfigForm] Skipping loadOnMount - integration not connected yet', {
-        providerId: nodeInfo?.providerId,
-        nodeType: nodeInfo?.type
-      });
+      if (nodeInfo?.type === 'google_sheets_action_update_cell') {
+        logEvent('info', 'GoogleSheets-UpdateCell', 'Skipping - needs connection', {
+          providerId: nodeInfo?.providerId
+        });
+      }
       return;
     }
 
@@ -1012,95 +1042,29 @@ function ConfigurationForm({
       hasLoadedOnMount.current = false;
     }
 
-    // Find fields that should load on mount
+    // UNIFIED FIELD LOADING: Find ALL fields that need options loaded
+    // Handles: loadOnMount fields, fields with saved values, dependent fields with parent values
     const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
       // Skip dynamic_fields type - they handle their own data loading
       if (field.type === 'dynamic_fields') return false;
 
-      // Check if field should load on mount
-      if (field.loadOnMount === true && field.dynamic) {
+      // Skip non-dynamic fields
+      if (!field.dynamic) return false;
+
+      // CASE 1: Fields with loadOnMount=true (instant load on modal open)
+      if (field.loadOnMount === true) {
         // Only load if we haven't loaded this node's fields yet
-        // Use nodeTypeKey to ensure we reload when switching node types
         const shouldLoad = !hasLoadedOnMount.current;
         return shouldLoad;
       }
-      return false;
-    });
 
-    if (fieldsToLoad.length > 0) {
-      logger.debug('🚀 [ConfigForm] Loading fields on mount IN PARALLEL:', fieldsToLoad.map((f: any) => f.name));
-
-      // Extra debug logging for Gmail
-      if (nodeInfo?.providerId === 'gmail') {
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-        console.log('📧 [Gmail] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name))
-        console.log('   needsConnection:', needsConnection)
-        console.log('   nodeType:', nodeInfo?.type)
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      }
-
-      hasLoadedOnMount.current = true; // Mark that we've loaded
-      lastLoadedNodeTypeKeyRef.current = currentNodeTypeKey; // Track which node type we loaded for
-
-      // Load ALL fields in parallel for instant UX
-      loadOptionsParallel(
-        fieldsToLoad.map((field: any) => ({
-          fieldName: field.name,
-          dependsOn: field.dependsOn,
-          dependsOnValue: field.dependsOn ? values[field.dependsOn] : undefined
-        }))
-      ).catch(err => {
-        logger.error('❌ [ConfigForm] Parallel load failed:', err);
-        // Extra error logging for Gmail
-        if (nodeInfo?.providerId === 'gmail') {
-          console.error('📧 [Gmail] Field loading FAILED:', err)
-        }
-      });
-    } else if (nodeInfo?.providerId === 'gmail') {
-      // Debug why no fields are loading
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('⚠️ [Gmail] NO fields to load!')
-      console.log('   needsConnection:', needsConnection)
-      console.log('   nodeType:', nodeInfo?.type)
-      console.log('   hasLoadedOnMount:', hasLoadedOnMount.current)
-      console.log('   configSchema fields:', nodeInfo?.configSchema?.map((f: any) => ({
-        name: f.name,
-        dynamic: f.dynamic,
-        loadOnMount: f.loadOnMount,
-        dependsOn: f.dependsOn
-      })))
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-    }
-  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection, reloadCounter]); // Track node identity changes, connection state, and reload trigger
-
-  // Load options for dynamic fields with saved values
-  useEffect(() => {
-    if (!nodeInfo?.configSchema || isInitialLoading) return;
-
-    logger.debug('🔍 [ConfigForm] Checking for dynamic fields with saved values...', {
-      nodeType: nodeInfo?.type,
-      providerId: nodeInfo?.providerId,
-      hasValues: Object.keys(values).length > 0
-    });
-
-    // Find dynamic fields that have saved values OR are dependent fields with parent values
-    const fieldsWithValues = nodeInfo.configSchema.filter((field: any) => {
-      // Check if it's a dynamic field
-      if (!field.dynamic) return false;
-
-      // Skip dynamic_fields type - they handle their own data loading
-      if (field.type === 'dynamic_fields') return false;
-
-      // Skip fields that have loadOnMount (they're handled by another useEffect)
-      if (field.loadOnMount) return false;
-
-      // Check if it has a saved value
+      // CASE 2 & 3: Fields with saved values OR dependent fields with parent values
       const savedValue = values[field.name];
 
-      // For dependent fields, also load if parent has value (even if this field doesn't have a saved value yet)
-      // This ensures dropdowns are populated when modal opens with a parent value
+      // For dependent fields, check if parent has a value
       if (field.dependsOn) {
         const parentValue = values[field.dependsOn];
+
         // Check if options already exist to prevent repeated loads
         const fieldOptions = dynamicOptions[field.name];
         const hasExistingOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
@@ -1110,12 +1074,18 @@ function ConfigurationForm({
           return false;
         }
 
-        if (parentValue && !loadedFieldsWithValues.current.has(field.name) && !loadingFields.has(field.name)) {
+        // STRONG VALIDATION: Only load if parent has a real value (not empty string, null, or undefined)
+        const hasValidParentValue = parentValue !== undefined &&
+                                     parentValue !== null &&
+                                     parentValue !== '';
+
+        if (hasValidParentValue && !loadedFieldsWithValues.current.has(field.name) && !loadingFields.has(field.name)) {
           logger.debug(`🔄 [ConfigForm] Field ${field.name} is dependent on ${field.dependsOn} which has value: ${parentValue}`);
           return true;
         }
       }
 
+      // If no saved value, skip
       if (!savedValue) return false;
 
       // Skip if we've already loaded options for this field
@@ -1136,7 +1106,6 @@ function ConfigurationForm({
       // Special handling for Trello Move Card - always load cardId and listId if boardId is set
       if (nodeInfo?.type === 'trello_action_move_card' && values.boardId) {
         if (field.name === 'cardId' || field.name === 'listId') {
-          // Always load these fields if we have a boardId and a saved value
           logger.debug(`🎯 [ConfigForm] Trello Move Card - field ${field.name} has saved value: ${savedValue}, hasOptions: ${hasOptions}`);
           // Load if no options or if saved value not in options
           if (!hasOptions) {
@@ -1156,7 +1125,6 @@ function ConfigurationForm({
       // Special handling for Notion page field
       if (nodeInfo?.providerId === 'notion' && field.name === 'page' && values.workspace) {
         logger.debug(`🎯 [ConfigForm] Notion page field - saved value: ${savedValue}, hasOptions: ${hasOptions}`);
-        // Always load pages if we have a workspace and a saved page value
         if (!hasOptions) {
           return true;
         }
@@ -1174,7 +1142,7 @@ function ConfigurationForm({
       // Always load for dependent fields if parent has value, even if options exist
       // This ensures the saved value displays correctly
       if (field.dependsOn && values[field.dependsOn]) {
-        // Skip if field is already loading (checked above but double-check here)
+        // Skip if field is already loading
         if (loadingFields.has(field.name)) {
           return false;
         }
@@ -1188,22 +1156,18 @@ function ConfigurationForm({
         if (savedValue) {
           // Handle multi-select fields (saved value is an array)
           if (Array.isArray(savedValue)) {
-            // Check if all saved values exist in options
             const allValuesExist = savedValue.every(val =>
               fieldOptions.some((opt: any) =>
                 (opt.value === val) || (opt.id === val) || (opt === val)
               )
             );
-            // If any value doesn't exist in options, we need to reload
             return !allValuesExist;
           }
-            // Single value field
-            const valueExists = fieldOptions.some((opt: any) =>
-              (opt.value === savedValue) || (opt.id === savedValue) || (opt === savedValue)
-            );
-            // If value doesn't exist in options, we need to reload
-            return !valueExists;
-
+          // Single value field
+          const valueExists = fieldOptions.some((opt: any) =>
+            (opt.value === savedValue) || (opt.id === savedValue) || (opt === savedValue)
+          );
+          return !valueExists;
         }
 
         // No saved value but parent has value and we have options - don't reload
@@ -1214,136 +1178,76 @@ function ConfigurationForm({
       return !hasOptions;
     });
 
-    if (fieldsWithValues.length > 0) {
-      logger.debug('🚀 [ConfigForm] Loading options for fields with saved values in parallel:',
-        fieldsWithValues.map((f: any) => ({ name: f.name, value: values[f.name], dependsOn: f.dependsOn }))
-      );
+    if (fieldsToLoad.length > 0) {
+      // Log fields being loaded for Google Sheets
+      if (nodeInfo?.type === 'google_sheets_action_update_cell') {
+        logEvent('info', 'GoogleSheets-UpdateCell', 'Loading fields in parallel', {
+          fieldsToLoad: fieldsToLoad.map((f: any) => ({
+            name: f.name,
+            loadOnMount: f.loadOnMount,
+            dependsOn: f.dependsOn,
+            hasValue: !!values[f.name]
+          })),
+          totalFields: fieldsToLoad.length
+        });
+      }
 
-      // Mark all fields as loaded to prevent duplicate loads
-      fieldsWithValues.forEach(field => {
-        loadedFieldsWithValues.current.add(field.name);
+      // Mark loadOnMount fields as loaded
+      hasLoadedOnMount.current = true;
+      lastLoadedNodeTypeKeyRef.current = currentNodeTypeKey;
+
+      // Mark saved value fields as loaded to prevent duplicate loads
+      fieldsToLoad.forEach(field => {
+        if (values[field.name]) {
+          loadedFieldsWithValues.current.add(field.name);
+        }
       });
 
-      logger.debug(`🔄 [ConfigForm] Background loading options for ${fieldsWithValues.length} fields with saved values in parallel`);
-
-      // Load all fields in parallel using the optimized loadOptionsParallel function
+      // Load ALL fields in parallel for instant UX
       loadOptionsParallel(
-        fieldsWithValues.map(field => ({
+        fieldsToLoad.map((field: any) => ({
           fieldName: field.name,
           dependsOn: field.dependsOn,
           dependsOnValue: field.dependsOn ? values[field.dependsOn] : undefined
         }))
       ).catch(err => {
-        logger.error('❌ [ConfigForm] Error loading fields with saved values:', err);
+        if (nodeInfo?.type === 'google_sheets_action_update_cell') {
+          logEvent('error', 'GoogleSheets-UpdateCell', 'Field loading failed', {
+            error: err.message
+          });
+        }
       });
+    } else {
+      if (nodeInfo?.type === 'google_sheets_action_update_cell') {
+        logEvent('info', 'GoogleSheets-UpdateCell', 'No fields to load', {
+          hasLoadedOnMount: hasLoadedOnMount.current,
+          configSchemaFields: nodeInfo?.configSchema?.map((f: any) => ({
+            name: f.name,
+            dynamic: f.dynamic,
+            loadOnMount: f.loadOnMount,
+            dependsOn: f.dependsOn
+          }))
+        });
+      }
     }
-  }, [nodeInfo, isInitialLoading, values, dynamicOptions, loadOptionsParallel]);
+  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection, reloadCounter]); // FIXED: Removed values/dynamicOptions to prevent feedback loop
 
-  // Load dynamic fields when their dependencies are satisfied
+  /**
+   * PURPOSE: Handle edge cases that can't fit in the unified loader
+   * TRIGGERS: Facebook pageId changes
+   * LOADS: Facebook shareToGroups (special reactive case)
+   * NOTE: Dependent field loading is now handled by the unified useEffect above
+   */
   useEffect(() => {
     if (!nodeInfo?.configSchema || isInitialLoading) return;
-    
+
     // Special handling for Facebook shareToGroups field
+    // This is a reactive edge case that needs to load when pageId changes
     if (nodeInfo.type === 'facebook_action_create_post' && values.pageId && !dynamicOptions.shareToGroups) {
       logger.debug('🔄 [ConfigForm] Loading Facebook groups for sharing...');
       loadOptions('shareToGroups');
     }
-    
-    // Find other dynamic fields that should load when visible
-    const fieldsToLoad = nodeInfo.configSchema.filter((field: any) => {
-      if (!field.dynamic) return false;
-
-      // Check if field is now visible (its dependencies are satisfied)
-      if (field.dependsOn) {
-        const dependsOnValue = values[field.dependsOn];
-        if (!dependsOnValue) return false; // Don't load if dependency not satisfied
-
-        // Check if already loaded
-        const fieldOptions = dynamicOptions[field.name];
-        const hasOptions = fieldOptions && Array.isArray(fieldOptions) && fieldOptions.length > 0;
-
-        // Load if visible and not yet loaded
-        // Special case: prevent repeated reloads for Google Sheets sheetName when options exist
-        if (nodeInfo?.providerId === 'google-sheets' && field.name === 'sheetName' && hasOptions) {
-          return false;
-        }
-
-        // Special case: prevent repeated reloads for Microsoft Excel dependent fields when options exist
-        if (nodeInfo?.providerId === 'microsoft-excel' && hasOptions) {
-          return false;
-        }
-
-        // Storage provider file fields are handled by the field change handler when folder/path is selected
-        // Skip auto-loading them here to prevent duplicate loads
-        if (nodeInfo?.providerId === 'onedrive' && field.name === 'fileId') {
-          return false;
-        }
-        if (nodeInfo?.providerId === 'dropbox' && field.name === 'filePath') {
-          return false;
-        }
-        if (nodeInfo?.providerId === 'box' && field.name === 'fileId') {
-          return false;
-        }
-
-        return !hasOptions;
-      }
-
-      return false;
-    });
-    
-    if (fieldsToLoad.length > 0) {
-      logger.debug(`🚀 [ConfigForm] Auto-loading ${fieldsToLoad.length} visible fields in parallel:`, fieldsToLoad.map((f: any) => f.name));
-
-      // Group fields by their dependencies to load in parallel within each group
-      const independentFields: any[] = [];
-      const dependentFieldsByParent: Record<string, any[]> = {};
-
-      fieldsToLoad.forEach((field: any) => {
-        if (!field.dependsOn) {
-          independentFields.push(field);
-        } else {
-          if (!dependentFieldsByParent[field.dependsOn]) {
-            dependentFieldsByParent[field.dependsOn] = [];
-          }
-          dependentFieldsByParent[field.dependsOn].push(field);
-        }
-      });
-
-      // Build list of all fields to load
-      const fieldsToLoadConfig: Array<{ fieldName: string; dependsOn?: string; dependsOnValue?: any }> = [];
-
-      // Add independent fields
-      independentFields.forEach(field => {
-        logger.debug(`🔄 [ConfigForm] Auto-loading independent field: ${field.name}`);
-        fieldsToLoadConfig.push({ fieldName: field.name });
-      });
-
-      // Add dependent fields that have their dependency values
-      Object.entries(dependentFieldsByParent).forEach(([parentField, fields]) => {
-        const dependencyValue = values[parentField];
-        if (dependencyValue) {
-          logger.debug(`📦 [ConfigForm] Loading ${fields.length} fields that depend on ${parentField}:`, fields.map((f: any) => f.name));
-          fields.forEach((field: any) => {
-            fieldsToLoadConfig.push({
-              fieldName: field.name,
-              dependsOn: field.dependsOn,
-              dependsOnValue: dependencyValue
-            });
-          });
-        } else {
-          logger.debug(`⚠️ [ConfigForm] Skipping auto-load for fields depending on ${parentField} - missing dependency value`);
-        }
-      });
-
-      // Execute all loads in parallel using optimized function
-      if (fieldsToLoadConfig.length > 0) {
-        logger.debug(`🚀 [ConfigForm] Auto-loading ${fieldsToLoadConfig.length} visible fields in parallel`);
-        loadOptionsParallel(fieldsToLoadConfig).catch(err => {
-          logger.error('❌ [ConfigForm] Error auto-loading visible fields:', err);
-        });
-      }
-    }
-  }, [nodeInfo, isInitialLoading, values.pageId, loadOptionsParallel, dynamicOptions, values]);
+  }, [nodeInfo, isInitialLoading, values.pageId, loadOptions, dynamicOptions]);
 
   // Listen for integration reconnection events to refresh integration status
   useEffect(() => {

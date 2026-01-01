@@ -40,6 +40,25 @@ When searching for code to remove or fix:
 
 **Remove Means DELETE** - When user says "remove X", DELETE the code, don't comment it out. Git preserves history.
 
+### useEffect Creation Protocol - MANDATORY
+**BEFORE creating ANY new useEffect:**
+
+1. **Search existing useEffects:** `grep -n "useEffect" [filename]`
+2. **Audit for overlap:** Check if any existing useEffect has similar purpose/dependencies
+3. **Attempt to modify existing:** Can you add logic to an existing useEffect instead?
+4. **Document decision:** If creating new useEffect, comment WHY you can't use existing ones
+
+**Red Flags (NEVER do this):**
+- ❌ Multiple useEffects with same dependencies
+- ❌ Provider-specific hacks to prevent duplicate loads
+- ❌ Comments like "handled by another useEffect"
+
+**Limits:**
+- **Ideal:** 3-5 useEffects per file
+- **Refactor required:** 10+ useEffects per file
+
+**See:** `/learning/docs/useEffect-creation-protocol.md` for full guidelines
+
 ---
 
 ## 🎯 API & FIELD IMPLEMENTATION

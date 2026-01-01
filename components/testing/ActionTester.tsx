@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -42,6 +42,12 @@ export function ActionTester({ userId }: ActionTesterProps) {
   const [loadingDynamic, setLoadingDynamic] = useState(false)
   const [aiFields, setAiFields] = useState<Record<string, boolean>>({})
   const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set())
+
+  // Use ref to avoid recreating loadOptions on every configValues change
+  const configValuesRef = useRef(configValues)
+  useEffect(() => {
+    configValuesRef.current = configValues
+  }, [configValues])
 
   // Test data state
   const [testDataJson, setTestDataJson] = useState<string>('{}')
@@ -136,6 +142,17 @@ export function ActionTester({ userId }: ActionTesterProps) {
       return
     }
 
+    // Google Sheets Update Cell debug logging
+    if (selectedNode?.type === 'google_sheets_action_update_cell') {
+      logEvent('info', 'GoogleSheets-UpdateCell', `loadOptions called for field: ${fieldName}`, {
+        fieldName,
+        parentField,
+        parentValue,
+        forceReload,
+        currentConfigValues: configValuesRef.current
+      })
+    }
+
     setLoadingDynamic(true)
     setLoadingFields(prev => new Set([...prev, fieldName]))
 
@@ -156,7 +173,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
       const dataType = resourceType || fieldName
 
       // Build options from current config values and parent value
-      const options: Record<string, any> = { ...configValues }
+      const options: Record<string, any> = { ...configValuesRef.current }
       if (parentValue !== undefined && parentField) {
         options[parentField] = parentValue
 
@@ -183,16 +200,16 @@ export function ActionTester({ userId }: ActionTesterProps) {
       }
 
       // Also normalize workspace field to workspaceId for Notion API
-      if (selectedProvider === 'notion' && configValues.workspace && !options.workspaceId) {
-        options.workspaceId = configValues.workspace
+      if (selectedProvider === 'notion' && configValuesRef.current.workspace && !options.workspaceId) {
+        options.workspaceId = configValuesRef.current.workspace
       }
       // And normalize database field to databaseId if it exists in configValues
-      if (selectedProvider === 'notion' && configValues.database && !options.databaseId) {
-        options.databaseId = configValues.database
+      if (selectedProvider === 'notion' && configValuesRef.current.database && !options.databaseId) {
+        options.databaseId = configValuesRef.current.database
       }
       // And normalize page field to pageId if it exists in configValues
-      if (selectedProvider === 'notion' && configValues.page && !options.pageId) {
-        options.pageId = configValues.page
+      if (selectedProvider === 'notion' && configValuesRef.current.page && !options.pageId) {
+        options.pageId = configValuesRef.current.page
       }
 
       const response = await fetchWithTimeout(
@@ -279,12 +296,27 @@ export function ActionTester({ userId }: ActionTesterProps) {
         return next
       })
     }
-  }, [selectedProvider, selectedIntegrationId, selectedNode, configValues, logApiCall, logApiResponse, logEvent, logApiError])
+  }, [selectedProvider, selectedIntegrationId, selectedNode, logApiCall, logApiResponse, logEvent, logApiError])
 
   // Load fields with loadOnMount when integration and node are selected
   useEffect(() => {
     if (!selectedProvider || !selectedIntegrationId || !selectedNode) {
       return
+    }
+
+    // Google Sheets Update Cell debug logging
+    if (selectedNode.type === 'google_sheets_action_update_cell') {
+      logEvent('info', 'GoogleSheets-UpdateCell', 'ActionTester useEffect triggered', {
+        hasProvider: !!selectedProvider,
+        hasIntegration: !!selectedIntegrationId,
+        hasNode: !!selectedNode,
+        configSchema: selectedNode.configSchema?.map((f: any) => ({
+          name: f.name,
+          loadOnMount: f.loadOnMount,
+          dynamic: f.dynamic,
+          dependsOn: f.dependsOn
+        }))
+      })
     }
 
     // Find all fields that should load on mount
@@ -293,18 +325,52 @@ export function ActionTester({ userId }: ActionTesterProps) {
     }) || []
 
     if (fieldsToLoad.length === 0) {
+      // Google Sheets Update Cell debug logging
+      if (selectedNode.type === 'google_sheets_action_update_cell') {
+        logEvent('info', 'GoogleSheets-UpdateCell', 'No fields to load on mount', {
+          schemaLength: selectedNode.configSchema?.length || 0
+        })
+      }
       return
     }
 
     logger.debug('[ActionTester] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name))
+
+    // Google Sheets Update Cell debug logging
+    if (selectedNode.type === 'google_sheets_action_update_cell') {
+      logEvent('info', 'GoogleSheets-UpdateCell', 'Loading fields in parallel on mount', {
+        fieldsToLoad: fieldsToLoad.map((f: any) => f.name),
+        count: fieldsToLoad.length
+      })
+    }
 
     // Load all fields in parallel
     Promise.all(
       fieldsToLoad.map(field => loadOptions(field.name))
     ).catch(error => {
       logger.error('[ActionTester] Error loading fields on mount:', error)
+      if (selectedNode.type === 'google_sheets_action_update_cell') {
+        logEvent('error', 'GoogleSheets-UpdateCell', 'Error loading fields on mount', {
+          error: error.message
+        })
+      }
     })
-  }, [selectedProvider, selectedIntegrationId, selectedNode, loadOptions])
+  }, [selectedProvider, selectedIntegrationId, selectedNode, loadOptions, logEvent])
+
+  // setValue handler with Google Sheets Update Cell logging
+  const handleSetValue = useCallback((field: string, value: any) => {
+    // Google Sheets Update Cell debug logging
+    if (selectedNode?.type === 'google_sheets_action_update_cell') {
+      logEvent('info', 'GoogleSheets-UpdateCell', `Field value changed: ${field}`, {
+        field,
+        newValue: value,
+        valueType: typeof value,
+        previousValues: configValuesRef.current
+      })
+    }
+
+    setConfigValues(prev => ({ ...prev, [field]: value }))
+  }, [selectedNode?.type, logEvent])
 
   // Analyze schema validation - compare config fields vs API response
   const analyzeSchemaValidation = useCallback((configSent: any, apiResponse: any) => {
@@ -907,7 +973,7 @@ ${validation.missingFields.map(field => {
                 <GenericConfiguration
                   nodeInfo={selectedNode}
                   values={configValues}
-                  setValue={(field, value) => setConfigValues(prev => ({ ...prev, [field]: value }))}
+                  setValue={handleSetValue}
                   errors={configErrors}
                   onSubmit={handleConfigSubmit}
                   onCancel={() => {}}
