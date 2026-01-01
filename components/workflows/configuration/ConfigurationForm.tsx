@@ -389,21 +389,6 @@ function ConfigurationForm({
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
 
-    // Admin Debug Panel logging for Google Sheets Update Cell action
-    if (nodeInfo?.type === 'google_sheets_action_update_cell') {
-      logEvent('info', 'GoogleSheets-UpdateCell', `Field value changed: ${field}`, {
-        field,
-        newValue: value,
-        valueType: typeof value,
-        previousValues: {
-          spreadsheetId: values.spreadsheetId,
-          sheetName: values.sheetName,
-          cellAddress: values.cellAddress,
-          value: values.value
-        }
-      });
-    }
-
     setValues(prev => ({
       ...prev,
       [field]: value
@@ -415,7 +400,7 @@ function ConfigurationForm({
       delete newErrors[field];
       return newErrors;
     });
-  }, [provider, nodeInfo?.type, values, logEvent]);
+  }, [provider, nodeInfo?.type, values]);
 
   // Ref to track which fields have already loaded options to prevent infinite loops
   const loadedFieldsWithValues = useRef<Set<string>>(new Set());
@@ -995,37 +980,11 @@ function ConfigurationForm({
    * CONSOLIDATES: Former useEffect #9 (loadOnMount) + useEffect #10 (saved values + dependent fields)
    */
   useEffect(() => {
-    // Debug logging for Google Sheets Update Cell
-    if (nodeInfo?.type === 'google_sheets_action_update_cell') {
-      logEvent('info', 'GoogleSheets-UpdateCell', 'Unified useEffect triggered', {
-        isInitialLoading,
-        hasConfigSchema: !!nodeInfo?.configSchema,
-        needsConnection,
-        hasLoadedOnMount: hasLoadedOnMount.current,
-        valuesKeys: Object.keys(values),
-        spreadsheetId: values.spreadsheetId,
-        sheetName: values.sheetName,
-        cellAddress: values.cellAddress,
-        value: values.value
-      });
-    }
-
     if (!nodeInfo?.configSchema || isInitialLoading) {
-      if (nodeInfo?.type === 'google_sheets_action_update_cell') {
-        logEvent('info', 'GoogleSheets-UpdateCell', 'Exiting early - no schema or still loading', {
-          hasConfigSchema: !!nodeInfo?.configSchema,
-          isInitialLoading
-        });
-      }
       return;
     }
 
     if (needsConnection) {
-      if (nodeInfo?.type === 'google_sheets_action_update_cell') {
-        logEvent('info', 'GoogleSheets-UpdateCell', 'Skipping - needs connection', {
-          providerId: nodeInfo?.providerId
-        });
-      }
       return;
     }
 
@@ -1179,19 +1138,6 @@ function ConfigurationForm({
     });
 
     if (fieldsToLoad.length > 0) {
-      // Log fields being loaded for Google Sheets
-      if (nodeInfo?.type === 'google_sheets_action_update_cell') {
-        logEvent('info', 'GoogleSheets-UpdateCell', 'Loading fields in parallel', {
-          fieldsToLoad: fieldsToLoad.map((f: any) => ({
-            name: f.name,
-            loadOnMount: f.loadOnMount,
-            dependsOn: f.dependsOn,
-            hasValue: !!values[f.name]
-          })),
-          totalFields: fieldsToLoad.length
-        });
-      }
-
       // Mark loadOnMount fields as loaded
       hasLoadedOnMount.current = true;
       lastLoadedNodeTypeKeyRef.current = currentNodeTypeKey;
@@ -1210,25 +1156,7 @@ function ConfigurationForm({
           dependsOn: field.dependsOn,
           dependsOnValue: field.dependsOn ? values[field.dependsOn] : undefined
         }))
-      ).catch(err => {
-        if (nodeInfo?.type === 'google_sheets_action_update_cell') {
-          logEvent('error', 'GoogleSheets-UpdateCell', 'Field loading failed', {
-            error: err.message
-          });
-        }
-      });
-    } else {
-      if (nodeInfo?.type === 'google_sheets_action_update_cell') {
-        logEvent('info', 'GoogleSheets-UpdateCell', 'No fields to load', {
-          hasLoadedOnMount: hasLoadedOnMount.current,
-          configSchemaFields: nodeInfo?.configSchema?.map((f: any) => ({
-            name: f.name,
-            dynamic: f.dynamic,
-            loadOnMount: f.loadOnMount,
-            dependsOn: f.dependsOn
-          }))
-        });
-      }
+      );
     }
   }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection, reloadCounter]); // FIXED: Removed values/dynamicOptions to prevent feedback loop
 

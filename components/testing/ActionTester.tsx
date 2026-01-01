@@ -142,17 +142,6 @@ export function ActionTester({ userId }: ActionTesterProps) {
       return
     }
 
-    // Google Sheets Update Cell debug logging
-    if (selectedNode?.type === 'google_sheets_action_update_cell') {
-      logEvent('info', 'GoogleSheets-UpdateCell', `loadOptions called for field: ${fieldName}`, {
-        fieldName,
-        parentField,
-        parentValue,
-        forceReload,
-        currentConfigValues: configValuesRef.current
-      })
-    }
-
     setLoadingDynamic(true)
     setLoadingFields(prev => new Set([...prev, fieldName]))
 
@@ -304,73 +293,29 @@ export function ActionTester({ userId }: ActionTesterProps) {
       return
     }
 
-    // Google Sheets Update Cell debug logging
-    if (selectedNode.type === 'google_sheets_action_update_cell') {
-      logEvent('info', 'GoogleSheets-UpdateCell', 'ActionTester useEffect triggered', {
-        hasProvider: !!selectedProvider,
-        hasIntegration: !!selectedIntegrationId,
-        hasNode: !!selectedNode,
-        configSchema: selectedNode.configSchema?.map((f: any) => ({
-          name: f.name,
-          loadOnMount: f.loadOnMount,
-          dynamic: f.dynamic,
-          dependsOn: f.dependsOn
-        }))
-      })
-    }
-
     // Find all fields that should load on mount
     const fieldsToLoad = selectedNode.configSchema?.filter((field: any) => {
       return field.loadOnMount === true && field.dynamic && !field.dependsOn
     }) || []
 
     if (fieldsToLoad.length === 0) {
-      // Google Sheets Update Cell debug logging
-      if (selectedNode.type === 'google_sheets_action_update_cell') {
-        logEvent('info', 'GoogleSheets-UpdateCell', 'No fields to load on mount', {
-          schemaLength: selectedNode.configSchema?.length || 0
-        })
-      }
       return
     }
 
     logger.debug('[ActionTester] Loading fields on mount:', fieldsToLoad.map((f: any) => f.name))
-
-    // Google Sheets Update Cell debug logging
-    if (selectedNode.type === 'google_sheets_action_update_cell') {
-      logEvent('info', 'GoogleSheets-UpdateCell', 'Loading fields in parallel on mount', {
-        fieldsToLoad: fieldsToLoad.map((f: any) => f.name),
-        count: fieldsToLoad.length
-      })
-    }
 
     // Load all fields in parallel
     Promise.all(
       fieldsToLoad.map(field => loadOptions(field.name))
     ).catch(error => {
       logger.error('[ActionTester] Error loading fields on mount:', error)
-      if (selectedNode.type === 'google_sheets_action_update_cell') {
-        logEvent('error', 'GoogleSheets-UpdateCell', 'Error loading fields on mount', {
-          error: error.message
-        })
-      }
     })
-  }, [selectedProvider, selectedIntegrationId, selectedNode, loadOptions, logEvent])
+  }, [selectedProvider, selectedIntegrationId, selectedNode, loadOptions])
 
-  // setValue handler with Google Sheets Update Cell logging
+  // setValue handler
   const handleSetValue = useCallback((field: string, value: any) => {
-    // Google Sheets Update Cell debug logging
-    if (selectedNode?.type === 'google_sheets_action_update_cell') {
-      logEvent('info', 'GoogleSheets-UpdateCell', `Field value changed: ${field}`, {
-        field,
-        newValue: value,
-        valueType: typeof value,
-        previousValues: configValuesRef.current
-      })
-    }
-
     setConfigValues(prev => ({ ...prev, [field]: value }))
-  }, [selectedNode?.type, logEvent])
+  }, [])
 
   // Analyze schema validation - compare config fields vs API response
   const analyzeSchemaValidation = useCallback((configSent: any, apiResponse: any) => {
