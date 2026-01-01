@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Play, AlertCircle, Loader2 } from 'lucide-react'
 import { GenericConfiguration } from '@/components/workflows/configuration/providers/GenericConfiguration'
+import { GoogleSheetsConfiguration } from '@/components/workflows/configuration/providers/GoogleSheetsConfiguration'
 import { VariableDragProvider } from '@/components/workflows/configuration/VariableDragContext'
 import { RequestResponseViewer } from './RequestResponseViewer'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
@@ -756,22 +757,40 @@ ${validation.missingFields.map(field => {
             <Card className="flex-1 p-6 overflow-auto">
               <h3 className="text-xl font-semibold mb-4">Configuration</h3>
               {selectedNode?.configSchema && selectedNode.configSchema.length > 0 ? (
-                <GenericConfiguration
-                  nodeInfo={selectedNode}
-                  values={configValues}
-                  setValue={handleSetValue}
-                  errors={configErrors}
-                  onSubmit={handleConfigSubmit}
-                  onCancel={() => {}}
-                  dynamicOptions={dynamicOptions}
-                  loadingDynamic={loadingDynamic}
-                  loadOptions={loadOptions}
-                  integrationId={selectedIntegrationId}
-                  aiFields={aiFields}
-                  setAiFields={setAiFields}
-                  loadingFields={loadingFields}
-                  needsConnection={false}
-                />
+                selectedProvider === 'google-sheets' ? (
+                  <GoogleSheetsConfiguration
+                    nodeInfo={selectedNode}
+                    values={configValues}
+                    setValue={handleSetValue}
+                    errors={configErrors}
+                    onSubmit={handleConfigSubmit}
+                    onCancel={() => {}}
+                    dynamicOptions={dynamicOptions}
+                    loadingDynamic={loadingDynamic}
+                    loadOptions={loadOptions}
+                    integrationName={selectedProvider}
+                    aiFields={aiFields}
+                    setAiFields={setAiFields}
+                    needsConnection={false}
+                  />
+                ) : (
+                  <GenericConfiguration
+                    nodeInfo={selectedNode}
+                    values={configValues}
+                    setValue={handleSetValue}
+                    errors={configErrors}
+                    onSubmit={handleConfigSubmit}
+                    onCancel={() => {}}
+                    dynamicOptions={dynamicOptions}
+                    loadingDynamic={loadingDynamic}
+                    loadOptions={loadOptions}
+                    integrationId={selectedIntegrationId}
+                    aiFields={aiFields}
+                    setAiFields={setAiFields}
+                    loadingFields={loadingFields}
+                    needsConnection={false}
+                  />
+                )
               ) : (
                 <div className="text-sm text-muted-foreground">
                   This action has no configuration fields.

@@ -3119,6 +3119,7 @@ export function FieldRenderer({
       case "google_sheets_range_preview":
       case "google_sheets_row_preview":
       case "google_sheets_update_row_preview":
+      case "google_sheets_update_row_fields":
         // These Google Sheets custom field types require provider-specific state management
         // They're typically rendered by GoogleSheetsConfiguration with proper context
         return null;

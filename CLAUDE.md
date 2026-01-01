@@ -468,6 +468,8 @@ supabase db reset/pull/diff    # Local ops
 - `/components` - UI components
 - `/lib` - Database, integrations, workflows
 - `/stores` - Zustand state
+- `/scripts` - Production utilities & tools
+- `/scripts/trash` - One-off scripts (can be deleted)
 - `/learning` - Documentation
 
 ### Integration Development
@@ -481,6 +483,42 @@ supabase db reset/pull/diff    # Local ops
 
 **Time:** 30min simple, 2-4hr complex
 **Guide:** `/learning/docs/integration-development-guide.md`
+
+### Script Management - MANDATORY
+**CRITICAL: One-off scripts go in `/scripts/trash`**
+
+When creating ANY script that will only be run once:
+- Database migrations
+- One-time fixes (fix-*, apply-*, update-*)
+- Debug/test scripts for specific bugs
+- Data transformations
+- Template/workflow cleanup
+
+**MUST place immediately in `/scripts/trash` directory.**
+
+**Production scripts in `/scripts` root:**
+- Development tools (build, dev, logs)
+- Integration/provider management
+- Recurring maintenance utilities
+- Testing infrastructure
+- Scripts referenced in package.json
+
+**DO NOT:**
+- Leave one-off scripts in `/scripts` root
+- Create multiple versions of same script (fix, fix-v2, fix-final)
+- Keep migration scripts after they've been run
+
+**Cleanup - MANDATORY REGULAR CHECKS:**
+- **MONTHLY:** Check `/scripts/trash` folder - Delete old scripts
+- **BEFORE MAJOR RELEASES:** Clean out all trash
+- **WHEN 10+ FILES:** Immediately suggest cleanup to user
+- **PROACTIVE:** When working in codebase, regularly check trash folder size
+
+**Action Required:**
+When you notice `/scripts/trash` has 5+ files, **proactively tell the user:**
+"I noticed the scripts/trash folder has [X] files. Should I clean those out?"
+
+See `/scripts/README.md` for full guidelines.
 
 ---
 

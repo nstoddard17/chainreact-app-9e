@@ -25,6 +25,7 @@ import { GoogleSheetsRangePreview } from '../components/google-sheets/GoogleShee
 import { GoogleSheetsRowPreview } from '../components/google-sheets/GoogleSheetsRowPreview';
 import { GoogleSheetsFindRowPreview } from '../components/google-sheets/GoogleSheetsFindRowPreview';
 import { GoogleSheetsUpdateRowPreview } from '../components/google-sheets/GoogleSheetsUpdateRowPreview';
+import { GoogleSheetsUpdateRowFields } from '../components/google-sheets/GoogleSheetsUpdateRowFields';
 import { getProviderDisplayName } from '@/lib/utils/provider-names';
 
 import { logger } from '@/lib/utils/logger'
@@ -717,6 +718,22 @@ export function GoogleSheetsConfiguration({
             }}
             onLoadPreviewData={loadGoogleSheetsPreviewData}
             setValue={setValueWithColumnTracking}
+          />
+        );
+      }
+
+      // Special handling for Update Row Fields
+      if (field.type === 'google_sheets_update_row_fields') {
+        return (
+          <GoogleSheetsUpdateRowFields
+            key={`field-${field.name}-${index}`}
+            values={values}
+            setValue={setValueWithColumnTracking}
+            previewData={previewData}
+            hasHeaders={googleSheetsHasHeaders}
+            action="update"
+            showPreviewData={showPreviewData}
+            loadingPreview={loadingPreview}
             workflowData={workflowData}
             currentNodeId={currentNodeId}
           />

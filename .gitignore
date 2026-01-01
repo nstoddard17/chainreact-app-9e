@@ -42,3 +42,7 @@ nul
 # Build/debug logs
 build-*.log
 debug-*.log
+
+# One-off scripts in trash (keep the README)
+/scripts/trash/*
+!/scripts/trash/README.md

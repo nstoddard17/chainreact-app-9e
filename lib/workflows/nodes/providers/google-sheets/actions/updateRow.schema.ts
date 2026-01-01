@@ -127,7 +127,7 @@ export const updateRowActionSchema: NodeComponent = {
     },
     {
       name: "updateRowPreview",
-      label: "Update Row",
+      label: "Update Row Preview",
       type: "google_sheets_update_row_preview",
       required: false,
       dependsOn: "updateMode",
@@ -135,7 +135,19 @@ export const updateRowActionSchema: NodeComponent = {
         $deps: ["updateMode"],
         $condition: { updateMode: { $ne: "visual" } }
       },
-      description: "Select a row and update its column values"
+      description: "Select a row to update"
+    },
+    {
+      name: "updateRowFields",
+      label: "Update Row Fields",
+      type: "google_sheets_update_row_fields",
+      required: false,
+      dependsOn: "updateMode",
+      hidden: {
+        $deps: ["updateMode"],
+        $condition: { updateMode: { $ne: "visual" } }
+      },
+      description: "Edit column values for the selected row"
     }
   ]
 }
