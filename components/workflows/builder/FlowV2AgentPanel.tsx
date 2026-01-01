@@ -919,6 +919,7 @@ export function FlowV2AgentPanel({
                           categoryName={meta.providerDropdown.category.displayName}
                           categoryKey={meta.providerDropdown.category.vagueTerm}
                           providers={meta.providerDropdown.providers}
+                          preSelectedProviderId={meta.providerDropdown.preSelectedProviderId}
                           onSelect={onProviderDropdownSelect}
                         />
                       </div>
@@ -1065,6 +1066,7 @@ export function FlowV2AgentPanel({
                                         categoryName={meta.providerDropdown.category.displayName}
                                         categoryKey={meta.providerDropdown.category.vagueTerm}
                                         providers={meta.providerDropdown.providers}
+                                        preSelectedProviderId={meta.providerDropdown.preSelectedProviderId}
                                         onSelect={onProviderDropdownSelect}
                                       />
                                     </div>

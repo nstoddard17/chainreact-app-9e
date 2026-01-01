@@ -22,6 +22,7 @@ import { insertVariableIntoTextInput, insertVariableIntoContentEditable, normali
 import { CreateSignatureModal } from './CreateSignatureModal'
 
 import { logger } from '@/lib/utils/logger'
+import { sanitizeEmailHtml, createSafeEmailHtmlProps } from '@/lib/utils/sanitize-html'
 
 interface GmailSignature {
   id: string
@@ -291,7 +292,7 @@ export const GmailEmailRichTextEditor = forwardRef<GmailEmailRichTextEditorRef, 
                         </div>
                         <div
                           className="text-sm text-gray-600 mb-3 truncate"
-                          dangerouslySetInnerHTML={{ __html: signature.content }}
+                          {...createSafeEmailHtmlProps(signature.content)}
                         />
                         <div className="flex items-center gap-2">
                           <Button
@@ -361,7 +362,7 @@ export const GmailEmailRichTextEditor = forwardRef<GmailEmailRichTextEditorRef, 
           <div
             ref={editorRef}
             contentEditable
-            dangerouslySetInnerHTML={{ __html: value }}
+            {...createSafeEmailHtmlProps(value)}
             onInput={(e) => onChange(e.currentTarget.innerHTML)}
             onFocus={dropHandlers.onFocus}
             onBlur={dropHandlers.onBlur}

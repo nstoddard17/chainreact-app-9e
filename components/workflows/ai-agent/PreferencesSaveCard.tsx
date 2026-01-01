@@ -202,7 +202,7 @@ export function PreferencesSaveCard({
             className="text-muted-foreground gap-1.5"
           >
             <X className="h-3.5 w-3.5" />
-            Don't Save
+            Don&apos;t Save
           </Button>
 
           <Button
