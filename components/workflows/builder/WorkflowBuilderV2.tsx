@@ -5186,6 +5186,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           progress: { ...prev.progress, currentIndex: nextIndex, done: nextIndex },
         }))
         transitionTo(BuildState.COMPLETE)
+
+        // Add preferences save message if we collected any preferences during the build
+        if (collectedPreferences.length > 0) {
+          setAgentMessages(prev => [...prev, {
+            id: generateLocalId(),
+            flowId,
+            role: 'assistant',
+            text: 'Your workflow is ready! Would you like to save these preferences for future workflows?',
+            meta: {
+              preferencesSave: {
+                selections: collectedPreferences
+              }
+            },
+            createdAt: new Date().toISOString(),
+          }])
+        }
       } else {
         setBuildMachine(prev => ({
           ...prev,
@@ -5233,7 +5249,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
       transitionTo(BuildState.WAITING_USER)
     }
-  }, [buildMachine, builder?.nodes, builder?.setNodes, nodeConfigs, toast, transitionTo, setBuildMachine])
+  }, [buildMachine, builder?.nodes, builder?.setNodes, collectedPreferences, flowId, generateLocalId, nodeConfigs, toast, transitionTo, setBuildMachine])
 
   const handleSkipNode = useCallback(() => {
     const nextIndex = buildMachine.progress.currentIndex + 1
@@ -5243,6 +5259,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         progress: { ...prev.progress, currentIndex: nextIndex, done: nextIndex },
       }))
       transitionTo(BuildState.COMPLETE)
+
+      // Add preferences save message if we collected any preferences during the build
+      if (collectedPreferences.length > 0) {
+        setAgentMessages(prev => [...prev, {
+          id: generateLocalId(),
+          flowId,
+          role: 'assistant',
+          text: 'Your workflow is ready! Would you like to save these preferences for future workflows?',
+          meta: {
+            preferencesSave: {
+              selections: collectedPreferences
+            }
+          },
+          createdAt: new Date().toISOString(),
+        }])
+      }
     } else {
       setBuildMachine(prev => ({
         ...prev,
@@ -5250,7 +5282,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       }))
       transitionTo(BuildState.WAITING_USER)
     }
-  }, [buildMachine.plan.length, buildMachine.progress.currentIndex, transitionTo])
+  }, [buildMachine.plan.length, buildMachine.progress.currentIndex, collectedPreferences, flowId, generateLocalId, transitionTo])
 
   const handleNodeConfigChange = useCallback((nodeId: string, fieldName: string, value: any) => {
     setNodeConfigs(prev => ({
