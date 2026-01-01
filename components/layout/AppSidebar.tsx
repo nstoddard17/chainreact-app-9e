@@ -37,12 +37,12 @@ export function AppSidebar() {
   return (
     <div
       className={cn(
-        'flex flex-col h-screen bg-white border-r border-slate-200 transition-all duration-300',
+        'flex flex-col h-screen bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 transition-all duration-300',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
       {/* Logo */}
-      <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200">
+      <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200 dark:border-slate-700">
         {!collapsed && (
           <Link href="/home" className="flex items-center gap-2">
             <Image
@@ -52,7 +52,7 @@ export function AppSidebar() {
               height={32}
               className="w-8 h-8"
             />
-            <span className="font-bold text-lg text-slate-900">ChainReact</span>
+            <span className="font-bold text-lg text-slate-900 dark:text-slate-100">ChainReact</span>
           </Link>
         )}
         {collapsed && (
@@ -77,8 +77,8 @@ export function AppSidebar() {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-orange-50 text-orange-700'
-                  : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100'
               )}
               title={collapsed ? item.name : undefined}
             >
@@ -90,12 +90,12 @@ export function AppSidebar() {
       </nav>
 
       {/* Collapse Toggle */}
-      <div className="p-3 border-t border-slate-200">
+      <div className="p-3 border-t border-slate-200 dark:border-slate-700">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full justify-center"
+          className="w-full justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
         >
           {collapsed ? (
             <ChevronRight className="w-4 h-4" />

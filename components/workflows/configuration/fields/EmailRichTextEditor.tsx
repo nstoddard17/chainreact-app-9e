@@ -74,6 +74,7 @@ import { ConnectButton } from './shared/ConnectButton'
 import { VariableInserterDropdown } from './shared/VariableInserterDropdown'
 
 import { logger } from '@/lib/utils/logger'
+import { sanitizeEmailHtml } from '@/lib/utils/sanitize-html'
 
 
 interface EmailRichTextEditorProps {
@@ -2140,7 +2141,7 @@ export function EmailRichTextEditor({
                             color: 'var(--foreground)'
                           }}
                           dangerouslySetInnerHTML={{
-                            __html: `${signature.content.substring(0, 200) }...`
+                            __html: sanitizeEmailHtml(`${signature.content.substring(0, 200)}...`)
                           }}
                         />
                         <div className="flex items-center gap-2">
@@ -2414,9 +2415,9 @@ export function EmailRichTextEditor({
       <div className="relative h-[300px] overflow-hidden">
         {isPreviewMode ? (
           <div className="h-full overflow-y-auto p-4 bg-background">
-            <div 
+            <div
               className="prose prose-sm max-w-none dark:prose-invert prose-slate"
-              dangerouslySetInnerHTML={{ __html: value || '<p class="text-muted-foreground">No content to preview</p>' }}
+              dangerouslySetInnerHTML={{ __html: sanitizeEmailHtml(value || '<p class="text-muted-foreground">No content to preview</p>') }}
             />
           </div>
         ) : (

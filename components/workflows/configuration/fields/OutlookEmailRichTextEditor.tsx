@@ -12,6 +12,7 @@ import { insertVariableIntoContentEditable, normalizeDraggedVariable } from '@/l
 import { CreateSignatureModal } from './CreateSignatureModal'
 
 import { logger } from '@/lib/utils/logger'
+import { createSafeEmailHtmlProps } from '@/lib/utils/sanitize-html'
 
 interface OutlookSignature {
   id: string
@@ -212,7 +213,7 @@ export const OutlookEmailRichTextEditor = forwardRef<OutlookEmailRichTextEditorR
                         )}
                         <div
                           className="text-sm text-gray-600 mt-1 max-h-20 overflow-hidden"
-                          dangerouslySetInnerHTML={{ __html: signature.content }}
+                          {...createSafeEmailHtmlProps(signature.content)}
                         />
                         <Button
                           size="sm"
@@ -260,7 +261,7 @@ export const OutlookEmailRichTextEditor = forwardRef<OutlookEmailRichTextEditorR
           <div
             ref={editorRef}
             contentEditable
-            dangerouslySetInnerHTML={{ __html: value }}
+            {...createSafeEmailHtmlProps(value)}
             onInput={(e) => onChange(e.currentTarget.innerHTML)}
             onFocus={dropHandlers.onFocus}
             onBlur={dropHandlers.onBlur}
