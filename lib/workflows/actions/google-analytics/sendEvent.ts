@@ -5,11 +5,11 @@
 
 import { ExecutionContext } from '../../executeNode'
 import { logger } from '@/lib/utils/logger'
-import { getPropertyAndStreamIds, getOrCreateApiSecret } from './secretManager'
 
 export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promise<any> {
   const {
     measurementId,
+    apiSecret,
     clientId,
     eventName,
     eventParams,
@@ -27,6 +27,10 @@ export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promi
   // Validate required fields
   if (!measurementId) {
     throw new Error('Measurement ID is required for sending events to Google Analytics')
+  }
+
+  if (!apiSecret) {
+    throw new Error('API Secret is required. Create one in Google Analytics Admin > Data Streams > [Your Stream] > Measurement Protocol API secrets')
   }
 
   if (!clientId) {
@@ -47,16 +51,6 @@ export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promi
       timestamp: new Date().toISOString(),
       testMode: true
     }
-  }
-
-  // Get the Google Analytics integration
-  const integration = await context.getIntegration('google-analytics')
-  if (!integration) {
-    throw new Error('Google Analytics integration not found. Please connect your Google Analytics account.')
-  }
-
-  if (!integration.access_token) {
-    throw new Error('Google Analytics access token not found. Please reconnect your account.')
   }
 
   try {
@@ -87,21 +81,7 @@ export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promi
       payload['user_id'] = userId
     }
 
-    // Get or create Measurement Protocol API secret automatically
-    // This eliminates the need for users to manually create API secrets
-    logger.debug('[Google Analytics] Looking up property and data stream for measurement ID')
-
-    const { propertyId, dataStreamId } = await getPropertyAndStreamIds(integration, measurementId)
-
-    logger.debug('[Google Analytics] Getting or creating API secret')
-
-    const apiSecret = await getOrCreateApiSecret(
-      integration,
-      propertyId,
-      dataStreamId,
-      context.supabase
-    )
-
+    // Use the provided API secret from configuration
     const url = `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`
 
     const response = await fetch(url, {

@@ -28,6 +28,8 @@ import { processAIFields as processAIFieldsForChains, ProcessingContext } from '
 import { processAIFields, hasAIPlaceholders } from './ai/aiFieldProcessor'
 
 import { logger } from '@/lib/utils/logger'
+// Re-export getIntegrationById for backward compatibility
+export { getIntegrationById } from './integrationHelpers'
 
 /**
  * Generate mock output for sandbox mode based on action type
@@ -200,26 +202,6 @@ export async function getDecryptedAccessTokenById(integrationId: string): Promis
 /**
  * Get integration record by ID (useful for getting provider info, tokens, etc.)
  */
-export async function getIntegrationById(integrationId: string): Promise<any> {
-  const supabase = await createSupabaseServerClient()
-
-  const { data: integration, error } = await supabase
-    .from("integrations")
-    .select("*")
-    .eq("id", integrationId)
-    .single()
-
-  if (error) {
-    logger.error(`Database error fetching integration ${integrationId}:`, error)
-    throw new Error(`Database error: ${error.message}`)
-  }
-
-  if (!integration) {
-    throw new Error(`No integration found with ID ${integrationId}`)
-  }
-
-  return integration
-}
 
 /**
  * Internal function to decrypt an integration's access token
