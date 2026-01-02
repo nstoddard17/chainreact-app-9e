@@ -13,14 +13,20 @@ export async function setUserPresence(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { presence } = config
+    const { presence, workspace, asUser = true } = config
     if (!presence) throw new Error('Presence is required (auto or away)')
     if (!['auto', 'away'].includes(presence)) throw new Error('Presence must be "auto" or "away"')
 
-    const accessToken = await getSlackToken(userId)
+    // IMPORTANT: This action requires a Slack USER token (xoxp-), not a BOT token (xoxb-)
+    // asUser defaults to true because bot tokens cannot set user presence
+    const useUserToken = asUser !== false // Default to true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
+
     const result = await callSlackApi('users.setPresence', accessToken, { presence })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

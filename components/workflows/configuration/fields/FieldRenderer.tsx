@@ -45,6 +45,7 @@ import { useDragDrop } from "@/hooks/use-drag-drop";
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete";
 import { EmailRichTextEditor } from "./EmailRichTextEditor";
 import { SlackMessageEditor } from "./SlackMessageEditor";
+import { SlackBlockBuilder } from "./slack/SlackBlockBuilder";
 // Use the full featured Discord rich text editor
 import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
 import { GmailLabelManager } from "./GmailLabelManager";
@@ -102,6 +103,9 @@ import { NotionDeletableBlocksField } from "./notion/NotionDeletableBlocksField"
 
 // Microsoft Excel field components
 import { MicrosoftExcelColumnMapper } from "./microsoft-excel/MicrosoftExcelColumnMapper";
+import { MicrosoftExcelTableAddRowFields } from "../components/microsoft-excel/MicrosoftExcelTableAddRowFields";
+import { MicrosoftExcelWorksheetAddRowFields } from "../components/microsoft-excel/MicrosoftExcelWorksheetAddRowFields";
+import { MicrosoftExcelMultipleRowsFields } from "../components/microsoft-excel/MicrosoftExcelMultipleRowsFields";
 import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { NotionSelectOptionsField } from "./notion/NotionSelectOptionsField";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
@@ -574,8 +578,9 @@ export function FieldRenderer({
                           ((field.type === 'shopify_line_items') && field.dynamic && field.loadOnMount);
 
     if (shouldAutoLoad) {
-      // Only load if we don't have options yet
-      if (!fieldOptions.length && !loadingDynamic) {
+      // Only load if we don't have options yet and this field is not already loading
+      const isThisFieldLoading = loadingFields?.has(field.name) || false;
+      if (!fieldOptions.length && !isThisFieldLoading) {
         // Check if we need to load based on parent dependency
         if (field.dependsOn) {
           const parentValue = parentValues[field.dependsOn];
@@ -766,8 +771,10 @@ export function FieldRenderer({
 
   // Render the appropriate field based on type
   const renderFieldByType = () => {
-    // Consider both per-field loading set and loadingDynamic flag
-    const fieldIsLoading = (loadingFields?.has(field.name) || loadingDynamic) || false;
+    // Only show loading for this specific field OR if its parent dependency is loading
+    // This prevents all fields from showing loading when any field is loading
+    const parentFieldLoading = field.dependsOn ? loadingFields?.has(field.dependsOn) : false;
+    const fieldIsLoading = loadingFields?.has(field.name) || parentFieldLoading || false;
 
     // Special handling for Discord slash command trigger
     // Hide all fields except guildId until a server is selected
@@ -1080,7 +1087,7 @@ export function FieldRenderer({
               values={parentValues}
               loadOptions={onDynamicLoad}
               dynamicOptions={dynamicOptions}
-              loadingDynamic={loadingDynamic}
+              loadingDynamic={fieldIsLoading}
             />
           );
         }
@@ -1155,6 +1162,16 @@ export function FieldRenderer({
           />
         );
 
+      case "slack-block-builder":
+        // Visual builder for Slack Block Kit messages with JSON fallback
+        return (
+          <SlackBlockBuilder
+            value={value}
+            onChange={onChange}
+            disabled={false}
+          />
+        );
+
       case "discord-rich-text":
         // Enhanced rich text editor specifically for Discord message composition
         return (
@@ -1190,7 +1207,7 @@ export function FieldRenderer({
                 onChange={onChange}
                 error={error}
                 suggestions={fieldOptions}
-                isLoading={loadingDynamic}
+                isLoading={fieldIsLoading}
                 onDynamicLoad={onDynamicLoad}
               />
             );
@@ -1203,7 +1220,7 @@ export function FieldRenderer({
                 onChange={onChange}
                 error={error}
                 suggestions={fieldOptions}
-                isLoading={loadingDynamic}
+                isLoading={fieldIsLoading}
                 onDynamicLoad={onDynamicLoad}
               />
             );
@@ -1216,8 +1233,8 @@ export function FieldRenderer({
                 placeholder={field.placeholder || `Enter ${field.label || field.name}...`}
                 suggestions={fieldOptions}
                 multiple={true}
-                isLoading={loadingDynamic}
-                disabled={loadingDynamic}
+                isLoading={fieldIsLoading}
+                disabled={fieldIsLoading}
                 className={cn(
                   error && "border-red-500"
                 )}
@@ -1242,7 +1259,7 @@ export function FieldRenderer({
             }}
             fieldName={field.name}
             placeholder={field.placeholder}
-            isLoading={loadingDynamic}
+            isLoading={fieldIsLoading}
           />
         );
 
@@ -1601,7 +1618,7 @@ export function FieldRenderer({
                 onChange={onChange}
                 error={error}
                 options={selectOptions}
-                isLoading={loadingDynamic}
+                isLoading={fieldIsLoading}
                 onDynamicLoad={onDynamicLoad}
                 nodeInfo={nodeInfo}
                 selectedValues={selectedValues}
@@ -2749,7 +2766,7 @@ export function FieldRenderer({
               options={fieldOptions}
               placeholder={field.placeholder}
               error={error}
-              isLoading={loadingDynamic}
+              isLoading={fieldIsLoading}
             />
           );
         }
@@ -2825,7 +2842,7 @@ export function FieldRenderer({
             value={value}
             onChange={onChange}
             options={fieldOptions as any[]}
-            loading={loadingDynamic}
+            loading={fieldIsLoading}
             onRefresh={field.dynamic ? () => onDynamicLoadRef.current?.(field.name, field.dependsOn, field.dependsOn ? parentValues[field.dependsOn] : undefined, true) : undefined}
             error={error}
           />
@@ -3074,6 +3091,54 @@ export function FieldRenderer({
             loadingFields={loadingFields}
             loadOptions={onDynamicLoad}
             parentValues={parentValues}
+          />
+        );
+
+      case "microsoft_excel_table_add_row_fields":
+        // Microsoft Excel Table Add Row Fields - dynamic column fields for entering row data
+        // Component self-fetches columns from the selected table
+        return (
+          <MicrosoftExcelTableAddRowFields
+            values={parentValues || {}}
+            setValue={(key, val) => {
+              if (setFieldValue) {
+                setFieldValue(key, val);
+              }
+            }}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+          />
+        );
+
+      case "microsoft_excel_worksheet_add_row_fields":
+        // Microsoft Excel Worksheet Add Row Fields - dynamic column fields for entering row data
+        // Component self-fetches columns from the selected worksheet
+        return (
+          <MicrosoftExcelWorksheetAddRowFields
+            values={parentValues || {}}
+            setValue={(key, val) => {
+              if (setFieldValue) {
+                setFieldValue(key, val);
+              }
+            }}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+          />
+        );
+
+      case "microsoft_excel_multiple_rows_fields":
+        // Microsoft Excel Multiple Rows Fields - dynamic column fields for adding multiple rows
+        // Component fetches worksheet columns and allows adding multiple rows with expandable UI
+        return (
+          <MicrosoftExcelMultipleRowsFields
+            values={parentValues || {}}
+            setValue={(key, val) => {
+              if (setFieldValue) {
+                setFieldValue(key, val);
+              }
+            }}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
           />
         );
 

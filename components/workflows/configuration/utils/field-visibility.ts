@@ -19,7 +19,18 @@ export function shouldShowField(
   field: any,
   values: Record<string, any>
 ): boolean {
-  // Handle hidden fields with dependencies
+  // Check showIf function FIRST (for dynamic visibility logic)
+  // This takes priority because it's the most specific condition
+  if (typeof field.showIf === 'function') {
+    const showIfResult = field.showIf(values)
+    // If showIf returns false, always hide the field
+    if (!showIfResult) return false
+    // If showIf returns true AND field is hidden with dependsOn,
+    // the showIf result overrides the hidden state
+    if (field.hidden) return true
+  }
+
+  // Handle hidden fields with dependencies (but no showIf)
   if (field.hidden && field.dependsOn) {
     const dependencyValue = values[field.dependsOn]
     const fieldHasSavedValue = hasValue(values[field.name])
@@ -55,11 +66,6 @@ export function shouldShowField(
     }
 
     return currentValue === conditionValue
-  }
-
-  // Check showIf function (for dynamic visibility logic)
-  if (typeof field.showIf === 'function') {
-    return field.showIf(values)
   }
 
   // Show by default

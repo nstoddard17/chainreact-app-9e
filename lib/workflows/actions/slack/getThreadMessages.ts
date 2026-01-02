@@ -3,7 +3,7 @@
  */
 import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
-import { getSlackToken, callSlackApi, getSlackErrorMessage } from './utils'
+import { getSlackToken, callSlackApi, getSlackErrorMessage, normalizeMessageId } from './utils'
 
 export async function getThreadMessages(params: {
   config: any
@@ -12,18 +12,26 @@ export async function getThreadMessages(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel, threadTs, limit = 100 } = config
+    const { channel, threadTs, limit = 100, workspace, asUser = false } = config
     if (!channel) throw new Error('Channel is required')
     if (!threadTs) throw new Error('Thread timestamp is required')
 
-    const accessToken = await getSlackToken(userId)
+    // Normalize thread timestamp (handles Slack URLs like https://slack.com/archives/C123/p1234567890123456)
+    const normalizedThreadTs = normalizeMessageId(threadTs)
+
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
+
     const result = await callSlackApi('conversations.replies', accessToken, {
       channel,
-      ts: threadTs,
+      ts: normalizedThreadTs,
       limit
     })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     const messages = (result.messages || []).map((m: any) => ({
       ts: m.ts,

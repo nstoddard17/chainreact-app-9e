@@ -9,6 +9,7 @@ import { useConfigCacheStore } from "@/stores/configCacheStore"
 import { buildCacheKey, getFieldTTL, shouldCacheField } from "@/lib/workflows/configuration/cache-utils"
 import { getCachedProviderData, cacheProviderData, shouldRefreshProviderCache } from "@/lib/utils/field-cache"
 import { useAuthStore } from "@/stores/authStore"
+import { useDebugStore } from "@/stores/debugStore"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -250,6 +251,21 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       silent,
       currentLoadingFields: Array.from(loadingFields.current)
     });
+
+    // Special logging for Slack files
+    if (fieldName === 'fileId' && providerId === 'slack') {
+      const debugData = {
+        fieldName,
+        nodeType,
+        providerId,
+        dependsOn,
+        dependsOnValue,
+        workspaceId: dependsOnValue,
+        formValues: getFormValues?.()
+      };
+      logger.debug('📎 [useDynamicOptions] Slack files field loading:', debugData);
+      useDebugStore.getState().logEvent('info', 'Slack Files', '📎 Loading files dropdown', debugData);
+    }
 
     if (!nodeType || !providerId) {
       logger.warn(`⚠️ [useDynamicOptions] Missing nodeType or providerId`, {
@@ -840,6 +856,24 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         let resolved: any = null;
         let resolvedLookup = providerId;
 
+        // CRITICAL: For workspace-based providers (Slack, Notion, etc.), if a workspace field exists
+        // and has a value, use that specific integration ID instead of just getting any integration
+        if (dependsOn === 'workspace' && dependsOnValue) {
+          const { getIntegrationById } = useIntegrationStore.getState();
+          resolved = getIntegrationById(dependsOnValue);
+          logger.debug('🔍 [useDynamicOptions] Using workspace-specific integration:', {
+            providerId,
+            fieldName,
+            workspaceId: dependsOnValue,
+            integrationFound: !!resolved,
+            integrationId: resolved?.id,
+            integrationStatus: resolved?.status
+          });
+          if (resolved) {
+            return { resolvedIntegration: resolved, resolvedLookupProviderId: resolvedLookup };
+          }
+        }
+
         // If requesting google-drive-folders, prefer the Drive integration
         if (resourceType === 'google-drive-folders' && providerId !== 'google-drive') {
           resolvedLookup = 'google-drive';
@@ -887,6 +921,22 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       const resolveResult = resolveIntegration();
       integration = resolveResult.resolvedIntegration;
       lookupProviderId = resolveResult.resolvedLookupProviderId;
+
+      // Special logging for Slack files to verify workspace resolution
+      if (fieldName === 'fileId' && providerId === 'slack') {
+        const resolveData = {
+          fieldName,
+          dependsOn,
+          dependsOnValue,
+          integrationFound: !!integration,
+          integrationId: integration?.id,
+          workspaceName: integration?.team_name,
+          teamId: integration?.team_id,
+          integrationStatus: integration?.status
+        };
+        logger.debug('📎 [useDynamicOptions] Slack files integration resolved:', resolveData);
+        useDebugStore.getState().logEvent('info', 'Slack Files', '🔍 Integration resolved', resolveData);
+      }
 
       // Special logging for Discord commands field
       if ((fieldName === 'command' && providerId === 'discord') || (providerId === 'discord' && !integration)) {
@@ -1501,6 +1551,14 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Load integration data with proper options
       options = dependsOn && dependsOnValue ? { [dependsOn]: dependsOnValue } : {};
 
+      // For Slack files, include the asUser option from form values
+      if (fieldName === 'fileId' && providerId === 'slack') {
+        const formValues = getFormValues?.() || {};
+        if (formValues.asUser !== undefined) {
+          options.asUser = formValues.asUser;
+        }
+      }
+
       // Merge in extraOptions if provided (e.g., baseId for Airtable tables)
       if (extraOptions) {
         options = { ...options, ...extraOptions };
@@ -1981,8 +2039,33 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             dependsOn,
             dependsOnValue
           });
+
+          // Extra logging for Slack files
+          if (fieldName === 'fileId' && providerId === 'slack') {
+            const apiCallData = {
+              resourceType,
+              integrationId: integration.id,
+              workspaceName: integration.team_name,
+              options,
+              forceRefresh
+            };
+            logger.debug('📎 [useDynamicOptions] About to call loadIntegrationData for Slack files:', apiCallData);
+            useDebugStore.getState().logEvent('info', 'Slack Files', '📡 Calling API', apiCallData);
+          }
+
           const result = await loadIntegrationData(resourceType, integration.id, options, forceRefresh);
 
+          // Log result for Slack files
+          if (fieldName === 'fileId' && providerId === 'slack') {
+            const resultData = {
+              hasResult: !!result,
+              hasData: !!(result?.data),
+              dataLength: result?.data?.length || 0,
+              resultKeys: result ? Object.keys(result) : []
+            };
+            logger.debug('📎 [useDynamicOptions] Received result from API:', resultData);
+            useDebugStore.getState().logEvent('info', 'Slack Files', '✅ API Response', resultData);
+          }
 
           // Check if this is still the current request
           // This is crucial because loadIntegrationData might not support abort signals
@@ -2023,6 +2106,17 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           const dataArray = result.data || result;
 
           formattedOptions = formatOptionsForField(fieldName, dataArray);
+
+          // Log formatted options for Slack files
+          if (fieldName === 'fileId' && providerId === 'slack') {
+            const formattedData = {
+              dataArrayLength: Array.isArray(dataArray) ? dataArray.length : 0,
+              formattedLength: formattedOptions?.length || 0,
+              firstOption: formattedOptions?.[0]
+            };
+            logger.debug('📎 [useDynamicOptions] Formatted options:', formattedData);
+            useDebugStore.getState().logEvent('info', 'Slack Files', '🎨 Formatted Options', formattedData);
+          }
 
           // PHASE 1: Cache provider-level data (bases/tables/fields) for instant reuse
           if (isProviderLevelField && userId && dataArray && dataArray.length > 0) {

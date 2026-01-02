@@ -518,13 +518,12 @@ export const microsoftExcelNodes: NodeComponent[] = [
         }
       },
       {
-        name: "columnMapping",
-        label: "What Data to Add",
-        type: "microsoft_excel_column_mapper",
-        required: true,
+        name: "rowFields",
+        label: "Row Fields",
+        type: "microsoft_excel_worksheet_add_row_fields",
+        required: false,
         dependsOn: "hasHeaders",
-        description: "Choose which data goes into which columns",
-        helpText: "Select a column, then enter the value or use a variable from a previous step.",
+        description: "Enter values for each column in your worksheet",
         hidden: {
           $deps: ["hasHeaders"],
           $condition: { hasHeaders: { $exists: false } }
@@ -854,16 +853,6 @@ export const microsoftExcelNodes: NodeComponent[] = [
         description: "Last row to delete in range",
         min: 2,
         helpText: "The last row number in the range to delete (inclusive)"
-      },
-      {
-        name: "confirmDelete",
-        label: "Confirm Deletion",
-        type: "boolean",
-        required: true,
-        dependsOn: "worksheetName",
-        defaultValue: false,
-        description: "Check this box to confirm you want to delete the row(s)",
-        helpText: "This is a safety check to prevent accidental deletions"
       }
     ],
   },
@@ -1090,6 +1079,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     isTrigger: false,
+    testable: true,
     producesOutput: true,
     configSchema: [
       {
@@ -1115,14 +1105,16 @@ export const microsoftExcelNodes: NodeComponent[] = [
         helpText: "Tables automatically apply formatting and formulas to new rows"
       },
       {
-        name: "columnMapping",
-        label: "Column Values",
-        type: "microsoft_excel_column_mapper",
-        required: true,
+        name: "rowFields",
+        label: "Row Fields",
+        type: "microsoft_excel_table_add_row_fields",
+        required: false,
         dependsOn: "tableName",
-        dataSource: "table_columns",
-        description: "Map data to table columns",
-        helpText: "Select a column from your table, then choose what data should go there"
+        hidden: {
+          $deps: ["tableName"],
+          $condition: { tableName: { $exists: false } }
+        },
+        description: "Enter values for each column in your table"
       }
     ],
     outputSchema: [
@@ -1424,24 +1416,81 @@ export const microsoftExcelNodes: NodeComponent[] = [
         description: "The worksheet to add rows to"
       },
       {
-        name: "rows",
-        label: "Rows Data",
-        type: "array",
+        name: "hasHeaders",
+        label: "Worksheet Has Headers",
+        type: "select",
         required: true,
+        defaultValue: "yes",
         dependsOn: "worksheetName",
-        placeholder: "Array of row objects",
-        description: "Array of objects, where each object represents a row to add",
-        helpText: "Use output from a previous step that returns an array of data objects. Each object should have keys matching the worksheet column headers.",
-        hasVariablePicker: true
+        hidden: {
+          $deps: ["worksheetName"],
+          $condition: { worksheetName: { $exists: false } }
+        },
+        options: [
+          { value: "yes", label: "Yes - Use row 1 as column names" },
+          { value: "no", label: "No - Use column letters (A, B, C...)" }
+        ],
+        description: "Does the first row contain column headers?"
       },
       {
-        name: "columnMapping",
-        label: "Column Mapping (Optional)",
-        type: "microsoft_excel_column_mapper",
+        name: "inputMode",
+        label: "Input Mode",
+        type: "select",
+        required: true,
+        defaultValue: "simple",
+        dependsOn: "worksheetName",
+        hidden: {
+          $deps: ["worksheetName"],
+          $condition: { worksheetName: { $exists: false } }
+        },
+        options: [
+          { value: "simple", label: "Simple (Fill in fields)" },
+          { value: "json", label: "Advanced (JSON format)" }
+        ],
+        description: "Choose how to specify the rows"
+      },
+      // Simple mode - dynamic row fields component
+      {
+        name: "multipleRowsFields",
+        label: "Rows",
+        type: "microsoft_excel_multiple_rows_fields",
         required: false,
         dependsOn: "worksheetName",
-        description: "Optional: Map specific values to columns if not using direct field names",
-        helpText: "If your array objects don't match column names exactly, use this to map the data"
+        hidden: {
+          $deps: ["worksheetName", "inputMode"],
+          $condition: {
+            $or: [
+              { worksheetName: { $exists: false } },
+              { inputMode: { $eq: "json" } }
+            ]
+          }
+        },
+        description: "Configure multiple rows to add"
+      },
+      // JSON mode - rows as JSON array
+      {
+        name: "rows",
+        label: "Rows Data (JSON)",
+        type: "textarea",
+        required: false,
+        dependsOn: "inputMode",
+        hidden: {
+          $deps: ["worksheetName", "inputMode"],
+          $condition: {
+            $or: [
+              { worksheetName: { $exists: false } },
+              { inputMode: { $ne: "json" } }
+            ]
+          }
+        },
+        rows: 10,
+        placeholder: JSON.stringify([
+          { "Column A": "Value 1", "Column B": "Value 2" },
+          { "Column A": "Value 3", "Column B": "Value 4" }
+        ], null, 2),
+        supportsAI: true,
+        hasVariablePicker: true,
+        description: "JSON array of row objects. Each object should have column names as keys."
       }
     ],
     outputSchema: [

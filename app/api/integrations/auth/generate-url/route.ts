@@ -312,12 +312,17 @@ function generateSlackAuthUrl(state: string): string {
     client_id: clientId,
     // Bot scopes for workspace-level actions
     // channels:manage - Create/archive/rename public channels
+    // channels:history - Read message history from public channels
     // groups:write - Create/archive/rename private channels
-    scope: "channels:join,channels:read,channels:manage,chat:write,chat:write.public,files:read,files:write,groups:read,groups:write,im:read,reactions:write,team:read,users:read",
+    // groups:history - Read message history from private channels
+    scope: "channels:join,channels:read,channels:manage,channels:history,chat:write,chat:write.public,files:read,files:write,groups:read,groups:write,groups:history,im:read,im:write,im:history,reactions:read,reactions:write,team:read,users:read,pins:write,pins:read",
     // User scopes for user-level actions
     // IMPORTANT: These must EXACTLY match the "User Token Scopes" configured in the Slack app settings
-    // Only request reminders scopes - other user-level features can use the bot token
-    user_scope: "reminders:write,reminders:read",
+    // chat:write - Send messages as the connected user (not the bot)
+    // im:write - Open DM conversations (required for Send Direct Message)
+    // reminders:write,reminders:read - Manage reminders for the user
+    // search:read - Search messages (required for find message action)
+    user_scope: "chat:write,im:write,reminders:write,reminders:read,search:read",
     redirect_uri: `${redirectBase}/api/integrations/slack/callback`,
     state,
   })

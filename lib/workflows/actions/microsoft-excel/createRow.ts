@@ -67,6 +67,9 @@ export async function createMicrosoftExcelRow(
     // Microsoft Graph API base URL
     const baseUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${workbookId}/workbook`
 
+    // Encode worksheet name for URL safety (handles spaces and special chars)
+    const encodedWorksheetName = encodeURIComponent(worksheetName)
+
     // Build the values array based on column mapping
     // For header-based columns, we need to map header names to column positions
     // For letter-based columns (A, B, C), we directly use the position
@@ -100,7 +103,7 @@ export async function createMicrosoftExcelRow(
       // Header-based mode - need to map header names to column positions
       // First, fetch the headers from row 1
       const headersResponse = await fetch(
-        `${baseUrl}/worksheets('${worksheetName}')/usedRange`,
+        `${baseUrl}/worksheets('${encodedWorksheetName}')/usedRange`,
         {
           method: 'GET',
           headers: {
@@ -164,7 +167,7 @@ export async function createMicrosoftExcelRow(
 
     // Get the used range to understand the worksheet state
     const usedRangeResponse = await fetch(
-      `${baseUrl}/worksheets('${worksheetName}')/usedRange?$select=address,rowCount`,
+      `${baseUrl}/worksheets('${encodedWorksheetName}')/usedRange?$select=address,rowCount`,
       {
         method: 'GET',
         headers: {
@@ -216,12 +219,14 @@ export async function createMicrosoftExcelRow(
 
     logger.debug('📊 [Excel Create Row] Target row:', targetRow, 'Insert position:', insertPosition)
 
-    const rangeAddress = `${worksheetName}!A${targetRow}:${endColumn}${targetRow}`
+    // Cell reference uses just the cell address (e.g., A1:C1), not the worksheet name prefix
+    const cellRangeAddress = `A${targetRow}:${endColumn}${targetRow}`
+    const rangeAddress = `${worksheetName}!${cellRangeAddress}` // For logging purposes
 
     // For prepend or specific_row, we need to shift existing rows down
     if ((insertPosition === 'prepend' || insertPosition === 'specific_row') && !isBlankSheet) {
       // Insert a blank row at the position (shifts existing content down)
-      const insertUrl = `${baseUrl}/worksheets('${worksheetName}')/range(address='${rangeAddress}')/insert`
+      const insertUrl = `${baseUrl}/worksheets('${encodedWorksheetName}')/range(address='${cellRangeAddress}')/insert`
       const insertResponse = await fetch(insertUrl, {
         method: 'POST',
         headers: {
@@ -241,7 +246,7 @@ export async function createMicrosoftExcelRow(
     }
 
     // Now update the range with the values
-    const updateUrl = `${baseUrl}/worksheets('${worksheetName}')/range(address='${rangeAddress}')`
+    const updateUrl = `${baseUrl}/worksheets('${encodedWorksheetName}')/range(address='${cellRangeAddress}')`
     const updateResponse = await fetch(updateUrl, {
       method: 'PATCH',
       headers: {

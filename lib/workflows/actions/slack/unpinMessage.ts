@@ -3,7 +3,7 @@
  */
 import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
-import { getSlackToken, callSlackApi, getSlackErrorMessage } from './utils'
+import { getSlackToken, callSlackApi, getSlackErrorMessage, normalizeMessageId } from './utils'
 
 export async function unpinMessage(params: {
   config: any
@@ -12,18 +12,26 @@ export async function unpinMessage(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel, timestamp } = config
+    const { workspace, channel, messageId } = config
     if (!channel) throw new Error('Channel is required')
-    if (!timestamp) throw new Error('Message timestamp is required')
+    if (!messageId) throw new Error('Message timestamp is required')
 
-    const accessToken = await getSlackToken(userId)
+    // Normalize message ID (convert from URL format if needed)
+    const timestamp = normalizeMessageId(messageId)
+
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const asUser = config.asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, asUser)
+      : await getSlackToken(userId, false, asUser)
+
     const result = await callSlackApi('pins.remove', accessToken, { channel, timestamp })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,
-      output: { success: true, channel, timestamp },
+      output: { success: true, channel, messageId },
       message: 'Message unpinned'
     }
   } catch (error: any) {

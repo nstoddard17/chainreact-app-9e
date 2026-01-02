@@ -160,7 +160,6 @@ import {
   slackActionCancelScheduledMessage,
   slackActionListScheduledMessages,
   slackActionGetThreadMessages,
-  slackActionFindMessage,
   slackActionUploadFile,
   slackActionDownloadFile,
   slackActionGetFileInfo,
@@ -572,18 +571,63 @@ import { logger } from '@/lib/utils/logger'
  */
 function createExecutionContextWrapper(handler: Function) {
   return async (params: { config: any; userId: string; input: Record<string, any> }): Promise<ActionResult> => {
+    // Import getIntegrationById helper (from separate file to avoid circular dependency)
+    const { getIntegrationById } = await import('../integrationHelpers')
+
     // Create a mock ExecutionContext with a dataFlowManager that uses resolveValue
     const context = {
+      config: params.config,
       userId: params.userId,
       workflowId: params.input?.workflowId || 'unknown',
       testMode: params.input?.testMode || false,
       dataFlowManager: {
         resolveVariable: (value: any) => resolveValueCore(value, params.input)
+      },
+      getIntegration: async (provider: string) => {
+        // Check if integrationId is provided in input or config (from test-actions page)
+        const integrationId = params.input?.integrationId || params.config?.integrationId
+        if (integrationId) {
+          logger.debug(`[Registry] Looking up integration by ID: ${integrationId} for user: ${params.userId}`)
+          try {
+            const integration = await getIntegrationById(integrationId, { userId: params.userId })
+            logger.debug(`[Registry] Found integration: ${integration?.provider}, status: ${integration?.status}`)
+            return integration
+          } catch (error: any) {
+            logger.error(`[Registry] Failed to get integration by ID ${integrationId}:`, error)
+            throw error // Re-throw instead of returning null to preserve the error message
+          }
+        }
+
+        // Otherwise, look up by provider and userId
+        const { createClient } = await import('@/utils/supabaseClient')
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('integrations')
+          .select('*')
+          .eq('user_id', params.userId)
+          .eq('provider', provider)
+          .eq('status', 'connected')
+          .single()
+
+        if (error || !data) return null
+        return data
       }
     }
 
     try {
-      return await handler(params.config, context)
+      const result = await handler(context)
+
+      // If the handler already returns an ActionResult format, use it
+      if (result && typeof result === 'object' && 'success' in result) {
+        return result
+      }
+
+      // Otherwise, wrap the result in ActionResult format
+      return {
+        success: true,
+        output: result,
+        message: 'Action executed successfully'
+      }
     } catch (error: any) {
       logger.error('Action execution error:', error)
       return {
@@ -916,7 +960,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "slack_action_cancel_scheduled_message": slackActionCancelScheduledMessage,
   "slack_action_list_scheduled_messages": slackActionListScheduledMessages,
   "slack_action_get_thread_messages": slackActionGetThreadMessages,
-  "slack_action_find_message": slackActionFindMessage,
   "slack_action_upload_file": slackActionUploadFile,
   "slack_action_download_file": slackActionDownloadFile,
   "slack_action_get_file_info": slackActionGetFileInfo,

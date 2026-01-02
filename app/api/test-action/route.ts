@@ -121,7 +121,10 @@ export async function POST(request: NextRequest) {
     try {
       const result = await executeAction({
         node: mockNode,
-        input: testData,
+        input: {
+          ...testData,
+          integrationId // Pass integrationId in input for registry wrapper
+        },
         userId: user.id,
         workflowId: 'test-workflow',
         testMode: true,

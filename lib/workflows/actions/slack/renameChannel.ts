@@ -12,14 +12,18 @@ export async function renameChannel(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel, newName } = config
+    const { workspace, channel, newName, asUser = false } = config
     if (!channel) throw new Error('Channel is required')
     if (!newName) throw new Error('New name is required')
 
-    const accessToken = await getSlackToken(userId)
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
     const result = await callSlackApi('conversations.rename', accessToken, { channel, name: newName })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

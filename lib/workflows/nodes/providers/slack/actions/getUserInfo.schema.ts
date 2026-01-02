@@ -18,6 +18,16 @@ export const getUserInfoActionSchema: NodeComponent = {
   testable: true,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "user",
       label: "User",
       type: "combobox",
@@ -27,14 +37,24 @@ export const getUserInfoActionSchema: NodeComponent = {
       searchable: true,
       placeholder: "Select a user or enter user ID",
       tooltip: "Select the user or enter a user ID (e.g., U1234567890) to get information about.",
-      supportsAI: true
+      supportsAI: true,
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "includePresence",
       label: "Include Presence Status",
       type: "boolean",
       defaultValue: false,
-      tooltip: "When enabled, includes the user's current presence status (active/away). Requires additional API call."
+      tooltip: "When enabled, includes the user's current presence status (active/away). Requires additional API call.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

@@ -232,7 +232,9 @@ async function populateWorksheet(
   const endColumn = String.fromCharCode(65 + numCols - 1)
   const rangeAddress = `A1:${endColumn}${numRows}`
 
-  const updateUrl = `${workbookUrl}/worksheets('${worksheetName}')/range(address='${rangeAddress}')`
+  // Encode worksheet name for URL safety (handles spaces and special chars)
+  const encodedWorksheetName = encodeURIComponent(worksheetName)
+  const updateUrl = `${workbookUrl}/worksheets('${encodedWorksheetName}')/range(address='${rangeAddress}')`
 
   await fetch(updateUrl, {
     method: 'PATCH',

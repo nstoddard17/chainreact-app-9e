@@ -118,7 +118,10 @@ export async function POST(req: NextRequest) {
       integrationId,
       dataType,
       status: integration.status,
-      hasToken: !!integration.access_token
+      hasToken: !!integration.access_token,
+      workspaceName: integration.team_name,
+      teamId: integration.team_id,
+      options
     })
 
     // Decrypt the refresh token if it exists

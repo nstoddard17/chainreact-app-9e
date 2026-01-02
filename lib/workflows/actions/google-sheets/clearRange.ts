@@ -4,6 +4,7 @@ import { parseSheetName } from './utils'
 
 /**
  * Clears a range, last row, or specific row in a Google Sheets spreadsheet
+ * Can clear content, formatting, or both
  */
 export async function clearGoogleSheetsRange(
   config: any,
@@ -16,6 +17,7 @@ export async function clearGoogleSheetsRange(
     const spreadsheetId = resolveValue(config.spreadsheetId, input)
     const sheetName = parseSheetName(resolveValue(config.sheetName, input))
     const clearType = resolveValue(config.clearType, input) || 'range'
+    const whatToClear = resolveValue(config.whatToClear, input) || 'content'
 
     if (!spreadsheetId || !sheetName) {
       const missingFields = []
@@ -28,6 +30,7 @@ export async function clearGoogleSheetsRange(
     }
 
     let rangeToClean: string
+    let sheetId: number | null = null
 
     // Determine the range based on clear type
     if (clearType === 'range') {
@@ -84,27 +87,123 @@ export async function clearGoogleSheetsRange(
       spreadsheetId,
       sheetName,
       clearType,
+      whatToClear,
       rangeToClean
     })
 
-    // Clear the range
-    const response = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeToClean)}:clear`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-      }
-    )
+    // If we need to clear formatting, we need the sheet ID
+    if (whatToClear === 'format' || whatToClear === 'both') {
+      const metadataResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title))`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      )
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(`Failed to clear range: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      if (!metadataResponse.ok) {
+        throw new Error(`Failed to fetch sheet metadata: ${metadataResponse.status}`)
+      }
+
+      const metadata = await metadataResponse.json()
+      const sheet = metadata.sheets?.find((s: any) => s.properties.title === sheetName)
+
+      if (!sheet) {
+        throw new Error(`Sheet "${sheetName}" not found in spreadsheet`)
+      }
+
+      sheetId = sheet.properties.sheetId
     }
 
-    const result = await response.json()
+    let result: any = {}
+
+    // Clear content if requested
+    if (whatToClear === 'content' || whatToClear === 'both') {
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(rangeToClean)}:clear`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Failed to clear content: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      }
+
+      result = await response.json()
+    }
+
+    // Clear formatting if requested
+    if (whatToClear === 'format' || whatToClear === 'both') {
+      if (sheetId === null) {
+        throw new Error('Sheet ID is required for clearing formatting')
+      }
+
+      // Parse the range to get grid coordinates
+      const rangeMatch = rangeToClean.match(/!([A-Z]+)?(\d+)?:?([A-Z]+)?(\d+)?/)
+      if (!rangeMatch) {
+        throw new Error(`Invalid range format: ${rangeToClean}`)
+      }
+
+      const startCol = rangeMatch[1] || 'A'
+      const startRow = rangeMatch[2] ? parseInt(rangeMatch[2]) : 1
+      const endCol = rangeMatch[3] || 'ZZ'
+      const endRow = rangeMatch[4] ? parseInt(rangeMatch[4]) : 1000
+
+      // Convert column letters to numbers
+      const colToNum = (col: string) => {
+        let num = 0
+        for (let i = 0; i < col.length; i++) {
+          num = num * 26 + col.charCodeAt(i) - 64
+        }
+        return num - 1 // 0-indexed for API
+      }
+
+      const gridRange = {
+        sheetId: sheetId,
+        startRowIndex: startRow - 1,
+        endRowIndex: endRow,
+        startColumnIndex: colToNum(startCol),
+        endColumnIndex: colToNum(endCol) + 1
+      }
+
+      const batchUpdateRequest = {
+        requests: [
+          {
+            repeatCell: {
+              range: gridRange,
+              fields: 'userEnteredFormat'
+            }
+          }
+        ]
+      }
+
+      const formatResponse = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(batchUpdateRequest)
+        }
+      )
+
+      if (!formatResponse.ok) {
+        const errorData = await formatResponse.json().catch(() => ({}))
+        throw new Error(`Failed to clear formatting: ${formatResponse.status} - ${errorData.error?.message || formatResponse.statusText}`)
+      }
+
+      const formatResult = await formatResponse.json()
+      result.formattingCleared = true
+    }
 
     // Calculate approximate cells cleared
     let cellsCleared = 0
@@ -132,18 +231,33 @@ export async function clearGoogleSheetsRange(
       }
     }
 
+    const whatCleared = whatToClear === 'both'
+      ? 'content and formatting'
+      : whatToClear === 'format'
+        ? 'formatting'
+        : 'content'
+
+    const rangeDescription = clearType === 'last_row'
+      ? 'last row'
+      : clearType === 'specific_row'
+        ? `row ${config.rowNumber}`
+        : 'range'
+
     return {
       success: true,
       output: {
         clearedRange: result.clearedRange || rangeToClean,
         cellsCleared: cellsCleared,
         clearType: clearType,
+        whatToClear: whatToClear,
+        contentCleared: whatToClear === 'content' || whatToClear === 'both',
+        formattingCleared: whatToClear === 'format' || whatToClear === 'both',
         spreadsheetId: spreadsheetId,
         sheetName: sheetName,
         success: true,
         timestamp: new Date().toISOString()
       },
-      message: `Successfully cleared ${clearType === 'last_row' ? 'last row' : clearType === 'specific_row' ? `row ${config.rowNumber}` : 'range'} in ${sheetName}`
+      message: `Successfully cleared ${whatCleared} from ${rangeDescription} in ${sheetName}`
     }
 
   } catch (error: any) {

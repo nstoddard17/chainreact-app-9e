@@ -12,13 +12,26 @@ export async function getFileInfo(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { fileId } = config
-    if (!fileId) throw new Error('File ID is required')
+    const { fileId, fileIdManual, fileSource, workspace, asUser = false, includeComments = false } = config
 
-    const accessToken = await getSlackToken(userId)
-    const result = await callSlackApi('files.info', accessToken, { file: fileId })
+    // Determine which file ID to use based on the source selection
+    const finalFileId = fileSource === 'manual' ? fileIdManual : fileId
+    if (!finalFileId) throw new Error('File ID is required. Please select a file or enter a file ID manually.')
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
+
+    const payload: any = { file: finalFileId }
+    if (includeComments) {
+      payload.count = 100 // Get up to 100 comments
+    }
+
+    const result = await callSlackApi('files.info', accessToken, payload)
+
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     const f = result.file
     return {
@@ -30,14 +43,17 @@ export async function getFileInfo(params: {
         title: f.title,
         fileType: f.filetype,
         mimeType: f.mimetype,
-        size: f.size,
-        url: f.url_private,
-        downloadUrl: f.url_private_download,
+        fileSize: f.size,
+        urlPrivate: f.url_private,
+        urlPrivateDownload: f.url_private_download,
         permalink: f.permalink,
-        created: f.created,
-        user: f.user,
-        channels: f.channels,
-        isPublic: f.is_public
+        created: f.created ? new Date(f.created * 1000).toISOString() : undefined,
+        uploaderId: f.user,
+        channels: f.channels || [],
+        isPublic: f.is_public,
+        isExternal: f.is_external,
+        commentsCount: f.num_comments || 0,
+        comments: includeComments ? (result.comments || []) : []
       },
       message: `Retrieved info for ${f.name}`
     }

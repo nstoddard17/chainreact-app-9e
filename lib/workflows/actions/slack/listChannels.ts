@@ -22,7 +22,7 @@ export async function listChannels(params: {
       limit
     })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     const channels = (result.channels || []).map((ch: any) => ({
       id: ch.id,

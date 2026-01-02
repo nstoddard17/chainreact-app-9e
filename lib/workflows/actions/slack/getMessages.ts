@@ -1,6 +1,6 @@
 import { ActionResult } from '../core/executeWait'
-import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
+import { getSlackToken } from './utils'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -12,18 +12,23 @@ export async function getSlackMessages(
   context: ExecutionContext
 ): Promise<ActionResult> {
   try {
-    const accessToken = await getDecryptedAccessToken(context.userId, "slack")
-
     // Resolve dynamic values
+    const workspace = context.dataFlowManager.resolveVariable(config.workspace)
     const channel = context.dataFlowManager.resolveVariable(config.channel)
     const limit = context.dataFlowManager.resolveVariable(config.limit) || 100
     const oldest = context.dataFlowManager.resolveVariable(config.oldest)
     const latest = context.dataFlowManager.resolveVariable(config.latest)
     const includeThreads = context.dataFlowManager.resolveVariable(config.includeThreads) || false
+    const asUser = config.asUser === true
 
     if (!channel) {
       throw new Error("Channel is required")
     }
+
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, asUser)
+      : await getSlackToken(context.userId, false, asUser)
 
     // Build query params
     const params: any = {

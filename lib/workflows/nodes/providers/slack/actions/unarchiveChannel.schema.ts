@@ -27,16 +27,31 @@ export const unarchiveChannelActionSchema: NodeComponent = {
       placeholder: "Select Slack workspace",
       description: "Your Slack workspace (used for authentication)"
     },
+    // Option to use user token instead of bot token
+    {
+      name: "asUser",
+      label: "Execute as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Execute this action as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
     // First cascade level - show after workspace selected
     {
       name: "channel",
       label: "Channel",
       type: "combobox",
-      required: true,
+      required: false,
       dynamic: "slack_channels_archived",
       loadOnMount: true,
       searchable: true,
-      placeholder: "Select an archived channel",
+      placeholder: "Select an archived channel or enter ID below",
+      description: "Select an archived channel from the list",
       tooltip: "Select the archived channel to restore. The channel will become active again and members can post messages. Note: You may need to manually provide the channel ID if it doesn't appear in the list.",
       dependsOn: "workspace",
       hidden: {
@@ -49,8 +64,10 @@ export const unarchiveChannelActionSchema: NodeComponent = {
       label: "Or Enter Channel ID",
       type: "text",
       required: false,
-      placeholder: "C1234567890",
-      tooltip: "Alternative: Directly enter the channel ID if you have it. This is useful if the channel doesn't appear in the dropdown.",
+      placeholder: "C1234567890 or {{trigger.channelId}}",
+      supportsAI: true,
+      description: "Manually enter an archived channel ID",
+      tooltip: "Alternative: Directly enter the channel ID if you have it. This is useful if the channel doesn't appear in the dropdown. Either this field or the Channel field above must be provided.",
       dependsOn: "workspace",
       hidden: {
         $deps: ["workspace"],

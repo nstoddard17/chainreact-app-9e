@@ -3,7 +3,7 @@ import { NodeComponent } from "../../../types"
 const SLACK_REMOVE_REACTION_METADATA = {
   key: "slack_action_remove_reaction",
   name: "Remove Reaction",
-  description: "Remove an emoji reaction from a message"
+  description: "Remove all reactions you've added to a message"
 }
 
 export const removeReactionActionSchema: NodeComponent = {
@@ -12,48 +12,55 @@ export const removeReactionActionSchema: NodeComponent = {
   description: SLACK_REMOVE_REACTION_METADATA.description,
   icon: "Frown" as any, // Will be resolved in index file
   providerId: "slack",
-  requiredScopes: ["reactions:write"],
+  requiredScopes: ["reactions:write", "reactions:read"],
   category: "Communication",
   isTrigger: false,
   configSchema: [
-    // Parent field - always visible
+    {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
+      name: "asUser",
+      label: "Execute as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Execute this action as yourself instead of the Chain React bot. This removes YOUR reactions from the message.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
     {
       name: "channel",
       label: "Channel",
       type: "select",
-      required: true,
       dynamic: "slack_channels",
-      loadOnMount: true,
+      required: true,
+      dependsOn: "workspace",
       placeholder: "Select a channel",
-      tooltip: "Select the channel where the message is located"
+      tooltip: "Select the channel where the message is located",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
-
-    // Cascaded fields - only show after channel selected
     {
       name: "timestamp",
       label: "Message Timestamp",
       type: "text",
       required: true,
-      placeholder: "{{trigger.ts}} or 1234567890.123456",
+      placeholder: "{{trigger.ts}} or paste message URL",
       supportsAI: true,
-      tooltip: "The timestamp of the message to remove reaction from. Use variables like {{trigger.ts}} or {{previous_node.ts}} from previous workflow steps.",
-      dependsOn: "channel",
-      hidden: {
-        $deps: ["channel"],
-        $condition: { channel: { $exists: false } }
-      }
-    },
-    {
-      name: "emoji",
-      label: "Emoji",
-      type: "emoji-picker",
-      required: true,
-      dynamic: "slack_emoji_catalog",
-      loadOnMount: true,
-      searchable: true,
-      placeholder: "Choose an emoji",
-      supportsAI: true,
-      tooltip: "Select an emoji to remove from the message. Includes both standard emojis and custom workspace emojis.",
+      tooltip: "Paste the full Slack message URL (e.g., https://workspace.slack.com/archives/C123/p1767325385562299) or just the timestamp (1767325385.562299). Right-click any message in Slack and select 'Copy link' to get the URL. You can also use variables like {{trigger.ts}} from previous workflow steps.",
       dependsOn: "channel",
       hidden: {
         $deps: ["channel"],
@@ -66,7 +73,7 @@ export const removeReactionActionSchema: NodeComponent = {
       name: "success",
       label: "Success",
       type: "boolean",
-      description: "Whether the reaction was removed successfully"
+      description: "Whether the reactions were removed successfully"
     },
     {
       name: "channel",
@@ -78,13 +85,19 @@ export const removeReactionActionSchema: NodeComponent = {
       name: "timestamp",
       label: "Message Timestamp",
       type: "string",
-      description: "The timestamp of the message that the reaction was removed from"
+      description: "The timestamp of the message that reactions were removed from"
     },
     {
-      name: "emoji",
-      label: "Emoji Name",
-      type: "string",
-      description: "The emoji that was removed"
+      name: "removedEmojis",
+      label: "Removed Emojis",
+      type: "array",
+      description: "List of emojis that were removed"
+    },
+    {
+      name: "removedCount",
+      label: "Removed Count",
+      type: "number",
+      description: "Number of reactions removed"
     }
   ]
 }

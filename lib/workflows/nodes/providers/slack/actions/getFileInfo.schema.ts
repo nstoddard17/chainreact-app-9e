@@ -27,14 +27,30 @@ export const getFileInfoActionSchema: NodeComponent = {
       description: "Your Slack workspace (used for authentication)"
     },
     {
-      name: "fileId",
-      label: "File",
+      name: "asUser",
+      label: "Execute as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Execute this action as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
+      name: "fileSource",
+      label: "How to Specify File",
       type: "select",
-      dynamic: "slack_files",
       required: true,
-      placeholder: "Select a file",
-      description: "The file to get information about",
-      tooltip: "Select the file you want to get information about. Shows recent files from your workspace.",
+      defaultValue: "manual",
+      options: [
+        { label: "Enter File ID manually (recommended)", value: "manual" },
+        { label: "Select from my recent files", value: "list" }
+      ],
+      description: "Choose how to identify the file",
+      tooltip: "Manual entry is recommended because the file list only shows YOUR uploaded files, not all workspace files. Use manual entry when working with files uploaded by others or from triggers.",
       dependsOn: "workspace",
       hidden: {
         $deps: ["workspace"],
@@ -43,15 +59,38 @@ export const getFileInfoActionSchema: NodeComponent = {
     },
     {
       name: "fileIdManual",
-      label: "Or Enter File ID",
+      label: "File ID",
       type: "text",
-      required: false,
-      placeholder: "F1234567890",
-      tooltip: "Alternative: Directly enter the file ID if you have it. This is useful if the file doesn't appear in the dropdown.",
-      dependsOn: "workspace",
+      required: true,
+      placeholder: "F1234567890 or {{trigger.file.id}}",
+      supportsAI: true,
+      description: "The Slack file ID (starts with F)",
+      tooltip: "Enter the file ID. You can get this from a File Uploaded trigger, file URL, or by right-clicking a file in Slack → Copy Link, then extract the ID from the URL.",
+      dependsOn: "fileSource",
       hidden: {
-        $deps: ["workspace"],
-        $condition: { workspace: { $exists: false } }
+        $deps: ["fileSource"],
+        $condition: { fileSource: { $ne: "manual" } }
+      }
+    },
+    {
+      name: "fileId",
+      label: "Select File",
+      type: "select",
+      dynamic: "slack_files",
+      required: true,
+      placeholder: "Select from your uploaded files",
+      description: "Note: Only shows files YOU uploaded (Slack API limitation)",
+      tooltip: "This dropdown only shows files uploaded by you, not all workspace files. If you don't see the file you need, switch to 'Enter File ID manually' above.",
+      dependsOn: "workspace",
+      reloadOnChange: ["asUser"], // Reload when asUser checkbox changes
+      hidden: {
+        $deps: ["workspace", "fileSource"],
+        $condition: {
+          $or: [
+            { workspace: { $exists: false } },
+            { fileSource: { $ne: "list" } }
+          ]
+        }
       }
     },
     {

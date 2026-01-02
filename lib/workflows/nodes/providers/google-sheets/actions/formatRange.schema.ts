@@ -84,25 +84,67 @@ export const formatRangeActionSchema: NodeComponent = {
     {
       name: "backgroundColor",
       label: "Background Color",
-      type: "color",
+      type: "select",
       required: false,
       dependsOn: "sheetName",
       hidden: {
         $deps: ["sheetName"],
         $condition: { sheetName: { $exists: false } }
       },
+      options: [
+        { value: "", label: "No change" },
+        { value: "#ffffff", label: "White" },
+        { value: "#000000", label: "Black" },
+        { value: "#f3f3f3", label: "Light Gray 3" },
+        { value: "#d9d9d9", label: "Light Gray 2" },
+        { value: "#999999", label: "Gray" },
+        { value: "#666666", label: "Dark Gray" },
+        { value: "#ea4335", label: "Red" },
+        { value: "#fbbc04", label: "Yellow" },
+        { value: "#34a853", label: "Green" },
+        { value: "#4285f4", label: "Blue" },
+        { value: "#ff6d01", label: "Orange" },
+        { value: "#46bdc6", label: "Cyan" },
+        { value: "#7baaf7", label: "Light Blue" },
+        { value: "#f07b72", label: "Light Red" },
+        { value: "#fce8b2", label: "Light Yellow" },
+        { value: "#b7e1cd", label: "Light Green" },
+        { value: "#a4c2f4", label: "Pale Blue" },
+        { value: "#d5a6bd", label: "Light Purple" },
+        { value: "#9900ff", label: "Purple" },
+        { value: "#ff00ff", label: "Magenta" },
+        { value: "#674ea7", label: "Dark Purple" }
+      ],
       description: "Cell background color"
     },
     {
       name: "textColor",
       label: "Text Color",
-      type: "color",
+      type: "select",
       required: false,
       dependsOn: "sheetName",
       hidden: {
         $deps: ["sheetName"],
         $condition: { sheetName: { $exists: false } }
       },
+      options: [
+        { value: "", label: "No change" },
+        { value: "#000000", label: "Black" },
+        { value: "#ffffff", label: "White" },
+        { value: "#666666", label: "Dark Gray" },
+        { value: "#999999", label: "Gray" },
+        { value: "#ea4335", label: "Red" },
+        { value: "#fbbc04", label: "Yellow" },
+        { value: "#34a853", label: "Green" },
+        { value: "#4285f4", label: "Blue" },
+        { value: "#ff6d01", label: "Orange" },
+        { value: "#9900ff", label: "Purple" },
+        { value: "#ff00ff", label: "Magenta" },
+        { value: "#674ea7", label: "Dark Purple" },
+        { value: "#0b5394", label: "Dark Blue" },
+        { value: "#38761d", label: "Dark Green" },
+        { value: "#990000", label: "Dark Red" }
+      ],
       description: "Text color"
     },
     {

@@ -14,13 +14,19 @@ export async function archiveChannel(params: {
   const { config, userId } = params
 
   try {
-    const { channel } = config
+    const { workspace, channel, channelId, asUser = false } = config
 
-    if (!channel) {
-      throw new Error('Channel is required')
+    // Use channelId if provided, otherwise use channel from dropdown
+    const targetChannel = channelId || channel
+    if (!targetChannel) {
+      throw new Error('Channel or Channel ID is required')
     }
 
-    const accessToken = await getSlackToken(userId)
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
 
     const response = await fetch('https://slack.com/api/conversations.archive', {
       method: 'POST',
@@ -28,7 +34,7 @@ export async function archiveChannel(params: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ channel })
+      body: JSON.stringify({ channel: targetChannel })
     })
 
     const result = await response.json()
@@ -39,7 +45,7 @@ export async function archiveChannel(params: {
 
     return {
       success: true,
-      output: { success: true, channelId: channel },
+      output: { success: true, channelId: targetChannel },
       message: 'Channel archived successfully'
     }
   } catch (error: any) {

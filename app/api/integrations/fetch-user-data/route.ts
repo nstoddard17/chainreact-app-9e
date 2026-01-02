@@ -426,6 +426,7 @@ export async function POST(req: NextRequest) {
       dataType === 'google-sheets_spreadsheets' ||
       dataType === 'google-sheets_sheets' ||
       dataType === 'google-sheets_columns' ||
+      dataType === 'google-sheets_column_values' ||
       dataType === 'google-sheets_enhanced-preview'
     )) {
       logger.debug(`🔄 [SERVER] Routing Google request to dedicated API:`, {

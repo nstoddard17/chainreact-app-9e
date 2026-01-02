@@ -44,6 +44,20 @@ export const renameChannelActionSchema: NodeComponent = {
         $condition: { workspace: { $exists: false } }
       }
     },
+    // Option to use user token instead of bot token
+    {
+      name: "asUser",
+      label: "Execute as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Execute this action as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
     // Second cascade level - show after channel selected
     {
       name: "newName",

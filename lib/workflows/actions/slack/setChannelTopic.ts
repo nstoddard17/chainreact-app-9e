@@ -12,14 +12,18 @@ export async function setChannelTopic(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel, topic } = config
+    const { workspace, channel, topic, asUser = false } = config
     if (!channel) throw new Error('Channel is required')
     if (!topic) throw new Error('Topic is required')
 
-    const accessToken = await getSlackToken(userId)
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
     const result = await callSlackApi('conversations.setTopic', accessToken, { channel, topic })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

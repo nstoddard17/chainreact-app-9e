@@ -227,10 +227,25 @@ export function MicrosoftExcelConfiguration({
     // Validate required fields
     const validationErrors: Record<string, string> = {};
 
+    // Check if this is a dedicated action type (doesn't use unified "action" field)
+    const isDedicatedAction = nodeInfo?.type?.startsWith('microsoft_excel_action_');
+    const isAddTableRowAction = nodeInfo?.type === 'microsoft_excel_action_add_table_row';
+    const isDedicatedAddRowAction = nodeInfo?.type === 'microsoft_excel_action_add_row';
+
     // Basic validation
     if (!values.workbookId) validationErrors.workbookId = 'Workbook is required';
-    if (!values.worksheetName) validationErrors.worksheetName = 'Worksheet is required';
-    if (!values.action) validationErrors.action = 'Action is required';
+
+    // For add_table_row action, validate tableName instead of worksheetName
+    if (isAddTableRowAction) {
+      if (!values.tableName) validationErrors.tableName = 'Table is required';
+    } else if (isDedicatedAddRowAction) {
+      // For worksheet-based add_row action, require worksheetName
+      if (!values.worksheetName) validationErrors.worksheetName = 'Worksheet is required';
+    } else if (!isDedicatedAction) {
+      // For unified action, require worksheetName and action
+      if (!values.worksheetName) validationErrors.worksheetName = 'Worksheet is required';
+      if (!values.action) validationErrors.action = 'Action is required';
+    }
 
     // Action-specific validation
     if (values.action === 'update' && !values.updateRowNumber) {
@@ -300,8 +315,11 @@ export function MicrosoftExcelConfiguration({
       logger.debug('🔧 [Excel] Prepared update mapping:', { updateMapping, rowNumber: finalValues.rowNumber, columnFields: Object.keys(finalValues).filter(k => k.startsWith('column_')) });
     }
 
-    // Add new row values for add action
-    if (values.action === 'add') {
+    // Add new row values for add action (both unified and dedicated action types)
+    const isAddRowAction = values.action === 'add' ||
+                           nodeInfo?.type === 'microsoft_excel_action_add_table_row' ||
+                           nodeInfo?.type === 'microsoft_excel_action_add_row';
+    if (isAddRowAction) {
       const newRowValues: Record<string, any> = {};
 
       // Use the stored column order to preserve the Excel column sequence
@@ -413,8 +431,9 @@ export function MicrosoftExcelConfiguration({
         {/* Regular fields */}
         {visibleFields.map((field: any) => {
           // Skip special fields that we handle separately
-          // For add_row action, we want to render hasHeaders and columnMapping via FieldRenderer
-          const isAddRowAction = nodeInfo?.type === 'microsoft_excel_action_add_row';
+          // For add_row and add_multiple_rows actions, we want to render hasHeaders via FieldRenderer
+          const isAddRowAction = nodeInfo?.type === 'microsoft_excel_action_add_row' ||
+                                  nodeInfo?.type === 'microsoft_excel_action_add_multiple_rows';
           const skipFields = isAddRowAction
             ? ['dataPreview', 'updateMapping']
             : ['dataPreview', 'columnMapping', 'updateMapping', 'hasHeaders'];
@@ -436,6 +455,7 @@ export function MicrosoftExcelConfiguration({
               currentNodeId={currentNodeId}
               values={values}
               parentValues={values}
+              setFieldValue={setValueWithColumnTracking}
               onDynamicLoad={(fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => {
                 return loadOptions(fieldName, dependsOn, dependsOnValue, forceRefresh);
               }}

@@ -44,14 +44,33 @@ export const clearRangeActionSchema: NodeComponent = {
       description: "The specific sheet (tab) within the spreadsheet"
     },
     {
-      name: "clearType",
-      label: "Clear Type",
+      name: "whatToClear",
+      label: "What to Clear",
       type: "select",
       required: true,
+      defaultValue: "content",
       dependsOn: "sheetName",
       hidden: {
         $deps: ["sheetName"],
         $condition: { sheetName: { $exists: false } }
+      },
+      options: [
+        { value: "content", label: "Content Only" },
+        { value: "format", label: "Formatting Only" },
+        { value: "both", label: "Content and Formatting" }
+      ],
+      placeholder: "Select what to clear",
+      description: "Choose whether to clear cell content, formatting, or both"
+    },
+    {
+      name: "clearType",
+      label: "Clear Type",
+      type: "select",
+      required: true,
+      dependsOn: "whatToClear",
+      hidden: {
+        $deps: ["whatToClear"],
+        $condition: { whatToClear: { $exists: false } }
       },
       options: [
         { value: "range", label: "Specific Range" },

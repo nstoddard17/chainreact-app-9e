@@ -47,7 +47,9 @@ export async function exportMicrosoftExcelSheet(
     const baseUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${workbookId}/workbook`
 
     // Fetch the data from the worksheet
-    let dataUrl = `${baseUrl}/worksheets('${worksheetName}')/`
+    // Encode worksheet name for URL safety (handles spaces and special chars)
+    const encodedWorksheetName = encodeURIComponent(worksheetName)
+    let dataUrl = `${baseUrl}/worksheets('${encodedWorksheetName}')/`
 
     // Use custom range if provided, otherwise get all used range
     if (customRange) {

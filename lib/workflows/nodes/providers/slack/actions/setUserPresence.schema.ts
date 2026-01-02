@@ -17,16 +17,44 @@ export const setUserPresenceActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
+      name: "asUser",
+      label: "Execute as User",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "This action MUST be executed as a user (not the bot). Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
       name: "presence",
       label: "Presence",
       type: "select",
       required: true,
       options: [
-        { label: "Active (online)", value: "active" },
+        { label: "Active (online)", value: "auto" },
         { label: "Away", value: "away" }
       ],
-      defaultValue: "active",
-      tooltip: "Set your presence to active (online) or away. Active shows a green dot, away shows no indicator."
+      defaultValue: "auto",
+      tooltip: "Set your presence to active (online) or away. Active shows a green dot, away shows no indicator.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     }
   ],
   outputSchema: [

@@ -24,7 +24,7 @@ export async function findUser(params: {
         if (result.error === 'users_not_found') {
           return { success: true, output: { success: true, found: false, user: null }, message: 'User not found' }
         }
-        throw new Error(getSlackErrorMessage(result.error))
+        throw new Error(getSlackErrorMessage(result.error, result))
       }
       const u = result.user
       return {

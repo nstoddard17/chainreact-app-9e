@@ -582,16 +582,45 @@ export class IntegrationService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.error || `Failed to load ${dataType} data`)
+      const errorMessage = errorData.error || `Failed to load ${dataType} data (HTTP ${response.status})`
+      logger.error(`❌ [IntegrationService] API error for ${dataType}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      })
+      throw new Error(errorMessage)
     }
 
-    const data = await response.json()
+    let data
+    try {
+      data = await response.json()
+    } catch (parseError: any) {
+      logger.error(`❌ [IntegrationService] Failed to parse JSON response for ${dataType}:`, {
+        parseError: parseError.message,
+        status: response.status
+      })
+      throw new Error(`Failed to parse response for ${dataType}: ${parseError.message}`)
+    }
     logger.debug('✅ [IntegrationService] Response for', dataType, ':', {
       dataType,
       hasData: !!data.data,
       dataLength: data.data?.length || data?.length || 0,
-      fullResponse: data
+      fullResponse: data,
+      dataKeys: Object.keys(data),
+      dataType_isArray: Array.isArray(data),
+      data_data_isArray: Array.isArray(data.data)
     })
+
+    // Special logging for Slack files
+    if (dataType === 'slack_files') {
+      logger.debug('📎 [IntegrationService] Slack files API response:', {
+        rawData: data,
+        hasDataProperty: 'data' in data,
+        dataValue: data.data,
+        willReturn: data.data || data || []
+      });
+    }
+
     return data.data || data || []
   }
 

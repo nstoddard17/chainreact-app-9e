@@ -12,14 +12,18 @@ export async function removeUserFromChannel(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel, user } = config
+    const { workspace, channel, user, asUser = false } = config
     if (!channel) throw new Error('Channel is required')
     if (!user) throw new Error('User is required')
 
-    const accessToken = await getSlackToken(userId)
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
     const result = await callSlackApi('conversations.kick', accessToken, { channel, user })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

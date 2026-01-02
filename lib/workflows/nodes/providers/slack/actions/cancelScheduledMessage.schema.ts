@@ -27,6 +27,19 @@ export const cancelScheduledMessageActionSchema: NodeComponent = {
       description: "Your Slack workspace (used for authentication)"
     },
     {
+      name: "asUser",
+      label: "Send as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Cancel message as yourself. IMPORTANT: Must match how the message was scheduled (bot vs user token).",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
       name: "channel",
       label: "Channel",
       type: "select",

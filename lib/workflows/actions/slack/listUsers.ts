@@ -17,7 +17,7 @@ export async function listUsers(params: {
     const accessToken = await getSlackToken(userId)
     const result = await callSlackApi('users.list', accessToken, { limit })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     let users = (result.members || [])
       .filter((u: any) => !u.deleted)

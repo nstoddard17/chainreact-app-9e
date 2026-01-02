@@ -6,6 +6,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { logger } from '@/lib/utils/logger'
+import type { ActionResult } from '@/lib/workflows/actions/core/executeWait'
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
 
@@ -14,45 +15,40 @@ interface CreateWorksheetConfig {
   worksheetName: string
 }
 
-interface CreateWorksheetOutput {
-  worksheetId: string
-  worksheetName: string
-  position: number
-  visibility: string
-  workbookId: string
-  timestamp: string
-}
-
 /**
  * Create a new worksheet in an Excel workbook
  */
 export async function createMicrosoftExcelWorksheet(
   config: CreateWorksheetConfig,
   context: { userId: string }
-): Promise<CreateWorksheetOutput> {
+): Promise<ActionResult> {
   const { workbookId, worksheetName } = config
   const { userId } = context
 
   logger.debug('[Microsoft Excel] Creating worksheet:', { workbookId, worksheetName })
 
-  // Get Microsoft Excel integration
-  const supabase = createAdminClient()
-  const { data: integration, error } = await supabase
-    .from('integrations')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('provider', 'microsoft-excel')
-    .eq('status', 'connected')
-    .single()
-
-  if (error || !integration) {
-    throw new Error('Microsoft Excel integration not found or not connected')
-  }
-
-  // Decrypt access token
-  const accessToken = await decrypt(integration.access_token)
-
   try {
+    // Get Microsoft Excel integration
+    const supabase = createAdminClient()
+    const { data: integration, error } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'microsoft-excel')
+      .eq('status', 'connected')
+      .single()
+
+    if (error || !integration) {
+      return {
+        success: false,
+        output: {},
+        message: 'Microsoft Excel integration not found or not connected'
+      }
+    }
+
+    // Decrypt access token
+    const accessToken = await decrypt(integration.access_token)
+
     // Create the worksheet using Microsoft Graph API
     const createUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets`
 
@@ -68,8 +64,12 @@ export async function createMicrosoftExcelWorksheet(
     })
 
     if (!createResponse.ok) {
-      const error = await createResponse.text()
-      throw new Error(`Failed to create worksheet: ${error}`)
+      const errorText = await createResponse.text()
+      return {
+        success: false,
+        output: {},
+        message: `Failed to create worksheet: ${errorText}`
+      }
     }
 
     const result = await createResponse.json()
@@ -77,16 +77,24 @@ export async function createMicrosoftExcelWorksheet(
     logger.debug('[Microsoft Excel] Successfully created worksheet')
 
     return {
-      worksheetId: result.id,
-      worksheetName: result.name,
-      position: result.position,
-      visibility: result.visibility,
-      workbookId,
-      timestamp: new Date().toISOString()
+      success: true,
+      output: {
+        worksheetId: result.id,
+        worksheetName: result.name,
+        position: result.position,
+        visibility: result.visibility,
+        workbookId,
+        timestamp: new Date().toISOString()
+      },
+      message: `Successfully created worksheet "${result.name}" in workbook`
     }
 
   } catch (error: any) {
     logger.error('[Microsoft Excel] Error creating worksheet:', error)
-    throw new Error(`Failed to create worksheet: ${error.message}`)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to create worksheet: ${error.message}`
+    }
   }
 }

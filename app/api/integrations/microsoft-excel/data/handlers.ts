@@ -243,9 +243,12 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
 
   const accessToken = await getAccessToken(integration)
 
+  // URL encode the worksheet name for API calls (handles spaces and special chars)
+  const encodedWorksheetName = encodeURIComponent(worksheetName)
+
   try {
     // Use usedRange to get the actual data range with values
-    const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/usedRange`
+    const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodedWorksheetName}')/usedRange`
 
     const usedRangeResponse = await fetchWithTimeout(usedRangeUrl, {
       headers: {
@@ -290,9 +293,17 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     // Determine column count from the data
     const columnCount = Math.max(...allRows.map((row: any[]) => row.length))
 
-    // If hasHeaders is false, return column letters based on actual data width
-    if (!hasHeaders || hasHeaders === 'no') {
-      return Array.from({ length: columnCount }, (_, index) => {
+    logger.debug('[fetchColumns] Processing columns', {
+      hasHeaders,
+      hasHeadersType: typeof hasHeaders,
+      columnCount,
+      useColumnLetters: hasHeaders === false || hasHeaders === 'no'
+    })
+
+    // If hasHeaders is false or 'no', return column letters
+    // The UI component will manage adding more columns dynamically
+    if (hasHeaders === false || hasHeaders === 'no') {
+      const columns = Array.from({ length: columnCount }, (_, index) => {
         const letter = String.fromCharCode(65 + index)
         return {
           value: letter,
@@ -300,6 +311,8 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
           description: `Column ${letter}`
         }
       })
+      logger.debug('[fetchColumns] Returning column letters', { columns: columns.map(c => c.value) })
+      return columns
     }
 
     // hasHeaders is true - use row 1 as headers

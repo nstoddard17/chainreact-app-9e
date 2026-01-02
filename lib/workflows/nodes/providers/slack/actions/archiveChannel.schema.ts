@@ -27,16 +27,31 @@ export const archiveChannelActionSchema: NodeComponent = {
       placeholder: "Select Slack workspace",
       description: "Your Slack workspace (used for authentication)"
     },
+    // Option to use user token instead of bot token
+    {
+      name: "asUser",
+      label: "Execute as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Execute this action as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
     // First cascade level - show after workspace selected
     {
       name: "channel",
       label: "Channel",
       type: "combobox",
-      required: true,
+      required: false,
       dynamic: "slack_channels",
       loadOnMount: true,
       searchable: true,
-      placeholder: "Select a channel to archive",
+      placeholder: "Select a channel to archive or enter ID below",
+      description: "Select a channel from the list",
       tooltip: "Select the channel to archive. Works with both public and private channels (if bot has permissions). Archived channels can be unarchived later.",
       dependsOn: "workspace",
       hidden: {
@@ -49,8 +64,10 @@ export const archiveChannelActionSchema: NodeComponent = {
       label: "Or Enter Channel ID",
       type: "text",
       required: false,
-      placeholder: "C1234567890",
-      tooltip: "Alternative: Directly enter the channel ID if you have it. This is useful if the channel doesn't appear in the dropdown.",
+      placeholder: "C1234567890 or {{trigger.channelId}}",
+      supportsAI: true,
+      description: "Manually enter a channel ID",
+      tooltip: "Alternative: Directly enter the channel ID if you have it. This is useful if the channel doesn't appear in the dropdown. Either this field or the Channel field above must be provided.",
       dependsOn: "workspace",
       hidden: {
         $deps: ["workspace"],

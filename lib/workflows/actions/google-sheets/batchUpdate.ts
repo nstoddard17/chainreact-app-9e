@@ -1,9 +1,10 @@
 import { getDecryptedAccessToken, resolveValue, ActionResult } from '@/lib/workflows/actions/core'
 import { logger } from '@/lib/utils/logger'
+import { parseSheetName } from './utils'
 
 /**
  * Updates multiple ranges in a Google Sheets spreadsheet in a single operation
- * Supports updating multiple sheets and ranges with different values
+ * Supports both simple mode (cell/value pairs) and advanced JSON mode
  */
 export async function batchUpdateGoogleSheets(
   config: any,
@@ -14,6 +15,8 @@ export async function batchUpdateGoogleSheets(
     const accessToken = await getDecryptedAccessToken(userId, "google-sheets")
 
     const spreadsheetId = resolveValue(config.spreadsheetId, input)
+    const inputMode = resolveValue(config.inputMode, input) || 'simple'
+    const sheetName = parseSheetName(resolveValue(config.sheetName, input))
     const updatesInput = resolveValue(config.updates, input)
 
     if (!spreadsheetId) {
@@ -22,61 +25,90 @@ export async function batchUpdateGoogleSheets(
       return { success: false, message }
     }
 
-    if (!updatesInput) {
-      const message = "Missing required field: Updates"
-      logger.error(message)
-      return { success: false, message }
-    }
+    let updates: Array<{ range: string; values: any[][] }> = []
 
-    // Parse updates (could be JSON string or already parsed array)
-    let updates: Array<{ range: string; values: any[][] }>
-    if (typeof updatesInput === 'string') {
-      try {
-        updates = JSON.parse(updatesInput)
-      } catch (e) {
-        logger.error('Failed to parse updates as JSON:', e)
-        return {
-          success: false,
-          message: "Updates must be valid JSON array. Example: [{\"range\": \"Sheet1!A1\", \"values\": [[\"Value\"]]}]"
+    if (inputMode === 'simple') {
+      // Simple mode: Build updates from cell/value pairs
+      if (!sheetName) {
+        return { success: false, message: "Please select a sheet" }
+      }
+
+      // Collect all cell/value pairs
+      for (let i = 1; i <= 10; i++) {
+        const cell = resolveValue(config[`cell${i}`], input)
+        const value = resolveValue(config[`value${i}`], input)
+
+        if (cell && value !== undefined && value !== '') {
+          updates.push({
+            range: `${sheetName}!${cell}`,
+            values: [[value]]
+          })
         }
       }
-    } else if (Array.isArray(updatesInput)) {
-      updates = updatesInput
+
+      if (updates.length === 0) {
+        return {
+          success: false,
+          message: "Please specify at least one cell and value to update"
+        }
+      }
     } else {
-      return {
-        success: false,
-        message: "Updates must be an array of update objects"
+      // JSON mode: Parse updates from JSON input
+      if (!updatesInput) {
+        const message = "Missing required field: Updates (JSON)"
+        logger.error(message)
+        return { success: false, message }
       }
-    }
 
-    // Validate updates array
-    if (!Array.isArray(updates) || updates.length === 0) {
-      return {
-        success: false,
-        message: "Updates must be a non-empty array"
-      }
-    }
-
-    // Validate each update object
-    for (let i = 0; i < updates.length; i++) {
-      const update = updates[i]
-      if (!update.range || !update.values) {
+      // Parse updates (could be JSON string or already parsed array)
+      if (typeof updatesInput === 'string') {
+        try {
+          updates = JSON.parse(updatesInput)
+        } catch (e) {
+          logger.error('Failed to parse updates as JSON:', e)
+          return {
+            success: false,
+            message: "Updates must be valid JSON array. Example: [{\"range\": \"Sheet1!A1\", \"values\": [[\"Value\"]]}]"
+          }
+        }
+      } else if (Array.isArray(updatesInput)) {
+        updates = updatesInput
+      } else {
         return {
           success: false,
-          message: `Update at index ${i} is missing required 'range' or 'values' field`
+          message: "Updates must be an array of update objects"
         }
       }
-      if (!Array.isArray(update.values)) {
+
+      // Validate updates array
+      if (!Array.isArray(updates) || updates.length === 0) {
         return {
           success: false,
-          message: `Update at index ${i}: 'values' must be a 2D array (e.g., [["Value1", "Value2"]])`
+          message: "Updates must be a non-empty array"
         }
       }
-      // Ensure range includes sheet name (Sheet1!A1 format)
-      if (!update.range.includes('!')) {
-        return {
-          success: false,
-          message: `Update at index ${i}: Range must include sheet name (e.g., "Sheet1!A1" or "Sheet1!A1:B2")`
+
+      // Validate each update object
+      for (let i = 0; i < updates.length; i++) {
+        const update = updates[i]
+        if (!update.range || !update.values) {
+          return {
+            success: false,
+            message: `Update at index ${i} is missing required 'range' or 'values' field`
+          }
+        }
+        if (!Array.isArray(update.values)) {
+          return {
+            success: false,
+            message: `Update at index ${i}: 'values' must be a 2D array (e.g., [["Value1", "Value2"]])`
+          }
+        }
+        // Ensure range includes sheet name (Sheet1!A1 format)
+        if (!update.range.includes('!')) {
+          return {
+            success: false,
+            message: `Update at index ${i}: Range must include sheet name (e.g., "Sheet1!A1" or "Sheet1!A1:B2")`
+          }
         }
       }
     }

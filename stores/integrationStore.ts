@@ -850,7 +850,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const result = await IntegrationService.loadIntegrationData(dataType, integrationId, params, forceRefresh)
         return result
       } catch (error: any) {
-        logger.error("Error loading integration data:", error)
+        logger.error("❌ [IntegrationStore] Error loading integration data:", {
+          dataType,
+          integrationId,
+          params,
+          errorMessage: error?.message || 'Unknown error',
+          errorStack: error?.stack,
+          errorType: error?.constructor?.name,
+          fullError: error
+        })
         throw error
       }
     },
