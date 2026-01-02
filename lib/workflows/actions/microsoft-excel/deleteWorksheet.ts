@@ -6,6 +6,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { logger } from '@/lib/utils/logger'
+import type { ActionResult } from '@/lib/workflows/actions/core/executeWait'
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
 
@@ -14,43 +15,40 @@ interface DeleteWorksheetConfig {
   worksheetName: string
 }
 
-interface DeleteWorksheetOutput {
-  deleted: boolean
-  worksheetName: string
-  workbookId: string
-  timestamp: string
-}
-
 /**
  * Delete a worksheet from an Excel workbook
  */
 export async function deleteMicrosoftExcelWorksheet(
   config: DeleteWorksheetConfig,
   context: { userId: string }
-): Promise<DeleteWorksheetOutput> {
+): Promise<ActionResult> {
   const { workbookId, worksheetName } = config
   const { userId } = context
 
   logger.debug('[Microsoft Excel] Deleting worksheet:', { workbookId, worksheetName })
 
-  // Get Microsoft Excel integration
-  const supabase = createAdminClient()
-  const { data: integration, error } = await supabase
-    .from('integrations')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('provider', 'microsoft-excel')
-    .eq('status', 'connected')
-    .single()
-
-  if (error || !integration) {
-    throw new Error('Microsoft Excel integration not found or not connected')
-  }
-
-  // Decrypt access token
-  const accessToken = await decrypt(integration.access_token)
-
   try {
+    // Get Microsoft Excel integration
+    const supabase = createAdminClient()
+    const { data: integration, error } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'microsoft-excel')
+      .eq('status', 'connected')
+      .single()
+
+    if (error || !integration) {
+      return {
+        success: false,
+        output: {},
+        message: 'Microsoft Excel integration not found or not connected'
+      }
+    }
+
+    // Decrypt access token
+    const accessToken = await decrypt(integration.access_token)
+
     // Delete the worksheet using Microsoft Graph API
     const deleteUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')`
 
@@ -63,21 +61,33 @@ export async function deleteMicrosoftExcelWorksheet(
     })
 
     if (!deleteResponse.ok) {
-      const error = await deleteResponse.text()
-      throw new Error(`Failed to delete worksheet: ${error}`)
+      const errorText = await deleteResponse.text()
+      return {
+        success: false,
+        output: {},
+        message: `Failed to delete worksheet: ${errorText}`
+      }
     }
 
     logger.debug('[Microsoft Excel] Successfully deleted worksheet')
 
     return {
-      deleted: true,
-      worksheetName,
-      workbookId,
-      timestamp: new Date().toISOString()
+      success: true,
+      output: {
+        deleted: true,
+        worksheetName,
+        workbookId,
+        timestamp: new Date().toISOString()
+      },
+      message: `Successfully deleted worksheet "${worksheetName}"`
     }
 
   } catch (error: any) {
     logger.error('[Microsoft Excel] Error deleting worksheet:', error)
-    throw new Error(`Failed to delete worksheet: ${error.message}`)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to delete worksheet: ${error.message}`
+    }
   }
 }

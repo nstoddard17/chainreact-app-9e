@@ -5,7 +5,7 @@
 
 import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
-import { getSlackToken, callSlackApi, getSlackErrorMessage } from './utils'
+import { getSlackToken, callSlackApi, getSlackErrorMessage, normalizeMessageId } from './utils'
 
 export async function deleteSlackMessage(params: {
   config: any
@@ -33,6 +33,9 @@ export async function deleteSlackMessage(params: {
       throw new Error('Message timestamp is required')
     }
 
+    // Normalize message ID (convert from URL format if needed)
+    const timestamp = normalizeMessageId(messageId)
+
     // Determine the target channel
     let targetChannel: string
     if (channelType === 'dm') {
@@ -56,7 +59,7 @@ export async function deleteSlackMessage(params: {
     // Prepare the delete request
     const deletePayload: any = {
       channel: targetChannel,
-      ts: messageId
+      ts: timestamp
     }
 
     // Add as_user parameter if requested

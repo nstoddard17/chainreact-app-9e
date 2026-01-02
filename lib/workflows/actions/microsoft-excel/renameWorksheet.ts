@@ -6,6 +6,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { logger } from '@/lib/utils/logger'
+import type { ActionResult } from '@/lib/workflows/actions/core/executeWait'
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
 
@@ -15,45 +16,40 @@ interface RenameWorksheetConfig {
   newWorksheetName: string
 }
 
-interface RenameWorksheetOutput {
-  worksheetId: string
-  oldName: string
-  newName: string
-  position: number
-  workbookId: string
-  timestamp: string
-}
-
 /**
  * Rename an existing worksheet in an Excel workbook
  */
 export async function renameMicrosoftExcelWorksheet(
   config: RenameWorksheetConfig,
   context: { userId: string }
-): Promise<RenameWorksheetOutput> {
+): Promise<ActionResult> {
   const { workbookId, worksheetName, newWorksheetName } = config
   const { userId } = context
 
   logger.debug('[Microsoft Excel] Renaming worksheet:', { workbookId, worksheetName, newWorksheetName })
 
-  // Get Microsoft Excel integration
-  const supabase = createAdminClient()
-  const { data: integration, error } = await supabase
-    .from('integrations')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('provider', 'microsoft-excel')
-    .eq('status', 'connected')
-    .single()
-
-  if (error || !integration) {
-    throw new Error('Microsoft Excel integration not found or not connected')
-  }
-
-  // Decrypt access token
-  const accessToken = await decrypt(integration.access_token)
-
   try {
+    // Get Microsoft Excel integration
+    const supabase = createAdminClient()
+    const { data: integration, error } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'microsoft-excel')
+      .eq('status', 'connected')
+      .single()
+
+    if (error || !integration) {
+      return {
+        success: false,
+        output: {},
+        message: 'Microsoft Excel integration not found or not connected'
+      }
+    }
+
+    // Decrypt access token
+    const accessToken = await decrypt(integration.access_token)
+
     // Rename the worksheet using Microsoft Graph API
     const renameUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')`
 
@@ -69,8 +65,12 @@ export async function renameMicrosoftExcelWorksheet(
     })
 
     if (!renameResponse.ok) {
-      const error = await renameResponse.text()
-      throw new Error(`Failed to rename worksheet: ${error}`)
+      const errorText = await renameResponse.text()
+      return {
+        success: false,
+        output: {},
+        message: `Failed to rename worksheet: ${errorText}`
+      }
     }
 
     const result = await renameResponse.json()
@@ -78,16 +78,24 @@ export async function renameMicrosoftExcelWorksheet(
     logger.debug('[Microsoft Excel] Successfully renamed worksheet')
 
     return {
-      worksheetId: result.id,
-      oldName: worksheetName,
-      newName: result.name,
-      position: result.position,
-      workbookId,
-      timestamp: new Date().toISOString()
+      success: true,
+      output: {
+        worksheetId: result.id,
+        oldName: worksheetName,
+        newName: result.name,
+        position: result.position,
+        workbookId,
+        timestamp: new Date().toISOString()
+      },
+      message: `Successfully renamed worksheet from "${worksheetName}" to "${result.name}"`
     }
 
   } catch (error: any) {
     logger.error('[Microsoft Excel] Error renaming worksheet:', error)
-    throw new Error(`Failed to rename worksheet: ${error.message}`)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to rename worksheet: ${error.message}`
+    }
   }
 }

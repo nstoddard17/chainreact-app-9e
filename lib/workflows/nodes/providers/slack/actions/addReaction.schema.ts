@@ -34,9 +34,9 @@ export const addReactionActionSchema: NodeComponent = {
       label: "Message Timestamp",
       type: "text",
       required: true,
-      placeholder: "{{trigger.ts}} or 1234567890.123456",
+      placeholder: "{{trigger.ts}} or paste message URL",
       supportsAI: true,
-      tooltip: "The unique Slack message ID (format: 1234567890.123456). To find manually: right-click a message → 'Copy link' → the URL contains 'p1234567890123456' - remove the 'p' and add a decimal after the 10th digit. Or use variables like {{trigger.ts}} from previous workflow steps.",
+      tooltip: "Paste the full Slack message URL (e.g., https://workspace.slack.com/archives/C123/p1767325385562299) or just the timestamp (1767325385.562299). Right-click any message in Slack and select 'Copy link' to get the URL. You can also use variables like {{trigger.ts}} from previous workflow steps.",
       dependsOn: "channel",
       hidden: {
         $deps: ["channel"],

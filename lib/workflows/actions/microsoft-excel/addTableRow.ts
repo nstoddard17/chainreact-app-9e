@@ -6,6 +6,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/security/encryption'
 import { logger } from '@/lib/utils/logger'
+import type { ActionResult } from '@/lib/workflows/actions/core/executeWait'
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
 
@@ -15,21 +16,13 @@ interface AddTableRowConfig {
   columnMapping: Record<string, any>
 }
 
-interface AddTableRowOutput {
-  rowIndex: number
-  values: any[][]
-  tableName: string
-  workbookId: string
-  timestamp: string
-}
-
 /**
  * Add a row to an Excel table
  */
 export async function addMicrosoftExcelTableRow(
   config: AddTableRowConfig,
   context: { userId: string }
-): Promise<AddTableRowOutput> {
+): Promise<ActionResult> {
   let { workbookId, tableName, columnMapping } = config
   const { userId } = context
 
@@ -49,24 +42,28 @@ export async function addMicrosoftExcelTableRow(
 
   logger.debug('[Microsoft Excel] Adding row to table:', { workbookId, tableName })
 
-  // Get Microsoft Excel integration
-  const supabase = createAdminClient()
-  const { data: integration, error } = await supabase
-    .from('integrations')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('provider', 'microsoft-excel')
-    .eq('status', 'connected')
-    .single()
-
-  if (error || !integration) {
-    throw new Error('Microsoft Excel integration not found or not connected')
-  }
-
-  // Decrypt access token
-  const accessToken = await decrypt(integration.access_token)
-
   try {
+    // Get Microsoft Excel integration
+    const supabase = createAdminClient()
+    const { data: integration, error } = await supabase
+      .from('integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('provider', 'microsoft-excel')
+      .eq('status', 'connected')
+      .single()
+
+    if (error || !integration) {
+      return {
+        success: false,
+        output: {},
+        message: 'Microsoft Excel integration not found or not connected'
+      }
+    }
+
+    // Decrypt access token
+    const accessToken = await decrypt(integration.access_token)
+
     // First, get the table columns to ensure correct order
     const columnsUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables/${tableName}/columns`
 
@@ -78,8 +75,12 @@ export async function addMicrosoftExcelTableRow(
     })
 
     if (!columnsResponse.ok) {
-      const error = await columnsResponse.text()
-      throw new Error(`Failed to fetch table columns: ${error}`)
+      const errorText = await columnsResponse.text()
+      return {
+        success: false,
+        output: {},
+        message: `Failed to fetch table columns: ${errorText}`
+      }
     }
 
     const columnsData = await columnsResponse.json()
@@ -106,8 +107,12 @@ export async function addMicrosoftExcelTableRow(
     })
 
     if (!addRowResponse.ok) {
-      const error = await addRowResponse.text()
-      throw new Error(`Failed to add row to table: ${error}`)
+      const errorText = await addRowResponse.text()
+      return {
+        success: false,
+        output: {},
+        message: `Failed to add row to table: ${errorText}`
+      }
     }
 
     const result = await addRowResponse.json()
@@ -115,15 +120,23 @@ export async function addMicrosoftExcelTableRow(
     logger.debug('[Microsoft Excel] Successfully added row to table')
 
     return {
-      rowIndex: result.index || 0,
-      values: result.values || [rowValues],
-      tableName,
-      workbookId,
-      timestamp: new Date().toISOString()
+      success: true,
+      output: {
+        rowIndex: result.index || 0,
+        values: result.values || [rowValues],
+        tableName,
+        workbookId,
+        timestamp: new Date().toISOString()
+      },
+      message: `Successfully added row to table "${tableName}"`
     }
 
   } catch (error: any) {
     logger.error('[Microsoft Excel] Error adding row to table:', error)
-    throw new Error(`Failed to add row to table: ${error.message}`)
+    return {
+      success: false,
+      output: {},
+      message: `Failed to add row to table: ${error.message}`
+    }
   }
 }

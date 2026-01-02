@@ -518,13 +518,12 @@ export const microsoftExcelNodes: NodeComponent[] = [
         }
       },
       {
-        name: "columnMapping",
-        label: "What Data to Add",
-        type: "microsoft_excel_column_mapper",
-        required: true,
+        name: "rowFields",
+        label: "Row Fields",
+        type: "microsoft_excel_worksheet_add_row_fields",
+        required: false,
         dependsOn: "hasHeaders",
-        description: "Choose which data goes into which columns",
-        helpText: "Select a column, then enter the value or use a variable from a previous step.",
+        description: "Enter values for each column in your worksheet",
         hidden: {
           $deps: ["hasHeaders"],
           $condition: { hasHeaders: { $exists: false } }
@@ -1090,6 +1089,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     requiredScopes: ["https://graph.microsoft.com/Files.ReadWrite.All"],
     category: "Productivity",
     isTrigger: false,
+    testable: true,
     producesOutput: true,
     configSchema: [
       {
@@ -1115,14 +1115,16 @@ export const microsoftExcelNodes: NodeComponent[] = [
         helpText: "Tables automatically apply formatting and formulas to new rows"
       },
       {
-        name: "columnMapping",
-        label: "Column Values",
-        type: "microsoft_excel_column_mapper",
-        required: true,
+        name: "rowFields",
+        label: "Row Fields",
+        type: "microsoft_excel_table_add_row_fields",
+        required: false,
         dependsOn: "tableName",
-        dataSource: "table_columns",
-        description: "Map data to table columns",
-        helpText: "Select a column from your table, then choose what data should go there"
+        hidden: {
+          $deps: ["tableName"],
+          $condition: { tableName: { $exists: false } }
+        },
+        description: "Enter values for each column in your table"
       }
     ],
     outputSchema: [

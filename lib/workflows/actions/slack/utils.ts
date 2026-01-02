@@ -5,6 +5,41 @@
 import { logger } from '@/lib/utils/logger'
 
 /**
+ * Convert Slack URL message ID to timestamp format
+ * Accepts:
+ * - Full URL: https://chain-react.slack.com/archives/C0A67LNBE05/p1767325385562299
+ * - URL format: p1767325385562299
+ * - Timestamp: 1767325385.562299
+ * API expects format: 1767325385.562299
+ * @param messageId - Message ID from URL or timestamp
+ */
+export function normalizeMessageId(messageId: string): string {
+  if (!messageId) return messageId
+
+  let normalized = messageId
+
+  // If it's a full Slack URL, extract the message ID from the end
+  if (normalized.includes('slack.com/archives/')) {
+    const urlMatch = normalized.match(/\/p(\d+)$/)
+    if (urlMatch) {
+      normalized = urlMatch[1] // Extract just the numbers after 'p'
+    }
+  }
+  // Remove 'p' prefix if present (from Slack URLs)
+  else if (normalized.startsWith('p')) {
+    normalized = normalized.slice(1)
+  }
+
+  // If no dot present and length suggests it's a URL format (16+ digits)
+  if (!normalized.includes('.') && normalized.length >= 16) {
+    // Insert dot before last 6 digits (microseconds)
+    normalized = normalized.slice(0, -6) + '.' + normalized.slice(-6)
+  }
+
+  return normalized
+}
+
+/**
  * Get decrypted Slack token for a user or specific integration
  * @param userIdOrIntegrationId - Either a user ID or integration ID
  * @param isIntegrationId - If true, treats the first param as an integration ID
@@ -112,7 +147,9 @@ export function getSlackErrorMessage(error: string): string {
     'already_in_channel': 'User is already in the channel.',
     'message_not_found': 'Message not found.',
     'no_permission': 'Bot does not have permission to perform this action.',
-    'restricted_action': 'This action is restricted by workspace settings.'
+    'restricted_action': 'This action is restricted by workspace settings.',
+    'cant_update_message': 'Cannot update this message. You can only update messages posted by you or if you are a workspace admin. Try enabling "Update as User" or check if you have permission.',
+    'cant_delete_message': 'Cannot delete this message. Only the message author, workspace admin, or workspace owner can delete messages.'
   }
   return errorMessages[error] || `Slack API error: ${error}`
 }

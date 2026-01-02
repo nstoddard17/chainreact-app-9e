@@ -102,6 +102,8 @@ import { NotionDeletableBlocksField } from "./notion/NotionDeletableBlocksField"
 
 // Microsoft Excel field components
 import { MicrosoftExcelColumnMapper } from "./microsoft-excel/MicrosoftExcelColumnMapper";
+import { MicrosoftExcelTableAddRowFields } from "../components/microsoft-excel/MicrosoftExcelTableAddRowFields";
+import { MicrosoftExcelWorksheetAddRowFields } from "../components/microsoft-excel/MicrosoftExcelWorksheetAddRowFields";
 import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { NotionSelectOptionsField } from "./notion/NotionSelectOptionsField";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
@@ -3077,6 +3079,38 @@ export function FieldRenderer({
             loadingFields={loadingFields}
             loadOptions={onDynamicLoad}
             parentValues={parentValues}
+          />
+        );
+
+      case "microsoft_excel_table_add_row_fields":
+        // Microsoft Excel Table Add Row Fields - dynamic column fields for entering row data
+        // Component self-fetches columns from the selected table
+        return (
+          <MicrosoftExcelTableAddRowFields
+            values={parentValues || {}}
+            setValue={(key, val) => {
+              if (setFieldValue) {
+                setFieldValue(key, val);
+              }
+            }}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+          />
+        );
+
+      case "microsoft_excel_worksheet_add_row_fields":
+        // Microsoft Excel Worksheet Add Row Fields - dynamic column fields for entering row data
+        // Component self-fetches columns from the selected worksheet
+        return (
+          <MicrosoftExcelWorksheetAddRowFields
+            values={parentValues || {}}
+            setValue={(key, val) => {
+              if (setFieldValue) {
+                setFieldValue(key, val);
+              }
+            }}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
           />
         );
 

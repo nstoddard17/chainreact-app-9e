@@ -85,10 +85,10 @@ export const updateMessageActionSchema: NodeComponent = {
       label: "Message Timestamp",
       type: "text",
       required: true,
-      placeholder: "{{trigger.messageId}} or 1234567890.123456",
+      placeholder: "{{trigger.messageId}} or paste message URL",
       supportsAI: true,
       description: "The timestamp of the message to update",
-      tooltip: "This is the 'ts' value from Slack (e.g., 1234567890.123456). Get this from a trigger or the 'Send Message' action output. Only the message author or workspace admin can update messages.",
+      tooltip: "Paste the full Slack message URL (e.g., https://workspace.slack.com/archives/C123/p1767325385562299) or just the timestamp (1767325385.562299). Right-click any message in Slack and select 'Copy link' to get the URL. You can also use variables like {{trigger.messageId}}. Only the message author or workspace admin can update messages.",
       dependsOn: "channel",
       hidden: {
         $deps: ["channel"],

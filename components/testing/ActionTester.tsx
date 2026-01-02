@@ -10,6 +10,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { Play, AlertCircle, Loader2 } from 'lucide-react'
 import { GenericConfiguration } from '@/components/workflows/configuration/providers/GenericConfiguration'
 import { GoogleSheetsConfiguration } from '@/components/workflows/configuration/providers/GoogleSheetsConfiguration'
+import { MicrosoftExcelConfiguration } from '@/components/workflows/configuration/providers/MicrosoftExcelConfiguration'
 import { VariableDragProvider } from '@/components/workflows/configuration/VariableDragContext'
 import { RequestResponseViewer } from './RequestResponseViewer'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
@@ -759,6 +760,22 @@ ${validation.missingFields.map(field => {
               {selectedNode?.configSchema && selectedNode.configSchema.length > 0 ? (
                 selectedProvider === 'google-sheets' ? (
                   <GoogleSheetsConfiguration
+                    nodeInfo={selectedNode}
+                    values={configValues}
+                    setValue={handleSetValue}
+                    errors={configErrors}
+                    onSubmit={handleConfigSubmit}
+                    onCancel={() => {}}
+                    dynamicOptions={dynamicOptions}
+                    loadingDynamic={loadingDynamic}
+                    loadOptions={loadOptions}
+                    integrationName={selectedProvider}
+                    aiFields={aiFields}
+                    setAiFields={setAiFields}
+                    needsConnection={false}
+                  />
+                ) : selectedProvider === 'microsoft-excel' ? (
+                  <MicrosoftExcelConfiguration
                     nodeInfo={selectedNode}
                     values={configValues}
                     setValue={handleSetValue}

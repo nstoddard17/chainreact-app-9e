@@ -3,7 +3,7 @@
  */
 import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
-import { getSlackToken, callSlackApi, getSlackErrorMessage } from './utils'
+import { getSlackToken, callSlackApi, getSlackErrorMessage, normalizeMessageId } from './utils'
 
 export async function removeReaction(params: {
   config: any
@@ -12,15 +12,22 @@ export async function removeReaction(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel, timestamp, emoji } = config
+    const { workspace, channel, messageId, emoji } = config
     if (!channel) throw new Error('Channel is required')
-    if (!timestamp) throw new Error('Message timestamp is required')
+    if (!messageId) throw new Error('Message timestamp is required')
     if (!emoji) throw new Error('Emoji is required')
+
+    // Normalize message ID (convert from URL format if needed)
+    const timestamp = normalizeMessageId(messageId)
 
     // Clean emoji name
     let cleanEmoji = emoji.replace(/^:|:$/g, '')
 
-    const accessToken = await getSlackToken(userId)
+    // Use workspace (integration ID) to get the correct Slack token
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true)
+      : await getSlackToken(userId, false)
+
     const result = await callSlackApi('reactions.remove', accessToken, {
       channel,
       timestamp,
@@ -31,7 +38,7 @@ export async function removeReaction(params: {
 
     return {
       success: true,
-      output: { success: true, channel, timestamp, emoji: cleanEmoji },
+      output: { success: true, channel, messageId, emoji: cleanEmoji },
       message: `Removed :${cleanEmoji}: reaction`
     }
   } catch (error: any) {
