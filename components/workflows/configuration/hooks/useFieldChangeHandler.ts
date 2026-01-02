@@ -1036,6 +1036,20 @@ export function useFieldChangeHandler({
     // (providers handle side effects but don't set the main value)
     setValue(fieldName, value);
 
+    // Handle reloadOnChange: reload any fields that watch this field
+    if (nodeInfo?.configSchema) {
+      nodeInfo.configSchema.forEach((field: any) => {
+        if (field.reloadOnChange && Array.isArray(field.reloadOnChange) && field.reloadOnChange.includes(fieldName)) {
+          logger.debug(`🔄 [handleFieldChange] Reloading ${field.name} because ${fieldName} changed`);
+          // Reload the field with its current dependency value
+          const dependencyValue = field.dependsOn ? values[field.dependsOn] : undefined;
+          if (dependencyValue) {
+            loadOptions(field.name, field.dependsOn, dependencyValue, true);
+          }
+        }
+      });
+    }
+
     // Try provider-specific and generic handlers (no await needed since we don't care about the result)
     handleProviderFieldChange(fieldName, value).then(handled => {
       // Log if field was handled by a provider
@@ -1043,7 +1057,7 @@ export function useFieldChangeHandler({
         logger.debug('✅ Field handled by provider logic:', fieldName);
       }
     });
-  }, [handleProviderFieldChange, setValue, nodeInfo, values, loadedFieldsWithValues, clearedFieldsRef]);
+  }, [handleProviderFieldChange, setValue, nodeInfo, values, loadedFieldsWithValues, clearedFieldsRef, loadOptions]);
 
   return {
     handleFieldChange,

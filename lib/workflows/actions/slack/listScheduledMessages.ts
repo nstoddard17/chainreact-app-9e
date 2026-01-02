@@ -12,27 +12,49 @@ export async function listScheduledMessages(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel, limit = 100 } = config
+    const { workspace, channel, limit = 100, oldest, latest, asUser = false } = config
 
-    const accessToken = await getSlackToken(userId)
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    // NOTE: You can only see scheduled messages created with the same token type
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
+
     const payload: any = { limit }
     if (channel) payload.channel = channel
+    if (oldest) payload.oldest = oldest
+    if (latest) payload.latest = latest
 
     const result = await callSlackApi('chat.scheduledMessages.list', accessToken, payload)
     if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
-    const messages = (result.scheduled_messages || []).map((m: any) => ({
-      id: m.id,
-      channel: m.channel_id,
-      postAt: m.post_at,
-      text: m.text,
-      dateCreated: m.date_created
-    }))
+    const scheduledMessages = (result.scheduled_messages || []).map((m: any) => {
+      const postAtDate = new Date(m.post_at * 1000)
+      const formattedDate = postAtDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      })
+
+      return {
+        id: m.id,
+        channelId: m.channel_id,
+        postAt: m.post_at,
+        postAtFormatted: formattedDate,
+        text: m.text,
+        dateCreated: m.date_created
+      }
+    })
 
     return {
       success: true,
-      output: { success: true, messages, count: messages.length },
-      message: `Found ${messages.length} scheduled messages`
+      output: { success: true, scheduledMessages, totalCount: scheduledMessages.length },
+      message: `Found ${scheduledMessages.length} scheduled message${scheduledMessages.length !== 1 ? 's' : ''}`
     }
   } catch (error: any) {
     logger.error('[Slack List Scheduled Messages] Error:', error)

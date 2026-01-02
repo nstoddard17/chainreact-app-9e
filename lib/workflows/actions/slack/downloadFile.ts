@@ -12,10 +12,14 @@ export async function downloadFile(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { fileId } = config
+    const { fileId, workspace, asUser = false } = config
     if (!fileId) throw new Error('File ID is required')
 
-    const accessToken = await getSlackToken(userId)
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
 
     // Get file info first
     const infoResult = await callSlackApi('files.info', accessToken, { file: fileId })

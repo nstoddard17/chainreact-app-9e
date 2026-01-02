@@ -12,10 +12,15 @@ export async function leaveChannel(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel } = config
+    const { channel, workspace, asUser = true } = config
     if (!channel) throw new Error('Channel is required')
 
-    const accessToken = await getSlackToken(userId)
+    // Default to asUser=true since bots typically cannot leave channels
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
+
     const result = await callSlackApi('conversations.leave', accessToken, { channel })
 
     if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))

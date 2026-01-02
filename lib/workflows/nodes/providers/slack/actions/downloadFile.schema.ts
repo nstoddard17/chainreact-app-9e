@@ -27,6 +27,19 @@ export const downloadFileActionSchema: NodeComponent = {
       description: "Your Slack workspace (used for authentication)"
     },
     {
+      name: "asUser",
+      label: "Execute as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Execute this action as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
       name: "fileId",
       label: "File",
       type: "select",
@@ -36,6 +49,7 @@ export const downloadFileActionSchema: NodeComponent = {
       description: "The file to download from Slack",
       tooltip: "Select the file you want to download. Shows recent files from your workspace.",
       dependsOn: "workspace",
+      reloadOnChange: ["asUser"],
       hidden: {
         $deps: ["workspace"],
         $condition: { workspace: { $exists: false } }

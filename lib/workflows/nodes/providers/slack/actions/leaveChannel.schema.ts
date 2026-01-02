@@ -27,14 +27,27 @@ export const leaveChannelActionSchema: NodeComponent = {
       description: "Your Slack workspace (used for authentication)"
     },
     {
+      name: "asUser",
+      label: "Leave as User",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "Leave the channel as yourself instead of the bot. Most use cases require this to be enabled since bots typically cannot leave channels.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
       name: "channel",
       label: "Channel",
       type: "select",
       dynamic: "slack_channels",
       required: true,
       placeholder: "Select a channel to leave",
-      description: "The channel for the bot to leave",
-      tooltip: "Select the channel for the bot to leave. The bot will no longer receive messages or have access to this channel. Works with both public and private channels.",
+      description: "The channel to leave",
+      tooltip: "Select the channel to leave. You will no longer receive messages or have access to this channel. Works with both public and private channels.",
       dependsOn: "workspace",
       hidden: {
         $deps: ["workspace"],

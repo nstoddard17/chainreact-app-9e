@@ -12,11 +12,17 @@ export async function cancelScheduledMessage(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel, scheduledMessageId } = config
+    const { workspace, channel, scheduledMessageId, asUser = false } = config
     if (!channel) throw new Error('Channel is required')
     if (!scheduledMessageId) throw new Error('Scheduled message ID is required')
 
-    const accessToken = await getSlackToken(userId)
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    // NOTE: You can only cancel scheduled messages that were created with the same token type
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
+
     const result = await callSlackApi('chat.deleteScheduledMessage', accessToken, {
       channel,
       scheduled_message_id: scheduledMessageId

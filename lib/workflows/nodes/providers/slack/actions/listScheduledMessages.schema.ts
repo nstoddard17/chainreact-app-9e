@@ -27,6 +27,19 @@ export const listScheduledMessagesActionSchema: NodeComponent = {
       description: "Your Slack workspace (used for authentication)"
     },
     {
+      name: "asUser",
+      label: "List User Messages",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Show messages scheduled as user. Toggle to see messages scheduled with user token vs bot token.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
       name: "channel",
       label: "Channel (Optional)",
       type: "select",

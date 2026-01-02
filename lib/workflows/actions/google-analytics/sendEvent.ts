@@ -6,13 +6,6 @@
 import { ExecutionContext } from '../../executeNode'
 import { logger } from '@/lib/utils/logger'
 import { getPropertyAndStreamIds, getOrCreateApiSecret } from './secretManager'
-import { createClient } from '@supabase/supabase-js'
-
-// Helper to create supabase client inside handlers
-const getSupabase = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
-)
 
 export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promise<any> {
   const {
@@ -106,7 +99,7 @@ export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promi
       integration,
       propertyId,
       dataStreamId,
-      supabase
+      context.supabase
     )
 
     const url = `https://www.google-analytics.com/mp/collect?measurement_id=${measurementId}&api_secret=${apiSecret}`
