@@ -149,7 +149,8 @@ export function getSlackErrorMessage(error: string): string {
     'no_permission': 'Bot does not have permission to perform this action.',
     'restricted_action': 'This action is restricted by workspace settings.',
     'cant_update_message': 'Cannot update this message. You can only update messages posted by you or if you are a workspace admin. Try enabling "Update as User" or check if you have permission.',
-    'cant_delete_message': 'Cannot delete this message. Only the message author, workspace admin, or workspace owner can delete messages.'
+    'cant_delete_message': 'Cannot delete this message. Only the message author, workspace admin, or workspace owner can delete messages.',
+    'not_allowed_token_type': 'This action requires a user token. Please reconnect your Slack account to enable user-specific actions.'
   }
   return errorMessages[error] || `Slack API error: ${error}`
 }

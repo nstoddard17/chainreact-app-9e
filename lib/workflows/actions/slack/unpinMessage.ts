@@ -19,10 +19,11 @@ export async function unpinMessage(params: {
     // Normalize message ID (convert from URL format if needed)
     const timestamp = normalizeMessageId(messageId)
 
-    // Use workspace (integration ID) to get the correct Slack token
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const asUser = config.asUser === true
     const accessToken = workspace
-      ? await getSlackToken(workspace, true)
-      : await getSlackToken(userId, false)
+      ? await getSlackToken(workspace, true, asUser)
+      : await getSlackToken(userId, false, asUser)
 
     const result = await callSlackApi('pins.remove', accessToken, { channel, timestamp })
 

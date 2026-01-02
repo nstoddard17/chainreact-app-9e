@@ -41,7 +41,9 @@
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\debug-node-positions.js\")",
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\debug-handles-console.js\")",
       "Bash(wc:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\slack\\\\findMessage.ts\")",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\nodes\\\\providers\\\\slack\\\\actions\\\\findMessage.schema.ts\")"
     ],
     "deny": [],
     "ask": [],

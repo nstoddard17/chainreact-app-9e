@@ -5,6 +5,7 @@
 
 import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
+import { getSlackToken } from './utils'
 
 export async function inviteUsersToChannel(params: {
   config: any
@@ -15,10 +16,12 @@ export async function inviteUsersToChannel(params: {
 
   try {
     const {
+      workspace,
       channel,
       users,
       sendInviteNotification = true,
-      customWelcomeMessage
+      customWelcomeMessage,
+      asUser = false
     } = config
 
     // Validate required fields
@@ -33,36 +36,11 @@ export async function inviteUsersToChannel(params: {
     // Normalize users to array
     const userIds = Array.isArray(users) ? users : [users]
 
-    // Get the Slack integration
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!
-    )
-
-    const { data: integration, error: integrationError } = await supabase
-      .from('integrations')
-      .select('access_token')
-      .eq('user_id', userId)
-      .eq('provider', 'slack')
-      .eq('status', 'connected')
-      .single()
-
-    if (integrationError || !integration) {
-      throw new Error('Slack integration not found. Please connect your Slack account.')
-    }
-
-    if (!integration.access_token) {
-      throw new Error('Slack access token not found. Please reconnect your Slack account.')
-    }
-
-    // Decrypt the token
-    const { decryptToken } = await import('@/lib/integrations/tokenUtils')
-    const accessToken = await decryptToken(integration.access_token)
-
-    if (!accessToken) {
-      throw new Error('Failed to decrypt Slack token. Please reconnect your Slack account.')
-    }
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
 
     logger.debug('[Slack Invite Users] Inviting users to channel:', {
       channel,

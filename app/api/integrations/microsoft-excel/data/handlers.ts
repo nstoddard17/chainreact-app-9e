@@ -243,9 +243,12 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
 
   const accessToken = await getAccessToken(integration)
 
+  // URL encode the worksheet name for API calls (handles spaces and special chars)
+  const encodedWorksheetName = encodeURIComponent(worksheetName)
+
   try {
     // Use usedRange to get the actual data range with values
-    const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')/usedRange`
+    const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodedWorksheetName}')/usedRange`
 
     const usedRangeResponse = await fetchWithTimeout(usedRangeUrl, {
       headers: {

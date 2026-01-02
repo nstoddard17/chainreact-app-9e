@@ -16,6 +16,31 @@ export const getMessagesActionSchema: NodeComponent = {
   category: "Communication",
   isTrigger: false,
   configSchema: [
+    // Parent field - always visible
+    {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    // Option to use user token instead of bot token
+    {
+      name: "asUser",
+      label: "Execute as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Execute this action as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
     {
       name: "channel",
       label: "Channel",
@@ -24,7 +49,12 @@ export const getMessagesActionSchema: NodeComponent = {
       dynamic: "slack_channels",
       loadOnMount: true,
       placeholder: "Select a channel",
-      tooltip: "Select the Slack channel to retrieve messages from"
+      tooltip: "Select the Slack channel to retrieve messages from",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "limit",

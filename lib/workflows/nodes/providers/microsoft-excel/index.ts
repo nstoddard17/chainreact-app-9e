@@ -1416,24 +1416,64 @@ export const microsoftExcelNodes: NodeComponent[] = [
         description: "The worksheet to add rows to"
       },
       {
-        name: "rows",
-        label: "Rows Data",
-        type: "array",
+        name: "inputMode",
+        label: "Input Mode",
+        type: "select",
         required: true,
+        defaultValue: "simple",
         dependsOn: "worksheetName",
-        placeholder: "Array of row objects",
-        description: "Array of objects, where each object represents a row to add",
-        helpText: "Use output from a previous step that returns an array of data objects. Each object should have keys matching the worksheet column headers.",
-        hasVariablePicker: true
+        hidden: {
+          $deps: ["worksheetName"],
+          $condition: { worksheetName: { $exists: false } }
+        },
+        options: [
+          { value: "simple", label: "Simple (Fill in fields)" },
+          { value: "json", label: "Advanced (JSON format)" }
+        ],
+        description: "Choose how to specify the rows"
       },
+      // Simple mode - dynamic row fields component
       {
-        name: "columnMapping",
-        label: "Column Mapping (Optional)",
-        type: "microsoft_excel_column_mapper",
+        name: "multipleRowsFields",
+        label: "Rows",
+        type: "microsoft_excel_multiple_rows_fields",
         required: false,
-        dependsOn: "worksheetName",
-        description: "Optional: Map specific values to columns if not using direct field names",
-        helpText: "If your array objects don't match column names exactly, use this to map the data"
+        dependsOn: "inputMode",
+        hidden: {
+          $deps: ["worksheetName", "inputMode"],
+          $condition: {
+            $or: [
+              { worksheetName: { $exists: false } },
+              { inputMode: { $eq: "json" } }
+            ]
+          }
+        },
+        description: "Configure multiple rows to add"
+      },
+      // JSON mode - rows as JSON array
+      {
+        name: "rows",
+        label: "Rows Data (JSON)",
+        type: "textarea",
+        required: false,
+        dependsOn: "inputMode",
+        hidden: {
+          $deps: ["worksheetName", "inputMode"],
+          $condition: {
+            $or: [
+              { worksheetName: { $exists: false } },
+              { inputMode: { $ne: "json" } }
+            ]
+          }
+        },
+        rows: 10,
+        placeholder: JSON.stringify([
+          { "Column A": "Value 1", "Column B": "Value 2" },
+          { "Column A": "Value 3", "Column B": "Value 4" }
+        ], null, 2),
+        supportsAI: true,
+        hasVariablePicker: true,
+        description: "JSON array of row objects. Each object should have column names as keys."
       }
     ],
     outputSchema: [

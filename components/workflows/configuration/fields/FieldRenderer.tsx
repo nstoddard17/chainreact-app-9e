@@ -104,6 +104,7 @@ import { NotionDeletableBlocksField } from "./notion/NotionDeletableBlocksField"
 import { MicrosoftExcelColumnMapper } from "./microsoft-excel/MicrosoftExcelColumnMapper";
 import { MicrosoftExcelTableAddRowFields } from "../components/microsoft-excel/MicrosoftExcelTableAddRowFields";
 import { MicrosoftExcelWorksheetAddRowFields } from "../components/microsoft-excel/MicrosoftExcelWorksheetAddRowFields";
+import { MicrosoftExcelMultipleRowsFields } from "../components/microsoft-excel/MicrosoftExcelMultipleRowsFields";
 import { NotionDatabasePropertyBuilder } from "./NotionDatabasePropertyBuilder";
 import { NotionSelectOptionsField } from "./notion/NotionSelectOptionsField";
 import { SlackEmojiPicker } from "./SlackEmojiPicker";
@@ -3103,6 +3104,22 @@ export function FieldRenderer({
         // Component self-fetches columns from the selected worksheet
         return (
           <MicrosoftExcelWorksheetAddRowFields
+            values={parentValues || {}}
+            setValue={(key, val) => {
+              if (setFieldValue) {
+                setFieldValue(key, val);
+              }
+            }}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
+          />
+        );
+
+      case "microsoft_excel_multiple_rows_fields":
+        // Microsoft Excel Multiple Rows Fields - dynamic column fields for adding multiple rows
+        // Component fetches worksheet columns and allows adding multiple rows with expandable UI
+        return (
+          <MicrosoftExcelMultipleRowsFields
             values={parentValues || {}}
             setValue={(key, val) => {
               if (setFieldValue) {

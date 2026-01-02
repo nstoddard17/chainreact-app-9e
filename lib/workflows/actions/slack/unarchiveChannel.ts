@@ -12,10 +12,14 @@ export async function unarchiveChannel(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel } = config
+    const { workspace, channel, asUser = false } = config
     if (!channel) throw new Error('Channel is required')
 
-    const accessToken = await getSlackToken(userId)
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
     const result = await callSlackApi('conversations.unarchive', accessToken, { channel })
 
     if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
