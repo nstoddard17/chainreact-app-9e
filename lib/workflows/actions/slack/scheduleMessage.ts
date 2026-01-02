@@ -25,7 +25,7 @@ export async function scheduleMessage(params: {
     if (blocks) payload.blocks = blocks
 
     const result = await callSlackApi('chat.scheduleMessage', accessToken, payload)
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

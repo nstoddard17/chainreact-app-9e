@@ -27,6 +27,19 @@ export const scheduleMessageActionSchema: NodeComponent = {
       description: "Your Slack workspace (used for authentication)"
     },
     {
+      name: "asUser",
+      label: "Send as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Schedule message as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
       name: "channel",
       label: "Channel",
       type: "select",

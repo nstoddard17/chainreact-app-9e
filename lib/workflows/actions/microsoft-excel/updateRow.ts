@@ -25,6 +25,20 @@ export async function updateMicrosoftExcelRow(
       updateMultiple = false
     } = resolvedConfig
 
+    // Extract column_* fields from config and build updateMapping
+    // The UI sends fields like: column_Column1: "value1", column_Column2: "value2"
+    // We need to convert to: { "Column1": "value1", "Column2": "value2" }
+    if (!updateMapping || (typeof updateMapping === 'object' && Object.keys(updateMapping).length === 0)) {
+      updateMapping = {};
+      for (const [key, value] of Object.entries(resolvedConfig)) {
+        if (key.startsWith('column_') && value !== undefined && value !== '') {
+          const columnName = key.replace('column_', '');
+          updateMapping[columnName] = value;
+        }
+      }
+      logger.debug('📊 [Excel Update Row] Extracted column fields:', updateMapping);
+    }
+
     // Transform updateMapping from array format to object format if needed
     // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
     // But we need: { "Name": "John" }
@@ -79,8 +93,10 @@ export async function updateMicrosoftExcelRow(
     // If we need to find rows by column value
     else if (matchColumn && matchValue !== undefined) {
       // Get all data from the worksheet to find matching rows
+      // Encode worksheet name for URL safety (handles spaces and special chars)
+      const encodedWorksheetName = encodeURIComponent(worksheetName)
       const dataResponse = await fetch(
-        `${baseUrl}/worksheets('${worksheetName}')/usedRange`,
+        `${baseUrl}/worksheets('${encodedWorksheetName}')/usedRange`,
         {
           method: 'GET',
           headers: {
@@ -129,11 +145,13 @@ export async function updateMicrosoftExcelRow(
     }
 
     // Update each row
+    // Encode worksheet name once for URL safety (handles spaces and special chars)
+    const encodedWorksheetNameForUpdate = encodeURIComponent(worksheetName)
     for (const row of rowsToUpdate) {
       if (updateMapping && Object.keys(updateMapping).length > 0) {
         // Get headers to find column positions - use usedRange to ensure we get data
         const usedRangeResponse = await fetch(
-          `${baseUrl}/worksheets('${worksheetName}')/usedRange`,
+          `${baseUrl}/worksheets('${encodedWorksheetNameForUpdate}')/usedRange`,
           {
             method: 'GET',
             headers: {
@@ -165,13 +183,15 @@ export async function updateMicrosoftExcelRow(
 
           // Convert column index to letter (0 -> A, 1 -> B, etc.)
           const columnLetter = String.fromCharCode(65 + columnIndex)
-          const cellAddress = `${worksheetName}!${columnLetter}${row}`
+          // Cell address is just the cell reference (e.g., A3) since we're already specifying the worksheet in the path
+          const cellRef = `${columnLetter}${row}`
+          const cellAddress = `${worksheetName}!${cellRef}` // For logging purposes
 
           logger.debug(`📊 [Excel Update Row] Updating cell ${cellAddress} with value:`, value);
 
           // Update the cell
           const updateResponse = await fetch(
-            `${baseUrl}/worksheets('${worksheetName}')/range(address='${cellAddress}')`,
+            `${baseUrl}/worksheets('${encodedWorksheetNameForUpdate}')/range(address='${cellRef}')`,
             {
               method: 'PATCH',
               headers: {

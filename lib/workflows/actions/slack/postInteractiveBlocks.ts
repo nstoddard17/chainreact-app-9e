@@ -32,7 +32,7 @@ export async function postInteractiveBlocks(params: {
     if (unfurlMedia !== undefined) payload.unfurl_media = unfurlMedia
 
     const result = await callSlackApi('chat.postMessage', accessToken, payload)
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

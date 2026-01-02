@@ -23,7 +23,7 @@ export async function setChannelTopic(params: {
       : await getSlackToken(userId, false, useUserToken)
     const result = await callSlackApi('conversations.setTopic', accessToken, { channel, topic })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

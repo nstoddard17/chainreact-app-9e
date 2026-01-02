@@ -23,7 +23,7 @@ export async function renameChannel(params: {
       : await getSlackToken(userId, false, useUserToken)
     const result = await callSlackApi('conversations.rename', accessToken, { channel, name: newName })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

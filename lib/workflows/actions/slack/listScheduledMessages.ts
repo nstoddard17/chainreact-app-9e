@@ -19,7 +19,7 @@ export async function listScheduledMessages(params: {
     if (channel) payload.channel = channel
 
     const result = await callSlackApi('chat.scheduledMessages.list', accessToken, payload)
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     const messages = (result.scheduled_messages || []).map((m: any) => ({
       id: m.id,

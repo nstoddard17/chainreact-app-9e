@@ -86,6 +86,19 @@ export const uploadFileActionSchema: NodeComponent = {
       description: "Your Slack workspace (used for authentication)"
     },
     {
+      name: "asUser",
+      label: "Send as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Upload file as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
       name: "channels",
       label: "Channel",
       type: "select",

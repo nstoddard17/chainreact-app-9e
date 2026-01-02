@@ -18,14 +18,41 @@ export const addReactionActionSchema: NodeComponent = {
   configSchema: [
     // Parent field - always visible
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
+      name: "asUser",
+      label: "Send as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Add reaction as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
       name: "channel",
       label: "Channel",
       type: "select",
       required: true,
       dynamic: "slack_channels",
-      loadOnMount: true,
       placeholder: "Select a channel",
-      tooltip: "Select the channel where the message is located"
+      tooltip: "Select the channel where the message is located",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
 
     // Cascaded fields - only show after channel selected

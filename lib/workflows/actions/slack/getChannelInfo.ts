@@ -45,7 +45,7 @@ export async function getChannelInfo(params: {
 
     logger.debug('[Slack Get Channel Info] API response:', { ok: result.ok, error: result.error })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     const ch = result.channel
     return {

@@ -41,7 +41,7 @@ export const sendMessageActionSchema: NodeComponent = {
       }
     },
     {
-      name: "sendAsUser",
+      name: "asUser",
       label: "Send as User",
       type: "boolean",
       required: false,

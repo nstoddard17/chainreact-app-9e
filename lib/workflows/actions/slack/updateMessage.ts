@@ -53,7 +53,7 @@ export async function updateMessage(params: {
       throw tokenError
     }
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

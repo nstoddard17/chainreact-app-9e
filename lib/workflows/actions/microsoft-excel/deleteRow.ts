@@ -68,8 +68,10 @@ export async function deleteMicrosoftExcelRow(
       }
     } else if (deleteBy === 'column_value' && matchColumn && matchValue !== undefined) {
       // Get all data from the worksheet to find matching rows
+      // Encode worksheet name for URL safety (handles spaces and special chars)
+      const encodedWorksheetName = encodeURIComponent(worksheetName)
       const dataResponse = await fetch(
-        `${baseUrl}/worksheets('${worksheetName}')/usedRange`,
+        `${baseUrl}/worksheets('${encodedWorksheetName}')/usedRange`,
         {
           method: 'GET',
           headers: {
@@ -122,8 +124,10 @@ export async function deleteMicrosoftExcelRow(
     rowsToDelete.sort((a, b) => b - a)
 
     // Delete rows one by one (from bottom to top)
+    // Encode worksheet name for URL safety (handles spaces and special chars)
+    const encodedWorksheetNameForDelete = encodeURIComponent(worksheetName)
     for (const row of rowsToDelete) {
-      const deleteUrl = `${baseUrl}/worksheets('${worksheetName}')/range(address='${row}:${row}')/delete`
+      const deleteUrl = `${baseUrl}/worksheets('${encodedWorksheetNameForDelete}')/range(address='${row}:${row}')/delete`
 
       const deleteResponse = await fetch(deleteUrl, {
         method: 'POST',

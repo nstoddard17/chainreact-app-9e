@@ -22,7 +22,7 @@ export async function cancelScheduledMessage(params: {
       scheduled_message_id: scheduledMessageId
     })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

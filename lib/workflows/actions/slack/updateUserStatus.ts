@@ -13,13 +13,14 @@ export async function updateUserStatus(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { statusText, statusEmoji, statusExpiration, workspace } = config
+    const { statusText, statusEmoji, statusExpiration, workspace, asUser = true } = config
 
     // IMPORTANT: This action requires a Slack USER token (xoxp-), not a BOT token (xoxb-)
-    // We pass useUserToken=true to get the user token from metadata
+    // asUser defaults to true because bot tokens cannot update user status
+    const useUserToken = asUser !== false // Default to true
     const accessToken = workspace
-      ? await getSlackToken(workspace, true, true)  // isIntegrationId=true, useUserToken=true
-      : await getSlackToken(userId, false, true)    // isIntegrationId=false, useUserToken=true
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
 
     const profile: any = {}
     if (statusText !== undefined) profile.status_text = statusText
@@ -33,7 +34,7 @@ export async function updateUserStatus(params: {
 
     const result = await callSlackApi('users.profile.set', accessToken, { profile })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

@@ -133,8 +133,14 @@ export async function callSlackApi(endpoint: string, accessToken: string, payloa
 
 /**
  * Common error message mapping
+ * @param error - Error code or full error object from Slack API
+ * @param apiResponse - Optional full API response for context
  */
-export function getSlackErrorMessage(error: string): string {
+export function getSlackErrorMessage(error: string | any, apiResponse?: any): string {
+  // Handle if error is an object (full Slack response)
+  const errorCode = typeof error === 'string' ? error : error?.error
+  const needed = apiResponse?.needed || error?.needed
+
   const errorMessages: Record<string, string> = {
     'invalid_auth': 'Slack authentication expired. Please reconnect your account.',
     'token_revoked': 'Slack token has been revoked. Please reconnect your account.',
@@ -142,7 +148,9 @@ export function getSlackErrorMessage(error: string): string {
     'not_in_channel': 'Bot is not in this channel. Please invite the bot first.',
     'is_archived': 'Cannot perform action on archived channel.',
     'user_not_found': 'User not found.',
-    'missing_scope': 'Missing required Slack permissions. Please reconnect your Slack account to grant the necessary permissions (reactions:read, reactions:write).',
+    'missing_scope': needed
+      ? `Missing required Slack permissions: ${needed}. Please reconnect your Slack account to grant these permissions.`
+      : 'Missing required Slack permissions. Please reconnect your Slack account to grant the necessary permissions.',
     'cant_invite_self': 'Cannot invite the bot itself.',
     'already_in_channel': 'User is already in the channel.',
     'message_not_found': 'Message not found.',
@@ -152,5 +160,5 @@ export function getSlackErrorMessage(error: string): string {
     'cant_delete_message': 'Cannot delete this message. Only the message author, workspace admin, or workspace owner can delete messages.',
     'not_allowed_token_type': 'This action requires a user token. Please reconnect your Slack account to enable user-specific actions.'
   }
-  return errorMessages[error] || `Slack API error: ${error}`
+  return errorMessages[errorCode] || `Slack API error: ${errorCode || JSON.stringify(error)}`
 }

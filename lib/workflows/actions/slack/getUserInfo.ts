@@ -50,7 +50,7 @@ export async function getUserInfo(params: {
 
     logger.debug('[Slack Get User Info] API response:', { ok: result.ok, error: result.error })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     const u = result.user
     return {

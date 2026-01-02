@@ -50,7 +50,9 @@ export async function deleteMicrosoftExcelWorksheet(
     const accessToken = await decrypt(integration.access_token)
 
     // Delete the worksheet using Microsoft Graph API
-    const deleteUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${worksheetName}')`
+    // Encode worksheet name for URL safety (handles spaces and special chars)
+    const encodedWorksheetName = encodeURIComponent(worksheetName)
+    const deleteUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodedWorksheetName}')`
 
     const deleteResponse = await fetch(deleteUrl, {
       method: 'DELETE',

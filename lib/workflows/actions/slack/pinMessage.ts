@@ -27,7 +27,7 @@ export async function pinMessage(params: {
 
     const result = await callSlackApi('pins.add', accessToken, { channel, timestamp })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

@@ -23,7 +23,7 @@ export async function getThreadMessages(params: {
       limit
     })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     const messages = (result.messages || []).map((m: any) => ({
       ts: m.ts,

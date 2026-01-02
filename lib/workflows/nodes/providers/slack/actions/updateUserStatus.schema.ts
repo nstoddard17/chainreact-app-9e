@@ -17,6 +17,29 @@ export const updateUserStatusActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
+      name: "asUser",
+      label: "Execute as User",
+      type: "boolean",
+      required: false,
+      defaultValue: true,
+      description: "This action MUST be executed as a user (not the bot). Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
       name: "statusText",
       label: "Status Text",
       type: "text",
@@ -24,7 +47,12 @@ export const updateUserStatusActionSchema: NodeComponent = {
       placeholder: "In a meeting",
       supportsAI: true,
       maxLength: 100,
-      tooltip: "The status text to display (max 100 characters). Leave empty to clear the status."
+      tooltip: "The status text to display (max 100 characters). Leave empty to clear the status.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "statusEmoji",
@@ -33,7 +61,12 @@ export const updateUserStatusActionSchema: NodeComponent = {
       required: false,
       placeholder: ":calendar:",
       supportsAI: true,
-      tooltip: "The emoji to display with the status (e.g., :calendar:, :coffee:, :house:). Must include colons. Leave empty for no emoji."
+      tooltip: "The emoji to display with the status (e.g., :calendar:, :coffee:, :house:). Must include colons. Leave empty for no emoji.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "statusExpiration",
@@ -51,7 +84,12 @@ export const updateUserStatusActionSchema: NodeComponent = {
         { label: "Custom (minutes)", value: "custom" }
       ],
       defaultValue: "0",
-      tooltip: "When the status should automatically clear. Select 'Custom' to enter a specific number of minutes."
+      tooltip: "When the status should automatically clear. Select 'Custom' to enter a specific number of minutes.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "customExpiration",
@@ -61,6 +99,11 @@ export const updateUserStatusActionSchema: NodeComponent = {
       placeholder: "90",
       supportsAI: true,
       tooltip: "Number of minutes until the status expires. Only used when 'Custom' is selected above.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      },
       visibleWhen: {
         field: "statusExpiration",
         value: "custom"

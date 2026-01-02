@@ -43,7 +43,9 @@
       "Bash(wc:*)",
       "Bash(curl:*)",
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\slack\\\\findMessage.ts\")",
-      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\nodes\\\\providers\\\\slack\\\\actions\\\\findMessage.schema.ts\")"
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\nodes\\\\providers\\\\slack\\\\actions\\\\findMessage.schema.ts\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\scripts\\\\trash\\\\fix-slack-error-messages.ps1\")",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\scripts\\\\trash\\\\fix-slack-error-messages.ps1\")"
     ],
     "deny": [],
     "ask": [],

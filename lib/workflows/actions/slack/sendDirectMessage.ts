@@ -34,7 +34,7 @@ export async function sendDirectMessage(params: {
     if (blocks) payload.blocks = blocks
 
     const result = await callSlackApi('chat.postMessage', accessToken, payload)
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

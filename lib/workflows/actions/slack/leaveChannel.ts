@@ -18,7 +18,7 @@ export async function leaveChannel(params: {
     const accessToken = await getSlackToken(userId)
     const result = await callSlackApi('conversations.leave', accessToken, { channel })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

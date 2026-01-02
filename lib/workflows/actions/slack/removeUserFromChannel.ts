@@ -23,7 +23,7 @@ export async function removeUserFromChannel(params: {
       : await getSlackToken(userId, false, useUserToken)
     const result = await callSlackApi('conversations.kick', accessToken, { channel, user })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,

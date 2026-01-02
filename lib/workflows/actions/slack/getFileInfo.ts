@@ -18,7 +18,7 @@ export async function getFileInfo(params: {
     const accessToken = await getSlackToken(userId)
     const result = await callSlackApi('files.info', accessToken, { file: fileId })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     const f = result.file
     return {

@@ -22,7 +22,7 @@ export async function unarchiveChannel(params: {
       : await getSlackToken(userId, false, useUserToken)
     const result = await callSlackApi('conversations.unarchive', accessToken, { channel })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
+    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 
     return {
       success: true,
