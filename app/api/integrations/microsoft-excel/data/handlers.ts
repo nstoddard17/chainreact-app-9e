@@ -300,7 +300,8 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
       useColumnLetters: hasHeaders === false || hasHeaders === 'no'
     })
 
-    // If hasHeaders is false or 'no', return column letters based on actual data width
+    // If hasHeaders is false or 'no', return column letters
+    // The UI component will manage adding more columns dynamically
     if (hasHeaders === false || hasHeaders === 'no') {
       const columns = Array.from({ length: columnCount }, (_, index) => {
         const letter = String.fromCharCode(65 + index)

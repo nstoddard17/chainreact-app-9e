@@ -101,10 +101,18 @@ export function MicrosoftExcelMultipleRowsFields({
         const columnNames = result.data.map((col: any) =>
           typeof col === 'string' ? col : col.name || col.value || col.label
         );
-        setColumns(columnNames);
+
+        // For "no headers" mode, start with just A, B, C
+        // User can add more columns with the "Add Column" button
+        if (!hasHeaders) {
+          setColumns(['A', 'B', 'C']);
+        } else {
+          setColumns(columnNames);
+        }
         logger.debug('📊 [MicrosoftExcelMultipleRowsFields] Fetch complete', {
           columnCount: columnNames.length,
-          columns: columnNames
+          columns: columnNames,
+          hasHeaders
         });
       }
     } catch (error: any) {
@@ -117,14 +125,15 @@ export function MicrosoftExcelMultipleRowsFields({
 
   // Trigger fetch when workbook/worksheet/hasHeaders changes
   useEffect(() => {
-    if (values.workbookId && values.worksheetName) {
+    // Only fetch when all required fields are set
+    if (values.workbookId && values.worksheetName && values.hasHeaders && values.inputMode === 'simple') {
       // Reset columns and rows when worksheet or hasHeaders changes
       setColumns([]);
       setRows([{ id: '1', expanded: true, values: {}, connectedFields: new Set() }]);
       lastSentJsonRef.current = '';
       fetchWorksheetColumns();
     }
-  }, [values.workbookId, values.worksheetName, values.hasHeaders, fetchWorksheetColumns]);
+  }, [values.workbookId, values.worksheetName, values.hasHeaders, values.inputMode, fetchWorksheetColumns]);
 
   // Update parent values whenever rows change
   useEffect(() => {
@@ -168,6 +177,21 @@ export function MicrosoftExcelMultipleRowsFields({
     };
     setRows([...rows, newRow]);
   };
+
+  // Add a new column (only for "no headers" mode)
+  const addColumn = () => {
+    // Get the next column letter
+    const lastColumn = columns[columns.length - 1] || 'C';
+    const nextCharCode = lastColumn.charCodeAt(0) + 1;
+    // Support up to column Z for now
+    if (nextCharCode <= 90) { // 'Z' is 90
+      const nextColumn = String.fromCharCode(nextCharCode);
+      setColumns([...columns, nextColumn]);
+    }
+  };
+
+  // Check if we're in "no headers" mode (columns are letters)
+  const isNoHeadersMode = values.hasHeaders === 'no';
 
   // Remove a row
   const removeRow = (rowId: string) => {
@@ -260,8 +284,18 @@ export function MicrosoftExcelMultipleRowsFields({
     );
   }
 
-  // Don't show anything if we don't have workbook/worksheet selected yet
+  // Don't show anything if we don't have required selections yet
   if (!values.workbookId || !values.worksheetName) {
+    return null;
+  }
+
+  // Don't show until hasHeaders is selected
+  if (!values.hasHeaders) {
+    return null;
+  }
+
+  // Don't show until inputMode is selected (and it's 'simple' mode)
+  if (!values.inputMode || values.inputMode !== 'simple') {
     return null;
   }
 
@@ -274,25 +308,13 @@ export function MicrosoftExcelMultipleRowsFields({
     <div className="mt-4 space-y-4">
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4">
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                Add Multiple Rows
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                Configure values for each row. Click "+ Add Row" to add more rows.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addRow}
-              className="gap-1.5"
-            >
-              <Plus className="h-4 w-4" />
-              Add Row
-            </Button>
+          <div>
+            <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              Add Multiple Rows
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              Configure values for each row. Click "+ Add Row" to add more rows.
+            </p>
           </div>
 
           {/* Rows */}
@@ -392,8 +414,8 @@ export function MicrosoftExcelMultipleRowsFields({
             ))}
           </div>
 
-          {/* Add Row Button at bottom */}
-          <div className="flex justify-center pt-2">
+          {/* Add Row and Add Column buttons at bottom */}
+          <div className="flex justify-center gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
@@ -402,8 +424,21 @@ export function MicrosoftExcelMultipleRowsFields({
               className="gap-1.5"
             >
               <Plus className="h-4 w-4" />
-              Add Another Row
+              Add Row
             </Button>
+            {isNoHeadersMode && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addColumn}
+                className="gap-1.5"
+                disabled={columns.length >= 26} // Max column Z
+              >
+                <Plus className="h-4 w-4" />
+                Add Column
+              </Button>
+            )}
           </div>
         </div>
       </div>
