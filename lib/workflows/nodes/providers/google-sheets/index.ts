@@ -332,13 +332,16 @@ export const googleSheetsNodes: NodeComponent[] = [
     isTrigger: false,
     producesOutput: true,
     configSchema: [
+      // Step 1: Select source
       {
         name: "spreadsheetId",
         label: "Spreadsheet",
         type: "select",
         dynamic: "google-sheets_spreadsheets",
         required: true,
+        loadOnMount: true,
         placeholder: "Select a spreadsheet",
+        loadingPlaceholder: "Loading spreadsheets...",
         description: "The Google Sheets file to export from"
       },
       {
@@ -349,15 +352,22 @@ export const googleSheetsNodes: NodeComponent[] = [
         required: true,
         dependsOn: "spreadsheetId",
         placeholder: "Select a sheet",
+        loadingPlaceholder: "Loading sheets...",
         description: "The specific sheet (tab) to export"
       },
+      // Step 2: Filter options (only show after sheet is selected)
       {
         name: "keywordSearch",
         label: "Keyword Search",
         type: "text",
         required: false,
+        dependsOn: "sheetName",
         placeholder: "Search across all columns...",
-        description: "Search for keywords across all text columns in the sheet"
+        description: "Search for keywords across all text columns in the sheet",
+        hidden: {
+          $deps: ["sheetName"],
+          $condition: { sheetName: { $exists: false } }
+        }
       },
       {
         name: "filterColumn",
@@ -366,8 +376,13 @@ export const googleSheetsNodes: NodeComponent[] = [
         dynamic: "google-sheets_columns",
         required: false,
         placeholder: "Select column to filter by...",
+        loadingPlaceholder: "Loading columns...",
         description: "Choose a column to filter rows by",
-        dependsOn: "sheetName"
+        dependsOn: "sheetName",
+        hidden: {
+          $deps: ["sheetName"],
+          $condition: { sheetName: { $exists: false } }
+        }
       },
       {
         name: "filterOperator",
@@ -391,7 +406,10 @@ export const googleSheetsNodes: NodeComponent[] = [
         defaultValue: "equals",
         description: "How to compare the filter value",
         dependsOn: "filterColumn",
-        visibilityCondition: { field: "filterColumn", operator: "equals", value: "!empty" }
+        hidden: {
+          $deps: ["filterColumn"],
+          $condition: { filterColumn: { $exists: false } }
+        }
       },
       {
         name: "filterValue",
@@ -400,13 +418,18 @@ export const googleSheetsNodes: NodeComponent[] = [
         dynamic: "google-sheets_column_values",
         required: false,
         placeholder: "Select or enter value...",
+        loadingPlaceholder: "Loading values...",
         description: "Choose the value to filter by",
         dependsOn: "filterColumn",
-        visibilityCondition: {
-          and: [
-            { field: "filterColumn", operator: "isNotEmpty" },
-            { field: "filterOperator", operator: "in", value: ["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with", "greater_than", "less_than", "greater_equal", "less_equal"] }
-          ]
+        hidden: {
+          $deps: ["filterColumn", "filterOperator"],
+          $condition: {
+            $or: [
+              { filterColumn: { $exists: false } },
+              { filterOperator: { $eq: "is_empty" } },
+              { filterOperator: { $eq: "is_not_empty" } }
+            ]
+          }
         }
       },
       {
@@ -418,6 +441,7 @@ export const googleSheetsNodes: NodeComponent[] = [
         dependsOn: "sheetName",
         hidden: true
       },
+      // Step 3: Sort options (only show after sheet is selected)
       {
         name: "sortColumn",
         label: "Sort by Column",
@@ -425,8 +449,13 @@ export const googleSheetsNodes: NodeComponent[] = [
         dynamic: "google-sheets_columns",
         required: false,
         placeholder: "Select column to sort by...",
+        loadingPlaceholder: "Loading columns...",
         description: "Choose a column to sort results by",
-        dependsOn: "sheetName"
+        dependsOn: "sheetName",
+        hidden: {
+          $deps: ["sheetName"],
+          $condition: { sheetName: { $exists: false } }
+        }
       },
       {
         name: "sortOrder",
@@ -440,13 +469,18 @@ export const googleSheetsNodes: NodeComponent[] = [
         defaultValue: "asc",
         description: "Order to sort the results",
         dependsOn: "sortColumn",
-        visibilityCondition: { field: "sortColumn", operator: "equals", value: "!empty" }
+        hidden: {
+          $deps: ["sortColumn"],
+          $condition: { sortColumn: { $exists: false } }
+        }
       },
+      // Step 4: Date filter options (only show after sheet is selected)
       {
         name: "dateFilter",
         label: "Date Filter",
         type: "select",
         required: false,
+        dependsOn: "sheetName",
         options: [
           { value: "", label: "No date filter" },
           { value: "today", label: "Today" },
@@ -462,7 +496,11 @@ export const googleSheetsNodes: NodeComponent[] = [
           { value: "custom_range", label: "Custom Date Range" }
         ],
         placeholder: "Select date filter...",
-        description: "Filter rows by date (requires a date column)"
+        description: "Filter rows by date (requires a date column)",
+        hidden: {
+          $deps: ["sheetName"],
+          $condition: { sheetName: { $exists: false } }
+        }
       },
       {
         name: "dateColumn",
@@ -471,9 +509,18 @@ export const googleSheetsNodes: NodeComponent[] = [
         dynamic: "google-sheets_columns",
         required: false,
         placeholder: "Select date column...",
+        loadingPlaceholder: "Loading columns...",
         description: "Column containing dates to filter by",
         dependsOn: "sheetName",
-        visibilityCondition: { field: "dateFilter", operator: "in", value: ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "last_7_days", "last_30_days", "last_90_days", "this_year", "custom_range"] }
+        hidden: {
+          $deps: ["dateFilter"],
+          $condition: {
+            $or: [
+              { dateFilter: { $exists: false } },
+              { dateFilter: { $eq: "" } }
+            ]
+          }
+        }
       },
       {
         name: "customDateRange",
@@ -483,13 +530,18 @@ export const googleSheetsNodes: NodeComponent[] = [
         placeholder: "Select date range...",
         description: "Choose a custom date range to filter rows",
         dependsOn: "dateFilter",
-        visibilityCondition: { field: "dateFilter", operator: "equals", value: "custom_range" }
+        hidden: {
+          $deps: ["dateFilter"],
+          $condition: { dateFilter: { $ne: "custom_range" } }
+        }
       },
+      // Step 5: Output options (only show after sheet is selected)
       {
         name: "recordLimit",
         label: "Row Limit",
         type: "select",
         required: false,
+        dependsOn: "sheetName",
         options: [
           { value: "", label: "No limit" },
           { value: "10", label: "First 10 Rows" },
@@ -501,7 +553,11 @@ export const googleSheetsNodes: NodeComponent[] = [
           { value: "custom", label: "Custom Amount" }
         ],
         placeholder: "Select row limit...",
-        description: "Limit the number of rows returned"
+        description: "Limit the number of rows returned",
+        hidden: {
+          $deps: ["sheetName"],
+          $condition: { sheetName: { $exists: false } }
+        }
       },
       {
         name: "maxRows",
@@ -512,7 +568,10 @@ export const googleSheetsNodes: NodeComponent[] = [
         placeholder: "100",
         description: "Maximum number of rows to return",
         dependsOn: "recordLimit",
-        visibilityCondition: { field: "recordLimit", operator: "equals", value: "custom" },
+        hidden: {
+          $deps: ["recordLimit"],
+          $condition: { recordLimit: { $ne: "custom" } }
+        },
         min: 1,
         max: 10000
       },
@@ -521,14 +580,20 @@ export const googleSheetsNodes: NodeComponent[] = [
         label: "Include Headers",
         type: "boolean",
         required: false,
+        dependsOn: "sheetName",
         defaultValue: true,
-        description: "Include column headers in the result"
+        description: "Include column headers in the result",
+        hidden: {
+          $deps: ["sheetName"],
+          $condition: { sheetName: { $exists: false } }
+        }
       },
       {
         name: "outputFormat",
         label: "Output Format",
         type: "select",
         required: false,
+        dependsOn: "sheetName",
         options: [
           { value: "objects", label: "Objects (Key-Value pairs)" },
           { value: "arrays", label: "Arrays (Raw values)" },
@@ -536,7 +601,11 @@ export const googleSheetsNodes: NodeComponent[] = [
           { value: "json", label: "JSON String" }
         ],
         defaultValue: "objects",
-        description: "How to format the output data"
+        description: "How to format the output data",
+        hidden: {
+          $deps: ["sheetName"],
+          $condition: { sheetName: { $exists: false } }
+        }
       },
       {
         name: "range",
