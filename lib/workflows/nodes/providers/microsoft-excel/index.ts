@@ -853,16 +853,6 @@ export const microsoftExcelNodes: NodeComponent[] = [
         description: "Last row to delete in range",
         min: 2,
         helpText: "The last row number in the range to delete (inclusive)"
-      },
-      {
-        name: "confirmDelete",
-        label: "Confirm Deletion",
-        type: "boolean",
-        required: true,
-        dependsOn: "worksheetName",
-        defaultValue: false,
-        description: "Check this box to confirm you want to delete the row(s)",
-        helpText: "This is a safety check to prevent accidental deletions"
       }
     ],
   },

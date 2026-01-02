@@ -454,6 +454,7 @@ export function MicrosoftExcelConfiguration({
               currentNodeId={currentNodeId}
               values={values}
               parentValues={values}
+              setFieldValue={setValueWithColumnTracking}
               onDynamicLoad={(fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean) => {
                 return loadOptions(fieldName, dependsOn, dependsOnValue, forceRefresh);
               }}

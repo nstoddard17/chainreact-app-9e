@@ -72,6 +72,9 @@ export interface LegacyVisibilityPatterns {
   hidden?: boolean | {
     $condition?: Record<string, any>;
   };
+
+  // Pattern: { showIf: (values) => values.field === 'someValue' }
+  showIf?: (values: Record<string, any>) => boolean;
 }
 
 export interface Field extends LegacyVisibilityPatterns {
@@ -100,6 +103,17 @@ export class FieldVisibilityEngine {
   ): boolean {
     // Type='hidden' always hidden
     if (field.type === 'hidden') return false;
+
+    // Check showIf function FIRST - it can override hidden: true
+    // Pattern: { hidden: true, showIf: (values) => values.field === 'someValue' }
+    // The field is hidden by default but shown when showIf returns true
+    if (typeof field.showIf === 'function') {
+      const showIfResult = field.showIf(formValues);
+      // If showIf returns true, show the field (override hidden: true)
+      if (showIfResult) return true;
+      // If showIf returns false, hide the field
+      return false;
+    }
 
     // Check explicit hidden flag (simple boolean or complex condition)
     if (field.hidden !== undefined) {

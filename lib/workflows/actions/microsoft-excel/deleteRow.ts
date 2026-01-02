@@ -25,8 +25,7 @@ export async function deleteMicrosoftExcelRow(
       endRow,
       matchColumn,
       matchValue,
-      deleteMultiple = false,
-      confirmDelete = false
+      deleteMultiple = false
     } = resolvedConfig
 
     logger.debug('🗑️ [Excel Delete] Extracted values:', {
@@ -36,8 +35,7 @@ export async function deleteMicrosoftExcelRow(
       endRow,
       matchColumn,
       matchValue,
-      deleteMultiple,
-      confirmDelete
+      deleteMultiple
     })
 
     // Get access token for Microsoft Excel (Microsoft Graph API)
@@ -52,9 +50,6 @@ export async function deleteMicrosoftExcelRow(
     }
     if (!worksheetName) {
       throw new Error('Worksheet name is required')
-    }
-    if (!confirmDelete) {
-      throw new Error('Delete confirmation is required for safety')
     }
 
     // Microsoft Graph API base URL

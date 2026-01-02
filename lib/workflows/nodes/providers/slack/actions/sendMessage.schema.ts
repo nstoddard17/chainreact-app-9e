@@ -17,14 +17,41 @@ export const sendMessageActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "channel",
       label: "Channel",
       type: "select",
       required: true,
       dynamic: "slack_channels",
-      loadOnMount: true,
       placeholder: "Select a channel...",
-      description: "Choose which Slack channel to send the message to"
+      description: "Choose which Slack channel to send the message to",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
+    },
+    {
+      name: "sendAsUser",
+      label: "Send as User",
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      description: "Send the message as yourself instead of the Chain React bot. Requires reconnecting Slack with user permissions.",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "message",

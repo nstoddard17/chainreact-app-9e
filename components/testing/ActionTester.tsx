@@ -212,10 +212,36 @@ export function ActionTester({ userId }: ActionTesterProps) {
 
     try {
       const requestId = logApiCall('POST', '/api/test-action')
+
+      // Transform config values for specific providers/actions
+      let finalConfig = { ...configValues }
+
+      // Microsoft Excel: Transform newRow_* fields to columnMapping for add row actions
+      const isExcelAddRowAction = selectedNode.type === 'microsoft_excel_action_add_table_row' ||
+                                   selectedNode.type === 'microsoft_excel_action_add_row'
+      if (isExcelAddRowAction) {
+        const columnMapping: Record<string, any> = {}
+        Object.entries(configValues).forEach(([key, value]) => {
+          if (key.startsWith('newRow_') && value !== undefined && value !== '') {
+            const columnName = key.replace('newRow_', '')
+            columnMapping[columnName] = value
+          }
+        })
+        if (Object.keys(columnMapping).length > 0) {
+          finalConfig.columnMapping = columnMapping
+        }
+        // Clean up newRow_ fields from final config since they're now in columnMapping
+        Object.keys(finalConfig).forEach(key => {
+          if (key.startsWith('newRow_')) {
+            delete finalConfig[key]
+          }
+        })
+      }
+
       logEvent('info', 'ActionTester', `Executing test for ${selectedNode.title}`, {
         nodeType: selectedNode.type,
         integrationId: selectedIntegrationId,
-        configKeys: Object.keys(configValues)
+        configKeys: Object.keys(finalConfig)
       })
 
       const executionTimeoutMs = selectedNode.recommendedTimeoutMs || 30000
@@ -227,7 +253,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             nodeType: selectedNode.type,
-            config: configValues,
+            config: finalConfig,
             testData,
             integrationId: selectedIntegrationId
           })
@@ -365,7 +391,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
                       <option value="">Select an account...</option>
                       {integrationsForProvider.map(integration => (
                         <option key={integration.id} value={integration.id}>
-                          {integration.account_identifier || integration.provider_id}
+                          {integration.email || integration.account_name || integration.username || integration.provider}
                         </option>
                       ))}
                     </select>

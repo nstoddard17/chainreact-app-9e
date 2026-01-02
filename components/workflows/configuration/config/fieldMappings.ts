@@ -126,6 +126,7 @@ const discordMappings: Record<string, FieldMapping> = {
 // Slack field mappings
 const slackMappings: Record<string, FieldMapping> = {
   slack_action_send_message: {
+    workspace: "slack_workspaces",
     channel: "slack_channels",
   },
   slack_action_send_direct_message: {

@@ -316,8 +316,9 @@ function generateSlackAuthUrl(state: string): string {
     scope: "channels:join,channels:read,channels:manage,chat:write,chat:write.public,files:read,files:write,groups:read,groups:write,im:read,reactions:write,team:read,users:read",
     // User scopes for user-level actions
     // IMPORTANT: These must EXACTLY match the "User Token Scopes" configured in the Slack app settings
-    // Only request reminders scopes - other user-level features can use the bot token
-    user_scope: "reminders:write,reminders:read",
+    // chat:write - Send messages as the connected user (not the bot)
+    // reminders:write,reminders:read - Manage reminders for the user
+    user_scope: "chat:write,reminders:write,reminders:read",
     redirect_uri: `${redirectBase}/api/integrations/slack/callback`,
     state,
   })
