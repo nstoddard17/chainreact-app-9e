@@ -46,6 +46,17 @@ import { getProviderOptions } from "@/lib/workflows/ai-agent/providerDisambiguat
 import { getNodeConfigQuestions } from "@/lib/workflows/ai-agent/nodeConfigQuestions"
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from "../configuration/utils/connectionExemptions"
 
+/**
+ * Maps provider IDs to their actual icon filenames
+ */
+function getProviderIconPath(providerId: string): string {
+  const iconMap: Record<string, string> = {
+    'outlook': 'microsoft-outlook',
+    'yahoo-mail': 'yahoo-mail',
+  }
+  return `/integrations/${iconMap[providerId] || providerId}.svg`
+}
+
 interface PanelLayoutProps {
   isOpen: boolean
   onClose: () => void
@@ -1134,7 +1145,25 @@ export function FlowV2AgentPanel({
                                   )
                                 }
 
-                                // Show provider badge if auto-selected
+                                // Show provider badges for ALL selected providers
+                                if (meta.allSelectedProviders && meta.allSelectedProviders.length > 0 && onProviderChange && onProviderConnect) {
+                                  return (
+                                    <div className="pt-1 space-y-2">
+                                      {meta.allSelectedProviders.map((providerMeta: any, idx: number) => (
+                                        <ProviderBadge
+                                          key={`${providerMeta.category.vagueTerm}-${idx}`}
+                                          categoryName={providerMeta.category.displayName}
+                                          selectedProvider={providerMeta.provider}
+                                          allProviders={providerMeta.allProviders}
+                                          onProviderChange={onProviderChange}
+                                          onConnect={onProviderConnect}
+                                        />
+                                      ))}
+                                    </div>
+                                  )
+                                }
+
+                                // Fallback: Show single provider badge if auto-selected (backward compat)
                                 if (meta.autoSelectedProvider && onProviderChange && onProviderConnect) {
                                   return (
                                     <div className="pt-1">
@@ -1177,7 +1206,7 @@ export function FlowV2AgentPanel({
                                         <div className="flex items-center justify-center shrink-0">
                                           {planNode.providerId ? (
                                             <img
-                                              src={`/integrations/${planNode.providerId}.svg`}
+                                              src={getProviderIconPath(planNode.providerId)}
                                               alt={planNode.providerId}
                                               className=""
                                               style={{ width: '24px', height: 'auto', flexShrink: 0 }}
@@ -1519,11 +1548,35 @@ export function FlowV2AgentPanel({
                         </div>
                       </div>
 
-                      {buildMachine.state === BuildState.PLAN_READY && (
-                        <Button onClick={onBuild} variant="primary" size="lg" className="w-full">
-                          {Copy.planReadyCta}
-                        </Button>
-                      )}
+                      {buildMachine.state === BuildState.PLAN_READY && (() => {
+                        // Check if any selected provider is not connected
+                        const lastMsg = agentMessages.filter(m => m && m.role === 'assistant').pop()
+                        const meta = (lastMsg as any)?.meta ?? {}
+                        const allProviders = meta.allSelectedProviders || []
+                        const singleProvider = meta.autoSelectedProvider?.provider
+
+                        const hasDisconnectedProvider = allProviders.some((p: any) => !p.provider.isConnected) ||
+                          (singleProvider && !singleProvider.isConnected)
+
+                        return (
+                          <div className="space-y-2">
+                            {hasDisconnectedProvider && (
+                              <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                                Connect all providers above to continue
+                              </p>
+                            )}
+                            <Button
+                              onClick={onBuild}
+                              variant="primary"
+                              size="lg"
+                              className="w-full"
+                              disabled={hasDisconnectedProvider}
+                            >
+                              {Copy.planReadyCta}
+                            </Button>
+                          </div>
+                        )
+                      })()}
 
                       {buildMachine.state === BuildState.BUILDING_SKELETON && (
                         <div className="space-y-2 w-full overflow-hidden min-w-0">

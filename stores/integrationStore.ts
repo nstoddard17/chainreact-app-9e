@@ -553,7 +553,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       if (!provider) {
         logger.warn(`Provider ${providerId} not found in providers list:`, providers?.map(p => p.id) || [])
         // For Discord and other known providers, proceed anyway
-        const knownProviders = ['discord', 'gmail', 'notion', 'slack', 'trello', 'airtable', 'google-drive', 'google-sheets', 'google-calendar', 'google-docs', 'microsoft-outlook', 'microsoft-teams']
+        const knownProviders = ['discord', 'gmail', 'notion', 'slack', 'trello', 'airtable', 'google-drive', 'google-sheets', 'google-calendar', 'google-docs', 'microsoft-outlook', 'microsoft-teams', 'outlook', 'dropbox', 'onedrive', 'hubspot', 'salesforce', 'microsoft-excel', 'onenote', 'evernote']
         if (knownProviders.includes(providerId)) {
           logger.debug(`📌 Proceeding with known provider: ${providerId}`)
         } else {

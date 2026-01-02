@@ -173,11 +173,19 @@ async function getAllTemplates(): Promise<WorkflowTemplate[]> {
   // Refresh cache if expired
   if (now - lastDynamicTemplateLoad > CACHE_DURATION) {
     try {
-      dynamicTemplatesCache = await loadDynamicTemplates()
+      // Add timeout to prevent hanging on database issues
+      const timeoutPromise = new Promise<WorkflowTemplate[]>((_, reject) =>
+        setTimeout(() => reject(new Error('Dynamic templates load timeout')), 5000)
+      )
+      dynamicTemplatesCache = await Promise.race([
+        loadDynamicTemplates(),
+        timeoutPromise
+      ])
       lastDynamicTemplateLoad = now
     } catch (error) {
       console.error('[TemplateMatching] Failed to load dynamic templates:', error)
       // Continue with just built-in templates
+      dynamicTemplatesCache = []
     }
   }
 

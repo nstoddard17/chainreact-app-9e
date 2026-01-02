@@ -6,16 +6,17 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
-  Send,
+  ArrowUp,
   Sparkles,
   Loader2,
   ArrowLeft,
   Zap,
   CheckCircle,
-  Flame,
+  Bell,
   ArrowRight,
-  Workflow,
-  Sun
+  RefreshCw,
+  Sun,
+  Rocket
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/authStore"
@@ -23,6 +24,7 @@ import { useIntegrationStore } from "@/stores/integrationStore"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { AIAgentPreferenceModal } from "../AIAgentPreferenceModal"
+import { PromptEnhancer } from "../ai-agent/PromptEnhancer"
 
 const TYPING_PHRASES = [
   "Send me a Slack message when someone fills out my contact form",
@@ -43,7 +45,7 @@ interface Message {
 const EXAMPLE_PROMPTS = [
   {
     category: 'Notify',
-    icon: <Flame className="w-5 h-5" />,
+    icon: <Bell className="w-5 h-5" />,
     color: 'from-orange-500 to-red-500',
     examples: [
       { display: 'Alert me on Slack when payments fail', prompt: 'Create a workflow that monitors Stripe for failed payments and sends me a Slack notification immediately with the customer details and error reason.' },
@@ -53,7 +55,7 @@ const EXAMPLE_PROMPTS = [
   },
   {
     category: 'Sync',
-    icon: <Workflow className="w-5 h-5" />,
+    icon: <RefreshCw className="w-5 h-5" />,
     color: 'from-amber-500 to-orange-500',
     examples: [
       { display: 'Keep CRM and email list in sync', prompt: 'Build a two-way sync between HubSpot and Mailchimp so contacts are always up to date in both systems.' },
@@ -389,7 +391,7 @@ export function AIAgentCoralContent() {
                 size="sm"
                 className="h-8 text-xs bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white border-0 shadow-lg shadow-orange-500/25"
               >
-                <Zap className="w-3.5 h-3.5 mr-1.5" />
+                <Rocket className="w-3.5 h-3.5 mr-1.5" />
                 Publish
               </Button>
             </div>
@@ -456,26 +458,36 @@ export function AIAgentCoralContent() {
                       }}
                       placeholder=""
                       rows={3}
-                      className="w-full text-base text-white pl-5 pr-16 py-5 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none placeholder-transparent"
+                      className="w-full text-base text-white pl-5 pr-28 py-5 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none placeholder-transparent"
                       disabled={isLoading}
                     />
 
-                    <button
-                      onClick={handleSendMessage}
-                      disabled={!input.trim() || isLoading}
-                      className={cn(
-                        "absolute right-4 bottom-4 p-3 rounded-xl transition-all duration-300",
-                        input.trim() && !isLoading
-                          ? "bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:scale-105"
-                          : "bg-white/5 text-white/20 cursor-not-allowed"
-                      )}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Send className="w-5 h-5" />
-                      )}
-                    </button>
+                    {/* Bottom toolbar inside textarea */}
+                    <div className="absolute right-3 bottom-3 flex items-center gap-2">
+                      <PromptEnhancer
+                        prompt={input}
+                        connectedIntegrations={connectedProviders}
+                        onUseEnhanced={(enhanced) => setInput(enhanced)}
+                        disabled={isLoading}
+                        variant="coral"
+                      />
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!input.trim() || isLoading}
+                        className={cn(
+                          "p-2.5 rounded-xl transition-all duration-300",
+                          input.trim() && !isLoading
+                            ? "bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:scale-105"
+                            : "bg-white/10 text-white/30 cursor-not-allowed"
+                        )}
+                      >
+                        {isLoading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <ArrowUp className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -639,23 +651,32 @@ export function AIAgentCoralContent() {
                         className="flex-1 h-12 px-4 bg-transparent border-0 outline-none text-white placeholder-white/30"
                         disabled={isLoading}
                       />
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={!input.trim() || isLoading}
-                        size="icon"
-                        className={cn(
-                          "mr-2 h-8 w-8 rounded-lg transition-all duration-300",
-                          input.trim() && !isLoading
-                            ? "bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/30"
-                            : "bg-white/5 text-white/30"
-                        )}
-                      >
-                        {isLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Send className="w-4 h-4" />
-                        )}
-                      </Button>
+                      <div className="flex items-center gap-2 mr-2">
+                        <PromptEnhancer
+                          prompt={input}
+                          connectedIntegrations={connectedProviders}
+                          onUseEnhanced={(enhanced) => setInput(enhanced)}
+                          disabled={isLoading}
+                          variant="coral"
+                        />
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={!input.trim() || isLoading}
+                          size="icon"
+                          className={cn(
+                            "h-8 w-8 rounded-lg transition-all duration-300",
+                            input.trim() && !isLoading
+                              ? "bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/30"
+                              : "bg-white/10 text-white/30"
+                          )}
+                        >
+                          {isLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <ArrowUp className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
