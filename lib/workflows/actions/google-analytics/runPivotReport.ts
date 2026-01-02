@@ -85,22 +85,41 @@ export async function runGoogleAnalyticsPivotReport(context: ExecutionContext): 
     throw new Error('At least one metric is required')
   }
 
-  try {
-    // Get OAuth credentials
-    const integration = await context.supabase
-      .from('integrations')
-      .select('access_token, refresh_token')
-      .eq('user_id', context.userId)
-      .eq('provider', 'google-analytics')
-      .eq('status', 'connected')
-      .single()
+  // Check test mode
+  if (context.testMode) {
+    logger.debug('[Google Analytics] Test mode - returning mock pivot report data')
+    return {
+      success: true,
+      output: {
+        pivot_data: [
+          {
+            dimensions: dimensions?.map(d => `test_${d}`) || [],
+            metrics: metrics.map(m => 123)
+          }
+        ],
+        row_count: 1,
+        column_headers: pivotDimensions?.map(d => `test_${d}`) || [],
+        date_range: { startDate: '2024-01-01', endDate: '2024-01-31' },
+        metrics,
+        dimensions: [...(dimensions || []), ...(pivotDimensions || [])]
+      },
+      message: 'Pivot report generated with 1 rows (test mode)'
+    }
+  }
 
-    if (!integration.data) {
-      throw new Error('Google Analytics integration not found. Please connect your account.')
+  try {
+    // Get the Google Analytics integration
+    const integration = await context.getIntegration('google-analytics')
+    if (!integration) {
+      throw new Error('Google Analytics integration not found. Please connect your Google Analytics account.')
     }
 
-    const accessToken = decrypt(integration.data.access_token)
-    const refreshToken = decrypt(integration.data.refresh_token)
+    if (!integration.access_token) {
+      throw new Error('Google Analytics access token not found. Please reconnect your account.')
+    }
+
+    const accessToken = await decrypt(integration.access_token)
+    const refreshToken = integration.refresh_token ? await decrypt(integration.refresh_token) : null
 
     // Setup OAuth2 client
     const oauth2Client = new google.auth.OAuth2(
@@ -118,17 +137,15 @@ export async function runGoogleAnalyticsPivotReport(context: ExecutionContext): 
     // Get the actual date range
     const dates = getDateRange(dateRange, startDate, endDate)
 
-    // Build the request
+    // Build the request body
     const requestBody: any = {
-      property: `properties/${propertyId}`,
       dateRanges: [
         {
           startDate: dates.startDate,
           endDate: dates.endDate
         }
       ],
-      metrics: metrics.map((m: string) => ({ name: m })),
-      limit: limit
+      metrics: metrics.map((m: string) => ({ name: m }))
     }
 
     // Add row dimensions
@@ -141,7 +158,7 @@ export async function runGoogleAnalyticsPivotReport(context: ExecutionContext): 
       requestBody.pivots = [
         {
           fieldNames: pivotDimensions,
-          limit: 10,
+          limit: Math.min(limit, 250), // GA4 max pivot limit is 250
           orderBys: [
             {
               metric: {
