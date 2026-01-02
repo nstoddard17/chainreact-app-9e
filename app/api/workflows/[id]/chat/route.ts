@@ -108,7 +108,7 @@ export async function POST(
 
     const { role, text, subtext, meta } = body as Partial<ChatMessage>
 
-    if (!role || !text) {
+    if (!role || text === undefined || text === null) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 

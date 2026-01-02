@@ -1254,40 +1254,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Track selected provider
     setSelectedProviderId(providerId)
 
-    if (!isConnected) {
-      // Need to show connection card
-      setPendingConnectionProvider(providerId)
+    // Add preference to collection (will be offered to save at end)
+    const category = providerCategory?.vagueTerm || 'unknown'
+    setCollectedPreferences(prev => [...prev, {
+      id: `provider-${providerId}`,
+      category,
+      provider: providerId,
+      providerName: getProviderDisplayName(providerId),
+    }])
 
-      // Add connection status message to chat
-      const localId = generateLocalId()
-      setAgentMessages(prev => [...prev, {
-        id: localId,
-        role: 'assistant',
-        text: `To use ${getProviderDisplayName(providerId)}, you'll need to connect your account.`,
-        meta: {
-          connectionStatus: {
-            providerId,
-            isConnected: false,
-          }
-        }
-      }])
-    } else {
-      // Already connected, proceed with flow
-      // Add preference to collection
-      const category = providerCategory?.vagueTerm || 'unknown'
-      setCollectedPreferences(prev => [...prev, {
-        id: `provider-${providerId}`,
-        category,
-        provider: providerId,
-        providerName: getProviderDisplayName(providerId),
-      }])
-
-      // Continue with the prompt using the selected provider
-      if (pendingPrompt) {
-        handleProviderSelect(providerId)
-      }
+    // Always proceed with workflow building
+    // Connection check happens later during WAITING_USER (node configuration)
+    // This lets users see the full workflow plan before connecting accounts
+    if (pendingPrompt) {
+      handleProviderSelect(providerId)
     }
-  }, [generateLocalId, pendingPrompt, providerCategory, handleProviderSelect])
+  }, [pendingPrompt, providerCategory, handleProviderSelect])
 
   const handleConnectionComplete = useCallback(async (providerId: string, email?: string) => {
     console.log('[Connection Complete]', providerId, 'email:', email)
@@ -1585,71 +1567,35 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
                 const connectedProviders = providerOptions.filter(p => p.isConnected)
                 console.log('[URL Prompt Handler] Connected providers:', connectedProviders.length)
 
-                if (connectedProviders.length === 0) {
-                  // No providers - stop and show selection UI
-                  console.log('[URL Prompt Handler] No providers connected, showing selection UI')
-                  setAwaitingProviderSelection(true)
-                  setPendingPrompt(prompt)
-                  setProviderCategory(vagueTermResult.category)
-                  setIsAgentLoading(false)
+                // Always show dropdown for provider selection
+              // This gives user control to choose provider (even if not connected yet)
+              // Connection check happens later during WAITING_USER (node configuration)
+              console.log('[URL Prompt Handler] Showing provider dropdown selector')
+              setAwaitingProviderSelection(true)
+              setPendingPrompt(prompt)
+              setProviderCategory(vagueTermResult.category)
+              setIsAgentLoading(false)
 
-                  const askMessage: ChatMessage = {
-                    id: generateLocalId(),
-                    flowId,
-                    role: 'assistant',
-                    text: `To continue, please connect one of your ${vagueTermResult.category.displayName.toLowerCase()} apps.`,
-                    meta: {
-                      providerSelection: {
-                        category: vagueTermResult.category,
-                        providers: providerOptions,
-                        reason: 'no_providers_connected'
-                      }
-                    },
-                    createdAt: new Date().toISOString(),
-                  }
-                  setAgentMessages(prev => [...prev, askMessage])
-                  return
-                } else if (connectedProviders.length === 1) {
-                  // Auto-select the only provider
-                  const selectedProvider = connectedProviders[0]
-                  console.log('[URL Prompt Handler] Auto-selecting provider:', selectedProvider.displayName)
+              // Determine pre-selected provider (first connected, or none)
+              const preSelectedProvider = connectedProviders.length > 0 ? connectedProviders[0] : null
 
-                  finalPrompt = replaceVagueTermWithProvider(
-                    prompt,
-                    vagueTermResult.category.vagueTerm,
-                    selectedProvider.id
-                  )
-
-                  providerMetadata = {
+              // Add assistant message with provider dropdown (text empty - card has integrated header)
+              const dropdownMessage: ChatMessage = {
+                id: generateLocalId(),
+                flowId,
+                role: 'assistant',
+                text: '',
+                meta: {
+                  providerDropdown: {
                     category: vagueTermResult.category,
-                    provider: selectedProvider,
-                    allProviders: providerOptions
+                    providers: providerOptions,
+                    preSelectedProviderId: preSelectedProvider?.id,
                   }
-                } else {
-                  // Multiple providers - stop and show selection UI
-                  console.log('[URL Prompt Handler] Multiple providers connected, showing selection UI')
-                  setAwaitingProviderSelection(true)
-                  setPendingPrompt(prompt)
-                  setProviderCategory(vagueTermResult.category)
-                  setIsAgentLoading(false)
-
-                  const askMessage: ChatMessage = {
-                    id: generateLocalId(),
-                    flowId,
-                    role: 'assistant',
-                    text: `I found multiple ${vagueTermResult.category.displayName.toLowerCase()} apps connected. Which one would you like to use?`,
-                    meta: {
-                      providerSelection: {
-                        category: vagueTermResult.category,
-                        providers: providerOptions,
-                        reason: 'multiple_providers'
-                      }
-                    },
-                    createdAt: new Date().toISOString(),
-                  }
-                  setAgentMessages(prev => [...prev, askMessage])
-                  return
-                }
+                },
+                createdAt: new Date().toISOString(),
+              }
+              setAgentMessages(prev => [...prev, dropdownMessage])
+              return
               }
             }
 
@@ -4473,14 +4419,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // Determine pre-selected provider (first connected, or none)
       const preSelectedProvider = connectedProviders.length > 0 ? connectedProviders[0] : null
 
-      // Add assistant message with provider dropdown
+      // Add assistant message with provider dropdown (text empty - card has integrated header)
       const dropdownMessage: ChatMessage = {
         id: generateLocalId(),
         flowId,
         role: 'assistant',
-        text: connectedProviders.length === 0
-          ? `Which ${vagueTermResult.category.displayName.toLowerCase()} app would you like to use?`
-          : `I'll use ${preSelectedProvider?.displayName} for this. You can change it if needed.`,
+        text: '',
         meta: {
           providerDropdown: {
             category: vagueTermResult.category,

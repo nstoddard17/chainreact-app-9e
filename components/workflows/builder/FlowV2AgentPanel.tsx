@@ -41,6 +41,7 @@ import { ProviderDropdownSelector } from "../ai-agent/ProviderDropdownSelector"
 import { ConnectionStatusCard } from "../ai-agent/ConnectionStatusCard"
 import { NodeConfigurationCard } from "../ai-agent/NodeConfigurationCard"
 import { PreferencesSaveCard } from "../ai-agent/PreferencesSaveCard"
+import { PromptEnhancer } from "../ai-agent/PromptEnhancer"
 import { getProviderOptions } from "@/lib/workflows/ai-agent/providerDisambiguation"
 import { getNodeConfigQuestions } from "@/lib/workflows/ai-agent/nodeConfigQuestions"
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from "../configuration/utils/connectionExemptions"
@@ -1576,15 +1577,23 @@ export function FlowV2AgentPanel({
           <div className="mt-auto mb-4 px-4 relative min-w-0">
             <div className="border border-border rounded-lg bg-white p-2 min-w-0">
               <div className="mb-0.5 flex items-center justify-between">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent/50 gap-0.5"
-                  disabled={isAgentLoading}
-                >
-                  <AtSign className="w-2.5 h-2.5 text-orange-500" />
-                  add context
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent/50 gap-0.5"
+                    disabled={isAgentLoading}
+                  >
+                    <AtSign className="w-2.5 h-2.5 text-orange-500" />
+                    add context
+                  </Button>
+                  <PromptEnhancer
+                    prompt={agentInput}
+                    connectedIntegrations={integrations.filter(i => i.isConnected).map(i => i.name || i.provider)}
+                    onUseEnhanced={(enhanced) => onInputChange(enhanced)}
+                    disabled={isAgentLoading}
+                  />
+                </div>
                 {isAgentLoading && (
                   <Button
                     variant="ghost"
