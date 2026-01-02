@@ -138,8 +138,20 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
         if (dataType === 'google-sheets_sheets' && dependsOnValue) {
           requestBody.options.spreadsheetId = dependsOnValue;
         }
+        // For column values - dependsOn is filterColumn, need spreadsheetId and sheetName from extraOptions
+        else if (dataType === 'google-sheets_column_values' && dependsOnValue) {
+          // dependsOnValue is the filterColumn (the column name to get values from)
+          requestBody.options.filterColumn = dependsOnValue;
+          // Get spreadsheetId and sheetName from extraOptions
+          if (extraOptions?.spreadsheetId) {
+            requestBody.options.spreadsheetId = extraOptions.spreadsheetId;
+          }
+          if (extraOptions?.sheetName) {
+            requestBody.options.sheetName = extraOptions.sheetName;
+          }
+        }
         // For columns that depend on both spreadsheetId and sheetName
-        else if ((dataType === 'google-sheets_columns' || dataType === 'google-sheets_column_values') && dependsOnValue) {
+        else if (dataType === 'google-sheets_columns' && dependsOnValue) {
           if (typeof dependsOnValue === 'object') {
             if (dependsOnValue.spreadsheetId) requestBody.options.spreadsheetId = dependsOnValue.spreadsheetId;
             if (dependsOnValue.sheetName) requestBody.options.sheetName = dependsOnValue.sheetName;

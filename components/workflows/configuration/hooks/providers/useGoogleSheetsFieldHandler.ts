@@ -117,8 +117,46 @@ export function useGoogleSheetsFieldHandler({
       clearUpdateFields();
     }
 
-    // Clear dependent field
+    // Clear sheetName and ALL fields that depend on sheetName
     setValue('sheetName', '');
+
+    // Also clear all fields that depend on sheetName (cascading clear)
+    const sheetDependentFields = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'sheetName') || [];
+    for (const depField of sheetDependentFields) {
+      logger.debug(`🧹 [Google Sheets] Clearing cascading dependent field: ${depField.name}`);
+      setValue(depField.name, '');
+      if (depField.dynamic || depField.dynamicOptions) {
+        resetOptions(depField.name);
+      }
+    }
+
+    // Clear fields that depend on filterColumn (second-level dependencies)
+    const filterColumnDependents = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'filterColumn') || [];
+    for (const depField of filterColumnDependents) {
+      logger.debug(`🧹 [Google Sheets] Clearing second-level dependent field: ${depField.name}`);
+      setValue(depField.name, '');
+      if (depField.dynamic || depField.dynamicOptions) {
+        resetOptions(depField.name);
+      }
+    }
+
+    // Clear fields that depend on sortColumn
+    const sortColumnDependents = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'sortColumn') || [];
+    for (const depField of sortColumnDependents) {
+      setValue(depField.name, '');
+    }
+
+    // Clear fields that depend on dateFilter
+    const dateFilterDependents = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'dateFilter') || [];
+    for (const depField of dateFilterDependents) {
+      setValue(depField.name, '');
+    }
+
+    // Clear fields that depend on recordLimit
+    const recordLimitDependents = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'recordLimit') || [];
+    for (const depField of recordLimitDependents) {
+      setValue(depField.name, '');
+    }
 
     if (value) {
       // Set loading state for sheetName
@@ -150,12 +188,12 @@ export function useGoogleSheetsFieldHandler({
       // Clear processing flag if no value
       isProcessingRef.current = false;
     }
-  }, [values, setValue, clearPreviewData, clearUpdateFields, setLoadingFields, resetOptions, loadOptions]);
+  }, [nodeInfo, values, setValue, clearPreviewData, clearUpdateFields, setLoadingFields, resetOptions, loadOptions]);
 
   /**
    * Handle sheetName changes
    */
-  const handleSheetNameChange = useCallback((value: any) => {
+  const handleSheetNameChange = useCallback(async (value: any) => {
     logger.debug('🔍 Google Sheets sheetName changed:', value);
 
     // Clear preview data for update action
@@ -169,8 +207,56 @@ export function useGoogleSheetsFieldHandler({
       setValue('range', '');
     }
 
-    // Don't manually touch searchColumn - let FieldRenderer's dependency system handle it
-  }, [nodeInfo, values, clearPreviewData, clearUpdateFields, setValue]);
+    // Find all fields that depend on sheetName and clear them
+    const dependentFields = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'sheetName') || [];
+
+    for (const depField of dependentFields) {
+      logger.debug(`🧹 [Google Sheets] Clearing dependent field: ${depField.name}`);
+      setValue(depField.name, '');
+
+      // Reset cached options for dynamic fields
+      if (depField.dynamic || depField.dynamicOptions) {
+        resetOptions(depField.name);
+
+        // Set loading state
+        setLoadingFields((prev: Set<string>) => {
+          const newSet = new Set(prev);
+          newSet.add(depField.name);
+          return newSet;
+        });
+      }
+    }
+
+    // Load options for dependent fields if we have a new value
+    if (value) {
+      for (const depField of dependentFields) {
+        if (depField.dynamic || depField.dynamicOptions) {
+          try {
+            await loadOptions(depField.name, 'sheetName', value, true);
+          } catch (error) {
+            logger.error(`Error loading options for ${depField.name}:`, error);
+          } finally {
+            setLoadingFields((prev: Set<string>) => {
+              const newSet = new Set(prev);
+              newSet.delete(depField.name);
+              return newSet;
+            });
+          }
+        }
+      }
+    } else {
+      // Clear loading states if no value
+      for (const depField of dependentFields) {
+        if (depField.dynamic || depField.dynamicOptions) {
+          setLoadingFields((prev: Set<string>) => {
+            const newSet = new Set(prev);
+            newSet.delete(depField.name);
+            return newSet;
+          });
+        }
+      }
+    }
+  }, [nodeInfo, values, clearPreviewData, clearUpdateFields, setValue, resetOptions, loadOptions, setLoadingFields]);
 
   /**
    * Handle action changes
@@ -201,7 +287,7 @@ export function useGoogleSheetsFieldHandler({
         return true;
 
       case 'sheetName':
-        handleSheetNameChange(value);
+        await handleSheetNameChange(value);
         return true;
 
       case 'action':

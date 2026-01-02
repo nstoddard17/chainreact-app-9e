@@ -5,22 +5,30 @@
 import { logger } from '@/lib/utils/logger'
 
 /**
- * Get decrypted Slack token for a user
+ * Get decrypted Slack token for a user or specific integration
+ * @param userIdOrIntegrationId - Either a user ID or integration ID
+ * @param isIntegrationId - If true, treats the first param as an integration ID
  */
-export async function getSlackToken(userId: string): Promise<string> {
+export async function getSlackToken(userIdOrIntegrationId: string, isIntegrationId: boolean = false): Promise<string> {
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SECRET_KEY!
   )
 
-  const { data: integration, error } = await supabase
+  let query = supabase
     .from('integrations')
     .select('access_token')
-    .eq('user_id', userId)
     .eq('provider', 'slack')
     .eq('status', 'connected')
-    .single()
+
+  if (isIntegrationId) {
+    query = query.eq('id', userIdOrIntegrationId)
+  } else {
+    query = query.eq('user_id', userIdOrIntegrationId)
+  }
+
+  const { data: integration, error } = await query.single()
 
   if (error || !integration) {
     throw new Error('Slack integration not found. Please connect your Slack account.')
@@ -44,13 +52,22 @@ export async function getSlackToken(userId: string): Promise<string> {
  * Call Slack API with error handling
  */
 export async function callSlackApi(endpoint: string, accessToken: string, payload: any): Promise<any> {
+  const body = new URLSearchParams()
+  if (payload && typeof payload === 'object') {
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value === undefined || value === null) return
+      const normalizedValue = typeof value === 'object' ? JSON.stringify(value) : String(value)
+      body.set(key, normalizedValue)
+    })
+  }
+
   const response = await fetch(`https://slack.com/api/${endpoint}`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json; charset=utf-8'
+      'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
     },
-    body: JSON.stringify(payload)
+    body
   })
   return response.json()
 }

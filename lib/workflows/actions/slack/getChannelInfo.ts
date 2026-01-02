@@ -12,11 +12,38 @@ export async function getChannelInfo(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel } = config
-    if (!channel) throw new Error('Channel is required')
+    const { channel: rawChannel, channelId, workspace } = config
+    let channel: string | undefined
+    if (typeof rawChannel === 'object' && rawChannel !== null) {
+      channel = rawChannel.value || rawChannel.id || rawChannel.name || String(rawChannel)
+    } else if (typeof rawChannel === 'string') {
+      const trimmed = rawChannel.trim()
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(trimmed)
+          channel = parsed?.value || parsed?.id || parsed?.name || rawChannel
+        } catch {
+          channel = rawChannel
+        }
+      } else {
+        channel = rawChannel
+      }
+    }
+    const targetChannel = channel || channelId
+    if (!targetChannel) throw new Error('Channel is required')
 
-    const accessToken = await getSlackToken(userId)
-    const result = await callSlackApi('conversations.info', accessToken, { channel, include_num_members: true })
+    // Use workspace (integration ID) to get the correct Slack token
+    // If workspace is provided, it's the integration ID; otherwise fall back to userId
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true)
+      : await getSlackToken(userId, false)
+
+    const apiPayload = { channel: targetChannel }
+    logger.debug('[Slack Get Channel Info] API payload:', apiPayload)
+
+    const result = await callSlackApi('conversations.info', accessToken, apiPayload)
+
+    logger.debug('[Slack Get Channel Info] API response:', { ok: result.ok, error: result.error })
 
     if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
 

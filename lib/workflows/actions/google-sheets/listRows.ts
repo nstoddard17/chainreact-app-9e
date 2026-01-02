@@ -99,7 +99,16 @@ export async function listGoogleSheetsRows(
     }
 
     // Apply column filter
-    if (filterColumn && filterOperator) {
+    // Only apply filter if filterColumn is set AND either:
+    // 1. filterValue is provided (for comparison operators), OR
+    // 2. operator is is_empty/is_not_empty (which don't need a value)
+    const shouldApplyFilter = filterColumn && filterOperator && (
+      filterValue !== undefined && filterValue !== null && filterValue !== '' ||
+      filterOperator === 'is_empty' ||
+      filterOperator === 'is_not_empty'
+    )
+
+    if (shouldApplyFilter) {
       let columnIndex = -1
       if (/^[A-Z]+$/i.test(filterColumn)) {
         columnIndex = filterColumn.toUpperCase().charCodeAt(0) - 65

@@ -883,9 +883,10 @@ export function useFieldChangeHandler({
               // Remove from actively loading
               activelyLoadingFields.current.delete(depField.name);
             } else {
-              // Regular dynamic field loading - use cache to prevent API spam
+              // Regular dynamic field loading - force refresh since parent changed
+              // The cache key is based on parent value, so we need fresh data for new parent
               try {
-                await loadOptions(depField.name, fieldName, value, false);
+                await loadOptions(depField.name, fieldName, value, true);
               } finally {
                 setLoadingFields((prev: Set<string>) => {
                   const newSet = new Set(prev);

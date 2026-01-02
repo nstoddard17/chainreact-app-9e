@@ -46,13 +46,6 @@ export async function deleteGoogleSheetsRow(
       return { success: false, message }
     }
 
-    if (!confirmDelete) {
-      return {
-        success: false,
-        message: "Delete operation not confirmed. Please check the 'Confirm Delete' option to proceed."
-      }
-    }
-
     // First, get sheet metadata to find sheet ID
     const metadataResponse = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets(properties(sheetId,title))`,
@@ -97,19 +90,20 @@ export async function deleteGoogleSheetsRow(
     const rows = sheetData.values || []
     const headers = rows[0] || []
 
-    if (rows.length < 2) {
+    if (rows.length < 1) {
       return {
         success: false,
-        message: "No data rows found in the sheet to delete"
+        message: "No rows found in the sheet to delete"
       }
     }
 
     // Handle row selection shortcuts
     if (rowSelection === 'last') {
-      rowNumber = rows.length // Last row
+      rowNumber = rows.length // Last row (1-indexed)
       logger.debug(`Using last row: ${rowNumber}`)
     } else if (rowSelection === 'first_data') {
-      rowNumber = 2 // First data row below headers
+      // First data row - if there's more than 1 row, assume row 1 is headers
+      rowNumber = rows.length > 1 ? 2 : 1
       logger.debug(`Using first data row: ${rowNumber}`)
     }
 
@@ -122,7 +116,8 @@ export async function deleteGoogleSheetsRow(
 
     if (effectiveDeleteBy === 'row_number' && rowNumber) {
       const rowNum = parseInt(rowNumber.toString())
-      if (rowNum > 1 && rowNum <= rows.length) {
+      // Allow deleting any row (1-indexed), including row 1
+      if (rowNum >= 1 && rowNum <= rows.length) {
         rowsToDelete.push(rowNum)
         deletedData.push(rows[rowNum - 1])
       }
@@ -130,7 +125,8 @@ export async function deleteGoogleSheetsRow(
       const start = parseInt(startRow.toString())
       const end = parseInt(endRow.toString())
       for (let i = start; i <= end && i <= rows.length; i++) {
-        if (i > 1) {
+        // Allow deleting any row including row 1
+        if (i >= 1) {
           rowsToDelete.push(i)
           deletedData.push(rows[i - 1])
         }

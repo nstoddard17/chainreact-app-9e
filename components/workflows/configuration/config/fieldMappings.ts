@@ -132,7 +132,8 @@ const slackMappings: Record<string, FieldMapping> = {
     user: "slack_users",
   },
   slack_action_get_user_info: {
-    userId: "slack_users",
+    workspace: "slack_workspaces",
+    user: "slack_users",
   },
   slack_action_add_reminder: {
     workspace: "slack_workspaces",
