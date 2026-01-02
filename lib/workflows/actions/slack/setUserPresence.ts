@@ -13,26 +13,15 @@ export async function setUserPresence(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    // IMPORTANT: This action requires a Slack USER token (xoxp-), not a BOT token (xoxb-)
-    // ChainReact only supports bot tokens. These endpoints cannot be called with bot tokens.
-    // Slack API returns: "not_allowed_token_type"
-    return {
-      success: false,
-      output: {
-        success: false,
-        error: 'This action requires a Slack user token (xoxp-). ChainReact uses bot tokens (xoxb-) which cannot set user presence. User token support is not yet implemented.'
-      },
-      message: 'Failed: Requires user token (not supported)'
-    }
-
-    /* DISABLED - REQUIRES USER TOKEN
     const { presence, workspace } = config
     if (!presence) throw new Error('Presence is required (auto or away)')
     if (!['auto', 'away'].includes(presence)) throw new Error('Presence must be "auto" or "away"')
 
+    // IMPORTANT: This action requires a Slack USER token (xoxp-), not a BOT token (xoxb-)
+    // We pass useUserToken=true to get the user token from metadata
     const accessToken = workspace
-      ? await getSlackToken(workspace, true)
-      : await getSlackToken(userId, false)
+      ? await getSlackToken(workspace, true, true)  // isIntegrationId=true, useUserToken=true
+      : await getSlackToken(userId, false, true)    // isIntegrationId=false, useUserToken=true
 
     const result = await callSlackApi('users.setPresence', accessToken, { presence })
 
@@ -43,7 +32,6 @@ export async function setUserPresence(params: {
       output: { success: true, presence },
       message: `Presence set to ${presence}`
     }
-    */
   } catch (error: any) {
     logger.error('[Slack Set Presence] Error:', error)
     return { success: false, output: { success: false, error: error.message }, message: `Failed: ${error.message}` }

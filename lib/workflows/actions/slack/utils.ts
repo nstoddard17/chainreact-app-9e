@@ -8,8 +8,13 @@ import { logger } from '@/lib/utils/logger'
  * Get decrypted Slack token for a user or specific integration
  * @param userIdOrIntegrationId - Either a user ID or integration ID
  * @param isIntegrationId - If true, treats the first param as an integration ID
+ * @param useUserToken - If true, returns the user token (xoxp-) instead of bot token (xoxb-)
  */
-export async function getSlackToken(userIdOrIntegrationId: string, isIntegrationId: boolean = false): Promise<string> {
+export async function getSlackToken(
+  userIdOrIntegrationId: string,
+  isIntegrationId: boolean = false,
+  useUserToken: boolean = false
+): Promise<string> {
   const { createClient } = await import('@supabase/supabase-js')
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,7 +23,7 @@ export async function getSlackToken(userIdOrIntegrationId: string, isIntegration
 
   let query = supabase
     .from('integrations')
-    .select('access_token')
+    .select('access_token, metadata')
     .eq('provider', 'slack')
     .eq('status', 'connected')
 
@@ -34,11 +39,30 @@ export async function getSlackToken(userIdOrIntegrationId: string, isIntegration
     throw new Error('Slack integration not found. Please connect your Slack account.')
   }
 
+  const { decryptToken } = await import('@/lib/integrations/tokenUtils')
+
+  // If user token is requested, try to get it from metadata
+  if (useUserToken) {
+    const metadata = integration.metadata as any
+    const encryptedUserToken = metadata?.user_token
+
+    if (!encryptedUserToken) {
+      throw new Error('User token not available. Please reconnect your Slack account to enable user-specific actions.')
+    }
+
+    const userToken = await decryptToken(encryptedUserToken)
+    if (!userToken) {
+      throw new Error('Failed to decrypt Slack user token. Please reconnect your Slack account.')
+    }
+
+    return userToken
+  }
+
+  // Otherwise, return the bot token (default behavior)
   if (!integration.access_token) {
     throw new Error('Slack access token not found. Please reconnect your Slack account.')
   }
 
-  const { decryptToken } = await import('@/lib/integrations/tokenUtils')
   const accessToken = await decryptToken(integration.access_token)
 
   if (!accessToken) {

@@ -5,6 +5,7 @@
 
 import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
+import { getSlackToken, callSlackApi, getSlackErrorMessage } from './utils'
 
 export async function deleteSlackMessage(params: {
   config: any
@@ -47,36 +48,10 @@ export async function deleteSlackMessage(params: {
       targetChannel = channel
     }
 
-    // Get the Slack integration
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!
-    )
-
-    const { data: integration, error: integrationError } = await supabase
-      .from('integrations')
-      .select('access_token')
-      .eq('user_id', userId)
-      .eq('provider', 'slack')
-      .eq('status', 'connected')
-      .single()
-
-    if (integrationError || !integration) {
-      throw new Error('Slack integration not found. Please connect your Slack account.')
-    }
-
-    if (!integration.access_token) {
-      throw new Error('Slack access token not found. Please reconnect your Slack account.')
-    }
-
-    // Decrypt the token
-    const { decryptToken } = await import('@/lib/integrations/tokenUtils')
-    const accessToken = await decryptToken(integration.access_token)
-
-    if (!accessToken) {
-      throw new Error('Failed to decrypt Slack token. Please reconnect your Slack account.')
-    }
+    // Use workspace (integration ID) to get the correct Slack token
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true)
+      : await getSlackToken(userId, false)
 
     // Prepare the delete request
     const deletePayload: any = {

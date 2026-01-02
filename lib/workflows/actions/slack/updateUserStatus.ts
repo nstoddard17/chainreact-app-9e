@@ -13,24 +13,13 @@ export async function updateUserStatus(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    // IMPORTANT: This action requires a Slack USER token (xoxp-), not a BOT token (xoxb-)
-    // ChainReact only supports bot tokens. These endpoints cannot be called with bot tokens.
-    // Slack API returns: "not_allowed_token_type"
-    return {
-      success: false,
-      output: {
-        success: false,
-        error: 'This action requires a Slack user token (xoxp-). ChainReact uses bot tokens (xoxb-) which cannot update user status. User token support is not yet implemented.'
-      },
-      message: 'Failed: Requires user token (not supported)'
-    }
-
-    /* DISABLED - REQUIRES USER TOKEN
     const { statusText, statusEmoji, statusExpiration, workspace } = config
 
+    // IMPORTANT: This action requires a Slack USER token (xoxp-), not a BOT token (xoxb-)
+    // We pass useUserToken=true to get the user token from metadata
     const accessToken = workspace
-      ? await getSlackToken(workspace, true)
-      : await getSlackToken(userId, false)
+      ? await getSlackToken(workspace, true, true)  // isIntegrationId=true, useUserToken=true
+      : await getSlackToken(userId, false, true)    // isIntegrationId=false, useUserToken=true
 
     const profile: any = {}
     if (statusText !== undefined) profile.status_text = statusText
@@ -56,7 +45,6 @@ export async function updateUserStatus(params: {
       },
       message: 'User status updated'
     }
-    */
   } catch (error: any) {
     logger.error('[Slack Update Status] Error:', error)
     return { success: false, output: { success: false, error: error.message }, message: `Failed: ${error.message}` }
