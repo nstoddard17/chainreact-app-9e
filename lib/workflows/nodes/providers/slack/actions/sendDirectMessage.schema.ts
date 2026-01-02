@@ -17,15 +17,29 @@ export const sendDirectMessageActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "user",
       label: "To",
       type: "combobox",
       required: true,
       dynamic: "slack_users",
-      loadOnMount: true,
+      dependsOn: "workspace",
       searchable: true,
       placeholder: "Select a user...",
-      description: "Choose which user to send a direct message to"
+      description: "Choose which user to send a direct message to",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "message",

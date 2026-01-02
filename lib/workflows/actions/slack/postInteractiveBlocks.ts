@@ -12,17 +12,24 @@ export async function postInteractiveBlocks(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { channel, blocks, text, threadTs } = config
+    const { workspace, channel, blocks, text, threadTimestamp, asUser, unfurlLinks, unfurlMedia } = config
     if (!channel) throw new Error('Channel is required')
     if (!blocks) throw new Error('Blocks are required')
 
-    const accessToken = await getSlackToken(userId)
+    // If asUser is true, use the user token (xoxp-) instead of bot token (xoxb-)
+    const useUserToken = asUser === true
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, useUserToken)
+      : await getSlackToken(userId, false, useUserToken)
+
     const payload: any = {
       channel,
       blocks: typeof blocks === 'string' ? JSON.parse(blocks) : blocks,
       text: text || 'Interactive message'
     }
-    if (threadTs) payload.thread_ts = threadTs
+    if (threadTimestamp) payload.thread_ts = threadTimestamp
+    if (unfurlLinks !== undefined) payload.unfurl_links = unfurlLinks
+    if (unfurlMedia !== undefined) payload.unfurl_media = unfurlMedia
 
     const result = await callSlackApi('chat.postMessage', accessToken, payload)
     if (!result.ok) throw new Error(getSlackErrorMessage(result.error))
@@ -31,9 +38,11 @@ export async function postInteractiveBlocks(params: {
       success: true,
       output: {
         success: true,
+        ts: result.ts,
         messageId: result.ts,
         channel: result.channel,
-        timestamp: result.ts
+        timestamp: result.ts,
+        message: result.message
       },
       message: 'Interactive message posted'
     }

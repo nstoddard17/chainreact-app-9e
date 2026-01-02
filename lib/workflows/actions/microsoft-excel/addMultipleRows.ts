@@ -14,6 +14,7 @@ const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0'
 interface AddMultipleRowsConfig {
   workbookId: string
   worksheetName: string
+  hasHeaders?: 'yes' | 'no' // Whether worksheet has headers in row 1
   inputMode?: 'simple' | 'json'
   rows?: any[] | string // Array of row data objects or JSON string
   // Simple mode row fields
@@ -47,7 +48,16 @@ export async function addMicrosoftExcelMultipleRows(
   userId: string,
   input: Record<string, any>
 ): Promise<{ success: boolean; output: AddMultipleRowsOutput; message: string }> {
-  let { workbookId, worksheetName, inputMode, rows, columnMapping } = config
+  let { workbookId, worksheetName, hasHeaders, inputMode, rows, columnMapping } = config
+
+  logger.debug('[Microsoft Excel] Initial config:', {
+    workbookId,
+    worksheetName,
+    hasHeaders,
+    inputMode,
+    hasRows: !!rows,
+    rowsType: typeof rows
+  })
 
   // Helper to parse row data (handles both JSON string and object)
   const parseRowData = (rowData: string | Record<string, any> | undefined): Record<string, any> | null => {
@@ -148,6 +158,13 @@ export async function addMicrosoftExcelMultipleRows(
   // Use parsedRows instead of rows for the rest of the function
   rows = parsedRows
 
+  // Default hasHeaders to 'yes' if not provided
+  if (hasHeaders === undefined || hasHeaders === null) {
+    hasHeaders = 'yes'
+  }
+
+  logger.debug('[Microsoft Excel] hasHeaders mode:', { hasHeaders })
+
   // Get Microsoft Excel integration
   const supabase = createAdminClient()
   const { data: integration, error } = await supabase
@@ -169,78 +186,191 @@ export async function addMicrosoftExcelMultipleRows(
   const encodedWorksheetName = encodeURIComponent(worksheetName)
 
   try {
-    // Step 1: Get the worksheet headers to determine column order
-    const headersUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodedWorksheetName}')/range(address='1:1')`
+    // Determine if we're using headers or column letters
+    const useHeaders = hasHeaders === 'yes'
 
-    const headersResponse = await fetch(headersUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+    logger.debug('[Microsoft Excel] Processing mode:', {
+      hasHeaders,
+      useHeaders,
+      rowCount: rows.length,
+      firstRowKeys: rows[0] ? Object.keys(rows[0]) : []
+    })
+
+    let columnKeys: string[] = []
+    let firstNewRowNumber: number
+
+    if (useHeaders) {
+      // Step 1a: Get the worksheet headers from row 1
+      const headersUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodedWorksheetName}')/range(address='1:1')`
+
+      const headersResponse = await fetch(headersUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!headersResponse.ok) {
+        throw new Error(`Failed to fetch headers: ${await headersResponse.text()}`)
       }
-    })
 
-    if (!headersResponse.ok) {
-      throw new Error(`Failed to fetch headers: ${await headersResponse.text()}`)
-    }
+      const headersData = await headersResponse.json()
+      const headers = headersData.values?.[0] || []
 
-    const headersData = await headersResponse.json()
-    const headers = headersData.values?.[0] || []
+      // Filter out empty headers
+      columnKeys = headers.filter((h: any) => h && h.toString().trim())
 
-    // Filter out empty headers and get actual column count
-    const nonEmptyHeaders = headers.filter((h: any) => h && h.toString().trim())
+      logger.debug('[Microsoft Excel] Headers fetched:', {
+        rawHeaders: headers,
+        columnKeys,
+        headerCount: columnKeys.length
+      })
 
-    logger.debug('[Microsoft Excel] Headers fetched:', {
-      rawHeaders: headers,
-      nonEmptyHeaders,
-      headerCount: nonEmptyHeaders.length
-    })
-
-    // If no headers found, we can't proceed
-    if (nonEmptyHeaders.length === 0) {
-      throw new Error('No column headers found in row 1 of the worksheet. Please add headers first.')
-    }
-
-    // Step 2: Get current used range to determine where to append
-    const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodedWorksheetName}')/usedRange`
-
-    const usedRangeResponse = await fetch(usedRangeUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+      if (columnKeys.length === 0) {
+        throw new Error('No column headers found in row 1 of the worksheet. Switch to "No headers" mode or add headers first.')
       }
-    })
 
-    if (!usedRangeResponse.ok) {
-      throw new Error(`Failed to fetch worksheet data: ${await usedRangeResponse.text()}`)
+      // Step 2a: Get current used range to determine where to append
+      const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodedWorksheetName}')/usedRange`
+
+      const usedRangeResponse = await fetch(usedRangeUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!usedRangeResponse.ok) {
+        throw new Error(`Failed to fetch worksheet data: ${await usedRangeResponse.text()}`)
+      }
+
+      const usedRangeData = await usedRangeResponse.json()
+
+      // Check if the worksheet only has headers (row 1) and no data
+      const values = usedRangeData.values || []
+      const isOnlyHeaderRow = values.length === 1
+
+      if (isOnlyHeaderRow) {
+        // Only headers exist, start at row 2
+        firstNewRowNumber = 2
+        logger.debug('[Microsoft Excel] Only header row exists, starting at row 2')
+      } else {
+        // Parse the address to get the actual last row number
+        // Address format: "Sheet3!A1:B3" or "A1:B3"
+        const address = usedRangeData.address || ''
+        const rangeMatch = address.match(/:([A-Z]+)(\d+)$/)
+
+        if (rangeMatch) {
+          // Extract the last row number from the range (e.g., "3" from "A1:B3")
+          const lastRowNumber = parseInt(rangeMatch[2], 10)
+          firstNewRowNumber = lastRowNumber + 1
+        } else {
+          // Fallback: Use rowIndex + rowCount to calculate last row
+          const rowIndex = usedRangeData.rowIndex || 0
+          const rowCount = usedRangeData.rowCount || 1
+          firstNewRowNumber = rowIndex + rowCount + 1
+        }
+
+        logger.debug('[Microsoft Excel] Used range data:', {
+          address: usedRangeData.address,
+          rowIndex: usedRangeData.rowIndex,
+          rowCount: usedRangeData.rowCount,
+          firstNewRowNumber
+        })
+      }
+    } else {
+      // Step 1b: No headers mode - use column letters from the row data
+      // Collect all unique column keys from the row data (A, B, C, etc.)
+      const allKeys = new Set<string>()
+      rows.forEach((row: any) => {
+        Object.keys(row).forEach(key => allKeys.add(key))
+      })
+
+      // Sort column keys alphabetically (A, B, C, ... AA, AB, etc.)
+      columnKeys = Array.from(allKeys).sort((a, b) => {
+        if (a.length !== b.length) return a.length - b.length
+        return a.localeCompare(b)
+      })
+
+      logger.debug('[Microsoft Excel] No headers mode - using column letters:', {
+        columnKeys,
+        columnCount: columnKeys.length
+      })
+
+      if (columnKeys.length === 0) {
+        throw new Error('No data provided. Please fill in at least one field.')
+      }
+
+      // Step 2b: Get current used range to determine where to append (start from row 1 if empty)
+      const usedRangeUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets('${encodedWorksheetName}')/usedRange`
+
+      const usedRangeResponse = await fetch(usedRangeUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      // For no-headers mode, if usedRange fails (empty sheet), start at row 1
+      if (!usedRangeResponse.ok) {
+        firstNewRowNumber = 1
+        logger.debug('[Microsoft Excel] Empty worksheet (API error), starting at row 1')
+      } else {
+        const usedRangeData = await usedRangeResponse.json()
+
+        // Check if the worksheet is actually empty
+        // An empty worksheet returns usedRange with all empty values
+        const values = usedRangeData.values || []
+        const isEmptySheet = values.length === 0 ||
+          (values.length === 1 && values[0].every((v: any) => v === null || v === undefined || v === ''))
+
+        if (isEmptySheet) {
+          firstNewRowNumber = 1
+          logger.debug('[Microsoft Excel] Empty worksheet (no data), starting at row 1')
+        } else {
+          // Parse the address to get the actual last row number
+          // Address format: "Sheet3!A2:B3" or "A2:B3"
+          const address = usedRangeData.address || ''
+          const rangeMatch = address.match(/:([A-Z]+)(\d+)$/)
+
+          if (rangeMatch) {
+            // Extract the last row number from the range (e.g., "3" from "A2:B3")
+            const lastRowNumber = parseInt(rangeMatch[2], 10)
+            firstNewRowNumber = lastRowNumber + 1
+          } else {
+            // Fallback: Use rowIndex + rowCount to calculate last row
+            const rowIndex = usedRangeData.rowIndex || 0
+            const rowCount = usedRangeData.rowCount || 0
+            firstNewRowNumber = rowIndex + rowCount + 1
+          }
+
+          logger.debug('[Microsoft Excel] Used range data:', {
+            address: usedRangeData.address,
+            rowIndex: usedRangeData.rowIndex,
+            rowCount: usedRangeData.rowCount,
+            firstNewRowNumber
+          })
+        }
+      }
     }
 
-    const usedRangeData = await usedRangeResponse.json()
-    const currentRowCount = usedRangeData.rowCount || 1
-    const firstNewRowNumber = currentRowCount + 1
-
-    logger.debug('[Microsoft Excel] Used range data:', {
-      rowCount: currentRowCount,
-      firstNewRowNumber,
-      usedRangeAddress: usedRangeData.address
-    })
-
-    // Step 3: Prepare row values arrays - use non-empty headers for column count
-    // Map row data to match header order
-    const rowValues: any[][] = rows.map((rowData) => {
-      return nonEmptyHeaders.map((header: string) => {
+    // Step 3: Prepare row values arrays
+    // Map row data to match column order
+    const rowValues: any[][] = rows.map((rowData: any) => {
+      return columnKeys.map((key: string) => {
         // Check if columnMapping is provided
-        if (columnMapping && columnMapping[header] !== undefined) {
-          return resolveValue(columnMapping[header], { ...input, ...rowData })
+        if (columnMapping && columnMapping[key] !== undefined) {
+          return resolveValue(columnMapping[key], { ...input, ...rowData })
         }
         // Otherwise use the row data directly
-        return rowData[header] !== undefined ? resolveValue(rowData[header], input) : ''
+        return rowData[key] !== undefined ? resolveValue(rowData[key], input) : ''
       })
     })
 
     logger.debug('[Microsoft Excel] Row values prepared:', {
       rowCount: rowValues.length,
       firstRowValues: rowValues[0],
-      columnCount: nonEmptyHeaders.length
+      columnCount: columnKeys.length
     })
 
     // Step 4: Calculate the range for the new rows
@@ -255,8 +385,8 @@ export async function addMicrosoftExcelMultipleRows(
       return letter
     }
 
-    // Use nonEmptyHeaders.length for column count to match rowValues dimensions
-    const lastColumn = getColumnLetter(nonEmptyHeaders.length)
+    // Use columnKeys.length for column count to match rowValues dimensions
+    const lastColumn = getColumnLetter(columnKeys.length)
     const rangeAddress = `A${firstNewRowNumber}:${lastColumn}${firstNewRowNumber + rows.length - 1}`
 
     logger.debug('[Microsoft Excel] Range calculation:', {

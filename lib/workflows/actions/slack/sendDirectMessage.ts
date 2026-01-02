@@ -1,5 +1,6 @@
 /**
  * Slack Send Direct Message Action
+ * Uses user token to open DM conversations (bots can't initiate DMs)
  */
 import { ActionResult } from '../core/executeWait'
 import { logger } from '@/lib/utils/logger'
@@ -12,11 +13,15 @@ export async function sendDirectMessage(params: {
 }): Promise<ActionResult> {
   const { config, userId } = params
   try {
-    const { user, message, blocks } = config
+    const { workspace, user, message, blocks } = config
     if (!user) throw new Error('User is required')
     if (!message && !blocks) throw new Error('Message or blocks required')
 
-    const accessToken = await getSlackToken(userId)
+    // DMs require user token (xoxp-) to open conversations
+    // Bot tokens can't initiate DM conversations with users
+    const accessToken = workspace
+      ? await getSlackToken(workspace, true, true) // useUserToken = true
+      : await getSlackToken(userId, false, true)
 
     // Open DM conversation first
     const dmResult = await callSlackApi('conversations.open', accessToken, { users: user })
@@ -35,9 +40,12 @@ export async function sendDirectMessage(params: {
       success: true,
       output: {
         success: true,
+        ts: result.ts,
         messageId: result.ts,
         channel: channelId,
-        timestamp: result.ts
+        userId: user,
+        timestamp: result.ts,
+        message: result.message
       },
       message: 'Direct message sent'
     }

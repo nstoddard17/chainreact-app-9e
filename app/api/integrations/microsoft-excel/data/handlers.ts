@@ -293,9 +293,16 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     // Determine column count from the data
     const columnCount = Math.max(...allRows.map((row: any[]) => row.length))
 
-    // If hasHeaders is false, return column letters based on actual data width
-    if (!hasHeaders || hasHeaders === 'no') {
-      return Array.from({ length: columnCount }, (_, index) => {
+    logger.debug('[fetchColumns] Processing columns', {
+      hasHeaders,
+      hasHeadersType: typeof hasHeaders,
+      columnCount,
+      useColumnLetters: hasHeaders === false || hasHeaders === 'no'
+    })
+
+    // If hasHeaders is false or 'no', return column letters based on actual data width
+    if (hasHeaders === false || hasHeaders === 'no') {
+      const columns = Array.from({ length: columnCount }, (_, index) => {
         const letter = String.fromCharCode(65 + index)
         return {
           value: letter,
@@ -303,6 +310,8 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
           description: `Column ${letter}`
         }
       })
+      logger.debug('[fetchColumns] Returning column letters', { columns: columns.map(c => c.value) })
+      return columns
     }
 
     // hasHeaders is true - use row 1 as headers

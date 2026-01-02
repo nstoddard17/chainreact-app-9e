@@ -17,14 +17,28 @@ export const postInteractiveBlocksActionSchema: NodeComponent = {
   isTrigger: false,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "channel",
       label: "Channel",
       type: "select",
       required: true,
       dynamic: "slack_channels",
-      loadOnMount: true,
+      dependsOn: "workspace",
       placeholder: "Select a channel",
-      tooltip: "Select the Slack channel where you want to post the interactive message."
+      tooltip: "Select the Slack channel where you want to post the interactive message.",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      }
     },
     {
       name: "text",
@@ -41,34 +55,11 @@ export const postInteractiveBlocksActionSchema: NodeComponent = {
     },
     {
       name: "blocks",
-      label: "Block Kit JSON",
-      type: "object",
+      label: "Message Blocks",
+      type: "slack-block-builder",
       required: true,
-      placeholder: JSON.stringify([
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: "*Hello!* Click the button below:"
-          }
-        },
-        {
-          type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: {
-                type: "plain_text",
-                text: "Click Me"
-              },
-              value: "button_clicked",
-              action_id: "button_1"
-            }
-          ]
-        }
-      ], null, 2),
       supportsAI: true,
-      tooltip: "Block Kit JSON array defining the interactive message structure. Use the Slack Block Kit Builder (https://app.slack.com/block-kit-builder) to design your blocks visually, then paste the JSON here.",
+      tooltip: "Build your interactive message using the visual editor, or switch to Raw JSON mode for advanced configurations. Use headers, sections with buttons, dividers, images, and more.",
       dependsOn: "channel",
       hidden: {
         $deps: ["channel"],

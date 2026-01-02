@@ -65,13 +65,17 @@ export function MicrosoftExcelMultipleRowsFields({
         return;
       }
 
+      // Determine if worksheet has headers based on user selection
+      const hasHeaders = values.hasHeaders !== 'no';
+
       logger.debug('📊 [MicrosoftExcelMultipleRowsFields] Fetching worksheet columns', {
         workbookId: values.workbookId,
         worksheetName: values.worksheetName,
+        hasHeaders,
         integrationId: intId
       });
 
-      // Fetch worksheet columns from the API (assuming headers in row 1)
+      // Fetch worksheet columns from the API
       const response = await fetch('/api/integrations/microsoft-excel/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,7 +85,7 @@ export function MicrosoftExcelMultipleRowsFields({
           options: {
             workbookId: values.workbookId,
             worksheetName: values.worksheetName,
-            hasHeaders: true
+            hasHeaders
           }
         })
       });
@@ -109,18 +113,18 @@ export function MicrosoftExcelMultipleRowsFields({
     } finally {
       setLoading(false);
     }
-  }, [values.workbookId, values.worksheetName, integrationId, getIntegrationByProvider]);
+  }, [values.workbookId, values.worksheetName, values.hasHeaders, integrationId, getIntegrationByProvider]);
 
-  // Trigger fetch when workbook/worksheet changes
+  // Trigger fetch when workbook/worksheet/hasHeaders changes
   useEffect(() => {
     if (values.workbookId && values.worksheetName) {
-      // Reset columns and rows when worksheet changes
+      // Reset columns and rows when worksheet or hasHeaders changes
       setColumns([]);
       setRows([{ id: '1', expanded: true, values: {}, connectedFields: new Set() }]);
       lastSentJsonRef.current = '';
       fetchWorksheetColumns();
     }
-  }, [values.workbookId, values.worksheetName, fetchWorksheetColumns]);
+  }, [values.workbookId, values.worksheetName, values.hasHeaders, fetchWorksheetColumns]);
 
   // Update parent values whenever rows change
   useEffect(() => {

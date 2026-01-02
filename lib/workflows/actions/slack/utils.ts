@@ -142,7 +142,7 @@ export function getSlackErrorMessage(error: string): string {
     'not_in_channel': 'Bot is not in this channel. Please invite the bot first.',
     'is_archived': 'Cannot perform action on archived channel.',
     'user_not_found': 'User not found.',
-    'missing_scope': 'Missing required Slack permissions. Please reconnect your account.',
+    'missing_scope': 'Missing required Slack permissions. Please reconnect your Slack account to grant the necessary permissions (reactions:read, reactions:write).',
     'cant_invite_self': 'Cannot invite the bot itself.',
     'already_in_channel': 'User is already in the channel.',
     'message_not_found': 'Message not found.',

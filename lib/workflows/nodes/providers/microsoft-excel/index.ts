@@ -1416,6 +1416,23 @@ export const microsoftExcelNodes: NodeComponent[] = [
         description: "The worksheet to add rows to"
       },
       {
+        name: "hasHeaders",
+        label: "Worksheet Has Headers",
+        type: "select",
+        required: true,
+        defaultValue: "yes",
+        dependsOn: "worksheetName",
+        hidden: {
+          $deps: ["worksheetName"],
+          $condition: { worksheetName: { $exists: false } }
+        },
+        options: [
+          { value: "yes", label: "Yes - Use row 1 as column names" },
+          { value: "no", label: "No - Use column letters (A, B, C...)" }
+        ],
+        description: "Does the first row contain column headers?"
+      },
+      {
         name: "inputMode",
         label: "Input Mode",
         type: "select",
@@ -1438,7 +1455,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Rows",
         type: "microsoft_excel_multiple_rows_fields",
         required: false,
-        dependsOn: "inputMode",
+        dependsOn: "worksheetName",
         hidden: {
           $deps: ["worksheetName", "inputMode"],
           $condition: {

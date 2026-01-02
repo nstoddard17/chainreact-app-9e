@@ -45,6 +45,7 @@ import { useDragDrop } from "@/hooks/use-drag-drop";
 import { EmailAutocomplete } from "@/components/ui/email-autocomplete";
 import { EmailRichTextEditor } from "./EmailRichTextEditor";
 import { SlackMessageEditor } from "./SlackMessageEditor";
+import { SlackBlockBuilder } from "./slack/SlackBlockBuilder";
 // Use the full featured Discord rich text editor
 import { DiscordRichTextEditor } from "./DiscordRichTextEditor";
 import { GmailLabelManager } from "./GmailLabelManager";
@@ -1158,6 +1159,16 @@ export function FieldRenderer({
               // Set the attachments field value
               setFieldValue('attachments', processedFiles);
             }}
+          />
+        );
+
+      case "slack-block-builder":
+        // Visual builder for Slack Block Kit messages with JSON fallback
+        return (
+          <SlackBlockBuilder
+            value={value}
+            onChange={onChange}
+            disabled={false}
           />
         );
 

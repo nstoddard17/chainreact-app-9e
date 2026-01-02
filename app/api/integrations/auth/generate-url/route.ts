@@ -315,7 +315,7 @@ function generateSlackAuthUrl(state: string): string {
     // channels:history - Read message history from public channels
     // groups:write - Create/archive/rename private channels
     // groups:history - Read message history from private channels
-    scope: "channels:join,channels:read,channels:manage,channels:history,chat:write,chat:write.public,files:read,files:write,groups:read,groups:write,groups:history,im:read,im:history,reactions:write,team:read,users:read",
+    scope: "channels:join,channels:read,channels:manage,channels:history,chat:write,chat:write.public,files:read,files:write,groups:read,groups:write,groups:history,im:read,im:write,im:history,reactions:read,reactions:write,team:read,users:read,pins:write,pins:read",
     // User scopes for user-level actions
     // IMPORTANT: These must EXACTLY match the "User Token Scopes" configured in the Slack app settings
     // chat:write - Send messages as the connected user (not the bot)

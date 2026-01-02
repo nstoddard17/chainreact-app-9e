@@ -431,8 +431,9 @@ export function MicrosoftExcelConfiguration({
         {/* Regular fields */}
         {visibleFields.map((field: any) => {
           // Skip special fields that we handle separately
-          // For add_row action, we want to render hasHeaders and columnMapping via FieldRenderer
-          const isAddRowAction = nodeInfo?.type === 'microsoft_excel_action_add_row';
+          // For add_row and add_multiple_rows actions, we want to render hasHeaders via FieldRenderer
+          const isAddRowAction = nodeInfo?.type === 'microsoft_excel_action_add_row' ||
+                                  nodeInfo?.type === 'microsoft_excel_action_add_multiple_rows';
           const skipFields = isAddRowAction
             ? ['dataPreview', 'updateMapping']
             : ['dataPreview', 'columnMapping', 'updateMapping', 'hasHeaders'];
