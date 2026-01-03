@@ -1600,7 +1600,7 @@ function ConfigurationForm({
 
     default:
       logger.debug('📕 [ConfigForm] Routing to Generic configuration for provider:', provider);
-      return <GenericConfiguration {...commonProps} />;
+      return <GenericConfiguration {...commonProps} resetOptions={resetOptions} />;
   }
 }
 

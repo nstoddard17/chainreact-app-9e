@@ -54,6 +54,7 @@ interface GenericConfigurationProps {
   dynamicOptions: Record<string, any[]>;
   loadingDynamic: boolean;
   loadOptions: (fieldName: string, parentField?: string, parentValue?: any, forceReload?: boolean) => Promise<void>;
+  resetOptions?: (fieldName: string) => void;
   integrationName?: string;
   integrationId?: string;
   needsConnection?: boolean;
@@ -83,6 +84,7 @@ export function GenericConfiguration({
   dynamicOptions,
   loadingDynamic,
   loadOptions,
+  resetOptions,
   integrationName,
   integrationId,
   needsConnection,
@@ -385,14 +387,22 @@ export function GenericConfiguration({
     // Generic handling for dynamic fields that depend on the changed field
     if (!(nodeInfo?.providerId === 'trello' && fieldName === 'boardId')) {
       const dependentFields = nodeInfo?.configSchema?.filter(
-        (field: any) => field.dynamic && field.dependsOn === fieldName
+        (field: any) => (field.dynamic || field.dynamicOptions) && field.dependsOn === fieldName
       ) || [];
 
       if (dependentFields.length > 0) {
         // Clear dependent field values so stale selections don't linger
         dependentFields.forEach((field: any) => {
-          const resetValue = field.type === 'multiselect' ? [] : '';
+          const currentValue = values[field.name];
+          const isMulti =
+            field.multiple ||
+            field.type === 'multiselect' ||
+            field.type === 'multi_select' ||
+            field.type === 'multi-select' ||
+            Array.isArray(currentValue);
+          const resetValue = isMulti ? [] : '';
           setValue(field.name, resetValue);
+          resetOptions?.(field.name);
         });
 
         if (value) {
@@ -406,7 +416,7 @@ export function GenericConfiguration({
         }
       }
     }
-  }, [nodeInfo, setValue, loadOptions]);
+  }, [nodeInfo, setValue, loadOptions, resetOptions, values]);
 
   // Background load options for dynamic fields with saved values
   useEffect(() => {

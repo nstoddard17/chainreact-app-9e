@@ -105,6 +105,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
     loading: loadingDynamic,
     loadOptions,
     loadOptionsParallel,
+    resetOptions,
   } = useDynamicOptions({
     nodeType: selectedNode?.type,
     providerId: selectedProvider,
@@ -832,6 +833,7 @@ ${validation.missingFields.map(field => {
                     dynamicOptions={dynamicOptions}
                     loadingDynamic={loadingDynamic}
                     loadOptions={loadOptions}
+                    resetOptions={resetOptions}
                     integrationId={selectedIntegrationId}
                     aiFields={aiFields}
                     setAiFields={setAiFields}
