@@ -16,6 +16,7 @@ interface PromptEnhancerProps {
   connectedIntegrations: string[]
   onUseEnhanced: (enhancedPrompt: string) => void
   disabled?: boolean
+  variant?: 'default' | 'coral'
 }
 
 export function PromptEnhancer({
@@ -23,6 +24,7 @@ export function PromptEnhancer({
   connectedIntegrations,
   onUseEnhanced,
   disabled = false,
+  variant = 'default',
 }: PromptEnhancerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -78,6 +80,8 @@ export function PromptEnhancer({
 
   const canEnhance = prompt.trim().length >= 5
 
+  const isCoral = variant === 'coral'
+
   return (
     <>
       <Button
@@ -85,11 +89,15 @@ export function PromptEnhancer({
         size="sm"
         onClick={handleEnhance}
         disabled={disabled || !canEnhance}
-        className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent/50 gap-0.5"
+        className={
+          isCoral
+            ? "h-7 px-3 text-xs text-white/50 hover:text-white hover:bg-white/10 gap-1.5 rounded-lg"
+            : "h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent/50 gap-0.5"
+        }
         title={canEnhance ? 'Enhance prompt with AI' : 'Type at least 5 characters to enhance'}
       >
-        <Sparkles className="w-2.5 h-2.5 text-purple-500" />
-        enhance
+        <Sparkles className={isCoral ? "w-3.5 h-3.5 text-orange-400" : "w-2.5 h-2.5 text-purple-500"} />
+        {isCoral ? "Enhance with AI" : "enhance"}
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>

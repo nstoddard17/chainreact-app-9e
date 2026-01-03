@@ -1050,12 +1050,11 @@ function WorkflowsContent() {
         }
       }
 
-      // Invalidate cache and refresh both folders and workflows to ensure UI updates
+      // Invalidate cache for next fresh load and refresh folders
+      // Don't re-fetch workflows - the optimistic update already removed them from state
+      // (re-fetching before backend delete completes would add them back due to race condition)
       invalidateCache()
-      await Promise.all([
-        fetchFolders(),
-        fetchWorkflows()
-      ])
+      await fetchFolders()
     } catch (error: any) {
       logger.error('Delete operation failed:', error)
       toast({
@@ -1063,11 +1062,11 @@ function WorkflowsContent() {
         description: error?.message || 'Failed to process workflows',
         variant: 'destructive'
       })
-      // Still refresh UI even on error to show any partial changes
+      // On error, we need to refresh workflows to restore state since optimistic update removed them
       invalidateCache()
       await Promise.all([
         fetchFolders(),
-        fetchWorkflows()
+        fetchWorkflows(true) // Force refresh to restore correct state
       ])
     } finally {
       updateLoadingState(loadingKey, false)

@@ -109,7 +109,27 @@ export function ProviderDropdownSelector({
   }
 
   if (hasConfirmed) {
-    return null
+    // Show a compact confirmed state instead of null to prevent UI shift
+    return (
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden w-full max-w-md">
+        <div className="px-4 py-3 flex items-center gap-3">
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg border bg-background shrink-0">
+            <Image
+              src={getProviderIconPath(selectedProvider)}
+              alt={selectedProviderData?.displayName || ''}
+              width={22}
+              height={22}
+              className="shrink-0"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{categoryName} App</div>
+            <div className="font-medium text-sm">{selectedProviderData?.displayName}</div>
+          </div>
+          <Check className="w-5 h-5 text-green-500" />
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -36,6 +36,25 @@ const PROVIDER_NODE_MAPPINGS: Record<string, Record<string, string>> = {
     'outlook-calendar': 'outlook_calendar_trigger_new_event',
   },
 
+  // Messaging/Notification Actions
+  'action_send_message': {
+    'slack': 'slack_action_send_message',
+    'discord': 'discord_action_send_message',
+    'microsoft-teams': 'microsoft_teams_action_send_message',
+  },
+  'action_send_channel_message': {
+    'slack': 'slack_action_send_channel_message',
+    'discord': 'discord_action_send_channel_message',
+    'microsoft-teams': 'microsoft_teams_action_send_channel_message',
+  },
+
+  // Messaging Triggers
+  'trigger_new_message': {
+    'slack': 'slack_trigger_new_message',
+    'discord': 'discord_trigger_new_message',
+    'microsoft-teams': 'microsoft_teams_trigger_new_message',
+  },
+
   // Add more mappings as needed
 }
 
@@ -118,9 +137,19 @@ export function swapProviderInPlan(
 export function getProviderCategory(providerId: string): string | null {
   const emailProviders = ['gmail', 'outlook', 'yahoo-mail']
   const calendarProviders = ['google-calendar', 'outlook-calendar']
+  const messagingProviders = ['slack', 'discord', 'microsoft-teams']
+  const storageProviders = ['google-drive', 'dropbox', 'onedrive']
+  const spreadsheetProviders = ['google-sheets', 'airtable', 'microsoft-excel']
+  const documentProviders = ['google-docs', 'notion', 'onenote', 'evernote']
+  const crmProviders = ['hubspot', 'salesforce']
 
   if (emailProviders.includes(providerId)) return 'email'
   if (calendarProviders.includes(providerId)) return 'calendar'
+  if (messagingProviders.includes(providerId)) return 'messaging'
+  if (storageProviders.includes(providerId)) return 'storage'
+  if (spreadsheetProviders.includes(providerId)) return 'spreadsheet'
+  if (documentProviders.includes(providerId)) return 'document'
+  if (crmProviders.includes(providerId)) return 'crm'
 
   return null
 }

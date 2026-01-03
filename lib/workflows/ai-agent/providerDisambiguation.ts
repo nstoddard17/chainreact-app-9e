@@ -41,6 +41,21 @@ export const PROVIDER_CATEGORIES: ProviderCategory[] = [
     providers: ['slack', 'discord', 'microsoft-teams']
   },
   {
+    vagueTerm: 'notification',
+    displayName: 'Notification',
+    providers: ['slack', 'discord', 'microsoft-teams']
+  },
+  {
+    vagueTerm: 'message',
+    displayName: 'Messaging',
+    providers: ['slack', 'discord', 'microsoft-teams']
+  },
+  {
+    vagueTerm: 'alert',
+    displayName: 'Alert',
+    providers: ['slack', 'discord', 'microsoft-teams']
+  },
+  {
     vagueTerm: 'crm',
     displayName: 'CRM',
     providers: ['hubspot', 'salesforce']
@@ -74,26 +89,39 @@ export interface VagueTermDetection {
 }
 
 /**
+ * Get patterns for detecting a vague term in a prompt
+ */
+function getVagueTermPatterns(vagueTerm: string): RegExp[] {
+  return [
+    // Basic patterns
+    new RegExp(`\\b(an?|the|my)\\s+${vagueTerm}\\b`, 'i'),
+    new RegExp(`\\b${vagueTerm}\\s+(app|service|account)\\b`, 'i'),
+    new RegExp(`\\bget\\s+(an?\\s+)?${vagueTerm}\\b`, 'i'),
+    new RegExp(`\\bsend\\s+to\\s+${vagueTerm}\\b`, 'i'),
+    new RegExp(`\\bfrom\\s+(my\\s+)?${vagueTerm}\\b`, 'i'),
+    new RegExp(`\\bsave\\s+to\\s+${vagueTerm}\\b`, 'i'),
+    new RegExp(`\\b${vagueTerm}\\s+(trigger|notification)\\b`, 'i'),
+    // Additional patterns for notification/message/alert
+    new RegExp(`\\bsend\\s+(me\\s+)?(an?\\s+)?${vagueTerm}\\b`, 'i'),
+    new RegExp(`\\b${vagueTerm}\\s+me\\b`, 'i'),
+    new RegExp(`\\breceive\\s+(an?\\s+)?${vagueTerm}\\b`, 'i'),
+    new RegExp(`\\bpost\\s+(an?\\s+)?${vagueTerm}\\b`, 'i'),
+    // Standalone match for common terms (notification, message, alert)
+    ...((['notification', 'message', 'alert'].includes(vagueTerm))
+      ? [new RegExp(`\\b${vagueTerm}s?\\b`, 'i')]
+      : []),
+  ]
+}
+
+/**
  * Detects if a prompt contains vague provider terms
+ * Returns the FIRST match found (for backwards compatibility)
  */
 export function detectVagueTerms(prompt: string): VagueTermDetection {
   const normalized = prompt.toLowerCase()
 
   for (const category of PROVIDER_CATEGORIES) {
-    // Look for patterns like:
-    // - "when I get an email"
-    // - "send to email"
-    // - "from my calendar"
-    // - "save to storage"
-    const patterns = [
-      new RegExp(`\\b(an?|the|my)\\s+${category.vagueTerm}\\b`, 'i'),
-      new RegExp(`\\b${category.vagueTerm}\\s+(app|service|account)\\b`, 'i'),
-      new RegExp(`\\bget\\s+(an?\\s+)?${category.vagueTerm}\\b`, 'i'),
-      new RegExp(`\\bsend\\s+to\\s+${category.vagueTerm}\\b`, 'i'),
-      new RegExp(`\\bfrom\\s+(my\\s+)?${category.vagueTerm}\\b`, 'i'),
-      new RegExp(`\\bsave\\s+to\\s+${category.vagueTerm}\\b`, 'i'),
-      new RegExp(`\\b${category.vagueTerm}\\s+(trigger|notification)\\b`, 'i'),
-    ]
+    const patterns = getVagueTermPatterns(category.vagueTerm)
 
     for (const pattern of patterns) {
       const match = normalized.match(pattern)
@@ -108,6 +136,39 @@ export function detectVagueTerms(prompt: string): VagueTermDetection {
   }
 
   return { found: false, category: null, position: -1 }
+}
+
+/**
+ * Detects ALL vague provider terms in a prompt
+ * Returns them in order of appearance in the prompt
+ */
+export function detectAllVagueTerms(prompt: string): VagueTermDetection[] {
+  const normalized = prompt.toLowerCase()
+  const results: VagueTermDetection[] = []
+  const seenDisplayNames = new Set<string>() // Avoid duplicates (e.g., "notification" and "message" are same category)
+
+  for (const category of PROVIDER_CATEGORIES) {
+    // Skip if we already have a match for this display name (same providers)
+    if (seenDisplayNames.has(category.displayName)) continue
+
+    const patterns = getVagueTermPatterns(category.vagueTerm)
+
+    for (const pattern of patterns) {
+      const match = normalized.match(pattern)
+      if (match) {
+        seenDisplayNames.add(category.displayName)
+        results.push({
+          found: true,
+          category,
+          position: match.index || 0
+        })
+        break // Found a match for this category, move to next
+      }
+    }
+  }
+
+  // Sort by position in prompt (ask about earlier terms first)
+  return results.sort((a, b) => a.position - b.position)
 }
 
 export interface ProviderOption {

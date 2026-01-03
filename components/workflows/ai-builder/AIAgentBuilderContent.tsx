@@ -12,7 +12,7 @@ import {
   Loader2,
   ArrowLeft,
   Wand2,
-  Zap,
+  Rocket,
   Clock,
   CheckCircle
 } from "lucide-react"
@@ -760,7 +760,7 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
                 <span className="hidden sm:inline">Test</span>
               </Button>
               <Button size="sm" className="h-8 text-xs whitespace-nowrap">
-                <Zap className="w-3.5 h-3.5 mr-1.5" />
+                <Rocket className="w-3.5 h-3.5 mr-1.5" />
                 <span className="hidden sm:inline">Publish</span>
               </Button>
             </div>
