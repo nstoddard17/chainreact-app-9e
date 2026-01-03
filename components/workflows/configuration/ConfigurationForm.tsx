@@ -108,6 +108,10 @@ function ConfigurationForm({
   // This prevents the initialization logic from restoring old values after they've been cleared
   const clearedFieldsRef = useRef<Set<string>>(new Set());
 
+  // Track if form has been initialized for this node to prevent rerenders
+  // This fixes a bug where trigger combobox selections clear when AI Agent conversation exists
+  const hasInitializedForNodeRef = useRef<string | null>(null);
+
   // Get workflow ID from URL params
   const searchParams = useSearchParams()
   const workflowId = searchParams.get('id')
@@ -502,6 +506,20 @@ function ConfigurationForm({
   // Initialize values from initial data or defaults
   useEffect(() => {
     if (!nodeInfo?.configSchema) return;
+
+    // Prevent form reset when isConnectedToAIAgent recalculates due to workflowData changes
+    // Only initialize once per node - subsequent renders should preserve user selections
+    // This fixes a bug where trigger combobox selections clear when AI Agent conversation exists
+    if (hasInitializedForNodeRef.current === currentNodeId) {
+      logger.debug('🔄 [ConfigForm] Skipping re-initialization - already initialized for node:', currentNodeId);
+      return;
+    }
+
+    // Mark as initialized for this node
+    hasInitializedForNodeRef.current = currentNodeId ?? null;
+
+    // Reset cleared fields when switching to a different node
+    clearedFieldsRef.current = new Set();
 
     logger.debug('🔄 [ConfigForm] Initializing form values:', {
       nodeType: nodeInfo?.type,
