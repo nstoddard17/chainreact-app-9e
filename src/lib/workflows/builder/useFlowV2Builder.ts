@@ -454,12 +454,16 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
 const NODE_COMPONENT_MAP = new Map(ALL_NODE_COMPONENTS.map((node) => [node.type, node]))
 
 function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): ReactFlowNode[] {
-  // First, determine which nodes are triggers
-  const nodeWithTriggerInfo = flow.nodes.map((node) => {
+  // First, determine which nodes are triggers and assign STABLE fallback positions
+  // CRITICAL: Assign fallbackY BEFORE sorting to prevent multiple nodes from getting
+  // the same Y position when metadata.position is undefined. This fixes the overlapping bug.
+  const nodeWithTriggerInfo = flow.nodes.map((node, originalIndex) => {
     const metadata = (node.metadata ?? {}) as any
     const catalogNode = NODE_COMPONENT_MAP.get(node.type)
     const isTrigger = metadata.isTrigger ?? catalogNode?.isTrigger ?? false
-    return { node, isTrigger, metadata, catalogNode }
+    // Pre-calculate fallback Y based on ORIGINAL array order (not sorted order)
+    const fallbackY = 120 + originalIndex * 180
+    return { node, isTrigger, metadata, catalogNode, fallbackY }
   })
 
   // Sort nodes: triggers first, then actions
@@ -485,12 +489,12 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
     return 0
   })
 
-  return sortedNodes.map(({ node, isTrigger, metadata, catalogNode }, index) => {
-    const defaultY = 120 + index * 180
-    const rawPosition = metadata.position ?? { x: LINEAR_STACK_X, y: defaultY }
+  return sortedNodes.map(({ node, isTrigger, metadata, catalogNode, fallbackY }) => {
+    // Use the pre-calculated fallbackY from the original order (before sorting)
+    const rawPosition = metadata.position ?? { x: LINEAR_STACK_X, y: fallbackY }
     // Use saved X position if available, otherwise default to LINEAR_STACK_X
     const positionX = rawPosition.x ?? LINEAR_STACK_X
-    const positionY = rawPosition.y ?? defaultY
+    const positionY = rawPosition.y ?? fallbackY
     const position = {
       x: positionX,
       y: positionY,
@@ -681,6 +685,11 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   // Once true, the action placeholder should never reappear for this session
   // But if they leave and come back, the placeholder will show again if only trigger exists
   const hasHadActionNodeRef = useRef<boolean>(false)
+
+  // Track when initial load is complete to prevent competing setNodes calls
+  // This ref is exposed to consumers (e.g., WorkflowBuilderV2) so they can
+  // gate their useEffects that touch nodes until initial load is done
+  const isInitialLoadCompleteRef = useRef<boolean>(false)
 
   // Helper to mark that the workflow has had an action node this session
   const markHasHadActionNode = useCallback(() => {
@@ -1113,6 +1122,11 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         revisionIdRef.current = options.initialRevision.id
         updateReactFlowGraph(flow)
 
+        // Mark initial load as complete AFTER updateReactFlowGraph
+        // This prevents competing useEffects in WorkflowBuilderV2 from
+        // calling setNodes while we're still setting up the initial state
+        isInitialLoadCompleteRef.current = true
+
         setFlowState((prev) => ({
           ...prev,
           flow,
@@ -1163,6 +1177,9 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       flowRef.current = flow
       revisionIdRef.current = revisionPayload.revision.id
       updateReactFlowGraph(flow)
+
+      // Mark initial load as complete AFTER updateReactFlowGraph
+      isInitialLoadCompleteRef.current = true
 
       setFlowState((prev) => ({
         ...prev,
@@ -1705,5 +1722,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     ...builder,
     flowState,
     actions,
+    // Expose the loading guard ref so consumers can gate their useEffects
+    isInitialLoadCompleteRef,
   }
 }

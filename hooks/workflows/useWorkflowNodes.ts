@@ -63,7 +63,14 @@ export function useWorkflowNodes() {
 
         const nodeType = (node as any)?.data?.type
         const isTrigger = Boolean((node as any)?.data?.isTrigger)
-        if (!nodeType && !isTrigger) {
+        const isPlaceholder = Boolean((node as any)?.data?.isPlaceholder)
+        const hasValidId = node.id && !node.id.startsWith('temp-') && node.id !== ''
+
+        // CRITICAL FIX: Don't drop nodes during transition states
+        // During initial load or state transitions, data.type may temporarily be undefined
+        // Only drop nodes that are truly malformed (no id AND no type AND not a trigger/placeholder)
+        // Nodes with valid IDs should be preserved even if data.type is temporarily missing
+        if (!nodeType && !isTrigger && !isPlaceholder && !hasValidId) {
           logger.warn('[WorkflowNodes] Dropping malformed node without data.type', { id: node.id, type: node.type })
           continue
         }
