@@ -308,9 +308,14 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
    * Map trigger type to Monday.com event type
    */
   private getEventForTriggerType(triggerType: string): string {
+    // Monday.com WebhookEventType enum values from their API
+    // See: https://developer.monday.com/api-reference/reference/webhooks
     const eventMap: Record<string, string> = {
       'monday_trigger_new_item': 'create_item',
-      'monday_trigger_column_changed': 'change_column_value'
+      'monday_trigger_column_changed': 'change_column_value',
+      'monday_trigger_item_moved': 'item_moved_to_any_group',
+      'monday_trigger_new_subitem': 'create_subitem',
+      'monday_trigger_new_update': 'create_update'
     }
 
     return eventMap[triggerType] || 'create_item'
