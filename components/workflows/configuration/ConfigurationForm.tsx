@@ -376,18 +376,6 @@ function ConfigurationForm({
 
   // Base value setter (without provider logic)
   const setValueBase = useCallback((field: string, value: any) => {
-    // COMPREHENSIVE LOGGING for workspace and page fields
-    if ((field === 'workspace' || field === 'page') && provider === 'notion') {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log(`📝 [setValue] Field changed: ${field}`);
-      console.log(`   New Value: ${value}`);
-      console.log(`   Provider: ${provider}`);
-      console.log(`   Node Type: ${nodeInfo?.type}`);
-      console.log(`   Stack trace:`);
-      console.log(new Error().stack);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    }
-
     setValues(prev => ({
       ...prev,
       [field]: value

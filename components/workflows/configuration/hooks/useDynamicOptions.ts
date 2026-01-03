@@ -175,52 +175,122 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   // Track provider fetch attempts to avoid spamming integration fetches
   const integrationFetchAttempts = useRef<Map<string, number>>(new Map());
 
-  // Reset dynamic options when nodeType changes (switching between different nodes)
-  // This prevents stale options from being shown when switching between nodes of the same provider
+  // Track previous provider ID for change detection
+  const prevProviderIdForResetRef = useRef(providerId);
+
+  // CONSOLIDATED: Reset dynamic options when nodeType OR providerId changes
+  // This single effect handles all reset/cleanup logic to prevent duplicate effects
+  // Previously this was split across two effects causing potential race conditions
   useEffect(() => {
-    if (prevNodeTypeRef.current !== nodeType) {
-      logger.debug(`🔄 [useDynamicOptions] nodeType changed from ${prevNodeTypeRef.current} to ${nodeType}, resetting options`);
-      prevNodeTypeRef.current = nodeType;
+    const nodeTypeChanged = prevNodeTypeRef.current !== nodeType;
+    const providerIdChanged = prevProviderIdForResetRef.current !== providerId;
 
-      // Reset to initialOptions or empty object
-      const newOptions = initialOptions || {};
-      setDynamicOptions(newOptions);
+    // Skip if nothing changed
+    if (!nodeTypeChanged && !providerIdChanged) {
+      return;
+    }
 
-      // CRITICAL: Also update the ref immediately so that loadOptions doesn't see stale data
-      // The ref won't be updated automatically until the next render, but loadOptions checks the ref
-      dynamicOptionsRef.current = newOptions;
+    logger.debug(`🔄 [useDynamicOptions] Reset triggered:`, {
+      nodeTypeChanged,
+      providerIdChanged,
+      prevNodeType: prevNodeTypeRef.current,
+      newNodeType: nodeType,
+      prevProviderId: prevProviderIdForResetRef.current,
+      newProviderId: providerId
+    });
 
-      // Clear loading tracking refs
+    // Update tracking refs
+    prevNodeTypeRef.current = nodeType;
+    prevProviderIdForResetRef.current = providerId;
+
+    // Preserve Discord guild data if provider is still Discord
+    const preservedOptions: Record<string, any> = {};
+    if (providerId === 'discord' && dynamicOptionsRef.current.guildId) {
+      preservedOptions.guildId = dynamicOptionsRef.current.guildId;
+    }
+
+    // Reset to initialOptions, preserved options, or empty object
+    const newOptions = { ...preservedOptions, ...(initialOptions || {}) };
+    setDynamicOptions(newOptions);
+
+    // CRITICAL: Also update the ref immediately so that loadOptions doesn't see stale data
+    dynamicOptionsRef.current = newOptions;
+
+    // Clear loading tracking refs (preserve Discord guild loading if applicable)
+    const preserveGuildLoading = providerId === 'discord';
+
+    if (preserveGuildLoading) {
+      // Preserve guild-related tracking
+      const newLoadingFields = new Set<string>();
+      loadingFields.current.forEach(field => {
+        if (field.startsWith('guildId')) newLoadingFields.add(field);
+      });
+      loadingFields.current = newLoadingFields;
+
+      const newLoadingStartTimes = new Map<string, number>();
+      loadingStartTimes.current.forEach((time, key) => {
+        if (key.startsWith('guildId')) newLoadingStartTimes.set(key, time);
+      });
+      loadingStartTimes.current = newLoadingStartTimes;
+
+      const newActiveRequests = new Map<string, Promise<void>>();
+      activeRequests.current.forEach((promise, key) => {
+        if (key.startsWith('guildId')) newActiveRequests.set(key, promise);
+      });
+      activeRequests.current = newActiveRequests;
+
+      const newActiveRequestIds = new Map<string, number>();
+      activeRequestIds.current.forEach((id, key) => {
+        if (key.startsWith('guildId')) newActiveRequestIds.set(key, id);
+      });
+      activeRequestIds.current = newActiveRequestIds;
+    } else {
+      // Clear everything
       loadingFields.current.clear();
       loadingStartTimes.current.clear();
       activeRequests.current.clear();
-      lastLoadedAt.current.clear();
       activeRequestIds.current.clear();
-      integrationFetchAttempts.current.clear();
-
-      // Abort any in-flight requests
-      abortControllers.current.forEach((controller) => {
-        controller.abort();
-      });
-      abortControllers.current.clear();
-
-      // Clear stale timers
-      staleTimers.current.forEach((timer) => {
-        clearTimeout(timer);
-      });
-      staleTimers.current.clear();
-
-      // Clear the global request deduplication cache for this provider/node
-      // This ensures fresh data is fetched when switching nodes
-      try {
-        const { requestDeduplicationManager } = require('@/lib/utils/requestDeduplication');
-        requestDeduplicationManager.clearAll();
-        logger.debug('🧹 [useDynamicOptions] Cleared request deduplication cache');
-      } catch (e) {
-        // Ignore if module not available
-      }
     }
-  }, [nodeType, initialOptions]);
+
+    lastLoadedAt.current.clear();
+    integrationFetchAttempts.current.clear();
+
+    // Abort in-flight requests (preserve Discord guild requests if applicable)
+    abortControllers.current.forEach((controller, key) => {
+      if (!preserveGuildLoading || !key.startsWith('guildId')) {
+        controller.abort();
+      }
+    });
+
+    if (preserveGuildLoading) {
+      const guildControllers = new Map<string, AbortController>();
+      abortControllers.current.forEach((controller, key) => {
+        if (key.startsWith('guildId')) guildControllers.set(key, controller);
+      });
+      abortControllers.current = guildControllers;
+    } else {
+      abortControllers.current.clear();
+    }
+
+    // Clear stale timers
+    staleTimers.current.forEach((timer) => {
+      clearTimeout(timer);
+    });
+    staleTimers.current.clear();
+
+    // Clear the global request deduplication cache
+    try {
+      const { requestDeduplicationManager } = require('@/lib/utils/requestDeduplication');
+      requestDeduplicationManager.clearAll();
+      logger.debug('🧹 [useDynamicOptions] Cleared request deduplication cache');
+    } catch (e) {
+      // Ignore if module not available
+    }
+
+    // Reset loading states
+    setLoading(false);
+    setIsInitialLoading(false);
+  }, [nodeType, providerId, initialOptions]);
 
   // Reset options for a field
   const resetOptions = useCallback((fieldName: string) => {
@@ -2359,81 +2429,6 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       activeRequests.current.delete(activeRequestKey);
     }
   }, [nodeType, providerId, getIntegrationByProvider, loadIntegrationData, getFormValues]); // Removed dynamicOptions and onLoadingChange from dependencies to prevent infinite loops - using refs instead
-
-  // Track previous values to avoid unnecessary clears (uses prevNodeTypeRef declared earlier)
-  const prevProviderIdRef = useRef(providerId);
-
-  // Clear all options when node type changes
-  // NOTE: This effect is SEPARATE from the reset effect above (lines 178-208) which handles
-  // resetting dynamicOptions state. This effect handles aborting requests and clearing tracking refs.
-  useEffect(() => {
-    // Only clear if values actually changed
-    if (prevNodeTypeRef.current === nodeType && prevProviderIdRef.current === providerId) {
-      return;
-    }
-
-    // Update refs (prevNodeTypeRef is also updated in the earlier reset effect)
-    prevNodeTypeRef.current = nodeType;
-    prevProviderIdRef.current = providerId;
-
-    // Abort all active fetch requests EXCEPT Discord guilds (they're cached globally)
-    abortControllers.current.forEach((controller, key) => {
-      // Don't abort Discord guild requests as they're cached and reusable
-      if (!key.startsWith('guildId')) {
-        controller.abort();
-      }
-    });
-
-    // Clear abort controllers except for Discord guilds
-    const guildControllers = new Map<string, AbortController>();
-    abortControllers.current.forEach((controller, key) => {
-      if (key.startsWith('guildId')) {
-        guildControllers.set(key, controller);
-      }
-    });
-    abortControllers.current = guildControllers;
-
-    // Clear request IDs except for Discord guilds
-    const guildRequestIds = new Map<string, number>();
-    activeRequestIds.current.forEach((id, key) => {
-      if (key.startsWith('guildId')) {
-        guildRequestIds.set(key, id);
-      }
-    });
-    activeRequestIds.current = guildRequestIds;
-    
-    // Cancel all active requests except Discord guilds
-    const guildRequests = new Map();
-    activeRequests.current.forEach((promise, key) => {
-      if (key.startsWith('guildId')) {
-        guildRequests.set(key, promise);
-      } else {
-      }
-    });
-    activeRequests.current = guildRequests;
-    
-    // Preserve Discord guild data if provider is still Discord
-    const preservedOptions: any = {};
-    if (providerId === 'discord' && dynamicOptions.guildId) {
-      preservedOptions.guildId = dynamicOptions.guildId;
-    }
-    
-    // Clear everything except preserved options
-    setDynamicOptions(preservedOptions);
-    
-    // Clear loading fields except Discord guilds
-    const newLoadingFields = new Set<string>();
-    loadingFields.current.forEach(field => {
-      if (field.startsWith('guildId')) {
-        newLoadingFields.add(field);
-      }
-    });
-    loadingFields.current = newLoadingFields;
-    
-    setLoading(false);
-    setIsInitialLoading(false);
-    
-  }, [nodeType, providerId]);
 
   // Cleanup when component unmounts
   useEffect(() => {

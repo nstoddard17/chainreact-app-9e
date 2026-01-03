@@ -100,24 +100,8 @@ export function GenericConfiguration({
   onSelectAccount,
 }: GenericConfigurationProps) {
 
-  // Debug: Log dynamicOptions for HubSpot
+  // Track HubSpot auto-load attempts
   const hasTriedLoadRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (nodeInfo?.providerId === 'hubspot') {
-      console.log('🔍 [GenericConfig] HubSpot dynamicOptions:', dynamicOptions);
-      console.log('🔍 [GenericConfig] HubSpot listId options:', dynamicOptions.listId);
-
-      // Auto-load if empty (only once)
-      if (nodeInfo?.type === 'hubspot_action_add_contact_to_list' &&
-          (!dynamicOptions.listId || dynamicOptions.listId.length === 0) &&
-          !hasTriedLoadRef.current) {
-        console.log('🔄 [GenericConfig] Auto-loading listId options');
-        hasTriedLoadRef.current = true;
-        loadOptions('listId', undefined, undefined, true);
-      }
-    }
-  }, [dynamicOptions, nodeInfo?.providerId, nodeInfo?.type, loadOptions]);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [localLoadingFields, setLocalLoadingFields] = useState<Set<string>>(new Set());
   const [isFormValid, setIsFormValid] = useState(true);
@@ -207,25 +191,16 @@ export function GenericConfiguration({
     }
   }, [nodeInfo, loadOptions]);
 
-  // Reset auto-loaded field tracking when node changes
+  // CONSOLIDATED: Reset tracking and auto-load dynamic fields when node changes or modal opens
+  // Previously split across 2 separate useEffects
   useEffect(() => {
+    // Reset tracking when node type/provider changes
     autoLoadedFieldsRef.current.clear();
-  }, [nodeInfo?.type, nodeInfo?.providerId]);
-
-  // Automatically load dynamic fields (without dependencies) when the modal opens
-  useEffect(() => {
-    // Debug logging for Gmail
-    if (nodeInfo?.providerId === 'gmail') {
-      console.log('🔵 [GenericConfig] Gmail useEffect for auto-load:', {
-        hasConfigSchema: !!nodeInfo?.configSchema,
-        needsConnection,
-        nodeType: nodeInfo?.type,
-        willReturn: !nodeInfo?.configSchema || needsConnection
-      });
-    }
+    hasTriedLoadRef.current = false;
 
     if (!nodeInfo?.configSchema || needsConnection) return;
 
+    // Find fields that need auto-loading (no dependencies, not loadOnMount, no existing options)
     const fieldsNeedingLoad = nodeInfo.configSchema.filter((field: any) => {
       if (!field.dynamic) return false;
       if (field.dependsOn) return false; // Require parent value first
@@ -240,10 +215,20 @@ export function GenericConfiguration({
       return !hasOptions;
     });
 
+    // Auto-load all fields that need it
     fieldsNeedingLoad.forEach((field: any) => {
       handleDynamicLoad(field.name);
     });
-  }, [nodeInfo?.configSchema, needsConnection, dynamicOptions, handleDynamicLoad]);
+
+    // Special case: HubSpot listId auto-load
+    if (nodeInfo?.providerId === 'hubspot' &&
+        nodeInfo?.type === 'hubspot_action_add_contact_to_list' &&
+        (!dynamicOptions.listId || dynamicOptions.listId.length === 0) &&
+        !hasTriedLoadRef.current) {
+      hasTriedLoadRef.current = true;
+      loadOptions('listId', undefined, undefined, true);
+    }
+  }, [nodeInfo?.type, nodeInfo?.providerId, nodeInfo?.configSchema, needsConnection, dynamicOptions, handleDynamicLoad, loadOptions]);
 
   // Validate form whenever values or visible fields change
   useEffect(() => {
@@ -275,18 +260,17 @@ export function GenericConfiguration({
 
   // Track which default values have already been applied to prevent infinite loops
   const appliedDefaultsRef = useRef<Set<string>>(new Set());
-  const lastNodeTypeRef = useRef<string | undefined>(undefined);
+  const lastNodeTypeForDefaultsRef = useRef<string | undefined>(undefined);
 
-  // Reset applied defaults tracking when node type changes
+  // CONSOLIDATED: Reset defaults tracking and apply default values when fields become visible
+  // Previously split across 2 separate useEffects
   useEffect(() => {
-    if (nodeInfo?.type && nodeInfo.type !== lastNodeTypeRef.current) {
+    // Reset tracking when node type changes
+    if (nodeInfo?.type && nodeInfo.type !== lastNodeTypeForDefaultsRef.current) {
       appliedDefaultsRef.current = new Set();
-      lastNodeTypeRef.current = nodeInfo.type;
+      lastNodeTypeForDefaultsRef.current = nodeInfo.type;
     }
-  }, [nodeInfo?.type]);
 
-  // Apply default values to fields when they become visible
-  useEffect(() => {
     if (!nodeInfo?.configSchema) return;
 
     // Batch all default value applications to prevent multiple state updates
@@ -322,19 +306,6 @@ export function GenericConfiguration({
 
   // Handle field value changes and trigger dependent field loading
   const handleFieldChange = useCallback(async (fieldName: string, value: any) => {
-    // COMPREHENSIVE LOGGING for selectedProperties
-    if (fieldName === 'selectedProperties') {
-      console.log('💠💠💠 [GenericConfiguration] selectedProperties handleFieldChange called:', {
-        fieldName,
-        valueType: Array.isArray(value) ? 'array' : typeof value,
-        valueLength: Array.isArray(value) ? value.length : undefined,
-        nodeType: nodeInfo?.type,
-        providerId: nodeInfo?.providerId,
-        timestamp: new Date().toISOString(),
-        stackTrace: new Error().stack?.split('\n').slice(0, 8).join('\n')
-      });
-    }
-
     // Update the field value
     setValue(fieldName, value);
 
