@@ -252,14 +252,9 @@ export const useAuthStore = create<AuthState>()(
 
           let sessionResult
           try {
-            sessionResult = await Promise.race([
-              supabase.auth.getSession(),
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('Supabase getSession timeout')), 6000)
-              )
-            ])
+            sessionResult = await supabase.auth.getSession()
           } catch (error) {
-            logger.warn('Auth session fetch timed out, attempting profile fallback')
+            logger.warn('Auth session fetch failed, attempting profile fallback', error)
             sessionResult = { data: { session: null }, error }
           }
           const { data: { session }, error: sessionError } = sessionResult as any
@@ -279,28 +274,26 @@ export const useAuthStore = create<AuthState>()(
               errorMessage: sessionError.message,
               errorName: sessionError.name
             })
-            if (sessionError.message?.includes('timeout')) {
-              const profileFallback = await fetchProfileFromApi()
-              if (profileFallback?.id) {
-                const fallbackUser: User = {
-                  id: profileFallback.id,
-                  email: profileFallback.email || "",
-                  name: profileFallback.full_name || profileFallback.first_name || profileFallback.username || "",
-                  avatar: profileFallback.avatar_url,
-                  first_name: profileFallback.first_name,
-                  last_name: profileFallback.last_name,
-                  full_name: profileFallback.full_name
-                }
-                clearInitTimeout()
-                set({
-                  user: fallbackUser,
-                  profile: profileFallback,
-                  loading: false,
-                  initialized: true,
-                  error: null,
-                })
-                return
+            const profileFallback = await fetchProfileFromApi()
+            if (profileFallback?.id) {
+              const fallbackUser: User = {
+                id: profileFallback.id,
+                email: profileFallback.email || "",
+                name: profileFallback.full_name || profileFallback.first_name || profileFallback.username || "",
+                avatar: profileFallback.avatar_url,
+                first_name: profileFallback.first_name,
+                last_name: profileFallback.last_name,
+                full_name: profileFallback.full_name
               }
+              clearInitTimeout()
+              set({
+                user: fallbackUser,
+                profile: profileFallback,
+                loading: false,
+                initialized: true,
+                error: null,
+              })
+              return
             }
             set({ user: null, loading: false, initialized: true })
             clearInitTimeout()
