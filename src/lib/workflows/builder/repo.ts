@@ -2,7 +2,35 @@ import { randomUUID } from "crypto"
 import { z } from "zod"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
-import { FlowSchema, type Flow, type JsonValue, JsonValueSchema } from "./schema"
+import { FlowSchema, type Flow, type FlowEdge, type JsonValue, JsonValueSchema } from "./schema"
+
+/**
+ * Deduplicates edges in a flow by keeping only the first edge for each source->target pair.
+ * This prevents duplicate edges from accumulating in the database.
+ */
+function deduplicateFlowEdges(flow: Flow): Flow {
+  const seenEdges = new Set<string>()
+  const deduplicatedEdges: FlowEdge[] = []
+
+  for (const edge of flow.edges) {
+    const key = `${edge.from.nodeId}->${edge.to.nodeId}`
+    if (seenEdges.has(key)) {
+      console.warn(`[FlowRepository] Removing duplicate edge before save: ${key} (id: ${edge.id})`)
+      continue
+    }
+    seenEdges.add(key)
+    deduplicatedEdges.push(edge)
+  }
+
+  if (deduplicatedEdges.length !== flow.edges.length) {
+    console.log(`[FlowRepository] Deduplicated ${flow.edges.length - deduplicatedEdges.length} duplicate edges`)
+  }
+
+  return {
+    ...flow,
+    edges: deduplicatedEdges,
+  }
+}
 
 export interface FlowDefinitionRecord {
   id: string
@@ -167,7 +195,9 @@ export class FlowRepository {
     flow,
     version,
   }: CreateFlowRevisionParams): Promise<FlowRevisionRecord> {
-    const validated = FlowSchema.parse(flow)
+    // Deduplicate edges before saving to prevent duplicates from accumulating
+    const deduplicatedFlow = deduplicateFlowEdges(flow)
+    const validated = FlowSchema.parse(deduplicatedFlow)
 
     // Log size for debugging
     const jsonSize = JSON.stringify(validated).length

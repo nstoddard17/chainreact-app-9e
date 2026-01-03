@@ -523,21 +523,37 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
 }
 
 function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
-  return flow.edges.map((edge) => ({
-    id: edge.id,
-    source: edge.from.nodeId,
-    target: edge.to.nodeId,
-    sourceHandle: edge.from.portId,
-    targetHandle: edge.to.portId,
-    type: "custom",
-    style: {
-      stroke: "#d0d6e0",
-      strokeWidth: 1.5,
-    },
-    data: {
-      mappings: edge.mappings ?? [],
-    },
-  }))
+  // Deduplicate edges by source->target to prevent overlapping edges on reload
+  // Keep the first edge encountered for each unique connection
+  const seenEdges = new Set<string>()
+  const deduplicatedEdges: ReactFlowEdge[] = []
+
+  for (const edge of flow.edges) {
+    const key = `${edge.from.nodeId}->${edge.to.nodeId}`
+    if (seenEdges.has(key)) {
+      console.warn(`[flowToReactFlowEdges] Skipping duplicate edge: ${key} (id: ${edge.id})`)
+      continue
+    }
+    seenEdges.add(key)
+
+    deduplicatedEdges.push({
+      id: edge.id,
+      source: edge.from.nodeId,
+      target: edge.to.nodeId,
+      sourceHandle: edge.from.portId,
+      targetHandle: edge.to.portId,
+      type: "custom",
+      style: {
+        stroke: "#d0d6e0",
+        strokeWidth: 1.5,
+      },
+      data: {
+        mappings: edge.mappings ?? [],
+      },
+    })
+  }
+
+  return deduplicatedEdges
 }
 
 /**
