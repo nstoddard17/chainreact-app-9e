@@ -903,57 +903,15 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
           },
         ] as ReactFlowEdge[]
-      } else if (flow.nodes.length === 1 && !hasHadActionNodeRef.current) {
-        // Check if the single node is a trigger - check both metadata and node definition
-        const singleNode = flow.nodes[0]
-        const nodeDefinition = ALL_NODE_COMPONENTS.find(c => c.type === singleNode.type)
-        const isTriggerNode = singleNode.metadata?.isTrigger || nodeDefinition?.isTrigger || false
-
-        // If we have only a trigger node AND the workflow has never had an action node,
-        // add an action placeholder after it. Once a real action node has been added
-        // and then deleted, we don't show the placeholder again.
-        const triggerNode = graphNodes[0]
-        if (isTriggerNode && triggerNode) {
-          const actionPlaceholder: ReactFlowNode = {
-            id: 'action-placeholder',
-            type: 'action_placeholder',
-            position: {
-              x: triggerNode.position.x,
-              y: triggerNode.position.y + 180 // 180px vertical spacing
-            },
-            data: {
-              type: 'action_placeholder',
-              isPlaceholder: true,
-              title: 'Action',
-              // onConfigure will be added by FlowV2BuilderContent via enrichedNodes
-            },
-          }
-
-          graphNodes.push(actionPlaceholder)
-
-          // Add edge from trigger to action placeholder
-          edges.push({
-            id: `${triggerNode.id}-action-placeholder`,
-            source: triggerNode.id,
-            target: 'action-placeholder',
-            sourceHandle: 'source',
-            targetHandle: 'target',
-            type: 'custom',
-            style: {
-              stroke: '#d0d6e0',
-            },
-      } as ReactFlowEdge)
-        }
       } else if (flow.nodes.length > 0) {
-        // Check if there are action nodes but no trigger node
-        // This happens when a trigger is deleted but actions remain
+        // Check if there's a real trigger node (not a placeholder)
         const hasTrigger = flow.nodes.some((node) => {
           const nodeDef = ALL_NODE_COMPONENTS.find(c => c.type === node.type)
           return node.metadata?.isTrigger || nodeDef?.isTrigger || false
         })
 
         if (!hasTrigger) {
-          // Find the topmost node (smallest Y position) to place trigger placeholder above it
+          // No trigger - add trigger placeholder above the topmost node
           const sortedNodes = [...graphNodes].sort((a, b) => a.position.y - b.position.y)
           const topNode = sortedNodes[0]
 
@@ -963,7 +921,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               type: 'trigger_placeholder',
               position: {
                 x: topNode.position.x,
-                y: topNode.position.y - 180 // Place 180px above the first node
+                y: topNode.position.y - 180
               },
               data: {
                 type: 'trigger_placeholder',
@@ -972,10 +930,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               },
             }
 
-            // Add trigger placeholder at the beginning
             graphNodes = [triggerPlaceholder, ...graphNodes]
 
-            // Add edge from trigger placeholder to the first action node
             edges.push({
               id: `trigger-placeholder-${topNode.id}`,
               source: 'trigger-placeholder',
@@ -983,9 +939,37 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               sourceHandle: 'source',
               targetHandle: 'target',
               type: 'custom',
-              style: {
-                stroke: '#d0d6e0',
+              style: { stroke: '#d0d6e0' },
+            } as ReactFlowEdge)
+          }
+        } else if (flow.nodes.length === 1 && !hasHadActionNodeRef.current) {
+          // Has trigger but only 1 node and never had action - add action placeholder
+          const triggerNode = graphNodes[0]
+          if (triggerNode) {
+            const actionPlaceholder: ReactFlowNode = {
+              id: 'action-placeholder',
+              type: 'action_placeholder',
+              position: {
+                x: triggerNode.position.x,
+                y: triggerNode.position.y + 180
               },
+              data: {
+                type: 'action_placeholder',
+                isPlaceholder: true,
+                title: 'Action',
+              },
+            }
+
+            graphNodes.push(actionPlaceholder)
+
+            edges.push({
+              id: `${triggerNode.id}-action-placeholder`,
+              source: triggerNode.id,
+              target: 'action-placeholder',
+              sourceHandle: 'source',
+              targetHandle: 'target',
+              type: 'custom',
+              style: { stroke: '#d0d6e0' },
             } as ReactFlowEdge)
           }
         }

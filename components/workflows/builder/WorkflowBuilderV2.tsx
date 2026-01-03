@@ -2988,18 +2988,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Check if all real (non-placeholder) nodes are being deleted
     const realNodes = updatedNodes.filter((n: any) => !n.data?.isPlaceholder)
-    const shouldResetToPlaceholders = realNodes.length === 0 && updatedNodes.length === 0
+    const shouldResetToPlaceholders = realNodes.length === 0
+
+    // Calculate center position based on viewport and agent panel
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
+    const panelWidth = agentOpen ? agentPanelWidth : 0
+    const availableWidth = viewportWidth - panelWidth
+    const centerX = panelWidth + (availableWidth / 2) - 180 // 180 = half of 360px node width
+    const centerY = (viewportHeight / 2) - 150
 
     if (shouldResetToPlaceholders) {
       console.log('🔄 [WorkflowBuilder] All nodes deleted, resetting to placeholder state')
-
-      // Calculate center position based on viewport and agent panel
-      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
-      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
-      const panelWidth = agentOpen ? agentPanelWidth : 0
-      const availableWidth = viewportWidth - panelWidth
-      const centerX = panelWidth + (availableWidth / 2) - 180 // 180 = half of 360px node width
-      const centerY = (viewportHeight / 2) - 150
 
       // Reset to placeholder state (Zapier-style, centered)
       const placeholderNodes = [
@@ -3050,6 +3050,54 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       }, 100)
     } else {
+      // Simple check: is there a real trigger node (isTrigger=true AND NOT a placeholder)?
+      const hasRealTrigger = updatedNodes.some((n: any) => {
+        const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === n.data?.type)
+        const isTrigger = n.data?.isTrigger || nodeComponent?.isTrigger
+        return isTrigger && !n.data?.isPlaceholder
+      })
+
+      // If no real trigger, add a trigger placeholder (unless one already exists)
+      const hasTriggerPlaceholder = updatedNodes.some((n: any) =>
+        n.type === 'trigger_placeholder' || n.id === 'trigger-placeholder'
+      )
+
+      if (!hasRealTrigger && !hasTriggerPlaceholder && updatedNodes.length > 0) {
+        console.log('🔄 [WorkflowBuilder] No trigger found, adding trigger placeholder')
+
+        // Find the topmost node to place trigger placeholder above it
+        const sortedNodes = [...updatedNodes].sort((a: any, b: any) => a.position.y - b.position.y)
+        const topNode = sortedNodes[0]
+
+        if (topNode) {
+          const triggerPlaceholder = {
+            id: 'trigger-placeholder',
+            type: 'trigger_placeholder',
+            position: {
+              x: topNode.position.x,
+              y: topNode.position.y - LINEAR_NODE_VERTICAL_GAP
+            },
+            data: {
+              type: 'trigger_placeholder',
+              isPlaceholder: true,
+              title: 'Trigger',
+            },
+          }
+
+          updatedNodes = [triggerPlaceholder, ...updatedNodes]
+
+          updatedEdges.push({
+            id: `trigger-placeholder-${topNode.id}`,
+            source: 'trigger-placeholder',
+            target: topNode.id,
+            sourceHandle: 'source',
+            targetHandle: 'target',
+            type: 'custom',
+            style: { stroke: '#d0d6e0' },
+          })
+        }
+      }
+
       builder.setNodes(updatedNodes)
       builder.setEdges(updatedEdges)
     }
