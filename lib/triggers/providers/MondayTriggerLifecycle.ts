@@ -30,11 +30,13 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
    * Creates a webhook for the specified board
    */
   async onActivate(context: TriggerActivationContext): Promise<void> {
-    const { workflowId, userId, nodeId, triggerType, config } = context
+    const { workflowId, userId, nodeId, triggerType, config, testMode } = context
 
-    logger.debug(`🔔 Activating Monday.com trigger for workflow ${workflowId}`, {
+    const modeLabel = testMode ? '🧪 TEST' : '🚀 PRODUCTION'
+    logger.debug(`${modeLabel} Activating Monday.com trigger for workflow ${workflowId}`, {
       triggerType,
-      boardId: config.boardId
+      boardId: config.boardId,
+      testSessionId: testMode?.testSessionId
     })
 
     // Get user's Monday.com integration
@@ -86,9 +88,14 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       }
     `
 
+    // Build webhook URL with test session ID if in test mode
+    const fullWebhookUrl = testMode
+      ? `${webhookUrl}?workflowId=${workflowId}&testSessionId=${testMode.testSessionId}`
+      : `${webhookUrl}?workflowId=${workflowId}`
+
     const variables = {
       boardId: boardId.toString(),
-      url: `${webhookUrl}?workflowId=${workflowId}`,
+      url: fullWebhookUrl,
       event
     }
 
@@ -121,7 +128,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       throw new Error('Failed to create webhook: No data returned')
     }
 
-    // Store in trigger_resources table
+    // Store in trigger_resources table with test mode info
     const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
@@ -135,10 +142,12 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       config: {
         boardId,
         columnId,
-        webhookUrl: `${webhookUrl}?workflowId=${workflowId}`,
+        webhookUrl: fullWebhookUrl,
         event
       },
-      status: 'active'
+      status: 'active',
+      is_test: testMode ? true : false,
+      test_session_id: testMode?.testSessionId || null
     })
 
     if (insertError) {
@@ -161,20 +170,33 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
    * Deletes the webhook
    */
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
-    const { workflowId, userId } = context
+    const { workflowId, userId, testSessionId } = context
 
-    logger.debug(`🛑 Deactivating Monday.com triggers for workflow ${workflowId}`)
+    const modeLabel = testSessionId ? '🧪 TEST' : '🛑 PRODUCTION'
+    logger.debug(`${modeLabel} Deactivating Monday.com triggers for workflow ${workflowId}`, {
+      testSessionId
+    })
 
-    // Get all Monday.com webhooks for this workflow
-    const { data: resources } = await getSupabase()
+    // Build query - filter by test session if provided
+    let query = getSupabase()
       .from('trigger_resources')
       .select('*')
       .eq('workflow_id', workflowId)
       .eq('provider_id', 'monday')
       .eq('status', 'active')
 
+    if (testSessionId) {
+      // Only deactivate test triggers for this specific session
+      query = query.eq('test_session_id', testSessionId)
+    } else {
+      // Only deactivate production triggers (not test triggers)
+      query = query.or('is_test.is.null,is_test.eq.false')
+    }
+
+    const { data: resources } = await query
+
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No active Monday.com webhooks for workflow ${workflowId}`)
+      logger.debug(`ℹ️ No active Monday.com webhooks for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
       return
     }
 
