@@ -8,7 +8,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { TestTube, Play, Snowflake, StopCircle, Trash2 } from "lucide-react"
+import { TestTube, Play, Snowflake, StopCircle, Trash2, RefreshCw } from "lucide-react"
 
 interface NodeContextMenuProps {
   children: React.ReactNode
@@ -20,7 +20,9 @@ interface NodeContextMenuProps {
   onStop?: (nodeId: string) => void
   onDelete?: (nodeId: string) => void
   onDeleteSelected?: (nodeIds: string[]) => void
+  onChangeNode?: (nodeId: string) => void
   hasRequiredFieldsMissing?: boolean
+  isTrigger?: boolean
 }
 
 export function NodeContextMenu({
@@ -33,7 +35,9 @@ export function NodeContextMenu({
   onStop,
   onDelete,
   onDeleteSelected,
+  onChangeNode,
   hasRequiredFieldsMissing = false,
+  isTrigger = false,
 }: NodeContextMenuProps) {
   // Check if multiple nodes are selected and this node is one of them
   const isMultiSelect = selectedNodeIds.length > 1 && selectedNodeIds.includes(nodeId)
@@ -104,6 +108,14 @@ export function NodeContextMenu({
               Stop
             </ContextMenuItem>
             <ContextMenuSeparator />
+            <ContextMenuItem
+              onClick={() => {
+                onChangeNode?.(nodeId)
+              }}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Change {isTrigger ? 'Trigger' : 'Action'}
+            </ContextMenuItem>
             <ContextMenuItem
               onClick={() => {
                 void onDelete?.(nodeId)

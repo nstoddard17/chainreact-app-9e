@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database, PauseCircle } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database, PauseCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -117,6 +117,7 @@ export interface CustomNodeData {
   isBeingReordered?: boolean
   isFlowTesting?: boolean // Disable interactions during flow testing
   shouldSuppressConfigureClick?: () => boolean
+  onChangeNode?: (nodeId: string) => void // Open integrations panel to change this node's type/app
 }
 
 type SlackConfigSection = {
@@ -366,6 +367,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     reorderDragOffset,
     previewOffset,
     isBeingReordered,
+    onChangeNode,
   } = nodeData
 
   const component = ALL_NODE_COMPONENTS.find((c) => c.type === type)
@@ -1612,12 +1614,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
         selectedNodeIds={selectedNodeIds}
         onTestNode={onTestNode}
         onTestFlowFromHere={onTestFlowFromHere}
-        onRename={() => handleStartEditTitle()}
         onFreeze={onFreeze}
         onDelete={onDelete}
         onDeleteSelected={onDeleteSelected}
+        onChangeNode={onChangeNode}
         hasRequiredFieldsMissing={hasRequiredFieldsMissing}
-        disabled={data.isFlowTesting}
+        isTrigger={isTrigger}
       >
         <div
           className="relative w-[360px] bg-slate-50/80 rounded-lg shadow-sm border-2 border-slate-200 group transition-all duration-200 overflow-hidden"
@@ -1728,12 +1730,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
       selectedNodeIds={selectedNodeIds}
       onTestNode={onTestNode}
       onTestFlowFromHere={onTestFlowFromHere}
-      onRename={() => handleStartEditTitle()}
       onFreeze={onFreeze}
       onDelete={onDelete}
       onDeleteSelected={onDeleteSelected}
+      onChangeNode={onChangeNode}
       hasRequiredFieldsMissing={hasRequiredFieldsMissing}
-      disabled={data.isFlowTesting}
+      isTrigger={isTrigger}
     >
       {/* Wrapper div to contain both node and plus button */}
       <div className="relative" style={{ width: '360px' }}>
@@ -1850,6 +1852,15 @@ function CustomNode({ id, data, selected }: NodeProps) {
               >
                 <Edit2 className="w-4 h-4 mr-2" />
                 Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onChangeNode?.(id)
+                }}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Change {isTrigger ? 'Trigger' : 'Action'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

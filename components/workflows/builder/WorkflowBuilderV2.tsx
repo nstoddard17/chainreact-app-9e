@@ -363,6 +363,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [nameDirty, setNameDirty] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [addingAfterNodeId, setAddingAfterNodeId] = useState<string | null>(null) // Persists while integrations panel is open
+  const [changingNodeId, setChangingNodeId] = useState<string | null>(null) // Set when user wants to replace a node's type
   const [isFlowTesting, setIsFlowTesting] = useState(false) // True while testing flow from a node
   const [flowTestStatus, setFlowTestStatus] = useState<{ total: number; currentIndex: number; currentNodeLabel?: string } | null>(null)
   const [isFlowTestPaused, setIsFlowTestPaused] = useState(false) // True when flow test is paused
@@ -2656,6 +2657,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     console.log('🎯 [WorkflowBuilder] handleNodeSelectFromPanel called:', {
       nodeData: nodeData?.type || nodeData,
       selectedNodeId,
+      changingNodeId,
       hasActions: !!actions,
       hasBuilder: !!builder
     })
@@ -2667,6 +2669,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     const currentNodes = builder.nodes ?? []
 
+    // Check if we're changing an existing node (replacing its type)
+    const nodeBeingChanged = changingNodeId
+      ? currentNodes.find((n: any) => n.id === changingNodeId)
+      : null
+
     // Check if we're replacing a placeholder node
     const replacingPlaceholder = currentNodes.find((n: any) =>
       n.id === selectedNodeId && n.data?.isPlaceholder
@@ -2676,8 +2683,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     const existingNodeX = currentNodes[0]?.position?.x ?? 400
     let position = nodeData.position || { x: existingNodeX, y: 300 }
 
+    // If changing an existing node, use its position
+    if (nodeBeingChanged) {
+      position = nodeBeingChanged.position
+      console.log('📌 [WorkflowBuilder] Changing node:', changingNodeId, 'to:', nodeData.type)
+    }
     // If replacing placeholder, use its position
-    if (replacingPlaceholder) {
+    else if (replacingPlaceholder) {
       position = replacingPlaceholder.position
       console.log('📌 [WorkflowBuilder] Replacing placeholder:', selectedNodeId, 'with:', nodeData.type)
     }
@@ -2734,6 +2746,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     builder.setNodes((nodes: any[]) => {
       let newNodes = [...nodes]
 
+      // If changing an existing node, remove it first (we'll replace with new type)
+      if (nodeBeingChanged) {
+        newNodes = newNodes.filter(n => n.id !== changingNodeId)
+        // No shifting needed - just replace in place
+        newNodes.push(optimisticNode)
+        return newNodes
+      }
+
       // If replacing a placeholder, remove it first
       if (replacingPlaceholder) {
         newNodes = newNodes.filter(n => n.id !== selectedNodeId)
@@ -2770,7 +2790,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     })
 
     // Add optimistic edges immediately
-    if (replacingPlaceholder) {
+    if (nodeBeingChanged) {
+      // When changing an existing node, update edges to reference the new temp ID
+      builder.setEdges((edges: any[]) => {
+        return edges.map(edge => {
+          // Update edges pointing TO the changed node
+          if (edge.target === changingNodeId) {
+            return { ...edge, target: tempId }
+          }
+          // Update edges FROM the changed node
+          if (edge.source === changingNodeId) {
+            return { ...edge, source: tempId }
+          }
+          return edge
+        })
+      })
+    } else if (replacingPlaceholder) {
       // When replacing a placeholder, update edges that reference the placeholder
       builder.setEdges((edges: any[]) => {
         return edges.map(edge => {
@@ -2830,14 +2865,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       setConfiguringNode(optimisticNode)
     }
 
-    // Save the selectedNodeId before clearing (needed for edge creation later)
+    // Save state before clearing (needed for edge creation and node replacement later)
     const previousNodeId = selectedNodeId
     const isReplacingPlaceholder = !!replacingPlaceholder
+    const nodeIdBeingChanged = changingNodeId
+    const isChangingNode = !!nodeBeingChanged
 
-    // Clear selected node ID
+    // Get edges connected to the node being changed before we modify anything
+    const edgesConnectedToChangedNode = isChangingNode ? builder.edges.filter((e: any) =>
+      e.source === nodeIdBeingChanged || e.target === nodeIdBeingChanged
+    ) : []
+
+    // Clear selected/changing node IDs
     setSelectedNodeId(null)
+    setChangingNodeId(null)
 
     try {
+      // If changing an existing node, delete the old one first
+      if (isChangingNode && nodeIdBeingChanged) {
+        console.log('📌 [WorkflowBuilder] Deleting old node before adding replacement:', nodeIdBeingChanged)
+        await actions.deleteNode(nodeIdBeingChanged)
+      }
+
       // Save node to database - updateReactFlowGraph will handle UI updates including action placeholder
       console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
       const newNode = await actions.addNode(nodeData.type, position)
@@ -2858,9 +2907,34 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           })
         }
 
-        // If adding after a node (not replacing placeholder), create edge and handle insertion
+        // If changing a node, reconnect the edges that were connected to the old node
+        if (isChangingNode && edgesConnectedToChangedNode.length > 0) {
+          console.log('🔗 [WorkflowBuilder] Reconnecting edges for changed node:', edgesConnectedToChangedNode)
+
+          for (const edge of edgesConnectedToChangedNode) {
+            if (edge.source === nodeIdBeingChanged) {
+              // Edge was FROM the old node - create edge FROM new node TO the target
+              await actions.connectEdge({
+                sourceId: newNodeId,
+                targetId: edge.target,
+                sourceHandle: edge.sourceHandle || 'source',
+                targetHandle: edge.targetHandle
+              })
+            } else if (edge.target === nodeIdBeingChanged) {
+              // Edge was TO the old node - create edge FROM source TO new node
+              await actions.connectEdge({
+                sourceId: edge.source,
+                targetId: newNodeId,
+                sourceHandle: edge.sourceHandle || 'source',
+                targetHandle: edge.targetHandle
+              })
+            }
+          }
+          console.log('🔗 [WorkflowBuilder] Edges reconnected for changed node')
+        }
+        // If adding after a node (not replacing placeholder or changing), create edge and handle insertion
         // Note: Using previousNodeId which was saved before setSelectedNodeId(null) was called
-        if (previousNodeId && !isReplacingPlaceholder) {
+        else if (previousNodeId && !isReplacingPlaceholder) {
           console.log('🔗 [WorkflowBuilder] Inserting node after:', previousNodeId)
 
           // Find what was connected after the selected node
@@ -2909,7 +2983,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
       openIntegrationsPanel()
     }
-  }, [actions, builder, nodeComponentMap, toast, selectedNodeId, openIntegrationsPanel])
+  }, [actions, builder, nodeComponentMap, toast, selectedNodeId, changingNodeId, openIntegrationsPanel])
 
   // Node deletion with optimistic update for instant feedback
   const handleDeleteNodes = useCallback(async (nodeIds: string[]) => {
@@ -3161,6 +3235,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
   }, [actions, builder, toast])
+
+  // Handle changing a node's type (opens integrations panel to select new type)
+  const handleChangeNode = useCallback((nodeId: string) => {
+    if (!builder?.nodes) return
+
+    const node = builder.nodes.find((n: any) => n.id === nodeId)
+    if (!node) return
+
+    // Determine if this is a trigger or action
+    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+    const isTrigger = node.data?.isTrigger || nodeComponent?.isTrigger
+
+    // Store the node ID we're changing (so when user selects from panel, we know to replace)
+    setChangingNodeId(nodeId)
+    setSelectedNodeId(null)
+    setAddingAfterNodeId(null)
+
+    // Open integrations panel with correct mode
+    openIntegrationsPanel(isTrigger ? 'trigger' : 'action')
+
+    console.log(`[WorkflowBuilder] Opening integrations panel to change ${isTrigger ? 'trigger' : 'action'} node:`, nodeId)
+  }, [builder?.nodes, openIntegrationsPanel])
 
   // Handle node duplication
   const handleNodeDuplicate = useCallback(async (nodeId: string) => {
@@ -5625,6 +5721,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             integrationsPanelMode={integrationsPanelMode}
             onNodeSelect={handleNodeSelectFromPanel}
             onNodeConfigure={handleNodeConfigure}
+            onChangeNode={handleChangeNode}
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
             onAddNodeAfter={handleAddNodeAfterClick}
