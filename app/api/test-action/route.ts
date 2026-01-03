@@ -205,6 +205,7 @@ export async function POST(request: NextRequest) {
         responseDetails: {
           statusCode: 500,
           error: executionError.message,
+          data: executionError.details ? { errorDetails: executionError.details } : undefined,
           executionTime,
           timestamp: new Date().toISOString()
         },

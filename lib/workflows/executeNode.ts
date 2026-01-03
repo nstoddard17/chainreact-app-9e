@@ -638,6 +638,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     if (result.success === false) {
       const errorMessage = result.message || result.error || 'Action failed without error message'
       const error = new Error(errorMessage)
+      ;(error as any).details = result.output
 
       // Create error log entry
       const errorLogEntry = createExecutionLogEntry(
