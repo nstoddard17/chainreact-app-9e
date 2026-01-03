@@ -58,6 +58,15 @@ export const getMondayFileColumns: MondayDataHandler<MondayColumn> = async (
         settings_str: column.settings_str
       }))
 
+    // Add a virtual option to support files attached via item updates (not a file column)
+    fileColumns.push({
+      id: '__item_files__',
+      title: 'Item files (updates)',
+      label: 'Item files (updates)',
+      value: '__item_files__',
+      type: 'virtual'
+    })
+
     logger.debug(`✅ [Monday File Columns] Fetched ${fileColumns.length} file columns for board ${boardId}`)
 
     return fileColumns

@@ -88,12 +88,12 @@ export const downloadFileActionSchema: NodeComponent = {
       dynamicParent: "boardId",
       dependsOn: "boardId",
       hidden: {
-        $deps: ["boardId"],
-        $condition: { boardId: { $exists: false } }
+        $deps: ["itemId"],
+        $condition: { itemId: { $exists: false } }
       },
-      required: true,
+      required: false,
       placeholder: "Select a file column...",
-      description: "The file column to download from"
+      description: "Optional if you provide a File ID"
     },
     {
       name: "fileId",
@@ -101,7 +101,7 @@ export const downloadFileActionSchema: NodeComponent = {
       type: "text",
       required: false,
       placeholder: "Latest file...",
-      description: "Optionally specify a file ID (defaults to most recent file)",
+      description: "Provide a file ID when no file column is selected",
       supportsAI: true
     }
   ],
