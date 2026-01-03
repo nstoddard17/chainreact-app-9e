@@ -118,11 +118,25 @@ export const useAuthStore = create<AuthState>()(
           set({ initialized: false })
         }
 
+        const getSessionWithTimeout = async () => {
+          const sessionPromise = supabase.auth.getSession()
+          const timeoutPromise = new Promise<{
+            data: { session: null }
+            error: Error
+          }>((resolve) =>
+            setTimeout(
+              () => resolve({ data: { session: null }, error: new Error('Supabase getSession timeout') }),
+              4000
+            )
+          )
+          return Promise.race([sessionPromise, timeoutPromise])
+        }
+
         // If we're already initialized AND have a valid user, verify the session is still valid
         if (state.initialized && state.user) {
           logger.debug('🔍 [AUTH] Already initialized with user, verifying session validity')
           try {
-            const { data: { session } } = await supabase.auth.getSession()
+            const { data: { session } } = await getSessionWithTimeout()
             if (session) {
               logger.debug('✅ [AUTH] Session is valid, skipping full initialization')
               return
@@ -143,7 +157,11 @@ export const useAuthStore = create<AuthState>()(
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
           logger.warn('Auth initialization timed out, forcing completion...')
-          set({ loading: false, initialized: true, error: null, user: null })
+          set((current) => ({
+            ...current,
+            loading: false,
+            initialized: true,
+          }))
         }, timeoutDuration)
         let initTimeoutCleared = false
         const clearInitTimeout = () => {
@@ -183,6 +201,7 @@ export const useAuthStore = create<AuthState>()(
             const timeoutId = window.setTimeout(() => {
               abortController.abort()
             }, 6000)
+            const startTime = performance.now()
 
             try {
               const response = await fetch('/api/auth/profile', {
@@ -190,6 +209,12 @@ export const useAuthStore = create<AuthState>()(
                 credentials: 'include',
                 cache: 'no-store',
                 signal: abortController.signal,
+              })
+              const durationMs = Math.round(performance.now() - startTime)
+              logger.debug('[AUTH] Profile fetch response', {
+                status: response.status,
+                ok: response.ok,
+                durationMs,
               })
 
               if (!response.ok) {
@@ -204,7 +229,9 @@ export const useAuthStore = create<AuthState>()(
               return null
             } catch (error: any) {
               if (error?.name === 'AbortError') {
-                logger.info('Service profile fetch timed out, will treat as unauthenticated')
+                logger.info('Service profile fetch timed out, will treat as unauthenticated', {
+                  durationMs: Math.round(performance.now() - startTime),
+                })
               } else {
                 logger.error('Failed to fetch profile via service endpoint:', error)
               }
@@ -213,6 +240,7 @@ export const useAuthStore = create<AuthState>()(
               clearTimeout(timeoutId)
             }
           }
+          const profilePromise = fetchProfileFromApi()
 
           // Handle hash fragment for magic links
           if (typeof window !== 'undefined') {
@@ -251,12 +279,14 @@ export const useAuthStore = create<AuthState>()(
           })
 
           let sessionResult
+          const sessionStart = performance.now()
           try {
-            sessionResult = await supabase.auth.getSession()
+            sessionResult = await getSessionWithTimeout()
           } catch (error) {
             logger.warn('Auth session fetch failed, attempting profile fallback', error)
             sessionResult = { data: { session: null }, error }
           }
+          const sessionDurationMs = Math.round(performance.now() - sessionStart)
           const { data: { session }, error: sessionError } = sessionResult as any
 
           logger.debug('📊 [AUTH] Session fetch result', {
@@ -265,6 +295,7 @@ export const useAuthStore = create<AuthState>()(
             error: sessionError,
             sessionUserId: session?.user?.id,
             sessionUserEmail: session?.user?.email,
+            durationMs: sessionDurationMs,
             timestamp: new Date().toISOString()
           })
 
@@ -274,7 +305,7 @@ export const useAuthStore = create<AuthState>()(
               errorMessage: sessionError.message,
               errorName: sessionError.name
             })
-            const profileFallback = await fetchProfileFromApi()
+            const profileFallback = await profilePromise
             if (profileFallback?.id) {
               const fallbackUser: User = {
                 id: profileFallback.id,
@@ -295,6 +326,11 @@ export const useAuthStore = create<AuthState>()(
               })
               return
             }
+            if (get().user) {
+              set({ loading: false, initialized: true, error: null })
+              clearInitTimeout()
+              return
+            }
             set({ user: null, loading: false, initialized: true })
             clearInitTimeout()
             return
@@ -304,7 +340,7 @@ export const useAuthStore = create<AuthState>()(
           const user = session?.user
 
           if (!user) {
-            const profileFallback = await fetchProfileFromApi()
+            const profileFallback = await profilePromise
             if (profileFallback?.id) {
               const fallbackUser: User = {
                 id: profileFallback.id,
