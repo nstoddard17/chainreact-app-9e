@@ -67,9 +67,11 @@ export class IntegrationNodeHandlers {
       const config = node.data.config || {}
       switch (nodeType) {
         case 'microsoft-outlook_trigger_new_email':
-          // Triggers in manual execution return sample data
-          // In production, webhooks would provide real data
-          logger.debug('📧 Outlook email trigger executing in mode:', context.testMode ? 'test' : 'live')
+        case 'microsoft-outlook_trigger_email_sent':
+        case 'microsoft-outlook_trigger_email_flagged':
+        case 'microsoft-outlook_trigger_new_attachment':
+          // Email triggers - in production, webhooks provide real data
+          logger.debug(`📧 Outlook email trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
           logger.debug('📧 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
 
           // Check if we have real email data from webhook
@@ -82,7 +84,7 @@ export class IntegrationNodeHandlers {
               const accessToken = await getDecryptedAccessToken(context.userId, 'microsoft')
 
               const messageId = context.data.resourceData.id
-              const apiUrl = `https://graph.microsoft.com/v1.0/me/messages/${messageId}`
+              const apiUrl = `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$expand=attachments`
 
               const response = await fetch(apiUrl, {
                 headers: {
@@ -103,6 +105,7 @@ export class IntegrationNodeHandlers {
 
               return {
                 id: email.id,
+                conversationId: email.conversationId,
                 subject: email.subject,
                 from: {
                   name: email.from?.emailAddress?.name || '',
@@ -112,14 +115,30 @@ export class IntegrationNodeHandlers {
                   name: r.emailAddress?.name || '',
                   email: r.emailAddress?.address || ''
                 })) || [],
+                cc: email.ccRecipients?.map((r: any) => ({
+                  name: r.emailAddress?.name || '',
+                  email: r.emailAddress?.address || ''
+                })) || [],
+                bcc: email.bccRecipients?.map((r: any) => ({
+                  name: r.emailAddress?.name || '',
+                  email: r.emailAddress?.address || ''
+                })) || [],
                 body: email.body?.content || '',
                 bodyPreview: email.bodyPreview || '',
+                attachments: email.attachments?.map((a: any) => ({
+                  id: a.id,
+                  name: a.name,
+                  contentType: a.contentType,
+                  size: a.size,
+                  isInline: a.isInline
+                })) || [],
                 receivedDateTime: email.receivedDateTime,
-                hasAttachments: email.hasAttachments,
-                isRead: email.isRead,
+                sentDateTime: email.sentDateTime,
                 importance: email.importance,
-                conversationId: email.conversationId,
-                messageId: email.internetMessageId
+                isRead: email.isRead,
+                hasAttachments: email.hasAttachments,
+                flagStatus: email.flag?.flagStatus || 'notFlagged',
+                folder: email.parentFolderId
               }
             } catch (error) {
               logger.error('❌ Error fetching email from Microsoft Graph:', error)
@@ -130,6 +149,7 @@ export class IntegrationNodeHandlers {
           // For manual workflow execution (Run Once), return sample data
           return {
             id: context.testMode ? 'test-email-123' : `email-${Date.now()}`,
+            conversationId: `conv-${Date.now()}`,
             subject: 'Sample Email for Workflow Testing',
             from: {
               name: 'Workflow Test Sender',
@@ -139,14 +159,192 @@ export class IntegrationNodeHandlers {
               name: 'Workflow Test Recipient',
               email: 'recipient@example.com'
             }],
+            cc: [],
+            bcc: [],
             body: 'This is sample email content used for testing your workflow execution.',
             bodyPreview: 'This is sample email content...',
+            attachments: [],
             receivedDateTime: new Date().toISOString(),
-            hasAttachments: false,
-            isRead: false,
+            sentDateTime: new Date().toISOString(),
             importance: 'normal',
-            conversationId: `conv-${Date.now()}`,
-            messageId: `msg-${Date.now()}@outlook.com`
+            isRead: false,
+            hasAttachments: false,
+            flagStatus: 'notFlagged',
+            folder: 'inbox'
+          }
+
+        case 'microsoft-outlook_trigger_new_calendar_event':
+        case 'microsoft-outlook_trigger_updated_calendar_event':
+        case 'microsoft-outlook_trigger_deleted_calendar_event':
+        case 'microsoft-outlook_trigger_calendar_event_start':
+          // Calendar triggers - in production, webhooks provide real data
+          logger.debug(`📅 Outlook calendar trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
+          logger.debug('📅 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
+
+          // Check if we have real calendar data from webhook
+          if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
+            logger.debug('📅 Fetching real calendar event from Microsoft Graph API')
+
+            try {
+              const { getDecryptedAccessToken } = await import('@/lib/workflows/actions/core/getDecryptedAccessToken')
+              const accessToken = await getDecryptedAccessToken(context.userId, 'microsoft')
+
+              const eventId = context.data.resourceData.id
+              const apiUrl = `https://graph.microsoft.com/v1.0/me/events/${eventId}`
+
+              const response = await fetch(apiUrl, {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                }
+              })
+
+              if (!response.ok) {
+                // For deleted events, the event may no longer exist
+                if (nodeType === 'microsoft-outlook_trigger_deleted_calendar_event') {
+                  return {
+                    id: eventId,
+                    subject: context.data.resourceData.subject || 'Deleted Event',
+                    start: context.data.resourceData.start || null,
+                    end: context.data.resourceData.end || null,
+                    isCancelled: true
+                  }
+                }
+                throw new Error(`Failed to fetch calendar event: ${response.statusText}`)
+              }
+
+              const event = await response.json()
+              logger.debug('📅 Fetched calendar event:', {
+                subjectLength: event.subject?.length || 0,
+                hasStart: !!event.start
+              })
+
+              return {
+                id: event.id,
+                subject: event.subject,
+                body: event.body?.content || '',
+                start: event.start,
+                end: event.end,
+                location: event.location?.displayName || '',
+                attendees: event.attendees?.map((a: any) => ({
+                  name: a.emailAddress?.name || '',
+                  email: a.emailAddress?.address || '',
+                  status: a.status?.response || 'none'
+                })) || [],
+                organizer: {
+                  name: event.organizer?.emailAddress?.name || '',
+                  email: event.organizer?.emailAddress?.address || ''
+                },
+                isOnlineMeeting: event.isOnlineMeeting || false,
+                onlineMeetingUrl: event.onlineMeeting?.joinUrl || event.onlineMeetingUrl || '',
+                createdDateTime: event.createdDateTime,
+                lastModifiedDateTime: event.lastModifiedDateTime,
+                isCancelled: event.isCancelled || false
+              }
+            } catch (error) {
+              logger.error('❌ Error fetching calendar event from Microsoft Graph:', error)
+              // Fall through to sample data
+            }
+          }
+
+          // For manual workflow execution (Run Once), return sample data
+          return {
+            id: context.testMode ? 'test-event-123' : `event-${Date.now()}`,
+            subject: 'Sample Calendar Event for Workflow Testing',
+            body: 'This is a sample calendar event description.',
+            start: {
+              dateTime: new Date().toISOString(),
+              timeZone: 'UTC'
+            },
+            end: {
+              dateTime: new Date(Date.now() + 3600000).toISOString(),
+              timeZone: 'UTC'
+            },
+            location: 'Sample Location',
+            attendees: [{
+              name: 'Sample Attendee',
+              email: 'attendee@example.com',
+              status: 'none'
+            }],
+            organizer: {
+              name: 'Workflow Test Organizer',
+              email: 'organizer@example.com'
+            },
+            isOnlineMeeting: false,
+            onlineMeetingUrl: '',
+            createdDateTime: new Date().toISOString(),
+            lastModifiedDateTime: new Date().toISOString(),
+            isCancelled: false,
+            minutesUntilStart: nodeType === 'microsoft-outlook_trigger_calendar_event_start' ? 15 : undefined
+          }
+
+        case 'microsoft-outlook_trigger_new_contact':
+        case 'microsoft-outlook_trigger_updated_contact':
+          // Contact triggers - in production, webhooks provide real data
+          logger.debug(`👤 Outlook contact trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
+          logger.debug('👤 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
+
+          // Check if we have real contact data from webhook
+          if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
+            logger.debug('👤 Fetching real contact from Microsoft Graph API')
+
+            try {
+              const { getDecryptedAccessToken } = await import('@/lib/workflows/actions/core/getDecryptedAccessToken')
+              const accessToken = await getDecryptedAccessToken(context.userId, 'microsoft')
+
+              const contactId = context.data.resourceData.id
+              const apiUrl = `https://graph.microsoft.com/v1.0/me/contacts/${contactId}`
+
+              const response = await fetch(apiUrl, {
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                }
+              })
+
+              if (!response.ok) {
+                throw new Error(`Failed to fetch contact: ${response.statusText}`)
+              }
+
+              const contact = await response.json()
+              logger.debug('👤 Fetched contact:', {
+                hasDisplayName: !!contact.displayName
+              })
+
+              return {
+                id: contact.id,
+                displayName: contact.displayName || '',
+                emailAddresses: contact.emailAddresses?.map((e: any) => ({
+                  name: e.name || '',
+                  address: e.address || ''
+                })) || [],
+                businessPhones: contact.businessPhones || [],
+                mobilePhone: contact.mobilePhone || '',
+                jobTitle: contact.jobTitle || '',
+                companyName: contact.companyName || '',
+                createdDateTime: contact.createdDateTime,
+                lastModifiedDateTime: contact.lastModifiedDateTime
+              }
+            } catch (error) {
+              logger.error('❌ Error fetching contact from Microsoft Graph:', error)
+              // Fall through to sample data
+            }
+          }
+
+          // For manual workflow execution (Run Once), return sample data
+          return {
+            id: context.testMode ? 'test-contact-123' : `contact-${Date.now()}`,
+            displayName: 'Sample Contact for Workflow Testing',
+            emailAddresses: [{
+              name: 'Sample Contact',
+              address: 'sample.contact@example.com'
+            }],
+            businessPhones: ['+1 (555) 123-4567'],
+            mobilePhone: '+1 (555) 987-6543',
+            jobTitle: 'Software Engineer',
+            companyName: 'Sample Company',
+            createdDateTime: new Date().toISOString(),
+            lastModifiedDateTime: new Date().toISOString()
           }
 
         case 'microsoft-outlook_action_send_email': {
