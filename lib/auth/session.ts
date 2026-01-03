@@ -20,6 +20,22 @@ export interface UserSession {
  * Extracted from integrationStore.ts for better separation of concerns
  */
 export class SessionManager {
+  private static async withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(`${label} timed out after ${timeoutMs}ms`))
+      }, timeoutMs)
+    })
+
+    try {
+      return await Promise.race([promise, timeoutPromise])
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }
   /**
    * Securely get user and session data with automatic refresh
    * @returns Promise<UserSession> - User and session data
@@ -32,7 +48,11 @@ export class SessionManager {
     }
 
     // First try to get the session (this is faster and more reliable)
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    const { data: { session }, error: sessionError } = await SessionManager.withTimeout(
+      supabase.auth.getSession(),
+      8000,
+      "Supabase getSession"
+    )
 
     // If we have a valid session with access token, get the user
     if (session?.access_token && session?.user) {
@@ -44,7 +64,11 @@ export class SessionManager {
 
     // If no session or it's incomplete, try to refresh
     logger.debug("No valid session found, attempting refresh...")
-    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
+    const { data: { session: refreshedSession }, error: refreshError } = await SessionManager.withTimeout(
+      supabase.auth.refreshSession(),
+      8000,
+      "Supabase refreshSession"
+    )
 
     if (refreshError || !refreshedSession?.access_token || !refreshedSession?.user) {
       // Only log, don't console.error to avoid scary messages
@@ -69,14 +93,22 @@ export class SessionManager {
       throw new Error("Supabase client not available")
     }
 
-    const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+    const { data: { session }, error: refreshError } = await SessionManager.withTimeout(
+      supabase.auth.refreshSession(),
+      8000,
+      "Supabase refreshSession"
+    )
     
     if (refreshError || !session) {
       logger.error("❌ Session refresh failed:", refreshError)
       throw new Error("Session refresh failed. Please log in again.")
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    const { data: { user }, error: userError } = await SessionManager.withTimeout(
+      supabase.auth.getUser(),
+      8000,
+      "Supabase getUser"
+    )
     if (userError || !user?.id) {
       throw new Error("User validation failed after session refresh.")
     }

@@ -156,6 +156,64 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true, error: null })
 
+          const mapProfileDataForFallback = (raw: any): Profile => ({
+            id: raw.id,
+            username: raw.username ?? undefined,
+            full_name: raw.full_name ?? undefined,
+            first_name: raw.first_name ?? undefined,
+            last_name: raw.last_name ?? undefined,
+            avatar_url: raw.avatar_url ?? undefined,
+            company: raw.company ?? undefined,
+            job_title: raw.job_title ?? undefined,
+            role: raw.role ?? undefined,
+            plan: raw.plan ?? undefined,
+            admin: raw.admin ?? false,
+            secondary_email: raw.secondary_email ?? undefined,
+            phone_number: raw.phone_number ?? undefined,
+            email: raw.email ?? undefined,
+            provider: raw.provider ?? undefined,
+            created_at: raw.created_at ?? undefined,
+            updated_at: raw.updated_at ?? undefined,
+          })
+
+          const fetchProfileFromApi = async (): Promise<Profile | null> => {
+            if (typeof window === 'undefined') return null
+
+            const abortController = new AbortController()
+            const timeoutId = window.setTimeout(() => {
+              abortController.abort()
+            }, 6000)
+
+            try {
+              const response = await fetch('/api/auth/profile', {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store',
+                signal: abortController.signal,
+              })
+
+              if (!response.ok) {
+                logger.warn('Service profile endpoint responded with status:', response.status)
+                return null
+              }
+
+              const payload = await response.json()
+              if (payload?.profile) {
+                return mapProfileDataForFallback(payload.profile)
+              }
+              return null
+            } catch (error: any) {
+              if (error?.name === 'AbortError') {
+                logger.info('Service profile fetch timed out, will treat as unauthenticated')
+              } else {
+                logger.error('Failed to fetch profile via service endpoint:', error)
+              }
+              return null
+            } finally {
+              clearTimeout(timeoutId)
+            }
+          }
+
           // Handle hash fragment for magic links
           if (typeof window !== 'undefined') {
             const hash = window.location.hash
@@ -192,7 +250,19 @@ export const useAuthStore = create<AuthState>()(
             timestamp: new Date().toISOString()
           })
 
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+          let sessionResult
+          try {
+            sessionResult = await Promise.race([
+              supabase.auth.getSession(),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error('Supabase getSession timeout')), 6000)
+              )
+            ])
+          } catch (error) {
+            logger.warn('Auth session fetch timed out, attempting profile fallback')
+            sessionResult = { data: { session: null }, error }
+          }
+          const { data: { session }, error: sessionError } = sessionResult as any
 
           logger.debug('📊 [AUTH] Session fetch result', {
             hasSession: !!session,
@@ -218,7 +288,22 @@ export const useAuthStore = create<AuthState>()(
           const user = session?.user
 
           if (!user) {
-            logger.warn('⚠️ [AUTH] No active session found', {
+            const profileFallback = await fetchProfileFromApi()
+            if (profileFallback?.id) {
+              const fallbackUser: User = {
+                id: profileFallback.id,
+                email: profileFallback.email || "",
+                name: profileFallback.full_name || profileFallback.first_name || profileFallback.username || "",
+                avatar: profileFallback.avatar_url,
+                first_name: profileFallback.first_name,
+                last_name: profileFallback.last_name,
+                full_name: profileFallback.full_name
+              }
+              clearInitTimeout()
+              set({ user: fallbackUser, profile: profileFallback, loading: false, initialized: true, error: null })
+              return
+            }
+            logger.warn('?s??,? [AUTH] No active session found', {
               hasSession: !!session,
               timestamp: new Date().toISOString()
             })

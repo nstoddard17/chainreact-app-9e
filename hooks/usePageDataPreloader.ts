@@ -293,6 +293,16 @@ export function usePageDataPreloader(
 
   useEffect(() => {
     // Only run once when auth is ready AND we don't have cached data
+    if (authInitialized && !user) {
+      // Allow page to render even if user is missing after auth init
+      // Middleware should handle redirects; this avoids infinite loading states.
+      hasRunRef.current = true
+      isRunningRef.current = false
+      setIsReady(true)
+      setIsLoading(false)
+      return
+    }
+
     if (authInitialized && user && !hasRunRef.current && !isRunningRef.current && !isReady) {
       preloadData()
     } else if (isReady && !hasRunRef.current) {
