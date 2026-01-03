@@ -274,11 +274,34 @@ export const useAuthStore = create<AuthState>()(
           })
 
           if (sessionError) {
-            logger.error('❌ [AUTH] Session error', {
+            logger.error('??O [AUTH] Session error', {
               error: sessionError,
               errorMessage: sessionError.message,
               errorName: sessionError.name
             })
+            if (sessionError.message?.includes('timeout')) {
+              const profileFallback = await fetchProfileFromApi()
+              if (profileFallback?.id) {
+                const fallbackUser: User = {
+                  id: profileFallback.id,
+                  email: profileFallback.email || "",
+                  name: profileFallback.full_name || profileFallback.first_name || profileFallback.username || "",
+                  avatar: profileFallback.avatar_url,
+                  first_name: profileFallback.first_name,
+                  last_name: profileFallback.last_name,
+                  full_name: profileFallback.full_name
+                }
+                clearInitTimeout()
+                set({
+                  user: fallbackUser,
+                  profile: profileFallback,
+                  loading: false,
+                  initialized: true,
+                  error: null,
+                })
+                return
+              }
+            }
             set({ user: null, loading: false, initialized: true })
             clearInitTimeout()
             return
