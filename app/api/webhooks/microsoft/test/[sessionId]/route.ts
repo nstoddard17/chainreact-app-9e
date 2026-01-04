@@ -33,10 +33,12 @@ export async function POST(
     const startTime = Date.now()
 
     // Handle Microsoft Graph subscription validation
-    const validationToken = request.nextUrl.searchParams.get('validationToken')
-    if (validationToken) {
-      logger.debug('🧪 [Microsoft Test Webhook] Responding to validation request')
-      return new NextResponse(validationToken, {
+    const validationToken = request.nextUrl.searchParams.get('validationToken') ||
+      request.nextUrl.searchParams.get('validationtoken')
+    if (validationToken || request.headers.get('content-type')?.includes('text/plain')) {
+      const token = validationToken || await request.text()
+      logger.debug('?? [Microsoft Test Webhook] Responding to validation request')
+      return new NextResponse(token, {
         status: 200,
         headers: { 'Content-Type': 'text/plain' }
       })
@@ -152,6 +154,15 @@ export async function GET(
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const { sessionId } = await params
+  const validationToken = request.nextUrl.searchParams.get('validationToken') ||
+    request.nextUrl.searchParams.get('validationtoken')
+
+  if (validationToken) {
+    return new NextResponse(validationToken, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' }
+    })
+  }
 
   // Health check for test session
   const supabase = getSupabase()
