@@ -57,10 +57,15 @@ export async function POST(request: NextRequest) {
       providedConnectionsCount: providedConnections?.length
     })
 
-    if (!workflowId || !nodeId) {
-      console.log('🧪 [test-trigger] Missing required fields')
-      return errorResponse("Workflow ID and Node ID are required", 400)
+    if (!nodeId) {
+      console.log('🧪 [test-trigger] Missing required field: nodeId')
+      return errorResponse("Node ID is required", 400)
     }
+
+    // Allow synthetic workflowId for TriggerTester (no real workflow)
+    // This enables testing triggers without having a saved workflow
+    const effectiveWorkflowId = workflowId || `tester-${user.id}-${Date.now()}`
+    console.log('🧪 [test-trigger] Using workflowId:', { provided: workflowId, effective: effectiveWorkflowId })
 
     let nodes: any[] = []
     let connections: any[] = []
@@ -73,12 +78,12 @@ export async function POST(request: NextRequest) {
       connections = providedConnections || []
     } else {
       // Get workflow from database
-      console.log('🧪 [test-trigger] Fetching workflow from database...', { workflowId, userId: user.id })
+      console.log('🧪 [test-trigger] Fetching workflow from database...', { effectiveWorkflowId, userId: user.id })
 
       const { data: workflow, error: workflowError } = await supabase
         .from("workflows")
         .select("*")
-        .eq("id", workflowId)
+        .eq("id", effectiveWorkflowId)
         .eq("user_id", user.id)
         .maybeSingle()
 
@@ -136,7 +141,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid trigger configuration", 400)
     }
 
-    logger.debug(`🧪 Testing trigger for workflow ${workflowId}`, {
+    logger.debug(`🧪 Testing trigger for workflow ${effectiveWorkflowId}`, {
       nodeId,
       providerId,
       triggerType
@@ -158,7 +163,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a test session ID
-    const testSessionId = `test-${workflowId}-${Date.now()}`
+    const testSessionId = `test-${effectiveWorkflowId}-${Date.now()}`
     const sessionTimeout = MAX_WAIT_TIME_MS + 10000 // Extra buffer for cleanup
 
     try {
@@ -171,7 +176,7 @@ export async function POST(request: NextRequest) {
         .from('workflow_test_sessions')
         .insert({
           id: testSessionId,
-          workflow_id: workflowId,
+          workflow_id: effectiveWorkflowId,
           user_id: user.id,
           status: 'listening',
           trigger_type: triggerType,
@@ -204,7 +209,7 @@ export async function POST(request: NextRequest) {
 
       // Pass test mode config to ensure separate webhook URL is used
       await triggerManager.activateWorkflowTriggers(
-        workflowId,
+        effectiveWorkflowId,
         user.id,
         [triggerNode],
         { isTest: true, testSessionId }
@@ -216,7 +221,7 @@ export async function POST(request: NextRequest) {
       const { data: triggerResource } = await supabase
         .from('trigger_resources')
         .select('config')
-        .eq('workflow_id', workflowId)
+        .eq('workflow_id', effectiveWorkflowId)
         .eq('node_id', nodeId)
         .eq('status', 'active')
         .maybeSingle()
@@ -224,6 +229,7 @@ export async function POST(request: NextRequest) {
       return jsonResponse({
         success: true,
         testSessionId,
+        workflowId: effectiveWorkflowId,
         status: 'listening',
         expiresAt: new Date(Date.now() + sessionTimeout).toISOString(),
         message: `Trigger activated. Waiting up to ${MAX_WAIT_TIME_MS / 1000} seconds for an event.`,
@@ -234,7 +240,7 @@ export async function POST(request: NextRequest) {
       console.error('🧪 [test-trigger] ❌ Error during trigger activation/polling:', error)
       // Make sure to deactivate test trigger even if error occurs
       try {
-        await triggerManager.deactivateWorkflowTriggers(workflowId, user.id, testSessionId)
+        await triggerManager.deactivateWorkflowTriggers(effectiveWorkflowId, user.id, testSessionId)
         console.log('🧪 [test-trigger] Test trigger deactivated after error')
 
         // Clean up test session on error

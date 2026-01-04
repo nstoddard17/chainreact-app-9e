@@ -5,7 +5,7 @@ import { z } from "zod"
 import { FlowRepository } from "../repo"
 import { registerDefaultNodes } from "../nodes/register"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-import { createSupabaseRunStore } from "../runner/execute"
+import { createNoOpRunStore } from "../runner/execute"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 export async function getRouteClient(): Promise<SupabaseClient<any>> {
@@ -37,8 +37,8 @@ export async function ensureNodeRegistry() {
   registerDefaultNodes()
 }
 
-export function createRunStore(client: SupabaseClient<any>) {
-  return createSupabaseRunStore(client)
+export function createRunStore() {
+  return createNoOpRunStore()
 }
 
 export function uuid(): string {

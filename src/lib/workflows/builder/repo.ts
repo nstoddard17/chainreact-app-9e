@@ -58,7 +58,7 @@ export interface FlowRevisionSummary {
 
 const WORKFLOWS_TABLE = "workflows"
 const WORKFLOWS_REVISIONS_TABLE = "workflows_revisions"
-const LEGACY_CREATE_REVISION_FUNCTIONS = ["workflows_create_revision", "flow_v2_create_revision"] as const
+const LEGACY_CREATE_REVISION_FUNCTIONS = ["workflows_create_revision"] as const
 
 const IsoDateString = z.union([z.string(), z.date()]).transform((value) => {
   const date = typeof value === "string" ? new Date(value) : value

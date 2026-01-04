@@ -47,7 +47,8 @@
       "Bash(powershell -ExecutionPolicy Bypass -File \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\scripts\\\\trash\\\\fix-slack-error-messages.ps1\")",
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\scripts\\\\trash\\\\fix-slack-error-messages.ps1\")",
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\app\\\\workflows\\\\ai-builder\\\\page.tsx\")",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\src\\\\lib\\\\workflows\\\\builder\\\\logging.ts\")"
     ],
     "deny": [],
     "ask": [],

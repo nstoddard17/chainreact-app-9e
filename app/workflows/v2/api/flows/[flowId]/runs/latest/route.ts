@@ -56,16 +56,24 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
     return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 })
   }
 
+  // For v1 workflows (from workflows table), there are no v2 runs
+  // Only query flow_v2_runs if this is a v2 flow
+  if (!flowV2Row) {
+    // This is a v1 workflow - no v2 runs exist
+    return NextResponse.json({ ok: true, run: null })
+  }
+
   const { data: run, error: runError } = await supabase
     .from("flow_v2_runs")
     .select("id, status, started_at, finished_at, revision_id")
     .eq("flow_id", flowId)
-    .order("finished_at", { ascending: false })
+    .order("finished_at", { ascending: false, nullsFirst: false })
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle()
 
   if (runError) {
+    console.error("[runs/latest] Query error:", runError.message, runError.code, runError.details)
     return NextResponse.json({ ok: false, error: runError.message }, { status: 500 })
   }
 

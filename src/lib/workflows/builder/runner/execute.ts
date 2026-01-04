@@ -15,11 +15,8 @@ import {
 import { FlowRepository } from "../repo"
 import { topologicalPlan } from "./plan"
 import { getRunner, type NodeRunner } from "./registry"
-import { createSupabaseServiceClient } from "@/utils/supabase/server"
-import type { SupabaseClient } from "@supabase/supabase-js"
 import { calculateCostSummary, type NodeCostInput } from "../costing"
 import { redactSecrets, resolveConfigSecrets } from "../secrets"
-import { createNodeLogger } from "../logging"
 
 type CostSummaryResult = ReturnType<typeof calculateCostSummary>
 
@@ -543,137 +540,40 @@ function serializeError(error: any): any {
 }
 
 async function createDefaultRunStore(): Promise<RunStore> {
-  const client = await createSupabaseServiceClient()
-  return createSupabaseRunStore(client)
+  // Return a no-op run store - run tracking tables were removed
+  // If run tracking is needed in the future, implement with workflow_runs table
+  return createNoOpRunStore()
 }
 
-export function createSupabaseRunStore(client: SupabaseClient<any>): RunStore {
-  const logNodeEvent = createNodeLogger(client)
-
+/**
+ * No-op run store that logs execution but doesn't persist to database.
+ * This is a placeholder until proper run tracking is implemented.
+ */
+export function createNoOpRunStore(): RunStore {
   return {
-    async beginRun({ runId, flow, revisionId, inputs, globals, startedAt, isResume }) {
-      await client.from("flow_v2_runs").upsert({
-        id: runId,
-        flow_id: flow.id,
-        revision_id: revisionId,
-        status: "running",
-        inputs,
-        metadata: { globals, isResume: Boolean(isResume) },
-        started_at: startedAt,
-        estimated_cost: 0,
-        actual_cost: 0,
-      })
+    async beginRun({ runId, flow }) {
+      console.log(`[RunStore] Beginning run ${runId} for flow ${flow.id}`)
     },
 
-    async completeRun({ runId, finishedAt, costSummary }) {
-      await client
-        .from("flow_v2_runs")
-        .update({
-          status: "success",
-          finished_at: finishedAt,
-          estimated_cost: costSummary.estimated,
-          actual_cost: costSummary.actual,
-        })
-        .eq("id", runId)
+    async completeRun({ runId }) {
+      console.log(`[RunStore] Completed run ${runId}`)
     },
 
-    async failRun({ runId, finishedAt, error, costSummary }) {
-      await client
-        .from("flow_v2_runs")
-        .update({
-          status: "error",
-          finished_at: finishedAt,
-          metadata: { error },
-          estimated_cost: costSummary.estimated,
-          actual_cost: costSummary.actual,
-        })
-        .eq("id", runId)
+    async failRun({ runId, error }) {
+      console.error(`[RunStore] Failed run ${runId}`, error)
     },
 
     async recordNodeSnapshot({ runId, nodeId, snapshot }) {
-      const payload = {
-        id: `${runId}:${nodeId}`,
-        run_id: runId,
-        node_id: nodeId,
-        status: snapshot.status,
-        input: snapshot.input,
-        output: snapshot.output,
-        error: snapshot.error,
-        attempts: snapshot.attempts ?? 0,
-        duration_ms: snapshot.durationMs,
-        cost: snapshot.cost,
-        estimated_cost: snapshot.estimatedCost,
-        token_count: snapshot.tokenCount,
-        error_type: snapshot.error?.type ?? snapshot.errorType,
-        created_at: snapshot.startedAt ?? new Date().toISOString(),
-      }
-      await client.from("flow_v2_run_nodes").upsert(payload)
-
-      try {
-        await logNodeEvent({
-          runId,
-          nodeId,
-          status: snapshot.status ?? "success",
-          latencyMs: snapshot.durationMs ?? null,
-          cost: snapshot.cost ?? null,
-          retries: snapshot.attempts ?? null,
-        })
-      } catch (error) {
-        console.error("[Flow v2] Failed to record node log", { runId, nodeId, error })
-      }
+      console.log(`[RunStore] Node ${nodeId} in run ${runId}: ${snapshot.status}`)
     },
 
-    async recordLineage(records) {
-      if (!records || records.length === 0) {
-        return
-      }
-      const payload = records.map((record) => ({
-        id: `${record.runId}:${record.edgeId}:${record.targetPath}:${record.toNodeId}`,
-        run_id: record.runId,
-        to_node_id: record.toNodeId,
-        edge_id: record.edgeId,
-        target_path: record.targetPath,
-        from_node_id: record.fromNodeId,
-        expr: record.expr,
-      }))
-      await client.from("flow_v2_lineage").upsert(payload)
+    async recordLineage() {
+      // No-op - lineage tracking not implemented
     },
 
-    async loadRun(runId) {
-      const { data: run } = await client
-        .from("flow_v2_runs")
-        .select("id, flow_id, revision_id, inputs, metadata")
-        .eq("id", runId)
-        .maybeSingle()
-
-      if (!run) {
-        return null
-      }
-
-      const { data: nodes } = await client
-        .from("flow_v2_run_nodes")
-        .select("node_id, status, input, output, error, attempts, duration_ms")
-        .eq("run_id", runId)
-
-      return {
-        runId,
-        flowId: run.flow_id,
-        revisionId: run.revision_id,
-        inputs: run.inputs,
-        globals: run.metadata?.globals ?? {},
-        nodeSnapshots:
-          nodes?.map((row) =>
-            NodeRunSnapshotSchema.parse({
-              nodeId: row.node_id,
-              status: row.status,
-              input: row.input,
-              output: row.output,
-              error: row.error,
-              attempts: row.attempts,
-              durationMs: row.duration_ms,
-            })
-          ) ?? [],
-      }
+    async loadRun() {
+      // No-op - run loading not implemented
+      return null
     },
   }
 }
