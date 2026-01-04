@@ -3,6 +3,10 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
+// Force dynamic rendering to ensure this route works with dynamic segments
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 const getSupabase = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
