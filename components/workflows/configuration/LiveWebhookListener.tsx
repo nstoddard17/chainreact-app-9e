@@ -53,6 +53,7 @@ export function LiveWebhookListener({
   const [error, setError] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [isDataExpanded, setIsDataExpanded] = useState(true)
+  const [testSessionId, setTestSessionId] = useState<string | null>(null)
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -69,8 +70,18 @@ export function LiveWebhookListener({
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
+      if (testSessionId) {
+        fetch('/api/workflows/test-trigger', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workflowId,
+            testSessionId,
+          }),
+        }).catch(() => undefined)
+      }
     }
-  }, [])
+  }, [testSessionId, workflowId])
 
   const startListening = useCallback(async () => {
     setStatus('activating')
@@ -108,38 +119,106 @@ export function LiveWebhookListener({
 
       const result = await response.json()
 
-      // Clear timer
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
-      }
-
       if (!response.ok) {
         throw new Error(result.error || 'Failed to activate trigger')
       }
+
+      if (!result.testSessionId) {
+        throw new Error('Missing test session ID')
+      }
+
+      setTestSessionId(result.testSessionId)
 
       if (result.webhookUrl) {
         setWebhookUrl(result.webhookUrl)
       }
 
-      if (result.eventReceived && result.data) {
-        setStatus('received')
-        setEventData(result.data)
-        onEventReceived?.(result.data)
+      const streamUrl = `/api/workflows/test-trigger/stream?sessionId=${encodeURIComponent(result.testSessionId)}&workflowId=${encodeURIComponent(workflowId)}&timeoutMs=${MAX_WAIT_TIME * 1000}`
+      const streamResponse = await fetch(streamUrl, { signal: abortControllerRef.current.signal })
+
+      if (!streamResponse.ok) {
+        throw new Error('Failed to open trigger stream')
+      }
+
+      const reader = streamResponse.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error('No trigger stream available')
+      }
+
+      let buffer = ''
+      let triggerReceived = false
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+            console.log('[TEST] Trigger stream event:', event)
+
+            if (event.type === 'trigger_received') {
+              setStatus('received')
+              setEventData(event.data)
+              onEventReceived?.(event.data)
+              fetch('/api/workflows/test-trigger', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  workflowId,
+                  testSessionId: result.testSessionId,
+                }),
+              }).catch(() => undefined)
+              setTestSessionId(null)
+              triggerReceived = true
+              break
+            }
+
+            if (event.type === 'timeout') {
+              break
+            }
+
+            if (event.type === 'error') {
+              throw new Error(event.message || 'Trigger stream error')
+            }
+          } catch (parseError) {
+            console.log('[TEST] Trigger stream parse error:', parseError, 'Line:', line)
+          }
+        }
+
+        if (triggerReceived) {
+          break
+        }
+      }
+
+      if (triggerReceived) {
         toast({
           title: "Event Received!",
           description: "Successfully captured webhook event data",
         })
       } else {
         setStatus('timeout')
-        if (result.webhookUrl) {
-          setWebhookUrl(result.webhookUrl)
-        }
         toast({
           title: "No Event Received",
-          description: `Timed out after ${MAX_WAIT_TIME} seconds. The webhook is still active - try triggering it manually.`,
+          description: `Timed out after ${MAX_WAIT_TIME} seconds. The webhook has been deactivated.`,
           variant: "destructive"
         })
+        await fetch('/api/workflows/test-trigger', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workflowId,
+            testSessionId: result.testSessionId,
+          }),
+        })
+        setTestSessionId(null)
       }
 
     } catch (err: any) {
@@ -175,7 +254,20 @@ export function LiveWebhookListener({
       timerRef.current = null
     }
     setStatus('idle')
-  }, [])
+    if (testSessionId) {
+      fetch('/api/workflows/test-trigger', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId,
+          testSessionId,
+        }),
+      }).catch((error) => {
+        console.error('[TEST] Failed to cleanup test trigger:', error)
+      })
+      setTestSessionId(null)
+    }
+  }, [testSessionId, workflowId])
 
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text)

@@ -3837,21 +3837,86 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         const triggerResult = await triggerResponse.json()
         console.log('[TEST] Trigger result:', triggerResult)
 
-        if (!triggerResult.eventReceived) {
-          if (isMountedRef.current) {
-            finishTestFlow('cancelled', 'No event received within timeout')
-            toast({
-              title: "Timeout",
-              description: "No trigger event received. Try again or use mock data.",
-              variant: "destructive",
-            })
+        if (!triggerResult.testSessionId) {
+          throw new Error('Missing test session ID')
+        }
+
+        testSessionIdRef.current = triggerResult.testSessionId
+
+        const streamUrl = `/api/workflows/test-trigger/stream?sessionId=${encodeURIComponent(triggerResult.testSessionId)}&workflowId=${encodeURIComponent(flowId)}&timeoutMs=${timeout}`
+        const streamResponse = await fetch(streamUrl, { signal: abortController.signal })
+
+        if (!streamResponse.ok) {
+          throw new Error('Failed to open trigger stream')
+        }
+
+        const reader = streamResponse.body?.getReader()
+        const decoder = new TextDecoder()
+
+        if (!reader) {
+          throw new Error('No trigger stream available')
+        }
+
+        let buffer = ''
+        let triggerReceived = false
+
+        while (true) {
+          if (abortController.signal.aborted) {
+            reader.cancel()
+            break
           }
+
+          const { done, value } = await reader.read()
+          if (done) {
+            break
+          }
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            try {
+              const event = JSON.parse(line.slice(6))
+              console.log('[TEST] Trigger stream event:', event)
+
+              if (event.type === 'trigger_received') {
+                triggerEventData = event.data
+                triggerReceived = true
+                break
+              }
+
+              if (event.type === 'timeout') {
+                if (isMountedRef.current) {
+                  finishTestFlow('cancelled', 'No event received within timeout')
+                  cleanupTestTrigger()
+                  toast({
+                    title: "Timeout",
+                    description: "No trigger event received. Try again or use mock data.",
+                    variant: "destructive",
+                  })
+                }
+                return
+              }
+
+              if (event.type === 'error') {
+                throw new Error(event.message || 'Trigger stream error')
+              }
+            } catch (parseError) {
+              console.log('[TEST] Trigger stream parse error:', parseError, 'Line:', line)
+            }
+          }
+
+          if (triggerReceived) {
+            break
+          }
+        }
+
+        if (!triggerReceived) {
           return
         }
 
-        // Store the trigger event data and session ID
-        triggerEventData = triggerResult.data
-        testSessionIdRef.current = triggerResult.testSessionId || null
         console.log('[SSE] Trigger event received:', { triggerEventData, testSessionId: triggerResult.testSessionId })
 
         if (isMountedRef.current) {
@@ -4160,9 +4225,67 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
           const triggerResult = await triggerResponse.json()
 
-          if (triggerResult.eventReceived) {
-            // Event received! Use this data for workflow execution
-            triggerData = triggerResult.data
+          if (!triggerResult.testSessionId) {
+            throw new Error('Missing test session ID')
+          }
+
+          testSessionIdRef.current = triggerResult.testSessionId
+
+          const streamUrl = `/api/workflows/test-trigger/stream?sessionId=${encodeURIComponent(triggerResult.testSessionId)}&workflowId=${encodeURIComponent(flowId)}&timeoutMs=60000`
+          const streamResponse = await fetch(streamUrl)
+
+          if (!streamResponse.ok) {
+            throw new Error('Failed to open trigger stream')
+          }
+
+          const reader = streamResponse.body?.getReader()
+          const decoder = new TextDecoder()
+
+          if (!reader) {
+            throw new Error('No trigger stream available')
+          }
+
+          let buffer = ''
+          let triggerReceived = false
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue
+              try {
+                const event = JSON.parse(line.slice(6))
+                console.log('[TEST] Trigger stream event:', event)
+
+                if (event.type === 'trigger_received') {
+                  triggerData = event.data
+                  triggerReceived = true
+                  break
+                }
+
+                if (event.type === 'timeout') {
+                  break
+                }
+
+                if (event.type === 'error') {
+                  throw new Error(event.message || 'Trigger stream error')
+                }
+              } catch (parseError) {
+                console.log('[TEST] Trigger stream parse error:', parseError, 'Line:', line)
+              }
+            }
+
+            if (triggerReceived) {
+              break
+            }
+          }
+
+          if (triggerReceived) {
             toast({
               title: "Trigger event received",
               description: "Now executing workflow with trigger data...",
@@ -4174,6 +4297,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
               `Webhook URL: ${triggerResult.webhookUrl || 'N/A'}\n\n` +
               `Do you want to continue testing without trigger data?`
             )
+
+            cleanupTestTrigger()
 
             if (!shouldContinue) {
               // User cancelled - clear running states
@@ -4304,7 +4429,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         variant: "destructive",
       })
     }
-  }, [builder, flowId, hasPlaceholders, toast])
+  }, [builder, cleanupTestTrigger, flowId, hasPlaceholders, toast])
 
   // Handler to stop flow testing
   const handleStopFlowTest = useCallback(() => {
