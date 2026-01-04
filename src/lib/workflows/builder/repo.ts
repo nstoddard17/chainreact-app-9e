@@ -675,6 +675,7 @@ export class FlowRepository {
 
   /**
    * Load nodes from the workflow_nodes table
+   * Throws if the table doesn't exist or query fails - caller should handle
    */
   async loadNodes(flowId: string): Promise<Node[]> {
     const { data, error } = await this.withFallback((client) =>
@@ -686,6 +687,11 @@ export class FlowRepository {
     )
 
     if (error) {
+      // Check if this is a "table doesn't exist" or "column doesn't exist" error
+      const message = error.message?.toLowerCase() || ''
+      if (message.includes('does not exist') || message.includes('relation') || message.includes('column')) {
+        throw new Error(`Normalized tables not ready: ${error.message}`)
+      }
       throw new Error(`Failed to load nodes: ${error.message}`)
     }
 
@@ -715,6 +721,7 @@ export class FlowRepository {
 
   /**
    * Load edges from the workflow_edges table
+   * Throws if the table doesn't exist or query fails - caller should handle
    */
   async loadEdges(flowId: string): Promise<FlowEdge[]> {
     const { data, error } = await this.withFallback((client) =>
@@ -725,6 +732,11 @@ export class FlowRepository {
     )
 
     if (error) {
+      // Check if this is a "table doesn't exist" or "column doesn't exist" error
+      const message = error.message?.toLowerCase() || ''
+      if (message.includes('does not exist') || message.includes('relation') || message.includes('column')) {
+        throw new Error(`Normalized tables not ready: ${error.message}`)
+      }
       throw new Error(`Failed to load edges: ${error.message}`)
     }
 
@@ -751,52 +763,71 @@ export class FlowRepository {
 
   /**
    * Load current flow state from normalized tables (workflow_nodes + workflow_edges)
+   * Returns null if the normalized tables don't exist or can't be queried (graceful fallback)
    */
   async loadCurrentFlow(flowId: string): Promise<Flow | null> {
-    // Load workflow metadata
-    const { data: workflowData, error: workflowError } = await this.withFallback((client) =>
-      client
-        .from(WORKFLOWS_TABLE)
-        .select("id, name, description")
-        .eq("id", flowId)
-        .maybeSingle()
-    )
+    try {
+      // Load workflow metadata
+      const { data: workflowData, error: workflowError } = await this.withFallback((client) =>
+        client
+          .from(WORKFLOWS_TABLE)
+          .select("id, name, description")
+          .eq("id", flowId)
+          .maybeSingle()
+      )
 
-    if (workflowError) {
-      throw new Error(`Failed to load workflow: ${workflowError.message}`)
-    }
+      if (workflowError) {
+        console.warn(`[FlowRepository] Failed to load workflow metadata: ${workflowError.message}`)
+        return null
+      }
 
-    if (!workflowData) {
+      if (!workflowData) {
+        return null
+      }
+
+      // Load nodes and edges in parallel
+      // These may fail if the normalized tables don't exist yet - that's OK
+      let nodes: Node[] = []
+      let edges: FlowEdge[] = []
+
+      try {
+        [nodes, edges] = await Promise.all([
+          this.loadNodes(flowId),
+          this.loadEdges(flowId),
+        ])
+      } catch (loadError: any) {
+        // Tables might not exist yet (pre-migration) - gracefully return null
+        // so the caller falls back to loading from revision history
+        console.warn(`[FlowRepository] Failed to load from normalized tables (may not exist yet): ${loadError.message}`)
+        return null
+      }
+
+      // Get the latest version number from revisions
+      const { data: latestRevision } = await this.withFallback((client) =>
+        client
+          .from(WORKFLOWS_REVISIONS_TABLE)
+          .select("version")
+          .eq("workflow_id", flowId)
+          .order("version", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      )
+
+      const flow: Flow = {
+        id: workflowData.id,
+        name: workflowData.name || "Untitled Workflow",
+        version: latestRevision?.version ?? 0,
+        description: workflowData.description || undefined,
+        nodes,
+        edges,
+      }
+
+      return FlowSchema.parse(flow)
+    } catch (error: any) {
+      // Any other unexpected error - log and return null for graceful fallback
+      console.warn(`[FlowRepository] loadCurrentFlow failed: ${error.message}`)
       return null
     }
-
-    // Load nodes and edges in parallel
-    const [nodes, edges] = await Promise.all([
-      this.loadNodes(flowId),
-      this.loadEdges(flowId),
-    ])
-
-    // Get the latest version number from revisions
-    const { data: latestRevision } = await this.withFallback((client) =>
-      client
-        .from(WORKFLOWS_REVISIONS_TABLE)
-        .select("version")
-        .eq("workflow_id", flowId)
-        .order("version", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-    )
-
-    const flow: Flow = {
-      id: workflowData.id,
-      name: workflowData.name || "Untitled Workflow",
-      version: latestRevision?.version ?? 0,
-      description: workflowData.description || undefined,
-      nodes,
-      edges,
-    }
-
-    return FlowSchema.parse(flow)
   }
 
   /**
@@ -813,9 +844,20 @@ export class FlowRepository {
 
     console.log(`[FlowRepository] saveGraph for flow ${flowId}: ${validated.nodes.length} nodes, ${validated.edges.length} edges`)
 
-    // Save to normalized tables
-    await this.saveNodes(flowId, validated.nodes, userId)
-    await this.saveEdges(flowId, validated.edges, userId)
+    // Try to save to normalized tables - if they don't exist, just log and continue
+    try {
+      await this.saveNodes(flowId, validated.nodes, userId)
+      await this.saveEdges(flowId, validated.edges, userId)
+    } catch (normalizedError: any) {
+      // Normalized tables might not exist yet - that's OK, we'll still save the revision
+      const message = normalizedError.message?.toLowerCase() || ''
+      if (message.includes('does not exist') || message.includes('relation') || message.includes('column')) {
+        console.warn(`[FlowRepository] Normalized tables not ready, skipping: ${normalizedError.message}`)
+      } else {
+        // Re-throw unexpected errors
+        throw normalizedError
+      }
+    }
 
     // Create revision snapshot for history
     const revision = await this.createRevision({

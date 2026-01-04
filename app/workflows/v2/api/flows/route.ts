@@ -36,7 +36,17 @@ export async function POST(request: Request) {
   const repository = await getFlowRepository(serviceClient)
 
   const flowId = uuid()
-  const workspace = await ensureWorkspaceForUser(supabase, user.id)
+
+  let workspace
+  try {
+    workspace = await ensureWorkspaceForUser(supabase, user.id)
+  } catch (workspaceError: any) {
+    console.error('[v2/api/flows] Failed to ensure workspace:', workspaceError)
+    return NextResponse.json({
+      ok: false,
+      error: 'Failed to ensure workspace: ' + (workspaceError.message || workspaceError.toString())
+    }, { status: 500 })
+  }
 
   // Insert into workflows table (unified table for all workflows)
   const { error: definitionError } = await serviceClient
@@ -57,6 +67,7 @@ export async function POST(request: Request) {
     })
 
   if (definitionError) {
+    console.error('[v2/api/flows] Failed to insert workflow:', definitionError)
     return NextResponse.json({ ok: false, error: definitionError.message }, { status: 500 })
   }
 
@@ -72,7 +83,15 @@ export async function POST(request: Request) {
     metadata: description ? { description } : {},
   })
 
-  const revision = await repository.createRevision({ flowId, flow, version: 1 })
-
-  return NextResponse.json({ ok: true, flowId, revisionId: revision.id, version: revision.version })
+  try {
+    const revision = await repository.createRevision({ flowId, flow, version: 1 })
+    return NextResponse.json({ ok: true, flowId, revisionId: revision.id, version: revision.version })
+  } catch (error: any) {
+    console.error('[v2/api/flows] Failed to create revision:', error)
+    return NextResponse.json({
+      ok: false,
+      error: error.message || 'Failed to create revision',
+      details: error.toString()
+    }, { status: 500 })
+  }
 }
