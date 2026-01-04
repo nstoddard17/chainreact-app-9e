@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
     // Allow synthetic workflowId for TriggerTester (no real workflow)
     // This enables testing triggers without having a saved workflow
     const effectiveWorkflowId = workflowId || `tester-${user.id}-${Date.now()}`
+    const isSyntheticWorkflowId = !workflowId
     console.log('🧪 [test-trigger] Using workflowId:', { provided: workflowId, effective: effectiveWorkflowId })
 
     let nodes: any[] = []
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
         .from('workflow_test_sessions')
         .insert({
           id: testSessionId,
-          workflow_id: effectiveWorkflowId,
+          workflow_id: isSyntheticWorkflowId ? null : effectiveWorkflowId,
           user_id: user.id,
           status: 'listening',
           trigger_type: triggerType,

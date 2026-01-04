@@ -47,7 +47,10 @@ export async function GET(request: NextRequest) {
     .eq('id', sessionId)
     .maybeSingle()
 
-  if (!session || session.user_id !== user.id || (workflowId && session.workflow_id !== workflowId)) {
+  const workflowIdMatches =
+    !workflowId || !session?.workflow_id || session.workflow_id === workflowId
+
+  if (!session || session.user_id !== user.id || !workflowIdMatches) {
     logger.warn('[test-trigger-stream] Session lookup failed', {
       sessionId,
       workflowId: workflowId || null,
