@@ -45,6 +45,13 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
   } = useIntegrationStore()
 
   // Selection state
+  const [workflows, setWorkflows] = useState<any[]>([])
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>('')
+  const [workflowNodes, setWorkflowNodes] = useState<any[]>([])
+  const [workflowConnections, setWorkflowConnections] = useState<any[]>([])
+  const [workflowLoadError, setWorkflowLoadError] = useState<string | null>(null)
+  const [isWorkflowLoading, setIsWorkflowLoading] = useState(false)
+  const [selectedWorkflowTriggerNodeId, setSelectedWorkflowTriggerNodeId] = useState<string>('')
   const [selectedProvider, setSelectedProvider] = useState<string>('')
   const [selectedTrigger, setSelectedTrigger] = useState<string>('')
   const [selectedIntegrationId, setSelectedIntegrationId] = useState<string>('')
@@ -194,7 +201,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
   } = useDynamicOptions({
     nodeType: selectedNode?.type,
     providerId: selectedProvider,
-    workflowId: undefined, // TriggerTester doesn't have a workflow
+    workflowId: selectedWorkflowId || undefined,
     getFormValues: getFormValuesStable,
     onLoadingChange: (fieldName, isLoading) => {
       setLoadingFields(prev => {
@@ -208,29 +215,133 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
     onOptionsUpdated: () => {},
   })
 
+  // Load workflows on mount
+  useEffect(() => {
+    const loadWorkflows = async () => {
+      setIsWorkflowLoading(true)
+      setWorkflowLoadError(null)
+      try {
+        const response = await fetch('/api/workflows')
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load workflows')
+        }
+        setWorkflows(Array.isArray(data?.data) ? data.data : [])
+      } catch (err: any) {
+        setWorkflowLoadError(err.message || 'Failed to load workflows')
+      } finally {
+        setIsWorkflowLoading(false)
+      }
+    }
+
+    loadWorkflows()
+  }, [])
+
   // Load integrations on mount
   useEffect(() => {
     fetchIntegrations()
   }, [fetchIntegrations])
 
+  // Load selected workflow details
+  useEffect(() => {
+    const loadWorkflow = async () => {
+      if (!selectedWorkflowId) {
+        setWorkflowNodes([])
+        setWorkflowConnections([])
+        setSelectedWorkflowTriggerNodeId('')
+        setSelectedProvider('')
+        setSelectedTrigger('')
+        setSelectedIntegrationId('')
+        setConfigValues({})
+        setConfigErrors({})
+        return
+      }
+
+      setIsWorkflowLoading(true)
+      setWorkflowLoadError(null)
+      try {
+        const response = await fetch(`/api/workflows/${selectedWorkflowId}`)
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load workflow')
+        }
+
+        setWorkflowNodes(Array.isArray(data?.nodes) ? data.nodes : data?.data?.nodes || [])
+        setWorkflowConnections(Array.isArray(data?.connections) ? data.connections : data?.data?.connections || [])
+        setSelectedWorkflowTriggerNodeId('')
+        setSelectedProvider('')
+        setSelectedTrigger('')
+        setSelectedIntegrationId('')
+        setConfigValues({})
+        setConfigErrors({})
+      } catch (err: any) {
+        setWorkflowLoadError(err.message || 'Failed to load workflow')
+        setWorkflowNodes([])
+        setWorkflowConnections([])
+        setSelectedWorkflowTriggerNodeId('')
+      } finally {
+        setIsWorkflowLoading(false)
+      }
+    }
+
+    loadWorkflow()
+  }, [selectedWorkflowId])
+
+  const workflowTriggerNodes = React.useMemo(() => {
+    if (!selectedWorkflowId) return []
+    const triggerTypes = new Set(
+      ALL_NODE_COMPONENTS.filter(node => node.isTrigger === true).map(node => node.type)
+    )
+    return workflowNodes.filter((node: any) => {
+      const nodeType = node?.data?.type || node?.type || ''
+      return Boolean(
+        node?.isTrigger ||
+          node?.data?.isTrigger ||
+          (nodeType && triggerTypes.has(nodeType))
+      )
+    })
+  }, [selectedWorkflowId, workflowNodes])
+
   // Reset when provider changes
   useEffect(() => {
-    setSelectedTrigger('')
-    setSelectedIntegrationId('')
+    if (!selectedWorkflowId) {
+      setSelectedTrigger('')
+      setSelectedIntegrationId('')
+    }
     setConfigValues({})
     setConfigErrors({})
-  }, [selectedProvider])
+  }, [selectedProvider, selectedWorkflowId])
 
   // Reset when trigger changes
   useEffect(() => {
-    setConfigValues({})
-    setConfigErrors({})
+    if (!selectedWorkflowId) {
+      setConfigValues({})
+      setConfigErrors({})
+    }
 
     // Auto-select first integration if available
     if (integrationsForProvider.length > 0 && !selectedIntegrationId) {
       setSelectedIntegrationId(integrationsForProvider[0].id)
     }
-  }, [selectedTrigger, integrationsForProvider, selectedIntegrationId])
+  }, [selectedTrigger, integrationsForProvider, selectedIntegrationId, selectedWorkflowId])
+
+  // Hydrate selection from workflow trigger node
+  useEffect(() => {
+    if (!selectedWorkflowId || !selectedWorkflowTriggerNodeId) return
+
+    const node = workflowNodes.find((item: any) => item?.id === selectedWorkflowTriggerNodeId)
+    if (!node) return
+
+    const providerId = node?.data?.providerId || ''
+    const triggerType = node?.data?.type || node?.type || ''
+    const config = node?.data?.config || {}
+    const integrationId = config?.integrationId || ''
+
+    setSelectedProvider(providerId)
+    setSelectedTrigger(triggerType)
+    setConfigValues(config)
+    setSelectedIntegrationId(integrationId)
+  }, [selectedWorkflowId, selectedWorkflowTriggerNodeId, workflowNodes])
 
   // setValue handler
   const handleSetValue = useCallback((field: string, value: any) => {
@@ -247,7 +358,72 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
       return
     }
 
-    // Create mock trigger node
+    const updatedConfig = {
+      ...configValues,
+      integrationId: selectedIntegrationId
+    }
+
+    if (selectedWorkflowId && selectedWorkflowTriggerNodeId) {
+      const updatedNodes = workflowNodes.map((node: any) => {
+        if (node?.id !== selectedWorkflowTriggerNodeId) return node
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            config: updatedConfig
+          }
+        }
+      })
+
+      addLog('info', 'Config', 'Saving workflow updates before test', {
+        workflowId: selectedWorkflowId,
+        triggerNodeId: selectedWorkflowTriggerNodeId,
+        configKeys: Object.keys(updatedConfig)
+      })
+
+      try {
+        const saveResponse = await fetch(`/api/workflows/${selectedWorkflowId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nodes: updatedNodes,
+            connections: workflowConnections
+          })
+        })
+
+        const saveResult = await saveResponse.json().catch(() => ({}))
+        if (!saveResponse.ok) {
+          addLog('error', 'API', 'Failed to save workflow updates', {
+            status: saveResponse.status,
+            error: saveResult.error
+          })
+          return
+        }
+      } catch (err: any) {
+        addLog('error', 'API', 'Failed to save workflow updates', {
+          error: err.message
+        })
+        return
+      }
+
+      addLog('info', 'Config', 'Starting trigger test with workflow', {
+        nodeId: selectedWorkflowTriggerNodeId,
+        workflowId: selectedWorkflowId,
+        providerId: selectedProvider,
+        triggerType: selectedTrigger
+      })
+
+      await startTest({
+        nodeId: selectedWorkflowTriggerNodeId,
+        nodes: updatedNodes,
+        connections: workflowConnections,
+        workflowId: selectedWorkflowId
+      })
+
+      return
+    }
+
+    // Create mock trigger node (unsaved workflow)
     const mockTriggerNode = {
       id: `test-trigger-${Date.now()}`,
       type: selectedTrigger,
@@ -256,10 +432,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
         isTrigger: true,
         providerId: selectedProvider,
         type: selectedTrigger,
-        config: {
-          ...configValues,
-          integrationId: selectedIntegrationId
-        }
+        config: updatedConfig
       },
       position: { x: 0, y: 0 }
     }
@@ -268,7 +441,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
       nodeId: mockTriggerNode.id,
       providerId: selectedProvider,
       triggerType: selectedTrigger,
-      configKeys: Object.keys(configValues)
+      configKeys: Object.keys(updatedConfig)
     })
 
     await startTest({
@@ -276,7 +449,19 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
       nodes: [mockTriggerNode],
       connections: []
     })
-  }, [selectedNode, selectedIntegrationId, selectedProvider, selectedTrigger, configValues, startTest, addLog])
+  }, [
+    selectedNode,
+    selectedIntegrationId,
+    selectedProvider,
+    selectedTrigger,
+    configValues,
+    selectedWorkflowId,
+    selectedWorkflowTriggerNodeId,
+    workflowNodes,
+    workflowConnections,
+    startTest,
+    addLog
+  ])
 
   // Stop trigger test
   const handleStopTest = useCallback(async () => {
@@ -346,26 +531,78 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
             <Card className="p-4">
               <h2 className="text-lg font-semibold mb-3">Trigger Selection</h2>
 
-              {/* Provider Selector */}
+              {/* Workflow Selector */}
               <div className="space-y-2 mb-3">
-                <Label className="text-xs">Provider</Label>
+                <Label className="text-xs">Workflow</Label>
                 <select
                   className="w-full p-2 border rounded-md bg-background text-sm"
-                  value={selectedProvider}
-                  onChange={(e) => setSelectedProvider(e.target.value)}
-                  disabled={isTestActive}
+                  value={selectedWorkflowId}
+                  onChange={(e) => setSelectedWorkflowId(e.target.value)}
+                  disabled={isTestActive || isWorkflowLoading}
                 >
-                  <option value="">Select a provider...</option>
-                  {providers.map(provider => (
-                    <option key={provider} value={provider}>
-                      {provider.charAt(0).toUpperCase() + provider.slice(1).replace(/-/g, ' ')}
+                  <option value="">Use unsaved test workflow...</option>
+                  {workflows.map(workflow => (
+                    <option key={workflow.id} value={workflow.id}>
+                      {workflow.name || workflow.id}
                     </option>
                   ))}
                 </select>
+                {workflowLoadError && (
+                  <p className="text-xs text-red-600 dark:text-red-400">{workflowLoadError}</p>
+                )}
               </div>
 
+              {/* Workflow Trigger Selector */}
+              {selectedWorkflowId && (
+                <div className="space-y-2 mb-3">
+                  <Label className="text-xs">Workflow Trigger</Label>
+                  {workflowTriggerNodes.length === 0 ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        This workflow has no trigger nodes.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <select
+                      className="w-full p-2 border rounded-md bg-background text-sm"
+                      value={selectedWorkflowTriggerNodeId}
+                      onChange={(e) => setSelectedWorkflowTriggerNodeId(e.target.value)}
+                      disabled={isTestActive || isWorkflowLoading}
+                    >
+                      <option value="">Select a trigger node...</option>
+                      {workflowTriggerNodes.map(node => (
+                        <option key={node.id} value={node.id}>
+                          {node?.data?.label || node?.data?.title || node?.data?.type || node.id}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Provider Selector */}
+              {!selectedWorkflowId && (
+                <div className="space-y-2 mb-3">
+                  <Label className="text-xs">Provider</Label>
+                  <select
+                    className="w-full p-2 border rounded-md bg-background text-sm"
+                    value={selectedProvider}
+                    onChange={(e) => setSelectedProvider(e.target.value)}
+                    disabled={isTestActive}
+                  >
+                    <option value="">Select a provider...</option>
+                    {providers.map(provider => (
+                      <option key={provider} value={provider}>
+                        {provider.charAt(0).toUpperCase() + provider.slice(1).replace(/-/g, ' ')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Trigger Selector */}
-              {selectedProvider && (
+              {!selectedWorkflowId && selectedProvider && (
                 <div className="space-y-2 mb-3">
                   <Label className="text-xs">Trigger</Label>
                   <select
@@ -484,6 +721,12 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                     </Button>
                   )}
                 </div>
+
+                {selectedWorkflowId && (
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    Workflow changes are saved before the test starts.
+                  </p>
+                )}
 
                 {status === 'listening' && (
                   <p className="text-xs text-muted-foreground mt-2 text-center">

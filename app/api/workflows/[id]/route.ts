@@ -3,6 +3,7 @@ import { getWebhookUrl } from "@/lib/utils/getBaseUrl"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -154,6 +155,32 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       nodesCount: body.nodes?.length,
       connectionsCount: body.connections?.length
     })
+
+    const nodeRegistry = new Map(ALL_NODE_COMPONENTS.map(node => [node.type, node]))
+    const normalizeNodes = (list: any[]) =>
+      (Array.isArray(list) ? list : []).map((node: any) => {
+        if (!node) return node
+        const nodeType = node?.data?.type || node?.type
+        if (!nodeType) return node
+        const registryNode = nodeRegistry.get(nodeType)
+        if (!registryNode) return node
+        const isTrigger = Boolean(registryNode.isTrigger)
+        return {
+          ...node,
+          isTrigger: node?.isTrigger ?? isTrigger,
+          data: {
+            ...(node.data || {}),
+            type: node.data?.type || nodeType,
+            isTrigger: node.data?.isTrigger ?? isTrigger,
+            nodeKind: node.data?.nodeKind || (isTrigger ? 'trigger' : 'action')
+          }
+        }
+      })
+
+    if (Array.isArray(body.nodes)) {
+      body.nodes = normalizeNodes(body.nodes)
+    }
+
 
     // CRITICAL SAFETY CHECK: Prevent node erasure
     // If body contains nodes array and it's empty, but workflow had nodes before
