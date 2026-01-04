@@ -265,8 +265,15 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
         workflowId: data.workflowId,
         expiresAt: data.expiresAt,
         webhookUrl: data.webhookUrl || 'N/A',
-        sessionStored: data.sessionStored
+        sessionStored: data.sessionStored,
+        sessionError: data.sessionError || null
       })
+
+      if (data.sessionStored === false) {
+        addLog('warn', 'API', 'Test session not stored in workflow_test_sessions', {
+          sessionError: data.sessionError || null
+        })
+      }
 
       // Update state with session info
       setTestSessionId(data.testSessionId)

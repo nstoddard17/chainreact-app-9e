@@ -196,6 +196,12 @@ export async function POST(request: NextRequest) {
 
       if (!testSessionCreated) {
         console.log('🧪 [test-trigger] Warning: Could not create test session (table may not exist):', sessionError.message)
+        logger.warn('[test-trigger] Failed to create workflow_test_sessions row', {
+          testSessionId,
+          workflowId: effectiveWorkflowId,
+          userId: user.id,
+          error: sessionError,
+        })
         // Continue anyway - we'll fall back to other polling methods
       } else {
         console.log('🧪 [test-trigger] ✅ Test session created successfully')
@@ -234,7 +240,15 @@ export async function POST(request: NextRequest) {
         expiresAt: new Date(Date.now() + sessionTimeout).toISOString(),
         message: `Trigger activated. Waiting up to ${MAX_WAIT_TIME_MS / 1000} seconds for an event.`,
         webhookUrl: triggerResource?.config?.webhookUrl,
-        sessionStored: testSessionCreated
+        sessionStored: testSessionCreated,
+        sessionError: sessionError
+          ? {
+              message: sessionError.message,
+              code: (sessionError as any).code,
+              details: (sessionError as any).details,
+              hint: (sessionError as any).hint,
+            }
+          : null
       })
 
     } catch (error: any) {
