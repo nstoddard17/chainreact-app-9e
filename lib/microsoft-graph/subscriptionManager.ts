@@ -97,6 +97,11 @@ export class MicrosoftGraphSubscriptionManager {
         userId
       })
 
+      logger.info('?? [Microsoft Graph] Subscription validation will target:', {
+        notificationUrl,
+        testSessionId: testSessionId || null
+      })
+
       logger.debug('📦 Subscription payload:', JSON.stringify(subscriptionPayload, null, 2))
 
       // Create subscription via Microsoft Graph API
