@@ -195,6 +195,14 @@ const isReorderableNode = (node: any) => {
   return true
 }
 
+const isTriggerNode = (node: any) => {
+  if (!node || node.type !== 'custom') return false
+  const data = node.data || {}
+  if (data.isPlaceholder) return false
+  const type = data.type || data.nodeType || data.dataType || ''
+  return Boolean(data.isTrigger || (typeof type === 'string' && type.includes('_trigger_')))
+}
+
 /**
  * Compute responsive agent panel width based on viewport size
  * Mobile (< 640px): Full width minus margins
@@ -3721,7 +3729,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [flowId, setNodeRunning, setNodePaused, setNodeCompletedWithDetails, setNodeFailedWithDetails, finishTestFlow, toast])
 
   // Get trigger type for the TestModeDialog
-  const triggerNode = builder?.nodes?.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
+  const triggerNode = builder?.nodes?.find((n: any) => isTriggerNode(n))
   const triggerType = triggerNode?.data?.type
 
   // Handler to open the Test Mode Dialog
@@ -3767,7 +3775,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     const nodes = builder.nodes
     const edges = builder.edges || []
-    const triggerNode = nodes.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
+    const triggerNode = nodes.find((n: any) => isTriggerNode(n))
 
     const isLiveMode = config.actionMode === ActionTestMode.EXECUTE_ALL
     const waitForTrigger = config.triggerMode === TriggerTestMode.WAIT_FOR_REAL
@@ -3777,7 +3785,29 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     let timerInterval: NodeJS.Timeout | null = null
 
     try {
-      console.log('[TEST] Starting test execution', { waitForTrigger, hasTriggerNode: !!triggerNode })
+      console.log('[TEST] Starting test execution', {
+        waitForTrigger,
+        hasTriggerNode: !!triggerNode,
+        nodeCount: nodes.length,
+      })
+
+      if (!nodes.length) {
+        toast({
+          title: "Cannot test",
+          description: "No nodes available to test yet.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (waitForTrigger && !triggerNode) {
+        toast({
+          title: "Cannot wait for trigger",
+          description: "No trigger node found in the workflow.",
+          variant: "destructive",
+        })
+        return
+      }
 
       // If waiting for real trigger, start listening
       if (waitForTrigger && triggerNode) {
@@ -4149,7 +4179,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
 
     const nodes = builder.nodes
-    const triggerNode = nodes.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
+    const triggerNode = nodes.find((n: any) => isTriggerNode(n))
     const hasTrigger = Boolean(triggerNode)
 
     // If there's a trigger, ask user if they want to include it
