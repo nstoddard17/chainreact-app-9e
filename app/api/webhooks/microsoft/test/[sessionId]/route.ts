@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
-import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 import { logger } from '@/lib/utils/logger'
 
 const getSupabase = () => createClient(
@@ -92,21 +91,6 @@ export async function POST(
         }
       }
 
-      // Get workflow data from test_mode_config
-      const testConfig = testSession.test_mode_config as any
-      if (!testConfig?.nodes) {
-        logger.error(`🧪 [Microsoft Test Webhook] No workflow nodes in test_mode_config`)
-        continue
-      }
-
-      const workflow = {
-        id: testSession.workflow_id,
-        user_id: testSession.user_id,
-        nodes: testConfig.nodes,
-        connections: testConfig.connections || [],
-        name: testConfig.workflowName || 'Test Workflow'
-      }
-
       // Build event data from notification
       const eventData = {
         subscriptionId,
@@ -117,50 +101,22 @@ export async function POST(
         _testSession: true
       }
 
-      // Update test session status to executing
-      await supabase
-        .from('workflow_test_sessions')
-        .update({ status: 'executing' })
-        .eq('id', sessionId)
-
-      // Create and run execution
-      const executionEngine = new AdvancedExecutionEngine()
-      const executionSession = await executionEngine.createExecutionSession(
-        workflow.id,
-        testSession.user_id,
-        'webhook',
-        {
-          triggerData: eventData,
-          source: 'microsoft_test_webhook',
-          testSessionId: sessionId,
-          isTestExecution: true
-        }
-      )
-
-      // Update test session with execution ID
+      // Store trigger_data so test-trigger API can poll for it
+      // This allows the frontend to execute via SSE for real-time updates
       await supabase
         .from('workflow_test_sessions')
         .update({
-          execution_id: executionSession.id,
-          status: 'executing'
+          status: 'trigger_received',
+          trigger_data: eventData
         })
         .eq('id', sessionId)
 
-      logger.debug(`🧪 [Microsoft Test Webhook] Starting workflow execution`, {
-        workflowId: workflow.id,
-        executionId: executionSession.id,
-        testSessionId: sessionId
-      })
+      logger.debug(`🧪 [Microsoft Test Webhook] Trigger data stored for session ${sessionId}`)
 
-      // Execute workflow
-      await executionEngine.executeWorkflow(
-        executionSession.id,
-        workflow.nodes,
-        workflow.connections,
-        { triggerOutput: eventData }
-      )
-
-      logger.debug(`🧪 [Microsoft Test Webhook] Execution complete for session ${sessionId}`)
+      // The test-trigger API will poll and find this trigger_data,
+      // then return it to the frontend for execution via SSE.
+      // We don't execute the workflow here - that happens on the frontend
+      // for real-time progress visualization.
     }
 
     const processingTime = Date.now() - startTime

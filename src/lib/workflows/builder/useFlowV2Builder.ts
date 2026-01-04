@@ -1022,7 +1022,19 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       }
 
       setNodes(graphNodes)
-      setEdges(edges)
+
+      // Deduplicate edges by ID to prevent "duplicate key" React errors
+      const seenEdgeIds = new Set<string>()
+      const deduplicatedEdges = edges.filter(edge => {
+        if (seenEdgeIds.has(edge.id)) {
+          console.warn(`[updateReactFlowGraph] Skipping duplicate edge ID: ${edge.id}`)
+          return false
+        }
+        seenEdgeIds.add(edge.id)
+        return true
+      })
+
+      setEdges(deduplicatedEdges)
       setWorkflowName(flow.name ?? "Untitled Flow")
       setHasUnsavedChanges(false)
     },

@@ -2540,14 +2540,24 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       openIntegrationsPanel('action')
     }
 
-    // Enhance edges with onInsertNode handler
-    const enhancedEdges = builder.edges.map((edge: any) => ({
-      ...edge,
-      data: {
-        ...edge.data,
-        onInsertNode: handleInsertNodeOnEdge,
-      }
-    }))
+    // Enhance edges with onInsertNode handler and deduplicate by ID
+    const seenEdgeIds = new Set<string>()
+    const enhancedEdges = builder.edges
+      .filter((edge: any) => {
+        if (seenEdgeIds.has(edge.id)) {
+          console.warn(`[reactFlowProps] Skipping duplicate edge ID: ${edge.id}`)
+          return false
+        }
+        seenEdgeIds.add(edge.id)
+        return true
+      })
+      .map((edge: any) => ({
+        ...edge,
+        data: {
+          ...edge.data,
+          onInsertNode: handleInsertNodeOnEdge,
+        }
+      }))
 
     return {
       nodes: enhancedNodes,

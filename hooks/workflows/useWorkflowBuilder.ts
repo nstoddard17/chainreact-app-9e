@@ -2371,7 +2371,12 @@ export function useWorkflowBuilder() {
         if (!hasNewTrigger && !isPendingTriggerConfig && backup) {
           // No new trigger selected and no pending configuration - restore the old one
           setNodes((prevNodes) => [...prevNodes, backup.node])
-          setEdges((prevEdges) => [...prevEdges, ...backup.edges])
+          // Deduplicate edges when restoring backup to prevent duplicate key errors
+          setEdges((prevEdges) => {
+            const existingIds = new Set(prevEdges.map(e => e.id))
+            const newEdges = backup.edges.filter((e: Edge) => !existingIds.has(e.id))
+            return [...prevEdges, ...newEdges]
+          })
         }
       }, 100)
     }
@@ -3326,7 +3331,12 @@ export function useWorkflowBuilder() {
 
         if (!hasNewTrigger && backup) {
           setNodes((prevNodes) => [...prevNodes, backup.node])
-          setEdges((prevEdges) => [...prevEdges, ...backup.edges])
+          // Deduplicate edges when restoring backup to prevent duplicate key errors
+          setEdges((prevEdges) => {
+            const existingIds = new Set(prevEdges.map(e => e.id))
+            const newEdges = backup.edges.filter((e: Edge) => !existingIds.has(e.id))
+            return [...prevEdges, ...newEdges]
+          })
         }
       }, 50)
     }
