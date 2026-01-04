@@ -384,6 +384,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     completedNodes: string[]
   }>({ currentNodeId: null, completedNodes: [] })
 
+  // CRITICAL FIX: Cache the last valid reactFlowProps to prevent nodes from disappearing
+  // during production re-renders when builder temporarily has no nodes
+  const lastValidReactFlowPropsRef = useRef<{
+    nodes: any[]
+    edges: any[]
+    onNodesChange: any
+    onEdgesChange: any
+    onConnect: any
+    nodeTypes: any
+    edgeTypes: any
+  } | null>(null)
+
   // Cleanup function to deactivate webhooks when test ends
   const cleanupTestTrigger = useCallback(async () => {
     const sessionId = testSessionIdRef.current
@@ -2437,8 +2449,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [builder?.nodes, builder?.edges, actions, toast])
 
   const reactFlowProps = useMemo(() => {
+    // CRITICAL FIX: In production, builder can temporarily have no nodes during re-renders
+    // When this happens, we preserve the last valid props to prevent nodes from disappearing
     if (!builder) {
-      return null
+      // Return cached value if available, otherwise null
+      return lastValidReactFlowPropsRef.current
+    }
+
+    // If builder exists but has no nodes yet (still loading), preserve last valid state
+    // This prevents the flash where nodes disappear during initial load race conditions
+    if (!builder.nodes || builder.nodes.length === 0) {
+      // Only return cached if we have nodes cached - otherwise let it proceed
+      // (new workflows genuinely have 0 nodes initially)
+      if (lastValidReactFlowPropsRef.current && lastValidReactFlowPropsRef.current.nodes.length > 0) {
+        return lastValidReactFlowPropsRef.current
+      }
     }
 
     // Detect last nodes (nodes with no outgoing edges)
@@ -2559,7 +2584,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       }))
 
-    return {
+    const result = {
       nodes: enhancedNodes,
       edges: enhancedEdges,
       onNodesChange: builder.optimizedOnNodesChange ?? builder.onNodesChange,
@@ -2568,6 +2593,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
+
+    // Cache the valid result for future use during transitional states
+    // Only cache if we have actual nodes (not during initial empty state)
+    if (enhancedNodes.length > 0) {
+      lastValidReactFlowPropsRef.current = result
+    }
+
+    return result
   }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex])
 
   // Name update handler
