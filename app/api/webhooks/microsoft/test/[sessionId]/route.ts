@@ -27,7 +27,10 @@ export async function POST(
   const { sessionId } = await params
   const supabase = getSupabase()
 
-  console.log(`🧪 [Microsoft Test Webhook] Received POST for session: ${sessionId}`)
+  console.log(`dYŚ [Microsoft Test Webhook] Received POST for session: ${sessionId}`, {
+    url: request.nextUrl.toString(),
+    method: request.method
+  })
 
   try {
     const startTime = Date.now()
@@ -154,6 +157,10 @@ export async function GET(
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
   const { sessionId } = await params
+  console.log(`dYŚ [Microsoft Test Webhook] Received GET for session: ${sessionId}`, {
+    url: request.nextUrl.toString(),
+    method: request.method
+  })
   const validationToken = request.nextUrl.searchParams.get('validationToken') ||
     request.nextUrl.searchParams.get('validationtoken')
 
@@ -179,4 +186,16 @@ export async function GET(
     session: testSession,
     timestamp: new Date().toISOString()
   })
+}
+
+export async function OPTIONS(
+  request: NextRequest,
+  { params }: { params: Promise<{ sessionId: string }> }
+) {
+  const { sessionId } = await params
+  console.log(`dYŚ [Microsoft Test Webhook] Received OPTIONS for session: ${sessionId}`, {
+    url: request.nextUrl.toString(),
+    method: request.method
+  })
+  return new NextResponse(null, { status: 200 })
 }
