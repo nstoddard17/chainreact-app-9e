@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { errorResponse } from '@/lib/utils/api-response'
 
@@ -17,6 +18,10 @@ type TriggerStreamEvent =
 
 export async function GET(request: NextRequest) {
   const supabase = await createSupabaseRouteHandlerClient()
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!
+  )
   const {
     data: { user },
     error: userError,
@@ -35,7 +40,7 @@ export async function GET(request: NextRequest) {
     return errorResponse('Missing sessionId', 400)
   }
 
-  const { data: session } = await supabase
+  const { data: session } = await admin
     .from('workflow_test_sessions')
     .select('id, workflow_id, user_id, status, expires_at')
     .eq('id', sessionId)
@@ -72,7 +77,7 @@ export async function GET(request: NextRequest) {
           break
         }
 
-        const { data: current } = await supabase
+        const { data: current } = await admin
           .from('workflow_test_sessions')
           .select('status, trigger_data, execution_id, expires_at')
           .eq('id', sessionId)
@@ -109,7 +114,7 @@ export async function GET(request: NextRequest) {
 
         const isExpired = current.expires_at && new Date(current.expires_at) <= new Date()
         if (isExpired) {
-          await supabase
+          await admin
             .from('workflow_test_sessions')
             .update({
               status: 'expired',
@@ -133,7 +138,7 @@ export async function GET(request: NextRequest) {
         await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
       }
 
-      await supabase
+      await admin
         .from('workflow_test_sessions')
         .update({
           status: 'expired',
