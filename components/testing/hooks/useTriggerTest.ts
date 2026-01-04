@@ -264,7 +264,8 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
         testSessionId: data.testSessionId,
         workflowId: data.workflowId,
         expiresAt: data.expiresAt,
-        webhookUrl: data.webhookUrl || 'N/A'
+        webhookUrl: data.webhookUrl || 'N/A',
+        sessionStored: data.sessionStored
       })
 
       // Update state with session info

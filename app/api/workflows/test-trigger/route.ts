@@ -233,7 +233,8 @@ export async function POST(request: NextRequest) {
         status: 'listening',
         expiresAt: new Date(Date.now() + sessionTimeout).toISOString(),
         message: `Trigger activated. Waiting up to ${MAX_WAIT_TIME_MS / 1000} seconds for an event.`,
-        webhookUrl: triggerResource?.config?.webhookUrl
+        webhookUrl: triggerResource?.config?.webhookUrl,
+        sessionStored: testSessionCreated
       })
 
     } catch (error: any) {

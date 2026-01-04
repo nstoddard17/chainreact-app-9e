@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { errorResponse } from '@/lib/utils/api-response'
+import { logger } from '@/lib/utils/logger'
 
 const DEFAULT_TIMEOUT_MS = 60000
 const POLL_INTERVAL_MS = 1000
@@ -47,7 +48,15 @@ export async function GET(request: NextRequest) {
     .maybeSingle()
 
   if (!session || session.user_id !== user.id || (workflowId && session.workflow_id !== workflowId)) {
-    return errorResponse('Test session not found', 404)
+    logger.warn('[test-trigger-stream] Session lookup failed', {
+      sessionId,
+      workflowId: workflowId || null,
+      sessionFound: !!session,
+      sessionWorkflowId: session?.workflow_id || null,
+      sessionUserId: session?.user_id || null,
+      userId: user.id,
+    })
+    return errorResponse('Test session not found or workflow mismatch', 404)
   }
 
   const encoder = new TextEncoder()
