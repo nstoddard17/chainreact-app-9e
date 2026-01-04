@@ -20,7 +20,9 @@ import {
   Radio,
   ChevronDown,
   ChevronUp,
-  Filter
+  Filter,
+  Maximize2,
+  Minimize2
 } from 'lucide-react'
 import { GenericConfiguration } from '@/components/workflows/configuration/providers/GenericConfiguration'
 import { VariableDragProvider } from '@/components/workflows/configuration/VariableDragContext'
@@ -62,9 +64,10 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
 
   // Results display state
   const [isResultsExpanded, setIsResultsExpanded] = useState(false)
+  const [isDebugLogsExpanded, setIsDebugLogsExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<'results' | 'logs' | 'config'>('results')
   const [logFilter, setLogFilter] = useState<'all' | 'info' | 'warn' | 'error' | 'debug'>('all')
-  const [isLogsExpanded, setIsLogsExpanded] = useState(true)
+  const [isLogsCollapsed, setIsLogsCollapsed] = useState(false)
 
   // Countdown timer state
   const [countdownSeconds, setCountdownSeconds] = useState(60)
@@ -506,7 +509,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
               <Card className="p-4 flex-1 overflow-hidden flex flex-col">
                 <div
                   className="flex items-center justify-between cursor-pointer"
-                  onClick={() => setIsLogsExpanded(!isLogsExpanded)}
+                  onClick={() => setIsLogsCollapsed(!isLogsCollapsed)}
                 >
                   <h3 className="text-lg font-semibold flex items-center gap-2">
                     Debug Logs
@@ -517,17 +520,20 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                     )}
                   </h3>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); copyLogs(); }}>
+                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); setIsDebugLogsExpanded(true); }} title="Expand logs">
+                      <Maximize2 className="w-3 h-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); copyLogs(); }} title="Copy logs">
                       <Copy className="w-3 h-3" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); clearLogs(); }}>
+                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); clearLogs(); }} title="Clear logs">
                       <Trash2 className="w-3 h-3" />
                     </Button>
-                    {isLogsExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    {isLogsCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                   </div>
                 </div>
 
-                {isLogsExpanded && (
+                {!isLogsCollapsed && (
                   <>
                     {/* Log Filters */}
                     <div className="flex gap-1 mt-2 mb-2">
@@ -867,6 +873,132 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Debug Logs Overlay (expanded) */}
+          {isDebugLogsExpanded && (
+            <div className="fixed inset-4 z-50 bg-background border rounded-lg shadow-2xl flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-xl font-semibold flex items-center gap-2">
+                  Debug Logs
+                  {debugLogs.some(l => l.level === 'error') && (
+                    <Badge variant="destructive">
+                      {debugLogs.filter(l => l.level === 'error').length} errors
+                    </Badge>
+                  )}
+                  {debugLogs.some(l => l.level === 'warn') && (
+                    <Badge variant="outline" className="text-yellow-600 dark:text-yellow-400 border-yellow-500">
+                      {debugLogs.filter(l => l.level === 'warn').length} warnings
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="text-muted-foreground">
+                    {debugLogs.length} total
+                  </Badge>
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={copyLogs}>
+                    <Copy className="w-4 h-4 mr-1" /> Copy All
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={clearLogs}>
+                    <Trash2 className="w-4 h-4 mr-1" /> Clear
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setIsDebugLogsExpanded(false)}>
+                    ✕
+                  </Button>
+                </div>
+              </div>
+
+              {/* Filter Bar */}
+              <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
+                <span className="text-sm text-muted-foreground">Filter:</span>
+                {(['all', 'info', 'warn', 'error', 'debug'] as const).map(filter => (
+                  <Button
+                    key={filter}
+                    variant={logFilter === filter ? 'default' : 'ghost'}
+                    size="sm"
+                    className="h-7 px-3"
+                    onClick={() => setLogFilter(filter)}
+                  >
+                    {filter === 'all' ? 'All' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      ({filter === 'all' ? debugLogs.length : debugLogs.filter(l => l.level === filter).length})
+                    </span>
+                  </Button>
+                ))}
+              </div>
+
+              {/* Log Entries */}
+              <div className="flex-1 overflow-auto p-4 font-mono text-sm space-y-2">
+                {filteredLogs.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Filter className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No logs to display</p>
+                    {logFilter !== 'all' && (
+                      <p className="text-xs mt-1">Try changing the filter or clear existing filters</p>
+                    )}
+                  </div>
+                ) : (
+                  filteredLogs.map((log, idx) => (
+                    <div
+                      key={idx}
+                      className={`
+                        p-3 rounded border
+                        ${log.level === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400' : ''}
+                        ${log.level === 'warn' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400' : ''}
+                        ${log.level === 'info' ? 'bg-blue-500/5 border-blue-500/20' : ''}
+                        ${log.level === 'debug' ? 'bg-muted/50 border-muted text-muted-foreground' : ''}
+                      `}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-xs text-muted-foreground shrink-0 font-normal">
+                          {log.timestamp.split('T')[1]?.split('.')[0]}
+                        </span>
+                        <span className={`
+                          font-bold text-xs shrink-0 px-1.5 py-0.5 rounded
+                          ${log.level === 'error' ? 'bg-red-500/20 text-red-600 dark:text-red-400' : ''}
+                          ${log.level === 'warn' ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' : ''}
+                          ${log.level === 'info' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' : ''}
+                          ${log.level === 'debug' ? 'bg-gray-500/20 text-gray-500' : ''}
+                        `}>
+                          {log.level.toUpperCase()}
+                        </span>
+                        <span className="text-purple-600 dark:text-purple-400 text-xs shrink-0 font-semibold">
+                          [{log.category}]
+                        </span>
+                        <span className="break-all font-normal">{log.message}</span>
+                      </div>
+                      {log.details && (
+                        <div className="mt-2 ml-[100px] text-xs border-l-2 border-muted pl-3 space-y-1">
+                          {Object.entries(log.details).map(([key, value]) => (
+                            <div key={key} className="break-all text-muted-foreground">
+                              <span className="text-foreground font-medium">{key}:</span>{' '}
+                              {typeof value === 'object' ? (
+                                <pre className="inline-block bg-muted/50 px-1 rounded text-xs">
+                                  {JSON.stringify(value, null, 2)}
+                                </pre>
+                              ) : (
+                                String(value)
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Footer with session info */}
+              <div className="border-t px-4 py-2 bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
+                <div className="flex gap-4">
+                  <span>Session: <code>{testSessionId || 'N/A'}</code></span>
+                  <span>Status: <span className={statusDisplay.color}>{statusDisplay.text}</span></span>
+                </div>
+                <div>
+                  {expiresAt && <span>Expires: {new Date(expiresAt).toLocaleTimeString()}</span>}
+                </div>
               </div>
             </div>
           )}
