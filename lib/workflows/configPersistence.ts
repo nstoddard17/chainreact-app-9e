@@ -112,6 +112,29 @@ export const saveNodeConfig = async (
       throw updateError;
     }
 
+    // Also update the workflow_nodes table (normalized storage)
+    // This ensures config is saved to both places during transition
+    try {
+      const { error: nodeUpdateError } = await supabase
+        .from('workflow_nodes')
+        .update({
+          config: config,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', nodeId)
+        .eq('workflow_id', workflowId)
+
+      if (nodeUpdateError) {
+        // Don't fail - just log warning (node might not exist in normalized table yet)
+        logger.debug(`[ConfigPersistence] Could not update workflow_nodes table for node ${nodeId} (may not exist yet):`, nodeUpdateError.message);
+      } else {
+        logger.debug(`[ConfigPersistence] Also saved config to workflow_nodes table for node ${nodeId}`);
+      }
+    } catch (normalizedError) {
+      // Don't fail the main save if normalized table update fails
+      logger.debug(`[ConfigPersistence] Normalized table update skipped for node ${nodeId}`);
+    }
+
     logger.debug(`✅ [ConfigPersistence] Successfully saved configuration for node ${nodeId} to Supabase`);
   } catch (error) {
     logger.error(`❌ [ConfigPersistence] Failed to save configuration for node ${nodeId}:`, error);
