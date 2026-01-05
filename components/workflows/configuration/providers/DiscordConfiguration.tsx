@@ -215,8 +215,6 @@ export function DiscordConfiguration({
       isValid: missingRequiredFields.length === 0
     };
 
-    console.log('🔧 [DiscordConfig] Submitting with validationState:', validationState);
-
     await onSubmit({
       ...values,
       __validationState: validationState
@@ -622,135 +620,85 @@ export function DiscordConfiguration({
   // Note: Discord servers are now automatically loaded via loadOnMount: true in node definitions
   // This prevents duplicate loading and rate limiting issues
 
-  // Just track that servers have been initialized if they're already loaded
-  useEffect(() => {
-    const isDiscordNode = nodeInfo?.type?.startsWith('discord_action_') || nodeInfo?.type?.startsWith('discord_trigger_');
-    const serversAlreadyLoaded = dynamicOptions.guildId && dynamicOptions.guildId.length > 0;
+  // Track which fields have been auto-loaded to prevent duplicate loads
+  const autoLoadedFieldsRef = useRef<Set<string>>(new Set());
 
-    if (isDiscordNode && serversAlreadyLoaded && !hasInitializedServers.current) {
-      logger.debug('✅ [Discord] Servers already loaded from loadOnMount');
-      hasInitializedServers.current = true;
-    }
-  }, [nodeInfo?.type, dynamicOptions.guildId]);
-
-  // Auto-load channels when component mounts with saved guildId
+  // CONSOLIDATED: Auto-load dependent fields when component mounts with saved values
+  // This single effect handles: channels, users (for assign_role), and roles
+  // Previously split across 3 separate useEffects causing potential race conditions
   useEffect(() => {
-    // Only load for Discord nodes
     const isDiscordNode = nodeInfo?.type?.startsWith('discord_action_') || nodeInfo?.type?.startsWith('discord_trigger_');
     if (!isDiscordNode) return;
 
-    // If we have a saved guildId and channelId but no channel options loaded yet
-    if (values.guildId && values.channelId && (!dynamicOptions.channelId || dynamicOptions.channelId.length === 0)) {
-      logger.debug('🔄 [Discord] Loading channels for saved guildId:', values.guildId, 'with saved channelId:', values.channelId);
-
-      // Debounce to avoid multiple calls
-      const timeoutId = setTimeout(() => {
-        // Load the channels for the saved guild
-        setLocalLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.add('channelId');
-          return newSet;
-        });
-
-        loadOptions('channelId', 'guildId', values.guildId, false).then(() => {
-          logger.debug('✅ [Discord] Channels loaded for saved configuration');
-        }).catch((error: any) => {
-          // Don't log rate limit errors as errors
-          if (error?.message?.includes('rate limit')) {
-            logger.warn('⚠️ [Discord] Rate limited when loading channels, user can select manually');
-          } else {
-            logger.error('❌ [Discord] Failed to load channels for saved configuration:', error);
-          }
-        }).finally(() => {
-          setLocalLoadingFields(prev => {
-            const newSet = new Set(prev);
-            newSet.delete('channelId');
-            return newSet;
-          });
-        });
-      }, 500); // Wait 500ms before loading to debounce
-
-      return () => clearTimeout(timeoutId);
+    // Track servers as initialized if already loaded
+    const serversAlreadyLoaded = dynamicOptions.guildId && dynamicOptions.guildId.length > 0;
+    if (serversAlreadyLoaded && !hasInitializedServers.current) {
+      logger.debug('✅ [Discord] Servers already loaded from loadOnMount');
+      hasInitializedServers.current = true;
     }
-  }, [values.guildId, values.channelId, nodeInfo?.type]); // Add nodeInfo.type to dependencies
 
-  // Auto-load users and roles for assign role action when component mounts with saved values
-  useEffect(() => {
-    // Only for discord_action_assign_role
-    if (nodeInfo?.type !== 'discord_action_assign_role') return;
+    // Don't proceed without a guild
+    if (!values.guildId) return;
 
-    // If we have a saved guildId and userId but no user options loaded yet
-    if (values.guildId && values.userId && (!dynamicOptions.userId || dynamicOptions.userId.length === 0)) {
-      logger.debug('🔄 [Discord] Loading users for saved assign role configuration:', {
-        guildId: values.guildId,
-        savedUserId: values.userId
+    // Helper to load a field with rate limiting protection
+    const loadField = async (fieldName: string, delay: number) => {
+      const loadKey = `${fieldName}-${values.guildId}`;
+      if (autoLoadedFieldsRef.current.has(loadKey)) return;
+      autoLoadedFieldsRef.current.add(loadKey);
+
+      return new Promise<void>((resolve) => {
+        setTimeout(async () => {
+          setLocalLoadingFields(prev => new Set(prev).add(fieldName));
+          try {
+            await loadOptions(fieldName, 'guildId', values.guildId, false);
+            logger.debug(`✅ [Discord] ${fieldName} loaded for saved configuration`);
+          } catch (error: any) {
+            if (error?.message?.includes('rate limit')) {
+              logger.warn(`⚠️ [Discord] Rate limited when loading ${fieldName}`);
+            } else {
+              logger.error(`❌ [Discord] Failed to load ${fieldName}:`, error);
+            }
+          } finally {
+            setLocalLoadingFields(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(fieldName);
+              return newSet;
+            });
+            resolve();
+          }
+        }, delay);
       });
+    };
 
-      // Debounce to avoid multiple calls
-      const timeoutId = setTimeout(() => {
-        // Load the users for the saved guild
-        setLocalLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.add('userId');
-          return newSet;
-        });
+    // Collect fields that need loading
+    const fieldsToLoad: Array<{ field: string; delay: number }> = [];
 
-        loadOptions('userId', 'guildId', values.guildId, false).then(() => {
-          logger.debug('✅ [Discord] Users loaded for saved assign role configuration');
-        }).catch((error: any) => {
-          if (error?.message?.includes('rate limit')) {
-            logger.warn('⚠️ [Discord] Rate limited when loading users');
-          } else {
-            logger.error('❌ [Discord] Failed to load users for saved configuration:', error);
-          }
-        }).finally(() => {
-          setLocalLoadingFields(prev => {
-            const newSet = new Set(prev);
-            newSet.delete('userId');
-            return newSet;
-          });
-        });
-      }, 600); // Wait a bit longer to avoid conflicts with other loads
-
-      return () => clearTimeout(timeoutId);
+    // Channels: load if we have saved guildId+channelId but no channel options
+    if (values.channelId && (!dynamicOptions.channelId || dynamicOptions.channelId.length === 0)) {
+      fieldsToLoad.push({ field: 'channelId', delay: 500 });
     }
 
-    // If we have a saved guildId and roleId but no role options loaded yet
-    if (values.guildId && values.roleId && (!dynamicOptions.roleId || dynamicOptions.roleId.length === 0)) {
-      logger.debug('🔄 [Discord] Loading roles for saved assign role configuration:', {
-        guildId: values.guildId,
-        savedRoleId: values.roleId
-      });
-
-      // Debounce to avoid multiple calls
-      const timeoutId = setTimeout(() => {
-        // Load the roles for the saved guild
-        setLocalLoadingFields(prev => {
-          const newSet = new Set(prev);
-          newSet.add('roleId');
-          return newSet;
-        });
-
-        loadOptions('roleId', 'guildId', values.guildId, false).then(() => {
-          logger.debug('✅ [Discord] Roles loaded for saved assign role configuration');
-        }).catch((error: any) => {
-          if (error?.message?.includes('rate limit')) {
-            logger.warn('⚠️ [Discord] Rate limited when loading roles');
-          } else {
-            logger.error('❌ [Discord] Failed to load roles for saved configuration:', error);
-          }
-        }).finally(() => {
-          setLocalLoadingFields(prev => {
-            const newSet = new Set(prev);
-            newSet.delete('roleId');
-            return newSet;
-          });
-        });
-      }, 800); // Wait even longer for roles to avoid rate limits
-
-      return () => clearTimeout(timeoutId);
+    // For assign_role action: load users and roles
+    if (nodeInfo?.type === 'discord_action_assign_role') {
+      if (values.userId && (!dynamicOptions.userId || dynamicOptions.userId.length === 0)) {
+        fieldsToLoad.push({ field: 'userId', delay: 600 });
+      }
+      if (values.roleId && (!dynamicOptions.roleId || dynamicOptions.roleId.length === 0)) {
+        fieldsToLoad.push({ field: 'roleId', delay: 800 });
+      }
     }
-  }, [values.guildId, values.userId, values.roleId, nodeInfo?.type]);
+
+    // Load all fields that need loading
+    if (fieldsToLoad.length > 0) {
+      logger.debug('🔄 [Discord] Loading saved configuration fields:', fieldsToLoad.map(f => f.field));
+      fieldsToLoad.forEach(({ field, delay }) => loadField(field, delay));
+    }
+
+    // Cleanup: reset tracking when node changes
+    return () => {
+      autoLoadedFieldsRef.current.clear();
+    };
+  }, [nodeInfo?.type, values.guildId, values.channelId, values.userId, values.roleId, dynamicOptions.guildId, dynamicOptions.channelId, dynamicOptions.userId, dynamicOptions.roleId, loadOptions]);
 
   // Listen for bot connection events
   useEffect(() => {

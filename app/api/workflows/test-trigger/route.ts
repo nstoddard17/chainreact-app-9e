@@ -6,18 +6,16 @@ import { logger } from '@/lib/utils/logger'
 /**
  * Test Trigger API
  *
- * Temporarily activates a trigger, waits for an event, then deactivates it.
+ * Temporarily activates a trigger and returns a test session ID.
  * Used for testing triggers during workflow development.
  *
  * Flow:
  * 1. Client initiates test (POST with workflowId, nodeId)
  * 2. Server activates trigger temporarily
- * 3. Server polls for trigger event (with timeout)
- * 4. Server returns event data or timeout
- * 5. Server deactivates trigger
+ * 3. Client subscribes to SSE stream for trigger events
+ * 4. Client deactivates trigger on completion/timeout
  */
 
-const POLL_INTERVAL_MS = 2000 // Check every 2 seconds
 const MAX_WAIT_TIME_MS = 60000 // Wait up to 60 seconds
 
 // GET handler for debugging - verify route is accessible
@@ -59,10 +57,15 @@ export async function POST(request: NextRequest) {
       providedConnectionsCount: providedConnections?.length
     })
 
-    if (!workflowId || !nodeId) {
-      console.log('🧪 [test-trigger] Missing required fields')
-      return errorResponse("Workflow ID and Node ID are required", 400)
+    if (!nodeId) {
+      console.log('🧪 [test-trigger] Missing required field: nodeId')
+      return errorResponse("Node ID is required", 400)
     }
+
+    // Allow synthetic workflowId for TriggerTester (no real workflow)
+    // This enables testing triggers without having a saved workflow
+    const effectiveWorkflowId = workflowId || crypto.randomUUID()
+    console.log('🧪 [test-trigger] Using workflowId:', { provided: workflowId, effective: effectiveWorkflowId })
 
     let nodes: any[] = []
     let connections: any[] = []
@@ -75,12 +78,12 @@ export async function POST(request: NextRequest) {
       connections = providedConnections || []
     } else {
       // Get workflow from database
-      console.log('🧪 [test-trigger] Fetching workflow from database...', { workflowId, userId: user.id })
+      console.log('🧪 [test-trigger] Fetching workflow from database...', { effectiveWorkflowId, userId: user.id })
 
       const { data: workflow, error: workflowError } = await supabase
         .from("workflows")
         .select("*")
-        .eq("id", workflowId)
+        .eq("id", effectiveWorkflowId)
         .eq("user_id", user.id)
         .maybeSingle()
 
@@ -138,7 +141,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid trigger configuration", 400)
     }
 
-    logger.debug(`🧪 Testing trigger for workflow ${workflowId}`, {
+    logger.debug(`🧪 Testing trigger for workflow ${effectiveWorkflowId}`, {
       nodeId,
       providerId,
       triggerType
@@ -160,7 +163,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a test session ID
-    const testSessionId = `test-${workflowId}-${Date.now()}`
+    const testSessionId = `test-${effectiveWorkflowId}-${Date.now()}`
     const sessionTimeout = MAX_WAIT_TIME_MS + 10000 // Extra buffer for cleanup
 
     try {
@@ -173,7 +176,7 @@ export async function POST(request: NextRequest) {
         .from('workflow_test_sessions')
         .insert({
           id: testSessionId,
-          workflow_id: workflowId,
+          workflow_id: effectiveWorkflowId,
           user_id: user.id,
           status: 'listening',
           trigger_type: triggerType,
@@ -189,8 +192,16 @@ export async function POST(request: NextRequest) {
           },
         })
 
-      if (sessionError) {
+      const testSessionCreated = !sessionError
+
+      if (!testSessionCreated) {
         console.log('🧪 [test-trigger] Warning: Could not create test session (table may not exist):', sessionError.message)
+        logger.warn('[test-trigger] Failed to create workflow_test_sessions row', {
+          testSessionId,
+          workflowId: effectiveWorkflowId,
+          userId: user.id,
+          error: sessionError,
+        })
         // Continue anyway - we'll fall back to other polling methods
       } else {
         console.log('🧪 [test-trigger] ✅ Test session created successfully')
@@ -204,204 +215,47 @@ export async function POST(request: NextRequest) {
 
       // Pass test mode config to ensure separate webhook URL is used
       await triggerManager.activateWorkflowTriggers(
-        workflowId,
+        effectiveWorkflowId,
         user.id,
         [triggerNode],
         { isTest: true, testSessionId }
       )
 
       console.log('🧪 [test-trigger] ✅ Trigger activated successfully!')
-      logger.debug(`✅ Trigger activated for testing, polling for events...`)
+      logger.debug(`✅ Trigger activated for testing, waiting for SSE clients...`)
 
-      // Check what was created in trigger_resources
-      const { data: createdResources } = await supabase
+      const { data: triggerResource } = await supabase
         .from('trigger_resources')
-        .select('*')
-        .eq('workflow_id', workflowId)
-      console.log('🧪 [test-trigger] Created trigger resources:', createdResources)
+        .select('config')
+        .eq('workflow_id', effectiveWorkflowId)
+        .eq('node_id', nodeId)
+        .eq('status', 'active')
+        .maybeSingle()
 
-      // Poll for trigger event
-      const startTime = Date.now()
-      let eventData = null
-      let pollCount = 0
-      let executionId: string | null = null
-
-      console.log('🧪 [test-trigger] Starting to poll for events...')
-
-      while (Date.now() - startTime < MAX_WAIT_TIME_MS) {
-        pollCount++
-        const elapsed = Math.round((Date.now() - startTime) / 1000)
-        console.log(`🧪 [test-trigger] Poll #${pollCount} (${elapsed}s elapsed)`)
-
-        // PRIORITY 1: Check if test session has received trigger data
-        // The webhook processor stores trigger_data and sets status='trigger_received'
-        // We return this to the frontend so it can execute via SSE for real-time updates
-        const { data: testSession } = await supabase
-          .from('workflow_test_sessions')
-          .select('status, execution_id, trigger_data')
-          .eq('id', testSessionId)
-          .maybeSingle()
-
-        if (testSession?.status === 'trigger_received' && testSession?.trigger_data) {
-          console.log('🧪 [test-trigger] ✅ Trigger data received!')
-          eventData = testSession.trigger_data
-          logger.debug(`✅ Trigger event received via test session!`, { eventData })
-          break
-        }
-
-        // Also check for legacy 'executing' status (for backwards compatibility)
-        if (testSession?.status === 'executing' && testSession?.execution_id) {
-          console.log('🧪 [test-trigger] ✅ Test session is executing!', { executionId: testSession.execution_id })
-          executionId = testSession.execution_id
-
-          // Get the execution details
-          const { data: execution } = await supabase
-            .from('workflow_executions')
-            .select('*')
-            .eq('id', executionId)
-            .single()
-
-          if (execution) {
-            eventData = execution.input_data
-            console.log('🧪 [test-trigger] ✅ Got execution data from test session!')
-            logger.debug(`✅ Trigger event received via test session!`, { executionId, eventData })
-            break
-          }
-        }
-
-        // PRIORITY 2: Check for recent workflow executions triggered by this webhook
-        const { data: executions } = await supabase
-          .from('workflow_executions')
-          .select('*')
-          .eq('workflow_id', workflowId)
-          .gte('created_at', new Date(startTime).toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1)
-
-        if (executions && executions.length > 0) {
-          eventData = executions[0].input_data
-          executionId = executions[0].id
-          console.log('🧪 [test-trigger] ✅ Event received via workflow execution!')
-          logger.debug(`✅ Trigger event received!`, { eventData })
-          break
-        }
-
-        // PRIORITY 3: Check trigger_resources for webhook calls
-        const { data: triggerResources } = await supabase
-          .from('trigger_resources')
-          .select('config')
-          .eq('workflow_id', workflowId)
-          .eq('node_id', nodeId)
-          .eq('status', 'active')
-          .maybeSingle()
-
-        if (triggerResources?.config?.lastTestEvent) {
-          eventData = triggerResources.config.lastTestEvent
-          console.log('🧪 [test-trigger] ✅ Test event found in trigger resources!')
-          logger.debug(`✅ Test event found in trigger resources!`, { eventData })
-
-          // Clear the test event
-          await supabase
-            .from('trigger_resources')
-            .update({
-              config: {
-                ...triggerResources.config,
-                lastTestEvent: null
-              }
-            })
-            .eq('workflow_id', workflowId)
-            .eq('node_id', nodeId)
-
-          break
-        }
-
-        // PRIORITY 4: Check webhook_events table for received events
-        const { data: webhookEvents } = await supabase
-          .from('webhook_events')
-          .select('*')
-          .eq('provider', providerId)
-          .gte('timestamp', new Date(startTime).toISOString())
-          .order('timestamp', { ascending: false })
-          .limit(1)
-
-        if (webhookEvents && webhookEvents.length > 0) {
-          const webhookEvent = webhookEvents[0]
-          eventData = webhookEvent.event_data
-          console.log('🧪 [test-trigger] ✅ Event found in webhook_events!')
-          logger.debug(`✅ Webhook event found!`, { eventId: webhookEvent.id, eventData })
-          break
-        }
-
-        // PRIORITY 5: Check webhook_tasks table for queued events from this provider
-        const { data: webhookTasks } = await supabase
-          .from('webhook_tasks')
-          .select('*')
-          .eq('provider', providerId)
-          .in('status', ['queued', 'processing', 'completed'])
-          .gte('created_at', new Date(startTime).toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1)
-
-        if (webhookTasks && webhookTasks.length > 0) {
-          const task = webhookTasks[0]
-          eventData = task.event_data
-          console.log('🧪 [test-trigger] ✅ Event found in webhook_tasks!')
-          logger.debug(`✅ Webhook task event found!`, { taskId: task.id, status: task.status, eventData })
-          break
-        }
-
-        // Wait before next poll
-        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
-      }
-
-      // Deactivate ONLY the test trigger (not production triggers)
-      console.log('🧪 [test-trigger] Deactivating test trigger...')
-      await triggerManager.deactivateWorkflowTriggers(workflowId, user.id, testSessionId)
-      console.log('🧪 [test-trigger] 🛑 Test trigger deactivated (production triggers unaffected)')
-      logger.debug(`🛑 Test trigger deactivated for session ${testSessionId}`)
-
-      // Clean up test session
-      console.log('🧪 [test-trigger] Cleaning up test session...')
-      await supabase
-        .from('workflow_test_sessions')
-        .update({
-          status: eventData ? 'completed' : 'expired',
-          ended_at: new Date().toISOString(),
-        })
-        .eq('id', testSessionId)
-
-      if (eventData) {
-        console.log('🧪 [test-trigger] Returning success with event data')
-        return jsonResponse({
-          success: true,
-          eventReceived: true,
-          data: eventData,
-          testSessionId, // Return session ID so frontend can track/cleanup
-          message: "Trigger event received successfully"
-        })
-      } else {
-        // Get webhook URL for display if no event received
-        const { data: triggerResource } = await supabase
-          .from('trigger_resources')
-          .select('config')
-          .eq('workflow_id', workflowId)
-          .eq('node_id', nodeId)
-          .single()
-
-        console.log('🧪 [test-trigger] No event received, returning timeout response')
-        return jsonResponse({
-          success: true,
-          eventReceived: false,
-          message: `No event received within ${MAX_WAIT_TIME_MS / 1000} seconds. Please trigger the event manually.`,
-          webhookUrl: triggerResource?.config?.webhookUrl
-        })
-      }
+      return jsonResponse({
+        success: true,
+        testSessionId,
+        workflowId: effectiveWorkflowId,
+        status: 'listening',
+        expiresAt: new Date(Date.now() + sessionTimeout).toISOString(),
+        message: `Trigger activated. Waiting up to ${MAX_WAIT_TIME_MS / 1000} seconds for an event.`,
+        webhookUrl: triggerResource?.config?.webhookUrl,
+        sessionStored: testSessionCreated,
+        sessionError: sessionError
+          ? {
+              message: sessionError.message,
+              code: (sessionError as any).code,
+              details: (sessionError as any).details,
+              hint: (sessionError as any).hint,
+            }
+          : null
+      })
 
     } catch (error: any) {
       console.error('🧪 [test-trigger] ❌ Error during trigger activation/polling:', error)
       // Make sure to deactivate test trigger even if error occurs
       try {
-        await triggerManager.deactivateWorkflowTriggers(workflowId, user.id, testSessionId)
+        await triggerManager.deactivateWorkflowTriggers(effectiveWorkflowId, user.id, testSessionId)
         console.log('🧪 [test-trigger] Test trigger deactivated after error')
 
         // Clean up test session on error

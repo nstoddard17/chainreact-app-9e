@@ -8,7 +8,7 @@ import { logger } from "@/lib/utils/logger"
 
 const ApplyEditsSchema = z.object({
   flow: FlowSchema,
-  version: z.number().int().optional(),
+  // Note: version is no longer used - saveGraph auto-increments versions
 })
 
 export async function POST(request: Request, context: { params: Promise<{ flowId: string }> }) {
@@ -24,7 +24,6 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: parsed.error.format() }, { status: 400 })
   }
 
-  const { version } = parsed.data
   const rawFlow = { ...parsed.data.flow, id: flowId }
 
   // Log original size
@@ -92,11 +91,10 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   }
 
   try {
-    const revision = await repository.createRevision({
-      flowId,
-      flow,
-      version,
-    })
+    // Use saveGraph to save to normalized tables (workflow_nodes, workflow_edges)
+    // AND create a revision snapshot for history
+    // Pass user.id to associate nodes/edges with the user for RLS
+    const revision = await repository.saveGraph(flowId, flow, user.id)
 
     // Clean up orphaned trigger resources for nodes that were removed
     // This runs after revision is saved to ensure we don't lose trigger data on failed saves

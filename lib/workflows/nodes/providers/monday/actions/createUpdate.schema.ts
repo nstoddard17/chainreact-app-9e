@@ -32,13 +32,6 @@ export const createUpdateActionSchema: NodeComponent = {
       example: "This task is complete!"
     },
     {
-      name: "creatorId",
-      label: "Creator ID",
-      type: "string",
-      description: "The ID of the user who created the update",
-      example: "12345"
-    },
-    {
       name: "createdAt",
       label: "Created At",
       type: "string",

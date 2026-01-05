@@ -1,17 +1,7 @@
-import { createBrowserClient } from "@supabase/ssr"
-import type { Database } from "@/types/supabase"
-
-// Create a singleton Supabase client for client-side usage
-let supabaseClient: ReturnType<typeof createBrowserClient<Database>> | null = null
+import { createClient as createBrowserClient } from "@/utils/supabase/client"
 
 export function createClient() {
-  if (!supabaseClient) {
-    supabaseClient = createBrowserClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-    )
-  }
-  return supabaseClient
+  return createBrowserClient()
 }
 
 // Lazily get the client instance - avoid module-level initialization for build compatibility

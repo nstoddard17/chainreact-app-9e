@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const workflowId = searchParams.get('workflowId')
+    const testSessionId = searchParams.get('testSessionId')
 
     if (!workflowId) {
       logger.warn('⚠️ Monday.com webhook missing workflowId')
@@ -25,8 +26,10 @@ export async function POST(req: NextRequest) {
 
     const payload = await req.json()
 
-    logger.debug('🔔 Monday.com webhook received', {
+    const modeLabel = testSessionId ? '🧪 TEST' : '🚀 PRODUCTION'
+    logger.debug(`${modeLabel} Monday.com webhook received`, {
       workflowId,
+      testSessionId,
       event: payload.event
     })
 
@@ -43,7 +46,55 @@ export async function POST(req: NextRequest) {
       return errorResponse('Missing event data', 400)
     }
 
-    // Get workflow and trigger resources
+    // If this is a test session, handle differently
+    if (testSessionId) {
+      // Update test session with trigger data
+      const { data: testSession, error: sessionError } = await getSupabase()
+        .from('workflow_test_sessions')
+        .select('*')
+        .eq('id', testSessionId)
+        .single()
+
+      if (sessionError || !testSession) {
+        logger.warn(`⚠️ Test session ${testSessionId} not found`)
+        return errorResponse('Test session not found', 404)
+      }
+
+      if (testSession.status !== 'listening') {
+        logger.debug(`ℹ️ Test session ${testSessionId} not listening (status: ${testSession.status})`)
+        return NextResponse.json({ message: 'Test session not listening' }, { status: 200 })
+      }
+
+      // Store trigger data in test session for polling to pick up
+      await getSupabase()
+        .from('workflow_test_sessions')
+        .update({
+          status: 'trigger_received',
+          trigger_data: {
+            itemId: event.pulseId,
+            itemName: event.pulseName,
+            boardId: event.boardId,
+            groupId: event.groupId,
+            userId: event.userId,
+            columnId: event.columnId,
+            columnTitle: event.columnTitle,
+            value: event.value,
+            previousValue: event.previousValue,
+            columnValues: event.columnValues,
+            event: event
+          }
+        })
+        .eq('id', testSessionId)
+
+      logger.info(`✅ Monday.com TEST webhook processed - trigger data stored`, {
+        testSessionId,
+        itemId: event.pulseId
+      })
+
+      return NextResponse.json({ message: 'Test webhook processed successfully' }, { status: 200 })
+    }
+
+    // PRODUCTION MODE: Get workflow and trigger resources
     const { data: workflow } = await getSupabase()
       .from('workflows')
       .select('user_id, name, status')

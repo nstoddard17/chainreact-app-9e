@@ -318,14 +318,52 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
     const resourceMap: Record<string, string | ((config?: Record<string, any>) => string)> = {
       // Email triggers
-      'trigger_new_email': '/me/messages',
+      'trigger_new_email': (config?: Record<string, any>) => {
+        // Watch specific folder if configured, otherwise watch all messages
+        if (config?.folder) {
+          return `/me/mailFolders/${config.folder}/messages`
+        }
+        return '/me/messages'
+      },
       'trigger_email_received': '/me/messages',
       'trigger_email_sent': '/me/mailFolders/SentItems/messages',
+      'trigger_email_flagged': '/me/messages', // Flag changes come as 'updated' events
+      'trigger_new_attachment': '/me/messages', // Attachment emails are new messages with hasAttachments=true
 
       // Calendar triggers
       'trigger_calendar_event': '/me/events',
       'trigger_event_created': '/me/events',
       'trigger_event_updated': '/me/events',
+      'trigger_new_calendar_event': (config?: Record<string, any>) => {
+        if (config?.calendarId) {
+          return `/me/calendars/${config.calendarId}/events`
+        }
+        return '/me/events'
+      },
+      'trigger_updated_calendar_event': (config?: Record<string, any>) => {
+        if (config?.calendarId) {
+          return `/me/calendars/${config.calendarId}/events`
+        }
+        return '/me/events'
+      },
+      'trigger_deleted_calendar_event': (config?: Record<string, any>) => {
+        if (config?.calendarId) {
+          return `/me/calendars/${config.calendarId}/events`
+        }
+        return '/me/events'
+      },
+      'trigger_calendar_event_start': (config?: Record<string, any>) => {
+        // Calendar event start is a polling-based trigger, not webhook
+        // But we need it in the resource map for activation
+        if (config?.calendarId) {
+          return `/me/calendars/${config.calendarId}/events`
+        }
+        return '/me/events'
+      },
+
+      // Contact triggers
+      'trigger_new_contact': '/me/contacts',
+      'trigger_updated_contact': '/me/contacts',
 
       // Teams triggers
       'trigger_new_message': (config?: Record<string, any>) => {
@@ -393,6 +431,25 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    * Map trigger type to change type
    */
   private getChangeTypeForTrigger(triggerType: string): string {
+    // Strip provider prefix if present
+    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|teams|onedrive)_/, '')
+
+    // Email flagged trigger needs to watch for updates (flag changes are updates)
+    if (simplifiedType === 'trigger_email_flagged') {
+      return 'updated'
+    }
+
+    // Deleted calendar event trigger
+    if (simplifiedType === 'trigger_deleted_calendar_event') {
+      return 'deleted'
+    }
+
+    // Calendar event start doesn't use webhooks - it uses polling
+    // But if webhook is used, watch for created and updated to catch new events
+    if (simplifiedType === 'trigger_calendar_event_start') {
+      return 'created,updated'
+    }
+
     // For new/created/sent triggers, only watch 'created' to avoid duplicate notifications
     // Microsoft Graph sends both 'created' and 'updated' for new items, causing duplicates
     if (triggerType.includes('new') || triggerType.includes('created') || triggerType.includes('sent')) {

@@ -45,7 +45,11 @@
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\actions\\\\slack\\\\findMessage.ts\")",
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\lib\\\\workflows\\\\nodes\\\\providers\\\\slack\\\\actions\\\\findMessage.schema.ts\")",
       "Bash(powershell -ExecutionPolicy Bypass -File \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\scripts\\\\trash\\\\fix-slack-error-messages.ps1\")",
-      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\scripts\\\\trash\\\\fix-slack-error-messages.ps1\")"
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\scripts\\\\trash\\\\fix-slack-error-messages.ps1\")",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\app\\\\workflows\\\\ai-builder\\\\page.tsx\")",
+      "Bash(git push)",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\src\\\\lib\\\\workflows\\\\builder\\\\logging.ts\")",
+      "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\supabase\\\\migrations\\\\20260104000002_populate_normalized_tables_from_revisions.sql\")"
     ],
     "deny": [],
     "ask": [],

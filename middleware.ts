@@ -55,7 +55,6 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
-      cookieEncoding: 'raw',
       cookies: {
         getAll() {
           return req.cookies.getAll()
@@ -75,7 +74,6 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SECRET_KEY!,
     {
-      cookieEncoding: 'raw',
       cookies: {
         getAll() {
           return req.cookies.getAll()

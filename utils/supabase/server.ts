@@ -14,7 +14,6 @@ export async function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
-      cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
         getAll() {
           return cookieStore.getAll()
@@ -42,7 +41,6 @@ export async function createSupabaseServerActionClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
-      cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
         getAll() {
           return cookieStore.getAll()
@@ -70,7 +68,6 @@ export async function createSupabaseRouteHandlerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
-      cookieEncoding: 'raw', // Use raw encoding to avoid base64- prefix that causes JSON parsing errors
       cookies: {
         getAll() {
           return cookieStore.getAll()

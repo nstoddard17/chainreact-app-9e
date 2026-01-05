@@ -26,6 +26,7 @@ export async function createMondayUpdate(
     const accessToken = await getDecryptedAccessToken(userId, 'monday')
 
     // Build GraphQL mutation with variables so large IDs don't overflow GraphQL Int
+    // Note: Only request fields that don't require special permissions
     const mutation = `
       mutation($itemId: ID!, $body: String!) {
         create_update(
@@ -33,11 +34,6 @@ export async function createMondayUpdate(
           body: $body
         ) {
           id
-          text_body
-          creator {
-            id
-          }
-          created_at
         }
       }
     `
@@ -66,7 +62,13 @@ export async function createMondayUpdate(
 
     if (data.errors && data.errors.length > 0) {
       const errorMessages = data.errors.map((e: any) => e.message).join(', ')
-      throw new Error(`Monday.com error: ${errorMessages}`)
+      return {
+        success: false,
+        output: {
+          errorDetails: data.errors
+        },
+        message: `Monday.com error: ${errorMessages}`
+      }
     }
 
     const update = data.data?.create_update
@@ -82,9 +84,7 @@ export async function createMondayUpdate(
       output: {
         updateId: update.id,
         itemId: itemId,
-        text: update.text_body || text,
-        creatorId: update.creator?.id,
-        createdAt: update.created_at
+        text: text.toString()
       },
       message: `Update posted successfully to item ${itemId}`
     }
@@ -93,7 +93,9 @@ export async function createMondayUpdate(
     logger.error('❌ Monday.com create update error:', error)
     return {
       success: false,
-      output: {},
+      output: {
+        errorDetails: error?.errorDetails
+      },
       message: error.message || 'Failed to create Monday.com update'
     }
   }

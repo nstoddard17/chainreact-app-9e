@@ -372,29 +372,28 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     fetchDiscordConfig();
   }, [nodeInfo?.providerId]);
   
-  // Track previous guild ID to detect actual changes
-  const [previousGuildId, setPreviousGuildId] = useState<string | null>(null);
-  
-  // Check bot status when guild ID changes
+  // Track previous values to detect actual changes and avoid duplicate checks
+  const previousGuildIdRef = useRef<string | null>(null);
+  const previousChannelIdRef = useRef<string | null>(null);
+
+  // CONSOLIDATED: Check bot status when guild or channel selection changes
+  // Previously split across 2 separate useEffects
   useEffect(() => {
-    if (values.guildId && discordIntegration && nodeInfo?.providerId === 'discord') {
-      // Only check if guild ID actually changed
-      if (previousGuildId !== values.guildId) {
-        logger.debug('🔍 Guild ID changed from', previousGuildId, 'to', values.guildId, '- checking bot status');
-        setPreviousGuildId(values.guildId);
-        checkBotStatus(values.guildId);
-      } else {
-        logger.debug('📌 Guild ID unchanged - skipping bot status check');
-      }
+    if (!discordIntegration || nodeInfo?.providerId !== 'discord') return;
+
+    // Check guild-level bot status when guild ID changes
+    if (values.guildId && previousGuildIdRef.current !== values.guildId) {
+      logger.debug('🔍 Guild ID changed from', previousGuildIdRef.current, 'to', values.guildId, '- checking bot status');
+      previousGuildIdRef.current = values.guildId;
+      checkBotStatus(values.guildId);
     }
-  }, [values.guildId, discordIntegration, nodeInfo?.providerId, checkBotStatus, previousGuildId]);
-  
-  // Check channel bot status when channel ID changes
-  useEffect(() => {
-    if (values.channelId && values.guildId && discordIntegration && nodeInfo?.providerId === 'discord') {
+
+    // Check channel-level bot permissions when channel ID changes
+    if (values.channelId && values.guildId && previousChannelIdRef.current !== values.channelId) {
+      previousChannelIdRef.current = values.channelId;
       checkChannelBotStatus(values.channelId, values.guildId);
     }
-  }, [values.channelId, values.guildId, discordIntegration, nodeInfo?.providerId, checkChannelBotStatus]);
+  }, [values.guildId, values.channelId, discordIntegration, nodeInfo?.providerId, checkBotStatus, checkChannelBotStatus]);
   
   return {
     // State

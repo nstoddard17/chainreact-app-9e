@@ -61,6 +61,7 @@ interface FlowV2BuilderContentProps {
 
   // Configuration panel
   onNodeConfigure?: (nodeId: string) => void
+  onChangeNode?: (nodeId: string) => void // Open integrations panel to change node type
 
   // Toolbar actions
   onUndoToPreviousStage?: () => void
@@ -98,6 +99,7 @@ export function FlowV2BuilderContent({
   integrationsPanelMode,
   onNodeSelect,
   onNodeConfigure,
+  onChangeNode,
   onUndoToPreviousStage,
   onCancelBuild,
   onAddNodeAfter,
@@ -215,13 +217,14 @@ export function FlowV2BuilderContent({
         onDelete: handleDeleteFromContextMenu,
         onDeleteSelected: handleDeleteSelectedNodes,
         onConfigure: onNodeConfigure,
+        onChangeNode: onChangeNode,
         onRename: onNodeRename,
         onDuplicate: onNodeDuplicate,
         onAddNote: onAddNote,
         selectedNodeIds,
       }
     }))
-  }, [nodes, handleDeleteFromContextMenu, handleDeleteSelectedNodes, onNodeConfigure, onNodeRename, onNodeDuplicate, onAddNote, selectedNodeIds])
+  }, [nodes, handleDeleteFromContextMenu, handleDeleteSelectedNodes, onNodeConfigure, onChangeNode, onNodeRename, onNodeDuplicate, onAddNote, selectedNodeIds])
 
   // Get ARIA announcement text based on build state
   const getAriaAnnouncement = () => {

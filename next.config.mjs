@@ -120,7 +120,8 @@ const nextConfig = {
               "form-action 'self'",
               // Script sources - 'unsafe-inline' needed for Next.js, 'unsafe-eval' needed for some libs
               // In production, consider using nonces instead
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://maps.googleapis.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://maps.googleapis.com https://www.googletagmanager.com",
+              "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://maps.googleapis.com https://www.googletagmanager.com",
               // Style sources
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Font sources
@@ -128,7 +129,7 @@ const nextConfig = {
               // Image sources
               "img-src 'self' data: blob: https: http:",
               // Connect sources (API endpoints, WebSockets)
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://maps.googleapis.com https://api.resend.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://maps.googleapis.com https://api.resend.com https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net",
               // Object sources (plugins)
               "object-src 'none'",
               // Child/frame sources

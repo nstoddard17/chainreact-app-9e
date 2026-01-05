@@ -3,6 +3,8 @@ import { getWebhookUrl } from "@/lib/utils/getBaseUrl"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
+import { getFlowRepository } from "@/src/lib/workflows/builder/api/helpers"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -155,6 +157,32 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       connectionsCount: body.connections?.length
     })
 
+    const nodeRegistry = new Map(ALL_NODE_COMPONENTS.map(node => [node.type, node]))
+    const normalizeNodes = (list: any[]) =>
+      (Array.isArray(list) ? list : []).map((node: any) => {
+        if (!node) return node
+        const nodeType = node?.data?.type || node?.type
+        if (!nodeType) return node
+        const registryNode = nodeRegistry.get(nodeType)
+        if (!registryNode) return node
+        const isTrigger = Boolean(registryNode.isTrigger)
+        return {
+          ...node,
+          isTrigger: node?.isTrigger ?? isTrigger,
+          data: {
+            ...(node.data || {}),
+            type: node.data?.type || nodeType,
+            isTrigger: node.data?.isTrigger ?? isTrigger,
+            nodeKind: node.data?.nodeKind || (isTrigger ? 'trigger' : 'action')
+          }
+        }
+      })
+
+    if (Array.isArray(body.nodes)) {
+      body.nodes = normalizeNodes(body.nodes)
+    }
+
+
     // CRITICAL SAFETY CHECK: Prevent node erasure
     // If body contains nodes array and it's empty, but workflow had nodes before
     if ('nodes' in body && Array.isArray(body.nodes) && body.nodes.length === 0) {
@@ -269,6 +297,64 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const data = updateResult.data
 
     logger.debug('✅ [Workflow API] Successfully updated workflow:', resolvedParams.id)
+
+    // Also save to normalized tables (workflow_nodes, workflow_edges) for V2 compatibility
+    // This dual-write ensures data is consistent during the transition period
+    try {
+      if (data && (data.nodes || data.connections)) {
+        const repository = await getFlowRepository(serviceClient)
+
+        // Convert legacy nodes to Flow format and save
+        const legacyNodes = Array.isArray(data.nodes) ? data.nodes : []
+        const legacyConnections = Array.isArray((data as any).connections) ? (data as any).connections : []
+
+        // Only save if we have actual data
+        if (legacyNodes.length > 0) {
+          // Convert legacy node format to Flow node format
+          const flowNodes = legacyNodes.map((node: any, index: number) => ({
+            id: node.id,
+            type: node.data?.type || node.type || 'unknown',
+            label: node.data?.label || node.data?.type || 'Unnamed Node',
+            description: node.data?.description,
+            config: node.data?.config || {},
+            inPorts: [],
+            outPorts: [],
+            io: { inputSchema: undefined, outputSchema: undefined },
+            policy: { timeoutMs: 60000, retries: 0 },
+            costHint: 0,
+            metadata: {
+              position: node.position || { x: 400, y: 100 + index * 180 },
+              isTrigger: Boolean(node.data?.isTrigger),
+            },
+          }))
+
+          await repository.saveNodes(resolvedParams.id, flowNodes, user.id)
+          logger.debug(`[Workflow API] Saved ${flowNodes.length} nodes to workflow_nodes table`)
+        }
+
+        if (legacyConnections.length > 0) {
+          // Convert legacy connection format to Flow edge format
+          const flowEdges = legacyConnections.map((conn: any) => ({
+            id: conn.id || `e-${conn.source || conn.from}-${conn.target || conn.to}`,
+            from: {
+              nodeId: String(conn.source || conn.from),
+              portId: conn.sourceHandle || 'source',
+            },
+            to: {
+              nodeId: String(conn.target || conn.to),
+              portId: conn.targetHandle || 'target',
+            },
+            mappings: [],
+          }))
+
+          await repository.saveEdges(resolvedParams.id, flowEdges, user.id)
+          logger.debug(`[Workflow API] Saved ${flowEdges.length} edges to workflow_edges table`)
+        }
+      }
+    } catch (normalizedSaveError) {
+      // Don't fail the request if normalized save fails - log and continue
+      logger.warn('[Workflow API] Failed to save to normalized tables:', normalizedSaveError)
+    }
 
     // Determine graph connectivity (trigger → action). If broken, force deactivate and skip registration
     let nodes = (Array.isArray(body.nodes) ? body.nodes : (data.nodes || [])) as any[]

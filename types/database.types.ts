@@ -5717,57 +5717,141 @@ export type Database = {
           },
         ]
       }
-      workflow_nodes: {
+      workflow_edges: {
         Row: {
-          config: Json | null
-          created_at: string | null
-          description: string | null
-          display_order: number | null
-          height: number | null
           id: string
-          is_trigger: boolean | null
-          node_type: string
-          position_x: number
-          position_y: number
-          provider_id: string | null
-          title: string | null
-          updated_at: string | null
-          width: number | null
           workflow_id: string
+          user_id: string | null
+          source_node_id: string
+          target_node_id: string
+          source_port_id: string | null
+          target_port_id: string | null
+          condition_expr: string | null
+          mappings: Json | null
+          metadata: Json | null
+          created_at: string | null
+          updated_at: string | null
         }
         Insert: {
-          config?: Json | null
-          created_at?: string | null
-          description?: string | null
-          display_order?: number | null
-          height?: number | null
           id?: string
-          is_trigger?: boolean | null
-          node_type: string
-          position_x: number
-          position_y: number
-          provider_id?: string | null
-          title?: string | null
-          updated_at?: string | null
-          width?: number | null
           workflow_id: string
+          user_id?: string | null
+          source_node_id: string
+          target_node_id: string
+          source_port_id?: string | null
+          target_port_id?: string | null
+          condition_expr?: string | null
+          mappings?: Json | null
+          metadata?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
-          config?: Json | null
+          id?: string
+          workflow_id?: string
+          user_id?: string | null
+          source_node_id?: string
+          target_node_id?: string
+          source_port_id?: string | null
+          target_port_id?: string | null
+          condition_expr?: string | null
+          mappings?: Json | null
+          metadata?: Json | null
           created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_edges_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_edges_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_nodes: {
+        Row: {
+          id: string
+          workflow_id: string
+          user_id: string | null
+          node_type: string
+          label: string | null
+          description: string | null
+          config: Json | null
+          position_x: number
+          position_y: number
+          is_trigger: boolean | null
+          provider_id: string | null
+          display_order: number | null
+          height: number | null
+          width: number | null
+          in_ports: Json | null
+          out_ports: Json | null
+          io_schema: Json | null
+          policy: Json | null
+          cost_hint: number | null
+          metadata: Json | null
+          title: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          workflow_id: string
+          user_id?: string | null
+          node_type: string
+          label?: string | null
           description?: string | null
+          config?: Json | null
+          position_x: number
+          position_y: number
+          is_trigger?: boolean | null
+          provider_id?: string | null
           display_order?: number | null
           height?: number | null
+          width?: number | null
+          in_ports?: Json | null
+          out_ports?: Json | null
+          io_schema?: Json | null
+          policy?: Json | null
+          cost_hint?: number | null
+          metadata?: Json | null
+          title?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
           id?: string
-          is_trigger?: boolean | null
+          workflow_id?: string
+          user_id?: string | null
           node_type?: string
+          label?: string | null
+          description?: string | null
+          config?: Json | null
           position_x?: number
           position_y?: number
+          is_trigger?: boolean | null
           provider_id?: string | null
-          title?: string | null
-          updated_at?: string | null
+          display_order?: number | null
+          height?: number | null
           width?: number | null
-          workflow_id?: string
+          in_ports?: Json | null
+          out_ports?: Json | null
+          io_schema?: Json | null
+          policy?: Json | null
+          cost_hint?: number | null
+          metadata?: Json | null
+          title?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -5775,6 +5859,13 @@ export type Database = {
             columns: ["workflow_id"]
             isOneToOne: false
             referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_nodes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

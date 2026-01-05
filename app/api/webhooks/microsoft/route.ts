@@ -58,12 +58,29 @@ const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
     supportsImportance: true,
     supportsAttachment: true,
     defaultFolder: 'inbox'
+  },
+  // Email Flagged trigger - monitors flag changes on emails
+  'microsoft-outlook_trigger_email_flagged': {
+    supportsFolder: true, // Can filter by folder
+    supportsSender: false, // Flag changes don't filter by sender
+    supportsRecipient: false,
+    supportsSubject: false, // No subject filter for flag trigger
+    supportsImportance: false,
+    supportsAttachment: false,
+    defaultFolder: undefined // All folders by default
+  },
+  // New Attachment trigger - monitors emails with attachments
+  'microsoft-outlook_trigger_new_attachment': {
+    supportsFolder: true,
+    supportsSender: false,
+    supportsRecipient: false,
+    supportsSubject: false,
+    supportsImportance: false,
+    supportsAttachment: true, // Filter by attachment extension
+    defaultFolder: 'inbox'
   }
-  // OneNote triggers removed - doesn't support webhooks (API deprecated May 2023)
-  // Future triggers can be added here:
-  // 'microsoft-outlook_trigger_email_draft': { ... }
-  // 'microsoft-outlook_trigger_email_deleted': { ... }
-  // 'microsoft-outlook_trigger_email_flagged': { ... }
+  // Calendar and Contact triggers don't need filter configs - they use simpler filtering
+  // based on the resourceData from the webhook
 }
 
 // Helper function - hoisted above POST handler to avoid TDZ
@@ -447,6 +464,67 @@ async function processNotifications(
                   logger.debug('⏭️ Skipping email - importance does not match filter:', {
                     expected: configImportance,
                     received: emailImportance,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              // Check flagged filter for email_flagged trigger
+              if (triggerType === 'microsoft-outlook_trigger_email_flagged') {
+                const flagStatus = email.flag?.flagStatus || 'notFlagged'
+                // Only trigger if the email is now flagged
+                if (flagStatus !== 'flagged' && flagStatus !== 'complete') {
+                  logger.debug('⏭️ Skipping email - not flagged:', {
+                    flagStatus,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+              }
+
+              // Check hasAttachment filter for new_attachment trigger
+              if (triggerType === 'microsoft-outlook_trigger_new_attachment') {
+                if (!email.hasAttachments) {
+                  logger.debug('⏭️ Skipping email - no attachments:', {
+                    hasAttachments: email.hasAttachments,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+
+                // Check file extension filter if configured
+                if (triggerConfig.fileExtension && email.attachments?.length > 0) {
+                  const allowedExtensions = triggerConfig.fileExtension
+                    .split(',')
+                    .map((ext: string) => ext.trim().toLowerCase().replace('.', ''))
+
+                  const hasMatchingAttachment = email.attachments.some((attachment: any) => {
+                    const fileName = attachment.name || ''
+                    const extension = fileName.split('.').pop()?.toLowerCase() || ''
+                    return allowedExtensions.includes(extension)
+                  })
+
+                  if (!hasMatchingAttachment) {
+                    logger.debug('⏭️ Skipping email - no matching attachment extensions:', {
+                      allowedExtensions,
+                      attachmentCount: email.attachments.length,
+                      subscriptionId: subId
+                    })
+                    continue
+                  }
+                }
+              }
+
+              // Check hasAttachment filter for general email triggers
+              if (filterConfig?.supportsAttachment && triggerConfig.hasAttachment && triggerConfig.hasAttachment !== 'any') {
+                const expectsAttachment = triggerConfig.hasAttachment === 'yes'
+                const hasAttachment = email.hasAttachments === true
+
+                if (expectsAttachment !== hasAttachment) {
+                  logger.debug('⏭️ Skipping email - attachment filter mismatch:', {
+                    expected: expectsAttachment ? 'has attachment' : 'no attachment',
+                    actual: hasAttachment ? 'has attachment' : 'no attachment',
                     subscriptionId: subId
                   })
                   continue

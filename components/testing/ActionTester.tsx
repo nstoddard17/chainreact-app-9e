@@ -105,6 +105,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
     loading: loadingDynamic,
     loadOptions,
     loadOptionsParallel,
+    resetOptions,
   } = useDynamicOptions({
     nodeType: selectedNode?.type,
     providerId: selectedProvider,
@@ -263,6 +264,11 @@ export function ActionTester({ userId }: ActionTesterProps) {
 
       const result = await response.json()
       logApiResponse(requestId, response.status, result, Date.now())
+
+      const errorDetails = result?.testResult?.output?.errorDetails || result?.responseDetails?.data?.errorDetails
+      if (errorDetails) {
+        logEvent('error', 'Monday', 'Monday.com API error details', { errors: errorDetails })
+      }
 
       if (result.success) {
         setTestResult(result.testResult)
@@ -827,6 +833,7 @@ ${validation.missingFields.map(field => {
                     dynamicOptions={dynamicOptions}
                     loadingDynamic={loadingDynamic}
                     loadOptions={loadOptions}
+                    resetOptions={resetOptions}
                     integrationId={selectedIntegrationId}
                     aiFields={aiFields}
                     setAiFields={setAiFields}

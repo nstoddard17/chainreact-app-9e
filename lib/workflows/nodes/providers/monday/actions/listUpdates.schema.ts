@@ -45,7 +45,7 @@ export const listUpdatesActionSchema: NodeComponent = {
     },
     {
       name: "itemId",
-      label: "Item (Optional)",
+      label: "Item",
       type: "select",
       dynamic: "monday_items",
       dynamicParent: "boardId",
@@ -54,9 +54,9 @@ export const listUpdatesActionSchema: NodeComponent = {
         $deps: ["boardId"],
         $condition: { boardId: { $exists: false } }
       },
-      required: false,
-      placeholder: "All items...",
-      description: "Optionally filter to updates on a specific item"
+      required: true,
+      placeholder: "Select an item...",
+      description: "The item to get updates from"
     },
     {
       name: "limit",

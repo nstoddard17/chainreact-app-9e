@@ -195,15 +195,12 @@ export function AppsContent() {
   // Popular apps to show first (most commonly used integrations)
   const POPULAR_APPS = ['gmail', 'slack', 'notion', 'drive', 'twitter', 'discord', 'airtable', 'hubspot']
 
-  // Filter available apps (not connected at all - no integration record)
+  // Show all apps (multi-account support)
   const allAvailableApps = providers.filter(provider => {
     if (["ai", "logic", "control"].includes(provider.id)) return false
-    const connection = getConnectionStatus(provider.id)
-    // Only show as available if there's NO integration record at all
-    const isAvailable = !connection
     const matchesSearch = availableSearchQuery === "" ||
       provider.name.toLowerCase().includes(availableSearchQuery.toLowerCase())
-    return isAvailable && matchesSearch
+    return matchesSearch
   })
 
   // Split into popular and other apps
@@ -365,7 +362,7 @@ export function AppsContent() {
                 {availableApps.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground">
-                      {availableSearchQuery ? "No apps found matching your search" : "All apps are already connected!"}
+                      {availableSearchQuery ? "No apps found matching your search" : "No apps available"}
                     </p>
                   </div>
                 ) : (

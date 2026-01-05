@@ -30,25 +30,12 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
 
   const serviceClient = await createSupabaseServiceClient()
 
-  // Check both workflows table (v1) and flow_v2_definitions table (v2)
-  const { data: workflowRow } = await serviceClient
+  // Check workflows table for access
+  const { data: flowRow } = await serviceClient
     .from("workflows")
     .select("id, user_id, workspace_id")
     .eq("id", flowId)
     .maybeSingle()
-
-  const { data: flowV2Row } = await serviceClient
-    .from("flow_v2_definitions")
-    .select("id, owner_id, workspace_id")
-    .eq("id", flowId)
-    .maybeSingle()
-
-  // Use whichever row exists (v1 or v2), normalize user_id/owner_id
-  const flowRow = workflowRow
-    ? workflowRow
-    : flowV2Row
-      ? { ...flowV2Row, user_id: flowV2Row.owner_id }
-      : null
 
   if (!flowRow) {
     notFound()

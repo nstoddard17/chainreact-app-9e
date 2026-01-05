@@ -94,6 +94,7 @@ import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytic
 import { logger } from '@/lib/utils/logger'
 import { safeLocalStorageSet } from '@/lib/utils/storage-cleanup'
 import { useAppContext } from "@/lib/contexts/AppContext"
+import { useChatPersistence } from "@/hooks/workflows/builder/useChatPersistence"
 
 type PendingChatMessage = {
   localId: string
@@ -124,7 +125,6 @@ type NodeTestCacheEntry = {
 const AGENT_PANEL_MARGIN = 16 // Margin on each side
 const AGENT_PANEL_MIN_WIDTH = 300 // Mobile minimum
 const AGENT_PANEL_MAX_WIDTH = 600 // Large desktop maximum
-const ENABLE_AUTO_STACK = false
 const LINEAR_STACK_X = 400
 const LINEAR_NODE_VERTICAL_GAP = 180
 
@@ -193,6 +193,14 @@ const isReorderableNode = (node: any) => {
   if (data.isPlaceholder) return false
   if (data.type === 'chain_placeholder') return false
   return true
+}
+
+const isTriggerNode = (node: any) => {
+  if (!node || node.type !== 'custom') return false
+  const data = node.data || {}
+  if (data.isPlaceholder) return false
+  const type = data.type || data.nodeType || data.dataType || ''
+  return Boolean(data.isTrigger || (typeof type === 'string' && type.includes('_trigger_')))
 }
 
 /**
@@ -363,6 +371,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [nameDirty, setNameDirty] = useState(false)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [addingAfterNodeId, setAddingAfterNodeId] = useState<string | null>(null) // Persists while integrations panel is open
+  const [changingNodeId, setChangingNodeId] = useState<string | null>(null) // Set when user wants to replace a node's type
   const [isFlowTesting, setIsFlowTesting] = useState(false) // True while testing flow from a node
   const [flowTestStatus, setFlowTestStatus] = useState<{ total: number; currentIndex: number; currentNodeLabel?: string } | null>(null)
   const [isFlowTestPaused, setIsFlowTestPaused] = useState(false) // True when flow test is paused
@@ -382,6 +391,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     currentNodeId: string | null
     completedNodes: string[]
   }>({ currentNodeId: null, completedNodes: [] })
+
+  // CRITICAL FIX: Cache the last valid reactFlowProps to prevent nodes from disappearing
+  // during production re-renders when builder temporarily has no nodes
+  const lastValidReactFlowPropsRef = useRef<{
+    nodes: any[]
+    edges: any[]
+    onNodesChange: any
+    onEdgesChange: any
+    onConnect: any
+    nodeTypes: any
+    edgeTypes: any
+  } | null>(null)
 
   // Cleanup function to deactivate webhooks when test ends
   const cleanupTestTrigger = useCallback(async () => {
@@ -409,9 +430,34 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
   }, [flowId])
 
-  // Track mount/unmount for async safety
+  // CONSOLIDATED: Mount/unmount + resize handler + AI infrastructure init
+  // Combined for better performance (fewer effect registrations)
   useEffect(() => {
     isMountedRef.current = true
+
+    // Window resize handler
+    const handleResize = () => {
+      if (typeof window === "undefined") return
+      const newWidth = computeReactAgentPanelWidth(window)
+      setAgentPanelWidth(newWidth)
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener('resize', handleResize)
+    }
+
+    // Initialize AI Agent infrastructure
+    if (typeof window !== "undefined") {
+      const preferReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      choreographerRef.current = new BuildChoreographer(preferReducedMotion)
+      costTrackerRef.current = new CostTracker()
+
+      // Restore agent panel state from localStorage
+      const stored = window.localStorage.getItem("reactAgentPanelOpen")
+      if (stored) {
+        setAgentOpen(stored === "true")
+      }
+    }
+
     return () => {
       isMountedRef.current = false
       // Abort any ongoing test when unmounting
@@ -425,8 +471,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       }
       // Cleanup test trigger on unmount
       cleanupTestTrigger()
+      // Remove resize listener
+      if (typeof window !== "undefined") {
+        window.removeEventListener('resize', handleResize)
+      }
     }
   }, [cleanupTestTrigger])
+
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
   const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
   const [configuringNode, setConfiguringNode] = useState<any>(null)
@@ -435,19 +486,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [agentPanelWidth, setAgentPanelWidth] = useState(() =>
     computeReactAgentPanelWidth(typeof window === "undefined" ? undefined : window)
   )
-
-  // Update agent panel width on window resize for dynamic responsiveness
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const handleResize = () => {
-      const newWidth = computeReactAgentPanelWidth(window)
-      setAgentPanelWidth(newWidth)
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
 
   const [agentOpen, setAgentOpen] = useState(true)
   const [agentInput, setAgentInput] = useState("")
@@ -510,394 +548,96 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const costTrackerRef = useRef<CostTracker | null>(null)
   const [costEstimate, setCostEstimate] = useState<number | undefined>(undefined)
   const [costActual, setCostActual] = useState<number | undefined>(undefined)
-  const [isChatLoading, setIsChatLoading] = useState(false)
 
-  const pendingChatMessagesRef = useRef<PendingChatMessage[]>([])
-  const [chatPersistenceEnabled, setChatPersistenceEnabled] = useState(false)
-  const initialRevisionCountRef = useRef<number | null>(null)
+  // Chat persistence - extracted to useChatPersistence hook
+  const {
+    chatPersistenceEnabled,
+    isChatLoading,
+    generateLocalId,
+    replaceMessageByLocalId,
+    enqueuePendingMessage,
+    persistOrQueueStatus,
+  } = useChatPersistence({
+    flowId,
+    flowState: flowState ? {
+      flow: flowState.flow,
+      revisionId: flowState.revisionId,
+      revisionCount: flowState.revisionCount,
+    } : null,
+    authInitialized,
+    hasUnsavedChanges: builder?.hasUnsavedChanges,
+    agentMessages,
+    setAgentMessages,
+  })
 
   // Path router state
   const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set())
   const [pathLabels, setPathLabels] = useState<Record<string, string>>({})
-  const lastHasUnsavedChangesRef = useRef<boolean | null>(null)
+  // NOTE: lastHasUnsavedChangesRef moved to useChatPersistence hook
 
-  const generateLocalId = useCallback(() => {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      return `local-${crypto.randomUUID()}`
-    }
-    return `local-${Date.now()}-${Math.random()}`
-  }, [])
+  // NOTE: AI infrastructure init moved to consolidated mount effect (line ~414)
 
-  const replaceMessageByLocalId = useCallback((localId: string, saved: ChatMessage) => {
-    console.log('🔄 [Chat Debug] replaceMessageByLocalId called')
-    console.log('  Replacing local ID:', localId)
-    console.log('  With DB message:', { id: saved.id, role: saved.role, text: saved.text?.substring(0, 50) })
-    setAgentMessages(prev => {
-      const replaced = prev.map(message => (message.id === localId ? saved : message))
-      const foundMatch = prev.some(m => m.id === localId)
-      console.log('  Found match:', foundMatch, '| Messages before:', prev.length, '| After:', replaced.length)
-      return replaced
-    })
-  }, [setAgentMessages])
-
-  const enqueuePendingMessage = useCallback((message: PendingChatMessage) => {
-    pendingChatMessagesRef.current.push(message)
-  }, [])
-
-  const persistOrQueueStatus = useCallback(
-    async (text: string, subtext?: string) => {
-      if (chatPersistenceEnabled && flowState?.flow) {
-        try {
-          await ChatService.addOrUpdateStatus(flowId, text, subtext)
-        } catch (error) {
-          console.error("Failed to persist status message:", error)
-        }
-        return
-      }
-
-      enqueuePendingMessage({
-        localId: generateLocalId(),
-        role: 'status',
-        text,
-        subtext,
-        createdAt: new Date().toISOString(),
-      })
-    },
-    [chatPersistenceEnabled, enqueuePendingMessage, flowId, flowState?.flow, generateLocalId]
-  )
-
-  // Initialize AI Agent infrastructure
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
-    // Initialize BuildChoreographer with reduced motion detection
-    const preferReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    choreographerRef.current = new BuildChoreographer(preferReducedMotion)
-
-    // Initialize CostTracker
-    costTrackerRef.current = new CostTracker()
-  }, [])
-
-  // Batch initial loads when app context is ready (only once)
+  // CONSOLIDATED: App ready init + workspace context sync
+  // Previously these were 2 separate effects that both called fetchIntegrations,
+  // causing double-fetch on initial load. Now combined into one effect.
   const hasInitializedRef = useRef(false)
+  const lastWorkspaceIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!appReady) {
       return
     }
 
-    // Only run once when appReady becomes true
-    if (hasInitializedRef.current) {
-      return
+    // Track if this is the first run or a workspace change
+    const isFirstRun = !hasInitializedRef.current
+    const workspaceChanged = workspaceContext?.id !== lastWorkspaceIdRef.current
+
+    if (!isFirstRun && !workspaceChanged) {
+      return // Nothing to do
     }
+
+    // Update refs
     hasInitializedRef.current = true
+    lastWorkspaceIdRef.current = workspaceContext?.id ?? null
 
-    console.log('[WorkflowBuilder] App context ready, batching initial loads')
-
-    // Fetch integrations on mount to ensure connection status is accurate
-    // CustomNode components need this data to show connected/disconnected state
-    fetchIntegrations(false).catch(error => {
-      logger.error('[WorkflowBuilder] Failed to fetch integrations on mount:', error)
+    console.log('[WorkflowBuilder] App context ready, initializing...', {
+      isFirstRun,
+      workspaceChanged,
+      workspaceType: workspaceContext?.type,
+      workspaceId: workspaceContext?.id,
     })
 
-    console.log('[WorkflowBuilder] Initial mount complete - integrations loading')
-
-    // Load workflow preferences for pre-filling defaults
-    loadWorkflowPreferences().then(prefs => {
-      if (prefs) {
-        console.log('[WorkflowBuilder] Loaded workflow preferences:', {
-          email: prefs.default_email_provider,
-          calendar: prefs.default_calendar_provider,
-          notification: prefs.default_notification_provider,
-        })
-      }
-    }).catch(error => {
-      console.warn('[WorkflowBuilder] Failed to load workflow preferences:', error)
-    })
-  }, [appReady, fetchIntegrations])
-
-  // Sync workspace context to integration store when builder loads
-  useEffect(() => {
-    if (!workspaceContext) {
-      return
+    // Set workspace context first (this clears integrations)
+    if (workspaceContext) {
+      setIntegrationWorkspaceContext(workspaceContext.type, workspaceContext.id)
     }
 
-    logger.debug('[WorkflowBuilder] Syncing workspace context to integration store:', {
-      type: workspaceContext.type,
-      id: workspaceContext.id
+    // Single fetch with workspace context (avoids double-fetch)
+    fetchIntegrations(
+      false,
+      workspaceContext?.type,
+      workspaceContext?.id || undefined
+    ).catch(error => {
+      logger.error('[WorkflowBuilder] Failed to fetch integrations:', error)
     })
 
-    // Set the integration store's workspace context to match the current workflow's workspace
-    // NOTE: setWorkspaceContext clears the integrations array, so we MUST fetch after setting
-    setIntegrationWorkspaceContext(workspaceContext.type, workspaceContext.id)
-
-    // Fetch integrations for this workspace context
-    // This is critical - setWorkspaceContext clears integrations but doesn't auto-fetch
-    fetchIntegrations(false, workspaceContext.type, workspaceContext.id || undefined).catch(error => {
-      logger.error('[WorkflowBuilder] Failed to fetch integrations after workspace sync:', error)
-    })
-  }, [workspaceContext, setIntegrationWorkspaceContext, fetchIntegrations])
-
-  // Cleanup: Clear pending messages on unmount if workflow was never saved
-  useEffect(() => {
-    return () => {
-      if (!chatPersistenceEnabled && pendingChatMessagesRef.current.length > 0) {
-        console.log('🧹 [Chat Debug] Clearing pending messages on unmount (workflow never saved)')
-        pendingChatMessagesRef.current = []
-      }
-    }
-  }, [chatPersistenceEnabled])
-
-  // Load chat history on mount (only for saved workflows with auth ready)
-  useEffect(() => {
-    console.log('📌 [Chat Debug] useEffect triggered - loadChatHistory dependency changed')
-    console.log('  Dependencies:', { flowId, hasFlow: !!flowState?.flow, revisionId: flowState?.revisionId, authInitialized })
-
-    if (!flowId || !flowState?.flow || !flowState?.revisionId || !authInitialized) {
-      console.log('  → Skipping loadChatHistory (dependencies not ready)')
-      return
-    }
-
-    console.log('  → Dependencies ready, loading chat history...')
-    const loadChatHistory = async () => {
-      setIsChatLoading(true)
-      try {
-        const messages = await ChatService.getHistory(flowId)
-        console.log('🔍 [Chat Debug] loadChatHistory called')
-        console.log('  Loaded from DB:', messages.length, 'messages')
-        messages.forEach((msg, i) => {
-          console.log(`  [DB-${i}]`, {
-            id: msg.id,
-            role: msg.role,
-            text: msg.text?.substring(0, 50),
-            createdAt: msg.createdAt
+    // Load workflow preferences only on first run
+    if (isFirstRun) {
+      loadWorkflowPreferences().then(prefs => {
+        if (prefs) {
+          console.log('[WorkflowBuilder] Loaded workflow preferences:', {
+            email: prefs.default_email_provider,
+            calendar: prefs.default_calendar_provider,
+            notification: prefs.default_notification_provider,
           })
-        })
-
-        setAgentMessages(prev => {
-          console.log('  Current state:', prev.length, 'messages')
-          prev.forEach((msg, i) => {
-            console.log(`  [State-${i}]`, {
-              id: msg.id,
-              role: msg.role,
-              text: msg.text?.substring(0, 50),
-              createdAt: msg.createdAt
-            })
-          })
-
-          if (!messages || messages.length === 0) {
-            console.log('  → No new messages, keeping current state')
-            return prev
-          }
-
-          if (prev.length === 0) {
-            console.log('  → Empty state, replacing with DB messages')
-            return messages
-          }
-
-          console.log('  → Merging messages...')
-          const merged = [...prev]
-          const indexById = new Map<string, number>()
-          const seenContent = new Map<string, number>()
-
-          merged.forEach((message, index) => {
-            if (message?.id) {
-              indexById.set(message.id, index)
-            }
-            // Also track by content for dedupe when IDs don't match (local vs DB IDs)
-            if (message?.text && message?.role) {
-              const contentKey = `${message.role}:${message.text}:${message.createdAt || ''}`
-              seenContent.set(contentKey, index)
-              console.log(`    Tracking [${index}]: ID="${message.id}" contentKey="${contentKey.substring(0, 60)}..."`)
-            }
-          })
-
-          messages.forEach((message, msgIndex) => {
-            if (!message) {
-              return
-            }
-
-            // Check for existing message by ID first
-            if (message.id && indexById.has(message.id)) {
-              const existingIndex = indexById.get(message.id)!
-              console.log(`    ✓ [DB-${msgIndex}] Matched by ID at [${existingIndex}], replacing`)
-              merged[existingIndex] = message
-              return
-            }
-
-            // Check for duplicate by content (handles local ID vs DB ID mismatch)
-            const contentKey = `${message.role}:${message.text}:${message.createdAt || ''}`
-            if (seenContent.has(contentKey)) {
-              const existingIndex = seenContent.get(contentKey)!
-              console.log(`    ✓ [DB-${msgIndex}] Matched by content at [${existingIndex}], replacing`)
-              console.log(`      Old ID: "${merged[existingIndex].id}" → New ID: "${message.id}"`)
-              merged[existingIndex] = message
-              return
-            }
-
-            // No duplicate found, add it
-            console.log(`    + [DB-${msgIndex}] No match found, adding as new (ID: ${message.id})`)
-            merged.push(message)
-          })
-
-          console.log('  Final merged state:', merged.length, 'messages')
-          merged.forEach((msg, i) => {
-            console.log(`  [Merged-${i}]`, {
-              id: msg.id,
-              role: msg.role,
-              text: msg.text?.substring(0, 50),
-              createdAt: msg.createdAt
-            })
-          })
-
-          return merged
-        })
-      } catch (error) {
-        console.error("Failed to load chat history:", error)
-      } finally {
-        setIsChatLoading(false)
-      }
-    }
-
-    loadChatHistory()
-  }, [flowId, flowState?.flow, flowState?.revisionId, authInitialized])
-
-  // Determine when chat persistence should be enabled
-  useEffect(() => {
-    if (!flowState) {
-      return
-    }
-
-    const revisionCount = flowState.revisionCount ?? 0
-    if (initialRevisionCountRef.current === null) {
-      initialRevisionCountRef.current = revisionCount
-    }
-
-    if (!chatPersistenceEnabled) {
-      // Only enable chat persistence if the workflow has been saved at least once
-      // This prevents saving messages for workflows that never get saved
-      const workflowHasBeenSaved = Boolean(flowState.revisionId)
-
-      if (workflowHasBeenSaved) {
-        console.log('✅ [Chat Debug] Enabling chat persistence (workflow has been saved)')
-        setChatPersistenceEnabled(true)
-        return
-      } else {
-        console.log('⏸️  [Chat Debug] Chat persistence disabled (workflow not yet saved)')
-      }
-    }
-
-    if (
-      !chatPersistenceEnabled &&
-      initialRevisionCountRef.current !== null &&
-      revisionCount > initialRevisionCountRef.current
-    ) {
-      setChatPersistenceEnabled(true)
-    }
-  }, [agentMessages.length, flowState, chatPersistenceEnabled])
-
-  // Enable persistence once a manual save clears unsaved changes
-  useEffect(() => {
-    if (typeof builder?.hasUnsavedChanges !== "boolean") {
-      return
-    }
-
-    if (lastHasUnsavedChangesRef.current === null) {
-      lastHasUnsavedChangesRef.current = builder.hasUnsavedChanges
-      return
-    }
-
-    if (
-      !chatPersistenceEnabled &&
-      lastHasUnsavedChangesRef.current &&
-      !builder.hasUnsavedChanges
-    ) {
-      setChatPersistenceEnabled(true)
-    }
-
-    lastHasUnsavedChangesRef.current = builder.hasUnsavedChanges
-  }, [builder?.hasUnsavedChanges, chatPersistenceEnabled])
-
-  // Flush pending messages to database (only for saved workflows with auth ready)
-  useEffect(() => {
-    if (
-      !chatPersistenceEnabled ||
-      !flowState?.flow ||
-      !flowState?.revisionId ||
-      !authInitialized ||
-      pendingChatMessagesRef.current.length === 0
-    ) {
-      return
-    }
-
-    let cancelled = false
-
-    const flushPendingMessages = async () => {
-      const pending = [...pendingChatMessagesRef.current]
-      pendingChatMessagesRef.current = []
-
-      console.log('🚀 [Chat Debug] Flushing pending messages:', pending.length)
-
-      // Get current messages to check for duplicates
-      const currentMessages = agentMessages
-
-      for (const item of pending) {
-        if (cancelled) return
-
-        // Check if message already exists (by content, to avoid duplicates)
-        const alreadyExists = currentMessages.some(
-          msg => msg.role === item.role && msg.text === item.text
-        )
-
-        if (alreadyExists) {
-          console.log('  ⏭️  Skipping pending message (already exists):', {
-            role: item.role,
-            text: item.text.substring(0, 50)
-          })
-          continue
         }
-
-        console.log('  💾 Saving pending message:', {
-          role: item.role,
-          text: item.text.substring(0, 50)
-        })
-
-        try {
-          let saved: ChatMessage | null = null
-          if (item.role === 'user') {
-            saved = await ChatService.addUserPrompt(flowId, item.text)
-          } else if (item.role === 'assistant') {
-            saved = await ChatService.addAssistantResponse(flowId, item.text, item.meta)
-          } else if (item.role === 'status') {
-            const statusId = await ChatService.addOrUpdateStatus(flowId, item.text, item.subtext)
-            if (statusId) {
-              saved = {
-                id: statusId,
-                flowId,
-                role: 'status',
-                text: item.text,
-                subtext: item.subtext,
-                meta: item.meta,
-                createdAt: item.createdAt || new Date().toISOString(),
-              }
-            }
-          }
-
-          if (saved) {
-            replaceMessageByLocalId(item.localId, saved)
-          }
-        } catch (error) {
-          console.error("Failed to persist pending chat message:", error)
-        }
-      }
+      }).catch(error => {
+        console.warn('[WorkflowBuilder] Failed to load workflow preferences:', error)
+      })
     }
+  }, [appReady, workspaceContext, setIntegrationWorkspaceContext, fetchIntegrations])
 
-    flushPendingMessages()
-
-    return () => {
-      cancelled = true
-    }
-  }, [chatPersistenceEnabled, flowId, flowState?.flow, flowState?.revisionId, authInitialized, replaceMessageByLocalId])
+  // NOTE: Chat persistence useEffects moved to useChatPersistence hook
 
   const nodeComponentMap = useMemo(() => {
     const map = new Map<string, NodeComponent>()
@@ -911,21 +651,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const promptProcessedRef = useRef(false)
   const reactFlowInstanceRef = useRef<any>(null)
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return
-    }
-
-    const handleResize = () => {
-      setAgentPanelWidth(computeReactAgentPanelWidth(window))
-    }
-
-    handleResize()
-    window.addEventListener("resize", handleResize)
-    return () => {
-      window.removeEventListener("resize", handleResize)
-    }
-  }, [])
+  // NOTE: Duplicate window resize useEffect removed - kept the one at line ~440
 
   // Sync workflow name
   useEffect(() => {
@@ -934,14 +660,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
   }, [adapter.state.flowName, nameDirty])
 
-  // Restore agent panel state from localStorage
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const stored = window.localStorage.getItem("reactAgentPanelOpen")
-    if (stored) {
-      setAgentOpen(stored === "true")
-    }
-  }, [])
+  // NOTE: localStorage restore moved to consolidated mount effect (line ~433)
 
   // Persist agent panel state to localStorage
   useEffect(() => {
@@ -2738,8 +2457,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [builder?.nodes, builder?.edges, actions, toast])
 
   const reactFlowProps = useMemo(() => {
+    // CRITICAL FIX: In production, builder can temporarily have no nodes during re-renders
+    // When this happens, we preserve the last valid props to prevent nodes from disappearing
     if (!builder) {
-      return null
+      // Return cached value if available, otherwise null
+      return lastValidReactFlowPropsRef.current
+    }
+
+    // If builder exists but has no nodes yet (still loading), preserve last valid state
+    // This prevents the flash where nodes disappear during initial load race conditions
+    if (!builder.nodes || builder.nodes.length === 0) {
+      // Only return cached if we have nodes cached - otherwise let it proceed
+      // (new workflows genuinely have 0 nodes initially)
+      if (lastValidReactFlowPropsRef.current && lastValidReactFlowPropsRef.current.nodes.length > 0) {
+        return lastValidReactFlowPropsRef.current
+      }
     }
 
     // Detect last nodes (nodes with no outgoing edges)
@@ -2841,16 +2573,26 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       openIntegrationsPanel('action')
     }
 
-    // Enhance edges with onInsertNode handler
-    const enhancedEdges = builder.edges.map((edge: any) => ({
-      ...edge,
-      data: {
-        ...edge.data,
-        onInsertNode: handleInsertNodeOnEdge,
-      }
-    }))
+    // Enhance edges with onInsertNode handler and deduplicate by ID
+    const seenEdgeIds = new Set<string>()
+    const enhancedEdges = builder.edges
+      .filter((edge: any) => {
+        if (seenEdgeIds.has(edge.id)) {
+          console.warn(`[reactFlowProps] Skipping duplicate edge ID: ${edge.id}`)
+          return false
+        }
+        seenEdgeIds.add(edge.id)
+        return true
+      })
+      .map((edge: any) => ({
+        ...edge,
+        data: {
+          ...edge.data,
+          onInsertNode: handleInsertNodeOnEdge,
+        }
+      }))
 
-    return {
+    const result = {
       nodes: enhancedNodes,
       edges: enhancedEdges,
       onNodesChange: builder.optimizedOnNodesChange ?? builder.onNodesChange,
@@ -2859,6 +2601,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       nodeTypes: builder.nodeTypes,
       edgeTypes: builder.edgeTypes,
     }
+
+    // Cache the valid result for future use during transitional states
+    // Only cache if we have actual nodes (not during initial empty state)
+    if (enhancedNodes.length > 0) {
+      lastValidReactFlowPropsRef.current = result
+    }
+
+    return result
   }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex])
 
   // Name update handler
@@ -2958,6 +2708,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     console.log('🎯 [WorkflowBuilder] handleNodeSelectFromPanel called:', {
       nodeData: nodeData?.type || nodeData,
       selectedNodeId,
+      changingNodeId,
       hasActions: !!actions,
       hasBuilder: !!builder
     })
@@ -2969,6 +2720,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     const currentNodes = builder.nodes ?? []
 
+    // Check if we're changing an existing node (replacing its type)
+    const nodeBeingChanged = changingNodeId
+      ? currentNodes.find((n: any) => n.id === changingNodeId)
+      : null
+
     // Check if we're replacing a placeholder node
     const replacingPlaceholder = currentNodes.find((n: any) =>
       n.id === selectedNodeId && n.data?.isPlaceholder
@@ -2978,8 +2734,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     const existingNodeX = currentNodes[0]?.position?.x ?? 400
     let position = nodeData.position || { x: existingNodeX, y: 300 }
 
+    // If changing an existing node, use its position
+    if (nodeBeingChanged) {
+      position = nodeBeingChanged.position
+      console.log('📌 [WorkflowBuilder] Changing node:', changingNodeId, 'to:', nodeData.type)
+    }
     // If replacing placeholder, use its position
-    if (replacingPlaceholder) {
+    else if (replacingPlaceholder) {
       position = replacingPlaceholder.position
       console.log('📌 [WorkflowBuilder] Replacing placeholder:', selectedNodeId, 'with:', nodeData.type)
     }
@@ -3036,6 +2797,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     builder.setNodes((nodes: any[]) => {
       let newNodes = [...nodes]
 
+      // If changing an existing node, remove it first (we'll replace with new type)
+      if (nodeBeingChanged) {
+        newNodes = newNodes.filter(n => n.id !== changingNodeId)
+        // No shifting needed - just replace in place
+        newNodes.push(optimisticNode)
+        return newNodes
+      }
+
       // If replacing a placeholder, remove it first
       if (replacingPlaceholder) {
         newNodes = newNodes.filter(n => n.id !== selectedNodeId)
@@ -3072,7 +2841,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     })
 
     // Add optimistic edges immediately
-    if (replacingPlaceholder) {
+    if (nodeBeingChanged) {
+      // When changing an existing node, update edges to reference the new temp ID
+      builder.setEdges((edges: any[]) => {
+        return edges.map(edge => {
+          // Update edges pointing TO the changed node
+          if (edge.target === changingNodeId) {
+            return { ...edge, target: tempId }
+          }
+          // Update edges FROM the changed node
+          if (edge.source === changingNodeId) {
+            return { ...edge, source: tempId }
+          }
+          return edge
+        })
+      })
+    } else if (replacingPlaceholder) {
       // When replacing a placeholder, update edges that reference the placeholder
       builder.setEdges((edges: any[]) => {
         return edges.map(edge => {
@@ -3132,14 +2916,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       setConfiguringNode(optimisticNode)
     }
 
-    // Save the selectedNodeId before clearing (needed for edge creation later)
+    // Save state before clearing (needed for edge creation and node replacement later)
     const previousNodeId = selectedNodeId
     const isReplacingPlaceholder = !!replacingPlaceholder
+    const nodeIdBeingChanged = changingNodeId
+    const isChangingNode = !!nodeBeingChanged
 
-    // Clear selected node ID
+    // Get edges connected to the node being changed before we modify anything
+    const edgesConnectedToChangedNode = isChangingNode ? builder.edges.filter((e: any) =>
+      e.source === nodeIdBeingChanged || e.target === nodeIdBeingChanged
+    ) : []
+
+    // Clear selected/changing node IDs
     setSelectedNodeId(null)
+    setChangingNodeId(null)
 
     try {
+      // If changing an existing node, delete the old one first
+      if (isChangingNode && nodeIdBeingChanged) {
+        console.log('📌 [WorkflowBuilder] Deleting old node before adding replacement:', nodeIdBeingChanged)
+        await actions.deleteNode(nodeIdBeingChanged)
+      }
+
       // Save node to database - updateReactFlowGraph will handle UI updates including action placeholder
       console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
       const newNode = await actions.addNode(nodeData.type, position)
@@ -3160,9 +2958,34 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           })
         }
 
-        // If adding after a node (not replacing placeholder), create edge and handle insertion
+        // If changing a node, reconnect the edges that were connected to the old node
+        if (isChangingNode && edgesConnectedToChangedNode.length > 0) {
+          console.log('🔗 [WorkflowBuilder] Reconnecting edges for changed node:', edgesConnectedToChangedNode)
+
+          for (const edge of edgesConnectedToChangedNode) {
+            if (edge.source === nodeIdBeingChanged) {
+              // Edge was FROM the old node - create edge FROM new node TO the target
+              await actions.connectEdge({
+                sourceId: newNodeId,
+                targetId: edge.target,
+                sourceHandle: edge.sourceHandle || 'source',
+                targetHandle: edge.targetHandle
+              })
+            } else if (edge.target === nodeIdBeingChanged) {
+              // Edge was TO the old node - create edge FROM source TO new node
+              await actions.connectEdge({
+                sourceId: edge.source,
+                targetId: newNodeId,
+                sourceHandle: edge.sourceHandle || 'source',
+                targetHandle: edge.targetHandle
+              })
+            }
+          }
+          console.log('🔗 [WorkflowBuilder] Edges reconnected for changed node')
+        }
+        // If adding after a node (not replacing placeholder or changing), create edge and handle insertion
         // Note: Using previousNodeId which was saved before setSelectedNodeId(null) was called
-        if (previousNodeId && !isReplacingPlaceholder) {
+        else if (previousNodeId && !isReplacingPlaceholder) {
           console.log('🔗 [WorkflowBuilder] Inserting node after:', previousNodeId)
 
           // Find what was connected after the selected node
@@ -3211,7 +3034,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
       openIntegrationsPanel()
     }
-  }, [actions, builder, nodeComponentMap, toast, selectedNodeId, openIntegrationsPanel])
+  }, [actions, builder, nodeComponentMap, toast, selectedNodeId, changingNodeId, openIntegrationsPanel])
 
   // Node deletion with optimistic update for instant feedback
   const handleDeleteNodes = useCallback(async (nodeIds: string[]) => {
@@ -3290,18 +3113,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Check if all real (non-placeholder) nodes are being deleted
     const realNodes = updatedNodes.filter((n: any) => !n.data?.isPlaceholder)
-    const shouldResetToPlaceholders = realNodes.length === 0 && updatedNodes.length === 0
+    const shouldResetToPlaceholders = realNodes.length === 0
+
+    // Calculate center position based on viewport and agent panel
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
+    const panelWidth = agentOpen ? agentPanelWidth : 0
+    const availableWidth = viewportWidth - panelWidth
+    const centerX = panelWidth + (availableWidth / 2) - 180 // 180 = half of 360px node width
+    const centerY = (viewportHeight / 2) - 150
 
     if (shouldResetToPlaceholders) {
       console.log('🔄 [WorkflowBuilder] All nodes deleted, resetting to placeholder state')
-
-      // Calculate center position based on viewport and agent panel
-      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
-      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
-      const panelWidth = agentOpen ? agentPanelWidth : 0
-      const availableWidth = viewportWidth - panelWidth
-      const centerX = panelWidth + (availableWidth / 2) - 180 // 180 = half of 360px node width
-      const centerY = (viewportHeight / 2) - 150
 
       // Reset to placeholder state (Zapier-style, centered)
       const placeholderNodes = [
@@ -3352,6 +3175,54 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       }, 100)
     } else {
+      // Simple check: is there a real trigger node (isTrigger=true AND NOT a placeholder)?
+      const hasRealTrigger = updatedNodes.some((n: any) => {
+        const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === n.data?.type)
+        const isTrigger = n.data?.isTrigger || nodeComponent?.isTrigger
+        return isTrigger && !n.data?.isPlaceholder
+      })
+
+      // If no real trigger, add a trigger placeholder (unless one already exists)
+      const hasTriggerPlaceholder = updatedNodes.some((n: any) =>
+        n.type === 'trigger_placeholder' || n.id === 'trigger-placeholder'
+      )
+
+      if (!hasRealTrigger && !hasTriggerPlaceholder && updatedNodes.length > 0) {
+        console.log('🔄 [WorkflowBuilder] No trigger found, adding trigger placeholder')
+
+        // Find the topmost node to place trigger placeholder above it
+        const sortedNodes = [...updatedNodes].sort((a: any, b: any) => a.position.y - b.position.y)
+        const topNode = sortedNodes[0]
+
+        if (topNode) {
+          const triggerPlaceholder = {
+            id: 'trigger-placeholder',
+            type: 'trigger_placeholder',
+            position: {
+              x: topNode.position.x,
+              y: topNode.position.y - LINEAR_NODE_VERTICAL_GAP
+            },
+            data: {
+              type: 'trigger_placeholder',
+              isPlaceholder: true,
+              title: 'Trigger',
+            },
+          }
+
+          updatedNodes = [triggerPlaceholder, ...updatedNodes]
+
+          updatedEdges.push({
+            id: `trigger-placeholder-${topNode.id}`,
+            source: 'trigger-placeholder',
+            target: topNode.id,
+            sourceHandle: 'source',
+            targetHandle: 'target',
+            type: 'custom',
+            style: { stroke: '#d0d6e0' },
+          })
+        }
+      }
+
       builder.setNodes(updatedNodes)
       builder.setEdges(updatedEdges)
     }
@@ -3415,6 +3286,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
     }
   }, [actions, builder, toast])
+
+  // Handle changing a node's type (opens integrations panel to select new type)
+  const handleChangeNode = useCallback((nodeId: string) => {
+    if (!builder?.nodes) return
+
+    const node = builder.nodes.find((n: any) => n.id === nodeId)
+    if (!node) return
+
+    // Determine if this is a trigger or action
+    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+    const isTrigger = node.data?.isTrigger || nodeComponent?.isTrigger
+
+    // Store the node ID we're changing (so when user selects from panel, we know to replace)
+    setChangingNodeId(nodeId)
+    setSelectedNodeId(null)
+    setAddingAfterNodeId(null)
+
+    // Open integrations panel with correct mode
+    openIntegrationsPanel(isTrigger ? 'trigger' : 'action')
+
+    console.log(`[WorkflowBuilder] Opening integrations panel to change ${isTrigger ? 'trigger' : 'action'} node:`, nodeId)
+  }, [builder?.nodes, openIntegrationsPanel])
 
   // Handle node duplication
   const handleNodeDuplicate = useCallback(async (nodeId: string) => {
@@ -3836,7 +3729,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [flowId, setNodeRunning, setNodePaused, setNodeCompletedWithDetails, setNodeFailedWithDetails, finishTestFlow, toast])
 
   // Get trigger type for the TestModeDialog
-  const triggerNode = builder?.nodes?.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
+  const triggerNode = builder?.nodes?.find((n: any) => isTriggerNode(n))
   const triggerType = triggerNode?.data?.type
 
   // Handler to open the Test Mode Dialog
@@ -3882,7 +3775,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     const nodes = builder.nodes
     const edges = builder.edges || []
-    const triggerNode = nodes.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
+    const triggerNode = nodes.find((n: any) => isTriggerNode(n))
 
     const isLiveMode = config.actionMode === ActionTestMode.EXECUTE_ALL
     const waitForTrigger = config.triggerMode === TriggerTestMode.WAIT_FOR_REAL
@@ -3892,7 +3785,29 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     let timerInterval: NodeJS.Timeout | null = null
 
     try {
-      console.log('[TEST] Starting test execution', { waitForTrigger, hasTriggerNode: !!triggerNode })
+      console.log('[TEST] Starting test execution', {
+        waitForTrigger,
+        hasTriggerNode: !!triggerNode,
+        nodeCount: nodes.length,
+      })
+
+      if (!nodes.length) {
+        toast({
+          title: "Cannot test",
+          description: "No nodes available to test yet.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (waitForTrigger && !triggerNode) {
+        toast({
+          title: "Cannot wait for trigger",
+          description: "No trigger node found in the workflow.",
+          variant: "destructive",
+        })
+        return
+      }
 
       // If waiting for real trigger, start listening
       if (waitForTrigger && triggerNode) {
@@ -3952,21 +3867,86 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         const triggerResult = await triggerResponse.json()
         console.log('[TEST] Trigger result:', triggerResult)
 
-        if (!triggerResult.eventReceived) {
-          if (isMountedRef.current) {
-            finishTestFlow('cancelled', 'No event received within timeout')
-            toast({
-              title: "Timeout",
-              description: "No trigger event received. Try again or use mock data.",
-              variant: "destructive",
-            })
+        if (!triggerResult.testSessionId) {
+          throw new Error('Missing test session ID')
+        }
+
+        testSessionIdRef.current = triggerResult.testSessionId
+
+        const streamUrl = `/api/workflows/test-trigger/stream?sessionId=${encodeURIComponent(triggerResult.testSessionId)}&workflowId=${encodeURIComponent(flowId)}&timeoutMs=${timeout}`
+        const streamResponse = await fetch(streamUrl, { signal: abortController.signal })
+
+        if (!streamResponse.ok) {
+          throw new Error('Failed to open trigger stream')
+        }
+
+        const reader = streamResponse.body?.getReader()
+        const decoder = new TextDecoder()
+
+        if (!reader) {
+          throw new Error('No trigger stream available')
+        }
+
+        let buffer = ''
+        let triggerReceived = false
+
+        while (true) {
+          if (abortController.signal.aborted) {
+            reader.cancel()
+            break
           }
+
+          const { done, value } = await reader.read()
+          if (done) {
+            break
+          }
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            try {
+              const event = JSON.parse(line.slice(6))
+              console.log('[TEST] Trigger stream event:', event)
+
+              if (event.type === 'trigger_received') {
+                triggerEventData = event.data
+                triggerReceived = true
+                break
+              }
+
+              if (event.type === 'timeout') {
+                if (isMountedRef.current) {
+                  finishTestFlow('cancelled', 'No event received within timeout')
+                  cleanupTestTrigger()
+                  toast({
+                    title: "Timeout",
+                    description: "No trigger event received. Try again or use mock data.",
+                    variant: "destructive",
+                  })
+                }
+                return
+              }
+
+              if (event.type === 'error') {
+                throw new Error(event.message || 'Trigger stream error')
+              }
+            } catch (parseError) {
+              console.log('[TEST] Trigger stream parse error:', parseError, 'Line:', line)
+            }
+          }
+
+          if (triggerReceived) {
+            break
+          }
+        }
+
+        if (!triggerReceived) {
           return
         }
 
-        // Store the trigger event data and session ID
-        triggerEventData = triggerResult.data
-        testSessionIdRef.current = triggerResult.testSessionId || null
         console.log('[SSE] Trigger event received:', { triggerEventData, testSessionId: triggerResult.testSessionId })
 
         if (isMountedRef.current) {
@@ -4199,7 +4179,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
 
     const nodes = builder.nodes
-    const triggerNode = nodes.find((n: any) => n.data?.isTrigger && !n.data?.isPlaceholder)
+    const triggerNode = nodes.find((n: any) => isTriggerNode(n))
     const hasTrigger = Boolean(triggerNode)
 
     // If there's a trigger, ask user if they want to include it
@@ -4275,9 +4255,67 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
           const triggerResult = await triggerResponse.json()
 
-          if (triggerResult.eventReceived) {
-            // Event received! Use this data for workflow execution
-            triggerData = triggerResult.data
+          if (!triggerResult.testSessionId) {
+            throw new Error('Missing test session ID')
+          }
+
+          testSessionIdRef.current = triggerResult.testSessionId
+
+          const streamUrl = `/api/workflows/test-trigger/stream?sessionId=${encodeURIComponent(triggerResult.testSessionId)}&workflowId=${encodeURIComponent(flowId)}&timeoutMs=60000`
+          const streamResponse = await fetch(streamUrl)
+
+          if (!streamResponse.ok) {
+            throw new Error('Failed to open trigger stream')
+          }
+
+          const reader = streamResponse.body?.getReader()
+          const decoder = new TextDecoder()
+
+          if (!reader) {
+            throw new Error('No trigger stream available')
+          }
+
+          let buffer = ''
+          let triggerReceived = false
+
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue
+              try {
+                const event = JSON.parse(line.slice(6))
+                console.log('[TEST] Trigger stream event:', event)
+
+                if (event.type === 'trigger_received') {
+                  triggerData = event.data
+                  triggerReceived = true
+                  break
+                }
+
+                if (event.type === 'timeout') {
+                  break
+                }
+
+                if (event.type === 'error') {
+                  throw new Error(event.message || 'Trigger stream error')
+                }
+              } catch (parseError) {
+                console.log('[TEST] Trigger stream parse error:', parseError, 'Line:', line)
+              }
+            }
+
+            if (triggerReceived) {
+              break
+            }
+          }
+
+          if (triggerReceived) {
             toast({
               title: "Trigger event received",
               description: "Now executing workflow with trigger data...",
@@ -4289,6 +4327,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
               `Webhook URL: ${triggerResult.webhookUrl || 'N/A'}\n\n` +
               `Do you want to continue testing without trigger data?`
             )
+
+            cleanupTestTrigger()
 
             if (!shouldContinue) {
               // User cancelled - clear running states
@@ -4419,7 +4459,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         variant: "destructive",
       })
     }
-  }, [builder, flowId, hasPlaceholders, toast])
+  }, [builder, cleanupTestTrigger, flowId, hasPlaceholders, toast])
 
   // Handler to stop flow testing
   const handleStopFlowTest = useCallback(() => {
@@ -5660,168 +5700,83 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
   }, [builder?.nodes, builder?.edges, actions])
 
-  // Auto-center Path Router nodes - DISABLED for linear Zapier-style stacking
-  // Nodes are now always positioned vertically at x=400
-  // useEffect(() => {
-  //   ... router centering logic disabled ...
-  // }, [builder?.nodes, builder?.edges, builder?.setNodes])
+  // NOTE: Auto-position useEffect removed - was already disabled via ENABLE_AUTO_STACK = false
+  // Nodes now use positions from metadata or stable fallback calculated in flowToReactFlowNodes
 
-  // Auto-position nodes vertically in a linear stack (Zapier-style)
+  // CONSOLIDATED: Apply node styling AND clear selection during build
+  // These were previously 2 separate effects that both called setNodes() on the same
+  // state change, causing race conditions where one would overwrite the other.
   useEffect(() => {
-    if (!builder?.nodes || !builder?.setNodes) {
+    // CRITICAL: Wait for initial load to complete before modifying nodes
+    // This prevents race conditions where this effect calls setNodes while
+    // the initial load is still populating nodes, causing nodes to disappear
+    if (!builder?.isInitialLoadCompleteRef?.current) {
       return
     }
-
-    if (!ENABLE_AUTO_STACK) {
-      return
-    }
-
-    const VERTICAL_SPACING = 180 // Match initial placeholder spacing
-    const CENTER_X = 400 // Consistent horizontal center
-
-    // Build a map of connections to understand node order
-    const edges = builder.edges || []
-    const nodeOrder: string[] = []
-    const visited = new Set<string>()
-
-    // Find the first node (trigger or node with no incoming edges)
-    const incomingEdges = new Map<string, number>()
-    edges.forEach((edge: any) => {
-      incomingEdges.set(edge.target, (incomingEdges.get(edge.target) || 0) + 1)
-    })
-
-    const firstNode = builder.nodes.find((n: any) => {
-      const hasNoIncoming = !incomingEdges.has(n.id)
-      const isTrigger = n.data?.isTrigger
-      return hasNoIncoming || isTrigger
-    })
-
-    // Traverse from first node to build linear order
-    const traverse = (nodeId: string) => {
-      if (visited.has(nodeId)) return
-      visited.add(nodeId)
-      nodeOrder.push(nodeId)
-
-      // Find nodes connected from this one
-      const outgoingEdges = edges.filter((e: any) => e.source === nodeId)
-      outgoingEdges.forEach((edge: any) => {
-        traverse(edge.target)
-      })
-    }
-
-    if (firstNode) {
-      traverse(firstNode.id)
-    }
-
-    // Add any orphaned nodes at the end
-    builder.nodes.forEach((n: any) => {
-      if (!visited.has(n.id)) {
-        nodeOrder.push(n.id)
-      }
-    })
-
-    // Calculate positions based on order
-    const updatedNodes = builder.nodes.map((node: any) => {
-      const orderIndex = nodeOrder.indexOf(node.id)
-      const newY = orderIndex * VERTICAL_SPACING
-
-      // Only update if position changed to avoid unnecessary re-renders
-      if (node.position.x !== CENTER_X || node.position.y !== newY) {
-        return {
-          ...node,
-          position: {
-            x: CENTER_X,
-            y: newY,
-          },
-        }
-      }
-
-      return node
-    })
-
-    // Check if any positions changed
-    const hasChanges = updatedNodes.some((node: any, i: number) =>
-      node.position.x !== builder.nodes[i].position.x ||
-      node.position.y !== builder.nodes[i].position.y
-    )
-
-    if (hasChanges) {
-      builder.setNodes(updatedNodes)
-    }
-  }, [builder?.nodes, builder?.edges, builder?.setNodes])
-
-  // Apply node styling based on node state (not build progress)
-  useEffect(() => {
-    if (!builder?.nodes || buildMachine.state === BuildState.IDLE) {
+    if (!builder?.nodes || !builder.setNodes) {
       return
     }
 
     const { state, progress } = buildMachine
 
-    // Apply CSS classes based on actual node state
-    const updatedNodes = builder.nodes.map((node, index) => {
-      const nodeState = node.data?.state || 'ready'
-      let className = ''
+    // Determine if we're in an active build state (for selection clearing)
+    const isBuildActive =
+      state === BuildState.BUILDING_SKELETON ||
+      state === BuildState.WAITING_USER ||
+      state === BuildState.PREPARING_NODE ||
+      state === BuildState.CONFIGURING_NODE ||
+      state === BuildState.TESTING_NODE
 
-      if (state === BuildState.BUILDING_SKELETON) {
-        // All nodes are grey during skeleton building
-        className = 'node-skeleton node-grey'
-      } else {
-        // Use node's actual state to determine styling
-        if (nodeState === 'skeleton') {
+    // Track if any changes are needed
+    let hasChanges = false
+
+    // Apply CSS classes AND clear selection in a SINGLE pass
+    const updatedNodes = builder.nodes.map((node, index) => {
+      let nodeUpdates: Record<string, any> = {}
+
+      // 1. Apply CSS classes based on build state
+      if (state !== BuildState.IDLE) {
+        const nodeState = node.data?.state || 'ready'
+        let className = ''
+
+        if (state === BuildState.BUILDING_SKELETON) {
           className = 'node-skeleton node-grey'
-        } else if (nodeState === 'ready') {
-          // Ready node waiting for user interaction
-          if (index === progress.currentIndex) {
-            className = 'node-ready' // Current node ready for configuration
-          } else {
-            className = 'node-ready' // Ready but not current
+        } else {
+          if (nodeState === 'skeleton') {
+            className = 'node-skeleton node-grey'
+          } else if (nodeState === 'ready') {
+            className = 'node-ready'
+          } else if (nodeState === 'running') {
+            className = 'node-active'
+          } else if (nodeState === 'passed' || nodeState === 'failed') {
+            className = 'node-done'
           }
-        } else if (nodeState === 'running') {
-          className = 'node-active' // Node is being configured/tested
-        } else if (nodeState === 'passed' || nodeState === 'failed') {
-          className = 'node-done' // Node completed (never changes back)
+        }
+
+        if (node.className !== className) {
+          nodeUpdates.className = className
+          hasChanges = true
         }
       }
 
-      return {
-        ...node,
-        className,
+      // 2. Clear selection during active build states
+      if (isBuildActive && node.selected === true) {
+        nodeUpdates.selected = false
+        hasChanges = true
       }
+
+      // Return updated node if changes, otherwise return original
+      if (Object.keys(nodeUpdates).length > 0) {
+        return { ...node, ...nodeUpdates }
+      }
+      return node
     })
 
-    // Only update if classes actually changed
-    const hasChanges = updatedNodes.some((node, i) => node.className !== builder.nodes[i].className)
-    if (hasChanges && builder.setNodes) {
+    // Only call setNodes if something actually changed
+    if (hasChanges) {
       builder.setNodes(updatedNodes)
     }
   }, [buildMachine.state, buildMachine.progress, builder])
-
-  // Clear node selection during build states to prevent accidental mass deletion
-  useEffect(() => {
-    const isBuildActive =
-      buildMachine.state === BuildState.BUILDING_SKELETON ||
-      buildMachine.state === BuildState.WAITING_USER ||
-      buildMachine.state === BuildState.PREPARING_NODE ||
-      buildMachine.state === BuildState.CONFIGURING_NODE ||
-      buildMachine.state === BuildState.TESTING_NODE
-
-    if (isBuildActive && builder?.nodes && builder.setNodes) {
-      // Check if any nodes are actually selected before updating
-      const hasSelectedNodes = builder.nodes.some(node => node.selected === true)
-
-      if (hasSelectedNodes) {
-        console.log('[WorkflowBuilderV2] Clearing node selection during build state:', buildMachine.state)
-        const updatedNodes = builder.nodes.map(node => ({
-          ...node,
-          selected: false,
-        }))
-        builder.setNodes(updatedNodes)
-      }
-    }
-    // Only depend on buildMachine.state to avoid infinite loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildMachine.state])
 
   // Get cost breakdown for CostDisplay
   const costBreakdown = useMemo(() => {
@@ -5964,6 +5919,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             integrationsPanelMode={integrationsPanelMode}
             onNodeSelect={handleNodeSelectFromPanel}
             onNodeConfigure={handleNodeConfigure}
+            onChangeNode={handleChangeNode}
             onUndoToPreviousStage={handleUndoToPreviousStage}
             onCancelBuild={handleCancelBuild}
             onAddNodeAfter={handleAddNodeAfterClick}

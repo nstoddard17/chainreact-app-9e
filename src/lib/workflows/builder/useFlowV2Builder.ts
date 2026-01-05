@@ -454,12 +454,16 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
 const NODE_COMPONENT_MAP = new Map(ALL_NODE_COMPONENTS.map((node) => [node.type, node]))
 
 function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): ReactFlowNode[] {
-  // First, determine which nodes are triggers
-  const nodeWithTriggerInfo = flow.nodes.map((node) => {
+  // First, determine which nodes are triggers and assign STABLE fallback positions
+  // CRITICAL: Assign fallbackY BEFORE sorting to prevent multiple nodes from getting
+  // the same Y position when metadata.position is undefined. This fixes the overlapping bug.
+  const nodeWithTriggerInfo = flow.nodes.map((node, originalIndex) => {
     const metadata = (node.metadata ?? {}) as any
     const catalogNode = NODE_COMPONENT_MAP.get(node.type)
     const isTrigger = metadata.isTrigger ?? catalogNode?.isTrigger ?? false
-    return { node, isTrigger, metadata, catalogNode }
+    // Pre-calculate fallback Y based on ORIGINAL array order (not sorted order)
+    const fallbackY = 120 + originalIndex * 180
+    return { node, isTrigger, metadata, catalogNode, fallbackY }
   })
 
   // Sort nodes: triggers first, then actions
@@ -485,12 +489,12 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
     return 0
   })
 
-  return sortedNodes.map(({ node, isTrigger, metadata, catalogNode }, index) => {
-    const defaultY = 120 + index * 180
-    const rawPosition = metadata.position ?? { x: LINEAR_STACK_X, y: defaultY }
+  return sortedNodes.map(({ node, isTrigger, metadata, catalogNode, fallbackY }) => {
+    // Use the pre-calculated fallbackY from the original order (before sorting)
+    const rawPosition = metadata.position ?? { x: LINEAR_STACK_X, y: fallbackY }
     // Use saved X position if available, otherwise default to LINEAR_STACK_X
     const positionX = rawPosition.x ?? LINEAR_STACK_X
-    const positionY = rawPosition.y ?? defaultY
+    const positionY = rawPosition.y ?? fallbackY
     const position = {
       x: positionX,
       y: positionY,
@@ -523,21 +527,37 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
 }
 
 function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
-  return flow.edges.map((edge) => ({
-    id: edge.id,
-    source: edge.from.nodeId,
-    target: edge.to.nodeId,
-    sourceHandle: edge.from.portId,
-    targetHandle: edge.to.portId,
-    type: "custom",
-    style: {
-      stroke: "#d0d6e0",
-      strokeWidth: 1.5,
-    },
-    data: {
-      mappings: edge.mappings ?? [],
-    },
-  }))
+  // Deduplicate edges by source->target to prevent overlapping edges on reload
+  // Keep the first edge encountered for each unique connection
+  const seenEdges = new Set<string>()
+  const deduplicatedEdges: ReactFlowEdge[] = []
+
+  for (const edge of flow.edges) {
+    const key = `${edge.from.nodeId}->${edge.to.nodeId}`
+    if (seenEdges.has(key)) {
+      console.warn(`[flowToReactFlowEdges] Skipping duplicate edge: ${key} (id: ${edge.id})`)
+      continue
+    }
+    seenEdges.add(key)
+
+    deduplicatedEdges.push({
+      id: edge.id,
+      source: edge.from.nodeId,
+      target: edge.to.nodeId,
+      sourceHandle: edge.from.portId,
+      targetHandle: edge.to.portId,
+      type: "custom",
+      style: {
+        stroke: "#d0d6e0",
+        strokeWidth: 1.5,
+      },
+      data: {
+        mappings: edge.mappings ?? [],
+      },
+    })
+  }
+
+  return deduplicatedEdges
 }
 
 /**
@@ -665,6 +685,11 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   // Once true, the action placeholder should never reappear for this session
   // But if they leave and come back, the placeholder will show again if only trigger exists
   const hasHadActionNodeRef = useRef<boolean>(false)
+
+  // Track when initial load is complete to prevent competing setNodes calls
+  // This ref is exposed to consumers (e.g., WorkflowBuilderV2) so they can
+  // gate their useEffects that touch nodes until initial load is done
+  const isInitialLoadCompleteRef = useRef<boolean>(false)
 
   // Helper to mark that the workflow has had an action node this session
   const markHasHadActionNode = useCallback(() => {
@@ -878,57 +903,15 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
           },
         ] as ReactFlowEdge[]
-      } else if (flow.nodes.length === 1 && !hasHadActionNodeRef.current) {
-        // Check if the single node is a trigger - check both metadata and node definition
-        const singleNode = flow.nodes[0]
-        const nodeDefinition = ALL_NODE_COMPONENTS.find(c => c.type === singleNode.type)
-        const isTriggerNode = singleNode.metadata?.isTrigger || nodeDefinition?.isTrigger || false
-
-        // If we have only a trigger node AND the workflow has never had an action node,
-        // add an action placeholder after it. Once a real action node has been added
-        // and then deleted, we don't show the placeholder again.
-        const triggerNode = graphNodes[0]
-        if (isTriggerNode && triggerNode) {
-          const actionPlaceholder: ReactFlowNode = {
-            id: 'action-placeholder',
-            type: 'action_placeholder',
-            position: {
-              x: triggerNode.position.x,
-              y: triggerNode.position.y + 180 // 180px vertical spacing
-            },
-            data: {
-              type: 'action_placeholder',
-              isPlaceholder: true,
-              title: 'Action',
-              // onConfigure will be added by FlowV2BuilderContent via enrichedNodes
-            },
-          }
-
-          graphNodes.push(actionPlaceholder)
-
-          // Add edge from trigger to action placeholder
-          edges.push({
-            id: `${triggerNode.id}-action-placeholder`,
-            source: triggerNode.id,
-            target: 'action-placeholder',
-            sourceHandle: 'source',
-            targetHandle: 'target',
-            type: 'custom',
-            style: {
-              stroke: '#d0d6e0',
-            },
-      } as ReactFlowEdge)
-        }
       } else if (flow.nodes.length > 0) {
-        // Check if there are action nodes but no trigger node
-        // This happens when a trigger is deleted but actions remain
+        // Check if there's a real trigger node (not a placeholder)
         const hasTrigger = flow.nodes.some((node) => {
           const nodeDef = ALL_NODE_COMPONENTS.find(c => c.type === node.type)
           return node.metadata?.isTrigger || nodeDef?.isTrigger || false
         })
 
         if (!hasTrigger) {
-          // Find the topmost node (smallest Y position) to place trigger placeholder above it
+          // No trigger - add trigger placeholder above the topmost node
           const sortedNodes = [...graphNodes].sort((a, b) => a.position.y - b.position.y)
           const topNode = sortedNodes[0]
 
@@ -938,7 +921,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               type: 'trigger_placeholder',
               position: {
                 x: topNode.position.x,
-                y: topNode.position.y - 180 // Place 180px above the first node
+                y: topNode.position.y - 180
               },
               data: {
                 type: 'trigger_placeholder',
@@ -947,10 +930,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               },
             }
 
-            // Add trigger placeholder at the beginning
             graphNodes = [triggerPlaceholder, ...graphNodes]
 
-            // Add edge from trigger placeholder to the first action node
             edges.push({
               id: `trigger-placeholder-${topNode.id}`,
               source: 'trigger-placeholder',
@@ -958,9 +939,37 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               sourceHandle: 'source',
               targetHandle: 'target',
               type: 'custom',
-              style: {
-                stroke: '#d0d6e0',
+              style: { stroke: '#d0d6e0' },
+            } as ReactFlowEdge)
+          }
+        } else if (flow.nodes.length === 1 && !hasHadActionNodeRef.current) {
+          // Has trigger but only 1 node and never had action - add action placeholder
+          const triggerNode = graphNodes[0]
+          if (triggerNode) {
+            const actionPlaceholder: ReactFlowNode = {
+              id: 'action-placeholder',
+              type: 'action_placeholder',
+              position: {
+                x: triggerNode.position.x,
+                y: triggerNode.position.y + 180
               },
+              data: {
+                type: 'action_placeholder',
+                isPlaceholder: true,
+                title: 'Action',
+              },
+            }
+
+            graphNodes.push(actionPlaceholder)
+
+            edges.push({
+              id: `${triggerNode.id}-action-placeholder`,
+              source: triggerNode.id,
+              target: 'action-placeholder',
+              sourceHandle: 'source',
+              targetHandle: 'target',
+              type: 'custom',
+              style: { stroke: '#d0d6e0' },
             } as ReactFlowEdge)
           }
         }
@@ -1013,7 +1022,19 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       }
 
       setNodes(graphNodes)
-      setEdges(edges)
+
+      // Deduplicate edges by ID to prevent "duplicate key" React errors
+      const seenEdgeIds = new Set<string>()
+      const deduplicatedEdges = edges.filter(edge => {
+        if (seenEdgeIds.has(edge.id)) {
+          console.warn(`[updateReactFlowGraph] Skipping duplicate edge ID: ${edge.id}`)
+          return false
+        }
+        seenEdgeIds.add(edge.id)
+        return true
+      })
+
+      setEdges(deduplicatedEdges)
       setWorkflowName(flow.name ?? "Untitled Flow")
       setHasUnsavedChanges(false)
     },
@@ -1097,6 +1118,11 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         revisionIdRef.current = options.initialRevision.id
         updateReactFlowGraph(flow)
 
+        // Mark initial load as complete AFTER updateReactFlowGraph
+        // This prevents competing useEffects in WorkflowBuilderV2 from
+        // calling setNodes while we're still setting up the initial state
+        isInitialLoadCompleteRef.current = true
+
         setFlowState((prev) => ({
           ...prev,
           flow,
@@ -1147,6 +1173,9 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       flowRef.current = flow
       revisionIdRef.current = revisionPayload.revision.id
       updateReactFlowGraph(flow)
+
+      // Mark initial load as complete AFTER updateReactFlowGraph
+      isInitialLoadCompleteRef.current = true
 
       setFlowState((prev) => ({
         ...prev,
@@ -1689,5 +1718,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     ...builder,
     flowState,
     actions,
+    // Expose the loading guard ref so consumers can gate their useEffects
+    isInitialLoadCompleteRef,
   }
 }

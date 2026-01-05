@@ -97,6 +97,11 @@ export class MicrosoftGraphSubscriptionManager {
         userId
       })
 
+      logger.info('?? [Microsoft Graph] Subscription validation will target:', {
+        notificationUrl,
+        testSessionId: testSessionId || null
+      })
+
       logger.debug('📦 Subscription payload:', JSON.stringify(subscriptionPayload, null, 2))
 
       // Create subscription via Microsoft Graph API
@@ -444,15 +449,8 @@ export class MicrosoftGraphSubscriptionManager {
     const explicit = process.env.MICROSOFT_GRAPH_WEBHOOK_URL || process.env.NEXT_PUBLIC_MICROSOFT_WEBHOOK_URL
     const httpsOverride = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
 
-    let baseUrl = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
-    baseUrl = baseUrl.replace(/\/$/, "")
-
-    if (!baseUrl.startsWith("https://")) {
-      const guidanceEnv = httpsOverride || explicit || baseUrl
-      throw new Error(`Microsoft Graph notification URL must use HTTPS. Received base: ${guidanceEnv}. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL (for example, an https ngrok tunnel) or MICROSOFT_GRAPH_WEBHOOK_URL.`)
-    }
-
-    const notificationUrl = `${baseUrl}/api/webhooks/microsoft`
+    const candidate = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
+    const notificationUrl = this.buildMicrosoftWebhookUrl(candidate, 'default')
     logger.debug("[Microsoft Graph] Using webhook notification URL", { notificationUrl })
     return notificationUrl
   }
@@ -465,16 +463,8 @@ export class MicrosoftGraphSubscriptionManager {
     const explicit = process.env.MICROSOFT_GRAPH_WEBHOOK_URL || process.env.NEXT_PUBLIC_MICROSOFT_WEBHOOK_URL
     const httpsOverride = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
 
-    let baseUrl = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
-    baseUrl = baseUrl.replace(/\/$/, "")
-
-    if (!baseUrl.startsWith("https://")) {
-      const guidanceEnv = httpsOverride || explicit || baseUrl
-      throw new Error(`Microsoft Graph notification URL must use HTTPS. Received base: ${guidanceEnv}. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL (for example, an https ngrok tunnel) or MICROSOFT_GRAPH_WEBHOOK_URL.`)
-    }
-
-    // Use test-specific endpoint: /api/webhooks/microsoft/test/[sessionId]
-    const notificationUrl = `${baseUrl}/api/webhooks/microsoft/test/${testSessionId}`
+    const candidate = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
+    const notificationUrl = this.buildMicrosoftWebhookUrl(candidate, 'test', testSessionId)
     logger.debug("[Microsoft Graph] Using TEST webhook notification URL", { notificationUrl, testSessionId })
     return notificationUrl
   }
@@ -483,17 +473,45 @@ export class MicrosoftGraphSubscriptionManager {
     const explicit = process.env.MICROSOFT_GRAPH_WEBHOOK_URL || process.env.NEXT_PUBLIC_MICROSOFT_WEBHOOK_URL
     const httpsOverride = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || process.env.PUBLIC_WEBHOOK_BASE_URL || process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL
 
-    let baseUrl = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
-    baseUrl = baseUrl.replace(/\/$/, "")
-
-    if (!baseUrl.startsWith("https://")) {
-      const guidanceEnv = httpsOverride || explicit || baseUrl
-      throw new Error(`Microsoft Graph lifecycle notification URL must use HTTPS. Received base: ${guidanceEnv}. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL (for example, an https ngrok tunnel) or MICROSOFT_GRAPH_WEBHOOK_URL.`)
-    }
-
-    const lifecycleUrl = `${baseUrl}/api/webhooks/microsoft/lifecycle`
+    const candidate = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
+    const lifecycleUrl = this.buildMicrosoftWebhookUrl(candidate, 'lifecycle')
     logger.debug("[Microsoft Graph] Using lifecycle notification URL", { lifecycleUrl })
     return lifecycleUrl
+  }
+
+  private buildMicrosoftWebhookUrl(
+    candidate: string,
+    kind: 'default' | 'test' | 'lifecycle',
+    testSessionId?: string
+  ): string {
+    const trimmed = candidate.replace(/\/$/, '')
+    const lower = trimmed.toLowerCase()
+    const marker = '/api/webhooks/microsoft'
+    const markerIndex = lower.indexOf(marker)
+
+    let root = trimmed
+    if (markerIndex !== -1) {
+      root = trimmed.slice(0, markerIndex)
+    }
+
+    if (!root.startsWith('https://')) {
+      const guidanceEnv = candidate
+      throw new Error(`Microsoft Graph notification URL must use HTTPS. Received base: ${guidanceEnv}. Set NEXT_PUBLIC_WEBHOOK_HTTPS_URL (for example, an https ngrok tunnel) or MICROSOFT_GRAPH_WEBHOOK_URL.`)
+    }
+
+    if (kind === 'default') {
+      return `${root}${marker}`
+    }
+
+    if (kind === 'lifecycle') {
+      return `${root}${marker}/lifecycle`
+    }
+
+    if (!testSessionId) {
+      throw new Error('Missing testSessionId for Microsoft Graph test webhook URL')
+    }
+
+    return `${root}${marker}/test/${testSessionId}`
   }
   private generateClientState(): string {
     return crypto.randomBytes(32).toString('hex')

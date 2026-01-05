@@ -118,11 +118,25 @@ export const useAuthStore = create<AuthState>()(
           set({ initialized: false })
         }
 
+        const getSessionWithTimeout = async () => {
+          const sessionPromise = supabase.auth.getSession()
+          const timeoutPromise = new Promise<{
+            data: { session: null }
+            error: Error
+          }>((resolve) =>
+            setTimeout(
+              () => resolve({ data: { session: null }, error: new Error('Supabase getSession timeout') }),
+              4000
+            )
+          )
+          return Promise.race([sessionPromise, timeoutPromise])
+        }
+
         // If we're already initialized AND have a valid user, verify the session is still valid
         if (state.initialized && state.user) {
           logger.debug('🔍 [AUTH] Already initialized with user, verifying session validity')
           try {
-            const { data: { session } } = await supabase.auth.getSession()
+            const { data: { session } } = await getSessionWithTimeout()
             if (session) {
               logger.debug('✅ [AUTH] Session is valid, skipping full initialization')
               return
@@ -143,7 +157,11 @@ export const useAuthStore = create<AuthState>()(
         // Add timeout protection for initialization
         const initTimeout = setTimeout(() => {
           logger.warn('Auth initialization timed out, forcing completion...')
-          set({ loading: false, initialized: true, error: null, user: null })
+          set((current) => ({
+            ...current,
+            loading: false,
+            initialized: true,
+          }))
         }, timeoutDuration)
         let initTimeoutCleared = false
         const clearInitTimeout = () => {
@@ -155,6 +173,74 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           set({ loading: true, error: null })
+
+          const mapProfileDataForFallback = (raw: any): Profile => ({
+            id: raw.id,
+            username: raw.username ?? undefined,
+            full_name: raw.full_name ?? undefined,
+            first_name: raw.first_name ?? undefined,
+            last_name: raw.last_name ?? undefined,
+            avatar_url: raw.avatar_url ?? undefined,
+            company: raw.company ?? undefined,
+            job_title: raw.job_title ?? undefined,
+            role: raw.role ?? undefined,
+            plan: raw.plan ?? undefined,
+            admin: raw.admin ?? false,
+            secondary_email: raw.secondary_email ?? undefined,
+            phone_number: raw.phone_number ?? undefined,
+            email: raw.email ?? undefined,
+            provider: raw.provider ?? undefined,
+            created_at: raw.created_at ?? undefined,
+            updated_at: raw.updated_at ?? undefined,
+          })
+
+          const fetchProfileFromApi = async (): Promise<Profile | null> => {
+            if (typeof window === 'undefined') return null
+
+            const abortController = new AbortController()
+            const timeoutId = window.setTimeout(() => {
+              abortController.abort()
+            }, 6000)
+            const startTime = performance.now()
+
+            try {
+              const response = await fetch('/api/auth/profile', {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store',
+                signal: abortController.signal,
+              })
+              const durationMs = Math.round(performance.now() - startTime)
+              logger.debug('[AUTH] Profile fetch response', {
+                status: response.status,
+                ok: response.ok,
+                durationMs,
+              })
+
+              if (!response.ok) {
+                logger.warn('Service profile endpoint responded with status:', response.status)
+                return null
+              }
+
+              const payload = await response.json()
+              if (payload?.profile) {
+                return mapProfileDataForFallback(payload.profile)
+              }
+              return null
+            } catch (error: any) {
+              if (error?.name === 'AbortError') {
+                logger.info('Service profile fetch timed out, will treat as unauthenticated', {
+                  durationMs: Math.round(performance.now() - startTime),
+                })
+              } else {
+                logger.error('Failed to fetch profile via service endpoint:', error)
+              }
+              return null
+            } finally {
+              clearTimeout(timeoutId)
+            }
+          }
+          const profilePromise = fetchProfileFromApi()
 
           // Handle hash fragment for magic links
           if (typeof window !== 'undefined') {
@@ -192,7 +278,16 @@ export const useAuthStore = create<AuthState>()(
             timestamp: new Date().toISOString()
           })
 
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+          let sessionResult
+          const sessionStart = performance.now()
+          try {
+            sessionResult = await getSessionWithTimeout()
+          } catch (error) {
+            logger.warn('Auth session fetch failed, attempting profile fallback', error)
+            sessionResult = { data: { session: null }, error }
+          }
+          const sessionDurationMs = Math.round(performance.now() - sessionStart)
+          const { data: { session }, error: sessionError } = sessionResult as any
 
           logger.debug('📊 [AUTH] Session fetch result', {
             hasSession: !!session,
@@ -200,15 +295,42 @@ export const useAuthStore = create<AuthState>()(
             error: sessionError,
             sessionUserId: session?.user?.id,
             sessionUserEmail: session?.user?.email,
+            durationMs: sessionDurationMs,
             timestamp: new Date().toISOString()
           })
 
           if (sessionError) {
-            logger.error('❌ [AUTH] Session error', {
+            logger.error('??O [AUTH] Session error', {
               error: sessionError,
               errorMessage: sessionError.message,
               errorName: sessionError.name
             })
+            const profileFallback = await profilePromise
+            if (profileFallback?.id) {
+              const fallbackUser: User = {
+                id: profileFallback.id,
+                email: profileFallback.email || "",
+                name: profileFallback.full_name || profileFallback.first_name || profileFallback.username || "",
+                avatar: profileFallback.avatar_url,
+                first_name: profileFallback.first_name,
+                last_name: profileFallback.last_name,
+                full_name: profileFallback.full_name
+              }
+              clearInitTimeout()
+              set({
+                user: fallbackUser,
+                profile: profileFallback,
+                loading: false,
+                initialized: true,
+                error: null,
+              })
+              return
+            }
+            if (get().user) {
+              set({ loading: false, initialized: true, error: null })
+              clearInitTimeout()
+              return
+            }
             set({ user: null, loading: false, initialized: true })
             clearInitTimeout()
             return
@@ -218,7 +340,22 @@ export const useAuthStore = create<AuthState>()(
           const user = session?.user
 
           if (!user) {
-            logger.warn('⚠️ [AUTH] No active session found', {
+            const profileFallback = await profilePromise
+            if (profileFallback?.id) {
+              const fallbackUser: User = {
+                id: profileFallback.id,
+                email: profileFallback.email || "",
+                name: profileFallback.full_name || profileFallback.first_name || profileFallback.username || "",
+                avatar: profileFallback.avatar_url,
+                first_name: profileFallback.first_name,
+                last_name: profileFallback.last_name,
+                full_name: profileFallback.full_name
+              }
+              clearInitTimeout()
+              set({ user: fallbackUser, profile: profileFallback, loading: false, initialized: true, error: null })
+              return
+            }
+            logger.warn('?s??,? [AUTH] No active session found', {
               hasSession: !!session,
               timestamp: new Date().toISOString()
             })
