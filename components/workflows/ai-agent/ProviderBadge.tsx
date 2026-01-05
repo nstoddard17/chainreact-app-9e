@@ -53,64 +53,88 @@ export function ProviderBadge({
 
   return (
     <div className="relative inline-block w-full" ref={dropdownRef}>
-      <div
-        className={`group w-full flex items-center gap-3 px-4 py-3 ${
-          isDisconnected
-            ? 'bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 border-2 border-amber-300 dark:border-amber-700 hover:border-amber-400'
-            : 'bg-primary/5 hover:bg-primary/10 border-2 border-primary/20 hover:border-primary/30'
-        } rounded-lg transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer`}
-        onClick={() => setShowDropdown(!showDropdown)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            setShowDropdown(!showDropdown)
-          }
-        }}
-      >
-        <div className={`flex items-center justify-center w-10 h-10 rounded-lg bg-background border shadow-sm shrink-0 ${
-          isDisconnected ? 'border-amber-300 dark:border-amber-700' : 'border-border'
-        }`}>
-          <Image
-            src={getProviderIconPath(selectedProvider.id)}
-            alt={selectedProvider.displayName}
-            width={28}
-            height={28}
-            className={`shrink-0 ${isDisconnected ? 'opacity-60' : ''}`}
-          />
-        </div>
-        <div className="flex-1 text-left min-w-0">
-          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
-          <div className="font-semibold text-sm text-foreground flex items-center gap-2">
-            {selectedProvider.displayName}
-            {isDisconnected && (
-              <span className="text-xs font-normal text-amber-600 dark:text-amber-400">(Not connected)</span>
-            )}
+      {/* Main badge - different layout for connected vs disconnected */}
+      {isDisconnected ? (
+        // Disconnected state: Two-row layout with prominent Connect button
+        <div className="w-full bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-lg shadow-sm overflow-hidden">
+          {/* Top row: Provider info + change button */}
+          <div
+            className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-amber-100/50 dark:hover:bg-amber-900/30 transition-colors"
+            onClick={() => setShowDropdown(!showDropdown)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setShowDropdown(!showDropdown)
+              }
+            }}
+          >
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-background border border-amber-300 dark:border-amber-700 shadow-sm shrink-0">
+              <Image
+                src={getProviderIconPath(selectedProvider.id)}
+                alt={selectedProvider.displayName}
+                width={24}
+                height={24}
+                className="shrink-0 opacity-70"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
+              <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
+            </div>
+            <div className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors shrink-0">
+              <span className="text-xs font-medium">Change</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+            </div>
+          </div>
+          {/* Bottom row: Connect CTA */}
+          <div className="px-4 py-2.5 bg-amber-100/50 dark:bg-amber-900/30 border-t border-amber-200 dark:border-amber-800">
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                onConnect(selectedProvider.id)
+              }}
+              className="w-full h-8 text-sm font-medium"
+            >
+              Connect {selectedProvider.displayName}
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {isDisconnected && (
-            <>
-              <Button
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onConnect(selectedProvider.id)
-                }}
-                className="h-8 px-4 text-sm font-medium shadow-sm"
-              >
-                Connect
-              </Button>
-              <div className="w-px h-6 bg-border" />
-            </>
-          )}
-          <div className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors">
+      ) : (
+        // Connected state: Single row layout
+        <div
+          className="group w-full flex items-center gap-3 px-4 py-3 bg-primary/5 hover:bg-primary/10 border-2 border-primary/20 hover:border-primary/30 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer"
+          onClick={() => setShowDropdown(!showDropdown)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setShowDropdown(!showDropdown)
+            }
+          }}
+        >
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-background border border-border shadow-sm shrink-0">
+            <Image
+              src={getProviderIconPath(selectedProvider.id)}
+              alt={selectedProvider.displayName}
+              width={28}
+              height={28}
+              className="shrink-0"
+            />
+          </div>
+          <div className="flex-1 text-left min-w-0">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
+            <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
+          </div>
+          <div className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors shrink-0">
             <span className="text-xs font-medium uppercase tracking-wide">Change</span>
             <ChevronDown className={`w-4 h-4 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
           </div>
         </div>
-      </div>
+      )}
 
       {/* Dropdown */}
       {showDropdown && (
