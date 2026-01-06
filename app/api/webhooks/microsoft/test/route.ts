@@ -3,7 +3,7 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
-// Force dynamic rendering to ensure this route works with dynamic segments
+// Force dynamic rendering
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
@@ -12,14 +12,40 @@ const getSupabase = () => createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+/**
+ * Extract sessionId from URL path or query parameter
+ * Supports both:
+ * - /api/webhooks/microsoft/test?sessionId=xxx (query param)
+ * - /api/webhooks/microsoft/test/xxx (path segment - parsed from URL)
+ */
+function getSessionId(request: NextRequest): string | null {
+  // First try query parameter
+  const querySessionId = request.nextUrl.searchParams.get('sessionId')
+  if (querySessionId) return querySessionId
+
+  // Then try to extract from path (for backwards compatibility)
+  const pathname = request.nextUrl.pathname
+  const match = pathname.match(/\/api\/webhooks\/microsoft\/test\/(.+)$/)
+  if (match && match[1]) {
+    return match[1]
+  }
+
+  return null
+}
+
 async function getValidationToken(request: NextRequest): Promise<string | null> {
   const validationToken = request.nextUrl.searchParams.get('validationToken') ||
     request.nextUrl.searchParams.get('validationtoken')
 
   if (validationToken) return validationToken
 
+  // Check if it's a text/plain request (Microsoft sometimes sends token in body)
   if (request.headers.get('content-type')?.includes('text/plain')) {
-    return request.text()
+    try {
+      return await request.text()
+    } catch {
+      return null
+    }
   }
 
   return null
@@ -29,7 +55,7 @@ async function maybeHandleValidation(request: NextRequest): Promise<NextResponse
   const validationToken = await getValidationToken(request)
   if (!validationToken) return null
 
-  logger.debug('?? [Microsoft Test Webhook] Responding to validation request')
+  logger.debug('🧪 [Microsoft Test Webhook] Responding to validation request')
   return new NextResponse(validationToken, {
     status: 200,
     headers: { 'Content-Type': 'text/plain' }
@@ -42,28 +68,35 @@ async function maybeHandleValidation(request: NextRequest): Promise<NextResponse
  * This endpoint handles webhooks for TEST subscriptions only.
  * It is completely isolated from production workflows.
  *
- * URL format: /api/webhooks/microsoft/test/[sessionId]
+ * URL format: /api/webhooks/microsoft/test?sessionId=xxx
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
-) {
-  const { sessionId } = await params
+export async function POST(request: NextRequest) {
+  const sessionId = getSessionId(request)
   const supabase = getSupabase()
 
-  console.log(`dYŚ [Microsoft Test Webhook] Received POST for session: ${sessionId}`, {
+  console.log(`🧪 [Microsoft Test Webhook] Received POST`, {
+    sessionId,
     url: request.nextUrl.toString(),
     method: request.method
   })
 
+  // Handle validation first (doesn't require sessionId)
+  const validationResponse = await maybeHandleValidation(request)
+  if (validationResponse) {
+    return validationResponse
+  }
+
+  // Now we need sessionId for actual webhook processing
+  if (!sessionId) {
+    logger.warn('🧪 [Microsoft Test Webhook] Missing sessionId')
+    return jsonResponse({
+      success: false,
+      message: 'Missing sessionId parameter'
+    }, 400)
+  }
+
   try {
     const startTime = Date.now()
-
-    // Handle Microsoft Graph subscription validation
-    const validationResponse = await maybeHandleValidation(request)
-    if (validationResponse) {
-      return validationResponse
-    }
 
     // Validate the test session exists and is listening
     const { data: testSession, error: sessionError } = await supabase
@@ -129,7 +162,6 @@ export async function POST(
       }
 
       // Store trigger_data so test-trigger API can poll for it
-      // This allows the frontend to execute via SSE for real-time updates
       await supabase
         .from('workflow_test_sessions')
         .update({
@@ -139,11 +171,6 @@ export async function POST(
         .eq('id', sessionId)
 
       logger.debug(`🧪 [Microsoft Test Webhook] Trigger data stored for session ${sessionId}`)
-
-      // The test-trigger API will poll and find this trigger_data,
-      // then return it to the frontend for execution via SSE.
-      // We don't execute the workflow here - that happens on the frontend
-      // for real-time progress visualization.
     }
 
     const processingTime = Date.now() - startTime
@@ -158,33 +185,46 @@ export async function POST(
     logger.error('🧪 [Microsoft Test Webhook] Error:', error)
 
     // Update test session to failed
-    await supabase
-      .from('workflow_test_sessions')
-      .update({
-        status: 'failed',
-        ended_at: new Date().toISOString()
-      })
-      .eq('id', sessionId)
+    if (sessionId) {
+      await supabase
+        .from('workflow_test_sessions')
+        .update({
+          status: 'failed',
+          ended_at: new Date().toISOString()
+        })
+        .eq('id', sessionId)
+    }
 
     return errorResponse('Internal server error', 500)
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
-) {
-  const { sessionId } = await params
-  console.log(`dYŚ [Microsoft Test Webhook] Received GET for session: ${sessionId}`, {
+export async function GET(request: NextRequest) {
+  const sessionId = getSessionId(request)
+
+  console.log(`🧪 [Microsoft Test Webhook] Received GET`, {
+    sessionId,
     url: request.nextUrl.toString(),
     method: request.method
   })
+
+  // Handle validation first
   const validationResponse = await maybeHandleValidation(request)
   if (validationResponse) {
     return validationResponse
   }
 
-  // Health check for test session
+  // Health check / status endpoint
+  if (!sessionId) {
+    return jsonResponse({
+      status: 'ok',
+      provider: 'microsoft-test',
+      message: 'Test webhook endpoint active. Provide sessionId parameter for session status.',
+      timestamp: new Date().toISOString()
+    })
+  }
+
+  // Get session status
   const supabase = getSupabase()
   const { data: testSession } = await supabase
     .from('workflow_test_sessions')
@@ -201,91 +241,23 @@ export async function GET(
   })
 }
 
-export async function OPTIONS(
-  request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
-) {
-  const { sessionId } = await params
-  console.log(`dYŚ [Microsoft Test Webhook] Received OPTIONS for session: ${sessionId}`, {
-    url: request.nextUrl.toString(),
-    method: request.method
+export async function OPTIONS(request: NextRequest) {
+  console.log(`🧪 [Microsoft Test Webhook] Received OPTIONS`, {
+    url: request.nextUrl.toString()
   })
+
+  // Handle validation
   const validationResponse = await maybeHandleValidation(request)
   if (validationResponse) {
     return validationResponse
   }
 
-  return new NextResponse(null, { status: 200 })
-}
-
-export async function HEAD(
-  request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
-) {
-  const { sessionId } = await params
-  console.log(`dY?s [Microsoft Test Webhook] Received HEAD for session: ${sessionId}`, {
-    url: request.nextUrl.toString(),
-    method: request.method
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    }
   })
-  const validationToken = await getValidationToken(request)
-  if (validationToken) {
-    return new NextResponse(validationToken, {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain' }
-    })
-  }
-
-  return new NextResponse(null, { status: 200 })
-}
-
-
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
-) {
-  const { sessionId } = await params
-  console.log(`dY?s [Microsoft Test Webhook] Received PUT for session: ${sessionId}`, {
-    url: request.nextUrl.toString(),
-    method: request.method
-  })
-  const validationResponse = await maybeHandleValidation(request)
-  if (validationResponse) {
-    return validationResponse
-  }
-
-  return new NextResponse(null, { status: 200 })
-}
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
-) {
-  const { sessionId } = await params
-  console.log(`dY?s [Microsoft Test Webhook] Received PATCH for session: ${sessionId}`, {
-    url: request.nextUrl.toString(),
-    method: request.method
-  })
-  const validationResponse = await maybeHandleValidation(request)
-  if (validationResponse) {
-    return validationResponse
-  }
-
-  return new NextResponse(null, { status: 200 })
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ sessionId: string }> }
-) {
-  const { sessionId } = await params
-  console.log(`dY?s [Microsoft Test Webhook] Received DELETE for session: ${sessionId}`, {
-    url: request.nextUrl.toString(),
-    method: request.method
-  })
-  const validationResponse = await maybeHandleValidation(request)
-  if (validationResponse) {
-    return validationResponse
-  }
-
-  return new NextResponse(null, { status: 200 })
 }
