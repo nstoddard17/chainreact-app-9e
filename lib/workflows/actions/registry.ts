@@ -615,7 +615,12 @@ function createExecutionContextWrapper(handler: Function) {
     }
 
     try {
-      const result = await handler(context)
+      // Call handler - detect signature based on handler.length (number of expected parameters)
+      // If handler expects 1 param: (context) where context.config has the config
+      // If handler expects 2 params: (config, context) as separate arguments
+      const result = handler.length === 1
+        ? await handler(context)
+        : await handler(params.config, context)
 
       // If the handler already returns an ActionResult format, use it
       if (result && typeof result === 'object' && 'success' in result) {

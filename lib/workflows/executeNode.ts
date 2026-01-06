@@ -625,7 +625,8 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     nodeId: node.id,
     executionId: input?.executionId,
     testMode,
-    executionMode
+    executionMode,
+    userId
   }
 
   try {
