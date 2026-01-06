@@ -309,10 +309,17 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
     const node = workflowNodes.find((item: any) => item?.id === selectedWorkflowTriggerNodeId)
     if (!node) return
 
-    const providerId = node?.data?.providerId || ''
     const triggerType = node?.data?.type || node?.type || ''
     const config = node?.data?.config || {}
     const integrationId = config?.integrationId || ''
+
+    // Get providerId from node data, or look it up from the node definition if missing
+    let providerId = node?.data?.providerId || ''
+    if (!providerId && triggerType) {
+      // Look up the provider from the node definition
+      const nodeDef = ALL_NODE_COMPONENTS.find(n => n.type === triggerType)
+      providerId = nodeDef?.providerId || ''
+    }
 
     setSelectedProvider(providerId)
     setSelectedTrigger(triggerType)

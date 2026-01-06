@@ -932,14 +932,31 @@ export const useIntegrationStore = create<IntegrationStore>()(
     getIntegrationByProvider: (providerId: string) => {
       const { integrations } = get()
 
-      // For Google services, they might all be under a single 'google' integration
-      // Map specific Google service providers to the base 'google' provider
+      // Provider mapping: Maps node providerId to stored integration provider
+      // Only needed when multiple services share the same OAuth token
+      //
+      // Providers that DON'T need mapping (use their own OAuth, providerId = integration provider):
+      // slack, discord, notion, trello, airtable, hubspot, stripe, shopify, github,
+      // dropbox, twitter, facebook, mailchimp, monday, manychat, gumroad
+      //
+      // Internal providers (no OAuth needed): webhook, automation, ai, logic, utility, ask-human
       const providerMapping: Record<string, string> = {
+        // Google services - all use 'google' OAuth (stored as 'google' in integrations table)
+        'gmail': 'google',
         'google-docs': 'google',
         'google-drive': 'google',
         'google-sheets': 'google',
         'google-calendar': 'google',
-        'google_calendar': 'google',  // Also handle underscore variant
+        'google_calendar': 'google',  // Underscore variant
+        'google-analytics': 'google',
+
+        // Microsoft services - all use Microsoft Graph OAuth (stored as 'microsoft-outlook' in integrations table)
+        'outlook': 'microsoft-outlook',
+        'teams': 'microsoft-outlook',
+        'microsoft-teams': 'microsoft-outlook',
+        'microsoft-excel': 'microsoft-outlook',
+        'microsoft-onenote': 'microsoft-outlook',
+        'onedrive': 'microsoft-outlook',
       }
 
       // Check if we need to map the provider
@@ -977,14 +994,31 @@ export const useIntegrationStore = create<IntegrationStore>()(
     getAllIntegrationsByProvider: (providerId: string) => {
       const { integrations } = get()
 
-      // For Google services, they might all be under a single 'google' integration
+      // Provider mapping: Maps node providerId to stored integration provider
+      // Only needed when multiple services share the same OAuth token
+      //
+      // Providers that DON'T need mapping (use their own OAuth, providerId = integration provider):
+      // slack, discord, notion, trello, airtable, hubspot, stripe, shopify, github,
+      // dropbox, twitter, facebook, mailchimp, monday, manychat, gumroad
+      //
+      // Internal providers (no OAuth needed): webhook, automation, ai, logic, utility, ask-human
       const providerMapping: Record<string, string> = {
+        // Google services - all use 'google' OAuth (stored as 'google' in integrations table)
         'gmail': 'google',
         'google-docs': 'google',
         'google-drive': 'google',
         'google-sheets': 'google',
         'google-calendar': 'google',
-        'google_calendar': 'google',
+        'google_calendar': 'google',  // Underscore variant
+        'google-analytics': 'google',
+
+        // Microsoft services - all use Microsoft Graph OAuth (stored as 'microsoft-outlook' in integrations table)
+        'outlook': 'microsoft-outlook',
+        'teams': 'microsoft-outlook',
+        'microsoft-teams': 'microsoft-outlook',
+        'microsoft-excel': 'microsoft-outlook',
+        'microsoft-onenote': 'microsoft-outlook',
+        'onedrive': 'microsoft-outlook',
       }
 
       const actualProvider = providerMapping[providerId] || providerId
@@ -1049,7 +1083,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         .map((i) => i.provider)
       
       // Google services share authentication - if any Google service is connected, all are available
-      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'google_calendar', 'gmail']
+      const googleServices = ['google-drive', 'google-sheets', 'google-docs', 'google-calendar', 'google_calendar', 'gmail', 'google-analytics']
       const hasAnyGoogleService = connectedProviders.some(provider =>
         googleServices.includes(provider) || provider === 'google'
       )
