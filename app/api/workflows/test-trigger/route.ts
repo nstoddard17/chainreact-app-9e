@@ -181,12 +181,16 @@ export async function POST(request: NextRequest) {
     console.log('🧪 [test-trigger] Importing trigger lifecycle manager...')
     const { triggerLifecycleManager: triggerManager } = await import('@/lib/triggers')
 
-    // Check if provider is registered
+    // Check if provider is registered (extract base provider from full trigger type ID)
     const registeredProviders = triggerManager.getRegisteredProviders()
     console.log('🧪 [test-trigger] Registered providers:', registeredProviders)
 
-    const isProviderRegistered = registeredProviders.includes(providerId)
-    console.log('🧪 [test-trigger] Is provider registered?', { providerId, isProviderRegistered })
+    // Extract base provider (e.g., "microsoft-outlook" from "microsoft-outlook_trigger_new_email")
+    // Sort by length descending to find longest match first
+    const sortedProviders = [...registeredProviders].sort((a, b) => b.length - a.length)
+    const baseProvider = sortedProviders.find(p => providerId === p || providerId.startsWith(p + '_'))
+    const isProviderRegistered = !!baseProvider
+    console.log('🧪 [test-trigger] Is provider registered?', { providerId, baseProvider, isProviderRegistered })
 
     if (!isProviderRegistered) {
       console.log('🧪 [test-trigger] Provider not registered, will use default webhook behavior')

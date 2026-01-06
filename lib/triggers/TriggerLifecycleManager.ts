@@ -34,12 +34,50 @@ export class TriggerLifecycleManager {
   }
 
   /**
+   * Extract the base provider name from a full providerId
+   *
+   * Provider IDs can be:
+   * - Base name: "microsoft-outlook", "gmail", "slack"
+   * - Full trigger type: "microsoft-outlook_trigger_new_email", "gmail_trigger_new_email"
+   *
+   * This method extracts the base provider name by:
+   * 1. Trying exact match first
+   * 2. Finding the longest registered provider that is a prefix of the providerId
+   */
+  private extractBaseProvider(providerId: string): string | null {
+    // First, check for exact match
+    if (this.providers.has(providerId)) {
+      return providerId
+    }
+
+    // Find the longest matching registered provider prefix
+    // Sort by length descending to find longest match first (e.g., "google-calendar" before "google")
+    const registeredProviders = Array.from(this.providers.keys()).sort((a, b) => b.length - a.length)
+
+    for (const registered of registeredProviders) {
+      // Check if providerId starts with the registered provider followed by underscore
+      // e.g., "microsoft-outlook_trigger_new_email" starts with "microsoft-outlook_"
+      if (providerId.startsWith(registered + '_')) {
+        return registered
+      }
+    }
+
+    return null
+  }
+
+  /**
    * Get lifecycle implementation for a provider
    */
   private getLifecycle(providerId: string): TriggerLifecycle | null {
-    const entry = this.providers.get(providerId)
-    if (!entry) {
+    const baseProvider = this.extractBaseProvider(providerId)
+    if (!baseProvider) {
       logger.warn(`⚠️ No lifecycle registered for provider: ${providerId}`)
+      return null
+    }
+
+    const entry = this.providers.get(baseProvider)
+    if (!entry) {
+      logger.warn(`⚠️ No lifecycle registered for provider: ${providerId} (base: ${baseProvider})`)
       return null
     }
     return entry.lifecycle

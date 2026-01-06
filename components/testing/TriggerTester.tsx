@@ -22,7 +22,6 @@ import {
   ChevronUp,
   Filter,
   Maximize2,
-  Minimize2
 } from 'lucide-react'
 import { GenericConfiguration } from '@/components/workflows/configuration/providers/GenericConfiguration'
 import { VariableDragProvider } from '@/components/workflows/configuration/VariableDragContext'
@@ -30,7 +29,7 @@ import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useDebugStore } from '@/stores/debugStore'
 import { useDynamicOptions } from '@/components/workflows/configuration/hooks/useDynamicOptions'
-import { useTriggerTest, DebugLogEntry, TriggerTestStatus } from './hooks/useTriggerTest'
+import { useTriggerTest } from './hooks/useTriggerTest'
 
 interface TriggerTesterProps {
   userId: string
@@ -62,7 +61,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
   const [aiFields, setAiFields] = useState<Record<string, boolean>>({})
   const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set())
 
-  // Create stable getFormValues callback like ConfigurationForm does
+  // Create stable getFormValues callback
   const configValuesRef = useRef(configValues)
   useEffect(() => {
     configValuesRef.current = configValues
@@ -155,20 +154,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
     }
   }, [])
 
-  // Get unique providers from available nodes (triggers only)
-  const providers = React.useMemo(() => {
-    const providerSet = new Set<string>()
-    ALL_NODE_COMPONENTS
-      .filter(node => node.isTrigger === true)
-      .forEach(node => {
-        if (node.providerId) {
-          providerSet.add(node.providerId)
-        }
-      })
-    return Array.from(providerSet).sort()
-  }, [])
-
-  // Get triggers for selected provider
+  // Get triggers for selected provider (for changing trigger type)
   const triggersForProvider = React.useMemo(() => {
     if (!selectedProvider) return []
     return ALL_NODE_COMPONENTS
@@ -192,7 +178,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
     return ALL_NODE_COMPONENTS.find(node => node.type === selectedTrigger)
   }, [selectedTrigger])
 
-  // Use shared hook for configuration field loading (same as workflow builder)
+  // Use shared hook for configuration field loading
   const {
     dynamicOptions,
     loading: loadingDynamic,
@@ -226,7 +212,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
         if (!response.ok) {
           throw new Error(data.error || 'Failed to load workflows')
         }
-        // Filter out deleted workflows (those with deleted_at set)
         const activeWorkflows = (Array.isArray(data?.data) ? data.data : [])
           .filter((w: any) => !w.deleted_at)
         setWorkflows(activeWorkflows)
@@ -269,8 +254,13 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
           throw new Error(data.error || 'Failed to load workflow')
         }
 
-        setWorkflowNodes(Array.isArray(data?.nodes) ? data.nodes : data?.data?.nodes || [])
-        setWorkflowConnections(Array.isArray(data?.connections) ? data.connections : data?.data?.connections || [])
+        const nodes = Array.isArray(data?.nodes) ? data.nodes : data?.data?.nodes || []
+        const connections = Array.isArray(data?.connections) ? data.connections : data?.data?.connections || []
+
+        setWorkflowNodes(nodes)
+        setWorkflowConnections(connections)
+
+        // Reset selections - will be auto-populated by trigger auto-select effect
         setSelectedWorkflowTriggerNodeId('')
         setSelectedProvider('')
         setSelectedTrigger('')
@@ -281,7 +271,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
         setWorkflowLoadError(err.message || 'Failed to load workflow')
         setWorkflowNodes([])
         setWorkflowConnections([])
-        setSelectedWorkflowTriggerNodeId('')
       } finally {
         setIsWorkflowLoading(false)
       }
@@ -290,6 +279,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
     loadWorkflow()
   }, [selectedWorkflowId])
 
+  // Get trigger nodes from workflow
   const workflowTriggerNodes = React.useMemo(() => {
     if (!selectedWorkflowId) return []
     const triggerTypes = new Set(
@@ -305,28 +295,12 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
     })
   }, [selectedWorkflowId, workflowNodes])
 
-  // Reset when provider changes
+  // Auto-select trigger when workflow loads (if only one trigger)
   useEffect(() => {
-    if (!selectedWorkflowId) {
-      setSelectedTrigger('')
-      setSelectedIntegrationId('')
+    if (workflowTriggerNodes.length === 1 && !selectedWorkflowTriggerNodeId) {
+      setSelectedWorkflowTriggerNodeId(workflowTriggerNodes[0].id)
     }
-    setConfigValues({})
-    setConfigErrors({})
-  }, [selectedProvider, selectedWorkflowId])
-
-  // Reset when trigger changes
-  useEffect(() => {
-    if (!selectedWorkflowId) {
-      setConfigValues({})
-      setConfigErrors({})
-    }
-
-    // Auto-select first integration if available
-    if (integrationsForProvider.length > 0 && !selectedIntegrationId) {
-      setSelectedIntegrationId(integrationsForProvider[0].id)
-    }
-  }, [selectedTrigger, integrationsForProvider, selectedIntegrationId, selectedWorkflowId])
+  }, [workflowTriggerNodes, selectedWorkflowTriggerNodeId])
 
   // Hydrate selection from workflow trigger node
   useEffect(() => {
@@ -346,17 +320,33 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
     setSelectedIntegrationId(integrationId)
   }, [selectedWorkflowId, selectedWorkflowTriggerNodeId, workflowNodes])
 
+  // Auto-select first integration if available and none selected
+  useEffect(() => {
+    if (integrationsForProvider.length > 0 && !selectedIntegrationId) {
+      setSelectedIntegrationId(integrationsForProvider[0].id)
+    }
+  }, [integrationsForProvider, selectedIntegrationId])
+
   // setValue handler
   const handleSetValue = useCallback((field: string, value: any) => {
     setConfigValues(prev => ({ ...prev, [field]: value }))
   }, [])
 
+  // Handle trigger type change
+  const handleTriggerTypeChange = useCallback((newTriggerType: string) => {
+    setSelectedTrigger(newTriggerType)
+    // Clear config when trigger changes (keep integration)
+    setConfigValues({})
+    setConfigErrors({})
+  }, [])
+
   // Start trigger test
   const handleStartTest = useCallback(async () => {
-    if (!selectedNode || !selectedIntegrationId) {
+    if (!selectedNode || !selectedIntegrationId || !selectedWorkflowId) {
       addLog('error', 'Config', 'Missing required fields for test', {
         hasNode: !!selectedNode,
-        hasIntegration: !!selectedIntegrationId
+        hasIntegration: !!selectedIntegrationId,
+        hasWorkflow: !!selectedWorkflowId
       })
       return
     }
@@ -366,91 +356,62 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
       integrationId: selectedIntegrationId
     }
 
-    if (selectedWorkflowId && selectedWorkflowTriggerNodeId) {
-      const updatedNodes = workflowNodes.map((node: any) => {
-        if (node?.id !== selectedWorkflowTriggerNodeId) return node
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            config: updatedConfig
-          }
+    const updatedNodes = workflowNodes.map((node: any) => {
+      if (node?.id !== selectedWorkflowTriggerNodeId) return node
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          type: selectedTrigger,
+          providerId: selectedProvider,
+          config: updatedConfig
         }
-      })
-
-      addLog('info', 'Config', 'Saving workflow updates before test', {
-        workflowId: selectedWorkflowId,
-        triggerNodeId: selectedWorkflowTriggerNodeId,
-        configKeys: Object.keys(updatedConfig)
-      })
-
-      try {
-        const saveResponse = await fetch(`/api/workflows/${selectedWorkflowId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nodes: updatedNodes,
-            connections: workflowConnections
-          })
-        })
-
-        const saveResult = await saveResponse.json().catch(() => ({}))
-        if (!saveResponse.ok) {
-          addLog('error', 'API', 'Failed to save workflow updates', {
-            status: saveResponse.status,
-            error: saveResult.error
-          })
-          return
-        }
-      } catch (err: any) {
-        addLog('error', 'API', 'Failed to save workflow updates', {
-          error: err.message
-        })
-        return
       }
+    })
 
-      addLog('info', 'Config', 'Starting trigger test with workflow', {
-        nodeId: selectedWorkflowTriggerNodeId,
-        workflowId: selectedWorkflowId,
-        providerId: selectedProvider,
-        triggerType: selectedTrigger
-      })
-
-      await startTest({
-        nodeId: selectedWorkflowTriggerNodeId,
-        nodes: updatedNodes,
-        connections: workflowConnections,
-        workflowId: selectedWorkflowId
-      })
-
-      return
-    }
-
-    // Create mock trigger node (unsaved workflow)
-    const mockTriggerNode = {
-      id: `test-trigger-${Date.now()}`,
-      type: selectedTrigger,
-      data: {
-        ...selectedNode,
-        isTrigger: true,
-        providerId: selectedProvider,
-        type: selectedTrigger,
-        config: updatedConfig
-      },
-      position: { x: 0, y: 0 }
-    }
-
-    addLog('info', 'Config', 'Starting trigger test with configuration', {
-      nodeId: mockTriggerNode.id,
-      providerId: selectedProvider,
-      triggerType: selectedTrigger,
+    addLog('info', 'Config', 'Saving workflow updates before test', {
+      workflowId: selectedWorkflowId,
+      triggerNodeId: selectedWorkflowTriggerNodeId,
       configKeys: Object.keys(updatedConfig)
     })
 
+    try {
+      const saveResponse = await fetch(`/api/workflows/${selectedWorkflowId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodes: updatedNodes,
+          connections: workflowConnections
+        })
+      })
+
+      const saveResult = await saveResponse.json().catch(() => ({}))
+      if (!saveResponse.ok) {
+        addLog('error', 'API', 'Failed to save workflow updates', {
+          status: saveResponse.status,
+          error: saveResult.error
+        })
+        return
+      }
+    } catch (err: any) {
+      addLog('error', 'API', 'Failed to save workflow updates', {
+        error: err.message
+      })
+      return
+    }
+
+    addLog('info', 'Config', 'Starting trigger test', {
+      nodeId: selectedWorkflowTriggerNodeId,
+      workflowId: selectedWorkflowId,
+      providerId: selectedProvider,
+      triggerType: selectedTrigger
+    })
+
     await startTest({
-      nodeId: mockTriggerNode.id,
-      nodes: [mockTriggerNode],
-      connections: []
+      nodeId: selectedWorkflowTriggerNodeId,
+      nodes: updatedNodes,
+      connections: workflowConnections,
+      workflowId: selectedWorkflowId
     })
   }, [
     selectedNode,
@@ -516,26 +477,27 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
   }
 
   const statusDisplay = getStatusDisplay()
-  const canStartTest = selectedNode && selectedIntegrationId && status === 'idle'
+  const canStartTest = selectedNode && selectedIntegrationId && selectedWorkflowId && status === 'idle'
   const isTestActive = status === 'starting' || status === 'listening'
 
   const handleConfigSubmit = useCallback(async () => {
-    // For testing tool, we don't actually submit - just start the test
     await handleStartTest()
   }, [handleStartTest])
+
+  // Check if workflow has trigger
+  const workflowHasTrigger = workflowTriggerNodes.length > 0
 
   return (
     <TooltipProvider>
       <VariableDragProvider>
         <div className="h-full flex gap-4 p-6 overflow-hidden relative">
-          {/* Left Column: Trigger Selection + Controls */}
+          {/* Left Column: Workflow Selection + Debug Logs */}
           <div className="flex flex-col gap-4 flex-shrink-0 w-80">
-            {/* Selection Section */}
+            {/* Workflow Selection */}
             <Card className="p-4">
-              <h2 className="text-lg font-semibold mb-3">Trigger Selection</h2>
+              <h2 className="text-lg font-semibold mb-3">Select Workflow</h2>
 
-              {/* Workflow Selector */}
-              <div className="space-y-2 mb-3">
+              <div className="space-y-2">
                 <Label className="text-xs">Workflow</Label>
                 <select
                   className="w-full p-2 border rounded-md bg-background text-sm"
@@ -543,7 +505,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                   onChange={(e) => setSelectedWorkflowId(e.target.value)}
                   disabled={isTestActive || isWorkflowLoading}
                 >
-                  <option value="">Use unsaved test workflow...</option>
+                  <option value="">Select a workflow...</option>
                   {workflows.map(workflow => (
                     <option key={workflow.id} value={workflow.id}>
                       {workflow.name || workflow.id}
@@ -555,122 +517,213 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                 )}
               </div>
 
-              {/* Workflow Trigger Selector */}
-              {selectedWorkflowId && (
-                <div className="space-y-2 mb-3">
-                  <Label className="text-xs">Workflow Trigger</Label>
-                  {workflowTriggerNodes.length === 0 ? (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        This workflow has no trigger nodes.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <select
-                      className="w-full p-2 border rounded-md bg-background text-sm"
-                      value={selectedWorkflowTriggerNodeId}
-                      onChange={(e) => setSelectedWorkflowTriggerNodeId(e.target.value)}
-                      disabled={isTestActive || isWorkflowLoading}
-                    >
-                      <option value="">Select a trigger node...</option>
-                      {workflowTriggerNodes.map(node => (
-                        <option key={node.id} value={node.id}>
-                          {node?.data?.label || node?.data?.title || node?.data?.type || node.id}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              )}
-
-              {/* Provider Selector */}
-              {!selectedWorkflowId && (
-                <div className="space-y-2 mb-3">
-                  <Label className="text-xs">Provider</Label>
+              {/* Show trigger node selector only if workflow has multiple triggers */}
+              {selectedWorkflowId && workflowTriggerNodes.length > 1 && (
+                <div className="space-y-2 mt-3">
+                  <Label className="text-xs">Trigger Node</Label>
                   <select
                     className="w-full p-2 border rounded-md bg-background text-sm"
-                    value={selectedProvider}
-                    onChange={(e) => setSelectedProvider(e.target.value)}
-                    disabled={isTestActive}
-                  >
-                    <option value="">Select a provider...</option>
-                    {providers.map(provider => (
-                      <option key={provider} value={provider}>
-                        {provider.charAt(0).toUpperCase() + provider.slice(1).replace(/-/g, ' ')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Trigger Selector */}
-              {!selectedWorkflowId && selectedProvider && (
-                <div className="space-y-2 mb-3">
-                  <Label className="text-xs">Trigger</Label>
-                  <select
-                    className="w-full p-2 border rounded-md bg-background text-sm"
-                    value={selectedTrigger}
-                    onChange={(e) => setSelectedTrigger(e.target.value)}
-                    disabled={isTestActive}
+                    value={selectedWorkflowTriggerNodeId}
+                    onChange={(e) => setSelectedWorkflowTriggerNodeId(e.target.value)}
+                    disabled={isTestActive || isWorkflowLoading}
                   >
                     <option value="">Select a trigger...</option>
-                    {triggersForProvider.map(trigger => (
-                      <option key={trigger.type} value={trigger.type}>
-                        {trigger.title}
+                    {workflowTriggerNodes.map(node => (
+                      <option key={node.id} value={node.id}>
+                        {node?.data?.label || node?.data?.title || node?.data?.type || node.id}
                       </option>
                     ))}
                   </select>
-                  {selectedNode?.description && (
-                    <p className="text-xs text-muted-foreground">{selectedNode.description}</p>
-                  )}
                 </div>
               )}
 
-              {/* Integration Account Selector */}
-              {selectedTrigger && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Integration Account</Label>
-                  {integrationsForProvider.length === 0 ? (
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        No connected accounts found for {selectedProvider}.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <select
-                      className="w-full p-2 border rounded-md bg-background text-sm"
-                      value={selectedIntegrationId}
-                      onChange={(e) => setSelectedIntegrationId(e.target.value)}
-                      disabled={isTestActive}
-                    >
-                      <option value="">Select an account...</option>
-                      {integrationsForProvider.map(integration => (
-                        <option key={integration.id} value={integration.id}>
-                          {integration.email || integration.account_name || integration.username || integration.provider}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+              {/* Show message if workflow has no triggers */}
+              {selectedWorkflowId && !isWorkflowLoading && !workflowHasTrigger && (
+                <Alert className="mt-3">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    This workflow has no trigger nodes. Add a trigger to the workflow first.
+                  </AlertDescription>
+                </Alert>
               )}
             </Card>
 
-            {/* Test Controls */}
-            {selectedNode && selectedIntegrationId && (
-              <Card className="p-4">
+            {/* Debug Logs Panel */}
+            <Card className="p-4 flex-1 overflow-hidden flex flex-col">
+              <div
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => setIsLogsCollapsed(!isLogsCollapsed)}
+              >
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  Debug Logs
+                  {debugLogs.some(l => l.level === 'error') && (
+                    <Badge variant="destructive" className="text-xs">
+                      {debugLogs.filter(l => l.level === 'error').length} errors
+                    </Badge>
+                  )}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); setIsDebugLogsExpanded(true); }} title="Expand logs">
+                    <Maximize2 className="w-3 h-3" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); copyLogs(); }} title="Copy logs">
+                    <Copy className="w-3 h-3" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); clearLogs(); }} title="Clear logs">
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                  {isLogsCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                </div>
+              </div>
+
+              {!isLogsCollapsed && (
+                <>
+                  <div className="flex gap-1 mt-2 mb-2">
+                    {(['all', 'info', 'warn', 'error', 'debug'] as const).map(filter => (
+                      <Button
+                        key={filter}
+                        variant={logFilter === filter ? 'default' : 'ghost'}
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setLogFilter(filter)}
+                      >
+                        {filter === 'all' ? 'All' : filter.charAt(0).toUpperCase() + filter.slice(1)}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <div className="flex-1 overflow-auto bg-muted/50 rounded-md p-2 font-mono text-xs space-y-1">
+                    {filteredLogs.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-4">No logs yet</p>
+                    ) : (
+                      filteredLogs.map((log, idx) => (
+                        <div key={idx} className={`
+                          ${log.level === 'error' ? 'text-red-600 dark:text-red-400' : ''}
+                          ${log.level === 'warn' ? 'text-yellow-600 dark:text-yellow-400' : ''}
+                          ${log.level === 'info' ? 'text-foreground' : ''}
+                          ${log.level === 'debug' ? 'text-muted-foreground' : ''}
+                        `}>
+                          <span className="text-muted-foreground">
+                            {log.timestamp.split('T')[1]?.split('.')[0]}
+                          </span>
+                          {' '}
+                          <span className="font-semibold">[{log.level.toUpperCase()}]</span>
+                          {' '}
+                          <span className="text-blue-500 dark:text-blue-400">[{log.category}]</span>
+                          {' '}
+                          {log.message}
+                          {log.details && (
+                            <div className="ml-4 text-muted-foreground">
+                              {Object.entries(log.details).map(([key, value]) => (
+                                <div key={key}>
+                                  └─ {key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
+
+          {/* Right Column: Configuration Panel */}
+          {selectedWorkflowId && workflowHasTrigger && selectedWorkflowTriggerNodeId && (
+            <Card className="flex-1 flex flex-col overflow-hidden">
+              {/* Header with trigger info */}
+              <div className="p-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold">Test Controls</h3>
+                  <h3 className="text-xl font-semibold">
+                    {selectedNode?.title || 'Trigger Configuration'}
+                  </h3>
                   <Badge variant="outline" className={statusDisplay.color}>
                     {statusDisplay.icon}
                     <span className="ml-1">{statusDisplay.text}</span>
                   </Badge>
                 </div>
 
+                {/* Trigger Type Selector */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Trigger Type</Label>
+                    <select
+                      className="w-full p-2 border rounded-md bg-background text-sm"
+                      value={selectedTrigger}
+                      onChange={(e) => handleTriggerTypeChange(e.target.value)}
+                      disabled={isTestActive}
+                    >
+                      {triggersForProvider.map(trigger => (
+                        <option key={trigger.type} value={trigger.type}>
+                          {trigger.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Integration Account Selector */}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Account</Label>
+                    {integrationsForProvider.length === 0 ? (
+                      <div className="text-xs text-red-600 dark:text-red-400 p-2">
+                        No connected accounts. Connect in Settings.
+                      </div>
+                    ) : (
+                      <select
+                        className="w-full p-2 border rounded-md bg-background text-sm"
+                        value={selectedIntegrationId}
+                        onChange={(e) => setSelectedIntegrationId(e.target.value)}
+                        disabled={isTestActive}
+                      >
+                        {integrationsForProvider.map(integration => (
+                          <option key={integration.id} value={integration.id}>
+                            {integration.email || integration.account_name || integration.username || integration.provider}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+
+                {selectedNode?.description && (
+                  <p className="text-xs text-muted-foreground mt-2">{selectedNode.description}</p>
+                )}
+              </div>
+
+              {/* Configuration Fields */}
+              <div className="flex-1 overflow-auto p-4">
+                {selectedNode?.configSchema && selectedNode.configSchema.length > 0 ? (
+                  <GenericConfiguration
+                    nodeInfo={selectedNode}
+                    values={configValues}
+                    setValue={handleSetValue}
+                    errors={configErrors}
+                    onSubmit={handleConfigSubmit}
+                    onCancel={() => {}}
+                    dynamicOptions={dynamicOptions}
+                    loadingDynamic={loadingDynamic}
+                    loadOptions={loadOptions}
+                    resetOptions={resetOptions}
+                    integrationId={selectedIntegrationId}
+                    aiFields={aiFields}
+                    setAiFields={setAiFields}
+                    loadingFields={loadingFields}
+                    needsConnection={!selectedIntegrationId}
+                  />
+                ) : (
+                  <div className="text-sm text-muted-foreground text-center py-8">
+                    This trigger has no configuration fields.
+                  </div>
+                )}
+              </div>
+
+              {/* Footer with Test Controls */}
+              <div className="p-4 border-t flex-shrink-0 space-y-3">
                 {/* Webhook URL Display */}
                 {webhookUrl && status === 'listening' && (
-                  <div className="mb-3 p-2 bg-muted rounded-md">
+                  <div className="p-2 bg-muted rounded-md">
                     <div className="flex items-center justify-between mb-1">
                       <Label className="text-xs">Webhook URL</Label>
                       <Button variant="ghost" size="sm" className="h-6 px-2" onClick={copyWebhookUrl}>
@@ -685,7 +738,7 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
 
                 {/* Error Display */}
                 {error && (
-                  <Alert variant="destructive" className="mb-3">
+                  <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="text-xs">{error}</AlertDescription>
                   </Alert>
@@ -725,149 +778,39 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                   )}
                 </div>
 
-                {selectedWorkflowId && (
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
-                    Workflow changes are saved before the test starts.
-                  </p>
-                )}
-
                 {status === 'listening' && (
-                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                  <p className="text-xs text-muted-foreground text-center">
                     Waiting for webhook event... Send a test event to the webhook URL above.
                   </p>
                 )}
-              </Card>
-            )}
 
-            {/* Results Preview (collapsed) */}
-            {selectedNode && selectedIntegrationId && !isResultsExpanded && (status === 'received' || triggerData) && (
-              <Card className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setIsResultsExpanded(true)}>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-green-600 dark:text-green-400">Event Received!</h3>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">+</Button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Click to view event data</p>
-              </Card>
-            )}
-
-            {/* Debug Logs Panel */}
-            {selectedNode && selectedIntegrationId && (
-              <Card className="p-4 flex-1 overflow-hidden flex flex-col">
-                <div
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => setIsLogsCollapsed(!isLogsCollapsed)}
-                >
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    Debug Logs
-                    {debugLogs.some(l => l.level === 'error') && (
-                      <Badge variant="destructive" className="text-xs">
-                        {debugLogs.filter(l => l.level === 'error').length} errors
-                      </Badge>
-                    )}
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); setIsDebugLogsExpanded(true); }} title="Expand logs">
-                      <Maximize2 className="w-3 h-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); copyLogs(); }} title="Copy logs">
-                      <Copy className="w-3 h-3" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-6 px-2" onClick={(e) => { e.stopPropagation(); clearLogs(); }} title="Clear logs">
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                    {isLogsCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-                  </div>
-                </div>
-
-                {!isLogsCollapsed && (
-                  <>
-                    {/* Log Filters */}
-                    <div className="flex gap-1 mt-2 mb-2">
-                      {(['all', 'info', 'warn', 'error', 'debug'] as const).map(filter => (
-                        <Button
-                          key={filter}
-                          variant={logFilter === filter ? 'default' : 'ghost'}
-                          size="sm"
-                          className="h-6 px-2 text-xs"
-                          onClick={() => setLogFilter(filter)}
-                        >
-                          {filter === 'all' ? 'All' : filter.charAt(0).toUpperCase() + filter.slice(1)}
-                        </Button>
-                      ))}
-                    </div>
-
-                    {/* Log Entries */}
-                    <div className="flex-1 overflow-auto bg-muted/50 rounded-md p-2 font-mono text-xs space-y-1">
-                      {filteredLogs.length === 0 ? (
-                        <p className="text-muted-foreground text-center py-4">No logs yet</p>
-                      ) : (
-                        filteredLogs.map((log, idx) => (
-                          <div key={idx} className={`
-                            ${log.level === 'error' ? 'text-red-600 dark:text-red-400' : ''}
-                            ${log.level === 'warn' ? 'text-yellow-600 dark:text-yellow-400' : ''}
-                            ${log.level === 'info' ? 'text-foreground' : ''}
-                            ${log.level === 'debug' ? 'text-muted-foreground' : ''}
-                          `}>
-                            <span className="text-muted-foreground">
-                              {log.timestamp.split('T')[1]?.split('.')[0]}
-                            </span>
-                            {' '}
-                            <span className="font-semibold">[{log.level.toUpperCase()}]</span>
-                            {' '}
-                            <span className="text-blue-500 dark:text-blue-400">[{log.category}]</span>
-                            {' '}
-                            {log.message}
-                            {log.details && (
-                              <div className="ml-4 text-muted-foreground">
-                                {Object.entries(log.details).map(([key, value]) => (
-                                  <div key={key}>
-                                    └─ {key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </>
+                {/* Results Preview */}
+                {(status === 'received' || triggerData) && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setIsResultsExpanded(true)}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                    Event Received - View Results
+                  </Button>
                 )}
-              </Card>
-            )}
-          </div>
+              </div>
+            </Card>
+          )}
 
-          {/* Right Column: Configuration */}
-          {selectedNode && selectedIntegrationId && (
-            <Card className="flex-1 p-6 overflow-auto">
-              <h3 className="text-xl font-semibold mb-4">Trigger Configuration</h3>
-              {selectedNode?.configSchema && selectedNode.configSchema.length > 0 ? (
-                <GenericConfiguration
-                  nodeInfo={selectedNode}
-                  values={configValues}
-                  setValue={handleSetValue}
-                  errors={configErrors}
-                  onSubmit={handleConfigSubmit}
-                  onCancel={() => {}}
-                  dynamicOptions={dynamicOptions}
-                  loadingDynamic={loadingDynamic}
-                  loadOptions={loadOptions}
-                  resetOptions={resetOptions}
-                  integrationId={selectedIntegrationId}
-                  aiFields={aiFields}
-                  setAiFields={setAiFields}
-                  loadingFields={loadingFields}
-                  needsConnection={false}
-                />
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  This trigger has no configuration fields.
-                </div>
-              )}
+          {/* Empty state when no workflow selected */}
+          {!selectedWorkflowId && (
+            <Card className="flex-1 flex items-center justify-center">
+              <div className="text-center text-muted-foreground">
+                <Radio className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Select a workflow to test its trigger</p>
+              </div>
             </Card>
           )}
 
           {/* Results Overlay (expanded) */}
-          {selectedNode && selectedIntegrationId && isResultsExpanded && (
+          {isResultsExpanded && (
             <div className="fixed inset-4 z-50 bg-background border rounded-lg shadow-2xl flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-xl font-semibold">Trigger Test Results</h3>
@@ -876,7 +819,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                 </Button>
               </div>
 
-              {/* Tabs */}
               <div className="flex border-b px-4">
                 <button
                   onClick={() => setActiveTab('results')}
@@ -916,7 +858,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
               </div>
 
               <div className="flex-1 overflow-auto p-6">
-                {/* Event Data Tab */}
                 {activeTab === 'results' && (
                   <div className="space-y-4">
                     {triggerData ? (
@@ -948,46 +889,28 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                           Test Timed Out
                         </h4>
                         <p className="text-sm text-muted-foreground mt-2">
-                          No trigger event was received within the timeout period. Try:
+                          No trigger event was received within the timeout period.
                         </p>
-                        <ul className="text-sm text-muted-foreground mt-2 list-disc list-inside">
-                          <li>Sending a test event to the webhook URL</li>
-                          <li>Checking that the integration account has proper permissions</li>
-                          <li>Reviewing the debug logs for errors</li>
-                        </ul>
                       </div>
                     ) : error ? (
                       <div className="border rounded-md p-4 bg-red-500/10 border-red-500/30">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-base font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
-                            <XCircle className="w-5 h-5" />
-                            Error Occurred
-                          </h4>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              navigator.clipboard.writeText(error)
-                              addLog('info', 'API', 'Error copied to clipboard')
-                            }}
-                          >
-                            Copy Error
-                          </Button>
-                        </div>
-                        <pre className="text-sm overflow-auto text-red-600 dark:text-red-400">
+                        <h4 className="text-base font-semibold text-red-700 dark:text-red-400 flex items-center gap-2">
+                          <XCircle className="w-5 h-5" />
+                          Error Occurred
+                        </h4>
+                        <pre className="text-sm overflow-auto text-red-600 dark:text-red-400 mt-2">
                           {error}
                         </pre>
                       </div>
                     ) : (
                       <div className="text-center py-8 text-muted-foreground">
                         <Radio className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>No event data yet. Start a test to listen for trigger events.</p>
+                        <p>No event data yet.</p>
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Debug Logs Tab */}
                 {activeTab === 'logs' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -1001,11 +924,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                             onClick={() => setLogFilter(filter)}
                           >
                             {filter === 'all' ? 'All' : filter.charAt(0).toUpperCase() + filter.slice(1)}
-                            {filter !== 'all' && (
-                              <span className="ml-1 text-muted-foreground">
-                                ({debugLogs.filter(l => l.level === filter).length})
-                              </span>
-                            )}
                           </Button>
                         ))}
                       </div>
@@ -1024,39 +942,18 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                         <p className="text-muted-foreground text-center py-8">No logs to display</p>
                       ) : (
                         filteredLogs.map((log, idx) => (
-                          <div key={idx} className={`
-                            p-2 rounded
-                            ${log.level === 'error' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : ''}
-                            ${log.level === 'warn' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' : ''}
-                            ${log.level === 'info' ? 'bg-background' : ''}
-                            ${log.level === 'debug' ? 'bg-background text-muted-foreground' : ''}
-                          `}>
-                            <div className="flex items-start gap-2">
-                              <span className="text-muted-foreground shrink-0">
-                                {log.timestamp.split('T')[1]?.split('.')[0]}
-                              </span>
-                              <span className={`font-semibold shrink-0 ${
-                                log.level === 'error' ? 'text-red-600 dark:text-red-400' :
-                                log.level === 'warn' ? 'text-yellow-600 dark:text-yellow-400' :
-                                log.level === 'info' ? 'text-blue-600 dark:text-blue-400' :
-                                'text-gray-500'
-                              }`}>
-                                [{log.level.toUpperCase()}]
-                              </span>
-                              <span className="text-purple-600 dark:text-purple-400 shrink-0">
-                                [{log.category}]
-                              </span>
-                              <span className="break-all">{log.message}</span>
-                            </div>
-                            {log.details && (
-                              <div className="ml-6 mt-1 text-muted-foreground border-l-2 border-muted pl-2">
-                                {Object.entries(log.details).map(([key, value]) => (
-                                  <div key={key} className="break-all">
-                                    └─ <span className="text-foreground">{key}:</span> {typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                          <div key={idx} className={`p-2 rounded ${
+                            log.level === 'error' ? 'bg-red-500/10 text-red-600 dark:text-red-400' :
+                            log.level === 'warn' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400' :
+                            'bg-background'
+                          }`}>
+                            <span className="text-muted-foreground">{log.timestamp.split('T')[1]?.split('.')[0]}</span>
+                            {' '}
+                            <span className="font-semibold">[{log.level.toUpperCase()}]</span>
+                            {' '}
+                            <span className="text-purple-600 dark:text-purple-400">[{log.category}]</span>
+                            {' '}
+                            {log.message}
                           </div>
                         ))
                       )}
@@ -1064,7 +961,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                   </div>
                 )}
 
-                {/* Test Config Tab */}
                 {activeTab === 'config' && (
                   <div className="space-y-4">
                     <div className="border rounded-md p-4 bg-muted/50">
@@ -1086,33 +982,11 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                           <span className="text-muted-foreground">Trigger Type:</span>
                           <span>{selectedNode?.title || selectedTrigger}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Status:</span>
-                          <span className={statusDisplay.color}>{statusDisplay.text}</span>
-                        </div>
-                        {expiresAt && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Expires At:</span>
-                            <span className="font-mono">{new Date(expiresAt).toLocaleTimeString()}</span>
-                          </div>
-                        )}
                       </div>
                     </div>
 
                     <div className="border rounded-md p-4 bg-muted/50">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="text-base font-semibold">Configuration Sent</h4>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(JSON.stringify(configValues, null, 2))
-                            addLog('info', 'API', 'Configuration copied to clipboard')
-                          }}
-                        >
-                          Copy
-                        </Button>
-                      </div>
+                      <h4 className="text-base font-semibold mb-3">Configuration Sent</h4>
                       <pre className="text-xs overflow-auto bg-background p-3 rounded max-h-96">
                         {JSON.stringify(configValues, null, 2)}
                       </pre>
@@ -1129,16 +1003,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
               <div className="flex items-center justify-between p-4 border-b">
                 <h3 className="text-xl font-semibold flex items-center gap-2">
                   Debug Logs
-                  {debugLogs.some(l => l.level === 'error') && (
-                    <Badge variant="destructive">
-                      {debugLogs.filter(l => l.level === 'error').length} errors
-                    </Badge>
-                  )}
-                  {debugLogs.some(l => l.level === 'warn') && (
-                    <Badge variant="outline" className="text-yellow-600 dark:text-yellow-400 border-yellow-500">
-                      {debugLogs.filter(l => l.level === 'warn').length} warnings
-                    </Badge>
-                  )}
                   <Badge variant="outline" className="text-muted-foreground">
                     {debugLogs.length} total
                   </Badge>
@@ -1156,7 +1020,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                 </div>
               </div>
 
-              {/* Filter Bar */}
               <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/30">
                 <span className="text-sm text-muted-foreground">Filter:</span>
                 {(['all', 'info', 'warn', 'error', 'debug'] as const).map(filter => (
@@ -1168,65 +1031,39 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                     onClick={() => setLogFilter(filter)}
                   >
                     {filter === 'all' ? 'All' : filter.charAt(0).toUpperCase() + filter.slice(1)}
-                    <span className="ml-1 text-xs text-muted-foreground">
-                      ({filter === 'all' ? debugLogs.length : debugLogs.filter(l => l.level === filter).length})
-                    </span>
                   </Button>
                 ))}
               </div>
 
-              {/* Log Entries */}
               <div className="flex-1 overflow-auto p-4 font-mono text-sm space-y-2">
                 {filteredLogs.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <Filter className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>No logs to display</p>
-                    {logFilter !== 'all' && (
-                      <p className="text-xs mt-1">Try changing the filter or clear existing filters</p>
-                    )}
                   </div>
                 ) : (
                   filteredLogs.map((log, idx) => (
                     <div
                       key={idx}
-                      className={`
-                        p-3 rounded border
-                        ${log.level === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400' : ''}
-                        ${log.level === 'warn' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400' : ''}
-                        ${log.level === 'info' ? 'bg-blue-500/5 border-blue-500/20' : ''}
-                        ${log.level === 'debug' ? 'bg-muted/50 border-muted text-muted-foreground' : ''}
-                      `}
+                      className={`p-3 rounded border ${
+                        log.level === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400' :
+                        log.level === 'warn' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400' :
+                        log.level === 'info' ? 'bg-blue-500/5 border-blue-500/20' :
+                        'bg-muted/50 border-muted text-muted-foreground'
+                      }`}
                     >
-                      <div className="flex items-start gap-3">
-                        <span className="text-xs text-muted-foreground shrink-0 font-normal">
-                          {log.timestamp.split('T')[1]?.split('.')[0]}
-                        </span>
-                        <span className={`
-                          font-bold text-xs shrink-0 px-1.5 py-0.5 rounded
-                          ${log.level === 'error' ? 'bg-red-500/20 text-red-600 dark:text-red-400' : ''}
-                          ${log.level === 'warn' ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' : ''}
-                          ${log.level === 'info' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' : ''}
-                          ${log.level === 'debug' ? 'bg-gray-500/20 text-gray-500' : ''}
-                        `}>
-                          {log.level.toUpperCase()}
-                        </span>
-                        <span className="text-purple-600 dark:text-purple-400 text-xs shrink-0 font-semibold">
-                          [{log.category}]
-                        </span>
-                        <span className="break-all font-normal">{log.message}</span>
-                      </div>
+                      <span className="text-muted-foreground">{log.timestamp.split('T')[1]?.split('.')[0]}</span>
+                      {' '}
+                      <span className="font-bold">[{log.level.toUpperCase()}]</span>
+                      {' '}
+                      <span className="text-purple-600 dark:text-purple-400">[{log.category}]</span>
+                      {' '}
+                      {log.message}
                       {log.details && (
-                        <div className="mt-2 ml-[100px] text-xs border-l-2 border-muted pl-3 space-y-1">
+                        <div className="mt-2 ml-4 text-xs text-muted-foreground">
                           {Object.entries(log.details).map(([key, value]) => (
-                            <div key={key} className="break-all text-muted-foreground">
-                              <span className="text-foreground font-medium">{key}:</span>{' '}
-                              {typeof value === 'object' ? (
-                                <pre className="inline-block bg-muted/50 px-1 rounded text-xs">
-                                  {JSON.stringify(value, null, 2)}
-                                </pre>
-                              ) : (
-                                String(value)
-                              )}
+                            <div key={key}>
+                              └─ {key}: {typeof value === 'object' ? JSON.stringify(value) : String(value)}
                             </div>
                           ))}
                         </div>
@@ -1234,17 +1071,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
                     </div>
                   ))
                 )}
-              </div>
-
-              {/* Footer with session info */}
-              <div className="border-t px-4 py-2 bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
-                <div className="flex gap-4">
-                  <span>Session: <code>{testSessionId || 'N/A'}</code></span>
-                  <span>Status: <span className={statusDisplay.color}>{statusDisplay.text}</span></span>
-                </div>
-                <div>
-                  {expiresAt && <span>Expires: {new Date(expiresAt).toLocaleTimeString()}</span>}
-                </div>
               </div>
             </div>
           )}

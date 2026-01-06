@@ -979,6 +979,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
       // For Google services, they might all be under a single 'google' integration
       const providerMapping: Record<string, string> = {
+        'gmail': 'google',
         'google-docs': 'google',
         'google-drive': 'google',
         'google-sheets': 'google',
