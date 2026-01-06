@@ -55,15 +55,14 @@ export async function POST(
       return jsonResponse({ success: true })
     }
 
-    // Get workflow to deactivate triggers
-    const { data: workflow } = await supabase
-      .from('workflows')
-      .select('nodes')
-      .eq('id', workflowId)
-      .single()
+    // Get workflow nodes from normalized table
+    const { data: nodes } = await supabase
+      .from('workflow_nodes')
+      .select('id, node_type, is_trigger')
+      .eq('workflow_id', workflowId)
 
     // Unregister webhook/trigger from external service
-    if (workflow?.nodes) {
+    if (nodes && nodes.length > 0) {
       try {
         const { triggerLifecycleManager } = await import('@/lib/triggers')
         logger.debug('🔄 Deactivating trigger for live test mode...')

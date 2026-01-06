@@ -566,16 +566,40 @@ export async function executeHITL(
     // This tells the AI exactly what variables to extract based on the next workflow step
     let downstreamVariables: DownstreamVariable[] = []
     try {
-      // Load workflow to get nodes and edges
-      const { data: workflow, error: workflowError } = await supabase
-        .from('workflows')
-        .select('nodes, edges, connections')
-        .eq('id', context.workflowId)
-        .single()
+      // Load workflow nodes and edges from normalized tables
+      const [nodesResult, edgesResult] = await Promise.all([
+        supabase
+          .from('workflow_nodes')
+          .select('id, node_type, label, config, is_trigger, provider_id, position_x, position_y')
+          .eq('workflow_id', context.workflowId)
+          .order('display_order'),
+        supabase
+          .from('workflow_edges')
+          .select('id, source_node_id, target_node_id, source_port_id, target_port_id')
+          .eq('workflow_id', context.workflowId)
+      ])
 
-      if (!workflowError && workflow) {
-        const nodes = workflow.nodes || []
-        const edges = workflow.edges || workflow.connections || []
+      if (!nodesResult.error && !edgesResult.error) {
+        // Convert to legacy format for downstream detection
+        const nodes = (nodesResult.data || []).map((node: any) => ({
+          id: node.id,
+          type: node.node_type,
+          data: {
+            type: node.node_type,
+            label: node.label,
+            config: node.config || {},
+            isTrigger: node.is_trigger,
+            providerId: node.provider_id
+          },
+          position: { x: node.position_x, y: node.position_y }
+        }))
+        const edges = (edgesResult.data || []).map((edge: any) => ({
+          id: edge.id,
+          source: edge.source_node_id,
+          target: edge.target_node_id,
+          sourceHandle: edge.source_port_id || 'source',
+          targetHandle: edge.target_port_id || 'target'
+        }))
 
         downstreamVariables = getDownstreamRequiredVariables(
           context.nodeId,

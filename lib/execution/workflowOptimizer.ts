@@ -30,10 +30,46 @@ export class WorkflowOptimizer {
     suggestions: OptimizationSuggestion[]
     score: number
   }> {
-    // Get workflow data
-    const { data: workflow } = await this.supabase.from("workflows").select("*").eq("id", workflowId).single()
+    // Get workflow metadata
+    const { data: workflowMeta } = await this.supabase.from("workflows").select("id, name, user_id").eq("id", workflowId).single()
 
-    if (!workflow) throw new Error("Workflow not found")
+    if (!workflowMeta) throw new Error("Workflow not found")
+
+    // Fetch nodes and edges from normalized tables
+    const [nodesResult, edgesResult] = await Promise.all([
+      this.supabase
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', workflowId)
+        .order('display_order'),
+      this.supabase
+        .from('workflow_edges')
+        .select('*')
+        .eq('workflow_id', workflowId)
+    ])
+
+    const workflow = {
+      ...workflowMeta,
+      nodes: (nodesResult.data || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          providerId: n.provider_id
+        }
+      })),
+      connections: (edgesResult.data || []).map((e: any) => ({
+        id: e.id,
+        source: e.source_node_id,
+        target: e.target_node_id,
+        sourceHandle: e.source_port_id || 'source',
+        targetHandle: e.target_port_id || 'target'
+      }))
+    }
 
     // Get execution history for analysis
     const { data: executions } = await this.supabase
@@ -372,9 +408,46 @@ export class WorkflowOptimizer {
     error?: string
   }> {
     try {
-      const { data: workflow } = await this.supabase.from("workflows").select("*").eq("id", workflowId).single()
+      // Fetch workflow metadata
+      const { data: workflowMeta } = await this.supabase.from("workflows").select("id, name, user_id").eq("id", workflowId).single()
 
-      if (!workflow) throw new Error("Workflow not found")
+      if (!workflowMeta) throw new Error("Workflow not found")
+
+      // Fetch nodes and edges from normalized tables
+      const [nodesResult, edgesResult] = await Promise.all([
+        this.supabase
+          .from('workflow_nodes')
+          .select('*')
+          .eq('workflow_id', workflowId)
+          .order('display_order'),
+        this.supabase
+          .from('workflow_edges')
+          .select('*')
+          .eq('workflow_id', workflowId)
+      ])
+
+      const workflow = {
+        ...workflowMeta,
+        nodes: (nodesResult.data || []).map((n: any) => ({
+          id: n.id,
+          type: n.node_type,
+          position: { x: n.position_x, y: n.position_y },
+          data: {
+            type: n.node_type,
+            label: n.label,
+            config: n.config || {},
+            isTrigger: n.is_trigger,
+            providerId: n.provider_id
+          }
+        })),
+        connections: (edgesResult.data || []).map((e: any) => ({
+          id: e.id,
+          source: e.source_node_id,
+          target: e.target_node_id,
+          sourceHandle: e.source_port_id || 'source',
+          targetHandle: e.target_port_id || 'target'
+        }))
+      }
 
       const analysis = await this.analyzeWorkflow(workflowId)
       const suggestion = analysis.suggestions.find((s) => s.id === suggestionId)
@@ -388,14 +461,48 @@ export class WorkflowOptimizer {
       // Apply changes to workflow
       const updatedWorkflow = this.applyChangesToWorkflow(workflow, changes)
 
-      // Save updated workflow
+      // Delete existing nodes and edges, then insert new ones
+      await Promise.all([
+        this.supabase.from('workflow_nodes').delete().eq('workflow_id', workflowId),
+        this.supabase.from('workflow_edges').delete().eq('workflow_id', workflowId)
+      ])
+
+      // Insert updated nodes
+      if (updatedWorkflow.nodes && updatedWorkflow.nodes.length > 0) {
+        const nodesToInsert = updatedWorkflow.nodes.map((node: any, index: number) => ({
+          id: node.id,
+          workflow_id: workflowId,
+          node_type: node.data?.type || node.type,
+          label: node.data?.label || node.data?.title || 'Node',
+          position_x: node.position?.x || 0,
+          position_y: node.position?.y || 0,
+          config: node.data?.config || {},
+          is_trigger: node.data?.isTrigger || false,
+          provider_id: node.data?.providerId || null,
+          display_order: index
+        }))
+
+        await this.supabase.from('workflow_nodes').insert(nodesToInsert)
+      }
+
+      // Insert updated edges
+      if (updatedWorkflow.connections && updatedWorkflow.connections.length > 0) {
+        const edgesToInsert = updatedWorkflow.connections.map((edge: any) => ({
+          id: edge.id,
+          workflow_id: workflowId,
+          source_node_id: edge.source,
+          target_node_id: edge.target,
+          source_port_id: edge.sourceHandle || 'source',
+          target_port_id: edge.targetHandle || 'target'
+        }))
+
+        await this.supabase.from('workflow_edges').insert(edgesToInsert)
+      }
+
+      // Update workflow timestamp
       await this.supabase
         .from("workflows")
-        .update({
-          nodes: updatedWorkflow.nodes,
-          connections: updatedWorkflow.connections,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ updated_at: new Date().toISOString() })
         .eq("id", workflowId)
 
       return { success: true, changes }

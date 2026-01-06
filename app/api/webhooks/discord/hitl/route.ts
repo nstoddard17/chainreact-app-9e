@@ -445,7 +445,7 @@ export async function POST(request: NextRequest) {
         // Load workflow metadata
         const { data: workflow, error: workflowError } = await serviceSupabase
           .from('workflows')
-          .select('*')
+          .select('id, name, user_id')
           .eq('id', conversation.workflow_id)
           .single()
 
@@ -453,44 +453,45 @@ export async function POST(request: NextRequest) {
           throw new Error(`Workflow not found: ${workflowError?.message}`)
         }
 
-        // For V2 flows, load the latest revision which contains the actual graph data
-        // The workflows table may have empty nodes/connections for V2 flows
-        let allNodes: any[] = workflow.nodes || []
-        let allEdges: any[] = workflow.edges || workflow.connections || []
-
-        if (workflow.flow_v2_enabled || allNodes.length === 0) {
-          logger.info('[HITL Resume] Loading workflow graph from revisions table')
-
-          const { data: latestRevision, error: revisionError } = await serviceSupabase
-            .from('workflows_revisions')
-            .select('graph')
+        // Load nodes and edges from normalized tables (single source of truth)
+        const [nodesResult, edgesResult] = await Promise.all([
+          serviceSupabase
+            .from('workflow_nodes')
+            .select('*')
             .eq('workflow_id', conversation.workflow_id)
-            .order('version', { ascending: false })
-            .limit(1)
-            .single()
+            .order('display_order'),
+          serviceSupabase
+            .from('workflow_edges')
+            .select('*')
+            .eq('workflow_id', conversation.workflow_id)
+        ])
 
-          if (!revisionError && latestRevision?.graph) {
-            const graph = latestRevision.graph as any
-            allNodes = graph.nodes || []
-
-            // V2 edges use {from: {nodeId}, to: {nodeId}} format
-            // Convert to {source, target} format for compatibility
-            const v2Edges = graph.edges || []
-            allEdges = v2Edges.map((edge: any) => ({
-              id: edge.id,
-              source: edge.from?.nodeId || edge.source,
-              target: edge.to?.nodeId || edge.target,
-              ...edge
-            }))
-
-            logger.info('[HITL Resume] Loaded from revision', {
-              nodeCount: allNodes.length,
-              edgeCount: allEdges.length
-            })
-          } else {
-            logger.warn('[HITL Resume] Could not load revision', { error: revisionError?.message })
+        let allNodes: any[] = (nodesResult.data || []).map((n: any) => ({
+          id: n.id,
+          type: n.node_type,
+          position: { x: n.position_x, y: n.position_y },
+          data: {
+            type: n.node_type,
+            label: n.label,
+            title: n.label,
+            config: n.config || {},
+            isTrigger: n.is_trigger,
+            providerId: n.provider_id
           }
-        }
+        }))
+
+        let allEdges: any[] = (edgesResult.data || []).map((e: any) => ({
+          id: e.id,
+          source: e.source_node_id,
+          target: e.target_node_id,
+          sourceHandle: e.source_port_id || 'source',
+          targetHandle: e.target_port_id || 'target'
+        }))
+
+        logger.info('[HITL Resume] Loaded from normalized tables', {
+          nodeCount: allNodes.length,
+          edgeCount: allEdges.length
+        })
 
         // Convert V2 nodes to old format if needed
         // V2 format: {id, type, config, label, metadata: {position}}

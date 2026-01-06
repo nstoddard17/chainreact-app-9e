@@ -224,9 +224,10 @@ export class TriggerWebhookManager {
           continue
         }
 
+        // Check if workflow exists
         const { data: workflow } = await this.supabase
           .from('workflows')
-          .select('id, nodes, status')
+          .select('id, status')
           .eq('id', config.workflow_id)
           .single()
 
@@ -235,22 +236,14 @@ export class TriggerWebhookManager {
           continue
         }
 
-        let nodes: any[] = []
-        if (Array.isArray(workflow.nodes)) {
-          nodes = workflow.nodes
-        } else if (typeof workflow.nodes === 'string') {
-          try {
-            const parsed = JSON.parse(workflow.nodes)
-            if (Array.isArray(parsed)) nodes = parsed
-          } catch (parseError) {
-            logger.warn('Failed to parse workflow nodes during webhook cleanup:', parseError)
-          }
-        }
+        // Load nodes from normalized table
+        const { data: nodes } = await this.supabase
+          .from('workflow_nodes')
+          .select('id, node_type, is_trigger')
+          .eq('workflow_id', config.workflow_id)
 
-        const hasMatchingTrigger = nodes.some((node: any) => {
-          const nodeType = node?.data?.type || node?.type
-          const isTrigger = node?.data?.isTrigger || node?.isTrigger
-          return Boolean(isTrigger && nodeType === config.trigger_type)
+        const hasMatchingTrigger = (nodes || []).some((node: any) => {
+          return Boolean(node.is_trigger && node.node_type === config.trigger_type)
         })
 
         if (!hasMatchingTrigger) {

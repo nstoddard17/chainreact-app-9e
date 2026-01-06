@@ -115,10 +115,10 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', waiting.id)
 
-        // Load workflow
+        // Verify workflow exists
         const { data: workflow, error: workflowError } = await supabase
           .from('workflows')
-          .select('*')
+          .select('id, name, user_id')
           .eq('id', waiting.workflow_id)
           .single()
 
@@ -151,9 +151,40 @@ export async function POST(request: NextRequest) {
         const resumeData = waiting.execution_data || {}
         const pausedNodeId = waiting.node_id
 
-        // Parse workflow nodes and edges
-        const allNodes = workflow.nodes || []
-        const allEdges = workflow.edges || workflow.connections || []
+        // Load workflow nodes and edges from normalized tables
+        const [nodesResult, edgesResult] = await Promise.all([
+          supabase
+            .from('workflow_nodes')
+            .select('*')
+            .eq('workflow_id', waiting.workflow_id)
+            .order('display_order'),
+          supabase
+            .from('workflow_edges')
+            .select('*')
+            .eq('workflow_id', waiting.workflow_id)
+        ])
+
+        const allNodes = (nodesResult.data || []).map((n: any) => ({
+          id: n.id,
+          type: n.node_type,
+          position: { x: n.position_x, y: n.position_y },
+          data: {
+            type: n.node_type,
+            label: n.label,
+            title: n.label,
+            config: n.config || {},
+            isTrigger: n.is_trigger,
+            providerId: n.provider_id
+          }
+        }))
+
+        const allEdges = (edgesResult.data || []).map((e: any) => ({
+          id: e.id,
+          source: e.source_node_id,
+          target: e.target_node_id,
+          sourceHandle: e.source_port_id || 'source',
+          targetHandle: e.target_port_id || 'target'
+        }))
 
         const nodes = allNodes.filter((node: any) => {
           return node.type !== 'addAction' &&

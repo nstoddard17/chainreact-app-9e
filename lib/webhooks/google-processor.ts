@@ -269,7 +269,7 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
   // workflow data in test_mode_config
   const { data: testSessions, error: sessionError } = await supabase
     .from('workflow_test_sessions')
-    .select('*, workflows(id, user_id, nodes, connections, name)')
+    .select('*, workflows(id, user_id, name)')
     .eq('trigger_type', 'gmail_trigger_new_email')
     .in('status', ['listening'])
 
@@ -302,12 +302,36 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
       let workflowName: string
 
       if (savedWorkflow) {
-        // Saved workflow - use database data
+        // Saved workflow - load nodes/edges from normalized tables
         workflowId = savedWorkflow.id
         userId = savedWorkflow.user_id
-        workflowNodes = savedWorkflow.nodes || []
-        workflowConnections = savedWorkflow.connections || []
         workflowName = savedWorkflow.name
+
+        // Load from normalized tables
+        const [nodesResult, edgesResult] = await Promise.all([
+          supabase.from('workflow_nodes').select('*').eq('workflow_id', workflowId).order('display_order'),
+          supabase.from('workflow_edges').select('*').eq('workflow_id', workflowId)
+        ])
+
+        workflowNodes = (nodesResult.data || []).map((node: any) => ({
+          id: node.id,
+          type: node.node_type,
+          data: {
+            type: node.node_type,
+            label: node.label || node.node_type,
+            config: node.config || {},
+            isTrigger: node.is_trigger,
+          },
+          position: { x: node.position_x, y: node.position_y }
+        }))
+        workflowConnections = (edgesResult.data || []).map((edge: any) => ({
+          id: edge.id,
+          source: edge.source_node_id,
+          target: edge.target_node_id,
+          sourceHandle: edge.source_port_id || 'source',
+          targetHandle: edge.target_port_id || 'target'
+        }))
+
         logger.debug('[Gmail] Using saved workflow data', { workflowId, workflowName })
       } else if (testModeConfig?.nodes && testModeConfig?.triggerNode) {
         // Unsaved workflow - use test_mode_config
@@ -1428,7 +1452,7 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
 
     const { data: workflows, error: workflowsError } = await supabase
       .from('workflows')
-      .select('id, user_id, nodes, connections, name, status')
+      .select('id, user_id, name, status')
       .in('id', workflowIds)
       .eq('status', 'active')
 
@@ -1441,6 +1465,45 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
       return
     }
 
+    // Load nodes and edges for all workflows in batch
+    const [allNodesResult, allEdgesResult] = await Promise.all([
+      supabase.from('workflow_nodes').select('*').in('workflow_id', workflowIds).order('display_order'),
+      supabase.from('workflow_edges').select('*').in('workflow_id', workflowIds)
+    ])
+
+    const nodesByWorkflow = new Map<string, any[]>()
+    const edgesByWorkflow = new Map<string, any[]>()
+
+    for (const node of allNodesResult.data || []) {
+      if (!nodesByWorkflow.has(node.workflow_id)) {
+        nodesByWorkflow.set(node.workflow_id, [])
+      }
+      nodesByWorkflow.get(node.workflow_id)!.push({
+        id: node.id,
+        type: node.node_type,
+        data: {
+          type: node.node_type,
+          label: node.label || node.node_type,
+          config: node.config || {},
+          isTrigger: node.is_trigger,
+        },
+        position: { x: node.position_x, y: node.position_y }
+      })
+    }
+
+    for (const edge of allEdgesResult.data || []) {
+      if (!edgesByWorkflow.has(edge.workflow_id)) {
+        edgesByWorkflow.set(edge.workflow_id, [])
+      }
+      edgesByWorkflow.get(edge.workflow_id)!.push({
+        id: edge.id,
+        source: edge.source_node_id,
+        target: edge.target_node_id,
+        sourceHandle: edge.source_port_id || 'source',
+        targetHandle: edge.target_port_id || 'target'
+      })
+    }
+
     for (const webhookConfig of webhookConfigs) {
       if (!webhookConfig.workflow_id) continue
 
@@ -1450,6 +1513,13 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
           workflowId: webhookConfig.workflow_id
         })
         continue
+      }
+
+      // Attach nodes and connections from normalized tables
+      const workflowWithGraph = {
+        ...workflow,
+        nodes: nodesByWorkflow.get(workflow.id) || [],
+        connections: edgesByWorkflow.get(workflow.id) || []
       }
 
       const configData = (webhookConfig.config || {}) as any
@@ -1474,19 +1544,8 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
         }
       }
 
-      let nodes: any[] = []
-      if (Array.isArray(workflow.nodes)) {
-        nodes = workflow.nodes
-      } else if (typeof workflow.nodes === 'string') {
-        try {
-          const parsedNodes = JSON.parse(workflow.nodes)
-          if (Array.isArray(parsedNodes)) {
-            nodes = parsedNodes
-          }
-        } catch {
-          // ignore parse errors; nodes will remain empty
-        }
-      }
+      // Nodes already loaded from normalized tables in workflowWithGraph
+      const nodes = workflowWithGraph.nodes || []
 
       const matchingTriggers = nodes.filter((node: any) => {
         const nodeType = node?.data?.type || node?.type || node?.data?.nodeType
@@ -1580,8 +1639,8 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
         }
 
         const executionEngine = new AdvancedExecutionEngine()
-        const nodeCount = Array.isArray(workflow.nodes) ? workflow.nodes.length : 0
-        const connectionCount = Array.isArray((workflow as any).connections) ? workflow.connections.length : 0
+        const nodeCount = workflowWithGraph.nodes.length
+        const connectionCount = workflowWithGraph.connections.length
         calendarInfo('Dispatching workflow execution', {
           workflowId: workflow.id,
           changeType,
@@ -1696,7 +1755,7 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
 
     const { data: workflows, error: workflowsError } = await supabase
       .from('workflows')
-      .select('id, user_id, nodes, connections, name, status')
+      .select('id, user_id, name, status')
       .in('id', workflowIds)
       .eq('status', 'active')
 
@@ -1709,6 +1768,30 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
       return
     }
 
+    // Load nodes and edges for all workflows in batch
+    const [driveNodesResult, driveEdgesResult] = await Promise.all([
+      supabase.from('workflow_nodes').select('*').in('workflow_id', workflowIds).order('display_order'),
+      supabase.from('workflow_edges').select('*').in('workflow_id', workflowIds)
+    ])
+
+    const driveNodesByWorkflow = new Map<string, any[]>()
+    for (const node of driveNodesResult.data || []) {
+      if (!driveNodesByWorkflow.has(node.workflow_id)) {
+        driveNodesByWorkflow.set(node.workflow_id, [])
+      }
+      driveNodesByWorkflow.get(node.workflow_id)!.push({
+        id: node.id,
+        type: node.node_type,
+        data: {
+          type: node.node_type,
+          label: node.label || node.node_type,
+          config: node.config || {},
+          isTrigger: node.is_trigger,
+        },
+        position: { x: node.position_x, y: node.position_y }
+      })
+    }
+
     for (const webhookConfig of webhookConfigs) {
       if (!webhookConfig.workflow_id) continue
 
@@ -1718,19 +1801,7 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
       }
 
       const configData = (webhookConfig.config || {}) as any
-      let nodes: any[] = []
-      if (Array.isArray(workflow.nodes)) {
-        nodes = workflow.nodes
-      } else if (typeof workflow.nodes === 'string') {
-        try {
-          const parsedNodes = JSON.parse(workflow.nodes)
-          if (Array.isArray(parsedNodes)) {
-            nodes = parsedNodes
-          }
-        } catch {
-          nodes = []
-        }
-      }
+      const nodes = driveNodesByWorkflow.get(workflow.id) || []
 
       const matchingTriggers = nodes.filter((node: any) => {
         const nodeType = node?.data?.type || node?.type || node?.data?.nodeType
@@ -1942,7 +2013,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
 
     const { data: workflows, error: workflowsError } = await supabase
       .from('workflows')
-      .select('id, user_id, nodes, connections, name, status')
+      .select('id, user_id, name, status')
       .in('id', workflowIds)
       .eq('status', 'active')
 
@@ -1955,6 +2026,31 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
       return
     }
 
+    // Load nodes for all workflows in batch
+    const { data: sheetsNodesData } = await supabase
+      .from('workflow_nodes')
+      .select('*')
+      .in('workflow_id', workflowIds)
+      .order('display_order')
+
+    const sheetsNodesByWorkflow = new Map<string, any[]>()
+    for (const node of sheetsNodesData || []) {
+      if (!sheetsNodesByWorkflow.has(node.workflow_id)) {
+        sheetsNodesByWorkflow.set(node.workflow_id, [])
+      }
+      sheetsNodesByWorkflow.get(node.workflow_id)!.push({
+        id: node.id,
+        type: node.node_type,
+        data: {
+          type: node.node_type,
+          label: node.label || node.node_type,
+          config: node.config || {},
+          isTrigger: node.is_trigger,
+        },
+        position: { x: node.position_x, y: node.position_y }
+      })
+    }
+
     for (const webhookConfig of webhookConfigs) {
       if (!webhookConfig.workflow_id) continue
 
@@ -1963,19 +2059,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         continue
       }
 
-      let nodes: any[] = []
-      if (Array.isArray(workflow.nodes)) {
-        nodes = workflow.nodes
-      } else if (typeof workflow.nodes === 'string') {
-        try {
-          const parsed = JSON.parse(workflow.nodes)
-          if (Array.isArray(parsed)) {
-            nodes = parsed
-          }
-        } catch {
-          nodes = []
-        }
-      }
+      const nodes = sheetsNodesByWorkflow.get(workflow.id) || []
       let configData: Record<string, any> = {}
       if (webhookConfig.config) {
         if (typeof webhookConfig.config === 'string') {
@@ -2217,17 +2301,45 @@ async function triggerDocsWorkflowsFromDriveChange(driveFile: any, metadata: any
 
   try {
     const supabase = await createSupabaseServiceClient()
+
+    // First get all active workflows for this user
     const { data: docWorkflows, error } = await supabase
       .from('workflows')
-      .select('id, user_id, nodes, status')
+      .select('id, user_id, status')
       .eq('status', 'active')
       .eq('user_id', metadata?.userId)
 
     if (error) {
       logger.error('[Google Drive] Failed to fetch Google Docs workflows:', error)
-    } else {
-      for (const wf of docWorkflows || []) {
-        const nodes = Array.isArray(wf.nodes) ? wf.nodes : []
+    } else if (docWorkflows && docWorkflows.length > 0) {
+      // Load nodes for all workflows in one query
+      const workflowIds = docWorkflows.map(w => w.id)
+      const { data: allNodes } = await supabase
+        .from('workflow_nodes')
+        .select('id, workflow_id, node_type, label, config, is_trigger, provider_id, position_x, position_y')
+        .in('workflow_id', workflowIds)
+
+      // Group nodes by workflow
+      const nodesByWorkflow = new Map<string, any[]>()
+      for (const node of allNodes || []) {
+        const list = nodesByWorkflow.get(node.workflow_id) || []
+        list.push({
+          id: node.id,
+          type: node.node_type,
+          data: {
+            type: node.node_type,
+            label: node.label,
+            config: node.config || {},
+            isTrigger: node.is_trigger,
+            providerId: node.provider_id
+          },
+          position: { x: node.position_x, y: node.position_y }
+        })
+        nodesByWorkflow.set(node.workflow_id, list)
+      }
+
+      for (const wf of docWorkflows) {
+        const nodes = nodesByWorkflow.get(wf.id) || []
         const matchingNewDocTriggers = nodes.filter((n: any) => n?.data?.isTrigger && n?.data?.type === 'google_docs_trigger_new_document')
         for (const trig of matchingNewDocTriggers) {
           const cfg = trig?.data?.config || {}

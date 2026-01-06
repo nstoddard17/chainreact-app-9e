@@ -169,22 +169,46 @@ export async function POST(request: Request) {
       workflowData = providedWorkflowData
       logger.debug('Using provided workflow data from request')
     } else {
-      // Fetch the workflow data from database
-      const { data: workflow, error: workflowError } = await supabase
-        .from('workflows')
-        .select('*')
-        .eq('id', workflowId)
-        .single()
+      // Fetch workflow nodes and edges from normalized tables
+      const [nodesResult, edgesResult] = await Promise.all([
+        supabase
+          .from('workflow_nodes')
+          .select('*')
+          .eq('workflow_id', workflowId)
+          .order('display_order'),
+        supabase
+          .from('workflow_edges')
+          .select('*')
+          .eq('workflow_id', workflowId)
+      ])
 
-      if (workflowError || !workflow) {
-        return errorResponse("Workflow not found" , 404)
+      if (!nodesResult.data || nodesResult.data.length === 0) {
+        return errorResponse("Workflow not found or has no nodes", 404)
       }
 
       workflowData = {
-        nodes: workflow.nodes || [],
-        edges: workflow.edges || []
+        nodes: (nodesResult.data || []).map((n: any) => ({
+          id: n.id,
+          type: n.node_type,
+          position: { x: n.position_x, y: n.position_y },
+          data: {
+            type: n.node_type,
+            label: n.label,
+            title: n.label,
+            config: n.config || {},
+            isTrigger: n.is_trigger,
+            providerId: n.provider_id
+          }
+        })),
+        edges: (edgesResult.data || []).map((e: any) => ({
+          id: e.id,
+          source: e.source_node_id,
+          target: e.target_node_id,
+          sourceHandle: e.source_port_id || 'source',
+          targetHandle: e.target_port_id || 'target'
+        }))
       }
-      logger.debug('Using workflow data from database')
+      logger.debug('Using workflow data from normalized tables')
     }
 
     const { nodes, edges } = workflowData

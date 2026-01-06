@@ -855,14 +855,40 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
               name: testConfig.workflowName || 'Unsaved Workflow'
             }
           } else {
-            // Fallback: try to fetch workflow from DB
+            // Fallback: try to fetch workflow from DB using normalized tables
             logger.debug('[Gmail] No test_mode_config, fetching workflow from DB', { workflowId: session.workflow_id })
-            const { data: dbWorkflow } = await supabase
-              .from('workflows')
-              .select('id, user_id, nodes, connections, name')
-              .eq('id', session.workflow_id)
-              .single()
-            workflow = dbWorkflow
+            const [workflowResult, nodesResult, edgesResult] = await Promise.all([
+              supabase.from('workflows').select('id, user_id, name').eq('id', session.workflow_id).single(),
+              supabase.from('workflow_nodes').select('*').eq('workflow_id', session.workflow_id).order('display_order'),
+              supabase.from('workflow_edges').select('*').eq('workflow_id', session.workflow_id)
+            ])
+
+            if (workflowResult.data) {
+              // Convert to legacy format for execution engine
+              const nodes = (nodesResult.data || []).map((node: any) => ({
+                id: node.id,
+                type: node.node_type,
+                data: {
+                  type: node.node_type,
+                  label: node.label || node.node_type,
+                  config: node.config || {},
+                  isTrigger: node.is_trigger,
+                },
+                position: { x: node.position_x, y: node.position_y }
+              }))
+              const connections = (edgesResult.data || []).map((edge: any) => ({
+                id: edge.id,
+                source: edge.source_node_id,
+                target: edge.target_node_id,
+                sourceHandle: edge.source_port_id || 'source',
+                targetHandle: edge.target_port_id || 'target'
+              }))
+              workflow = {
+                ...workflowResult.data,
+                nodes,
+                connections
+              }
+            }
           }
 
           if (!workflow) {
@@ -1032,14 +1058,8 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
     // Allow testing workflows that haven't been published yet by including drafts
     const { data: workflows, error } = await supabase
       .from('workflows')
-      .select(`
-        id,
-        user_id,
-        nodes,
-        name
-      `)
+      .select('id, user_id, name')
       .in('status', ['active', 'draft'])
-      .not('nodes', 'is', null)
 
     if (error) {
       logger.error('Failed to fetch workflows:', error)
@@ -1050,7 +1070,26 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
     // Process each workflow
     for (const workflow of workflows) {
-      const nodes = workflow.nodes || []
+      // Load nodes from normalized table
+      const { data: dbNodes } = await supabase
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', workflow.id)
+        .order('display_order')
+
+      const nodes = (dbNodes || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          nodeType: n.node_type,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          providerId: n.provider_id
+        }
+      }))
 
       // Find Gmail trigger nodes
       const gmailTriggerNodes = nodes.filter((node: any) => {

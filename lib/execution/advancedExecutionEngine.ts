@@ -143,12 +143,51 @@ export class AdvancedExecutionEngine {
     // Use provided workflow if available, otherwise fetch from database
     let workflow = options.workflow
     if (!workflow) {
+      // Fetch workflow metadata
       const { data: dbWorkflow } = await this.supabase
         .from("workflows")
-        .select("*")
+        .select("id, name, user_id")
         .eq("id", session.workflow_id)
         .single()
-      workflow = dbWorkflow
+
+      if (dbWorkflow) {
+        // Fetch nodes and edges from normalized tables
+        const [nodesResult, edgesResult] = await Promise.all([
+          this.supabase
+            .from('workflow_nodes')
+            .select('*')
+            .eq('workflow_id', session.workflow_id)
+            .order('display_order'),
+          this.supabase
+            .from('workflow_edges')
+            .select('*')
+            .eq('workflow_id', session.workflow_id)
+        ])
+
+        workflow = {
+          ...dbWorkflow,
+          nodes: (nodesResult.data || []).map((n: any) => ({
+            id: n.id,
+            type: n.node_type,
+            position: { x: n.position_x, y: n.position_y },
+            data: {
+              type: n.node_type,
+              label: n.label,
+              title: n.label,
+              config: n.config || {},
+              isTrigger: n.is_trigger,
+              providerId: n.provider_id
+            }
+          })),
+          connections: (edgesResult.data || []).map((e: any) => ({
+            id: e.id,
+            source: e.source_node_id,
+            target: e.target_node_id,
+            sourceHandle: e.source_port_id || 'source',
+            targetHandle: e.target_port_id || 'target'
+          }))
+        }
+      }
     }
 
     const totalNodes = workflow?.nodes?.length || 0
@@ -451,14 +490,51 @@ export class AdvancedExecutionEngine {
   }
 
   private async executeSubWorkflow(subWorkflow: SubWorkflow, context: any): Promise<any> {
-    // Get child workflow
-    const { data: childWorkflow } = await this.supabase
+    // Get child workflow metadata
+    const { data: childWorkflowMeta } = await this.supabase
       .from("workflows")
-      .select("*")
+      .select("id, name, user_id")
       .eq("id", subWorkflow.child_workflow_id)
       .single()
 
-    if (!childWorkflow) throw new Error(`Sub-workflow ${subWorkflow.child_workflow_id} not found`)
+    if (!childWorkflowMeta) throw new Error(`Sub-workflow ${subWorkflow.child_workflow_id} not found`)
+
+    // Fetch nodes and edges from normalized tables
+    const [nodesResult, edgesResult] = await Promise.all([
+      this.supabase
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', subWorkflow.child_workflow_id)
+        .order('display_order'),
+      this.supabase
+        .from('workflow_edges')
+        .select('*')
+        .eq('workflow_id', subWorkflow.child_workflow_id)
+    ])
+
+    const childWorkflow = {
+      ...childWorkflowMeta,
+      nodes: (nodesResult.data || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          title: n.label,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          providerId: n.provider_id
+        }
+      })),
+      connections: (edgesResult.data || []).map((e: any) => ({
+        id: e.id,
+        source: e.source_node_id,
+        target: e.target_node_id,
+        sourceHandle: e.source_port_id || 'source',
+        targetHandle: e.target_port_id || 'target'
+      }))
+    }
 
     // Map input data
     const mappedInput = this.mapWorkflowData(context.data, subWorkflow.input_mapping)

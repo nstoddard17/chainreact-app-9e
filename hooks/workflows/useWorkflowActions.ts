@@ -36,16 +36,29 @@ export function useWorkflowActions() {
     try {
       setIsDuplicating(true)
 
-      // Get the current workflow
+      // Get the current workflow metadata
       const { data: workflow, error: fetchError } = await supabase
         .from('workflows')
-        .select('*')
+        .select('name, description, organization_id')
         .eq('id', workflowId)
         .single()
 
       if (fetchError || !workflow) {
         throw new Error('Failed to fetch workflow')
       }
+
+      // Load nodes and edges from normalized tables
+      const [nodesResult, edgesResult] = await Promise.all([
+        supabase
+          .from('workflow_nodes')
+          .select('*')
+          .eq('workflow_id', workflowId)
+          .order('display_order'),
+        supabase
+          .from('workflow_edges')
+          .select('*')
+          .eq('workflow_id', workflowId)
+      ])
 
       // Create a copy with a new name
       const { data: { user } } = await supabase.auth.getUser()
@@ -58,8 +71,6 @@ export function useWorkflowActions() {
         description: workflow.description,
         status: 'inactive', // New workflows start inactive until re-activated
         is_enabled: false,
-        nodes: workflow.nodes,
-        connections: workflow.connections,
         user_id: user.id,
         organization_id: workflow.organization_id,
       }
@@ -72,6 +83,63 @@ export function useWorkflowActions() {
 
       if (insertError || !duplicated) {
         throw insertError || new Error('Failed to duplicate workflow')
+      }
+
+      // Create node ID mapping (old ID -> new ID)
+      const nodeIdMap = new Map<string, string>()
+      const sourceNodes = nodesResult.data || []
+      const sourceEdges = edgesResult.data || []
+
+      // Duplicate nodes with new IDs
+      if (sourceNodes.length > 0) {
+        const newNodes = sourceNodes.map((node: any) => {
+          const newNodeId = crypto.randomUUID()
+          nodeIdMap.set(node.id, newNodeId)
+          return {
+            id: newNodeId,
+            workflow_id: duplicated.id,
+            node_type: node.node_type,
+            label: node.label,
+            config: node.config,
+            is_trigger: node.is_trigger,
+            provider_id: node.provider_id,
+            position_x: node.position_x,
+            position_y: node.position_y,
+            display_order: node.display_order,
+          }
+        })
+
+        const { error: nodesInsertError } = await supabase
+          .from('workflow_nodes')
+          .insert(newNodes)
+
+        if (nodesInsertError) {
+          logger.error('Error duplicating nodes:', nodesInsertError)
+        }
+      }
+
+      // Duplicate edges with mapped node IDs
+      if (sourceEdges.length > 0) {
+        const newEdges = sourceEdges
+          .filter((edge: any) => nodeIdMap.has(edge.source_node_id) && nodeIdMap.has(edge.target_node_id))
+          .map((edge: any) => ({
+            id: crypto.randomUUID(),
+            workflow_id: duplicated.id,
+            source_node_id: nodeIdMap.get(edge.source_node_id),
+            target_node_id: nodeIdMap.get(edge.target_node_id),
+            source_port_id: edge.source_port_id,
+            target_port_id: edge.target_port_id,
+          }))
+
+        if (newEdges.length > 0) {
+          const { error: edgesInsertError } = await supabase
+            .from('workflow_edges')
+            .insert(newEdges)
+
+          if (edgesInsertError) {
+            logger.error('Error duplicating edges:', edgesInsertError)
+          }
+        }
       }
 
       // Optimistically add the new workflow so lists update immediately

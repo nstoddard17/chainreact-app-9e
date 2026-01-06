@@ -951,9 +951,11 @@ class DiscordGateway extends SimpleEventEmitter {
   private async triggerMemberJoinWorkflows(memberData: any, invite: any | null): Promise<void> {
     try {
       const supabase = await createSupabaseServiceClient()
+
+      // Get active workflows
       const { data: workflows, error: workflowsError } = await supabase
         .from('workflows')
-        .select('id,user_id,nodes,status')
+        .select('id, user_id, status')
         .eq('status', 'active')
 
       if (workflowsError) {
@@ -966,11 +968,48 @@ class DiscordGateway extends SimpleEventEmitter {
         return
       }
 
-      logger.debug('[Discord] Loaded member join workflows', workflows.map((workflow) => ({
+      // Load nodes for all workflows in one query
+      const workflowIds = workflows.map(w => w.id)
+      const { data: allNodes, error: nodesError } = await supabase
+        .from('workflow_nodes')
+        .select('id, workflow_id, node_type, label, config, is_trigger, provider_id, position_x, position_y')
+        .in('workflow_id', workflowIds)
+
+      if (nodesError) {
+        logger.error('[Discord] Failed to load workflow nodes:', nodesError)
+        return
+      }
+
+      // Group nodes by workflow
+      const nodesByWorkflow = new Map<string, any[]>()
+      for (const node of allNodes || []) {
+        const list = nodesByWorkflow.get(node.workflow_id) || []
+        list.push({
+          id: node.id,
+          type: node.node_type,
+          data: {
+            type: node.node_type,
+            label: node.label,
+            config: node.config || {},
+            isTrigger: node.is_trigger,
+            providerId: node.provider_id
+          },
+          position: { x: node.position_x, y: node.position_y }
+        })
+        nodesByWorkflow.set(node.workflow_id, list)
+      }
+
+      // Attach nodes to workflows
+      const workflowsWithNodes = workflows.map(w => ({
+        ...w,
+        nodes: nodesByWorkflow.get(w.id) || []
+      }))
+
+      logger.debug('[Discord] Loaded member join workflows', workflowsWithNodes.map((workflow) => ({
         id: workflow.id,
         status: workflow.status,
-        nodesType: typeof workflow.nodes,
-        hasNodes: Boolean(workflow.nodes)
+        nodesCount: workflow.nodes.length,
+        hasNodes: workflow.nodes.length > 0
       })))
 
       const guildId = memberData.guild_id
@@ -1008,35 +1047,16 @@ class DiscordGateway extends SimpleEventEmitter {
         timestamp: new Date().toISOString()
       }
 
-      const parseNodes = (raw: any): any[] => {
-        if (!raw) return []
-        if (Array.isArray(raw)) return raw
-        if (typeof raw === 'object') {
-          return Object.values(raw)
-        }
-        if (typeof raw === 'string') {
-          try {
-            const parsed = JSON.parse(raw)
-            if (Array.isArray(parsed)) return parsed
-            if (parsed && typeof parsed === 'object') return Object.values(parsed)
-            return []
-          } catch (error) {
-            logger.warn('[Discord] Failed to parse workflow nodes JSON', { error, rawSnippet: raw.slice?.(0, 200) })
-            return []
-          }
-        }
-        return []
-      }
-
-      const candidateWorkflows = workflows.filter((workflow) => {
-        const nodes = parseNodes(workflow.nodes)
+      // Nodes are already in the correct format from the normalized tables
+      const candidateWorkflows = workflowsWithNodes.filter((workflow) => {
+        const nodes = workflow.nodes || []
         logger.debug('[Discord] Workflow nodes overview', {
           workflowId: workflow.id,
           nodeCount: nodes.length,
-          nodeTypes: nodes.map((n: any) => n?.data?.type || n?.type || n?.data?.nodeType)
+          nodeTypes: nodes.map((n: any) => n?.data?.type || n?.type)
         })
         return nodes.some((n: any) => {
-          const nodeType = n?.data?.type || n?.type || n?.data?.nodeType
+          const nodeType = n?.data?.type || n?.type
           return nodeType === 'discord_trigger_member_join'
         })
       })
@@ -1047,9 +1067,9 @@ class DiscordGateway extends SimpleEventEmitter {
       })
 
       for (const workflow of candidateWorkflows) {
-        const nodes = parseNodes(workflow.nodes)
+        const nodes = workflow.nodes || []
         const triggerNode = nodes.find((n: any) => {
-          const nodeType = n?.data?.type || n?.type || n?.data?.nodeType
+          const nodeType = n?.data?.type || n?.type
           return nodeType === 'discord_trigger_member_join'
         })
         if (!triggerNode) {

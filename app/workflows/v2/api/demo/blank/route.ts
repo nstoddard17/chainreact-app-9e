@@ -10,14 +10,13 @@ export async function GET() {
   const flowId = uuid()
   const definitionName = "Blank Flow"
 
+  // Note: nodes and edges are stored in workflow_nodes and workflow_edges tables
   const { error } = await serviceClient
     .from("workflows")
     .insert({
       id: flowId,
       name: definitionName,
       status: 'draft',
-      nodes: [],
-      connections: [],
     })
 
   if (error) {

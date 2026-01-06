@@ -138,17 +138,37 @@ export async function POST(
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
 
   try {
-    const { data: workflow, error: workflowError } = await supabase
-      .from('workflows')
-      .select('user_id, nodes')
-      .eq('id', workflowId)
-      .single();
+    // Load workflow and nodes separately from normalized tables
+    const [workflowResult, nodesResult] = await Promise.all([
+      supabase
+        .from('workflows')
+        .select('user_id')
+        .eq('id', workflowId)
+        .single(),
+      supabase
+        .from('workflow_nodes')
+        .select('id, node_type, label, config, is_trigger, provider_id')
+        .eq('workflow_id', workflowId)
+    ]);
 
-    if (workflowError || !workflow) {
+    if (workflowResult.error || !workflowResult.data) {
       return errorResponse('Workflow not found' , 404);
     }
-    
-    const triggerNode = workflow.nodes.find((node: any) => node.data.isTrigger && node.data.triggerType === 'webhook');
+
+    const workflow = workflowResult.data;
+    const nodes = (nodesResult.data || []).map((node: any) => ({
+      id: node.id,
+      data: {
+        type: node.node_type,
+        label: node.label,
+        config: node.config || {},
+        isTrigger: node.is_trigger,
+        triggerType: node.node_type === 'webhook_trigger' ? 'webhook' : undefined,
+        providerId: node.provider_id
+      }
+    }));
+
+    const triggerNode = nodes.find((node: any) => node.data.isTrigger && node.data.triggerType === 'webhook');
 
     if (!triggerNode) {
       return errorResponse('No webhook trigger found for this workflow' , 400);

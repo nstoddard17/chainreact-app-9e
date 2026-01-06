@@ -240,12 +240,29 @@ class DiscordInviteTracker {
     try {
       const supabase = await createSupabaseServiceClient()
 
-      // Find workflows with Discord member join trigger
+      // Find trigger nodes with Discord member join trigger type from normalized table
+      const { data: triggerNodes, error: nodesError } = await supabase
+        .from("workflow_nodes")
+        .select("id, workflow_id, node_type, label, config, is_trigger")
+        .eq("node_type", "discord_trigger_member_join")
+        .eq("is_trigger", true)
+
+      if (nodesError) {
+        logger.error('[Discord] Failed to load member join trigger nodes:', nodesError)
+        return
+      }
+
+      if (!triggerNodes || triggerNodes.length === 0) return
+
+      // Get unique workflow IDs
+      const workflowIds = [...new Set(triggerNodes.map(n => n.workflow_id))]
+
+      // Load workflows that are active
       const { data: workflows, error: workflowsError } = await supabase
         .from("workflows")
-        .select("*")
+        .select("id, name, user_id, status")
+        .in("id", workflowIds)
         .eq("status", "active")
-        .contains("nodes", [{ type: "discord_trigger_member_join" }])
 
       if (workflowsError) {
         logger.error('[Discord] Failed to load member join workflows:', workflowsError)
@@ -258,6 +275,25 @@ class DiscordInviteTracker {
       })
 
       if (!workflows || workflows.length === 0) return
+
+      // Map trigger nodes by workflow ID for quick lookup
+      const triggerNodesByWorkflow = new Map<string, any[]>()
+      for (const node of triggerNodes) {
+        if (!triggerNodesByWorkflow.has(node.workflow_id)) {
+          triggerNodesByWorkflow.set(node.workflow_id, [])
+        }
+        triggerNodesByWorkflow.get(node.workflow_id)!.push({
+          id: node.id,
+          type: node.node_type,
+          data: {
+            type: node.node_type,
+            label: node.label,
+            config: node.config || {},
+            isTrigger: node.is_trigger,
+            ...(node.config || {}) // Spread config fields into data for legacy compatibility
+          }
+        })
+      }
 
       // Prepare trigger data
       const inviteCode = normalizeInviteCode(invite?.code || undefined)
@@ -283,8 +319,9 @@ class DiscordInviteTracker {
 
       // Execute workflows
       for (const workflow of workflows) {
-        // Check if workflow trigger matches the guild
-        const triggerNode = workflow.nodes.find((n: any) => n.type === "discord_trigger_member_join")
+        // Get trigger node for this workflow
+        const workflowTriggerNodes = triggerNodesByWorkflow.get(workflow.id) || []
+        const triggerNode = workflowTriggerNodes.find((n: any) => n.type === "discord_trigger_member_join")
         if (!triggerNode) continue
 
         // Check if guild matches (if specified in trigger config)

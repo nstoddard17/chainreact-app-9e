@@ -610,21 +610,44 @@ async function processAirtablePayload(
   // Get all workflows with Airtable triggers for this base
   const { data: workflows, error: workflowError } = await getSupabase()
     .from('workflows')
-    .select('*')
+    .select('id, name, user_id, status')
     .eq('user_id', userId)
     .eq('status', 'active')
 
-  // Filter workflows that have Airtable triggers for this base
-  const airtableWorkflows = workflows?.filter(w => {
-    const nodes = w.nodes || []
+  // Load nodes for each workflow and filter for Airtable triggers
+  const airtableWorkflows: Array<any> = []
+
+  for (const w of workflows || []) {
+    // Load nodes from normalized table
+    const { data: dbNodes } = await getSupabase()
+      .from('workflow_nodes')
+      .select('*')
+      .eq('workflow_id', w.id)
+      .order('display_order')
+
+    const nodes = (dbNodes || []).map((n: any) => ({
+      id: n.id,
+      type: n.node_type,
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        type: n.node_type,
+        label: n.label,
+        config: n.config || {},
+        isTrigger: n.is_trigger,
+        providerId: n.provider_id
+      }
+    }))
+
     const triggerNode = nodes.find((node: any) => node.data?.isTrigger)
-    if (!triggerNode) return false
+    if (!triggerNode) continue
 
     const providerId = triggerNode.data?.providerId
     const triggerConfig = triggerNode.data?.config || {}
 
-    return providerId === 'airtable' && triggerConfig.baseId === baseId
-  }) || []
+    if (providerId === 'airtable' && triggerConfig.baseId === baseId) {
+      airtableWorkflows.push({ ...w, nodes })
+    }
+  }
 
   if (airtableWorkflows.length === 0) {
     // Silent return - no workflows to process
@@ -1175,7 +1198,7 @@ async function createWorkflowExecution(workflowId: string, userId: string, trigg
     // Get the workflow details first
     const { data: workflow, error: workflowError } = await getSupabase()
       .from('workflows')
-      .select('*')
+      .select('id, name, user_id, status')
       .eq('id', workflowId)
       .single()
 
@@ -1184,10 +1207,46 @@ async function createWorkflowExecution(workflowId: string, userId: string, trigg
       return
     }
 
+    // Load nodes from normalized table
+    const { data: dbNodes } = await getSupabase()
+      .from('workflow_nodes')
+      .select('*')
+      .eq('workflow_id', workflowId)
+      .order('display_order')
+
+    const nodes = (dbNodes || []).map((n: any) => ({
+      id: n.id,
+      type: n.node_type,
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        type: n.node_type,
+        label: n.label,
+        config: n.config || {},
+        isTrigger: n.is_trigger,
+        providerId: n.provider_id
+      }
+    }))
+
+    // Load edges from normalized table
+    const { data: dbEdges } = await getSupabase()
+      .from('workflow_edges')
+      .select('*')
+      .eq('workflow_id', workflowId)
+
+    const connections = (dbEdges || []).map((e: any) => ({
+      id: e.id,
+      source: e.source_node_id,
+      target: e.target_node_id,
+      sourceHandle: e.source_port_id || 'source',
+      targetHandle: e.target_port_id || 'target'
+    }))
+
+    // Construct workflow object with nodes/connections for execution
+    const workflowWithGraph = { ...workflow, nodes, connections }
+
     logger.debug(`⚡ Executing workflow "${workflow.name}" (${workflow.id})`)
 
     // Log the workflow structure to understand what nodes will execute
-    const nodes = workflow.nodes || []
     const actionNodes = nodes.filter((n: any) => !n.data?.isTrigger && n.data?.type)
     logger.debug(`📊 Workflow has ${actionNodes.length} action nodes:`)
     actionNodes.forEach((node: any) => {
@@ -1202,7 +1261,7 @@ async function createWorkflowExecution(workflowId: string, userId: string, trigg
     // Execute the workflow with the trigger data as input
     // Skip triggers since this IS the trigger
     const executionResult = await workflowExecutionService.executeWorkflow(
-      workflow,
+      workflowWithGraph,
       triggerData, // Pass trigger data as input
       userId,
       false, // testMode = false (this is a real webhook trigger)

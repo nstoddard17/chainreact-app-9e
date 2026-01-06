@@ -118,20 +118,39 @@ export async function GET(
       .eq('id', executionId)
       .single()
 
-    // Get workflow to include node details
-    const { data: workflow } = await supabase
-      .from('workflows')
-      .select('nodes, connections')
-      .eq('id', workflowId)
-      .single()
+    // Get workflow nodes and edges from normalized tables
+    const [nodesResult, edgesResult] = await Promise.all([
+      supabase.from('workflow_nodes').select('*').eq('workflow_id', workflowId).order('display_order'),
+      supabase.from('workflow_edges').select('*').eq('workflow_id', workflowId)
+    ])
+
+    const nodes = (nodesResult.data || []).map((node: any) => ({
+      id: node.id,
+      type: node.node_type,
+      data: {
+        type: node.node_type,
+        label: node.label || node.node_type,
+        config: node.config || {},
+        isTrigger: node.is_trigger,
+      },
+      position: { x: node.position_x, y: node.position_y }
+    }))
+
+    const connections = (edgesResult.data || []).map((edge: any) => ({
+      id: edge.id,
+      source: edge.source_node_id,
+      target: edge.target_node_id,
+      sourceHandle: edge.source_port_id || 'source',
+      targetHandle: edge.target_port_id || 'target'
+    }))
 
     // Calculate additional metrics
-    const totalNodes = workflow?.nodes?.length || 0
+    const totalNodes = nodes.length
     const completedNodes = progress.completed_nodes || []
     const failedNodes = progress.failed_nodes || []
     const nodeOutputs = progress.node_outputs || {}
     const currentNode = progress.current_node_id
-      ? workflow?.nodes?.find((n: any) => n.id === progress.current_node_id)
+      ? nodes.find((n: any) => n.id === progress.current_node_id)
       : null
 
     // Get backend logs for this execution
@@ -159,8 +178,8 @@ export async function GET(
         errorMessage: progress.error_message,
       },
       workflow: {
-        nodes: workflow?.nodes || [],
-        connections: workflow?.connections || [],
+        nodes,
+        connections,
       },
       backendLogs, // Include backend logs for debug modal
     })

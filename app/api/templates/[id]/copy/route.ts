@@ -1,7 +1,8 @@
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { randomUUID } from "crypto"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -9,6 +10,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     cookies()
     const supabase = await createSupabaseRouteHandlerClient()
+    const serviceClient = await createSupabaseServiceClient()
     const {
       data: { user },
       error: userError,
@@ -203,15 +205,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     console.log(`Creating workflow with name: ${finalName}`)
 
-    // Create a new workflow from the template
+    // Generate new workflow ID
+    const newWorkflowId = randomUUID()
+
+    // Create a new workflow from the template (without nodes/connections - they go to normalized tables)
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
       .insert({
+        id: newWorkflowId,
         name: finalName,
         description: template.description,
         user_id: user.id,
-        nodes: processedNodes,
-        connections: connections,
         status: "draft",
         source_template_id: resolvedParams.id,
       })
@@ -229,6 +233,75 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!workflow) {
       logger.error("Workflow created but no data returned")
       return errorResponse("Workflow creation succeeded but no data returned" , 500)
+    }
+
+    // Insert nodes into normalized table
+    if (processedNodes && processedNodes.length > 0) {
+      // Create ID mapping for nodes (old ID -> new ID)
+      const nodeIdMap = new Map<string, string>()
+      const nodeRecords = processedNodes.map((node: any, index: number) => {
+        const newNodeId = randomUUID()
+        nodeIdMap.set(node.id, newNodeId)
+        return {
+          id: newNodeId,
+          workflow_id: newWorkflowId,
+          user_id: user.id,
+          node_type: node.data?.type || node.type || 'unknown',
+          label: node.data?.label || node.data?.title || node.data?.type || 'Unnamed Node',
+          description: node.data?.description || null,
+          config: node.data?.config || node.data || {},
+          position_x: node.position?.x ?? 400,
+          position_y: node.position?.y ?? (100 + index * 180),
+          is_trigger: node.data?.isTrigger ?? false,
+          provider_id: (node.data?.type || '').split(':')[0] || null,
+          display_order: index,
+          in_ports: [],
+          out_ports: [],
+          metadata: { position: node.position },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+      })
+
+      const { error: nodesError } = await serviceClient
+        .from('workflow_nodes')
+        .insert(nodeRecords)
+
+      if (nodesError) {
+        logger.error("Error inserting workflow nodes:", nodesError)
+      }
+
+      // Insert edges into normalized table
+      if (connections && connections.length > 0) {
+        const edgeRecords = connections
+          .filter((conn: any) => conn && (conn.source || conn.from) && (conn.target || conn.to))
+          .map((conn: any) => {
+            const sourceId = conn.source || conn.from
+            const targetId = conn.target || conn.to
+            return {
+              id: randomUUID(),
+              workflow_id: newWorkflowId,
+              user_id: user.id,
+              source_node_id: nodeIdMap.get(sourceId) || sourceId,
+              target_node_id: nodeIdMap.get(targetId) || targetId,
+              source_port_id: conn.sourceHandle || 'source',
+              target_port_id: conn.targetHandle || 'target',
+              mappings: [],
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }
+          })
+
+        if (edgeRecords.length > 0) {
+          const { error: edgesError } = await serviceClient
+            .from('workflow_edges')
+            .insert(edgeRecords)
+
+          if (edgesError) {
+            logger.error("Error inserting workflow edges:", edgesError)
+          }
+        }
+      }
     }
 
     logger.debug(`Successfully created workflow ${workflow.id} from template`)

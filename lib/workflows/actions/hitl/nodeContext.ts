@@ -185,33 +185,39 @@ export async function getWorkflowStructure(workflowId: string): Promise<Workflow
   try {
     const supabase = await createSupabaseServerClient()
 
-    const { data: workflow, error } = await supabase
-      .from('workflows')
-      .select('nodes, edges, connections')
-      .eq('id', workflowId)
-      .single()
+    // Load from normalized tables
+    const [nodesResult, edgesResult] = await Promise.all([
+      supabase
+        .from('workflow_nodes')
+        .select('id, node_type, label, config, is_trigger, display_order')
+        .eq('workflow_id', workflowId)
+        .order('display_order'),
+      supabase
+        .from('workflow_edges')
+        .select('id, source_node_id, target_node_id')
+        .eq('workflow_id', workflowId)
+    ])
 
-    if (error || !workflow) {
-      logger.warn('[HITL NodeContext] Could not load workflow structure', { error })
+    if (nodesResult.error) {
+      logger.warn('[HITL NodeContext] Could not load workflow structure', { error: nodesResult.error })
       return null
     }
 
-    const nodes = (workflow.nodes || [])
+    const nodes = (nodesResult.data || [])
       .filter((n: any) =>
-        n.type !== 'addAction' &&
+        n.node_type !== 'addAction' &&
         !n.id?.startsWith('add-action-')
       )
       .map((n: any, index: number) => ({
         id: n.id,
-        type: n.data?.type || n.type,
-        title: n.data?.title || n.data?.label || n.type,
+        type: n.node_type,
+        title: n.label || n.node_type,
         position: index
       }))
 
-    const edges = workflow.edges || workflow.connections || []
-    const connections = edges.map((e: any) => ({
-      from: e.source,
-      to: e.target
+    const connections = (edgesResult.data || []).map((e: any) => ({
+      from: e.source_node_id,
+      to: e.target_node_id
     }))
 
     return { nodes, connections }

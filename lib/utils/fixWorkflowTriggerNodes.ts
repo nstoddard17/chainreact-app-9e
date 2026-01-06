@@ -1,6 +1,8 @@
 /**
  * Utility to fix workflow nodes that have missing data.type for triggers
  * This can happen with workflows created before proper node type saving was implemented
+ *
+ * Updated to use normalized workflow_nodes table
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -55,126 +57,111 @@ export async function fixWorkflowTriggerNodes(workflowId?: string) {
       return { success: false, error: 'Supabase credentials are not configured' }
     }
 
-    // Get workflows to fix
-    let query = supabase.from('workflows').select('id, name, nodes')
+    // Get trigger nodes from normalized table
+    let query = supabase
+      .from('workflow_nodes')
+      .select('id, workflow_id, node_type, label, config, is_trigger, provider_id')
+      .eq('is_trigger', true)
+
     if (workflowId) {
-      query = query.eq('id', workflowId)
+      query = query.eq('workflow_id', workflowId)
     }
 
-    const { data: workflows, error } = await query
+    const { data: triggerNodes, error } = await query
 
     if (error) {
-      logger.error('Error fetching workflows:', error)
+      logger.error('Error fetching trigger nodes:', error)
       return { success: false, error }
     }
 
-    if (!workflows || workflows.length === 0) {
-      logger.debug('No workflows found')
+    if (!triggerNodes || triggerNodes.length === 0) {
+      logger.debug('No trigger nodes found')
       return { success: true, fixed: 0 }
     }
 
     let fixedCount = 0
     const results: any[] = []
 
-    for (const workflow of workflows) {
-      let nodes: any[]
-      try {
-        nodes = typeof workflow.nodes === 'string' ? JSON.parse(workflow.nodes) : workflow.nodes || []
-      } catch (e) {
-        logger.error(`Failed to parse nodes for workflow ${workflow.id}:`, e)
+    for (const node of triggerNodes) {
+      // Skip if already has proper type
+      if (node.node_type && node.node_type !== 'custom') {
         continue
       }
 
-      let modified = false
+      // Try to determine the correct type
+      const title = node.label || ''
+      const providerId = node.provider_id
 
-      // Check each node
-      const updatedNodes = nodes.map((node: any) => {
-        // Skip if not a trigger node
-        if (!node?.data?.isTrigger) {
-          return node
+      // Look up the correct type based on title
+      const mapping = TRIGGER_TYPE_MAPPING[title]
+
+      let newType: string | null = null
+      let newProviderId: string | null = null
+
+      if (mapping) {
+        logger.debug(`  🔧 Fixing trigger node ${node.id}:`)
+        logger.debug(`     Title: ${title}`)
+        logger.debug(`     Old type: ${node.node_type || 'undefined'}`)
+        logger.debug(`     New type: ${mapping.type}`)
+
+        newType = mapping.type
+        if (!providerId && mapping.providerId) {
+          newProviderId = mapping.providerId
+        }
+      } else if (providerId && title) {
+        // Try to guess the type based on provider and title
+        if (title.toLowerCase().includes('new') && title.toLowerCase().includes('message')) {
+          newType = `${providerId}_trigger_new_message`
+        } else if (title.toLowerCase().includes('new') && title.toLowerCase().includes('file')) {
+          newType = `${providerId}_trigger_new_file`
+        } else if (title.toLowerCase().includes('modified')) {
+          newType = `${providerId}_trigger_file_modified`
         }
 
-        // Skip if already has proper type
-        if (node.data.type && node.data.type !== 'custom') {
-          return node
-        }
-
-        // Try to determine the correct type
-        const title = node.data.title || node.data.label || ''
-        const providerId = node.data.providerId
-
-        // Look up the correct type based on title
-        const mapping = TRIGGER_TYPE_MAPPING[title]
-
-        if (mapping) {
-          logger.debug(`  🔧 Fixing trigger node in workflow "${workflow.name}":`)
+        if (newType) {
+          logger.debug(`  🔧 Guessing type for trigger node ${node.id}:`)
           logger.debug(`     Title: ${title}`)
-          logger.debug(`     Old type: ${node.data.type || 'undefined'}`)
-          logger.debug(`     New type: ${mapping.type}`)
+          logger.debug(`     Provider: ${providerId}`)
+          logger.debug(`     Guessed type: ${newType}`)
+        } else {
+          logger.warn(`  ⚠️ Could not determine type for trigger node:`, {
+            nodeId: node.id,
+            workflowId: node.workflow_id,
+            title,
+            providerId
+          })
+        }
+      }
 
-          // Fix the node
-          node.data.type = mapping.type
-          if (!node.data.providerId && mapping.providerId) {
-            node.data.providerId = mapping.providerId
-          }
-
-          modified = true
-        } else if (providerId && title) {
-          // Try to guess the type based on provider and title
-          let guessedType = ''
-
-          if (title.toLowerCase().includes('new') && title.toLowerCase().includes('message')) {
-            guessedType = `${providerId}_trigger_new_message`
-          } else if (title.toLowerCase().includes('new') && title.toLowerCase().includes('file')) {
-            guessedType = `${providerId}_trigger_new_file`
-          } else if (title.toLowerCase().includes('modified')) {
-            guessedType = `${providerId}_trigger_file_modified`
-          }
-
-          if (guessedType) {
-            logger.debug(`  🔧 Guessing type for trigger in workflow "${workflow.name}":`)
-            logger.debug(`     Title: ${title}`)
-            logger.debug(`     Provider: ${providerId}`)
-            logger.debug(`     Guessed type: ${guessedType}`)
-
-            node.data.type = guessedType
-            modified = true
-          } else {
-            logger.warn(`  ⚠️ Could not determine type for trigger node:`, {
-              workflowName: workflow.name,
-              title,
-              providerId
-            })
-          }
+      // Update the node if we determined a new type
+      if (newType) {
+        const updateData: any = { node_type: newType }
+        if (newProviderId) {
+          updateData.provider_id = newProviderId
         }
 
-        return node
-      })
-
-      // Save the updated workflow if modified
-      if (modified) {
         const { error: updateError } = await supabase
-          .from('workflows')
-          .update({ nodes: JSON.stringify(updatedNodes) })
-          .eq('id', workflow.id)
+          .from('workflow_nodes')
+          .update(updateData)
+          .eq('id', node.id)
 
         if (updateError) {
-          logger.error(`Failed to update workflow ${workflow.id}:`, updateError)
-          results.push({ workflowId: workflow.id, name: workflow.name, success: false, error: updateError })
+          logger.error(`Failed to update node ${node.id}:`, updateError)
+          results.push({ nodeId: node.id, workflowId: node.workflow_id, success: false, error: updateError })
         } else {
-          logger.debug(`  ✅ Fixed workflow: ${workflow.name}`)
+          logger.debug(`  ✅ Fixed node: ${node.id}`)
           fixedCount++
-          results.push({ workflowId: workflow.id, name: workflow.name, success: true })
+          results.push({ nodeId: node.id, workflowId: node.workflow_id, success: true })
         }
       }
     }
 
-    logger.debug(`\n✅ Fixed ${fixedCount} workflows`)
+    logger.debug(`\n✅ Fixed ${fixedCount} trigger nodes`)
 
     return {
       success: true,
       fixed: fixedCount,
-      total: workflows.length,
+      total: triggerNodes.length,
       results
     }
 

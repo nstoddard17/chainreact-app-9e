@@ -231,9 +231,14 @@ async function processWebhook(
 }
 
 async function findWorkflowsForProvider(userId: string, provider: string): Promise<any[]> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!
+  )
+
   const { data: workflows, error } = await supabase
     .from('workflows')
-    .select('*')
+    .select('id, name, user_id, status')
     .eq('user_id', userId)
     .eq('status', 'active')
 
@@ -242,18 +247,59 @@ async function findWorkflowsForProvider(userId: string, provider: string): Promi
     return []
   }
 
-  // Filter workflows that have triggers for this provider
-  return workflows.filter(workflow => {
+  // Load nodes for each workflow and filter for this provider
+  const matchingWorkflows: any[] = []
+
+  for (const workflow of workflows || []) {
     try {
-      const nodes = workflow.nodes || []
-      return nodes.some((node: any) => 
-        node.data?.providerId === provider && 
+      // Load nodes from normalized table
+      const { data: dbNodes } = await supabase
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', workflow.id)
+        .order('display_order')
+
+      const nodes = (dbNodes || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          providerId: n.provider_id
+        }
+      }))
+
+      // Load edges from normalized table
+      const { data: dbEdges } = await supabase
+        .from('workflow_edges')
+        .select('*')
+        .eq('workflow_id', workflow.id)
+
+      const connections = (dbEdges || []).map((e: any) => ({
+        id: e.id,
+        source: e.source_node_id,
+        target: e.target_node_id,
+        sourceHandle: e.source_port_id || 'source',
+        targetHandle: e.target_port_id || 'target'
+      }))
+
+      const hasMatchingTrigger = nodes.some((node: any) =>
+        node.data?.providerId === provider &&
         node.data?.isTrigger === true
       )
+
+      if (hasMatchingTrigger) {
+        matchingWorkflows.push({ ...workflow, nodes, connections })
+      }
     } catch {
-      return false
+      // Skip workflows with errors
     }
-  })
+  }
+
+  return matchingWorkflows
 }
 
 function determineTriggerType(provider: string, payload: any): string {

@@ -42,7 +42,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: workflow, error: fetchError } = await serviceClient
       .from("workflows")
-      .select("*")
+      .select("id, name, user_id, status")
       .eq("id", resolvedParams.id)
       .single()
 
@@ -62,9 +62,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     logger.info(`🚀 Activating workflow: ${workflow.name} (${workflow.id})`)
 
-    // Validate graph connectivity (trigger → action)
-    const nodes = (Array.isArray(workflow.nodes) ? workflow.nodes : []) as any[]
-    const connections = (Array.isArray(workflow.connections) ? workflow.connections : []) as any[]
+    // Load nodes and edges from normalized tables for validation
+    const [nodesResult, edgesResult] = await Promise.all([
+      serviceClient
+        .from('workflow_nodes')
+        .select('id, node_type, is_trigger, config')
+        .eq('workflow_id', resolvedParams.id),
+      serviceClient
+        .from('workflow_edges')
+        .select('id, source_node_id, target_node_id')
+        .eq('workflow_id', resolvedParams.id)
+    ])
+
+    // Convert to format expected by validation logic
+    const nodes = (nodesResult.data || []).map((n: any) => ({
+      id: n.id,
+      data: {
+        type: n.node_type,
+        isTrigger: n.is_trigger,
+        config: n.config || {}
+      }
+    }))
+    const connections = (edgesResult.data || []).map((e: any) => ({
+      id: e.id,
+      source: e.source_node_id,
+      target: e.target_node_id
+    }))
 
     const triggerNodes = nodes.filter((n: any) => n?.data?.isTrigger)
     const actionNodeIds = new Set<string>(

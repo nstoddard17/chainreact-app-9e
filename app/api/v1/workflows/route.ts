@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseRouteHandlerClient } from "../../../../utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "../../../../utils/supabase/server"
 import { z } from "zod"
+import { randomUUID } from "crypto"
 
 const createWorkflowSchema = z.object({
   name: z.string().min(1).max(255),
@@ -173,11 +174,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = createWorkflowSchema.parse(body)
 
+    // Extract nodes and connections from validated data (they go to normalized tables)
+    const { nodes, connections, ...workflowData } = validatedData
+
     const supabase = await createSupabaseRouteHandlerClient()
+    const serviceClient = await createSupabaseServiceClient()
+
+    const newWorkflowId = randomUUID()
+
     const { data: workflow, error } = await supabase
       .from("workflows")
       .insert({
-        ...validatedData,
+        id: newWorkflowId,
+        ...workflowData,
         user_id: keyData.user_id,
         organization_id: keyData.organization_id,
       })
@@ -196,6 +205,62 @@ export async function POST(request: NextRequest) {
         request,
       )
       return errorResponse("Failed to create workflow" , 500)
+    }
+
+    // Insert nodes into normalized table
+    if (nodes && nodes.length > 0) {
+      const nodeIdMap = new Map<string, string>()
+      const nodeRecords = nodes.map((node: any, index: number) => {
+        const nodeId = node.id || randomUUID()
+        nodeIdMap.set(node.id || nodeId, nodeId)
+        return {
+          id: nodeId,
+          workflow_id: newWorkflowId,
+          user_id: keyData.user_id,
+          node_type: node.data?.type || node.type || 'unknown',
+          label: node.data?.label || node.data?.title || node.data?.type || 'Unnamed Node',
+          description: node.data?.description || null,
+          config: node.data?.config || node.data || {},
+          position_x: node.position?.x ?? 400,
+          position_y: node.position?.y ?? (100 + index * 180),
+          is_trigger: node.data?.isTrigger ?? false,
+          provider_id: (node.data?.type || '').split(':')[0] || null,
+          display_order: index,
+          in_ports: [],
+          out_ports: [],
+          metadata: { position: node.position },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+      })
+
+      await serviceClient.from('workflow_nodes').insert(nodeRecords)
+
+      // Insert edges into normalized table
+      if (connections && connections.length > 0) {
+        const edgeRecords = connections
+          .filter((conn: any) => conn && (conn.source || conn.from) && (conn.target || conn.to))
+          .map((conn: any) => {
+            const sourceId = conn.source || conn.from
+            const targetId = conn.target || conn.to
+            return {
+              id: conn.id || randomUUID(),
+              workflow_id: newWorkflowId,
+              user_id: keyData.user_id,
+              source_node_id: nodeIdMap.get(sourceId) || sourceId,
+              target_node_id: nodeIdMap.get(targetId) || targetId,
+              source_port_id: conn.sourceHandle || 'source',
+              target_port_id: conn.targetHandle || 'target',
+              mappings: [],
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }
+          })
+
+        if (edgeRecords.length > 0) {
+          await serviceClient.from('workflow_edges').insert(edgeRecords)
+        }
+      }
     }
 
     await logApiUsage(

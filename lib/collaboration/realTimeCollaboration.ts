@@ -362,67 +362,114 @@ export class RealTimeCollaboration {
   }
 
   private async applyChangeToWorkflow(change: WorkflowChange): Promise<void> {
-    const { data: workflow } = await this.supabase.from("workflows").select("*").eq("id", change.workflow_id).single()
+    // Verify workflow exists
+    const { data: workflow } = await this.supabase.from("workflows").select("id").eq("id", change.workflow_id).single()
 
     if (!workflow) throw new Error("Workflow not found")
 
-    let nodes = workflow.nodes || []
-    let connections = workflow.connections || []
-
     switch (change.change_type) {
-      case "node_add":
-        nodes.push(change.change_data.node)
+      case "node_add": {
+        const node = change.change_data.node
+        await this.supabase.from("workflow_nodes").insert({
+          id: node.id,
+          workflow_id: change.workflow_id,
+          node_type: node.data?.type || node.type,
+          label: node.data?.label || node.data?.title || 'Node',
+          position_x: node.position?.x || 0,
+          position_y: node.position?.y || 0,
+          config: node.data?.config || {},
+          is_trigger: node.data?.isTrigger || false,
+          provider_id: node.data?.providerId || null
+        })
         break
+      }
 
-      case "node_update":
-        const nodeIndex = nodes.findIndex((n: any) => n.id === change.change_data.nodeId)
-        if (nodeIndex >= 0) {
-          nodes[nodeIndex] = { ...nodes[nodeIndex], ...change.change_data.updates }
+      case "node_update": {
+        const updates = change.change_data.updates
+        const updateData: any = { updated_at: new Date().toISOString() }
+        if (updates.data?.config) updateData.config = updates.data.config
+        if (updates.data?.label) updateData.label = updates.data.label
+        if (updates.position) {
+          updateData.position_x = updates.position.x
+          updateData.position_y = updates.position.y
         }
+        await this.supabase.from("workflow_nodes").update(updateData).eq("id", change.change_data.nodeId)
         break
+      }
 
-      case "node_delete":
-        nodes = nodes.filter((n: any) => n.id !== change.change_data.nodeId)
-        connections = connections.filter(
-          (c: any) => c.source !== change.change_data.nodeId && c.target !== change.change_data.nodeId,
-        )
+      case "node_delete": {
+        // Delete node (edges will be cascade deleted)
+        await this.supabase.from("workflow_nodes").delete().eq("id", change.change_data.nodeId)
         break
+      }
 
-      case "edge_add":
-        connections.push(change.change_data.edge)
+      case "edge_add": {
+        const edge = change.change_data.edge
+        await this.supabase.from("workflow_edges").insert({
+          id: edge.id,
+          workflow_id: change.workflow_id,
+          source_node_id: edge.source,
+          target_node_id: edge.target,
+          source_port_id: edge.sourceHandle || 'source',
+          target_port_id: edge.targetHandle || 'target'
+        })
         break
+      }
 
-      case "edge_delete":
-        connections = connections.filter((c: any) => c.id !== change.change_data.edgeId)
+      case "edge_delete": {
+        await this.supabase.from("workflow_edges").delete().eq("id", change.change_data.edgeId)
         break
+      }
 
       case "property_update":
-        // Update workflow properties
+        // Update workflow properties (not nodes/edges)
         break
     }
 
-    // Update workflow in database
+    // Update workflow timestamp
     await this.supabase
       .from("workflows")
-      .update({
-        nodes,
-        connections: connections,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ updated_at: new Date().toISOString() })
       .eq("id", change.workflow_id)
   }
 
   private async createCollaborationSnapshot(workflowId: string, userId: string): Promise<void> {
-    const { data: workflow } = await this.supabase.from("workflows").select("*").eq("id", workflowId).single()
+    // Load workflow metadata and nodes/edges from normalized tables
+    const [workflowResult, nodesResult, edgesResult] = await Promise.all([
+      this.supabase.from("workflows").select("id, name, metadata").eq("id", workflowId).single(),
+      this.supabase.from("workflow_nodes").select("*").eq("workflow_id", workflowId).order("display_order"),
+      this.supabase.from("workflow_edges").select("*").eq("workflow_id", workflowId)
+    ])
 
-    if (!workflow) return
+    if (!workflowResult.data) return
+
+    const nodes = (nodesResult.data || []).map((n: any) => ({
+      id: n.id,
+      type: n.node_type,
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        type: n.node_type,
+        label: n.label,
+        config: n.config || {},
+        isTrigger: n.is_trigger,
+        providerId: n.provider_id
+      }
+    }))
+
+    const connections = (edgesResult.data || []).map((e: any) => ({
+      id: e.id,
+      source: e.source_node_id,
+      target: e.target_node_id,
+      sourceHandle: e.source_port_id || 'source',
+      targetHandle: e.target_port_id || 'target'
+    }))
 
     await this.supabase.from("workflow_snapshots").insert({
       workflow_id: workflowId,
       snapshot_data: {
-        nodes: workflow.nodes,
-        connections: workflow.connections,
-        metadata: workflow.metadata,
+        nodes,
+        connections,
+        metadata: workflowResult.data.metadata,
       },
       snapshot_type: "collaboration",
       created_by: userId,
@@ -430,19 +477,20 @@ export class RealTimeCollaboration {
   }
 
   private async generateVersionHash(workflowId: string): Promise<string> {
-    const { data: workflow } = await this.supabase
-      .from("workflows")
-      .select("nodes, connections, updated_at")
-      .eq("id", workflowId)
-      .single()
+    // Query normalized tables in parallel
+    const [workflowResult, nodesResult, edgesResult] = await Promise.all([
+      this.supabase.from("workflows").select("updated_at").eq("id", workflowId).single(),
+      this.supabase.from("workflow_nodes").select("id, updated_at").eq("workflow_id", workflowId),
+      this.supabase.from("workflow_edges").select("id, updated_at").eq("workflow_id", workflowId)
+    ])
 
-    if (!workflow) return ""
+    if (!workflowResult.data) return ""
 
     // Simple hash generation - in production, use a proper hashing algorithm
     const content = JSON.stringify({
-      nodes: workflow.nodes,
-      connections: workflow.connections,
-      updated_at: workflow.updated_at,
+      nodeIds: (nodesResult.data || []).map((n: any) => n.id).sort(),
+      edgeIds: (edgesResult.data || []).map((e: any) => e.id).sort(),
+      updated_at: workflowResult.data.updated_at,
     })
 
     return btoa(content).slice(0, 16)

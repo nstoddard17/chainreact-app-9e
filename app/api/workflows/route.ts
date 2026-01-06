@@ -296,6 +296,7 @@ export async function POST(request: Request) {
     }
 
     // Insert workflow with workspace context
+    // Note: nodes and edges are stored in workflow_nodes and workflow_edges tables
     const { data: workflow, error } = await supabase
       .from("workflows")
       .insert({
@@ -308,8 +309,6 @@ export async function POST(request: Request) {
         workspace_id,
         created_by: user.id,
         last_modified_by: user.id,
-        nodes: [],
-        connections: [],
         status: status || "draft",
       })
       .select()

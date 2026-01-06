@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
   // Verify workflow ownership
   const { data: workflow, error: workflowError } = await supabase
     .from("workflows")
-    .select("*")
+    .select("id, name, user_id, status")
     .eq("id", workflowId)
     .eq("user_id", user.id)
     .single()
@@ -156,9 +156,45 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Use provided nodes/connections or fall back to workflow data
-  const workflowNodes = nodes || workflow.nodes || []
-  const workflowConnections = connections || workflow.connections || []
+  // Use provided nodes/connections or fall back to normalized tables
+  let workflowNodes = nodes
+  let workflowConnections = connections
+
+  if (!workflowNodes || workflowNodes.length === 0) {
+    const { data: dbNodes } = await supabase
+      .from('workflow_nodes')
+      .select('*')
+      .eq('workflow_id', workflowId)
+      .order('display_order')
+
+    workflowNodes = (dbNodes || []).map((n: any) => ({
+      id: n.id,
+      type: n.node_type,
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        type: n.node_type,
+        label: n.label,
+        config: n.config || {},
+        isTrigger: n.is_trigger,
+        providerId: n.provider_id
+      }
+    }))
+  }
+
+  if (!workflowConnections || workflowConnections.length === 0) {
+    const { data: dbEdges } = await supabase
+      .from('workflow_edges')
+      .select('*')
+      .eq('workflow_id', workflowId)
+
+    workflowConnections = (dbEdges || []).map((e: any) => ({
+      id: e.id,
+      source: e.source_node_id,
+      target: e.target_node_id,
+      sourceHandle: e.source_port_id || 'source',
+      targetHandle: e.target_port_id || 'target'
+    }))
+  }
 
   // Create a TransformStream for SSE
   const encoder = new TextEncoder()

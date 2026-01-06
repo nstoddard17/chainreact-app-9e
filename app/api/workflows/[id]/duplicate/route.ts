@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from "@/lib/utils/api-response"
+import { randomUUID } from "crypto"
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,7 @@ export async function POST(
 ) {
   try {
     const supabase = await createSupabaseRouteHandlerClient()
+    const serviceClient = await createSupabaseServiceClient()
 
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -31,15 +33,17 @@ export async function POST(
       return errorResponse("Workflow not found", 404)
     }
 
-    // Create duplicate
+    // Generate new workflow ID
+    const newWorkflowId = randomUUID()
+
+    // Create duplicate workflow (without nodes/connections - they're in normalized tables)
     const { data: duplicatedWorkflow, error: createError } = await supabase
       .from('workflows')
       .insert({
+        id: newWorkflowId,
         name: `${originalWorkflow.name} (Copy)`,
         description: originalWorkflow.description,
         user_id: user.id,
-        nodes: originalWorkflow.nodes,
-        connections: originalWorkflow.connections,
         status: 'draft', // Always start as draft
       })
       .select()
@@ -47,6 +51,52 @@ export async function POST(
 
     if (createError) {
       throw createError
+    }
+
+    // Copy nodes from normalized table
+    const { data: originalNodes } = await serviceClient
+      .from('workflow_nodes')
+      .select('*')
+      .eq('workflow_id', workflowId)
+
+    if (originalNodes && originalNodes.length > 0) {
+      // Create ID mapping for nodes (old ID -> new ID)
+      const nodeIdMap = new Map<string, string>()
+      const newNodes = originalNodes.map(node => {
+        const newNodeId = randomUUID()
+        nodeIdMap.set(node.id, newNodeId)
+        return {
+          ...node,
+          id: newNodeId,
+          workflow_id: newWorkflowId,
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+      })
+
+      await serviceClient.from('workflow_nodes').insert(newNodes)
+
+      // Copy edges from normalized table, updating node references
+      const { data: originalEdges } = await serviceClient
+        .from('workflow_edges')
+        .select('*')
+        .eq('workflow_id', workflowId)
+
+      if (originalEdges && originalEdges.length > 0) {
+        const newEdges = originalEdges.map(edge => ({
+          ...edge,
+          id: randomUUID(),
+          workflow_id: newWorkflowId,
+          user_id: user.id,
+          source_node_id: nodeIdMap.get(edge.source_node_id) || edge.source_node_id,
+          target_node_id: nodeIdMap.get(edge.target_node_id) || edge.target_node_id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }))
+
+        await serviceClient.from('workflow_edges').insert(newEdges)
+      }
     }
 
     // Log the duplication

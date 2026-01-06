@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     // Fetch active workflows with this trigger type
     const { data: workflows, error: workflowError } = await getSupabase()
       .from('workflows')
-      .select('*')
+      .select('id, name, user_id, status')
       .eq('status', 'active')
 
     if (workflowError) {
@@ -102,12 +102,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'No active workflows' })
     }
 
-    // Filter workflows that match this trigger type
-    const matchingWorkflows = workflows.filter((wf) => {
-      const nodes = Array.isArray(wf.nodes) ? wf.nodes : []
+    // Load nodes for each workflow and filter for matching trigger type
+    const matchingWorkflows: Array<any> = []
+
+    for (const wf of workflows) {
+      // Load nodes from normalized table
+      const { data: dbNodes } = await getSupabase()
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', wf.id)
+        .order('display_order')
+
+      const nodes = (dbNodes || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          providerId: n.provider_id
+        }
+      }))
+
+      // Load edges from normalized table
+      const { data: dbEdges } = await getSupabase()
+        .from('workflow_edges')
+        .select('*')
+        .eq('workflow_id', wf.id)
+
+      const connections = (dbEdges || []).map((e: any) => ({
+        id: e.id,
+        source: e.source_node_id,
+        target: e.target_node_id,
+        sourceHandle: e.source_port_id || 'source',
+        targetHandle: e.target_port_id || 'target'
+      }))
+
       const triggerNode = nodes.find((n: any) => n.data?.type === triggerType)
-      return !!triggerNode
-    })
+      if (triggerNode) {
+        matchingWorkflows.push({ ...wf, nodes, connections })
+      }
+    }
 
     if (matchingWorkflows.length === 0) {
       logger.debug('[Shopify Webhook] No workflows match trigger type:', triggerType)

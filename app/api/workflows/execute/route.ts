@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       : await createSupabaseRouteHandlerClient()
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
-      .select("*")
+      .select("id, name, user_id, team_id, status")
       .eq("id", workflowId)
       .single()
 
@@ -175,10 +175,44 @@ export async function POST(request: NextRequest) {
       return errorResponse("Workflow not found" , 404)
     }
 
+    // Load nodes and edges from normalized tables
+    const [nodesResult, edgesResult] = await Promise.all([
+      supabase
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', workflowId)
+        .order('display_order'),
+      supabase
+        .from('workflow_edges')
+        .select('*')
+        .eq('workflow_id', workflowId)
+    ])
+
+    const dbNodes = (nodesResult.data || []).map((n: any) => ({
+      id: n.id,
+      type: n.node_type,
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        type: n.node_type,
+        label: n.label,
+        config: n.config || {},
+        isTrigger: n.is_trigger,
+        providerId: n.provider_id
+      }
+    }))
+
+    const dbEdges = (edgesResult.data || []).map((e: any) => ({
+      id: e.id,
+      source: e.source_node_id,
+      target: e.target_node_id,
+      sourceHandle: e.source_port_id || 'source',
+      targetHandle: e.target_port_id || 'target'
+    }))
+
     logger.debug("Workflow found:", {
       id: workflow.id,
       name: workflow.name,
-      nodesCount: workflow.nodes?.length || 0
+      nodesCount: dbNodes.length
     })
 
     // ============================================================================
@@ -249,9 +283,9 @@ export async function POST(request: NextRequest) {
 
     logger.debug("User authenticated:", userId)
 
-    // Parse workflow data
-    const allNodes = workflowData?.nodes || workflow.nodes || []
-    const allEdges = workflowData?.edges || workflow.edges || []
+    // Parse workflow data - use provided data or fall back to normalized tables
+    const allNodes = workflowData?.nodes || dbNodes
+    const allEdges = workflowData?.edges || dbEdges
     
     // Log Google Calendar node config if present
     const calendarNode = allNodes.find((n: any) => n.data?.type === 'google_calendar_action_create_event')

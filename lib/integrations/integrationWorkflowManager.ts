@@ -77,21 +77,37 @@ async function resolveIntegrationDetails(options: FlagOptions | ClearOptions) {
   }
 }
 
-async function updateWorkflowRecords(updates: Array<{ id: string; nodes: any; metadata: any }>) {
+async function updateWorkflowRecords(updates: Array<{ id: string; nodeUpdates: Array<{ nodeId: string; config: any }>; metadata: any }>) {
   if (updates.length === 0) return
   const supabase = await createSupabaseServiceClient()
 
   for (const record of updates) {
-    const { error } = await supabase
+    // Update workflow metadata
+    const { error: metaError } = await supabase
       .from('workflows')
-      .update({ nodes: record.nodes, metadata: record.metadata })
+      .update({ metadata: record.metadata })
       .eq('id', record.id)
 
-    if (error) {
-      logger.error('[IntegrationWorkflowManager] Failed to update workflow', {
+    if (metaError) {
+      logger.error('[IntegrationWorkflowManager] Failed to update workflow metadata', {
         workflowId: record.id,
-        error
+        error: metaError
       })
+    }
+
+    // Update each node's config in workflow_nodes table
+    for (const nodeUpdate of record.nodeUpdates) {
+      const { error: nodeError } = await supabase
+        .from('workflow_nodes')
+        .update({ config: nodeUpdate.config, updated_at: new Date().toISOString() })
+        .eq('id', nodeUpdate.nodeId)
+
+      if (nodeError) {
+        logger.error('[IntegrationWorkflowManager] Failed to update node config', {
+          nodeId: nodeUpdate.nodeId,
+          error: nodeError
+        })
+      }
     }
   }
 }
@@ -144,61 +160,71 @@ async function updateWebhookStatuses(userId: string, provider: string, status: '
   }
 }
 
-function markNodeForReconnect(node: any, provider: string): { node: any; changed: boolean } {
-  if (!node || typeof node !== 'object') return { node, changed: false }
+function markNodeForReconnect(node: any, provider: string): { node: any; configUpdate: { nodeId: string; config: any } | null; changed: boolean } {
+  if (!node || typeof node !== 'object') return { node, configUpdate: null, changed: false }
 
-  const data = node.data || {}
-  const providerMatches = data.providerId === provider || data.provider_id === provider
-  const configMatches = data.provider === provider || node.provider === provider || node?.data?.config?.provider === provider
+  // Node from workflow_nodes table has provider_id directly
+  const providerMatches = node.provider_id === provider
+  const config = node.config || {}
+  const configMatches = config.provider === provider
 
   if (!providerMatches && !configMatches) {
-    return { node, changed: false }
+    return { node, configUpdate: null, changed: false }
   }
 
-  const integrationWarnings = { ...(data.integrationReconnectWarnings || {}) }
+  const integrationWarnings = { ...(config.integrationReconnectWarnings || {}) }
 
   if (integrationWarnings[provider]) {
-    return { node, changed: false }
+    return { node, configUpdate: null, changed: false }
   }
 
   integrationWarnings[provider] = true
 
+  const updatedConfig = {
+    ...config,
+    integrationReconnectWarnings: integrationWarnings
+  }
+
   return {
     node: {
       ...node,
-      data: {
-        ...data,
-        integrationReconnectWarnings: integrationWarnings
-      }
+      config: updatedConfig
     },
+    configUpdate: { nodeId: node.id, config: updatedConfig },
     changed: true
   }
 }
 
-function clearNodeReconnectFlag(node: any, provider: string): { node: any; changed: boolean } {
-  if (!node || typeof node !== 'object' || !node.data?.integrationReconnectWarnings) {
-    return { node, changed: false }
+function clearNodeReconnectFlag(node: any, provider: string): { node: any; configUpdate: { nodeId: string; config: any } | null; changed: boolean } {
+  if (!node || typeof node !== 'object') {
+    return { node, configUpdate: null, changed: false }
   }
 
-  const warnings = { ...node.data.integrationReconnectWarnings }
+  const config = node.config || {}
+  if (!config.integrationReconnectWarnings) {
+    return { node, configUpdate: null, changed: false }
+  }
+
+  const warnings = { ...config.integrationReconnectWarnings }
   if (!warnings[provider]) {
-    return { node, changed: false }
+    return { node, configUpdate: null, changed: false }
   }
 
   delete warnings[provider]
 
-  const updatedData = { ...node.data }
+  const updatedConfig = { ...config }
   if (Object.keys(warnings).length === 0) {
-    delete updatedData.integrationReconnectWarnings
+    delete updatedConfig.integrationReconnectWarnings
   } else {
-    updatedData.integrationReconnectWarnings = warnings
+    updatedConfig.integrationReconnectWarnings = warnings
   }
 
   return {
     node: {
       ...node,
-      data: updatedData
+      config: updatedConfig
     },
+    configUpdate: { nodeId: node.id, config: updatedConfig },
     changed: true
   }
 }
@@ -206,31 +232,57 @@ function clearNodeReconnectFlag(node: any, provider: string): { node: any; chang
 async function processWorkflows(
   userId: string,
   provider: string,
-  modifier: (node: any) => { node: any; changed: boolean },
+  modifier: (node: any) => { node: any; configUpdate: { nodeId: string; config: any } | null; changed: boolean },
   metadataUpdater: (metadata: any) => { metadata: any; changed: boolean }
 ) {
   const supabase = await createSupabaseServiceClient()
+
+  // Get workflows for this user
   const { data: workflows, error } = await supabase
     .from('workflows')
-    .select('id, nodes, metadata')
+    .select('id, metadata')
     .eq('user_id', userId)
 
   if (error || !workflows || workflows.length === 0) {
     return { updated: 0 }
   }
 
-  const updates: Array<{ id: string; nodes: any; metadata: any }> = []
+  // Get all nodes for these workflows from normalized table
+  const workflowIds = workflows.map(w => w.id)
+  const { data: allNodes, error: nodesError } = await supabase
+    .from('workflow_nodes')
+    .select('id, workflow_id, node_type, label, config, is_trigger, provider_id')
+    .in('workflow_id', workflowIds)
 
-  for (const workflow of workflows as WorkflowRecord[]) {
-    const nodesArray = ensureArray(workflow.nodes)
-    if (nodesArray.length === 0) continue
+  if (nodesError) {
+    logger.error('[IntegrationWorkflowManager] Failed to load workflow nodes', { error: nodesError })
+    return { updated: 0 }
+  }
 
+  // Group nodes by workflow
+  const nodesByWorkflow = new Map<string, any[]>()
+  for (const node of allNodes || []) {
+    const list = nodesByWorkflow.get(node.workflow_id) || []
+    list.push(node)
+    nodesByWorkflow.set(node.workflow_id, list)
+  }
+
+  const updates: Array<{ id: string; nodeUpdates: Array<{ nodeId: string; config: any }>; metadata: any }> = []
+
+  for (const workflow of workflows) {
+    const nodes = nodesByWorkflow.get(workflow.id) || []
+    if (nodes.length === 0) continue
+
+    const nodeUpdates: Array<{ nodeId: string; config: any }> = []
     let nodesChanged = false
-    const updatedNodes = nodesArray.map((node) => {
-      const { node: updatedNode, changed } = modifier(node)
-      if (changed) nodesChanged = true
-      return updatedNode
-    })
+
+    for (const node of nodes) {
+      const { configUpdate, changed } = modifier(node)
+      if (changed && configUpdate) {
+        nodesChanged = true
+        nodeUpdates.push(configUpdate)
+      }
+    }
 
     if (!nodesChanged) continue
 
@@ -238,7 +290,7 @@ async function processWorkflows(
     const parsedMetadata = parseJsonValue<any>(metadata) || (typeof metadata === 'object' ? metadata : {})
     const { metadata: updatedMetadata, changed: metadataChanged } = metadataUpdater({ ...parsedMetadata })
 
-    updates.push({ id: workflow.id, nodes: updatedNodes, metadata: metadataChanged ? updatedMetadata : parsedMetadata })
+    updates.push({ id: workflow.id, nodeUpdates, metadata: metadataChanged ? updatedMetadata : parsedMetadata })
   }
 
   await updateWorkflowRecords(updates)

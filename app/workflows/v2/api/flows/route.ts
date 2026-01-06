@@ -49,6 +49,7 @@ export async function POST(request: Request) {
   }
 
   // Insert into workflows table (unified table for all workflows)
+  // Note: nodes and edges are stored in workflow_nodes and workflow_edges tables
   const { error: definitionError } = await serviceClient
     .from("workflows")
     .insert({
@@ -62,8 +63,6 @@ export async function POST(request: Request) {
       created_by: user.id,
       last_modified_by: user.id,
       status: 'draft',
-      nodes: [],
-      connections: [],
     })
 
   if (definitionError) {

@@ -771,70 +771,16 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     .select('id, name, status, user_id')
     .eq('user_id', userId)
 
-  // Debug: Check ALL workflows with OneDrive triggers
-  const { data: allDbWorkflows } = await getSupabase()
-    .from('workflows')
-    .select('id, name, status, user_id, nodes')
-    .eq('status', 'active')
-    .limit(10)
-
-  const onedriveWorkflows = allDbWorkflows?.filter(w => {
-    try {
-      const nodes = typeof w.nodes === 'string'
-        ? JSON.parse(w.nodes || '[]')
-        : w.nodes || []
-      return nodes.some((n: any) =>
-        n?.data?.type?.includes('onedrive') ||
-        n?.data?.providerId === 'onedrive'
-      )
-    } catch {
-      return false
-    }
-  }) || []
-
-  logger.debug('📊 User workflows overview:', {
-    userId,
-    totalWorkflows: allWorkflows?.length || 0,
-    directWorkflows: directWorkflows?.length || 0,
-    totalActiveInDb: allDbWorkflows?.length || 0,
-    onedriveWorkflowsInDb: onedriveWorkflows.map(w => ({
-      id: w.id,
-      name: w.name,
-      userId: w.user_id,
-      matchesUser: w.user_id === userId
-    })),
-    workflowStatuses: allWorkflows?.map(w => ({ name: w.name, status: w.status, userId: w.user_id })) || [],
-    queryError: allError
-  })
-
   // Find workflows that should be triggered by this event
   const { data: workflows, error: workflowError } = await getSupabase()
     .from('workflows')
-    .select('id, nodes, name, status, user_id')
+    .select('id, name, status, user_id')
     .eq('status', 'active')
     .eq('user_id', userId)
 
   if (workflowError) {
     logger.error('❌ Error fetching workflows:', workflowError)
   }
-
-  // Also try a direct query without the team condition
-  const { data: directUserWorkflows } = await getSupabase()
-    .from('workflows')
-    .select('id, nodes, name, status, user_id')
-    .eq('status', 'active')
-    .eq('user_id', userId)
-
-  logger.debug('🔎 Checking workflows for trigger match:', {
-    workflowCount: workflows?.length || 0,
-    directWorkflowCount: directUserWorkflows?.length || 0,
-    eventType: event.type,
-    eventAction: event.action,
-    userId,
-    activeWorkflows: workflows?.map(w => ({ name: w.name, userId: w.user_id })) || [],
-    directWorkflows: directUserWorkflows?.map(w => ({ name: w.name, userId: w.user_id })) || [],
-    error: workflowError
-  })
 
   if (!workflows || workflows.length === 0) {
     logger.debug('❌ No active workflows found for user. Please ensure your workflows are activated (status = "active")')
@@ -859,15 +805,77 @@ async function emitWorkflowTrigger(event: any, userId: string, accessToken?: str
     return
   }
 
+  // Load all nodes for these workflows from normalized table
+  const workflowIds = workflows.map(w => w.id)
+  const { data: allNodes, error: nodesError } = await getSupabase()
+    .from('workflow_nodes')
+    .select('id, workflow_id, node_type, label, config, is_trigger, provider_id, position_x, position_y')
+    .in('workflow_id', workflowIds)
+
+  if (nodesError) {
+    logger.error('❌ Error fetching workflow nodes:', nodesError)
+  }
+
+  // Group nodes by workflow
+  const nodesByWorkflow = new Map<string, any[]>()
+  for (const node of allNodes || []) {
+    const list = nodesByWorkflow.get(node.workflow_id) || []
+    list.push({
+      id: node.id,
+      type: node.node_type,
+      data: {
+        type: node.node_type,
+        label: node.label,
+        config: node.config || {},
+        isTrigger: node.is_trigger,
+        providerId: node.provider_id
+      },
+      position: { x: node.position_x, y: node.position_y }
+    })
+    nodesByWorkflow.set(node.workflow_id, list)
+  }
+
+  // Debug: Check for OneDrive workflows
+  const onedriveWorkflows = workflows.filter(w => {
+    const nodes = nodesByWorkflow.get(w.id) || []
+    return nodes.some((n: any) =>
+      n?.data?.type?.includes('onedrive') ||
+      n?.data?.providerId === 'onedrive'
+    )
+  })
+
+  logger.debug('📊 User workflows overview:', {
+    userId,
+    totalWorkflows: allWorkflows?.length || 0,
+    directWorkflows: directWorkflows?.length || 0,
+    totalActiveInDb: workflows?.length || 0,
+    onedriveWorkflowsInDb: onedriveWorkflows.map(w => ({
+      id: w.id,
+      name: w.name,
+      userId: w.user_id,
+      matchesUser: w.user_id === userId
+    })),
+    workflowStatuses: allWorkflows?.map(w => ({ name: w.name, status: w.status, userId: w.user_id })) || [],
+    queryError: allError
+  })
+
+  logger.debug('🔎 Checking workflows for trigger match:', {
+    workflowCount: workflows?.length || 0,
+    eventType: event.type,
+    eventAction: event.action,
+    userId,
+    activeWorkflows: workflows?.map(w => ({ name: w.name, userId: w.user_id })) || [],
+    error: workflowError
+  })
+
   const folderPathCache = new Map<string, string>()
   const client = accessToken ? new MicrosoftGraphClient({ accessToken }) : null
 
   // Check each workflow for matching triggers
   for (const workflow of workflows) {
     try {
-      const nodes = typeof workflow.nodes === 'string'
-        ? JSON.parse(workflow.nodes || '[]')
-        : workflow.nodes || []
+      // Get nodes from pre-loaded map
+      const nodes = nodesByWorkflow.get(workflow.id) || []
 
       // Debug node structure
       if (nodes.length > 0) {

@@ -140,9 +140,11 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
 
   const workflowIds = Array.from(dropboxConfigMap.keys())
 
-  const { data: workflows, error: workflowError } = await getSupabase()
+  const supabase = getSupabase()
+
+  const { data: workflows, error: workflowError } = await supabase
     .from('workflows')
-    .select('*')
+    .select('id, name, user_id, status')
     .in('status', ['draft', 'active'])
     .in('id', workflowIds)
 
@@ -154,22 +156,25 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
   const matching: any[] = []
 
   for (const workflow of workflows || []) {
-    let nodes: any[] = []
-    const rawNodes = workflow.nodes
+    // Load nodes from normalized table
+    const { data: dbNodes } = await supabase
+      .from('workflow_nodes')
+      .select('*')
+      .eq('workflow_id', workflow.id)
+      .order('display_order')
 
-    if (Array.isArray(rawNodes)) {
-      nodes = rawNodes
-    } else if (typeof rawNodes === 'string') {
-      try {
-        nodes = JSON.parse(rawNodes)
-      } catch (parseErr) {
-        logger.warn('⚠️ Failed to parse workflow nodes while filtering:', {
-          workflowId: workflow.id,
-          error: parseErr
-        })
-        nodes = []
+    const nodes = (dbNodes || []).map((n: any) => ({
+      id: n.id,
+      type: n.node_type,
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        type: n.node_type,
+        label: n.label,
+        config: n.config || {},
+        isTrigger: n.is_trigger,
+        providerId: n.provider_id
       }
-    }
+    }))
 
     const providerTriggers = nodes.filter((node: any) =>
       node?.data?.providerId === 'dropbox' && node?.data?.isTrigger === true
@@ -180,8 +185,10 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
     const cachedConfig = dropboxConfigMap.get(workflow.id)
     if (!cachedConfig) continue
 
-    ;(workflow as any).__dropboxWebhookConfig = cachedConfig
-    matching.push(workflow)
+    // Attach nodes and config to workflow
+    const workflowWithNodes = { ...workflow, nodes }
+    ;(workflowWithNodes as any).__dropboxWebhookConfig = cachedConfig
+    matching.push(workflowWithNodes)
   }
 
   logger.debug(`🎯 Dropbox workflows matched: ${matching.length}`)
@@ -240,17 +247,8 @@ async function processDropboxWorkflow(
     firstFile: triggerPayload.files[0]?.pathLower || null
   })
 
-  let workflowNodes: any[] = []
-  if (Array.isArray(workflow.nodes)) {
-    workflowNodes = workflow.nodes
-  } else if (typeof workflow.nodes === 'string') {
-    try {
-      workflowNodes = JSON.parse(workflow.nodes)
-    } catch (parseError) {
-      logger.warn(`${logPrefix} Failed to parse workflow nodes JSON for workflow ${workflow.id}:`, parseError)
-      workflowNodes = []
-    }
-  }
+  // Nodes are already loaded from normalized tables and attached to workflow
+  const workflowNodes: any[] = workflow.nodes || []
 
   const triggerNode = workflowNodes.find((node: any) =>
     node?.data?.providerId === 'dropbox' && node?.data?.isTrigger === true

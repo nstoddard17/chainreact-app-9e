@@ -1,15 +1,12 @@
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-import { getWebhookUrl } from "@/lib/utils/getBaseUrl"
 import { cookies } from "next/headers"
-import { NextResponse } from "next/server"
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { getFlowRepository } from "@/src/lib/workflows/builder/api/helpers"
-
+import { loadWorkflowNodes, loadWorkflowEdges, nodeToLegacyFormat, edgeToLegacyFormat } from "@/lib/workflows/loadWorkflowGraph"
 import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies()
   const supabase = await createSupabaseRouteHandlerClient()
 
   try {
@@ -19,7 +16,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return errorResponse("Not authenticated" , 401)
+      return errorResponse("Not authenticated", 401)
     }
 
     const resolvedParams = await params
@@ -27,7 +24,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(resolvedParams.id)) {
-      return errorResponse("Invalid workflow ID format" , 400)
+      return errorResponse("Invalid workflow ID format", 400)
     }
 
     // First try to get the workflow by ID only to see if it exists
@@ -39,7 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (existsError || !workflowExists) {
       logger.error('Workflow does not exist:', resolvedParams.id, existsError)
-      return errorResponse("Workflow not found" , 404)
+      return errorResponse("Workflow not found", 404)
     }
 
     // Log for debugging
@@ -52,21 +49,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     // Check if user is the owner
     if (workflowExists.user_id === user.id) {
-      // User is the owner, fetch full data
-      const { data, error } = await supabase
+      // User is the owner, fetch workflow metadata
+      const { data: workflow, error } = await supabase
         .from("workflows")
-        .select("*")
+        .select("id, name, description, status, user_id, workspace_id, created_at, updated_at, created_by, last_modified_by")
         .eq("id", resolvedParams.id)
         .single()
 
       if (error) {
         logger.error('Error fetching owned workflow:', error)
-        return errorResponse("Failed to fetch workflow" , 500)
+        return errorResponse("Failed to fetch workflow", 500)
       }
 
-      // Sanitize payload: drop UI-only or malformed nodes that can render as "Unnamed Action"
-      const sanitizeNodes = (nodes: any[]) =>
-        (Array.isArray(nodes) ? nodes : []).filter((n: any) => {
+      // Load nodes and edges from normalized tables
+      const serviceClient = await createSupabaseServiceClient()
+      const [nodes, edges] = await Promise.all([
+        loadWorkflowNodes(serviceClient, resolvedParams.id),
+        loadWorkflowEdges(serviceClient, resolvedParams.id)
+      ])
+
+      // Convert to legacy format for backward compatibility with frontend
+      const legacyNodes = nodes.map(nodeToLegacyFormat)
+      const legacyConnections = edges.map(edgeToLegacyFormat)
+
+      // Sanitize nodes: drop UI-only or malformed nodes
+      const sanitizeNodes = (nodeList: any[]) =>
+        (Array.isArray(nodeList) ? nodeList : []).filter((n: any) => {
           if (!n) return false
           if (n.type === 'addAction') return false
           const dataType = n?.data?.type
@@ -74,27 +82,30 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           return Boolean(dataType || isTrigger)
         })
 
-      const safeData = {
-        ...data,
-        nodes: sanitizeNodes(data?.nodes)
-      }
+      const sanitizedNodes = sanitizeNodes(legacyNodes)
 
-      if (Array.isArray(data?.nodes) && safeData.nodes.length !== data.nodes.length) {
+      if (legacyNodes.length !== sanitizedNodes.length) {
         logger.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on GET', {
-          workflowId: data.id,
-          before: data.nodes.length,
-          after: safeData.nodes.length
+          workflowId: workflow.id,
+          before: legacyNodes.length,
+          after: sanitizedNodes.length
         })
       }
 
-      return jsonResponse(safeData)
+      const responseData = {
+        ...workflow,
+        nodes: sanitizedNodes,
+        connections: legacyConnections
+      }
+
+      return jsonResponse(responseData)
     }
 
     // Not the owner, check if user has shared access
     const { data: sharedData, error: sharedError } = await supabase
       .from("workflows")
       .select(`
-        *,
+        id, name, description, status, user_id, workspace_id, created_at, updated_at,
         workflow_shares!inner(
           permission,
           shared_with
@@ -110,28 +121,30 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         userId: user.id,
         error: sharedError
       })
-      return errorResponse("Access denied" , 403)
+      return errorResponse("Access denied", 403)
     }
 
-    logger.debug('🔍 [Workflow API] Returning shared workflow data:', {
-      id: sharedData.id,
-      name: sharedData.name,
-      nameType: typeof sharedData.name,
-      nameIsEmpty: !sharedData.name,
-      nameIsNull: sharedData.name === null,
-      nameIsUndefined: sharedData.name === undefined,
-      nameValue: JSON.stringify(sharedData.name)
-    })
+    // Load nodes and edges for shared workflow
+    const serviceClient = await createSupabaseServiceClient()
+    const [nodes, edges] = await Promise.all([
+      loadWorkflowNodes(serviceClient, resolvedParams.id),
+      loadWorkflowEdges(serviceClient, resolvedParams.id)
+    ])
 
-    return jsonResponse(sharedData)
+    const responseData = {
+      ...sharedData,
+      nodes: nodes.map(nodeToLegacyFormat),
+      connections: edges.map(edgeToLegacyFormat)
+    }
+
+    return jsonResponse(responseData)
   } catch (error) {
     logger.error('Workflow API error:', error)
-    return errorResponse("Internal server error" , 500)
+    return errorResponse("Internal server error", 500)
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies()
   const supabase = await createSupabaseRouteHandlerClient()
 
   try {
@@ -141,7 +154,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return errorResponse("Not authenticated" , 401)
+      return errorResponse("Not authenticated", 401)
     }
 
     const body = await request.json()
@@ -157,6 +170,39 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       connectionsCount: body.connections?.length
     })
 
+    // First verify the user owns this workflow and get current status
+    const { data: workflow, error: checkError } = await supabase
+      .from("workflows")
+      .select("id, user_id, status")
+      .eq("id", resolvedParams.id)
+      .single()
+
+    if (checkError || !workflow) {
+      return errorResponse("Workflow not found", 404)
+    }
+
+    if (workflow.user_id !== user.id) {
+      return errorResponse("Not authorized to update this workflow", 403)
+    }
+
+    const previousStatus = workflow.status
+    const serviceClient = await createSupabaseServiceClient()
+
+    // Load current nodes/edges from normalized tables for safety checks
+    const [currentNodes, currentEdges] = await Promise.all([
+      loadWorkflowNodes(serviceClient, resolvedParams.id),
+      loadWorkflowEdges(serviceClient, resolvedParams.id)
+    ])
+
+    // CRITICAL SAFETY CHECK: Prevent node erasure
+    if ('nodes' in body && Array.isArray(body.nodes) && body.nodes.length === 0) {
+      if (currentNodes.length > 0) {
+        logger.error('❌ [SAFETY] Preventing node erasure - request contains empty nodes but workflow has', currentNodes.length, 'nodes')
+        return errorResponse("Cannot save empty nodes - workflow currently has nodes. This might be a loading issue. Please refresh and try again.", 400, { code: "NODE_ERASURE_PREVENTED" })
+      }
+    }
+
+    // Normalize nodes using registry
     const nodeRegistry = new Map(ALL_NODE_COMPONENTS.map(node => [node.type, node]))
     const normalizeNodes = (list: any[]) =>
       (Array.isArray(list) ? list : []).map((node: any) => {
@@ -178,235 +224,133 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         }
       })
 
-    if (Array.isArray(body.nodes)) {
-      body.nodes = normalizeNodes(body.nodes)
-    }
-
-
-    // CRITICAL SAFETY CHECK: Prevent node erasure
-    // If body contains nodes array and it's empty, but workflow had nodes before
-    if ('nodes' in body && Array.isArray(body.nodes) && body.nodes.length === 0) {
-      // Check if workflow currently has nodes
-      const { data: existingWorkflow } = await supabase
-        .from("workflows")
-        .select("nodes")
-        .eq("id", resolvedParams.id)
-        .single()
-
-      if (existingWorkflow && existingWorkflow.nodes && existingWorkflow.nodes.length > 0) {
-        logger.error('❌ [SAFETY] Preventing node erasure - request contains empty nodes but workflow has', existingWorkflow.nodes.length, 'nodes')
-        return errorResponse("Cannot save empty nodes - workflow currently has nodes. This might be a loading issue. Please refresh and try again.", 400, { code: "NODE_ERASURE_PREVENTED"
-         })
-      }
-    }
-
-    // First verify the user owns this workflow and get current status
-    const { data: workflow, error: checkError } = await supabase
-      .from("workflows")
-      .select("id, user_id, status")
-      .eq("id", resolvedParams.id)
-      .single()
-
-    if (checkError || !workflow) {
-      return errorResponse("Workflow not found" , 404)
-    }
-
-    if (workflow.user_id !== user.id) {
-      return errorResponse("Not authorized to update this workflow" , 403)
-    }
-
-    const previousStatus = workflow.status // Store the status before update
-
-    // Use service client to bypass RLS for the actual update
-    const serviceClient = await createSupabaseServiceClient()
-
-    // Additional check: if nodes array is provided but empty, exclude it from update
-    // unless the workflow was truly meant to be cleared (which should be rare)
-    const updateData = { ...body }
-    if ('nodes' in updateData && Array.isArray(updateData.nodes) && updateData.nodes.length === 0) {
-      // Get current workflow to check if it has nodes
-      const { data: currentData } = await serviceClient
-        .from("workflows")
-        .select("nodes")
-        .eq("id", resolvedParams.id)
-        .single()
-
-      if (currentData && currentData.nodes && currentData.nodes.length > 0) {
-        logger.warn('⚠️ [SAFETY] Removing empty nodes array from update to preserve existing nodes')
-        delete updateData.nodes
-      }
-    }
-
+    // Prepare workflow metadata update (excludes nodes/connections)
+    const { nodes: bodyNodes, connections: bodyConnections, ...metadataUpdate } = body
     const updatedAtIso = new Date().toISOString()
-    const includesValidationState = Object.prototype.hasOwnProperty.call(updateData, 'validationState')
-    const baseUpdatePayload = {
-      ...updateData,
+
+    const workflowUpdatePayload: Record<string, any> = {
+      ...metadataUpdate,
       updated_at: updatedAtIso,
       last_modified_by: user.id
     }
+
+    // Remove validationState if not supported
+    const includesValidationState = Object.prototype.hasOwnProperty.call(workflowUpdatePayload, 'validationState')
 
     const performUpdate = async (payload: Record<string, any>) => {
       return serviceClient
         .from("workflows")
         .update(payload)
         .eq("id", resolvedParams.id)
-        .select()
+        .select("id, name, description, status, user_id, workspace_id, created_at, updated_at, created_by, last_modified_by")
         .single()
     }
 
-    let updateResult = await performUpdate(baseUpdatePayload)
+    let updateResult = await performUpdate(workflowUpdatePayload)
 
     if (updateResult.error?.code === 'PGRST204' && includesValidationState) {
-      logger.warn('⚠️ [Workflow API] validationState column missing in schema cache - retrying without it')
-      const fallbackPayload = { ...baseUpdatePayload }
+      logger.warn('⚠️ [Workflow API] validationState column missing - retrying without it')
+      const fallbackPayload = { ...workflowUpdatePayload }
       delete fallbackPayload.validationState
-
       updateResult = await performUpdate(fallbackPayload)
-
-      if (!updateResult.error && updateResult.data) {
-        updateResult = {
-          ...updateResult,
-          data: {
-            ...updateResult.data,
-            validationState: updateData.validationState
-          }
-        }
-        logger.warn('⚠️ [Workflow API] validationState not persisted to database; returning request value for client state')
-      }
-    } else if (
-      !updateResult.error &&
-      includesValidationState &&
-      updateResult.data &&
-      typeof updateResult.data === 'object' &&
-      !Object.prototype.hasOwnProperty.call(updateResult.data, 'validationState')
-    ) {
-      updateResult = {
-        ...updateResult,
-        data: {
-          ...updateResult.data,
-          validationState: updateData.validationState
-        }
-      }
     }
 
     if (updateResult.error) {
       logger.error('❌ [Workflow API] Update error:', updateResult.error)
-      return errorResponse(updateResult.error.message , 500)
+      return errorResponse(updateResult.error.message, 500)
     }
 
     const data = updateResult.data
 
+    // Save nodes and edges to normalized tables
+    let nodes: any[] = []
+    let connections: any[] = []
+
+    if (Array.isArray(bodyNodes)) {
+      const normalizedBodyNodes = normalizeNodes(bodyNodes)
+
+      // Sanitize nodes: drop UI-only or malformed nodes
+      const sanitizeNodes = (list: any[]) =>
+        (Array.isArray(list) ? list : []).filter((n: any) => {
+          if (!n) return false
+          if (n.type === 'addAction') return false
+          const dataType = n?.data?.type
+          const isTrigger = Boolean(n?.data?.isTrigger)
+          return Boolean(dataType || isTrigger)
+        })
+
+      nodes = sanitizeNodes(normalizedBodyNodes)
+
+      if (normalizedBodyNodes.length !== nodes.length) {
+        logger.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on PUT', {
+          workflowId: resolvedParams.id,
+          before: normalizedBodyNodes.length,
+          after: nodes.length
+        })
+      }
+
+      // Save to normalized table
+      const repository = await getFlowRepository(serviceClient)
+
+      const flowNodes = nodes.map((node: any, index: number) => ({
+        id: node.id,
+        type: node.data?.type || node.type || 'unknown',
+        label: node.data?.label || node.data?.type || 'Unnamed Node',
+        description: node.data?.description,
+        config: node.data?.config || {},
+        inPorts: [],
+        outPorts: [],
+        io: { inputSchema: undefined, outputSchema: undefined },
+        policy: { timeoutMs: 60000, retries: 0 },
+        costHint: 0,
+        metadata: {
+          position: node.position || { x: 400, y: 100 + index * 180 },
+          isTrigger: Boolean(node.data?.isTrigger),
+        },
+      }))
+
+      await repository.saveNodes(resolvedParams.id, flowNodes, user.id)
+      logger.debug(`[Workflow API] Saved ${flowNodes.length} nodes to workflow_nodes table`)
+    } else {
+      // Use current nodes from normalized table
+      nodes = currentNodes.map(nodeToLegacyFormat)
+    }
+
+    if (Array.isArray(bodyConnections)) {
+      connections = bodyConnections
+
+      // Save to normalized table
+      const repository = await getFlowRepository(serviceClient)
+
+      const flowEdges = connections
+        .filter((conn: any) => conn && (conn.source || conn.from) && (conn.target || conn.to))
+        .map((conn: any) => ({
+          id: conn.id || `e-${conn.source || conn.from}-${conn.target || conn.to}`,
+          from: {
+            nodeId: String(conn.source || conn.from),
+            portId: conn.sourceHandle || 'source',
+          },
+          to: {
+            nodeId: String(conn.target || conn.to),
+            portId: conn.targetHandle || 'target',
+          },
+          mappings: [],
+        }))
+
+      if (flowEdges.length > 0) {
+        await repository.saveEdges(resolvedParams.id, flowEdges, user.id)
+        logger.debug(`[Workflow API] Saved ${flowEdges.length} edges to workflow_edges table`)
+      }
+    } else {
+      // Use current edges from normalized table
+      connections = currentEdges.map(edgeToLegacyFormat)
+    }
+
     logger.debug('✅ [Workflow API] Successfully updated workflow:', resolvedParams.id)
 
-    // Also save to normalized tables (workflow_nodes, workflow_edges) for V2 compatibility
-    // This dual-write ensures data is consistent during the transition period
-    try {
-      if (data && (data.nodes || data.connections)) {
-        const repository = await getFlowRepository(serviceClient)
-
-        // Convert legacy nodes to Flow format and save
-        const legacyNodes = Array.isArray(data.nodes) ? data.nodes : []
-        const legacyConnections = Array.isArray((data as any).connections) ? (data as any).connections : []
-
-        // Only save if we have actual data
-        if (legacyNodes.length > 0) {
-          // Convert legacy node format to Flow node format
-          const flowNodes = legacyNodes.map((node: any, index: number) => ({
-            id: node.id,
-            type: node.data?.type || node.type || 'unknown',
-            label: node.data?.label || node.data?.type || 'Unnamed Node',
-            description: node.data?.description,
-            config: node.data?.config || {},
-            inPorts: [],
-            outPorts: [],
-            io: { inputSchema: undefined, outputSchema: undefined },
-            policy: { timeoutMs: 60000, retries: 0 },
-            costHint: 0,
-            metadata: {
-              position: node.position || { x: 400, y: 100 + index * 180 },
-              isTrigger: Boolean(node.data?.isTrigger),
-            },
-          }))
-
-          await repository.saveNodes(resolvedParams.id, flowNodes, user.id)
-          logger.debug(`[Workflow API] Saved ${flowNodes.length} nodes to workflow_nodes table`)
-        }
-
-        if (legacyConnections.length > 0) {
-          // Convert legacy connection format to Flow edge format
-          const flowEdges = legacyConnections.map((conn: any) => ({
-            id: conn.id || `e-${conn.source || conn.from}-${conn.target || conn.to}`,
-            from: {
-              nodeId: String(conn.source || conn.from),
-              portId: conn.sourceHandle || 'source',
-            },
-            to: {
-              nodeId: String(conn.target || conn.to),
-              portId: conn.targetHandle || 'target',
-            },
-            mappings: [],
-          }))
-
-          await repository.saveEdges(resolvedParams.id, flowEdges, user.id)
-          logger.debug(`[Workflow API] Saved ${flowEdges.length} edges to workflow_edges table`)
-        }
-      }
-    } catch (normalizedSaveError) {
-      // Don't fail the request if normalized save fails - log and continue
-      logger.warn('[Workflow API] Failed to save to normalized tables:', normalizedSaveError)
-    }
-
-    // Determine graph connectivity (trigger → action). If broken, force deactivate and skip registration
-    let nodes = (Array.isArray(body.nodes) ? body.nodes : (data.nodes || [])) as any[]
-    let connections = (Array.isArray((body as any).connections) ? (body as any).connections : ((data as any).connections || [])) as any[]
-
-    if ((nodes.length === 0 || connections.length === 0) && !Array.isArray(body.nodes)) {
-      // Fetch full workflow to get nodes + connections when not provided in body
-      const { data: full } = await serviceClient
-        .from("workflows")
-        .select("nodes, connections, status")
-        .eq("id", resolvedParams.id)
-        .single()
-      if (full) {
-        nodes = Array.isArray(full.nodes) ? full.nodes : []
-        connections = Array.isArray((full as any).connections) ? (full as any).connections : []
-      }
-    }
-
-    // Sanitize nodes right after update to avoid persisting UI/malformed nodes
-    const sanitizeNodes = (list: any[]) =>
-      (Array.isArray(list) ? list : []).filter((n: any) => {
-        if (!n) return false
-        if (n.type === 'addAction') return false
-        const dataType = n?.data?.type
-        const isTrigger = Boolean(n?.data?.isTrigger)
-        return Boolean(dataType || isTrigger)
-      })
-
-    const sanitizedNodes = sanitizeNodes(nodes)
-    if (sanitizedNodes.length !== nodes.length) {
-      logger.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on PUT', {
-        workflowId: resolvedParams.id,
-        before: nodes.length,
-        after: sanitizedNodes.length
-      })
-      // Persist the sanitized graph - include connections to avoid losing them
-      const sanitizePayload: any = {
-        nodes: sanitizedNodes,
-        updated_at: new Date().toISOString()
-      }
-      // If connections were provided in the original request, include them
-      if (Array.isArray((body as any).connections)) {
-        sanitizePayload.connections = (body as any).connections
-      }
-      await serviceClient
-        .from('workflows')
-        .update(sanitizePayload)
-        .eq('id', resolvedParams.id)
-    }
-
-    const triggerNodes = sanitizedNodes.filter((n: any) => n?.data?.isTrigger)
-    const actionNodeIds = new Set<string>(sanitizedNodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type).map((n: any) => n.id))
+    // Determine graph connectivity (trigger → action)
+    const triggerNodes = nodes.filter((n: any) => n?.data?.isTrigger)
+    const actionNodeIds = new Set<string>(nodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type).map((n: any) => n.id))
     const edges = connections.filter((e: any) => e && (e.source || e.from) && (e.target || e.to))
 
     const hasConnectedAction = (() => {
@@ -436,7 +380,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return false
     })()
 
-    // If exactly one trigger and exactly one action exist with no connection, auto-wire them
+    // Auto-wire single trigger to single action if not connected
     if (!hasConnectedAction && triggerNodes.length === 1 && actionNodeIds.size === 1) {
       const triggerId = String(triggerNodes[0].id)
       const actionId = Array.from(actionNodeIds)[0]
@@ -448,40 +392,28 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         targetHandle: 'in'
       }
 
-      const updatedConnections = [...edges.map(e => ({
-        id: e.id || `e-${e.source || e.from}-${e.target || e.to}`,
-        source: String(e.source || e.from),
-        target: String(e.target || e.to),
-        sourceHandle: e.sourceHandle || e.fromHandle || 'out',
-        targetHandle: e.targetHandle || e.toHandle || 'in'
-      })), newEdge]
+      connections = [...connections, newEdge]
 
-      // Persist connections only (avoid mutating nodes)
-      const { data: savedGraph, error: saveErr } = await serviceClient
-        .from('workflows')
-        .update({ connections: updatedConnections, updated_at: new Date().toISOString() })
-        .eq('id', resolvedParams.id)
-        .select()
-        .single()
+      // Save to normalized table
+      const repository = await getFlowRepository(serviceClient)
+      await repository.saveEdges(resolvedParams.id, [{
+        id: newEdge.id,
+        from: { nodeId: triggerId, portId: 'out' },
+        to: { nodeId: actionId, portId: 'in' },
+        mappings: []
+      }], user.id)
 
-      if (saveErr) {
-        logger.warn('⚠️ Failed to auto-connect single trigger→action:', saveErr)
-      } else {
-        logger.debug('🔗 Auto-connected single trigger to single action')
-        // Update local copy for subsequent checks
-        connections = updatedConnections as any
-      }
+      logger.debug('🔗 Auto-connected single trigger to single action')
     }
 
-    // If some triggers are not connected to any action, connect each to the nearest action by position
+    // Auto-wire disconnected triggers to nearest actions
     if (triggerNodes.length > 0 && actionNodeIds.size > 0) {
       const existingEdges = new Set<string>(edges.map((e: any) => `${e.source || e.from}->${e.target || e.to}`))
-      const actions = sanitizedNodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type)
+      const actions = nodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type)
 
       const findReachable = (startId: string) => {
         const nextMap = new Map<string, string[]>()
-        const graphEdges = (connections || []).filter((e: any) => e && (e.source || e.from) && (e.target || e.to))
-        for (const e of graphEdges) {
+        for (const e of connections) {
           const src = String(e.source || e.from)
           const tgt = String(e.target || e.to)
           if (!nextMap.has(src)) nextMap.set(src, [])
@@ -503,13 +435,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         return visited
       }
 
-      let added = false
+      const newEdgesToAdd: any[] = []
       for (const trig of triggerNodes) {
         const reachable = findReachable(String(trig.id))
         const isConnectedToAnyAction = actions.some((a: any) => reachable.has(String(a.id)))
         if (isConnectedToAnyAction) continue
 
-        // Find nearest action by Euclidean distance (fallback to first if positions missing)
+        // Find nearest action
         let nearest = actions[0]
         let bestDist = Number.POSITIVE_INFINITY
         for (const a of actions) {
@@ -530,39 +462,28 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
             sourceHandle: 'out',
             targetHandle: 'in'
           }
-          connections = [
-            ...((connections || []).map((e: any) => ({
-              id: e.id || `e-${e.source || e.from}-${e.target || e.to}`,
-              source: String(e.source || e.from),
-              target: String(e.target || e.to),
-              sourceHandle: e.sourceHandle || e.fromHandle || 'out',
-              targetHandle: e.targetHandle || e.toHandle || 'in'
-            }))),
-            newEdge
-          ]
+          connections.push(newEdge)
+          newEdgesToAdd.push({
+            id: newEdge.id,
+            from: { nodeId: newEdge.source, portId: 'out' },
+            to: { nodeId: newEdge.target, portId: 'in' },
+            mappings: []
+          })
           existingEdges.add(edgeKey)
-          added = true
         }
       }
 
-      if (added) {
-        const { error: saveErr } = await serviceClient
-          .from('workflows')
-          .update({ connections, updated_at: new Date().toISOString() })
-          .eq('id', resolvedParams.id)
-        if (saveErr) {
-          logger.warn('⚠️ Failed to persist auto-connections for triggers:', saveErr)
-        } else {
-          logger.debug('🔗 Auto-connected triggers to nearest actions where needed')
-        }
+      if (newEdgesToAdd.length > 0) {
+        const repository = await getFlowRepository(serviceClient)
+        await repository.saveEdges(resolvedParams.id, newEdgesToAdd, user.id)
+        logger.debug('🔗 Auto-connected triggers to nearest actions where needed')
       }
     }
 
-    // Recompute connectivity after potential auto-wire
+    // Recompute connectivity after auto-wire
     const recomputeHasConnected = (() => {
       const nextMap = new Map<string, string[]>()
-      const edges2 = (connections || []).filter((e: any) => e && (e.source || e.from) && (e.target || e.to))
-      for (const e of edges2) {
+      for (const e of connections) {
         const src = String(e.source || e.from)
         const tgt = String(e.target || e.to)
         if (!nextMap.has(src)) nextMap.set(src, [])
@@ -586,7 +507,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     })()
 
     if (!recomputeHasConnected) {
-      // If previously active, ensure webhooks are unregistered
+      // If previously active, unregister webhooks
       if (previousStatus === 'active') {
         try {
           const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
@@ -598,20 +519,22 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         }
       }
 
-      // Force deactivate in DB to avoid a broken active workflow
+      // Force deactivate
       const { data: forced, error: forceErr } = await serviceClient
         .from('workflows')
-        // Use 'draft' to satisfy DB status constraint (no 'inactive' for workflows)
         .update({ status: 'draft', updated_at: new Date().toISOString() })
         .eq('id', resolvedParams.id)
         .select()
         .single()
+
       if (forceErr) {
         logger.warn('⚠️ Failed to force-deactivate workflow lacking action connections:', forceErr)
       }
 
       const responsePayload = {
         ...(forced || data),
+        nodes,
+        connections,
         status: 'draft',
         activationBlocked: true,
         activationReason: 'No action nodes connected to a trigger. Connect at least one action to activate this workflow.'
@@ -624,23 +547,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const wasActive = previousStatus === 'active'
     const isActiveNow = newStatus === 'active'
 
-    // Only re-register webhooks if status changed to active OR if trigger nodes changed while active
     const nodesProvided = Object.prototype.hasOwnProperty.call(body, 'nodes')
     const statusChangedToActive = statusProvided && !wasActive && isActiveNow
     const shouldRegisterWebhooks = data && (statusChangedToActive || (nodesProvided && wasActive))
     const shouldUnregisterWebhooks = data && statusProvided && wasActive && !isActiveNow
 
     if (shouldRegisterWebhooks) {
-      // If it was previously active, clean up existing resources first to avoid duplicates
+      // Clean up existing resources first if previously active
       if (wasActive) {
         try {
-          // Clean up legacy webhooks
           const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
           const webhookManager = new TriggerWebhookManager()
           await webhookManager.unregisterWorkflowWebhooks(data.id)
-          logger.debug('♻️ Unregistered existing webhooks before re-registering (active workflow save)')
+          logger.debug('♻️ Unregistered existing webhooks before re-registering')
 
-          // Clean up managed trigger resources (Microsoft Graph, etc.)
           const { triggerLifecycleManager } = await import('@/lib/triggers')
           await triggerLifecycleManager.deactivateWorkflowTriggers(data.id, user.id)
           logger.debug('♻️ Deactivated existing trigger resources before re-activating')
@@ -648,26 +568,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           logger.warn('⚠️ Failed to cleanup existing resources prior to re-register:', cleanupErr)
         }
       }
-      // Get the full workflow data including nodes if not present in the update result
-      let nodes = data.nodes || []
 
-      // If nodes are not in the update result (e.g., when only status was updated),
-      // fetch the full workflow to get nodes
-      if (nodes.length === 0 && !body.nodes) {
-        logger.debug('📋 Fetching full workflow data to check for triggers...')
-        const { data: fullWorkflow } = await serviceClient
-          .from("workflows")
-          .select("nodes")
-          .eq("id", resolvedParams.id)
-          .single()
-
-        if (fullWorkflow) {
-          nodes = fullWorkflow.nodes || []
-          logger.debug(`📋 Found ${nodes.length} nodes in workflow`)
-        }
-      }
-
-      // FIRST: Use new TriggerLifecycleManager for providers that support it
+      // Activate triggers
       try {
         const { triggerLifecycleManager } = await import('@/lib/triggers')
         const result = await triggerLifecycleManager.activateWorkflowTriggers(
@@ -677,77 +579,63 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         )
         if (result.errors.length > 0) {
           logger.error('❌ Trigger activation failed:', result.errors)
-          // Rollback workflow status to previous state
           const { data: rolledBackWorkflow } = await serviceClient
             .from('workflows')
-            .update({
-              status: 'inactive',
-              updated_at: new Date().toISOString()
-            })
+            .update({ status: 'inactive', updated_at: new Date().toISOString() })
             .eq('id', data.id)
             .select()
             .single()
 
-          // Return 200 with error details so frontend handles it gracefully
           return jsonResponse({
             ...rolledBackWorkflow,
+            nodes,
+            connections,
             triggerActivationError: {
               message: 'Failed to activate workflow triggers',
               details: result.errors
             }
           }, { status: 200 })
-        } 
-          logger.debug('✅ All lifecycle-managed triggers activated successfully')
-        
+        }
+        logger.debug('✅ All lifecycle-managed triggers activated successfully')
       } catch (lifecycleErr) {
         logger.error('❌ Failed to activate lifecycle-managed triggers:', lifecycleErr)
-        // Rollback workflow status to previous state
         const { data: rolledBackWorkflow } = await serviceClient
           .from('workflows')
-          .update({
-            status: 'inactive',
-            updated_at: new Date().toISOString()
-          })
+          .update({ status: 'inactive', updated_at: new Date().toISOString() })
           .eq('id', data.id)
           .select()
           .single()
 
-        // Return 200 with error details so frontend handles it gracefully
         return jsonResponse({
           ...rolledBackWorkflow,
+          nodes,
+          connections,
           triggerActivationError: {
             message: 'Failed to activate workflow triggers',
             details: lifecycleErr instanceof Error ? lifecycleErr.message : String(lifecycleErr)
           }
         }, { status: 200 })
       }
-
-      // DEPRECATED: Old webhook registration loop removed
-      // All triggers now managed by TriggerLifecycleManager (see above)
-      // This ensures proper workflow_id tracking and unified lifecycle management
     }
 
     if (shouldUnregisterWebhooks) {
-      logger.debug('🔗 Workflow deactivated/inactive - unregistering all trigger resources')
+      logger.debug('🔗 Workflow deactivated - unregistering all trigger resources')
 
       try {
-        // Deactivate lifecycle-managed triggers (Microsoft Graph, etc.)
         const { triggerLifecycleManager } = await import('@/lib/triggers')
         await triggerLifecycleManager.deactivateWorkflowTriggers(data.id, user.id)
         logger.debug('✅ Lifecycle-managed triggers deactivated')
 
-        // Unregister legacy webhooks
         const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
         const webhookManager = new TriggerWebhookManager()
         await webhookManager.unregisterWorkflowWebhooks(data.id)
         logger.debug('✅ Legacy webhooks unregistered')
-
       } catch (webhookError) {
         logger.error('Failed to unregister triggers on deactivation:', webhookError)
       }
     }
 
-    // Only cleanup webhooks if we actually modified nodes or deactivated the workflow
+    // Cleanup unused webhooks
     if (shouldUnregisterWebhooks || (nodesProvided && wasActive)) {
       try {
         const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
@@ -759,15 +647,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }
     }
 
-    return jsonResponse(data)
+    return jsonResponse({
+      ...data,
+      nodes,
+      connections
+    })
   } catch (error) {
     logger.error('❌ [Workflow API] Error in PUT handler:', error)
-    return errorResponse("Internal server error" , 500)
+    return errorResponse("Internal server error", 500)
   }
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const cookieStore = await cookies()
   const supabase = await createSupabaseRouteHandlerClient()
   const serviceClient = await createSupabaseServiceClient()
 
@@ -778,7 +669,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      return errorResponse("Not authenticated" , 401)
+      return errorResponse("Not authenticated", 401)
     }
 
     const resolvedParams = await params
@@ -791,20 +682,18 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .single()
 
     if (fetchError || !workflowRecord) {
-      return errorResponse("Workflow not found" , 404)
+      return errorResponse("Workflow not found", 404)
     }
 
     if (workflowRecord.user_id !== user.id) {
-      return errorResponse("Not authorized to delete this workflow" , 403)
+      return errorResponse("Not authorized to delete this workflow", 403)
     }
 
     try {
-      // Delete lifecycle-managed trigger resources (Microsoft Graph, etc.)
       const { triggerLifecycleManager } = await import('@/lib/triggers')
       await triggerLifecycleManager.deleteWorkflowTriggers(workflowId, user.id)
       logger.debug('♻️ Deleted lifecycle-managed triggers before deleting workflow', { workflowId })
 
-      // Unregister legacy webhooks
       const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
       const webhookManager = new TriggerWebhookManager()
       await webhookManager.unregisterWorkflowWebhooks(workflowId)
@@ -813,7 +702,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       logger.warn('⚠️ Failed to cleanup triggers before deletion:', unregisterError)
     }
 
-    // Use service client to bypass RLS for deletion (already verified ownership above)
+    // Delete workflow (CASCADE will delete nodes and edges)
     const { error } = await serviceClient
       .from('workflows')
       .delete()
@@ -821,11 +710,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .eq('user_id', user.id)
 
     if (error) {
-      return errorResponse(error.message , 500)
+      return errorResponse(error.message, 500)
     }
 
     return jsonResponse({ success: true })
   } catch (error) {
-    return errorResponse("Internal server error" , 500)
+    return errorResponse("Internal server error", 500)
   }
 }

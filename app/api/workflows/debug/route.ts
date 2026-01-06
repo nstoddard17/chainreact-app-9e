@@ -79,10 +79,10 @@ export async function POST(request: Request) {
 
     const { workflowId } = await request.json()
 
-    // Get specific workflow data
+    // Get workflow metadata
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
-      .select("*")
+      .select("id, name, user_id")
       .eq("id", workflowId)
       .eq("user_id", user.id)
       .single()
@@ -90,6 +90,32 @@ export async function POST(request: Request) {
     if (workflowError || !workflow) {
       return errorResponse("Workflow not found", 404, { details: workflowError?.message  })
     }
+
+    // Load workflow nodes and edges from normalized tables
+    const [nodesResult, edgesResult] = await Promise.all([
+      supabase
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', workflowId)
+        .order('display_order'),
+      supabase
+        .from('workflow_edges')
+        .select('*')
+        .eq('workflow_id', workflowId)
+    ])
+
+    const nodes = (nodesResult.data || []).map((n: any) => ({
+      id: n.id,
+      type: n.node_type,
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        type: n.node_type,
+        label: n.label,
+        config: n.config || {},
+        isTrigger: n.is_trigger,
+        providerId: n.provider_id
+      }
+    }))
 
     // Test execution context setup
     const executionContext = {
@@ -103,7 +129,7 @@ export async function POST(request: Request) {
 
     // Check for Gmail integrations if workflow uses Gmail
     let gmailIntegration = null
-    if (workflow.nodes && workflow.nodes.some((node: any) => node.data.type === "gmail_action_send_email")) {
+    if (nodes.some((node: any) => node.data.type === "gmail_action_send_email")) {
       const { data: integration, error: gmailError } = await supabase
         .from("integrations")
         .select("*")
@@ -112,8 +138,8 @@ export async function POST(request: Request) {
         .eq("status", "connected")
         .single()
 
-      gmailIntegration = { 
-        found: !!integration, 
+      gmailIntegration = {
+        found: !!integration,
         error: gmailError?.message || null,
         hasAccessToken: !!integration?.access_token,
         hasRefreshToken: !!integration?.refresh_token,
@@ -126,13 +152,13 @@ export async function POST(request: Request) {
       workflow: {
         id: workflow.id,
         name: workflow.name,
-        nodesCount: workflow.nodes?.length || 0,
-        connectionsCount: workflow.connections?.length || 0,
-        hasNodes: !!(workflow.nodes && workflow.nodes.length > 0),
+        nodesCount: nodes.length,
+        connectionsCount: edgesResult.data?.length || 0,
+        hasNodes: nodes.length > 0,
       },
       executionContext,
       gmailIntegration,
-      nodes: workflow.nodes || [],
+      nodes,
     })
   } catch (error: any) {
     logger.error("Debug workflow check error:", error)

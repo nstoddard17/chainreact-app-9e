@@ -110,37 +110,59 @@ export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
  */
 async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
   const supabase = await createSupabaseServiceClient()
-  
-  // Find all active workflows first, then filter in code
+
+  // Find all active workflows first
   const { data: workflows, error } = await supabase
     .from('workflows')
-    .select(`
-      id,
-      name,
-      user_id,
-      nodes,
-      connections,
-      status
-    `)
+    .select('id, name, user_id, status')
     // Include drafts so users can test workflows before publishing
     .in('status', ['active', 'draft'])
-  
+
   if (error) {
     logger.error('Error finding matching workflows:', error)
     return []
   }
-  
+
   logger.debug(`🔍 Found ${workflows?.length || 0} active workflows`)
-  
+
+  if (!workflows || workflows.length === 0) return []
+
+  // Load nodes for all workflows in parallel
+  const workflowsWithNodes = await Promise.all(
+    workflows.map(async (workflow) => {
+      const { data: dbNodes } = await supabase
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', workflow.id)
+        .order('display_order')
+
+      const nodes = (dbNodes || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          providerId: n.provider_id,
+          triggerConfig: n.config?.triggerConfig
+        }
+      }))
+
+      return { ...workflow, nodes }
+    })
+  )
+
   // Filter workflows based on trigger conditions
-  const matchingWorkflows = workflows?.filter(workflow => {
+  const matchingWorkflows = workflowsWithNodes.filter(workflow => {
     logger.debug(`🔍 Checking workflow: "${workflow.name}"`)
-    
+
     if (!workflow.nodes || workflow.nodes.length === 0) {
       logger.debug(`   ❌ No nodes found`)
       return false
     }
-    
+
     const triggerNode = workflow.nodes?.find((node: any) => {
       const nodeData = node?.data || {}
       const nodeType = nodeData.type || node.type

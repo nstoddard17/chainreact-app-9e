@@ -31,10 +31,10 @@ export async function POST(
       return errorResponse('Unauthorized' , 401)
     }
 
-    // Get workflow details
+    // Get workflow metadata
     const { data: workflow, error: workflowError } = await supabase
       .from('workflows')
-      .select('*')
+      .select('id, name, user_id')
       .eq('id', workflowId)
       .eq('user_id', user.id)
       .single()
@@ -43,8 +43,28 @@ export async function POST(
       return errorResponse('Workflow not found' , 404)
     }
 
+    // Load workflow nodes from normalized table
+    const { data: dbNodes } = await supabase
+      .from('workflow_nodes')
+      .select('*')
+      .eq('workflow_id', workflowId)
+      .order('display_order')
+
+    const nodes = (dbNodes || []).map((n: any) => ({
+      id: n.id,
+      type: n.node_type,
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        type: n.node_type,
+        label: n.label,
+        config: n.config || {},
+        isTrigger: n.is_trigger,
+        providerId: n.provider_id
+      }
+    }))
+
     // Find the trigger node
-    const triggerNode = workflow.nodes?.find(
+    const triggerNode = nodes.find(
       (node: any) => node.data?.isTrigger === true
     )
 
@@ -84,8 +104,7 @@ export async function POST(
         status: 'listening',
         trigger_type: triggerType,
         test_mode_config: testModeConfig || {
-          nodes: workflow.nodes,
-          connections: workflow.connections,
+          nodes: nodes,
           workflowName: workflow.name,
         },
         started_at: new Date().toISOString(),
@@ -105,7 +124,7 @@ export async function POST(
     const result = await triggerLifecycleManager.activateWorkflowTriggers(
       workflowId,
       user.id,
-      workflow.nodes || [],
+      nodes,
       { isTest: true, testSessionId: sessionId } // TEST MODE - uses separate webhook URL
     )
 

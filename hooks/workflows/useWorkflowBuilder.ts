@@ -1536,13 +1536,48 @@ export function useWorkflowBuilder() {
         setCurrentWorkflow(workflow)
         setWorkflowName(workflow.name)
         setWorkflowDescription(workflow.description || "")
-        
+
+        // Load nodes and edges from normalized tables asynchronously
+        const loadWorkflowGraph = async () => {
+          const [nodesResult, edgesResult] = await Promise.all([
+            supabase.from('workflow_nodes').select('*').eq('workflow_id', workflowId).order('display_order'),
+            supabase.from('workflow_edges').select('*').eq('workflow_id', workflowId)
+          ])
+
+          // Map normalized nodes to WorkflowNode format
+          const loadedNodes: WorkflowNode[] = (nodesResult.data || []).map((n: any) => ({
+            id: n.id,
+            type: n.node_type,
+            position: { x: n.position_x, y: n.position_y },
+            data: {
+              type: n.node_type,
+              label: n.label,
+              title: n.label,
+              config: n.config || {},
+              isTrigger: n.is_trigger,
+              providerId: n.provider_id
+            }
+          }))
+
+          // Map normalized edges to WorkflowConnection format
+          const loadedConnections: WorkflowConnection[] = (edgesResult.data || []).map((e: any) => ({
+            id: e.id,
+            source: e.source_node_id,
+            target: e.target_node_id,
+            sourceHandle: e.source_port_id || 'source',
+            targetHandle: e.target_port_id || 'target'
+          }))
+
+          return { nodes: loadedNodes, connections: loadedConnections }
+        }
+
+        loadWorkflowGraph().then(({ nodes: workflowNodes, connections: workflowConnections }) => {
         // Convert workflow nodes and connections to React Flow format
         let allNodes: Node[] = []
 
-        if (workflow.nodes) {
+        if (workflowNodes && workflowNodes.length > 0) {
           // Sanitize: drop any UI-only or malformed nodes that can appear from older saves
-          const sanitizedNodes = (workflow.nodes as WorkflowNode[]).filter((node: any) => {
+          const sanitizedNodes = workflowNodes.filter((node: any) => {
             // Remove placeholder UI nodes by type or id pattern
             if (node?.type === 'addAction') return false
             if (typeof node?.id === 'string' && node.id.startsWith('add-action-')) return false
@@ -1644,14 +1679,14 @@ export function useWorkflowBuilder() {
 
           setNodes(allNodes)
         }
-        
-        if (workflow.connections) {
+
+        if (workflowConnections && workflowConnections.length > 0) {
           // Filter out edges that reference nodes we filtered out above
           const validNodeIds = new Set(allNodes.map(n => n.id))
           const seenEdgeKey = new Set<string>()
           const seenIds = new Set<string>()
           const flowEdges = [] as any[]
-          for (const conn of workflow.connections as WorkflowConnection[]) {
+          for (const conn of workflowConnections) {
             if (!conn?.source || !conn?.target) continue
             // Skip edges to/from AddActionNodes (they should be created dynamically)
             if (conn.source.includes('add-action') || conn.target.includes('add-action')) {
@@ -1721,6 +1756,7 @@ export function useWorkflowBuilder() {
           // Clear loading flag after workflow is fully loaded
           isLoadingWorkflowRef.current = false
         }, 100)
+        }) // End of loadWorkflowGraph().then()
       } else {
         if (directFetchStatus === 'idle' || directFetchStatus === 'loading' || directFetchStatus === 'success') {
           return

@@ -14,7 +14,7 @@ export async function GET() {
   try {
     const { data: activeWorkflows, error } = await supabase
       .from('workflows')
-      .select('*')
+      .select('id, name, user_id, status')
       .eq('status', 'active');
 
     if (error) {
@@ -22,7 +22,28 @@ export async function GET() {
     }
 
     for (const workflow of activeWorkflows) {
-      const pollingTriggers = workflow.nodes.filter(
+      // Load nodes from normalized table
+      const { data: dbNodes } = await supabase
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', workflow.id)
+        .order('display_order')
+
+      const nodes = (dbNodes || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          triggerType: n.config?.triggerType,
+          providerId: n.provider_id
+        }
+      }))
+
+      const pollingTriggers = nodes.filter(
         (node: any) => node.data.isTrigger && node.data.triggerType === 'polling'
       );
 

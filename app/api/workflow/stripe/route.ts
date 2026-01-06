@@ -91,32 +91,51 @@ export async function POST(
     // Find workflows that match this event type
     const { data: workflows, error: workflowsError } = await getSupabase()
       .from('workflows')
-      .select(`
-        id,
-        name,
-        nodes,
-        edges,
-        is_active
-      `)
-      .eq('is_active', true)
+      .select('id, name, status, user_id')
+      .eq('status', 'active')
 
     if (workflowsError) {
       logger.error('❌ Error fetching workflows:', workflowsError)
       return errorResponse('Failed to fetch workflows' , 500)
     }
 
-    const matchingWorkflows = workflows?.filter(workflow => {
+    // Load nodes for matching workflows
+    const matchingWorkflows: Array<{ id: string; name: string; nodes: any[] }> = []
+
+    for (const workflow of workflows || []) {
       try {
-        const nodes = workflow.nodes || []
-        return nodes.some((node: any) => {
+        // Load nodes from normalized table
+        const { data: dbNodes } = await getSupabase()
+          .from('workflow_nodes')
+          .select('*')
+          .eq('workflow_id', workflow.id)
+          .order('display_order')
+
+        const nodes = (dbNodes || []).map((n: any) => ({
+          id: n.id,
+          type: n.node_type,
+          position: { x: n.position_x, y: n.position_y },
+          data: {
+            type: n.node_type,
+            label: n.label,
+            config: n.config || {},
+            isTrigger: n.is_trigger,
+            providerId: n.provider_id
+          }
+        }))
+
+        const hasMatchingTrigger = nodes.some((node: any) => {
           const triggerType = `stripe_trigger_${event.type.replace('.', '_')}`
-          return node.type === triggerType
+          return node.type === triggerType || node.data?.type === triggerType
         })
+
+        if (hasMatchingTrigger) {
+          matchingWorkflows.push({ ...workflow, nodes })
+        }
       } catch (err) {
-        logger.error('❌ Error parsing workflow nodes:', err)
-        return false
+        logger.error('❌ Error loading workflow nodes:', err)
       }
-    }) || []
+    }
 
     logger.debug(`📋 Found ${matchingWorkflows.length} matching workflows for event ${event.type}`)
 

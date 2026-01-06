@@ -55,10 +55,42 @@ export class WorkflowExecutionService {
 
     const supabase = await createSupabaseRouteHandlerClient()
 
-    // Use workflowData if provided (current state), otherwise fall back to saved workflow
-    const allNodes = workflowData?.nodes || workflow.nodes || []
-    // Handle both 'edges' (from UI) and 'connections' (from DB) naming
-    const connections = workflowData?.edges || workflowData?.connections || workflow.connections || []
+    // Use workflowData if provided (current state), otherwise load from normalized tables
+    let allNodes: any[] = []
+    let connections: any[] = []
+
+    if (workflowData?.nodes) {
+      allNodes = workflowData.nodes
+      // Handle both 'edges' (from UI) and 'connections' (from DB) naming
+      connections = workflowData.edges || workflowData.connections || []
+    } else {
+      // Load from normalized tables
+      const [nodesResult, edgesResult] = await Promise.all([
+        supabase.from('workflow_nodes').select('*').eq('workflow_id', workflow.id).order('display_order'),
+        supabase.from('workflow_edges').select('*').eq('workflow_id', workflow.id)
+      ])
+
+      allNodes = (nodesResult.data || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          providerId: n.provider_id
+        }
+      }))
+
+      connections = (edgesResult.data || []).map((e: any) => ({
+        id: e.id,
+        source: e.source_node_id,
+        target: e.target_node_id,
+        sourceHandle: e.source_port_id || 'source',
+        targetHandle: e.target_port_id || 'target'
+      }))
+    }
 
     // Filter out UI-only nodes and invalid nodes
     const validNodes = allNodes.filter((node: any) => {

@@ -123,9 +123,10 @@ export async function POST(
     }
 
     // Fetch workflows that match this provider trigger
-    const { data: workflows, error: workflowError } = await getSupabase()
+    const supabase = getSupabase()
+    const { data: workflows, error: workflowError } = await supabase
       .from('workflows')
-      .select('*')
+      .select('id, name, user_id, status')
       .eq('status', 'active')
 
     if (workflowError) {
@@ -146,17 +147,25 @@ export async function POST(
     for (const wf of workflows) {
       workflow = wf // Set for error handling
 
-      let workflowNodes: any[] = []
-      if (Array.isArray(workflow.nodes)) {
-        workflowNodes = workflow.nodes
-      } else if (typeof workflow.nodes === 'string') {
-        try {
-          workflowNodes = JSON.parse(workflow.nodes)
-        } catch (parseError) {
-          logger.warn(`${logPrefix} Failed to parse workflow nodes JSON for workflow ${workflow.id}:`, parseError)
-          workflowNodes = []
+      // Load nodes from normalized table
+      const { data: dbNodes } = await supabase
+        .from('workflow_nodes')
+        .select('*')
+        .eq('workflow_id', workflow.id)
+        .order('display_order')
+
+      const workflowNodes = (dbNodes || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          providerId: n.provider_id
         }
-      }
+      }))
 
       // Find the trigger node for this provider
       const triggerNode = workflowNodes.find((node: any) =>

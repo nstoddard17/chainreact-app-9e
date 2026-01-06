@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
       const { data: workflow, error: workflowError } = await supabase
         .from("workflows")
-        .select("*")
+        .select("id, name, user_id")
         .eq("id", effectiveWorkflowId)
         .eq("user_id", user.id)
         .maybeSingle()
@@ -97,9 +97,39 @@ export async function POST(request: NextRequest) {
         return errorResponse("Workflow not found. Please save the workflow first or pass nodes in request.", 404)
       }
 
+      // Load nodes and edges from normalized tables
+      const [nodesResult, edgesResult] = await Promise.all([
+        supabase
+          .from('workflow_nodes')
+          .select('*')
+          .eq('workflow_id', effectiveWorkflowId)
+          .order('display_order'),
+        supabase
+          .from('workflow_edges')
+          .select('*')
+          .eq('workflow_id', effectiveWorkflowId)
+      ])
+
       console.log('🧪 [test-trigger] Workflow found:', workflow.name)
-      nodes = workflow.nodes || []
-      connections = workflow.connections || []
+      nodes = (nodesResult.data || []).map((n: any) => ({
+        id: n.id,
+        type: n.node_type,
+        position: { x: n.position_x, y: n.position_y },
+        data: {
+          type: n.node_type,
+          label: n.label,
+          config: n.config || {},
+          isTrigger: n.is_trigger,
+          providerId: n.provider_id
+        }
+      }))
+      connections = (edgesResult.data || []).map((e: any) => ({
+        id: e.id,
+        source: e.source_node_id,
+        target: e.target_node_id,
+        sourceHandle: e.source_port_id || 'source',
+        targetHandle: e.target_port_id || 'target'
+      }))
       workflowName = workflow.name
     }
     console.log('🧪 [test-trigger] Searching for trigger node in', nodes.length, 'nodes')
