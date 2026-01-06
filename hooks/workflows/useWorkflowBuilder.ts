@@ -1547,10 +1547,10 @@ export function useWorkflowBuilder() {
           // Map normalized nodes to WorkflowNode format
           const loadedNodes: WorkflowNode[] = (nodesResult.data || []).map((n: any) => ({
             id: n.id,
-            type: n.node_type,
+            type: 'custom',  // React Flow component type - always 'custom' for workflow nodes
             position: { x: n.position_x, y: n.position_y },
             data: {
-              type: n.node_type,
+              type: n.node_type,  // Action type (e.g., 'gmail_trigger_new_email')
               label: n.label,
               title: n.label,
               config: n.config || {},
@@ -1621,6 +1621,13 @@ export function useWorkflowBuilder() {
                 if (existing && typeof existing === 'string' && existing.trim().length > 0) return existing
                 const comp = ALL_NODE_COMPONENTS.find(c => c.type === (node.data as any)?.type)
                 return comp?.title || (node.data as any)?.type || 'Unnamed Action'
+              })(),
+              // Ensure description is populated from component definition
+              description: (() => {
+                const existing = (node.data as any)?.description
+                if (existing && typeof existing === 'string' && existing.trim().length > 0) return existing
+                const comp = ALL_NODE_COMPONENTS.find(c => c.type === (node.data as any)?.type)
+                return comp?.description || ''
               })(),
               onConfigure: handleNodeConfigure,
               onDelete: handleNodeDelete,

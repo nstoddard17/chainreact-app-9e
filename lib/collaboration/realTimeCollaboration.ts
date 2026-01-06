@@ -445,10 +445,10 @@ export class RealTimeCollaboration {
 
     const nodes = (nodesResult.data || []).map((n: any) => ({
       id: n.id,
-      type: n.node_type,
+      type: 'custom',  // React Flow component type
       position: { x: n.position_x, y: n.position_y },
       data: {
-        type: n.node_type,
+        type: n.node_type,  // Action type
         label: n.label,
         config: n.config || {},
         isTrigger: n.is_trigger,

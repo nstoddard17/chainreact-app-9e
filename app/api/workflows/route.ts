@@ -193,7 +193,54 @@ export async function GET(request: NextRequest) {
       return errorResponse(error.message , 500)
     }
 
-    // Return workflows directly (permissions join removed due to missing foreign key)
+    // Fetch nodes from workflow_nodes table for all workflows
+    // This is needed because nodes are now stored in a normalized table
+    if (workflows.length > 0) {
+      const workflowIds = workflows.map(w => w.id)
+
+      const { data: allNodes, error: nodesError } = await queryWithTimeout(
+        supabaseService
+          .from('workflow_nodes')
+          .select('id, workflow_id, node_type, label, provider_id, config')
+          .in('workflow_id', workflowIds),
+        8000
+      )
+
+      if (nodesError) {
+        logger.warn('[API /api/workflows] Failed to fetch nodes:', nodesError)
+        // Don't fail the request, just continue without nodes
+      } else if (allNodes) {
+        // Create a Map for O(1) lookups
+        const nodesByWorkflowId = new Map<string, any[]>()
+        for (const node of allNodes) {
+          const existing = nodesByWorkflowId.get(node.workflow_id) || []
+          // Transform node to expected format for ConnectedNodesDisplay
+          existing.push({
+            id: node.id,
+            type: node.node_type,
+            data: {
+              type: node.node_type,
+              providerId: node.provider_id || 'core',
+              title: node.label || node.config?.label || 'Node',
+              label: node.label || node.config?.label || 'Node',
+            }
+          })
+          nodesByWorkflowId.set(node.workflow_id, existing)
+        }
+
+        // Attach nodes to each workflow
+        for (const workflow of workflows) {
+          workflow.nodes = nodesByWorkflowId.get(workflow.id) || []
+        }
+
+        logger.debug('[API /api/workflows] Attached nodes to workflows', {
+          totalNodes: allNodes.length,
+          workflowsWithNodes: nodesByWorkflowId.size
+        })
+      }
+    }
+
+    // Return workflows with nodes attached
     return successResponse({ data: workflows })
   } catch (error: any) {
     logger.error('[API /api/workflows] Exception:', error)
