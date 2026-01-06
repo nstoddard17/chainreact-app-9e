@@ -623,19 +623,24 @@ export async function POST(request: NextRequest) {
   try {
     const url = new URL(request.url)
     const validationToken = url.searchParams.get('validationToken') || url.searchParams.get('validationtoken')
+    const testSessionId = url.searchParams.get('testSessionId')
     const body = await request.text()
     const headers = Object.fromEntries(request.headers.entries())
 
-    logger.debug('📥 Microsoft Graph webhook received:', {
+    const isTestMode = !!testSessionId
+    const modeLabel = isTestMode ? '🧪 TEST' : '📥'
+
+    logger.debug(`${modeLabel} Microsoft Graph webhook received:`, {
       headers: Object.keys(headers),
       bodyLength: body.length,
+      testSessionId: testSessionId || null,
       timestamp: new Date().toISOString()
     })
 
     // Handle validation request from Microsoft (either via validationToken query or text/plain body)
     if (validationToken || headers['content-type']?.includes('text/plain')) {
       const token = validationToken || body
-      logger.debug('🔍 Validation request received')
+      logger.debug(`🔍 Validation request received${isTestMode ? ' (TEST MODE)' : ''}`)
       return new NextResponse(token, { status: 200, headers: { 'Content-Type': 'text/plain' } })
     }
 
@@ -661,12 +666,18 @@ export async function POST(request: NextRequest) {
       hasValue: !!payload?.value,
       valueIsArray: Array.isArray(payload?.value),
       notificationCount: notifications.length,
-      payloadKeys: Object.keys(payload || {})
+      payloadKeys: Object.keys(payload || {}),
+      testSessionId: testSessionId || null
     })
 
     if (notifications.length === 0) {
       logger.warn('⚠️ Microsoft webhook payload has no notifications (value array empty)')
       return jsonResponse({ success: true, empty: true })
+    }
+
+    // TEST MODE: Route to test session handling
+    if (isTestMode) {
+      return await handleTestModeWebhook(testSessionId, notifications)
     }
 
     const requestId = headers['request-id'] || headers['client-request-id'] || undefined
@@ -688,6 +699,105 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     logger.error('❌ Microsoft Graph webhook error:', error)
     return errorResponse('Internal server error' , 500)
+  }
+}
+
+/**
+ * Handle webhooks in test mode - stores trigger data for SSE polling
+ * instead of executing the workflow directly
+ */
+async function handleTestModeWebhook(testSessionId: string, notifications: any[]): Promise<NextResponse> {
+  const supabase = getSupabase()
+  const startTime = Date.now()
+
+  try {
+    // Validate the test session exists and is listening
+    const { data: testSession, error: sessionError } = await supabase
+      .from('workflow_test_sessions')
+      .select('*')
+      .eq('id', testSessionId)
+      .eq('status', 'listening')
+      .single()
+
+    if (sessionError || !testSession) {
+      logger.warn(`🧪 [Test Webhook] Test session not found or not listening: ${testSessionId}`)
+      return jsonResponse({
+        success: false,
+        message: 'Test session not found or expired',
+        testSessionId
+      })
+    }
+
+    // Process notifications for test mode
+    for (const notification of notifications) {
+      const subscriptionId = notification?.subscriptionId
+      if (!subscriptionId) continue
+
+      // Check that this subscription is for this test session
+      const { data: triggerResource } = await supabase
+        .from('trigger_resources')
+        .select('*')
+        .eq('external_id', subscriptionId)
+        .eq('test_session_id', testSessionId)
+        .single()
+
+      if (!triggerResource) {
+        logger.warn(`🧪 [Test Webhook] Subscription ${subscriptionId} not found for test session ${testSessionId}`)
+        continue
+      }
+
+      // Verify clientState
+      const bodyClientState = notification?.clientState
+      if (bodyClientState && triggerResource.config?.clientState) {
+        if (bodyClientState !== triggerResource.config.clientState) {
+          logger.warn('🧪 [Test Webhook] Invalid clientState, skipping')
+          continue
+        }
+      }
+
+      // Build event data from notification
+      const eventData = {
+        subscriptionId,
+        changeType: notification?.changeType,
+        resource: notification?.resource,
+        resourceData: notification?.resourceData,
+        tenantId: notification?.tenantId,
+        _testSession: true
+      }
+
+      // Store trigger_data so test-trigger API can poll for it
+      await supabase
+        .from('workflow_test_sessions')
+        .update({
+          status: 'trigger_received',
+          trigger_data: eventData
+        })
+        .eq('id', testSessionId)
+
+      logger.debug(`🧪 [Test Webhook] Trigger data stored for session ${testSessionId}`)
+    }
+
+    const processingTime = Date.now() - startTime
+    return jsonResponse({
+      success: true,
+      testSessionId,
+      processingTime,
+      notificationsProcessed: notifications.length
+    })
+
+  } catch (error) {
+    logger.error('🧪 [Test Webhook] Error:', error)
+
+    // Update test session to failed
+    await supabase
+      .from('workflow_test_sessions')
+      .update({
+        status: 'failed',
+        ended_at: new Date().toISOString()
+      })
+      .eq('id', testSessionId)
+
+    return errorResponse('Internal server error', 500)
   }
 }
 

@@ -511,8 +511,9 @@ export class MicrosoftGraphSubscriptionManager {
       throw new Error('Missing testSessionId for Microsoft Graph test webhook URL')
     }
 
-    // Use query parameter instead of path segment for better Vercel compatibility
-    return `${root}${marker}/test?sessionId=${encodeURIComponent(testSessionId)}`
+    // Route test webhooks through main endpoint with query parameter
+    // This avoids Vercel routing issues with separate /test/ routes
+    return `${root}${marker}?testSessionId=${encodeURIComponent(testSessionId)}`
   }
   private generateClientState(): string {
     return crypto.randomBytes(32).toString('hex')
