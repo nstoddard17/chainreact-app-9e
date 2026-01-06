@@ -75,11 +75,19 @@ interface RunSummaryPayload {
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
 
-export function generateId(prefix: string): string {
+export function generateId(_prefix?: string): string {
+  // Generate pure UUIDs for database compatibility (workflow_nodes.id is uuid type)
+  // The prefix parameter is kept for backwards compatibility but ignored
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `${prefix}-${crypto.randomUUID()}`
+    return crypto.randomUUID()
   }
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+  // Fallback for environments without crypto.randomUUID
+  // Generate a UUID v4-like string
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
 }
 
 async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
@@ -179,7 +187,7 @@ export function oldConnectToEdge(
   return {
     op: "connect",
     edge: {
-      id: `${sourceId}-${targetId}`,
+      id: generateId(), // Use UUID for database compatibility (workflow_edges.id is uuid type)
       from: { nodeId: sourceId, portId: sourceHandle },
       to: { nodeId: targetId, portId: targetHandle },
       mappings: [],

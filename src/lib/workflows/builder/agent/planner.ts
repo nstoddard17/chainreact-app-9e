@@ -391,13 +391,13 @@ function computeDeterministicHash(edits: Edit[]): string {
   return createHash("sha256").update(canonicalJson).digest("hex").slice(0, 16)
 }
 
-function generateNodeId(type: string, existing: Set<string>): string {
-  let index = 1
-  let candidate = `${type}-${index}`
-  while (existing.has(candidate)) {
-    index += 1
-    candidate = `${type}-${index}`
-  }
+function generateNodeId(_type: string, existing: Set<string>): string {
+  // Generate pure UUIDs for database compatibility (workflow_nodes.id is uuid type)
+  // The type parameter is kept for backwards compatibility but ignored
+  let candidate: string
+  do {
+    candidate = crypto.randomUUID()
+  } while (existing.has(candidate)) // Extremely unlikely collision, but be safe
   existing.add(candidate)
   return candidate
 }
@@ -607,7 +607,7 @@ export async function planEdits({ prompt, flow }: PlannerInput): Promise<Planner
     if (existingEdgeKeys.has(key)) continue
 
     const edge: Edge = {
-      id: `${from.id}-${to.id}`,
+      id: crypto.randomUUID(), // Use UUID for database compatibility (workflow_edges.id is uuid type)
       from: { nodeId: from.id },
       to: { nodeId: to.id },
       mappings: [],

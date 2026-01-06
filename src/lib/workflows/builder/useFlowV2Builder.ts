@@ -260,7 +260,7 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
     const template = internalEdgeMap.get(`${sourceId}->${targetId}`) ?? pickTemplateEdge()
 
     const newEdge: FlowEdge = {
-      id: `${sourceId}-${targetId}`,
+      id: generateId(), // Use UUID for database compatibility (workflow_edges.id is uuid type)
       from: {
         nodeId: sourceId,
         portId: template?.from.portId ?? "source",
@@ -378,7 +378,7 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
         // If the deleted node was in the middle of a chain, reconnect the edges
         if (incomingEdge && outgoingEdge) {
           working.edges.push({
-            id: `${incomingEdge.from.nodeId}-${outgoingEdge.to.nodeId}`,
+            id: generateId(), // Use UUID for database compatibility (workflow_edges.id is uuid type)
             from: incomingEdge.from,
             to: outgoingEdge.to,
             mappings: [],
@@ -604,7 +604,7 @@ function detectMissingEdges(flow: Flow): Array<{ op: "connect"; edge: FlowEdge }
       missingEdges.push({
         op: "connect",
         edge: {
-          id: `${current.id}-${next.id}-repaired`,
+          id: generateId(), // Use UUID for database compatibility (workflow_edges.id is uuid type)
           from: { nodeId: current.id, portId: "source" },
           to: { nodeId: next.id, portId: "target" },
           mappings: [],
