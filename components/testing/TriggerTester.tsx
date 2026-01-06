@@ -226,7 +226,10 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
         if (!response.ok) {
           throw new Error(data.error || 'Failed to load workflows')
         }
-        setWorkflows(Array.isArray(data?.data) ? data.data : [])
+        // Filter out deleted workflows (those with deleted_at set)
+        const activeWorkflows = (Array.isArray(data?.data) ? data.data : [])
+          .filter((w: any) => !w.deleted_at)
+        setWorkflows(activeWorkflows)
       } catch (err: any) {
         setWorkflowLoadError(err.message || 'Failed to load workflows')
       } finally {

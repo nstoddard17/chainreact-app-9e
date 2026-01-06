@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
       let query = supabaseService
         .from("workflows")
         .select('*')
+        .is('deleted_at', null) // Exclude soft-deleted workflows
 
       if (filterContext === 'personal') {
         query = query
@@ -108,7 +109,8 @@ export async function GET(request: NextRequest) {
             .from("workflows")
             .select('*')
             .eq('workspace_type', 'personal')
-            .eq('user_id', user.id),
+            .eq('user_id', user.id)
+            .is('deleted_at', null), // Exclude soft-deleted workflows
           8000
         )
       )
@@ -142,7 +144,8 @@ export async function GET(request: NextRequest) {
               .from("workflows")
               .select('*')
               .eq('workspace_type', 'team')
-              .in('workspace_id', teamIds),
+              .in('workspace_id', teamIds)
+              .is('deleted_at', null), // Exclude soft-deleted workflows
             8000
           )
         )
@@ -156,7 +159,8 @@ export async function GET(request: NextRequest) {
               .from("workflows")
               .select('*')
               .eq('workspace_type', 'organization')
-              .in('workspace_id', orgIds),
+              .in('workspace_id', orgIds)
+              .is('deleted_at', null), // Exclude soft-deleted workflows
             8000
           )
         )
