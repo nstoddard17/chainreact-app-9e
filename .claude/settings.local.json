@@ -50,7 +50,10 @@
       "Bash(git push)",
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\src\\\\lib\\\\workflows\\\\builder\\\\logging.ts\")",
       "Bash(del \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\\\\supabase\\\\migrations\\\\20260104000002_populate_normalized_tables_from_revisions.sql\")",
-      "Bash(git grep:*)"
+      "Bash(git grep:*)",
+      "Bash(git -C \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\" log --oneline -10 -- \"app/api/webhooks/microsoft/test\")",
+      "Bash(git -C \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\" log --oneline -1 HEAD)",
+      "Bash(git -C \"c:\\\\Users\\\\marcu\\\\source\\\\repos\\\\nstoddard17\\\\chainreact-app-9e\" log --oneline 767070e8..HEAD)"
     ],
     "deny": [],
     "ask": [],

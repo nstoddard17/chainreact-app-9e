@@ -12,6 +12,19 @@ const getSupabase = () => createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+async function getValidationToken(request: NextRequest): Promise<string | null> {
+  const validationToken = request.nextUrl.searchParams.get('validationToken') ||
+    request.nextUrl.searchParams.get('validationtoken')
+
+  if (validationToken) return validationToken
+
+  if (request.headers.get('content-type')?.includes('text/plain')) {
+    return request.text()
+  }
+
+  return null
+}
+
 /**
  * Test Webhook Handler for Microsoft Graph
  *
@@ -36,12 +49,10 @@ export async function POST(
     const startTime = Date.now()
 
     // Handle Microsoft Graph subscription validation
-    const validationToken = request.nextUrl.searchParams.get('validationToken') ||
-      request.nextUrl.searchParams.get('validationtoken')
-    if (validationToken || request.headers.get('content-type')?.includes('text/plain')) {
-      const token = validationToken || await request.text()
+    const validationToken = await getValidationToken(request)
+    if (validationToken) {
       logger.debug('?? [Microsoft Test Webhook] Responding to validation request')
-      return new NextResponse(token, {
+      return new NextResponse(validationToken, {
         status: 200,
         headers: { 'Content-Type': 'text/plain' }
       })
@@ -161,9 +172,7 @@ export async function GET(
     url: request.nextUrl.toString(),
     method: request.method
   })
-  const validationToken = request.nextUrl.searchParams.get('validationToken') ||
-    request.nextUrl.searchParams.get('validationtoken')
-
+  const validationToken = await getValidationToken(request)
   if (validationToken) {
     return new NextResponse(validationToken, {
       status: 200,
@@ -197,5 +206,25 @@ export async function OPTIONS(
     url: request.nextUrl.toString(),
     method: request.method
   })
+  return new NextResponse(null, { status: 200 })
+}
+
+export async function HEAD(
+  request: NextRequest,
+  { params }: { params: Promise<{ sessionId: string }> }
+) {
+  const { sessionId } = await params
+  console.log(`dY?s [Microsoft Test Webhook] Received HEAD for session: ${sessionId}`, {
+    url: request.nextUrl.toString(),
+    method: request.method
+  })
+  const validationToken = await getValidationToken(request)
+  if (validationToken) {
+    return new NextResponse(validationToken, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' }
+    })
+  }
+
   return new NextResponse(null, { status: 200 })
 }
