@@ -147,7 +147,8 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
     const query = searchQuery.toLowerCase()
     return nodes.filter(n =>
       n.title.toLowerCase().includes(query) ||
-      n.description?.toLowerCase().includes(query)
+      n.description?.toLowerCase().includes(query) ||
+      n.providerId?.toLowerCase().includes(query)
     )
   }
 
