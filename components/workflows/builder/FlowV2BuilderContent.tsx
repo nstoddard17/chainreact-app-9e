@@ -12,6 +12,7 @@ import {
   ReactFlow,
   Background,
   BackgroundVariant,
+  useReactFlow,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { Trash2 } from "lucide-react"
@@ -206,6 +207,11 @@ export function FlowV2BuilderContent({
     }
   }, [onInit])
 
+  // Clear selection when clicking on the pane (background)
+  const handlePaneClick = useCallback(() => {
+    setSelectedNodeIds([])
+  }, [])
+
   // Enrich nodes with multi-select delete handler, selection info, configure callback, rename callback, duplicate callback, and add note callback
   // Also make nodes non-draggable to match Zapier's linear UX
   const enrichedNodes = useMemo(() => {
@@ -285,6 +291,7 @@ export function FlowV2BuilderContent({
             edgeTypes={edgeTypes}
             onSelectionChange={handleSelectionChangeInternal}
             onInit={handleInit}
+            onPaneClick={handlePaneClick}
             deleteKeyCode={["Delete", "Backspace"]}
             fitView={false}
             className="bg-background"

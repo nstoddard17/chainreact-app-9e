@@ -460,6 +460,16 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
   const nodeWithTriggerInfo = flow.nodes.map((node, originalIndex) => {
     const metadata = (node.metadata ?? {}) as any
     const catalogNode = NODE_COMPONENT_MAP.get(node.type)
+
+    // Debug: Log when catalog lookup fails
+    if (!catalogNode) {
+      console.warn(`[flowToReactFlowNodes] Node type not found in catalog: "${node.type}"`, {
+        nodeId: node.id,
+        nodeType: node.type,
+        availableTypes: Array.from(NODE_COMPONENT_MAP.keys()).slice(0, 10), // First 10 for brevity
+      })
+    }
+
     const isTrigger = metadata.isTrigger ?? catalogNode?.isTrigger ?? false
     // Pre-calculate fallback Y based on ORIGINAL array order (not sorted order)
     const fallbackY = 120 + originalIndex * 180
