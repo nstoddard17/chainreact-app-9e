@@ -232,7 +232,13 @@ async function processNotifications(
           subscriptionId: subId,
           userId,
           workflowId,
-          triggerResourceId
+          triggerResourceId,
+          triggerType,
+          // Log trigger config fields for debugging filters
+          triggerConfigKeys: triggerConfig ? Object.keys(triggerConfig) : [],
+          triggerConfigTo: triggerConfig?.to || null,
+          triggerConfigFrom: triggerConfig?.from || null,
+          triggerConfigSubject: triggerConfig?.subject || null
         })
       }
 
@@ -362,30 +368,45 @@ async function processNotifications(
           // Extract message ID from resource
           const messageId = change?.resourceData?.id
 
-          if (messageId) {
-            // Fetch the actual email to check filters
-            const emailResponse = await fetch(
-              `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`,
-                  'Content-Type': 'application/json'
-                }
+          if (!messageId) {
+            logger.warn('⚠️ No messageId in webhook payload, skipping execution')
+            continue
+          }
+
+          // Fetch the actual email to check filters
+          const emailResponse = await fetch(
+            `https://graph.microsoft.com/v1.0/me/messages/${messageId}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
               }
-            )
+            }
+          )
 
-            if (emailResponse.ok) {
-              const email = await emailResponse.json()
+          if (!emailResponse.ok) {
+            logger.warn('⚠️ Failed to fetch email for filtering, skipping execution:', emailResponse.status)
+            continue
+          }
 
-              // Get trigger-specific filter configuration
-              const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
+          const email = await emailResponse.json()
 
-              // Debug log: Show what filters we're checking
-              logger.debug('🔍 Filter check details:', {
+          // Get trigger-specific filter configuration
+          const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
+
+          // Debug log: Show what filters we're checking
+          logger.debug('🔍 Filter check details:', {
                 triggerType,
                 hasFilterConfig: !!filterConfig,
+                filterConfigDetails: filterConfig ? {
+                  supportsSender: filterConfig.supportsSender,
+                  supportsRecipient: filterConfig.supportsRecipient,
+                  supportsSubject: filterConfig.supportsSubject,
+                  supportsAttachment: filterConfig.supportsAttachment
+                } : null,
                 configuredFilters: {
                   from: triggerConfig.from || null,
+                  to: triggerConfig.to || null,  // IMPORTANT: Check recipient filter for email_sent
                   subject: triggerConfig.subject || null,
                   subjectExactMatch: triggerConfig.subjectExactMatch,
                   hasAttachment: triggerConfig.hasAttachment || null,
@@ -394,6 +415,8 @@ async function processNotifications(
                 },
                 emailDetails: {
                   from: email.from?.emailAddress?.address || 'unknown',
+                  toRecipientCount: (email.toRecipients || []).length,
+                  toRecipients: (email.toRecipients || []).map((r: any) => r.emailAddress?.address || 'unknown'),
                   subjectLength: (email.subject || '').length,
                   hasAttachments: email.hasAttachments,
                   importance: email.importance,
@@ -512,17 +535,32 @@ async function processNotifications(
                 const configTo = triggerConfig.to.toLowerCase().trim()
                 const emailTo = email.toRecipients?.map((r: any) => r.emailAddress?.address?.toLowerCase().trim()) || []
 
+                logger.debug('🔍 Checking recipient filter:', {
+                  configTo,
+                  emailTo,
+                  supportsRecipient: filterConfig.supportsRecipient,
+                  subscriptionId: subId
+                })
+
                 const hasMatch = emailTo.some((addr: string) => addr === configTo)
 
                 if (!hasMatch) {
-                  // SECURITY: Don't log actual email addresses (PII)
                   logger.debug('⏭️ Skipping email - to address does not match filter:', {
-                    hasExpected: !!configTo,
-                    recipientCount: emailTo.length,
+                    configTo,
+                    emailTo,
+                    hasMatch,
                     subscriptionId: subId
                   })
                   continue
                 }
+                logger.debug('✅ Recipient filter passed')
+              } else {
+                logger.debug('⏭️ Recipient filter not applicable:', {
+                  supportsRecipient: filterConfig?.supportsRecipient,
+                  hasToConfig: !!triggerConfig.to,
+                  triggerType,
+                  subscriptionId: subId
+                })
               }
 
               // Check importance filter (if trigger supports it)
@@ -601,14 +639,10 @@ async function processNotifications(
                 }
               }
 
-              logger.debug('✅ Email matches all filters, proceeding with workflow execution')
-            } else {
-              logger.warn('⚠️ Failed to fetch email details for filtering, allowing execution:', emailResponse.status)
-            }
-          }
+          logger.debug('✅ Email matches all filters, proceeding with workflow execution')
         } catch (filterError) {
-          logger.error('❌ Error checking email filters (allowing execution):', filterError)
-          // Continue to execute even if filter check fails
+          logger.error('❌ Error checking email filters, skipping execution:', filterError)
+          continue
         }
       }
 
@@ -723,6 +757,24 @@ async function processNotifications(
 
       // Trigger workflow execution directly (no queue needed)
       if (workflowId && userId) {
+        // Check if there's an active test session for this workflow
+        // If so, skip production execution - the test webhook handler will handle it
+        const { data: activeTestSession } = await getSupabase()
+          .from('workflow_test_sessions')
+          .select('id, status')
+          .eq('workflow_id', workflowId)
+          .eq('status', 'listening')
+          .maybeSingle()
+
+        if (activeTestSession) {
+          logger.debug('⏭️ Skipping production execution - active test session exists:', {
+            workflowId,
+            testSessionId: activeTestSession.id,
+            subscriptionId: subId
+          })
+          continue
+        }
+
         logger.debug('🚀 Triggering workflow execution:', {
           workflowId,
           userId,
@@ -930,6 +982,120 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       if (bodyClientState && triggerResource.config?.clientState) {
         if (bodyClientState !== triggerResource.config.clientState) {
           logger.warn('🧪 [Test Webhook] Invalid clientState, skipping')
+          continue
+        }
+      }
+
+      // Get trigger config for filtering
+      const triggerType = triggerResource.trigger_type
+      const triggerConfig = triggerResource.config || {}
+      const userId = triggerResource.user_id
+      const resource = notification?.resource || ''
+      const resourceLower = resource.toLowerCase()
+
+      // Apply the same filtering logic as production webhooks
+      // For Outlook email triggers, fetch the email and apply filters
+      const isEmailTrigger = resourceLower.includes('/messages') && !resourceLower.includes('/messages/')
+      if (isEmailTrigger && userId && triggerConfig) {
+        try {
+          const messageId = notification?.resourceData?.id
+          if (!messageId) {
+            logger.warn('🧪 [Test Webhook] No messageId in webhook payload, skipping')
+            continue
+          }
+
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-outlook')
+
+          const emailResponse = await fetch(
+            `https://graph.microsoft.com/v1.0/me/messages/${messageId}?$select=id,subject,from,toRecipients,hasAttachments,importance,parentFolderId`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          )
+
+          if (!emailResponse.ok) {
+            logger.warn('🧪 [Test Webhook] Failed to fetch email for filtering, skipping:', emailResponse.status)
+            continue
+          }
+
+          const email = await emailResponse.json()
+          const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
+
+          logger.debug('🧪 [Test Webhook] Filter check details:', {
+                triggerType,
+                hasFilterConfig: !!filterConfig,
+                configuredFilters: {
+                  from: triggerConfig.from || null,
+                  to: triggerConfig.to || null,
+                  subject: triggerConfig.subject || null,
+                  subjectExactMatch: triggerConfig.subjectExactMatch,
+                  hasAttachment: triggerConfig.hasAttachment || null
+                }
+              })
+
+              // Check sender filter (for new_email triggers)
+              if (filterConfig?.supportsSender && triggerConfig.from) {
+                const senderEmail = email.from?.emailAddress?.address?.toLowerCase() || ''
+                const configSender = triggerConfig.from.toLowerCase().trim()
+                if (!senderEmail.includes(configSender)) {
+                  logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - sender doesn't match filter`)
+                  continue
+                }
+              }
+
+              // Check recipient filter (for email_sent triggers)
+              if (filterConfig?.supportsRecipient && triggerConfig.to) {
+                const configRecipient = triggerConfig.to.toLowerCase().trim()
+                const recipients = email.toRecipients || []
+                const recipientEmails = recipients.map((r: any) =>
+                  (r.emailAddress?.address || '').toLowerCase()
+                )
+                const hasMatchingRecipient = recipientEmails.some((addr: string) =>
+                  addr.includes(configRecipient)
+                )
+                if (!hasMatchingRecipient) {
+                  logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - recipient doesn't match filter`)
+                  continue
+                }
+              }
+
+              // Check subject filter
+              if (filterConfig?.supportsSubject && triggerConfig.subject) {
+                const emailSubject = (email.subject || '').toLowerCase()
+                const configSubject = triggerConfig.subject.toLowerCase().trim()
+                const isExactMatch = triggerConfig.subjectExactMatch === true
+
+                if (isExactMatch) {
+                  if (emailSubject !== configSubject) {
+                    logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - subject doesn't match (exact)`)
+                    continue
+                  }
+                } else {
+                  if (!emailSubject.includes(configSubject)) {
+                    logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - subject doesn't match (contains)`)
+                    continue
+                  }
+                }
+              }
+
+              // Check attachment filter
+              if (filterConfig?.supportsAttachment && triggerConfig.hasAttachment !== undefined) {
+                const emailHasAttachments = email.hasAttachments === true
+                const configRequiresAttachment = triggerConfig.hasAttachment === true || triggerConfig.hasAttachment === 'true'
+                if (configRequiresAttachment && !emailHasAttachments) {
+                  logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - no attachments`)
+                  continue
+                }
+              }
+
+          logger.debug('🧪 [Test Webhook] ✅ Email passed all filters')
+        } catch (filterError) {
+          logger.error('🧪 [Test Webhook] Error checking email filters, skipping:', filterError)
           continue
         }
       }
