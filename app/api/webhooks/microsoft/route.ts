@@ -25,6 +25,8 @@ interface TriggerFilterConfig {
   supportsSubject: boolean; // Does this trigger filter by subject?
   supportsImportance: boolean; // Does this trigger filter by importance?
   supportsAttachment: boolean; // Does this trigger filter by attachment?
+  supportsCalendar?: boolean; // Does this trigger filter by calendarId?
+  supportsCompanyName?: boolean; // Does this trigger filter by companyName?
   defaultFolder?: string; // Default folder if not specified (e.g., 'inbox', 'sentitems')
 }
 
@@ -78,9 +80,54 @@ const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
     supportsImportance: false,
     supportsAttachment: true, // Filter by attachment extension
     defaultFolder: 'inbox'
+  },
+  // Calendar triggers - filter by calendarId if configured
+  'microsoft-outlook_trigger_new_calendar_event': {
+    supportsFolder: false,
+    supportsSender: false,
+    supportsRecipient: false,
+    supportsSubject: false,
+    supportsImportance: false,
+    supportsAttachment: false,
+    supportsCalendar: true
+  },
+  'microsoft-outlook_trigger_updated_calendar_event': {
+    supportsFolder: false,
+    supportsSender: false,
+    supportsRecipient: false,
+    supportsSubject: false,
+    supportsImportance: false,
+    supportsAttachment: false,
+    supportsCalendar: true
+  },
+  'microsoft-outlook_trigger_deleted_calendar_event': {
+    supportsFolder: false,
+    supportsSender: false,
+    supportsRecipient: false,
+    supportsSubject: false,
+    supportsImportance: false,
+    supportsAttachment: false,
+    supportsCalendar: true
+  },
+  // Contact triggers - filter by companyName if configured
+  'microsoft-outlook_trigger_new_contact': {
+    supportsFolder: false,
+    supportsSender: false,
+    supportsRecipient: false,
+    supportsSubject: false,
+    supportsImportance: false,
+    supportsAttachment: false,
+    supportsCompanyName: true
+  },
+  'microsoft-outlook_trigger_updated_contact': {
+    supportsFolder: false,
+    supportsSender: false,
+    supportsRecipient: false,
+    supportsSubject: false,
+    supportsImportance: false,
+    supportsAttachment: false,
+    supportsCompanyName: true
   }
-  // Calendar and Contact triggers don't need filter configs - they use simpler filtering
-  // based on the resourceData from the webhook
 }
 
 // Helper function - hoisted above POST handler to avoid TDZ
@@ -562,6 +609,115 @@ async function processNotifications(
         } catch (filterError) {
           logger.error('❌ Error checking email filters (allowing execution):', filterError)
           // Continue to execute even if filter check fails
+        }
+      }
+
+      // For Outlook calendar triggers, check calendar filter if configured
+      const isCalendarTrigger = resourceLower.includes('/events') && !resourceLower.includes('/messages')
+      if (isCalendarTrigger && userId && triggerConfig) {
+        const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
+
+        // Check calendar filter if configured
+        if (filterConfig?.supportsCalendar && triggerConfig.calendarId) {
+          const eventId = change?.resourceData?.id
+
+          if (eventId) {
+            try {
+              const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+              const graphAuth = new MicrosoftGraphAuth()
+              const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-outlook')
+
+              // Fetch the event to get its calendar information
+              // The event's calendar can be determined from the resource path in the subscription
+              // or by fetching the event and checking which calendar it belongs to
+              const eventResponse = await fetch(
+                `https://graph.microsoft.com/v1.0/me/events/${eventId}?$select=id,subject,calendar`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              )
+
+              if (eventResponse.ok) {
+                const event = await eventResponse.json()
+                // The calendar property contains the calendar's ID
+                const eventCalendarId = event.calendar?.id ||
+                  // Fallback: try to extract from resource path
+                  resource?.match(/\/calendars\/([^\/]+)\//)?.[1]
+
+                if (eventCalendarId && eventCalendarId !== triggerConfig.calendarId) {
+                  logger.debug('⏭️ Skipping calendar event - not in configured calendar:', {
+                    expected: triggerConfig.calendarId,
+                    actual: eventCalendarId,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+
+                logger.debug('✅ Calendar event matches filter (or no calendar filter set)')
+              } else {
+                logger.warn('⚠️ Failed to fetch calendar event details for filtering, allowing execution:', eventResponse.status)
+              }
+            } catch (calendarFilterError) {
+              logger.error('❌ Error checking calendar filters (allowing execution):', calendarFilterError)
+              // Continue to execute even if filter check fails
+            }
+          }
+        }
+      }
+
+      // For Outlook contact triggers, check company name filter if configured
+      const isContactTrigger = resourceLower.includes('/contacts')
+      if (isContactTrigger && userId && triggerConfig) {
+        const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
+
+        // Check company name filter if configured
+        if (filterConfig?.supportsCompanyName && triggerConfig.companyName) {
+          const contactId = change?.resourceData?.id
+
+          if (contactId) {
+            try {
+              const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+              const graphAuth = new MicrosoftGraphAuth()
+              const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-outlook')
+
+              // Fetch contact to get company name
+              const contactResponse = await fetch(
+                `https://graph.microsoft.com/v1.0/me/contacts/${contactId}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                  }
+                }
+              )
+
+              if (contactResponse.ok) {
+                const contact = await contactResponse.json()
+                const configCompany = triggerConfig.companyName.toLowerCase().trim()
+                const contactCompany = (contact.companyName || '').toLowerCase().trim()
+
+                // Use "contains" matching for flexibility
+                if (!contactCompany.includes(configCompany)) {
+                  logger.debug('⏭️ Skipping contact - company name does not match filter:', {
+                    hasExpected: !!configCompany,
+                    hasActual: !!contactCompany,
+                    subscriptionId: subId
+                  })
+                  continue
+                }
+
+                logger.debug('✅ Contact matches company name filter')
+              } else {
+                logger.warn('⚠️ Failed to fetch contact details for filtering, allowing execution:', contactResponse.status)
+              }
+            } catch (contactFilterError) {
+              logger.error('❌ Error checking contact filters (allowing execution):', contactFilterError)
+              // Continue to execute even if filter check fails
+            }
+          }
         }
       }
 

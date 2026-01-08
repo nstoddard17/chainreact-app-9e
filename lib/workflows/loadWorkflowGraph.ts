@@ -131,6 +131,7 @@ export function nodeToLegacyFormat(node: WorkflowNode): any {
       label: node.label || node.node_type,
       config: node.config || {},
       isTrigger: node.is_trigger,
+      providerId: node.provider_id,
     },
     position: {
       x: node.position_x,
