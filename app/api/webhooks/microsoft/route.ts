@@ -142,6 +142,7 @@ async function processNotifications(
       let triggerResourceId: string | null = null
       let configuredChangeType: string | null = null
       let triggerConfig: any = null
+      let triggerType: string | null = null
       if (subId) {
         logger.debug('🔍 Looking up subscription:', subId)
 
@@ -164,7 +165,7 @@ async function processNotifications(
         userId = triggerResource.user_id
         workflowId = triggerResource.workflow_id
         triggerResourceId = triggerResource.id
-        const triggerType = triggerResource.trigger_type
+        triggerType = triggerResource.trigger_type
         configuredChangeType = triggerResource.config?.changeType || null
         triggerConfig = triggerResource.config || null
 
@@ -331,6 +332,28 @@ async function processNotifications(
 
               // Get trigger-specific filter configuration
               const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
+
+              // Debug log: Show what filters we're checking
+              logger.debug('🔍 Filter check details:', {
+                triggerType,
+                hasFilterConfig: !!filterConfig,
+                configuredFilters: {
+                  from: triggerConfig.from || null,
+                  subject: triggerConfig.subject || null,
+                  subjectExactMatch: triggerConfig.subjectExactMatch,
+                  hasAttachment: triggerConfig.hasAttachment || null,
+                  importance: triggerConfig.importance || null,
+                  folder: triggerConfig.folder || null
+                },
+                emailDetails: {
+                  from: email.from?.emailAddress?.address || 'unknown',
+                  subjectLength: (email.subject || '').length,
+                  hasAttachments: email.hasAttachments,
+                  importance: email.importance,
+                  parentFolderId: email.parentFolderId
+                },
+                subscriptionId: subId
+              })
 
               if (!filterConfig) {
                 logger.warn(`⚠️ Unknown trigger type: ${triggerType}, allowing all filters`)
