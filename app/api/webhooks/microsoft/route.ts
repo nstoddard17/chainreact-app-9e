@@ -995,7 +995,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
 
       // Apply the same filtering logic as production webhooks
       // For Outlook email triggers, fetch the email and apply filters
-      const isEmailTrigger = resourceLower.includes('/messages') && !resourceLower.includes('/messages/')
+      const isEmailTrigger = resourceLower.includes('/messages')
       if (isEmailTrigger && userId && triggerConfig) {
         try {
           const messageId = notification?.resourceData?.id
@@ -1040,9 +1040,9 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
 
               // Check sender filter (for new_email triggers)
               if (filterConfig?.supportsSender && triggerConfig.from) {
-                const senderEmail = email.from?.emailAddress?.address?.toLowerCase() || ''
+                const senderEmail = email.from?.emailAddress?.address?.toLowerCase().trim() || ''
                 const configSender = triggerConfig.from.toLowerCase().trim()
-                if (!senderEmail.includes(configSender)) {
+                if (senderEmail !== configSender) {
                   logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - sender doesn't match filter`)
                   continue
                 }
@@ -1053,10 +1053,10 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
                 const configRecipient = triggerConfig.to.toLowerCase().trim()
                 const recipients = email.toRecipients || []
                 const recipientEmails = recipients.map((r: any) =>
-                  (r.emailAddress?.address || '').toLowerCase()
+                  (r.emailAddress?.address || '').toLowerCase().trim()
                 )
                 const hasMatchingRecipient = recipientEmails.some((addr: string) =>
-                  addr.includes(configRecipient)
+                  addr === configRecipient
                 )
                 if (!hasMatchingRecipient) {
                   logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - recipient doesn't match filter`)
@@ -1066,9 +1066,9 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
 
               // Check subject filter
               if (filterConfig?.supportsSubject && triggerConfig.subject) {
-                const emailSubject = (email.subject || '').toLowerCase()
+                const emailSubject = (email.subject || '').toLowerCase().trim()
                 const configSubject = triggerConfig.subject.toLowerCase().trim()
-                const isExactMatch = triggerConfig.subjectExactMatch === true
+                const isExactMatch = triggerConfig.subjectExactMatch !== false
 
                 if (isExactMatch) {
                   if (emailSubject !== configSubject) {
