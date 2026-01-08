@@ -532,28 +532,33 @@ async function processNotifications(
 
               // Check to filter (recipient) - if trigger supports it
               if (filterConfig?.supportsRecipient && triggerConfig.to) {
-                const configTo = triggerConfig.to.toLowerCase().trim()
+                const configToList = triggerConfig.to
+                  .split(/[;,]/)
+                  .map((value: string) => value.toLowerCase().trim())
+                  .filter(Boolean)
                 const emailTo = email.toRecipients?.map((r: any) => r.emailAddress?.address?.toLowerCase().trim()) || []
 
-                logger.debug('🔍 Checking recipient filter:', {
-                  configTo,
+                logger.debug('dY"? Checking recipient filter:', {
+                  configTo: configToList,
                   emailTo,
                   supportsRecipient: filterConfig.supportsRecipient,
                   subscriptionId: subId
                 })
 
-                const hasMatch = emailTo.some((addr: string) => addr === configTo)
+                const hasMatch = configToList.some((configTo: string) =>
+                  emailTo.some((addr: string) => addr === configTo)
+                )
 
                 if (!hasMatch) {
-                  logger.debug('⏭️ Skipping email - to address does not match filter:', {
-                    configTo,
+                  logger.debug('??-?,? Skipping email - to address does not match filter:', {
+                    configTo: configToList,
                     emailTo,
                     hasMatch,
                     subscriptionId: subId
                   })
                   continue
                 }
-                logger.debug('✅ Recipient filter passed')
+                logger.debug('?o. Recipient filter passed')
               } else {
                 logger.debug('⏭️ Recipient filter not applicable:', {
                   supportsRecipient: filterConfig?.supportsRecipient,
@@ -1050,16 +1055,19 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
 
               // Check recipient filter (for email_sent triggers)
               if (filterConfig?.supportsRecipient && triggerConfig.to) {
-                const configRecipient = triggerConfig.to.toLowerCase().trim()
+                const configRecipientList = triggerConfig.to
+                  .split(/[;,]/)
+                  .map((value: string) => value.toLowerCase().trim())
+                  .filter(Boolean)
                 const recipients = email.toRecipients || []
                 const recipientEmails = recipients.map((r: any) =>
                   (r.emailAddress?.address || '').toLowerCase().trim()
                 )
-                const hasMatchingRecipient = recipientEmails.some((addr: string) =>
-                  addr === configRecipient
+                const hasMatchingRecipient = configRecipientList.some((configRecipient: string) =>
+                  recipientEmails.some((addr: string) => addr === configRecipient)
                 )
                 if (!hasMatchingRecipient) {
-                  logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - recipient doesn't match filter`)
+                  logger.debug(`dY? [Test Webhook] ??-?,? Skipping - recipient doesn't match filter`)
                   continue
                 }
               }
