@@ -71,16 +71,6 @@ const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
     supportsAttachment: false,
     defaultFolder: undefined // All folders by default
   },
-  // New Attachment trigger - monitors emails with attachments
-  'microsoft-outlook_trigger_new_attachment': {
-    supportsFolder: true,
-    supportsSender: false,
-    supportsRecipient: false,
-    supportsSubject: false,
-    supportsImportance: false,
-    supportsAttachment: true, // Filter by attachment extension
-    defaultFolder: 'inbox'
-  },
   // Calendar triggers - filter by calendarId if configured
   'microsoft-outlook_trigger_new_calendar_event': {
     supportsFolder: false,
@@ -101,6 +91,15 @@ const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
     supportsCalendar: true
   },
   'microsoft-outlook_trigger_deleted_calendar_event': {
+    supportsFolder: false,
+    supportsSender: false,
+    supportsRecipient: false,
+    supportsSubject: false,
+    supportsImportance: false,
+    supportsAttachment: false,
+    supportsCalendar: true
+  },
+  'microsoft-outlook_trigger_calendar_event_start': {
     supportsFolder: false,
     supportsSender: false,
     supportsRecipient: false,
@@ -130,6 +129,86 @@ const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
   }
 }
 
+
+
+function parseGraphDateTime(value: any): Date | null {
+  const raw = value?.dateTime
+  if (!raw || typeof raw !== 'string') return null
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed
+}
+
+function getMinutesBefore(config: any): number {
+  const raw = config?.minutesBefore ?? config?.minutes_before
+  const parsed = Number.parseInt(String(raw), 10)
+  if (Number.isFinite(parsed) && parsed > 0) return parsed
+  return 15
+}
+
+function buildCalendarStartPayload(event: any, scheduledFor: string, minutesBefore: number) {
+  return {
+    trigger: {
+      type: 'microsoft-outlook_trigger_calendar_event_start',
+      eventId: event?.id,
+      subject: event?.subject || '',
+      start: event?.start || null,
+      end: event?.end || null,
+      location: event?.location || null,
+      organizer: event?.organizer || null,
+      scheduledFor,
+      minutesBefore,
+    },
+    event,
+    scheduledFor,
+    minutesBefore,
+  }
+}
+
+async function upsertScheduledTrigger(
+  workflowId: string,
+  userId: string,
+  nodeId: string | null,
+  eventId: string,
+  scheduledFor: string,
+  payload: any
+): Promise<void> {
+  await getSupabase()
+    .from('workflows_schedules')
+    .upsert({
+      workflow_id: workflowId,
+      revision_id: null,
+      workspace_id: null,
+      cron_expression: 'event',
+      timezone: 'UTC',
+      enabled: true,
+      last_run_at: null,
+      next_run_at: scheduledFor,
+      created_by: userId,
+      trigger_type: 'microsoft-outlook_trigger_calendar_event_start',
+      provider_id: 'microsoft-outlook',
+      node_id: nodeId,
+      event_id: eventId,
+      scheduled_for: scheduledFor,
+      status: 'pending',
+      payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'workflow_id,node_id,trigger_type,event_id' })
+}
+
+async function cancelScheduledTrigger(
+  workflowId: string,
+  nodeId: string | null,
+  eventId: string
+): Promise<void> {
+  await getSupabase()
+    .from('workflows_schedules')
+    .update({ status: 'cancelled', enabled: false, updated_at: new Date().toISOString() })
+    .eq('workflow_id', workflowId)
+    .eq('trigger_type', 'microsoft-outlook_trigger_calendar_event_start')
+    .eq('event_id', eventId)
+    .eq('node_id', nodeId)
+}
 // Helper function - hoisted above POST handler to avoid TDZ
 // SECURITY: Logs webhook metadata only, not full payload (contains PII)
 async function logWebhookExecution(
@@ -187,6 +266,7 @@ async function processNotifications(
       let userId: string | null = null
       let workflowId: string | null = null
       let triggerResourceId: string | null = null
+      let triggerNodeId: string | null = null
       let configuredChangeType: string | null = null
       let triggerConfig: any = null
       let triggerType: string | null = null
@@ -195,7 +275,7 @@ async function processNotifications(
 
         const { data: triggerResource, error: resourceError } = await getSupabase()
           .from('trigger_resources')
-          .select('id, user_id, workflow_id, trigger_type, config')
+          .select('id, user_id, workflow_id, trigger_type, node_id, config')
           .eq('external_id', subId)
           .eq('resource_type', 'subscription')
           .like('provider_id', 'microsoft%')
@@ -212,6 +292,7 @@ async function processNotifications(
         userId = triggerResource.user_id
         workflowId = triggerResource.workflow_id
         triggerResourceId = triggerResource.id
+        triggerNodeId = triggerResource.node_id || null
         triggerType = triggerResource.trigger_type
         configuredChangeType = triggerResource.config?.changeType || null
         triggerConfig = triggerResource.config || null
@@ -493,8 +574,11 @@ async function processNotifications(
               }
 
               // Check subject filter (if trigger supports it)
-              if (filterConfig?.supportsSubject && triggerConfig.subject) {
-                const configSubject = triggerConfig.subject.toLowerCase().trim()
+              const configSubjectRaw = typeof triggerConfig.subject === 'string'
+                ? triggerConfig.subject.trim()
+                : ''
+              if (filterConfig?.supportsSubject && configSubjectRaw) {
+                const configSubject = configSubjectRaw.toLowerCase()
                 const emailSubject = (email.subject || '').toLowerCase().trim()
                 const exactMatch = triggerConfig.subjectExactMatch !== false // Default to true
 
@@ -596,16 +680,6 @@ async function processNotifications(
                 }
               }
 
-              // Check hasAttachment filter for new_attachment trigger
-              if (triggerType === 'microsoft-outlook_trigger_new_attachment') {
-                if (!email.hasAttachments) {
-                  logger.debug('⏭️ Skipping email - no attachments:', {
-                    hasAttachments: email.hasAttachments,
-                    subscriptionId: subId
-                  })
-                  continue
-                }
-
                 // Check file extension filter if configured
                 if (triggerConfig.fileExtension && email.attachments?.length > 0) {
                   const allowedExtensions = triggerConfig.fileExtension
@@ -651,8 +725,93 @@ async function processNotifications(
         }
       }
 
-      // For Outlook calendar triggers, check calendar filter if configured
       const isCalendarTrigger = resourceLower.includes('/events') && !resourceLower.includes('/messages')
+      // Calendar event start trigger - schedule delayed execution
+      if (isCalendarTrigger && triggerType === 'microsoft-outlook_trigger_calendar_event_start' && userId && triggerConfig) {
+        const eventId = change?.resourceData?.id
+
+        if (!workflowId) {
+          logger.warn('?s??,? Calendar start trigger missing workflowId, skipping')
+          continue
+        }
+
+        if (!eventId) {
+          logger.warn('?s??,? Calendar start trigger missing eventId, skipping')
+          continue
+        }
+
+        if (changeType === 'deleted') {
+          await cancelScheduledTrigger(workflowId, triggerNodeId, eventId)
+          logger.debug('?o. Cancelled scheduled calendar start trigger (event deleted)', {
+            workflowId,
+            eventId,
+            subscriptionId: subId
+          })
+          continue
+        }
+
+        try {
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-outlook')
+
+          const eventResponse = await fetch(
+            `https://graph.microsoft.com/v1.0/me/events/${eventId}?$select=id,subject,start,end,calendar,organizer,location`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          )
+
+          if (!eventResponse.ok) {
+            logger.warn('?s??,? Failed to fetch calendar event details, skipping schedule:', eventResponse.status)
+            continue
+          }
+
+          const event = await eventResponse.json()
+
+          // Apply calendar filter if configured
+          if (triggerConfig.calendarId) {
+            const eventCalendarId = event.calendar?.id || resource?.match(/\/calendars\/([^\/]+)\//)?.[1]
+            if (eventCalendarId && eventCalendarId !== triggerConfig.calendarId) {
+              await cancelScheduledTrigger(workflowId, triggerNodeId, eventId)
+              logger.debug('??-?,? Calendar start trigger skipped - not in configured calendar:', {
+                expected: triggerConfig.calendarId,
+                actual: eventCalendarId,
+                subscriptionId: subId
+              })
+              continue
+            }
+          }
+
+          const startTime = parseGraphDateTime(event.start)
+          if (!startTime) {
+            logger.warn('?s??,? Calendar start trigger missing start time, skipping')
+            continue
+          }
+
+          const minutesBefore = getMinutesBefore(triggerConfig)
+          const scheduledFor = new Date(startTime.getTime() - minutesBefore * 60 * 1000).toISOString()
+          const payload = buildCalendarStartPayload(event, scheduledFor, minutesBefore)
+
+          await upsertScheduledTrigger(workflowId, userId, triggerNodeId, eventId, scheduledFor, payload)
+
+          logger.debug('?o. Scheduled calendar event start trigger', {
+            workflowId,
+            eventId,
+            scheduledFor,
+            minutesBefore
+          })
+        } catch (calendarScheduleError) {
+          logger.error('??O Error scheduling calendar start trigger:', calendarScheduleError)
+        }
+
+        continue
+      }
+
+      // For Outlook calendar triggers, check calendar filter if configured
       if (isCalendarTrigger && userId && triggerConfig) {
         const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
 
@@ -998,6 +1157,70 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       const resource = notification?.resource || ''
       const resourceLower = resource.toLowerCase()
 
+      // Calendar event start trigger (test mode) - trigger immediately with scheduled metadata
+      if (resourceLower.includes('/events') && triggerType === 'microsoft-outlook_trigger_calendar_event_start') {
+        try {
+          const eventId = notification?.resourceData?.id
+          if (!eventId) {
+            logger.warn('dY? [Test Webhook] Missing calendar eventId, skipping')
+            continue
+          }
+
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-outlook')
+
+          const eventResponse = await fetch(
+            `https://graph.microsoft.com/v1.0/me/events/${eventId}?$select=id,subject,start,end,calendar,organizer,location`,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          )
+
+          if (!eventResponse.ok) {
+            logger.warn('dY? [Test Webhook] Failed to fetch calendar event details, skipping:', eventResponse.status)
+            continue
+          }
+
+          const event = await eventResponse.json()
+
+          if (triggerConfig.calendarId) {
+            const eventCalendarId = event.calendar?.id || resource?.match(/\/calendars\/([^\/]+)\//)?.[1]
+            if (eventCalendarId && eventCalendarId !== triggerConfig.calendarId) {
+              logger.debug('dY? [Test Webhook] Calendar start trigger skipped - not in configured calendar')
+              continue
+            }
+          }
+
+          const startTime = parseGraphDateTime(event.start)
+          if (!startTime) {
+            logger.warn('dY? [Test Webhook] Calendar start trigger missing start time, skipping')
+            continue
+          }
+
+          const minutesBefore = getMinutesBefore(triggerConfig)
+          const scheduledFor = new Date(startTime.getTime() - minutesBefore * 60 * 1000).toISOString()
+          const triggerData = buildCalendarStartPayload(event, scheduledFor, minutesBefore)
+
+          await supabase
+            .from('workflow_test_sessions')
+            .update({
+              status: 'trigger_received',
+              trigger_data: triggerData
+            })
+            .eq('id', testSessionId)
+
+          logger.debug(`dY? [Test Webhook] Calendar start trigger data stored for session ${testSessionId}`)
+          continue
+        } catch (calendarError) {
+          logger.error('dY? [Test Webhook] Error handling calendar start trigger:', calendarError)
+          continue
+        }
+      }
+
       // Apply the same filtering logic as production webhooks
       // For Outlook email triggers, fetch the email and apply filters
       const isEmailTrigger = resourceLower.includes('/messages')
@@ -1073,9 +1296,12 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               }
 
               // Check subject filter
-              if (filterConfig?.supportsSubject && triggerConfig.subject) {
+              const configSubjectRaw = typeof triggerConfig.subject === 'string'
+                ? triggerConfig.subject.trim()
+                : ''
+              if (filterConfig?.supportsSubject && configSubjectRaw) {
                 const emailSubject = (email.subject || '').toLowerCase().trim()
-                const configSubject = triggerConfig.subject.toLowerCase().trim()
+                const configSubject = configSubjectRaw.toLowerCase()
                 const isExactMatch = triggerConfig.subjectExactMatch !== false
 
                 if (isExactMatch) {

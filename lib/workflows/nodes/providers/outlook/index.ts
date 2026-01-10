@@ -384,75 +384,6 @@ const outlookTriggerEmailFlagged: NodeComponent = {
   ]
 }
 
-const outlookTriggerNewAttachment: NodeComponent = {
-  type: "microsoft-outlook_trigger_new_attachment",
-  title: "New Attachment",
-  description: "Triggers when a new email with attachments is received",
-  icon: Paperclip,
-  providerId: "microsoft-outlook",
-  category: "Communication",
-  isTrigger: true,
-  requiredScopes: ["Mail.Read"],
-  producesOutput: true,
-  supportsWebhook: true,
-  webhookConfig: {
-    method: "POST",
-    responseFormat: "json"
-  },
-  configSchema: [
-    {
-      name: "folder",
-      label: "Folder",
-      type: "select",
-      dynamic: "outlook_folders",
-      required: false,
-      loadOnMount: true,
-      placeholder: "Select folder (default: Inbox)",
-      description: "Monitor specific folder for emails with attachments"
-    },
-    {
-      name: "fileExtension",
-      label: "File Extension Filter",
-      type: "text",
-      required: false,
-      placeholder: "e.g., pdf, docx, xlsx (comma-separated)",
-      description: "Filter by specific file extensions"
-    }
-  ],
-  outputSchema: [
-    {
-      name: "id",
-      label: "Email ID",
-      type: "string",
-      description: "The unique ID of the email"
-    },
-    {
-      name: "from",
-      label: "From",
-      type: "object",
-      description: "The sender's information (name and email)"
-    },
-    {
-      name: "subject",
-      label: "Subject",
-      type: "string",
-      description: "The subject of the email"
-    },
-    {
-      name: "attachments",
-      label: "Attachments",
-      type: "array",
-      description: "An array of attachment objects with name, size, and contentType"
-    },
-    {
-      name: "receivedDateTime",
-      label: "Received At",
-      type: "string",
-      description: "The timestamp when the email was received"
-    }
-  ]
-}
-
 const outlookTriggerNewCalendarEvent: NodeComponent = {
   type: "microsoft-outlook_trigger_new_calendar_event",
   title: "New Calendar Event",
@@ -700,7 +631,7 @@ const outlookTriggerCalendarEventStart: NodeComponent = {
   isTrigger: true,
   requiredScopes: ["Calendars.Read"],
   producesOutput: true,
-  supportsWebhook: false,
+  supportsWebhook: true,
   configSchema: [
     {
       name: "calendarId",
@@ -1839,11 +1770,10 @@ const outlookActionGetAttachment: NodeComponent = {
 
 // Export all Microsoft Outlook nodes
 export const outlookNodes: NodeComponent[] = [
-  // Email Triggers (4)
+  // Email Triggers (3)
   outlookTriggerNewEmail,
   outlookTriggerEmailSent,
   outlookTriggerEmailFlagged,
-  outlookTriggerNewAttachment,
 
   // Calendar Triggers (5)
   outlookTriggerNewCalendarEvent,

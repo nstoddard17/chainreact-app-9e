@@ -21,8 +21,12 @@ interface Schedule {
   cron_expression: string
   timezone: string
   enabled: boolean
-  next_run: string | null
-  last_run: string | null
+  next_run_at: string | null
+  last_run_at: string | null
+  trigger_type?: string | null
+  event_id?: string | null
+  scheduled_for?: string | null
+  status?: string | null
 }
 
 interface ScheduleManagerProps {
@@ -91,11 +95,11 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
 
     try {
       if (editingSchedule) {
-        const { error } = await supabase.from("workflow_schedules").update(formData).eq("id", editingSchedule.id)
+        const { error } = await supabase.from("workflows_schedules").update(formData).eq("id", editingSchedule.id)
 
         if (error) throw error
       } else {
-        const { error } = await supabase.from("workflow_schedules").insert({
+        const { error } = await supabase.from("workflows_schedules").insert({
           workflow_id: workflowId,
           ...formData,
         })
@@ -127,7 +131,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
       const supabase = createClient()
 
       try {
-        const { error } = await supabase.from("workflow_schedules").delete().eq("id", id)
+      const { error } = await supabase.from("workflows_schedules").delete().eq("id", id)
 
         if (error) throw error
 
@@ -142,7 +146,7 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
     const supabase = createClient()
 
     try {
-      const { error } = await supabase.from("workflow_schedules").update({ enabled }).eq("id", id)
+      const { error } = await supabase.from("workflows_schedules").update({ enabled }).eq("id", id)
 
       if (error) throw error
 
@@ -254,21 +258,33 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
           </div>
         ) : (
           <div className="space-y-3">
-            {schedules.map((schedule) => (
+            {schedules.map((schedule) => {
+              const isEventSchedule = schedule.cron_expression === "event" || !!schedule.trigger_type
+              const nextRun = schedule.next_run_at || schedule.scheduled_for
+              const statusLabel = schedule.status ? schedule.status : schedule.enabled ? "active" : "disabled"
+              return (
               <div
                 key={schedule.id}
                 className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
               >
                 <div className="flex items-center space-x-3">
                   <Badge variant={schedule.enabled ? "default" : "secondary"}>
-                    {schedule.enabled ? "Active" : "Disabled"}
+                    {statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1)}
                   </Badge>
+                  {isEventSchedule && (
+                    <Badge variant="outline">Event</Badge>
+                  )}
                   <div>
-                    <div className="font-medium text-slate-900">{schedule.cron_expression}</div>
-                    <div className="text-sm text-slate-500">
-                      {schedule.timezone} • Next:{" "}
-                      {schedule.next_run ? new Date(schedule.next_run).toLocaleString() : "Not scheduled"}
+                    <div className="font-medium text-slate-900">
+                      {isEventSchedule ? (schedule.trigger_type || "Event trigger") : schedule.cron_expression}
                     </div>
+                    <div className="text-sm text-slate-500">
+                      {isEventSchedule ? "Event schedule" : schedule.timezone} • Next:{" "}
+                      {nextRun ? new Date(nextRun).toLocaleString() : "Not scheduled"}
+                    </div>
+                    {isEventSchedule && schedule.event_id && (
+                      <div className="text-xs text-slate-500">Event ID: {schedule.event_id}</div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -276,15 +292,17 @@ export default function ScheduleManager({ workflowId }: ScheduleManagerProps) {
                     checked={schedule.enabled}
                     onCheckedChange={(enabled) => toggleSchedule(schedule.id, enabled)}
                   />
-                  <Button variant="ghost" size="sm" onClick={() => handleEdit(schedule)}>
-                    <Edit className="w-4 h-4" />
-                  </Button>
+                  {!isEventSchedule && (
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(schedule)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => handleDelete(schedule.id)}>
                     <Trash2 className="w-4 h-4 text-red-600" />
                   </Button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </CardContent>
