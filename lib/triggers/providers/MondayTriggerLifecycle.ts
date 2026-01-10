@@ -78,8 +78,16 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     // Determine event type based on trigger type
     const event = this.getEventForTriggerType(triggerType)
 
-    // Build GraphQL mutation
-    const mutation = `
+    const mutation = columnId && event === 'change_column_value'
+      ? `
+      mutation($boardId: ID!, $url: String!, $event: WebhookEventType!, $columnId: String!) {
+        create_webhook(board_id: $boardId, url: $url, event: $event, config: { column_id: $columnId }) {
+          id
+          board_id
+        }
+      }
+    `
+      : `
       mutation($boardId: ID!, $url: String!, $event: WebhookEventType!) {
         create_webhook(board_id: $boardId, url: $url, event: $event) {
           id
@@ -99,10 +107,14 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
 
     const fullWebhookUrl = `${webhookUrl}?${queryParams.toString()}`
 
-    const variables = {
+    const variables: Record<string, string> = {
       boardId: boardId.toString(),
       url: fullWebhookUrl,
       event
+    }
+
+    if (columnId && event === 'change_column_value') {
+      variables.columnId = columnId.toString()
     }
 
     // Create webhook in Monday.com
