@@ -503,27 +503,35 @@ export class FlowRepository {
     const now = new Date().toISOString()
 
     // Convert Flow nodes to database records
-    const nodeRecords = nodes.map((node, index) => ({
-      id: node.id,
-      workflow_id: flowId,
-      user_id: userId || null,
-      node_type: node.type,
-      label: node.label,
-      description: node.description || null,
-      config: node.config,
-      position_x: (node.metadata as any)?.position?.x ?? 400,
-      position_y: (node.metadata as any)?.position?.y ?? (100 + index * 180),
-      is_trigger: (node.metadata as any)?.isTrigger ?? false,
-      provider_id: node.type.split(':')[0] || null,
-      display_order: index,
-      in_ports: node.inPorts,
-      out_ports: node.outPorts,
-      io_schema: node.io,
-      policy: node.policy,
-      cost_hint: node.costHint,
-      metadata: node.metadata || null,
-      updated_at: now,
-    }))
+    const nodeRecords = nodes.map((node, index) => {
+      // Get providerId from metadata (preferred) or extract from type as fallback
+      const metadataProviderId = (node.metadata as any)?.providerId
+      const extractedProviderId = node.type.includes('_')
+        ? node.type.split('_')[0]  // e.g., "microsoft-outlook" from "microsoft-outlook_trigger_new_email"
+        : (node.type.split(':')[0] || null)  // e.g., "provider" from "provider:action"
+
+      return {
+        id: node.id,
+        workflow_id: flowId,
+        user_id: userId || null,
+        node_type: node.type,
+        label: node.label,
+        description: node.description || null,
+        config: node.config,
+        position_x: (node.metadata as any)?.position?.x ?? 400,
+        position_y: (node.metadata as any)?.position?.y ?? (100 + index * 180),
+        is_trigger: (node.metadata as any)?.isTrigger ?? false,
+        provider_id: metadataProviderId || extractedProviderId,
+        display_order: index,
+        in_ports: node.inPorts,
+        out_ports: node.outPorts,
+        io_schema: node.io,
+        policy: node.policy,
+        cost_hint: node.costHint,
+        metadata: node.metadata || null,
+        updated_at: now,
+      }
+    })
 
     if (nodeRecords.length === 0) {
       // If no nodes, just delete all existing nodes for this workflow

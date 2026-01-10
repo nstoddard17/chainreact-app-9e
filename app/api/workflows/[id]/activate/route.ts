@@ -66,7 +66,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const [nodesResult, edgesResult] = await Promise.all([
       serviceClient
         .from('workflow_nodes')
-        .select('id, node_type, is_trigger, config')
+        .select('id, node_type, is_trigger, config, provider_id')
         .eq('workflow_id', resolvedParams.id),
       serviceClient
         .from('workflow_edges')
@@ -74,13 +74,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         .eq('workflow_id', resolvedParams.id)
     ])
 
-    // Convert to format expected by validation logic
+    // Convert to format expected by validation logic and TriggerLifecycleManager
     const nodes = (nodesResult.data || []).map((n: any) => ({
       id: n.id,
       data: {
         type: n.node_type,
         isTrigger: n.is_trigger,
-        config: n.config || {}
+        config: n.config || {},
+        providerId: n.provider_id
       }
     }))
     const connections = (edgesResult.data || []).map((e: any) => ({

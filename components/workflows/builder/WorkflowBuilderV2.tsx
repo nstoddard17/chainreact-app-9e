@@ -3873,6 +3873,23 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
         testSessionIdRef.current = triggerResult.testSessionId
 
+        // Restart the countdown timer for the streaming phase (actual waiting for trigger)
+        // The previous interval was cleared after the first API call, so we need a fresh timer
+        const streamStartTime = Date.now()
+        timerInterval = setInterval(() => {
+          if (abortController.signal.aborted) {
+            if (timerInterval) clearInterval(timerInterval)
+            return
+          }
+          const elapsed = Date.now() - streamStartTime
+          const remaining = Math.max(0, Math.ceil((timeout - elapsed) / 1000))
+          updateListeningTime(remaining)
+
+          if (remaining <= 0) {
+            if (timerInterval) clearInterval(timerInterval)
+          }
+        }, 1000)
+
         const streamUrl = `/api/workflows/test-trigger/stream?sessionId=${encodeURIComponent(triggerResult.testSessionId)}&workflowId=${encodeURIComponent(flowId)}&timeoutMs=${timeout}`
         const streamResponse = await fetch(streamUrl, { signal: abortController.signal })
 
@@ -3918,6 +3935,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
               }
 
               if (event.type === 'timeout') {
+                // Clean up the timer interval
+                if (timerInterval) {
+                  clearInterval(timerInterval)
+                  timerInterval = null
+                }
                 if (isMountedRef.current) {
                   finishTestFlow('cancelled', 'No event received within timeout')
                   cleanupTestTrigger()
@@ -3941,6 +3963,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           if (triggerReceived) {
             break
           }
+        }
+
+        // Clean up the timer now that trigger listening is done
+        if (timerInterval) {
+          clearInterval(timerInterval)
+          timerInterval = null
         }
 
         if (!triggerReceived) {

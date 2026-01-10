@@ -306,6 +306,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         metadata: {
           position: node.position || { x: 400, y: 100 + index * 180 },
           isTrigger: Boolean(node.data?.isTrigger),
+          providerId: node.data?.providerId,
         },
       }))
 

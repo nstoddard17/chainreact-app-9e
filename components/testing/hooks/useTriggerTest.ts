@@ -93,6 +93,7 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
 
   // Refs for cleanup
   const abortControllerRef = useRef<AbortController | null>(null)
+  const cancelledRef = useRef(false)
   const isMountedRef = useRef(true)
 
   // Track mount state
@@ -170,6 +171,7 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
 
   // Stop test and cleanup
   const stopTest = useCallback(async () => {
+    cancelledRef.current = true
     addLog('info', 'API', 'Stopping trigger test', { testSessionId, workflowId })
 
     // Abort any ongoing SSE connection
@@ -205,6 +207,7 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
     }
 
     if (isMountedRef.current) {
+      setError(null)
       updateStatus('stopped')
       setIsLoading(false)
     }
@@ -224,6 +227,7 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
     setIsLoading(true)
     updateStatus('starting')
     clearLogs()
+    cancelledRef.current = false
 
     addLog('info', 'API', 'Starting trigger test', {
       nodeId,
@@ -331,6 +335,15 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
           try {
             const event = JSON.parse(line.slice(6))
 
+            if (cancelledRef.current) {
+              addLog('info', 'SSE', 'Ignoring event after cancellation', {
+                type: event.type,
+                sessionId: event.sessionId
+              })
+              reader.cancel()
+              return
+            }
+
             addLog('debug', 'SSE', `Event received: ${event.type}`, {
               sessionId: event.sessionId,
               timestamp: event.timestamp,
@@ -406,10 +419,12 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
 
     } catch (err: any) {
       // Handle abort separately
-      if (err.name === 'AbortError') {
+      if (err.name === 'AbortError' || cancelledRef.current) {
         addLog('info', 'API', 'Test aborted by user')
         if (isMountedRef.current) {
           updateStatus('stopped')
+          setError(null)
+          setIsLoading(false)
         }
         return
       }
