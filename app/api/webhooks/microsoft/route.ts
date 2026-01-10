@@ -701,7 +701,6 @@ async function processNotifications(
                     continue
                   }
                 }
-              }
 
               // Check hasAttachment filter for general email triggers
               if (filterConfig?.supportsAttachment && triggerConfig.hasAttachment && triggerConfig.hasAttachment !== 'any') {
@@ -718,7 +717,7 @@ async function processNotifications(
                 }
               }
 
-          logger.debug('✅ Email matches all filters, proceeding with workflow execution')
+              logger.debug('✅ Email matches all filters, proceeding with workflow execution')
         } catch (filterError) {
           logger.error('❌ Error checking email filters, skipping execution:', filterError)
           continue
