@@ -338,6 +338,7 @@ export function FlowV2BuilderContent({
         {onAddNodeAfter && !disablePhantomOverlay && (
           <PhantomEdgeOverlay
             nodes={enrichedNodes}
+            edges={edges}
             onAddNode={(afterNodeId) => {
               if (onAddNodeAfter) {
                 onAddNodeAfter(afterNodeId)

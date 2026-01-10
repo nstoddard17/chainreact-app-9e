@@ -88,10 +88,16 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       }
     `
 
-    // Build webhook URL with test session ID if in test mode
-    const fullWebhookUrl = testMode
-      ? `${webhookUrl}?workflowId=${workflowId}&testSessionId=${testMode.testSessionId}`
-      : `${webhookUrl}?workflowId=${workflowId}`
+    const queryParams = new URLSearchParams({
+      workflowId,
+      nodeId
+    })
+
+    if (testMode?.testSessionId) {
+      queryParams.set('testSessionId', testMode.testSessionId)
+    }
+
+    const fullWebhookUrl = `${webhookUrl}?${queryParams.toString()}`
 
     const variables = {
       boardId: boardId.toString(),
@@ -323,7 +329,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
    * Get webhook callback URL
    */
   private getWebhookUrl(): string {
-    return getWebhookUrl('/api/workflow/monday')
+    return getWebhookUrl('/api/webhooks/monday')
   }
 
   /**

@@ -10,6 +10,7 @@ const DEFAULT_NODE_WIDTH = 360 // Match placeholder node width (w-[360px])
 
 interface PhantomEdgeOverlayProps {
   nodes: any[]
+  edges?: any[]
   onAddNode: (afterNodeId: string | null) => void
 }
 
@@ -19,7 +20,7 @@ interface PhantomEdgeOverlayProps {
  * Uses ReactFlow Panel to position a vertical dashed line in flow coordinates
  * Plus button at the end of the line, matching FlowEdge styling
  */
-export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps) {
+export function PhantomEdgeOverlay({ nodes, edges = [], onAddNode }: PhantomEdgeOverlayProps) {
   const lastNodeInfo = useMemo(() => {
     if (!nodes || nodes.length === 0) {
       return null
@@ -57,7 +58,16 @@ export function PhantomEdgeOverlay({ nodes, onAddNode }: PhantomEdgeOverlayProps
     }
   }, [nodes])
 
-  if (!lastNodeInfo) {
+  // Check if the last node already has an outgoing edge
+  // If it does, FlowEdges will render the + button on that edge, so we don't need to render one here
+  const lastNodeHasOutgoingEdge = useMemo(() => {
+    if (!lastNodeInfo || !edges || edges.length === 0) {
+      return false
+    }
+    return edges.some((edge: any) => edge.source === lastNodeInfo.id)
+  }, [lastNodeInfo, edges])
+
+  if (!lastNodeInfo || lastNodeHasOutgoingEdge) {
     return null
   }
 
