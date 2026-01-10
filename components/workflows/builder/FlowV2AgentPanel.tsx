@@ -1549,14 +1549,25 @@ export function FlowV2AgentPanel({
                       </div>
 
                       {buildMachine.state === BuildState.PLAN_READY && (() => {
-                        // Check if any selected provider is not connected
+                        // Check if any selected provider is not connected using LIVE integration status
                         const lastMsg = agentMessages.filter(m => m && m.role === 'assistant').pop()
                         const meta = (lastMsg as any)?.meta ?? {}
-                        const allProviders = meta.allSelectedProviders || []
+                        const allSelectedProviders = meta.allSelectedProviders || []
                         const singleProvider = meta.autoSelectedProvider?.provider
 
-                        const hasDisconnectedProvider = allProviders.some((p: any) => !p.provider.isConnected) ||
-                          (singleProvider && !singleProvider.isConnected)
+                        // Get provider IDs from the message metadata
+                        const providerIds = [
+                          ...allSelectedProviders.map((p: any) => p.provider?.id),
+                          singleProvider?.id
+                        ].filter(Boolean)
+
+                        // Check live integration status from the store
+                        const hasDisconnectedProvider = providerIds.some((providerId: string) => {
+                          const integration = integrations.find(
+                            i => i.id.toLowerCase() === providerId.toLowerCase() && i.isConnected
+                          )
+                          return !integration
+                        })
 
                         return (
                           <div className="space-y-2">

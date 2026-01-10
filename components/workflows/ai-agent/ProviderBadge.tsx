@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, Check, ArrowRight, AlertCircle } from 'lucide-react'
 import type { ProviderOption } from '@/lib/workflows/ai-agent/providerDisambiguation'
+import { useIntegrationStore } from '@/stores/integrationStore'
 
 /**
  * Maps provider IDs to their actual icon filenames
@@ -13,6 +14,24 @@ function getProviderIconPath(providerId: string): string {
     'yahoo-mail': 'yahoo-mail',
   }
   return `/integrations/${iconMap[providerId] || providerId}.svg`
+}
+
+/**
+ * Helper to check if a status represents a connected/usable integration
+ * Matches the logic in providerDisambiguation.ts isConnectedStatus()
+ */
+function isConnectedStatus(status?: string): boolean {
+  if (!status) return false
+  const v = status.toLowerCase()
+  // Include 'expired' as connected because user just needs to reauthorize
+  // The OAuth flow will handle token refresh automatically
+  return v === 'connected' ||
+         v === 'authorized' ||
+         v === 'active' ||
+         v === 'valid' ||
+         v === 'ok' ||
+         v === 'ready' ||
+         v === 'expired'
 }
 
 interface ProviderBadgeProps {
@@ -32,6 +51,10 @@ export function ProviderBadge({
 }: ProviderBadgeProps) {
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [, forceUpdate] = useState({})
+
+  // Get live integration status from the store
+  const { integrations, fetchIntegrations, getIntegrationByProvider } = useIntegrationStore()
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -47,9 +70,47 @@ export function ProviderBadge({
     }
   }, [showDropdown])
 
-  const otherProviders = allProviders.filter(p => p.id !== selectedProvider.id)
+  // Fetch integrations on mount to ensure we have latest status
+  useEffect(() => {
+    // Fetch integrations to get current status - force refresh to ensure fresh data
+    fetchIntegrations(true)
+  }, [fetchIntegrations])
 
-  const isDisconnected = !selectedProvider.isConnected
+  // Listen for integration connected events to update status in real-time
+  useEffect(() => {
+    const handleIntegrationConnected = async (event: CustomEvent) => {
+      // Force refresh integrations to get latest status
+      await fetchIntegrations(true)
+      // Force re-render to pick up new status
+      forceUpdate({})
+    }
+
+    window.addEventListener('integration-connected', handleIntegrationConnected as EventListener)
+    return () => {
+      window.removeEventListener('integration-connected', handleIntegrationConnected as EventListener)
+    }
+  }, [fetchIntegrations])
+
+  // Compute live connection status for all providers
+  const providersWithLiveStatus = useMemo(() => {
+    return allProviders.map(provider => {
+      const integration = getIntegrationByProvider(provider.id)
+      return {
+        ...provider,
+        isConnected: isConnectedStatus(integration?.status)
+      }
+    })
+  }, [allProviders, integrations, getIntegrationByProvider])
+
+  // Get the live selected provider status
+  const liveSelectedProvider = providersWithLiveStatus.find(p => p.id === selectedProvider.id) || {
+    ...selectedProvider,
+    isConnected: isConnectedStatus(getIntegrationByProvider(selectedProvider.id)?.status)
+  }
+
+  const otherProviders = providersWithLiveStatus.filter(p => p.id !== selectedProvider.id)
+
+  const isDisconnected = !liveSelectedProvider.isConnected
 
   return (
     <div className="relative inline-block w-full" ref={dropdownRef}>
