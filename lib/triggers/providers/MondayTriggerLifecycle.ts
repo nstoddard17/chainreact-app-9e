@@ -136,6 +136,13 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     const data = await response.json()
 
     if (data.errors && data.errors.length > 0) {
+      logger.error('❌ Monday.com webhook creation GraphQL errors', {
+        errors: data.errors,
+        triggerType,
+        boardId,
+        columnId,
+        event
+      })
       const errorMessages = data.errors.map((e: any) => e.message).join(', ')
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
