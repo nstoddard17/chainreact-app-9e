@@ -76,12 +76,21 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Determine event type based on trigger type
-    const event = this.getEventForTriggerType(triggerType)
+    // If columnId is specified, use change_specific_column_value, otherwise use default event
+    const event = columnId && triggerType === 'monday_trigger_column_changed'
+      ? 'change_specific_column_value'
+      : this.getEventForTriggerType(triggerType)
 
-    const mutation = columnId && event === 'change_column_value'
+    // Monday.com requires config as a JSON string, not a GraphQL object
+    // For change_specific_column_value, config should be: {"columnId": "column_id"}
+    const configJson = columnId && event === 'change_specific_column_value'
+      ? JSON.stringify({ columnId: columnId.toString() })
+      : null
+
+    const mutation = configJson
       ? `
-      mutation($boardId: ID!, $url: String!, $event: WebhookEventType!, $columnId: String!) {
-        create_webhook(board_id: $boardId, url: $url, event: $event, config: { column_id: $columnId }) {
+      mutation($boardId: ID!, $url: String!, $event: WebhookEventType!, $config: JSON!) {
+        create_webhook(board_id: $boardId, url: $url, event: $event, config: $config) {
           id
           board_id
         }
@@ -113,8 +122,8 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       event
     }
 
-    if (columnId && event === 'change_column_value') {
-      variables.columnId = columnId.toString()
+    if (configJson) {
+      variables.config = configJson
     }
 
     // Create webhook in Monday.com
@@ -123,7 +132,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'API-Version': '2024-01'
+        'API-Version': '2024-10'
       },
       body: JSON.stringify({ query: mutation, variables })
     })
@@ -283,7 +292,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
-            'API-Version': '2024-01'
+            'API-Version': '2024-10'
           },
           body: JSON.stringify({ query: mutation, variables })
         })
