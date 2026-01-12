@@ -7,7 +7,7 @@
  * Contains chat interface, staged chips, plan list, and build controls.
  */
 
-import React, { useState, useEffect, useCallback, useRef } from "react"
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -168,6 +168,10 @@ export function FlowV2AgentPanel({
   // Track which nodes have completed their configuration questions (from nodeConfigQuestions.ts)
   const [completedConfigQuestions, setCompletedConfigQuestions] = useState<Record<string, boolean>>({})
 
+  // Track which nodes have the connection dropdown expanded (for changing connection)
+  // When collapsed (false), shows compact "Using: account@example.com" indicator
+  const [expandedConnectionNodes, setExpandedConnectionNodes] = useState<Record<string, boolean>>({})
+
   // Track which nodes are currently loading to prevent duplicate requests (infinite loop prevention)
   const loadingNodesRef = useRef<Set<string>>(new Set())
 
@@ -188,6 +192,14 @@ export function FlowV2AgentPanel({
   useEffect(() => {
     const handleIntegrationEvent = async () => {
       console.log('[FlowV2AgentPanel] 🔄 Integration event received, refreshing integrations')
+      // Clear ALL expired-related state when user reconnects
+      // This is necessary because:
+      // 1. The new connection might have a different integrationId
+      // 2. The old connectionId in expiredConnections won't match the new integration
+      // 3. We need to let the provider be re-validated with fresh state
+      validationExpiredAtRef.current = {}
+      validatedProvidersRef.current.clear()
+      setExpiredConnections({})
       await refreshIntegrations()
     }
 
@@ -445,20 +457,48 @@ export function FlowV2AgentPanel({
   }
 
   // Helper: Get connected integrations for a provider
-  const getProviderConnections = (providerId: string) => {
+  // Wrapped in useCallback to prevent unnecessary re-renders and useEffect re-triggers
+  const getProviderConnections = useCallback((providerId: string) => {
     return integrations.filter(int =>
       int.id.toLowerCase() === providerId.toLowerCase() && int.isConnected
     )
-  }
+  }, [integrations])
 
-  // Helper: Check if a provider has any expired connections (detected via proactive validation)
+  // Helper: Check if a provider has any expired connections
+  // Checks both: 1) expiredConnections state (detected via validation API calls)
+  //              2) integration status in database (already expired before page load)
   const isProviderExpired = (providerId: string): boolean => {
-    const connections = getProviderConnections(providerId)
-    // Check if any of this provider's connections are marked as expired
-    return connections.some(conn => {
+    // Find all integrations for this provider (including expired ones that are no longer "connected")
+    const providerIntegrations = integrations.filter(int =>
+      int.id.toLowerCase() === providerId.toLowerCase()
+    )
+
+    // Check if any of this provider's connections are expired
+    const result = providerIntegrations.some(conn => {
       const connectionId = conn.integrationId || conn.id
-      return expiredConnections[connectionId] === true
+      // Check 1: Expired via validation API call (stored in expiredConnections state)
+      if (expiredConnections[connectionId] === true) {
+        console.log(`[isProviderExpired] ${providerId} expired via validation (connectionId: ${connectionId})`)
+        return true
+      }
+      // Check 2: Already expired in database (status field from useIntegrations)
+      // This handles tokens that were already expired before the page loaded
+      // Check for various expired status values (case-insensitive)
+      const status = (conn.status || '').toLowerCase()
+      if (status === 'expired' || status === 'needs_reauthorization' || status === 'unauthorized' || status === 'invalid') {
+        console.log(`[isProviderExpired] ${providerId} expired via status: ${conn.status}`)
+        return true
+      }
+      // Check 3: Has integrationId but isConnected is false (indicates expired/disconnected)
+      if (conn.integrationId && !conn.isConnected) {
+        console.log(`[isProviderExpired] ${providerId} has integrationId but isConnected=false, status: ${conn.status}`)
+        return true
+      }
+      return false
     })
+
+    console.log(`[isProviderExpired] ${providerId} result: ${result}, integrations found: ${providerIntegrations.length}`)
+    return result
   }
 
   // Helper: Get account-specific display name for a connection
@@ -480,9 +520,17 @@ export function FlowV2AgentPanel({
     console.log('[getConnectionDisplayName] extracted accountName:', accountName)
     console.log('[getConnectionDisplayName] extracted teamName:', teamName)
 
-    // For Slack: show team name
-    if (providerId === 'slack' && teamName) {
-      return `${teamName} (Slack)`
+    // For Slack: show email if available, with team name for context
+    if (providerId === 'slack') {
+      if (email && teamName) {
+        return `${email} (${teamName})`
+      }
+      if (email) {
+        return email
+      }
+      if (teamName) {
+        return `${teamName} (Slack)`
+      }
     }
 
     // For Gmail/Google: show email
@@ -768,6 +816,8 @@ export function FlowV2AgentPanel({
             if (errorData.details?.needsReconnection || errorData.details?.currentStatus === 'expired') {
               // Token expired - mark connection as expired
               console.log(`[FlowV2AgentPanel] Connection ${connectionId} is expired - refreshing integrations`)
+              // Record timestamp to prevent useEffect from clearing this immediately
+              validationExpiredAtRef.current[connectionId] = Date.now()
               setExpiredConnections(prev => ({ ...prev, [connectionId]: true }))
               // Refresh integrations to get updated status from database
               refreshIntegrations().catch(err => console.error('Failed to refresh integrations:', err))
@@ -902,18 +952,32 @@ export function FlowV2AgentPanel({
   // Validate provider tokens when plan becomes ready
   // This proactively checks if tokens are still valid before the user tries to build
   const validatedProvidersRef = useRef<Set<string>>(new Set())
+  const isValidatingRef = useRef<boolean>(false)
+  // Track when validation detected expired connections - prevents useEffect from clearing them prematurely
+  const validationExpiredAtRef = useRef<Record<string, number>>({})
+
+  // Create a stable string key from provider IDs to avoid re-running effect when plan array reference changes
+  const planProviderIdsKey = useMemo(() => {
+    const planNodes = buildMachine.plan || []
+    const providerIds = [...new Set(planNodes
+      .map(node => node.providerId)
+      .filter(Boolean)
+    )].sort().join(',')
+    return providerIds
+  }, [buildMachine.plan])
+
   useEffect(() => {
     if (buildMachine.state !== BuildState.PLAN_READY) {
       return
     }
 
-    const planNodes = buildMachine.plan || []
+    // Prevent concurrent validation runs
+    if (isValidatingRef.current) {
+      return
+    }
 
-    // Get unique provider IDs that need validation
-    const providerIds = [...new Set(planNodes
-      .map(node => node.providerId)
-      .filter(Boolean)
-    )] as string[]
+    // Parse provider IDs from the stable key
+    const providerIds = planProviderIdsKey ? planProviderIdsKey.split(',').filter(Boolean) : []
 
     // Filter to only providers not yet validated
     const providersToValidate = providerIds.filter(id => !validatedProvidersRef.current.has(id))
@@ -923,18 +987,21 @@ export function FlowV2AgentPanel({
       return
     }
 
+    // Mark ALL providers as validated IMMEDIATELY to prevent re-runs
+    // This must happen synchronously before any async operations
+    providersToValidate.forEach(id => validatedProvidersRef.current.add(id))
+    isValidatingRef.current = true
+
     // Start validation - show loading state
     setIsValidatingProviders(true)
     console.log(`[FlowV2AgentPanel] 🔍 Starting validation for ${providersToValidate.length} providers:`, providersToValidate)
 
     // Validate all providers in parallel and wait for completion
     const validateProvider = async (providerId: string): Promise<void> => {
-      // Mark as validated FIRST to prevent infinite loops
-      // Even if there's no connection, we've "processed" this provider
-      validatedProvidersRef.current.add(providerId)
-
-      // Get the connection for this provider
-      const providerConnections = getProviderConnections(providerId)
+      // Get the connection for this provider - use integrations directly to avoid stale closure
+      const providerConnections = integrations.filter(int =>
+        int.id.toLowerCase() === providerId.toLowerCase() && int.isConnected
+      )
       if (providerConnections.length === 0) {
         console.log(`[FlowV2AgentPanel] ⏭️ No connection for ${providerId}, skipping validation`)
         return // No connection to validate
@@ -965,6 +1032,8 @@ export function FlowV2AgentPanel({
           // Check if token is expired
           if (errorData.details?.needsReconnection || errorData.details?.currentStatus === 'expired' || response.status === 401) {
             console.log(`[FlowV2AgentPanel] ⚠️ ${providerId} token is expired`)
+            // Record timestamp to prevent useEffect from clearing this immediately
+            validationExpiredAtRef.current[connectionId] = Date.now()
             setExpiredConnections(prev => ({ ...prev, [connectionId]: true }))
           }
         } else {
@@ -985,19 +1054,39 @@ export function FlowV2AgentPanel({
       .catch(err => console.error('Failed to refresh integrations:', err))
       .finally(() => {
         setIsValidatingProviders(false)
+        isValidatingRef.current = false
       })
-  }, [buildMachine.state, buildMachine.plan, getProviderConnections, refreshIntegrations])
+  // Use stable dependencies only - planProviderIdsKey is a string that only changes when actual provider IDs change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildMachine.state, planProviderIdsKey])
 
   // Clear expired status when integrations update and provider becomes connected
   // This handles the case where user reconnects via OAuth
   useEffect(() => {
     if (Object.keys(expiredConnections).length === 0) return
 
+    // Don't clear expired status while validation is in progress
+    // The validation may have just set the expired flag, and we shouldn't immediately clear it
+    // based on stale database status
+    if (isValidatingRef.current) {
+      console.log(`[FlowV2AgentPanel] ⏸️ Skipping expired status clear while validation in progress`)
+      return
+    }
+
     // For each expired connection, check if it's now connected
     const newExpiredConnections = { ...expiredConnections }
     let hasChanges = false
+    const now = Date.now()
 
     Object.keys(expiredConnections).forEach(connectionId => {
+      // Don't clear expired status if it was recently detected by validation (within last 5 seconds)
+      // This prevents race condition where validation detects expired but database hasn't updated yet
+      const expiredAt = validationExpiredAtRef.current[connectionId]
+      if (expiredAt && (now - expiredAt) < 5000) {
+        console.log(`[FlowV2AgentPanel] ⏸️ Skipping clear for ${connectionId} - validation detected expired ${now - expiredAt}ms ago`)
+        return
+      }
+
       // Find the integration with this connectionId
       const integration = integrations.find(i => (i.integrationId || i.id) === connectionId)
       if (integration && integration.isConnected) {
@@ -1005,6 +1094,9 @@ export function FlowV2AgentPanel({
         delete newExpiredConnections[connectionId]
         hasChanges = true
         console.log(`[FlowV2AgentPanel] ✅ Cleared expired status for ${integration.id} (connection ${connectionId})`)
+
+        // Also clear the validation timestamp
+        delete validationExpiredAtRef.current[connectionId]
 
         // Also clear from validated providers so it can be re-validated if needed
         validatedProvidersRef.current.delete(integration.id)
@@ -1468,163 +1560,185 @@ export function FlowV2AgentPanel({
                                         // Determine if connection is needed and if it's been set
                                         const connectionIsSet = !requiresConnection || !!defaultConnectionValue
 
-                                        // If node has config questions, questions not completed, AND connection is already set
-                                        // Show NodeConfigurationCard (questions need connection for dynamic options)
-                                        if (hasConfigQuestionsForNode && !configQuestionsCompleted && connectionIsSet && onNodeConfigComplete && onNodeConfigSkip) {
-                                          // Create a loadDynamicOptions function for the NodeConfigurationCard
-                                          const loadDynamicOptionsForQuestions = async (optionType: string): Promise<Array<{value: string, label: string}>> => {
-                                            if (!defaultConnectionValue || !planNode.providerId) return []
+                                        // Create a loadDynamicOptions function for the NodeConfigurationCard (if needed)
+                                        const loadDynamicOptionsForQuestions = async (optionType: string): Promise<Array<{value: string, label: string}>> => {
+                                          if (!defaultConnectionValue || !planNode.providerId) return []
 
-                                            try {
-                                              // Use optionType directly as the dataType
-                                              // The API expects full dataType like 'slack_channels', 'gmail_labels', etc.
-                                              const response = await fetch(`/api/integrations/${planNode.providerId}/data`, {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({
-                                                  integrationId: defaultConnectionValue,
-                                                  dataType: optionType,
-                                                  options: {}
-                                                })
+                                          try {
+                                            // Use optionType directly as the dataType
+                                            // The API expects full dataType like 'slack_channels', 'gmail_labels', etc.
+                                            const response = await fetch(`/api/integrations/${planNode.providerId}/data`, {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({
+                                                integrationId: defaultConnectionValue,
+                                                dataType: optionType,
+                                                options: {}
                                               })
+                                            })
 
-                                              if (!response.ok) return []
+                                            if (!response.ok) return []
 
-                                              const json = await response.json()
-                                              // Unwrap the response - API returns { data: [...], success: true }
-                                              const data = json.data || json
-                                              // Transform API response to option format
-                                              if (Array.isArray(data)) {
-                                                return data.map((item: any) => ({
-                                                  value: item.id || item.value || String(item),
-                                                  label: item.name || item.label || item.title || String(item)
-                                                }))
-                                              }
-                                              return []
-                                            } catch (error) {
-                                              console.error('Failed to load dynamic options:', error)
-                                              return []
+                                            const json = await response.json()
+                                            // Unwrap the response - API returns { data: [...], success: true }
+                                            const data = json.data || json
+                                            // Transform API response to option format
+                                            if (Array.isArray(data)) {
+                                              return data.map((item: any) => ({
+                                                value: item.id || item.value || String(item),
+                                                label: item.name || item.label || item.title || String(item)
+                                              }))
                                             }
+                                            return []
+                                          } catch (error) {
+                                            console.error('Failed to load dynamic options:', error)
+                                            return []
                                           }
-
-                                          return (
-                                            <div className="w-full mt-4 border-t border-border pt-4">
-                                              <NodeConfigurationCard
-                                                nodeType={planNode.nodeType}
-                                                definition={configDefinition}
-                                                loadDynamicOptions={loadDynamicOptionsForQuestions}
-                                                onComplete={(config) => {
-                                                  // Mark questions as completed for this node
-                                                  setCompletedConfigQuestions(prev => ({
-                                                    ...prev,
-                                                    [planNode.id]: true
-                                                  }))
-                                                  // Apply the config answers
-                                                  Object.entries(config).forEach(([key, value]) => {
-                                                    onNodeConfigChange(planNode.id, key, value)
-                                                  })
-                                                  onNodeConfigComplete(planNode.nodeType, config as Record<string, any>)
-                                                }}
-                                                onSkip={() => {
-                                                  // Mark questions as completed (skipped)
-                                                  setCompletedConfigQuestions(prev => ({
-                                                    ...prev,
-                                                    [planNode.id]: true
-                                                  }))
-                                                  onNodeConfigSkip(planNode.nodeType)
-                                                }}
-                                              />
-                                            </div>
-                                          )
                                         }
 
-                                        // Show inline configuration (connection + required fields)
+                                        // Show inline configuration (connection + required fields FIRST, then UX questions)
                                         // If connection is not set, show connection first
                                         // If connection is set but questions not completed, they'll be shown above
+                                        // Determine if we should show compact connection view
+                                        // Show compact view when: connection is auto-selected AND user hasn't clicked to expand
+                                        const selectedConnection = providerConnections.find(
+                                          conn => (conn.integrationId || conn.id) === defaultConnectionValue
+                                        )
+                                        const showCompactConnection = defaultConnectionValue &&
+                                          selectedConnection &&
+                                          !expandedConnectionNodes[planNode.id] &&
+                                          !expiredConnections[defaultConnectionValue]
+
                                         return (
                                           <div className="w-full mt-4 space-y-3 border-t border-border pt-4">
                                             {requiresConnection && (
                                               <div className="space-y-2">
-                                                <p className="text-sm text-muted-foreground">
-                                                  {defaultConnectionValue && providerConnections.length === 1
-                                                    ? `Using your ${getProviderDisplayName(planNode.providerId || '')} connection`
-                                                    : "Let's connect the service first — pick a saved connection or make a new one"}
-                                                </p>
-
-                                                <div className="space-y-2">
-                                                  <label className="text-xs font-medium text-foreground">
-                                                    Your {getProviderDisplayName(planNode.providerId || '')} connection
-                                                  </label>
-                                                  {/* Dropdown and Connect button in same row */}
-                                                  <div className="flex gap-2">
-                                                    <select
-                                                      className={`flex-1 px-3 py-2 text-sm border rounded-md bg-background ${
-                                                        fieldErrors[planNode.id]?.some(err => err.toLowerCase().includes('connection'))
-                                                          ? 'border-red-500 focus:border-red-600 focus:ring-red-500'
-                                                          : 'border-input'
-                                                      }`}
-                                                      value={defaultConnectionValue}
-                                                      onChange={(e) => handleFieldChange(planNode.id, 'connection', e.target.value)}
-                                                    >
-                                                      <option value="">Select an option...</option>
-                                                      {providerConnections.map(conn => (
-                                                        <option key={conn.integrationId || conn.id} value={conn.integrationId || conn.id}>
-                                                          {getConnectionDisplayName(conn, planNode.providerId || '')}
-                                                        </option>
-                                                      ))}
-                                                    </select>
+                                                {showCompactConnection ? (
+                                                  // Compact connection view - shows when connection is already set
+                                                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
+                                                    <div className="flex items-center gap-2">
+                                                      <img
+                                                        src={getProviderIconPath(planNode.providerId || '')}
+                                                        alt={planNode.providerId || ''}
+                                                        className="w-5 h-5"
+                                                      />
+                                                      <div>
+                                                        <p className="text-sm font-medium text-foreground">
+                                                          {getConnectionDisplayName(selectedConnection, planNode.providerId || '')}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                          Connected account
+                                                        </p>
+                                                      </div>
+                                                    </div>
                                                     <Button
-                                                      variant="primary"
+                                                      variant="ghost"
                                                       size="sm"
-                                                      className="whitespace-nowrap"
-                                                      onClick={() => {
-                                                        handleConnectIntegration(planNode.providerId || '', planNode.id)
-                                                      }}
+                                                      className="text-xs text-muted-foreground hover:text-foreground"
+                                                      onClick={() => setExpandedConnectionNodes(prev => ({
+                                                        ...prev,
+                                                        [planNode.id]: true
+                                                      }))}
                                                     >
-                                                      + Connect
+                                                      Change
                                                     </Button>
                                                   </div>
+                                                ) : (
+                                                  // Full connection selection view
+                                                  <>
+                                                    <p className="text-sm text-muted-foreground">
+                                                      {!defaultConnectionValue
+                                                        ? "Let's connect the service first — pick a saved connection or make a new one"
+                                                        : expandedConnectionNodes[planNode.id]
+                                                          ? "Select a different connection:"
+                                                          : `Using your ${getProviderDisplayName(planNode.providerId || '')} connection`}
+                                                    </p>
 
-                                                  {/* Duplicate account message */}
-                                                  {duplicateMessages[planNode.id]?.show && (
-                                                    <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-md">
-                                                      <p className="text-xs text-yellow-800">
-                                                        This account is already connected as <span className="font-medium">{duplicateMessages[planNode.id].connectionName}</span>
-                                                      </p>
-                                                    </div>
-                                                  )}
-
-                                                  {/* Expired connection warning */}
-                                                  {defaultConnectionValue && expiredConnections[defaultConnectionValue] && (
-                                                    <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md">
-                                                      <div className="flex items-start gap-2">
-                                                        <div className="flex-1">
-                                                          <p className="text-xs font-medium text-red-800">
-                                                            Connection Expired
-                                                          </p>
-                                                          <p className="text-xs text-red-700 mt-1">
-                                                            This {getProviderDisplayName(planNode.providerId || '')} account token has expired. Please reconnect to continue.
-                                                          </p>
-                                                        </div>
+                                                    <div className="space-y-2">
+                                                      <label className="text-xs font-medium text-foreground">
+                                                        Your {getProviderDisplayName(planNode.providerId || '')} connection
+                                                      </label>
+                                                      {/* Dropdown and Connect button in same row */}
+                                                      <div className="flex gap-2">
+                                                        <select
+                                                          className={`flex-1 px-3 py-2 text-sm border rounded-md bg-background ${
+                                                            fieldErrors[planNode.id]?.some(err => err.toLowerCase().includes('connection'))
+                                                              ? 'border-red-500 focus:border-red-600 focus:ring-red-500'
+                                                              : 'border-input'
+                                                          }`}
+                                                          value={defaultConnectionValue}
+                                                          onChange={(e) => {
+                                                            handleFieldChange(planNode.id, 'connection', e.target.value)
+                                                            // Collapse back to compact view after selection
+                                                            if (e.target.value) {
+                                                              setExpandedConnectionNodes(prev => ({
+                                                                ...prev,
+                                                                [planNode.id]: false
+                                                              }))
+                                                            }
+                                                          }}
+                                                        >
+                                                          <option value="">Select an option...</option>
+                                                          {providerConnections.map(conn => (
+                                                            <option key={conn.integrationId || conn.id} value={conn.integrationId || conn.id}>
+                                                              {getConnectionDisplayName(conn, planNode.providerId || '')}
+                                                            </option>
+                                                          ))}
+                                                        </select>
                                                         <Button
-                                                          variant="destructive"
+                                                          variant="primary"
                                                           size="sm"
-                                                          className="whitespace-nowrap shrink-0"
+                                                          className="whitespace-nowrap"
                                                           onClick={() => {
-                                                            // Mark this connection as being reconnected (don't clear expired flag yet)
-                                                            setReconnectingConnections(prev => ({
-                                                              ...prev,
-                                                              [defaultConnectionValue]: true
-                                                            }))
                                                             handleConnectIntegration(planNode.providerId || '', planNode.id)
                                                           }}
                                                         >
-                                                          Reconnect
+                                                          + Connect
                                                         </Button>
                                                       </div>
+
+                                                      {/* Duplicate account message */}
+                                                      {duplicateMessages[planNode.id]?.show && (
+                                                        <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                                                          <p className="text-xs text-yellow-800">
+                                                            This account is already connected as <span className="font-medium">{duplicateMessages[planNode.id].connectionName}</span>
+                                                          </p>
+                                                        </div>
+                                                      )}
+
+                                                      {/* Expired connection warning */}
+                                                      {defaultConnectionValue && expiredConnections[defaultConnectionValue] && (
+                                                        <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md">
+                                                          <div className="flex items-start gap-2">
+                                                            <div className="flex-1">
+                                                              <p className="text-xs font-medium text-red-800">
+                                                                Connection Expired
+                                                              </p>
+                                                              <p className="text-xs text-red-700 mt-1">
+                                                                This {getProviderDisplayName(planNode.providerId || '')} account token has expired. Please reconnect to continue.
+                                                              </p>
+                                                            </div>
+                                                            <Button
+                                                              variant="destructive"
+                                                              size="sm"
+                                                              className="whitespace-nowrap shrink-0"
+                                                              onClick={() => {
+                                                                // Mark this connection as being reconnected (don't clear expired flag yet)
+                                                                setReconnectingConnections(prev => ({
+                                                                  ...prev,
+                                                                  [defaultConnectionValue]: true
+                                                                }))
+                                                                handleConnectIntegration(planNode.providerId || '', planNode.id)
+                                                              }}
+                                                            >
+                                                              Reconnect
+                                                            </Button>
+                                                          </div>
+                                                        </div>
+                                                      )}
                                                     </div>
-                                                  )}
-                                                </div>
+                                                  </>
+                                                )}
                                               </div>
                                             )}
 
@@ -1695,7 +1809,41 @@ export function FlowV2AgentPanel({
                                               )
                                             })}
 
-                                            {/* Continue/Skip buttons - moved up closer to fields */}
+                                            {/* NodeConfigurationCard for UX preference questions (message format, mentions, etc.)
+                                                Shown AFTER connection and schema fields are set */}
+                                            {hasConfigQuestionsForNode && !configQuestionsCompleted && connectionIsSet && configDefinition && onNodeConfigComplete && onNodeConfigSkip && (
+                                              <div className="border-t border-border pt-3 mt-3">
+                                                <NodeConfigurationCard
+                                                  nodeType={planNode.nodeType}
+                                                  definition={configDefinition}
+                                                  loadDynamicOptions={loadDynamicOptionsForQuestions}
+                                                  onComplete={(config) => {
+                                                    // Mark questions as completed for this node
+                                                    setCompletedConfigQuestions(prev => ({
+                                                      ...prev,
+                                                      [planNode.id]: true
+                                                    }))
+                                                    // Apply the config answers
+                                                    Object.entries(config).forEach(([key, value]) => {
+                                                      onNodeConfigChange(planNode.id, key, value)
+                                                    })
+                                                    onNodeConfigComplete(planNode.nodeType, config as Record<string, any>)
+                                                  }}
+                                                  onSkip={() => {
+                                                    // Mark questions as completed (skipped)
+                                                    setCompletedConfigQuestions(prev => ({
+                                                      ...prev,
+                                                      [planNode.id]: true
+                                                    }))
+                                                    onNodeConfigSkip(planNode.nodeType)
+                                                  }}
+                                                />
+                                              </div>
+                                            )}
+
+                                            {/* Continue/Skip buttons - only show when NodeConfigurationCard is NOT visible
+                                                (NodeConfigurationCard has its own Continue button) */}
+                                            {!(hasConfigQuestionsForNode && !configQuestionsCompleted && connectionIsSet && configDefinition) && (
                                             <div className="space-y-2">
                                               {/* Show validation errors */}
                                               {fieldErrors[planNode.id] && fieldErrors[planNode.id].length > 0 && (
@@ -1771,6 +1919,7 @@ export function FlowV2AgentPanel({
                                                 </Button>
                                               </div>
                                             </div>
+                                            )}
                                           </div>
                                         )
                                       })()}
@@ -1866,11 +2015,16 @@ export function FlowV2AgentPanel({
                               {getStateLabel(BuildState.COMPLETE)}
                             </div>
                             <div className="text-sm text-muted-foreground break-words">
-                              Your flow is configured and tested. You can now publish it to make it live.
+                              Your workflow is ready! Close this panel to review and save your workflow.
                             </div>
                             <div className="flex gap-2 flex-wrap">
-                              <Button variant="success" size="lg" className="w-full">
-                                Publish Workflow
+                              <Button
+                                variant="success"
+                                size="lg"
+                                className="w-full"
+                                onClick={onClose}
+                              >
+                                Close & Review Workflow
                               </Button>
                             </div>
                           </div>

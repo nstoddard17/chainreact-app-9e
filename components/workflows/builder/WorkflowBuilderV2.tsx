@@ -1339,6 +1339,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Clear collected preferences without saving
     setCollectedPreferences([])
+
+    // Remove the preferences save card from agent messages by clearing meta.preferencesSave
+    setAgentMessages(prev => prev.map(msg => {
+      if ((msg as any).meta?.preferencesSave) {
+        const { preferencesSave, ...restMeta } = (msg as any).meta
+        return {
+          ...msg,
+          meta: restMeta
+        }
+      }
+      return msg
+    }))
   }, [])
 
   // Handle prompt parameter from URL (e.g., from AI agent page)
@@ -5163,17 +5175,45 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         const label = (field?.label || field?.name || `Field ${index + 1}`).trim()
         const normalizedName = (field?.name || '').toLowerCase()
 
-        if (normalizedName.includes('channel')) return '#general'
-        if (normalizedName.includes('email')) return `team${index + 1}@example.com`
-        if (normalizedName.includes('subject')) return `AI Draft: ${label}`
-        if (normalizedName.includes('name')) return `${label} (auto-generated)`
+        // Check if this is an action node (not a trigger) - should use variable references
+        const isActionNode = !planNode.nodeType?.includes('_trigger_')
+
+        // For action nodes, use variable references to pull data from trigger
+        if (isActionNode) {
+          // Message/body fields - use a formatted template with trigger data
+          if (normalizedName.includes('message') || normalizedName.includes('body') || field?.type === 'textarea' || field?.type === 'slack-rich-text') {
+            return `New {{trigger.subject}} from {{trigger.from}}\n\n{{trigger.snippet}}`
+          }
+          // Subject fields - reference trigger subject
+          if (normalizedName.includes('subject')) {
+            return `{{trigger.subject}}`
+          }
+          // Title fields - reference trigger subject
+          if (normalizedName.includes('title')) {
+            return `{{trigger.subject}}`
+          }
+          // Name fields
+          if (normalizedName.includes('name')) {
+            return `{{trigger.subject}}`
+          }
+          // Email/recipient fields - reference trigger sender
+          if (normalizedName.includes('email') || normalizedName.includes('recipient') || normalizedName.includes('to')) {
+            return `{{trigger.from}}`
+          }
+        }
+
+        // Fallback for trigger nodes or unknown patterns
+        if (normalizedName.includes('channel')) return ''
+        if (normalizedName.includes('email')) return ''
+        if (normalizedName.includes('subject')) return ''
+        if (normalizedName.includes('name')) return ''
         if (normalizedName.includes('message') || normalizedName.includes('body') || field?.type === 'textarea') {
-          return `Automatically generated ${label.toLowerCase()} for this workflow step.`
+          return ''
         }
         if (normalizedName.includes('title')) {
-          return `${label} — generated for ${planNode.title}`
+          return ''
         }
-        return `AI suggestion for ${label}`
+        return ''
       }
 
       const applyNodeUpdate = (transform: (node: any) => any) => {

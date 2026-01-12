@@ -120,14 +120,9 @@ const outlookTriggerNewEmail: NodeConfigDefinition = {
 const slackActionSendMessage: NodeConfigDefinition = {
   nodeType: 'slack_action_send_message',
   displayName: 'Slack - Send Message',
+  // Note: Connection, workspace, and channel are handled by the schema's configSchema
+  // with proper cascading (workspace -> channel). These questions are for UX preferences only.
   questions: [
-    {
-      id: 'channel',
-      question: 'Which channel should receive the message?',
-      type: 'dropdown',
-      dynamicOptions: 'slack_channels',
-      required: true,
-    },
     {
       id: 'message_format',
       question: 'How should the message be formatted?',
@@ -163,14 +158,9 @@ const slackActionSendMessage: NodeConfigDefinition = {
 const slackActionSendDirectMessage: NodeConfigDefinition = {
   nodeType: 'slack_action_send_direct_message',
   displayName: 'Slack - Send Direct Message',
+  // Note: Connection, workspace, and user are handled by the schema's configSchema
+  // with proper cascading (workspace -> user). These questions are for UX preferences only.
   questions: [
-    {
-      id: 'recipient',
-      question: 'Who should receive the direct message?',
-      type: 'dropdown',
-      dynamicOptions: 'slack_users',
-      required: true,
-    },
     {
       id: 'message_format',
       question: 'How should the message be formatted?',
