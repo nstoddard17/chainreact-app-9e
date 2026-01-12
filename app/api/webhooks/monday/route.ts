@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { createHmac } from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
@@ -18,6 +19,12 @@ import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
  * Security: Validates requests using HMAC signature
  * Docs: https://developer.monday.com/apps/docs/webhooks
  */
+
+// Helper to create supabase client inside handlers
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 // Handle preflight CORS requests
 export async function OPTIONS(request: NextRequest) {
@@ -105,9 +112,61 @@ export async function POST(request: NextRequest) {
       userId: event?.userId,
     })
 
-    // TODO: Process webhook events and trigger workflows
-    // This will be implemented when adding trigger lifecycle handlers
-    // For now, just acknowledge receipt
+    const eventType = event?.type
+
+    if (!eventType) {
+      const response = NextResponse.json({ received: true, ignored: true })
+      return addCorsHeaders(response, request, { allowCredentials: true })
+    }
+
+    // Extract workflow and node IDs from query params
+    const { searchParams } = new URL(request.url)
+    const workflowId = searchParams.get('workflowId')
+    const nodeId = searchParams.get('nodeId')
+
+    const triggerMapping: Record<string, string> = {
+      'create_item': 'monday_trigger_new_item',
+      'change_column_value': 'monday_trigger_column_changed',
+      'item_moved_to_any_group': 'monday_trigger_item_moved',
+      'create_subitem': 'monday_trigger_new_subitem',
+      'create_update': 'monday_trigger_new_update'
+    }
+
+    const triggerType = triggerMapping[eventType]
+
+    if (!triggerType) {
+      logger.debug('[Monday Webhook] Ignoring event type', { eventType })
+      const response = NextResponse.json({ received: true, ignored: true, eventType })
+      return addCorsHeaders(response, request, { allowCredentials: true })
+    }
+
+    const transformedPayload = transformMondayPayload(eventType, event)
+
+    const supabase = getSupabase()
+    const eventIdBase = event?.eventId || event?.id || event?.itemId || event?.pulseId || event?.boardId || 'event'
+    const webhookData = {
+      provider: 'monday',
+      event_type: eventType,
+      event_id: `monday_${eventType}_${eventIdBase}_${Date.now()}`,
+      payload: transformedPayload,
+      received_at: new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
+      .from('webhook_events')
+      .insert(webhookData)
+      .select()
+      .single()
+
+    if (error) {
+      logger.error('[Monday Webhook] Failed to store event:', error)
+      const response = NextResponse.json({ error: 'Failed to store webhook' }, { status: 500 })
+      return addCorsHeaders(response, request, { allowCredentials: true })
+    }
+
+    logger.debug('[Monday Webhook] Stored event', { id: data.id })
+
+    await triggerWorkflowsForEvent(triggerType, transformedPayload, data.id, workflowId, nodeId)
 
     /**
      * Event processing will look like:
@@ -131,7 +190,7 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       received: true,
-      eventType: event?.type,
+      eventType: eventType,
     })
 
     return addCorsHeaders(response, request, { allowCredentials: true })
@@ -147,5 +206,95 @@ export async function POST(request: NextRequest) {
     )
 
     return addCorsHeaders(response, request, { allowCredentials: true })
+  }
+}
+
+function transformMondayPayload(eventType: string, event: any): Record<string, any> {
+  const baseData = {
+    eventType,
+    boardId: event?.boardId ?? event?.board_id,
+    itemId: event?.itemId ?? event?.pulseId ?? event?.pulse_id,
+    itemName: event?.itemName ?? event?.pulseName,
+    userId: event?.userId ?? event?.user_id,
+    timestamp: event?.triggerTime ?? event?.timestamp ?? new Date().toISOString(),
+    rawEvent: event
+  }
+
+  if (eventType === 'change_column_value') {
+    return {
+      ...baseData,
+      columnId: event?.columnId ?? event?.column_id,
+      columnTitle: event?.columnTitle ?? event?.column_title,
+      previousValue: event?.previousValue ?? event?.previous_value,
+      newValue: event?.value ?? event?.newValue ?? event?.new_value,
+      changedBy: event?.userId ?? event?.user_id,
+      changedAt: event?.triggerTime ?? event?.timestamp ?? new Date().toISOString()
+    }
+  }
+
+  return baseData
+}
+
+async function triggerWorkflowsForEvent(
+  triggerType: string,
+  payload: any,
+  eventId: string,
+  workflowId?: string | null,
+  nodeId?: string | null
+) {
+  const supabase = getSupabase()
+
+  try {
+    if (workflowId && nodeId) {
+      logger.debug(`[Monday Webhook] Triggering workflow ${workflowId}`)
+
+      const { data: workflow } = await supabase
+        .from('workflows')
+        .select('*')
+        .eq('id', workflowId)
+        .eq('status', 'active')
+        .single()
+
+      if (!workflow) {
+        logger.debug(`[Monday Webhook] Workflow ${workflowId} not found or inactive`)
+        return
+      }
+
+      await supabase.from('workflow_executions').insert({
+        workflow_id: workflowId,
+        user_id: workflow.user_id,
+        status: 'pending',
+        trigger_data: payload,
+        webhook_event_id: eventId,
+        created_at: new Date().toISOString()
+      })
+
+      logger.debug(`[Monday Webhook] Queued execution for workflow ${workflowId}`)
+      return
+    }
+
+    const { data: workflows } = await supabase
+      .from('workflows')
+      .select('*')
+      .eq('status', 'active')
+      .contains('nodes', [{ type: triggerType }])
+
+    logger.debug(`[Monday Webhook] Found ${workflows?.length || 0} matching workflows`)
+
+    if (workflows && workflows.length > 0) {
+      const executions = workflows.map(workflow => ({
+        workflow_id: workflow.id,
+        user_id: workflow.user_id,
+        status: 'pending',
+        trigger_data: payload,
+        webhook_event_id: eventId,
+        created_at: new Date().toISOString()
+      }))
+
+      await supabase.from('workflow_executions').insert(executions)
+      logger.debug(`[Monday Webhook] Queued ${executions.length} executions`)
+    }
+  } catch (error: any) {
+    logger.error('[Monday Webhook] Failed to trigger workflows:', error)
   }
 }

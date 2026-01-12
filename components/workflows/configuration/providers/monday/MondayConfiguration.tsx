@@ -174,7 +174,7 @@ export function MondayConfiguration({
             currentNodeId={currentNodeId}
             dynamicOptions={dynamicOptions}
             loadingDynamic={loadingDynamic}
-            loadOptions={loadOptions}
+            onDynamicLoad={loadOptions}
             integrationName={integrationName}
             providerId={nodeInfo.providerId}
             nodeType={nodeInfo.type}
@@ -256,7 +256,7 @@ export function MondayConfiguration({
                 currentNodeId={currentNodeId}
                 dynamicOptions={{}}
                 loadingDynamic={false}
-                loadOptions={async () => {}}
+                onDynamicLoad={async () => {}}
                 integrationName={integrationName}
                 providerId={nodeInfo.providerId}
                 nodeType={nodeInfo.type}

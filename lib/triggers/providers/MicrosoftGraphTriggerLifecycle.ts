@@ -151,6 +151,14 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     }
 
     logger.debug(`✅ Microsoft Graph subscription created and saved to trigger_resources: ${subscription.id}`)
+
+    if (triggerType === 'microsoft-outlook_trigger_calendar_event_start' && !testMode?.isTest) {
+      try {
+        await this.seedCalendarStartSchedules(workflowId, userId, nodeId, config, accessToken)
+      } catch (seedError) {
+        logger.error('??O Failed to seed calendar start schedules:', seedError)
+      }
+    }
   }
 
   /**
@@ -239,6 +247,22 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           .eq('id', resource.id)
       }
     }
+    // Clean up scheduled triggers for calendar event start
+    if (nodeId) {
+      await getSupabase()
+        .from('workflows_schedules')
+        .update({ status: 'cancelled', enabled: false, updated_at: new Date().toISOString() })
+        .eq('workflow_id', workflowId)
+        .eq('node_id', nodeId)
+        .eq('trigger_type', 'microsoft-outlook_trigger_calendar_event_start')
+    } else {
+      await getSupabase()
+        .from('workflows_schedules')
+        .update({ status: 'cancelled', enabled: false, updated_at: new Date().toISOString() })
+        .eq('workflow_id', workflowId)
+        .eq('trigger_type', 'microsoft-outlook_trigger_calendar_event_start')
+    }
+
   }
 
   /**
@@ -288,6 +312,106 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
         : `All subscriptions healthy (${resources.length} active)`,
       expiresAt: nearestExpiration?.toISOString(),
       lastChecked: new Date().toISOString()
+    }
+  }
+
+  private parseGraphDateTime(value: any): Date | null {
+    const raw = value?.dateTime
+    if (!raw || typeof raw !== 'string') return null
+    const parsed = new Date(raw)
+    if (Number.isNaN(parsed.getTime())) return null
+    return parsed
+  }
+
+  private getMinutesBefore(config: Record<string, any> | undefined): number {
+    const raw = config?.minutesBefore ?? config?.minutes_before
+    const parsed = Number.parseInt(String(raw), 10)
+    if (Number.isFinite(parsed) && parsed > 0) return parsed
+    return 15
+  }
+
+  private async seedCalendarStartSchedules(
+    workflowId: string,
+    userId: string,
+    nodeId: string,
+    config: Record<string, any> | undefined,
+    accessToken: string
+  ): Promise<void> {
+    const now = new Date()
+    const horizon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+    const startIso = now.toISOString()
+    const endIso = horizon.toISOString()
+
+    const baseUrl = config?.calendarId
+      ? `https://graph.microsoft.com/v1.0/me/calendars/${config.calendarId}/events`
+      : 'https://graph.microsoft.com/v1.0/me/events'
+
+    const url = `${baseUrl}?$select=id,subject,start,end,calendar,organizer,location&$filter=start/dateTime ge '${startIso}' and start/dateTime le '${endIso}'&$orderby=start/dateTime&$top=50`
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.warn('?s??,? Failed to seed calendar start schedules:', {
+        status: response.status,
+        error: errorText
+      })
+      return
+    }
+
+    const data = await response.json()
+    const events = Array.isArray(data?.value) ? data.value : []
+    if (events.length === 0) return
+
+    const minutesBefore = this.getMinutesBefore(config)
+
+    for (const event of events) {
+      const startTime = this.parseGraphDateTime(event.start)
+      if (!startTime) continue
+      const scheduledFor = new Date(startTime.getTime() - minutesBefore * 60 * 1000).toISOString()
+      const payload = {
+        trigger: {
+          type: 'microsoft-outlook_trigger_calendar_event_start',
+          eventId: event?.id,
+          subject: event?.subject || '',
+          start: event?.start || null,
+          end: event?.end || null,
+          location: event?.location || null,
+          organizer: event?.organizer || null,
+          scheduledFor,
+          minutesBefore,
+        },
+        event,
+        scheduledFor,
+        minutesBefore,
+      }
+
+      await getSupabase()
+        .from('workflows_schedules')
+        .upsert({
+          workflow_id: workflowId,
+          revision_id: null,
+          workspace_id: null,
+          cron_expression: 'event',
+          timezone: 'UTC',
+          enabled: true,
+          last_run_at: null,
+          next_run_at: scheduledFor,
+          created_by: userId,
+          trigger_type: 'microsoft-outlook_trigger_calendar_event_start',
+          provider_id: 'microsoft-outlook',
+          node_id: nodeId,
+          event_id: event.id,
+          scheduled_for: scheduledFor,
+          status: 'pending',
+          payload,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'workflow_id,node_id,trigger_type,event_id' })
     }
   }
 
@@ -353,8 +477,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
         return '/me/events'
       },
       'trigger_calendar_event_start': (config?: Record<string, any>) => {
-        // Calendar event start is a polling-based trigger, not webhook
-        // But we need it in the resource map for activation
+        // Calendar event start uses calendar event webhooks for scheduling
         if (config?.calendarId) {
           return `/me/calendars/${config.calendarId}/events`
         }
@@ -444,8 +567,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       return 'deleted'
     }
 
-    // Calendar event start doesn't use webhooks - it uses polling
-    // But if webhook is used, watch for created and updated to catch new events
+    // Calendar event start uses event create/update webhooks to schedule delayed runs
     if (simplifiedType === 'trigger_calendar_event_start') {
       return 'created,updated'
     }

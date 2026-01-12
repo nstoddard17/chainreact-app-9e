@@ -76,10 +76,27 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Determine event type based on trigger type
-    const event = this.getEventForTriggerType(triggerType)
+    // If columnId is specified, use change_specific_column_value, otherwise use default event
+    const event = columnId && triggerType === 'monday_trigger_column_changed'
+      ? 'change_specific_column_value'
+      : this.getEventForTriggerType(triggerType)
 
-    // Build GraphQL mutation
-    const mutation = `
+    // Monday.com requires config as a JSON string, not a GraphQL object
+    // For change_specific_column_value, config should be: {"columnId": "column_id"}
+    const configJson = columnId && event === 'change_specific_column_value'
+      ? JSON.stringify({ columnId: columnId.toString() })
+      : null
+
+    const mutation = configJson
+      ? `
+      mutation($boardId: ID!, $url: String!, $event: WebhookEventType!, $config: JSON!) {
+        create_webhook(board_id: $boardId, url: $url, event: $event, config: $config) {
+          id
+          board_id
+        }
+      }
+    `
+      : `
       mutation($boardId: ID!, $url: String!, $event: WebhookEventType!) {
         create_webhook(board_id: $boardId, url: $url, event: $event) {
           id
@@ -88,15 +105,25 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       }
     `
 
-    // Build webhook URL with test session ID if in test mode
-    const fullWebhookUrl = testMode
-      ? `${webhookUrl}?workflowId=${workflowId}&testSessionId=${testMode.testSessionId}`
-      : `${webhookUrl}?workflowId=${workflowId}`
+    const queryParams = new URLSearchParams({
+      workflowId,
+      nodeId
+    })
 
-    const variables = {
+    if (testMode?.testSessionId) {
+      queryParams.set('testSessionId', testMode.testSessionId)
+    }
+
+    const fullWebhookUrl = `${webhookUrl}?${queryParams.toString()}`
+
+    const variables: Record<string, string> = {
       boardId: boardId.toString(),
       url: fullWebhookUrl,
       event
+    }
+
+    if (configJson) {
+      variables.config = configJson
     }
 
     // Create webhook in Monday.com
@@ -105,7 +132,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'API-Version': '2024-01'
+        'API-Version': '2024-10'
       },
       body: JSON.stringify({ query: mutation, variables })
     })
@@ -118,6 +145,13 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     const data = await response.json()
 
     if (data.errors && data.errors.length > 0) {
+      logger.error('❌ Monday.com webhook creation GraphQL errors', {
+        errors: data.errors,
+        triggerType,
+        boardId,
+        columnId,
+        event
+      })
       const errorMessages = data.errors.map((e: any) => e.message).join(', ')
       throw new Error(`Monday.com error: ${errorMessages}`)
     }
@@ -258,7 +292,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
-            'API-Version': '2024-01'
+            'API-Version': '2024-10'
           },
           body: JSON.stringify({ query: mutation, variables })
         })
@@ -323,7 +357,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
    * Get webhook callback URL
    */
   private getWebhookUrl(): string {
-    return getWebhookUrl('/api/workflow/monday')
+    return getWebhookUrl('/api/webhooks/monday')
   }
 
   /**

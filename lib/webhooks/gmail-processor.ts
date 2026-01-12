@@ -766,8 +766,9 @@ async function checkEmailMatchesFilters(email: any, filters: GmailTriggerFilters
     }
   }
 
-  if (filters.subject && filters.subject.trim() !== '') {
-    const subjectFilter = filters.subject.toLowerCase().trim()
+  const subjectFilterRaw = typeof filters.subject === 'string' ? filters.subject.trim() : ''
+  if (subjectFilterRaw) {
+    const subjectFilter = subjectFilterRaw.toLowerCase()
     const emailSubject = (email.subject || '').toLowerCase().trim()
     const exactMatch = filters.subjectExactMatch !== false // Default to true
 

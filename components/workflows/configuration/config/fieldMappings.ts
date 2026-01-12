@@ -623,9 +623,6 @@ const outlookMappings: Record<string, FieldMapping> = {
   "microsoft-outlook_trigger_email_flagged": {
     folder: "outlook_folders",
   },
-  "microsoft-outlook_trigger_new_attachment": {
-    folder: "outlook_folders",
-  },
 
   // Calendar Triggers
   "microsoft-outlook_trigger_new_calendar_event": {

@@ -69,7 +69,6 @@ export class IntegrationNodeHandlers {
         case 'microsoft-outlook_trigger_new_email':
         case 'microsoft-outlook_trigger_email_sent':
         case 'microsoft-outlook_trigger_email_flagged':
-        case 'microsoft-outlook_trigger_new_attachment':
           // Email triggers - in production, webhooks provide real data
           logger.debug(`📧 Outlook email trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
           logger.debug('📧 Outlook trigger context data:', JSON.stringify(context.data, null, 2))

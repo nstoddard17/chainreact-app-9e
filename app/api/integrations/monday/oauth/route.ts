@@ -38,7 +38,23 @@ export async function GET(request: NextRequest) {
   authUrl.searchParams.set("client_id", clientId);
   authUrl.searchParams.set("redirect_uri", redirectUri);
   authUrl.searchParams.set("state", state);
-  authUrl.searchParams.set("scope", "me:read boards:read boards:write users:read updates:read updates:write assets:read");
+  authUrl.searchParams.set(
+    "scope",
+    [
+      "me:read",
+      "boards:read",
+      "boards:write",
+      "users:read",
+      "updates:read",
+      "updates:write",
+      "assets:read",
+      "assets:write",
+      "webhooks:read",
+      "webhooks:write",
+      "workspaces:read",
+      "account:read"
+    ].join(" ")
+  );
 
   logger.info("Redirecting to Monday.com OAuth", { userId });
 
