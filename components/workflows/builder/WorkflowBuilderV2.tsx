@@ -4790,18 +4790,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         builder.setNodes([])
         builder.setEdges([])
 
-        // Positioning - nodes in horizontal row
-        // Place nodes AFTER the agent panel with generous offset and centered vertically
-        const BASE_X = agentPanelWidth + 400 // Agent panel width + 400px margin (more right, better centered)
-        const BASE_Y = 350 // Vertical center - more in middle of viewport
-        const H_SPACING = 500 // Wide spacing between nodes
+        // Positioning - VERTICAL layout matching placeholder node positions
+        // Calculate centerX and centerY same as placeholder nodes do
+        const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
+        const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
+        const panelWidth = agentPanelWidth
+        const availableWidth = viewportWidth - panelWidth
+        const centerX = panelWidth + (availableWidth / 2) - 180 // 180 = half of 360px node width
+        const centerY = (viewportHeight / 2) - 150
+        const V_SPACING = 180 // Vertical spacing between nodes (same as placeholders)
 
-        console.log('[handleBuild] Node positioning:', {
+        console.log('[handleBuild] Node positioning (vertical layout like placeholders):', {
           agentPanelWidth,
-          BASE_X,
-          BASE_Y,
-          firstNodeX: BASE_X,
-          secondNodeX: BASE_X + H_SPACING
+          centerX,
+          centerY,
+          V_SPACING
         })
 
         // Create all nodes at once (simpler, more reliable)
@@ -4810,10 +4813,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
           const metadata = (plannerNode?.metadata ?? {}) as any
           const catalogNode = ALL_NODE_COMPONENTS.find(c => c.type === plannerNode.type)
 
+          // Vertical layout: same X, increasing Y with 180px spacing
           const nodePosition = {
-            x: BASE_X + (i * H_SPACING),
-            y: BASE_Y,
+            x: centerX,
+            y: centerY + (i * V_SPACING),
           }
+
+          // Use catalog node's human-readable title, not the type with underscores
+          const nodeTitle = catalogNode?.title ?? plannerNode.label ?? plannerNode.type
 
           return {
             id: plannerNode.id,
@@ -4824,14 +4831,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             draggable: false, // Prevent any dragging/repositioning
             connectable: true,
             data: {
-              label: plannerNode.label ?? plannerNode.type,
-              title: plannerNode.label ?? plannerNode.type,
+              label: nodeTitle,
+              title: nodeTitle,
               type: plannerNode.type,
               config: plannerNode.config ?? {},
               description: plannerNode.description ?? catalogNode?.description,
               providerId: metadata.providerId ?? catalogNode?.providerId,
               icon: catalogNode?.icon,
-              isTrigger: metadata.isTrigger ?? false,
+              isTrigger: metadata.isTrigger ?? catalogNode?.isTrigger ?? false,
               state: 'skeleton',
               aiStatus: 'skeleton',
               agentHighlights: metadata.agentHighlights ?? [],

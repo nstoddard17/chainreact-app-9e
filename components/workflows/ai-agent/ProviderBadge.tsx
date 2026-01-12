@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, Check, ArrowRight, AlertCircle } from 'lucide-react'
+import { ChevronDown, Check, ArrowRight, AlertCircle, Loader2 } from 'lucide-react'
 import type { ProviderOption } from '@/lib/workflows/ai-agent/providerDisambiguation'
 import { useIntegrationStore } from '@/stores/integrationStore'
 
@@ -23,15 +23,14 @@ function getProviderIconPath(providerId: string): string {
 function isConnectedStatus(status?: string): boolean {
   if (!status) return false
   const v = status.toLowerCase()
-  // Include 'expired' as connected because user just needs to reauthorize
-  // The OAuth flow will handle token refresh automatically
+  // Only truly connected statuses - 'expired' should show as disconnected
+  // so the user knows they need to reconnect
   return v === 'connected' ||
          v === 'authorized' ||
          v === 'active' ||
          v === 'valid' ||
          v === 'ok' ||
-         v === 'ready' ||
-         v === 'expired'
+         v === 'ready'
 }
 
 interface ProviderBadgeProps {
@@ -40,6 +39,10 @@ interface ProviderBadgeProps {
   allProviders: ProviderOption[]
   onProviderChange: (providerId: string) => void
   onConnect: (providerId: string) => void
+  /** If true, forces the selected provider to show as disconnected even if store shows connected */
+  forceExpired?: boolean
+  /** If true, shows a loading state while validating the connection */
+  isValidating?: boolean
 }
 
 export function ProviderBadge({
@@ -47,7 +50,9 @@ export function ProviderBadge({
   selectedProvider,
   allProviders,
   onProviderChange,
-  onConnect
+  onConnect,
+  forceExpired = false,
+  isValidating = false
 }: ProviderBadgeProps) {
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -110,7 +115,35 @@ export function ProviderBadge({
 
   const otherProviders = providersWithLiveStatus.filter(p => p.id !== selectedProvider.id)
 
-  const isDisconnected = !liveSelectedProvider.isConnected
+  // If forceExpired is true, treat as disconnected even if store shows connected
+  const isDisconnected = forceExpired || !liveSelectedProvider.isConnected
+
+  // Show loading state while validating
+  if (isValidating) {
+    return (
+      <div className="relative inline-block w-full" ref={dropdownRef}>
+        <div className="w-full flex items-center gap-3 px-4 py-3 bg-muted/50 border-2 border-border rounded-lg shadow-sm">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-background border border-border shadow-sm shrink-0">
+            <Image
+              src={getProviderIconPath(selectedProvider.id)}
+              alt={selectedProvider.displayName}
+              width={28}
+              height={28}
+              className="shrink-0 opacity-50"
+            />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
+            <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-xs font-medium">Checking...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative inline-block w-full" ref={dropdownRef}>

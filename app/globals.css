@@ -836,6 +836,23 @@ body {
     min-width: var(--radix-select-trigger-width) !important;
   }
 
+  /* Fix highlighted/hovered item styling - contrasting background with white text */
+  [role="option"][data-highlighted],
+  [data-radix-collection-item][data-highlighted],
+  [role="option"]:hover,
+  [role="option"]:focus {
+    background: hsl(0 0% 25%) !important;
+    color: white !important;
+  }
+
+  /* Override any orange/colored backgrounds on select items */
+  [role="option"][data-state="checked"],
+  [role="option"][data-state="checked"][data-highlighted],
+  [role="option"][data-state="checked"]:hover {
+    background: hsl(0 0% 20%) !important;
+    color: white !important;
+  }
+
   /* Ultra aggressive white text selectors for all dropdown items */
   [data-radix-select-content] [data-radix-select-item],
   [data-radix-select-content] [role="option"],

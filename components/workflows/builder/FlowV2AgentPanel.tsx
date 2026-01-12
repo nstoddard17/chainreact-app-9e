@@ -159,6 +159,9 @@ export function FlowV2AgentPanel({
   // Track expired connections per node (connectionId -> isExpired)
   const [expiredConnections, setExpiredConnections] = useState<Record<string, boolean>>({})
 
+  // Track whether provider validation is in progress (to show loading state before displaying connection status)
+  const [isValidatingProviders, setIsValidatingProviders] = useState(false)
+
   // Track which connections are being reconnected (to avoid showing duplicate message during reconnect)
   const [reconnectingConnections, setReconnectingConnections] = useState<Record<string, boolean>>({})
 
@@ -180,6 +183,23 @@ export function FlowV2AgentPanel({
       setViewportDimensions({ height: window.innerHeight, width: window.innerWidth })
     }
   }, [])
+
+  // Listen for integration events (connection, reconnection) and refresh integrations
+  useEffect(() => {
+    const handleIntegrationEvent = async () => {
+      console.log('[FlowV2AgentPanel] 🔄 Integration event received, refreshing integrations')
+      await refreshIntegrations()
+    }
+
+    // Listen for both new connections and reconnections
+    window.addEventListener('integration-connected', handleIntegrationEvent)
+    window.addEventListener('integration-reconnected', handleIntegrationEvent)
+
+    return () => {
+      window.removeEventListener('integration-connected', handleIntegrationEvent)
+      window.removeEventListener('integration-reconnected', handleIntegrationEvent)
+    }
+  }, [refreshIntegrations])
 
   // Prevent scroll movement when transitioning to COMPLETE state
   useEffect(() => {
@@ -301,6 +321,48 @@ export function FlowV2AgentPanel({
     )
   }
 
+  // Helper: Evaluate hidden condition for a field
+  // Handles the $deps/$condition format used in node schemas
+  const isFieldHidden = (field: any, nodeConfig: Record<string, any>): boolean => {
+    if (!field.hidden) return false
+
+    // Handle object-based hidden conditions with $deps and $condition
+    if (typeof field.hidden === 'object' && field.hidden.$condition) {
+      const condition = field.hidden.$condition
+      for (const [fieldName, check] of Object.entries(condition)) {
+        const fieldValue = nodeConfig[fieldName]
+        const checkObj = check as Record<string, any>
+
+        // $exists: false means hidden when field is empty/missing
+        if (checkObj.$exists === false) {
+          if (!fieldValue || fieldValue === '') {
+            return true // Field is hidden
+          }
+        }
+        // $exists: true means hidden when field has a value
+        if (checkObj.$exists === true) {
+          if (fieldValue && fieldValue !== '') {
+            return true
+          }
+        }
+        // Direct value comparison
+        if (!('$exists' in checkObj)) {
+          if (fieldValue === checkObj) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+
+    // Boolean hidden value
+    if (typeof field.hidden === 'boolean') {
+      return field.hidden
+    }
+
+    return false
+  }
+
   // Helper: Update field configuration for a node
   const handleFieldChange = (nodeId: string, fieldName: string, value: any) => {
     onNodeConfigChange(nodeId, fieldName, value)
@@ -361,8 +423,13 @@ export function FlowV2AgentPanel({
     }
 
     // Check all other required fields (now just for warning, not blocking)
+    // Skip hidden fields - they shouldn't be required until their dependencies are met
     requiredFields.forEach(field => {
       if (field.required && field.name !== 'connection') {
+        // Skip hidden fields - their dependencies aren't met
+        if (isFieldHidden(field, config)) {
+          return
+        }
         const value = config[field.name]
         if (!value || value === '') {
           missingFields.push(field.name)
@@ -382,6 +449,16 @@ export function FlowV2AgentPanel({
     return integrations.filter(int =>
       int.id.toLowerCase() === providerId.toLowerCase() && int.isConnected
     )
+  }
+
+  // Helper: Check if a provider has any expired connections (detected via proactive validation)
+  const isProviderExpired = (providerId: string): boolean => {
+    const connections = getProviderConnections(providerId)
+    // Check if any of this provider's connections are marked as expired
+    return connections.some(conn => {
+      const connectionId = conn.integrationId || conn.id
+      return expiredConnections[connectionId] === true
+    })
   }
 
   // Helper: Get account-specific display name for a connection
@@ -690,8 +767,10 @@ export function FlowV2AgentPanel({
             // Silently handle expired/disconnected integrations
             if (errorData.details?.needsReconnection || errorData.details?.currentStatus === 'expired') {
               // Token expired - mark connection as expired
-              console.log(`[FlowV2AgentPanel] Connection ${connectionId} is expired`)
+              console.log(`[FlowV2AgentPanel] Connection ${connectionId} is expired - refreshing integrations`)
               setExpiredConnections(prev => ({ ...prev, [connectionId]: true }))
+              // Refresh integrations to get updated status from database
+              refreshIntegrations().catch(err => console.error('Failed to refresh integrations:', err))
               return { fieldName: field.name, options: [], expired: true }
             }
 
@@ -727,10 +806,24 @@ export function FlowV2AgentPanel({
       newOptions[fieldName] = options
     })
 
-    setNodesDynamicOptions(prev => ({
-      ...prev,
-      [nodeId]: { ...prev[nodeId], ...newOptions }
-    }))
+    // DEBUG: Log exactly what we're storing
+    console.log(`[FlowV2AgentPanel] 📦 Storing options for node ${nodeId}:`, {
+      fieldNames: Object.keys(newOptions),
+      optionCounts: Object.fromEntries(Object.entries(newOptions).map(([k, v]) => [k, (v as any[]).length])),
+      sampleData: Object.fromEntries(Object.entries(newOptions).map(([k, v]) => [k, (v as any[]).slice(0, 2)]))
+    })
+
+    setNodesDynamicOptions(prev => {
+      const next = {
+        ...prev,
+        [nodeId]: { ...prev[nodeId], ...newOptions }
+      }
+      console.log(`[FlowV2AgentPanel] 📦 State after update for ${nodeId}:`, {
+        nodeKeys: Object.keys(next),
+        fieldKeys: next[nodeId] ? Object.keys(next[nodeId]) : 'undefined'
+      })
+      return next
+    })
 
     // Save dynamic options to nodeConfigs so the workflow builder can access them
     // Use a special key that the workflow builder will recognize and move to savedDynamicOptions
@@ -805,6 +898,123 @@ export function FlowV2AgentPanel({
       }
     }
   }, [buildMachine.state, buildMachine.plan, buildMachine.progress.currentIndex, nodeConfigs, nodesDynamicOptions, loadDynamicOptionsForNode])
+
+  // Validate provider tokens when plan becomes ready
+  // This proactively checks if tokens are still valid before the user tries to build
+  const validatedProvidersRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (buildMachine.state !== BuildState.PLAN_READY) {
+      return
+    }
+
+    const planNodes = buildMachine.plan || []
+
+    // Get unique provider IDs that need validation
+    const providerIds = [...new Set(planNodes
+      .map(node => node.providerId)
+      .filter(Boolean)
+    )] as string[]
+
+    // Filter to only providers not yet validated
+    const providersToValidate = providerIds.filter(id => !validatedProvidersRef.current.has(id))
+
+    // If nothing to validate, skip
+    if (providersToValidate.length === 0) {
+      return
+    }
+
+    // Start validation - show loading state
+    setIsValidatingProviders(true)
+    console.log(`[FlowV2AgentPanel] 🔍 Starting validation for ${providersToValidate.length} providers:`, providersToValidate)
+
+    // Validate all providers in parallel and wait for completion
+    const validateProvider = async (providerId: string): Promise<void> => {
+      // Mark as validated FIRST to prevent infinite loops
+      // Even if there's no connection, we've "processed" this provider
+      validatedProvidersRef.current.add(providerId)
+
+      // Get the connection for this provider
+      const providerConnections = getProviderConnections(providerId)
+      if (providerConnections.length === 0) {
+        console.log(`[FlowV2AgentPanel] ⏭️ No connection for ${providerId}, skipping validation`)
+        return // No connection to validate
+      }
+
+      const connection = providerConnections[0]
+      const connectionId = connection.integrationId || connection.id
+
+      console.log(`[FlowV2AgentPanel] 🔍 Validating ${providerId} connection:`, connectionId)
+
+      try {
+        // Make a lightweight API call to validate the token
+        // Use a simple data type that all providers should support
+        const dataType = `${providerId}_channels` // Most providers have a channels/lists endpoint
+        const response = await fetch(`/api/integrations/${providerId}/data`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            integrationId: connectionId,
+            dataType: dataType,
+            options: {}
+          })
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+
+          // Check if token is expired
+          if (errorData.details?.needsReconnection || errorData.details?.currentStatus === 'expired' || response.status === 401) {
+            console.log(`[FlowV2AgentPanel] ⚠️ ${providerId} token is expired`)
+            setExpiredConnections(prev => ({ ...prev, [connectionId]: true }))
+          }
+        } else {
+          console.log(`[FlowV2AgentPanel] ✅ ${providerId} token is valid`)
+        }
+      } catch (error) {
+        console.error(`[FlowV2AgentPanel] Error validating ${providerId}:`, error)
+      }
+    }
+
+    // Run all validations in parallel and wait for all to complete
+    Promise.all(providersToValidate.map(validateProvider))
+      .then(() => {
+        console.log(`[FlowV2AgentPanel] ✅ All provider validations complete`)
+        // Refresh integrations to get updated status from database
+        return refreshIntegrations()
+      })
+      .catch(err => console.error('Failed to refresh integrations:', err))
+      .finally(() => {
+        setIsValidatingProviders(false)
+      })
+  }, [buildMachine.state, buildMachine.plan, getProviderConnections, refreshIntegrations])
+
+  // Clear expired status when integrations update and provider becomes connected
+  // This handles the case where user reconnects via OAuth
+  useEffect(() => {
+    if (Object.keys(expiredConnections).length === 0) return
+
+    // For each expired connection, check if it's now connected
+    const newExpiredConnections = { ...expiredConnections }
+    let hasChanges = false
+
+    Object.keys(expiredConnections).forEach(connectionId => {
+      // Find the integration with this connectionId
+      const integration = integrations.find(i => (i.integrationId || i.id) === connectionId)
+      if (integration && integration.isConnected) {
+        // Provider is now connected, clear the expired flag
+        delete newExpiredConnections[connectionId]
+        hasChanges = true
+        console.log(`[FlowV2AgentPanel] ✅ Cleared expired status for ${integration.id} (connection ${connectionId})`)
+
+        // Also clear from validated providers so it can be re-validated if needed
+        validatedProvidersRef.current.delete(integration.id)
+      }
+    })
+
+    if (hasChanges) {
+      setExpiredConnections(newExpiredConnections)
+    }
+  }, [integrations, expiredConnections])
 
   // BuilderHeader is 56px tall (from tokens.css --header-height)
   // The panel sits below it, so we must subtract header height
@@ -1067,13 +1277,14 @@ export function FlowV2AgentPanel({
                               <div className="text-sm font-bold break-words">Flow plan:</div>
 
                               {/* Provider Selection or Badge - shown when provider needs to be selected or was auto-selected */}
+                              {/* Provider badges are only shown during PLAN_READY state - hidden after Build is clicked */}
                               {(() => {
                                 // Find the most recent assistant message with provider metadata
                                 const assistantMessages = agentMessages.filter(m => m && m.role === 'assistant')
                                 const lastMessage = assistantMessages[assistantMessages.length - 1]
                                 const meta = (lastMessage as any)?.meta ?? {}
 
-                                // NEW: Provider dropdown selector (enhanced UI)
+                                // NEW: Provider dropdown selector (enhanced UI) - always show during selection flow
                                 if (meta.providerDropdown && onProviderDropdownSelect) {
                                   return (
                                     <div className="pt-2 pb-1">
@@ -1145,8 +1356,9 @@ export function FlowV2AgentPanel({
                                   )
                                 }
 
-                                // Show provider badges for ALL selected providers
-                                if (meta.allSelectedProviders && meta.allSelectedProviders.length > 0 && onProviderChange && onProviderConnect) {
+                                // Show provider badges for ALL selected providers - ONLY during PLAN_READY state
+                                // After user clicks Build, the badges are hidden to simplify the UI
+                                if (buildMachine.state === BuildState.PLAN_READY && meta.allSelectedProviders && meta.allSelectedProviders.length > 0 && onProviderChange && onProviderConnect) {
                                   return (
                                     <div className="pt-1 space-y-2">
                                       {meta.allSelectedProviders.map((providerMeta: any, idx: number) => (
@@ -1157,14 +1369,16 @@ export function FlowV2AgentPanel({
                                           allProviders={providerMeta.allProviders}
                                           onProviderChange={onProviderChange}
                                           onConnect={onProviderConnect}
+                                          forceExpired={isProviderExpired(providerMeta.provider.id)}
+                                          isValidating={isValidatingProviders}
                                         />
                                       ))}
                                     </div>
                                   )
                                 }
 
-                                // Fallback: Show single provider badge if auto-selected (backward compat)
-                                if (meta.autoSelectedProvider && onProviderChange && onProviderConnect) {
+                                // Fallback: Show single provider badge if auto-selected (backward compat) - ONLY during PLAN_READY
+                                if (buildMachine.state === BuildState.PLAN_READY && meta.autoSelectedProvider && onProviderChange && onProviderConnect) {
                                   return (
                                     <div className="pt-1">
                                       <ProviderBadge
@@ -1173,6 +1387,8 @@ export function FlowV2AgentPanel({
                                         allProviders={meta.autoSelectedProvider.allProviders}
                                         onProviderChange={onProviderChange}
                                         onConnect={onProviderConnect}
+                                        forceExpired={isProviderExpired(meta.autoSelectedProvider.provider.id)}
+                                        isValidating={isValidatingProviders}
                                       />
                                     </div>
                                   )
@@ -1260,24 +1476,23 @@ export function FlowV2AgentPanel({
                                             if (!defaultConnectionValue || !planNode.providerId) return []
 
                                             try {
-                                              // Map optionType to API dataType
-                                              // e.g., 'slack_channels' -> 'channels', 'gmail_labels' -> 'labels'
-                                              const parts = optionType.split('_')
-                                              const dataType = parts.length > 1 ? parts.slice(1).join('_') : optionType
-
+                                              // Use optionType directly as the dataType
+                                              // The API expects full dataType like 'slack_channels', 'gmail_labels', etc.
                                               const response = await fetch(`/api/integrations/${planNode.providerId}/data`, {
                                                 method: 'POST',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({
                                                   integrationId: defaultConnectionValue,
-                                                  dataType: dataType,
+                                                  dataType: optionType,
                                                   options: {}
                                                 })
                                               })
 
                                               if (!response.ok) return []
 
-                                              const data = await response.json()
+                                              const json = await response.json()
+                                              // Unwrap the response - API returns { data: [...], success: true }
+                                              const data = json.data || json
                                               // Transform API response to option format
                                               if (Array.isArray(data)) {
                                                 return data.map((item: any) => ({
@@ -1414,7 +1629,18 @@ export function FlowV2AgentPanel({
                                             )}
 
                                             {/* Required field dropdowns */}
-                                            {requiredFields.filter(f => f.name !== 'connection').map((field) => {
+                                            {(() => {
+                                              // Debug: Log which fields are visible vs hidden
+                                              const fieldsExcludingConnection = requiredFields.filter(f => f.name !== 'connection')
+                                              const visibleFields = fieldsExcludingConnection.filter(f => !isFieldHidden(f, nodeConfigs[planNode.id] || {}))
+                                              const hiddenFields = fieldsExcludingConnection.filter(f => isFieldHidden(f, nodeConfigs[planNode.id] || {}))
+                                              console.log(`[FlowV2AgentPanel] Field visibility for ${planNode.id}:`, {
+                                                visible: visibleFields.map(f => f.name),
+                                                hidden: hiddenFields.map(f => f.name),
+                                                nodeConfig: nodeConfigs[planNode.id] || {}
+                                              })
+                                              return visibleFields
+                                            })().map((field) => {
                                               const FieldIcon = getFieldTypeIcon(field.type)
                                               const isLoading = loadingFieldsByNode[planNode.id]?.has(field.name) || false
 
@@ -1423,6 +1649,15 @@ export function FlowV2AgentPanel({
                                               const optionsToDisplay = dynamicOptionsForField.length > 0
                                                 ? dynamicOptionsForField
                                                 : (field.defaultOptions || [])
+
+                                              // DEBUG: Log what options are available for this field
+                                              console.log(`[FlowV2AgentPanel RENDER] Field: ${field.name}, NodeId: ${planNode.id}`, {
+                                                nodesDynamicOptionsKeys: Object.keys(nodesDynamicOptions),
+                                                nodeOptionsKeys: nodesDynamicOptions[planNode.id] ? Object.keys(nodesDynamicOptions[planNode.id]) : 'undefined',
+                                                dynamicOptionsForField: dynamicOptionsForField.length,
+                                                optionsToDisplay: optionsToDisplay.length,
+                                                isLoading
+                                              })
 
                                               return (
                                                 <div key={field.name} className="space-y-2">
@@ -1569,9 +1804,20 @@ export function FlowV2AgentPanel({
                           return !integration
                         })
 
+                        // Also check if any provider has expired token (detected via validation)
+                        const hasExpiredProvider = providerIds.some((providerId: string) => isProviderExpired(providerId))
+
+                        // Disable build if validating, disconnected, or expired
+                        const isBuildDisabled = isValidatingProviders || hasDisconnectedProvider || hasExpiredProvider
+
                         return (
                           <div className="space-y-2">
-                            {hasDisconnectedProvider && (
+                            {isValidatingProviders && (
+                              <p className="text-xs text-muted-foreground text-center">
+                                Verifying connections...
+                              </p>
+                            )}
+                            {!isValidatingProviders && (hasDisconnectedProvider || hasExpiredProvider) && (
                               <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
                                 Connect all providers above to continue
                               </p>
@@ -1581,7 +1827,7 @@ export function FlowV2AgentPanel({
                               variant="primary"
                               size="lg"
                               className="w-full"
-                              disabled={hasDisconnectedProvider}
+                              disabled={isBuildDisabled}
                             >
                               {Copy.planReadyCta}
                             </Button>

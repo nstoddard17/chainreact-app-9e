@@ -186,15 +186,14 @@ export interface ProviderOption {
 function isConnectedStatus(status?: string): boolean {
   if (!status) return false
   const v = status.toLowerCase()
-  // Include 'expired' as connected because user just needs to reauthorize
-  // The OAuth flow will handle token refresh automatically
+  // Only truly connected statuses - 'expired' should show as disconnected
+  // so the user knows they need to reconnect
   return v === 'connected' ||
          v === 'authorized' ||
          v === 'active' ||
          v === 'valid' ||
          v === 'ok' ||
-         v === 'ready' ||
-         v === 'expired'  // Include expired - can be refreshed
+         v === 'ready'
 }
 
 /**

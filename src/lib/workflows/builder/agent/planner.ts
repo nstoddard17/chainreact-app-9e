@@ -303,6 +303,78 @@ const INTENT_TO_PLAN: Record<string, PlanTemplate> = {
     },
   },
 
+  // Airtable patterns
+  "airtable new record": {
+    nodeTypes: ["airtable_trigger_new_record", "slack_action_send_message"],
+    description: "Airtable new record → Slack",
+    configHints: {
+      "slack_action_send_message": {
+        message: "New record added to Airtable:\n{{trigger.fields}}",
+      },
+    },
+  },
+
+  "airtable to notion": {
+    nodeTypes: ["airtable_trigger_new_record", "notion_action_create_page"],
+    description: "Airtable trigger → Create Notion page",
+    configHints: {
+      "notion_action_create_page": {
+        title: "{{trigger.fields.Name || 'New Entry'}}",
+      },
+    },
+  },
+
+  "airtable search notion": {
+    nodeTypes: ["airtable_trigger_new_record", "tavily_search", "notion_action_create_page"],
+    description: "Airtable trigger → Internet Search → Create Notion page",
+    configHints: {
+      "tavily_search": {
+        query: "{{trigger.fields.Name || trigger.fields.Company}}",
+      },
+      "notion_action_create_page": {
+        title: "{{trigger.fields.Name || 'Research Entry'}}",
+      },
+    },
+  },
+
+  // Notion patterns
+  "notion new page slack": {
+    nodeTypes: ["notion_trigger_new_page", "slack_action_send_message"],
+    description: "Notion new page → Slack",
+    configHints: {
+      "slack_action_send_message": {
+        message: "New Notion page created: {{trigger.title}}",
+      },
+    },
+  },
+
+  // Internet search patterns
+  "search web": {
+    nodeTypes: ["http.trigger", "tavily_search", "slack_action_send_message"],
+    description: "HTTP trigger → Internet Search → Slack",
+    configHints: {
+      "tavily_search": {
+        query: "{{trigger.body.query}}",
+      },
+      "slack_action_send_message": {
+        message: "Search results:\n{{tavily_search.results}}",
+      },
+    },
+  },
+
+  "search and save to notion": {
+    nodeTypes: ["http.trigger", "tavily_search", "notion_action_create_page"],
+    description: "HTTP trigger → Internet Search → Notion",
+    configHints: {
+      "tavily_search": {
+        query: "{{trigger.body.query}}",
+      },
+      "notion_action_create_page": {
+        title: "Research: {{trigger.body.query}}",
+      },
+    },
+  },
+
 }
 
 // Normalize natural language input for deterministic matching
@@ -328,6 +400,10 @@ function matchIntentToPlan(prompt: string): PlanTemplate | null {
   const wantsSlack = /\b(slack|notify|post|send)\b/.test(normalized)
   const wantsTransform = /\b(transform|format|convert|parse)\b/.test(normalized)
   const wantsSendEmail = /\b(send email|email to|mail to|email me)\b/.test(normalized)
+  // New heuristics for Airtable, Notion, and search
+  const wantsAirtable = /\b(airtable|new row|row added|record added|new record)\b/.test(normalized)
+  const wantsNotion = /\b(notion|notion page|notion database)\b/.test(normalized)
+  const wantsSearch = /\b(search|research|look up|find information|web search|internet)\b/.test(normalized)
 
   // Priority 1: Schedule patterns
   if (wantsSchedule && (wantsFetch || hasUrl) && wantsAi && wantsSlack) {
@@ -357,14 +433,41 @@ function matchIntentToPlan(prompt: string): PlanTemplate | null {
     return INTENT_TO_PLAN["format to slack"]
   }
 
-  // Priority 5: Direct phrase match (for explicit patterns)
+  // Priority 5: Airtable patterns (most specific first)
+  if (wantsAirtable && wantsSearch && wantsNotion) {
+    return INTENT_TO_PLAN["airtable search notion"]
+  }
+
+  if (wantsAirtable && wantsNotion) {
+    return INTENT_TO_PLAN["airtable to notion"]
+  }
+
+  if (wantsAirtable && wantsSlack) {
+    return INTENT_TO_PLAN["airtable new record"]
+  }
+
+  // Priority 6: Notion patterns
+  if (wantsNotion && wantsSlack) {
+    return INTENT_TO_PLAN["notion new page slack"]
+  }
+
+  // Priority 7: Search patterns
+  if (wantsSearch && wantsNotion) {
+    return INTENT_TO_PLAN["search and save to notion"]
+  }
+
+  if (wantsSearch && wantsSlack) {
+    return INTENT_TO_PLAN["search web"]
+  }
+
+  // Priority 8: Direct phrase match (for explicit patterns)
   for (const [key, template] of Object.entries(INTENT_TO_PLAN)) {
     if (normalized.includes(key)) {
       return template
     }
   }
 
-  // Priority 6: Heuristic combinations
+  // Priority 9: Heuristic combinations
   if (wantsFetch && hasUrl && wantsAi && wantsSlack) {
     return INTENT_TO_PLAN["fetch http"]
   }
@@ -375,6 +478,11 @@ function matchIntentToPlan(prompt: string): PlanTemplate | null {
 
   if (wantsAi && wantsSlack) {
     return INTENT_TO_PLAN["ai to slack"]
+  }
+
+  // Priority 10: Single app triggers without specific action
+  if (wantsAirtable) {
+    return INTENT_TO_PLAN["airtable new record"]
   }
 
   // Default fallback: webhook → slack

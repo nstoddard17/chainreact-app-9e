@@ -1,19 +1,13 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { ChevronRight, Loader2, SkipForward } from 'lucide-react'
+import { ChevronRight, Loader2, SkipForward, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox'
 import type {
   NodeConfigDefinition,
   ConfigQuestion,
@@ -50,6 +44,7 @@ export function NodeConfigurationCard({
   const [loadingOptions, setLoadingOptions] = useState<Record<string, boolean>>({})
   const [dynamicOptionsCache, setDynamicOptionsCache] = useState<Record<string, ConfigQuestionOption[]>>({})
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [refreshingOptions, setRefreshingOptions] = useState<Record<string, boolean>>({})
 
   // Get current question and any follow-up question
   const currentQuestion = definition.questions[currentQuestionIndex]
@@ -94,6 +89,21 @@ export function NodeConfigurationCard({
 
   const handleSkipToDefaults = () => {
     onSkip()
+  }
+
+  // Refresh handler for dynamic options
+  const handleRefreshOptions = async (question: ConfigQuestion) => {
+    if (!question.dynamicOptions || !loadDynamicOptions) return
+
+    setRefreshingOptions(prev => ({ ...prev, [question.id]: true }))
+    try {
+      const options = await loadDynamicOptions(question.dynamicOptions)
+      setDynamicOptionsCache(prev => ({ ...prev, [question.dynamicOptions!]: options }))
+    } catch (error) {
+      console.error('Failed to refresh dynamic options:', error)
+    } finally {
+      setRefreshingOptions(prev => ({ ...prev, [question.id]: false }))
+    }
   }
 
   const isLastQuestion = currentQuestionIndex >= definition.questions.length - 1 && !followUpQuestion
@@ -153,21 +163,29 @@ export function NodeConfigurationCard({
             ))}
           </RadioGroup>
         ) : question.type === 'dropdown' ? (
-          <Select
-            value={config[question.id] as string || ''}
-            onValueChange={(value) => handleValueChange(question.id, value)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={question.placeholder || 'Select an option...'} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map(option => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Combobox
+              options={options.map(opt => ({ value: opt.value, label: opt.label })) as ComboboxOption[]}
+              value={config[question.id] as string || ''}
+              onChange={(value) => handleValueChange(question.id, value)}
+              placeholder={question.placeholder || 'Select an option...'}
+              emptyPlaceholder="No options available"
+              loading={isLoading}
+            />
+            {question.dynamicOptions && loadDynamicOptions && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => handleRefreshOptions(question)}
+                disabled={refreshingOptions[question.id] || isLoading}
+                className="flex-shrink-0"
+                title="Refresh options"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshingOptions[question.id] ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
+          </div>
         ) : question.type === 'text' ? (
           <Input
             value={config[question.id] as string || ''}

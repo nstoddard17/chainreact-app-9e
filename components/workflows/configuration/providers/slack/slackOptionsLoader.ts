@@ -16,6 +16,7 @@ const pendingPromises = new Map<string, Promise<FormattedOption[]>>();
 export class SlackOptionsLoader implements ProviderOptionsLoader {
   private supportedFields = [
     'channel',
+    'channels', // Plural form used in some actions like upload_file
     'user',
     'addPeople',
     'workspace'
@@ -56,6 +57,7 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
 
           switch (fieldName) {
             case 'channel':
+            case 'channels': // Plural form used in some actions like upload_file
               result = await this.loadChannels(params);
               break;
 

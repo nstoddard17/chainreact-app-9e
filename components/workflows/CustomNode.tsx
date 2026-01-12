@@ -1178,9 +1178,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const testDataEntries = useMemo(() => Object.entries(testData || {}), [testData])
   const hasConfigEntries = configEntries.length > 0
   const hasTestEntries = testDataEntries.length > 0
-  // Show auto-configured fields during and after AI configuration
-  // Keep them visible even after node is marked as successful ('ready' or 'complete')
-  const showConfigSection = ['preparing', 'creating', 'configuring', 'configured', 'testing', 'testing_successful', 'ready', 'complete'].includes(aiStatus || '')
+  // Don't show config section during AI configuration - nodes should stay compact
+  // Config details are shown in the AI configuration drawer instead
+  const showConfigSection = false
   const displayConfigEntries = useMemo(() => {
     let entries = configEntries.length > 0 ? configEntries :
                   progressConfigEntries.length > 0 ? progressConfigEntries.map(field => [field.key, field.value] as [string, any]) :
@@ -1242,9 +1242,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
     isConfigExpanded ? displayConfigEntries : displayConfigEntries.slice(0, 4)
   ), [displayConfigEntries, isConfigExpanded])
   const extraConfigCount = Math.max(displayConfigEntries.length - compactConfigEntries.length, 0)
-  const showConfigSkeleton = !hasConfigEntries && ['preparing', 'creating', 'configuring'].includes(aiStatus || '')
-  const showTestingSection = hasTestEntries || aiStatus === 'testing'
-  const showTestingSkeleton = !hasTestEntries && aiStatus === 'testing'
+  // Don't show skeleton during AI configuration - nodes stay compact
+  const showConfigSkeleton = false
+  // Don't show testing section during AI configuration - nodes stay compact
+  const showTestingSection = false
+  const showTestingSkeleton = false
 
 
   const aiOutline = useMemo(() => {
@@ -1677,46 +1679,44 @@ function CustomNode({ id, data, selected }: NodeProps) {
             </div>
           </div>
 
-          {/* Input handle - Half-moon on left side */}
+          {/* Input handle - Half-moon on top (matches non-skeleton nodes for vertical flow) */}
           {!isTrigger && (
             <Handle
               id="target"
               type="target"
-              position={Position.Left}
-              className="!w-[18px] !h-10 !rounded-r-full !rounded-l-none !transition-all !duration-200"
+              position={Position.Top}
+              className="!w-10 !h-[18px] !rounded-b-full !rounded-t-none !transition-all !duration-200"
               style={{
                 visibility: isTrigger ? "hidden" : "visible",
-                left: "0px",
-                top: inputHandleTopPx,
+                left: "50%",
+                top: "0px",
+                transform: "translateX(-50%)",
                 zIndex: 5,
-                background: handleStyle.background,
-                borderRight: `1.5px solid ${handleStyle.borderColor}`,
-                borderTop: 'none',
-                borderBottom: 'none',
-                borderLeft: 'none',
-                boxShadow: handleStyle.boxShadow,
-                backdropFilter: 'blur(2px)',
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
+                opacity: 0,
+                pointerEvents: 'none',
               }}
             />
           )}
 
-          {/* Output handle - Half-moon on right side */}
+          {/* Output handle - Half-moon on bottom (matches non-skeleton nodes for vertical flow) */}
           <Handle
             id="source"
             type="source"
-            position={Position.Right}
-            className="!w-[18px] !h-10 !rounded-l-full !rounded-r-none !transition-all !duration-200"
+            position={Position.Bottom}
+            className="!w-10 !h-[18px] !rounded-t-full !rounded-b-none !transition-all !duration-200"
             style={{
-              right: "0px",
-              top: firstHandleTopPx,
+              left: "50%",
+              bottom: "0px",
+              transform: "translateX(-50%)",
               zIndex: 5,
-              background: handleStyle.background,
-              borderLeft: `1.5px solid ${handleStyle.borderColor}`,
-              borderTop: 'none',
-              borderBottom: 'none',
-              borderRight: 'none',
-              boxShadow: handleStyle.boxShadow,
-              backdropFilter: 'blur(2px)',
+              background: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
+              opacity: 0,
+              pointerEvents: 'none',
             }}
           />
         </div>

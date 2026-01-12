@@ -101,11 +101,24 @@ export function useIntegrations(): UseIntegrationsReturn {
       // Merge available and connected integrations
       const mergedIntegrations = availableIntegrations.map((integration: any) => {
         const connected = connectedIntegrations.find((conn: any) => conn.provider === integration.id)
+
+        // Determine actual connection status based on database status field
+        // Only truly connected statuses should show as connected
+        const dbStatus = connected?.status?.toLowerCase()
+        const isActuallyConnected = connected && (
+          dbStatus === 'connected' ||
+          dbStatus === 'authorized' ||
+          dbStatus === 'active' ||
+          dbStatus === 'valid' ||
+          dbStatus === 'ok' ||
+          dbStatus === 'ready'
+        )
+
         return {
           ...integration,
           integrationId: connected?.id, // Database UUID for API calls
-          isConnected: !!connected,
-          status: connected ? "connected" : "disconnected",
+          isConnected: isActuallyConnected,
+          status: isActuallyConnected ? "connected" : (connected ? connected.status : "disconnected"),
           connectedAt: connected?.created_at,
           lastSync: connected?.last_sync,
           error: connected?.error_message,

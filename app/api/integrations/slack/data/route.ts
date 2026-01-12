@@ -19,8 +19,13 @@ const getSupabase = () => createClient(
 )
 
 export async function POST(req: NextRequest) {
+  // Declare integrationId outside try block so it's available in catch
+  let integrationId: string | undefined
+
   try {
-    const { integrationId, dataType, options = {} } = await req.json()
+    const body = await req.json()
+    integrationId = body.integrationId
+    const { dataType, options = {} } = body
 
     // Validate required parameters
     if (!integrationId || !dataType) {
@@ -155,9 +160,26 @@ export async function POST(req: NextRequest) {
       stack: error.stack
     })
 
-    // Handle authentication errors
+    // Handle authentication errors - update database status to 'expired'
     if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-      return errorResponse(error.message, 401, { needsReconnection: true
+      // Update integration status in database
+      if (integrationId) {
+        try {
+          logger.info('🔄 [Slack API] Marking integration as expired:', integrationId)
+          await getSupabase()
+            .from('integrations')
+            .update({
+              status: 'expired',
+              error_message: 'Token expired or revoked. Please reconnect.',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', integrationId)
+        } catch (updateError) {
+          logger.error('❌ [Slack API] Failed to update integration status:', updateError)
+        }
+      }
+
+      return errorResponse(error.message, 401, { needsReconnection: true, currentStatus: 'expired'
        })
     }
 
