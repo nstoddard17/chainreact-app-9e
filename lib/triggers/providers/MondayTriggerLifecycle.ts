@@ -134,7 +134,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'API-Version': '2024-10'
+        'API-Version': '2025-04'
       },
       body: JSON.stringify({ query: mutation, variables })
     })
@@ -294,7 +294,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
-            'API-Version': '2024-10'
+            'API-Version': '2025-04'
           },
           body: JSON.stringify({ query: mutation, variables })
         })
