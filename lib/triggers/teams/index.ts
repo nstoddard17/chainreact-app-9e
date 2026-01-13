@@ -53,10 +53,9 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       const expirationDateTime = new Date()
       expirationDateTime.setMinutes(expirationDateTime.getMinutes() + 4230)
 
-      // Generate encryption certificate for includeResourceData
-      // This allows Microsoft to send the full resource data in the notification
-      // without us needing to make an additional API call
-      const certificate = generateEncryptionCertificate()
+      // Avoid includeResourceData for Teams subscriptions to prevent certificate validation failures.
+      // We'll fetch resource details separately when needed.
+      const includeResourceData = false
 
       // Create subscription
       const baseUrl = getBaseUrl()
@@ -68,9 +67,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         resource: resource,
         expirationDateTime: expirationDateTime.toISOString(),
         clientState: `workflow_${workflowId}`, // Used to validate notifications
-        includeResourceData: true, // Request resource data in notifications
-        encryptionCertificate: certificate.publicKeyBase64, // Public key for encryption
-        encryptionCertificateId: certificate.certificateId // Our certificate identifier
+        includeResourceData
       }
 
       logger.debug('[Teams Trigger] Creating subscription:', {
@@ -98,11 +95,8 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       logger.debug('[Teams Trigger] Subscription created:', {
         id: subscription.id,
         expirationDateTime: subscription.expirationDateTime,
-        includeResourceData: true
+        includeResourceData
       })
-
-      // Encrypt the private key before storing
-      const encryptedPrivateKey = await encrypt(certificate.privateKey)
 
       // Store subscription details in webhook_configs
       await supabase
@@ -118,9 +112,6 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
             resource: resource,
             changeType: subscriptionPayload.changeType,
             expirationDateTime: subscription.expirationDateTime,
-            certificateId: certificate.certificateId,
-            certificateExpiresAt: certificate.expiresAt.toISOString(),
-            encryptedPrivateKey: encryptedPrivateKey, // Store encrypted private key
             ...config
           },
           status: 'active'
