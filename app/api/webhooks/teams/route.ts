@@ -33,19 +33,19 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-
-    // Microsoft Graph sends a validation token on subscription creation
-    // We need to respond with the validationToken in plain text
-    if (body.validationToken) {
+    // Microsoft Graph sends validationToken as a query param
+    const validationToken = request.nextUrl.searchParams.get('validationToken')
+    if (validationToken) {
       logger.debug('[Teams Webhook] Received validation request')
-      return new NextResponse(body.validationToken, {
+      return new NextResponse(validationToken, {
         status: 200,
         headers: {
           'Content-Type': 'text/plain'
         }
       })
     }
+
+    const body = await request.json()
 
     logger.debug('[Teams Webhook] Received change notification:', {
       valueCount: body.value?.length || 0
@@ -74,6 +74,21 @@ export async function POST(request: NextRequest) {
     )
     return addCorsHeaders(response, request, { allowCredentials: false })
   }
+}
+
+export async function GET(request: NextRequest) {
+  const validationToken = request.nextUrl.searchParams.get('validationToken')
+  if (!validationToken) {
+    return new NextResponse('Missing validation token', { status: 400 })
+  }
+
+  logger.debug('[Teams Webhook] Received validation request (GET)')
+  return new NextResponse(validationToken, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/plain'
+    }
+  })
 }
 
 /**
