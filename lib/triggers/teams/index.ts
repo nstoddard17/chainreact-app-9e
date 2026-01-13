@@ -128,7 +128,6 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
               provider_id: 'teams',
               trigger_type: triggerType,
               external_id: graphSubscription.id,
-              webhook_url: webhookUrl,
               config: {
                 resource,
                 changeType: changeTypes.join(','),
