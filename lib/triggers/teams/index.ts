@@ -127,6 +127,8 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
               provider: 'teams',
               provider_id: 'teams',
               trigger_type: triggerType,
+              resource_type: 'subscription',
+              resource_id: graphSubscription.id,
               external_id: graphSubscription.id,
               config: {
                 resource,
@@ -180,8 +182,9 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
           provider: 'teams',
           provider_id: 'teams',
           trigger_type: triggerType,
+          resource_type: 'subscription',
+          resource_id: subscription.id,
           external_id: subscription.id,
-          webhook_url: webhookUrl,
           config: {
             resource: resource,
             changeType: subscriptionPayload.changeType,
