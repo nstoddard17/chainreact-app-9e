@@ -83,29 +83,12 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       ? 'change_specific_column_value'
       : baseEvent
 
-    // Monday.com expects a JSON string for webhook config when targeting a specific column
-    // For change_specific_column_value, config should be: {"columnId": "column_id"}
-    const configJson = columnId && event === 'change_specific_column_value'
+    // Monday.com API 2025-04: config must be passed as a JSON string (the value itself is a string)
+    // For change_specific_column_value, config should be: "{\"columnId\": \"column_id\"}"
+    // Note: The JSON type in Monday's GraphQL expects a stringified JSON value
+    const configValue = columnId && event === 'change_specific_column_value'
       ? JSON.stringify({ columnId: columnId.toString() })
       : null
-
-    const mutation = configJson
-      ? `
-      mutation($boardId: ID!, $url: String!, $event: WebhookEventType!, $config: JSON!) {
-        create_webhook(board_id: $boardId, url: $url, event: $event, config: $config) {
-          id
-          board_id
-        }
-      }
-    `
-      : `
-      mutation($boardId: ID!, $url: String!, $event: WebhookEventType!) {
-        create_webhook(board_id: $boardId, url: $url, event: $event) {
-          id
-          board_id
-        }
-      }
-    `
 
     const queryParams = new URLSearchParams({
       workflowId,
@@ -118,15 +101,37 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
 
     const fullWebhookUrl = `${webhookUrl}?${queryParams.toString()}`
 
-    const variables: Record<string, string> = {
-      boardId: boardId.toString(),
-      url: fullWebhookUrl,
-      event
-    }
+    // Build the mutation - embed config directly in query string to avoid variable type issues
+    // Monday.com's GraphQL is picky about how JSON type variables are passed
+    const mutation = configValue
+      ? `
+      mutation {
+        create_webhook(
+          board_id: ${boardId},
+          url: "${fullWebhookUrl}",
+          event: ${event},
+          config: ${JSON.stringify(configValue)}
+        ) {
+          id
+          board_id
+        }
+      }
+    `
+      : `
+      mutation {
+        create_webhook(
+          board_id: ${boardId},
+          url: "${fullWebhookUrl}",
+          event: ${event}
+        ) {
+          id
+          board_id
+        }
+      }
+    `
 
-    if (configJson) {
-      variables.config = configJson
-    }
+    // No variables needed - values are embedded in the query
+    const variables = {}
 
     // Create webhook in Monday.com
     const response = await fetch('https://api.monday.com/v2', {
