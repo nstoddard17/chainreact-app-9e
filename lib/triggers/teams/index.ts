@@ -75,7 +75,8 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       logger.debug('[Teams Trigger] Creating subscription:', {
         resource,
         changeType: subscriptionPayload.changeType,
-        webhookUrl
+        webhookUrl,
+        lifecycleNotificationUrl: subscriptionPayload.lifecycleNotificationUrl
       })
 
       // Reuse existing active test subscription for the same resource to avoid Graph limits
