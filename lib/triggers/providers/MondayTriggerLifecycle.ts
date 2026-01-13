@@ -76,11 +76,16 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Determine event type based on trigger type
-    const event = this.getEventForTriggerType(triggerType)
+    // IMPORTANT: For column-specific webhooks, Monday.com requires 'change_specific_column_value' event
+    // The 'change_column_value' event does NOT accept a config parameter
+    const baseEvent = this.getEventForTriggerType(triggerType)
+    const event = columnId && baseEvent === 'change_column_value'
+      ? 'change_specific_column_value'
+      : baseEvent
 
     // Monday.com expects a JSON string for webhook config when targeting a specific column
-    // For change_column_value, config should be: {"columnId": "column_id"}
-    const configJson = columnId && event === 'change_column_value'
+    // For change_specific_column_value, config should be: {"columnId": "column_id"}
+    const configJson = columnId && event === 'change_specific_column_value'
       ? JSON.stringify({ columnId: columnId.toString() })
       : null
 
