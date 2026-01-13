@@ -23,15 +23,16 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
    * Create a Graph API subscription when workflow is activated
    */
   async onActivate(context: TriggerActivationContext): Promise<void> {
-    const { workflowId, userId, triggerType, config } = context
+    const { workflowId, userId, nodeId, triggerType, config, testMode } = context
 
-    logger.debug('[Teams Trigger] Activating trigger:', { workflowId, triggerType })
+    const modeLabel = testMode ? '🧪 TEST' : '🚀 PRODUCTION'
+    logger.debug(`${modeLabel} [Teams Trigger] Activating trigger:`, { workflowId, triggerType, nodeId })
 
     try {
       const supabase = createAdminClient()
 
       // Get Teams integration
-      const { data: integration } = await supabase
+      const { data: integration, error: integrationError } = await supabase
         .from('integrations')
         .select('*')
         .eq('user_id', userId)
@@ -39,7 +40,8 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         .eq('status', 'connected')
         .single()
 
-      if (!integration || !integration.access_token) {
+      if (integrationError || !integration || !integration.access_token) {
+        logger.error('[Teams Trigger] Integration error:', integrationError)
         throw new Error('Teams integration not found or not connected')
       }
 
@@ -72,7 +74,8 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
 
       logger.debug('[Teams Trigger] Creating subscription:', {
         resource,
-        changeType: subscriptionPayload.changeType
+        changeType: subscriptionPayload.changeType,
+        webhookUrl
       })
 
       const response = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
@@ -98,26 +101,45 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         includeResourceData
       })
 
-      // Store subscription details in webhook_configs
-      await supabase
-        .from('webhook_configs')
+      // Store subscription details in trigger_resources (consistent with other triggers)
+      const { error: insertError } = await supabase
+        .from('trigger_resources')
         .insert({
           workflow_id: workflowId,
           user_id: userId,
+          node_id: nodeId,
           provider: 'teams',
+          provider_id: 'teams',
           trigger_type: triggerType,
-          external_webhook_id: subscription.id,
-          webhook_url: subscriptionPayload.notificationUrl,
+          external_id: subscription.id,
+          webhook_url: webhookUrl,
           config: {
             resource: resource,
             changeType: subscriptionPayload.changeType,
             expirationDateTime: subscription.expirationDateTime,
             ...config
           },
-          status: 'active'
+          status: 'active',
+          // Test mode fields for isolation
+          is_test: testMode?.isTest || false,
+          test_session_id: testMode?.testSessionId || null
         })
 
-      logger.debug('[Teams Trigger] Trigger activation complete')
+      if (insertError) {
+        logger.error('[Teams Trigger] Failed to store trigger resource:', insertError)
+        // Try to delete the subscription since we couldn't store it
+        try {
+          await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${subscription.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          })
+        } catch (cleanupError) {
+          logger.error('[Teams Trigger] Failed to cleanup subscription after storage error:', cleanupError)
+        }
+        throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+      }
+
+      logger.debug(`✅ ${modeLabel} [Teams Trigger] Trigger activation complete - subscription: ${subscription.id}`)
     } catch (error: any) {
       logger.error('[Teams Trigger] Error activating trigger:', error)
       throw error
@@ -128,27 +150,43 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
    * Delete the Graph API subscription when workflow is deactivated
    */
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
-    const { workflowId, userId } = context
+    const { workflowId, userId, testSessionId } = context
 
-    logger.debug('[Teams Trigger] Deactivating trigger:', { workflowId })
+    const modeLabel = testSessionId ? '🧪 TEST' : '🛑 PRODUCTION'
+    logger.debug(`${modeLabel} [Teams Trigger] Deactivating trigger:`, { workflowId, testSessionId })
 
     try {
       const supabase = createAdminClient()
 
-      // Get webhook config
-      const { data: webhookConfig } = await supabase
-        .from('webhook_configs')
+      // Build query based on whether we're deactivating test or production triggers
+      let query = supabase
+        .from('trigger_resources')
         .select('*')
         .eq('workflow_id', workflowId)
         .eq('provider', 'teams')
-        .single()
+        .eq('status', 'active')
 
-      if (!webhookConfig || !webhookConfig.external_webhook_id) {
-        logger.warn('[Teams Trigger] No webhook config found for workflow:', workflowId)
+      if (testSessionId) {
+        // Only deactivate test triggers for this specific session
+        query = query.eq('test_session_id', testSessionId)
+      } else {
+        // Deactivate production triggers only (not test triggers)
+        query = query.or('is_test.is.null,is_test.eq.false')
+      }
+
+      const { data: resources, error: queryError } = await query
+
+      if (queryError) {
+        logger.error('[Teams Trigger] Failed to query trigger resources:', queryError)
         return
       }
 
-      // Get Teams integration
+      if (!resources || resources.length === 0) {
+        logger.debug(`[Teams Trigger] No trigger resources found for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
+        return
+      }
+
+      // Get Teams integration for API calls
       const { data: integration } = await supabase
         .from('integrations')
         .select('access_token')
@@ -157,35 +195,53 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         .eq('status', 'connected')
         .single()
 
+      let accessToken: string | null = null
       if (integration && integration.access_token) {
-        const accessToken = await decrypt(integration.access_token)
-
-        // Delete the subscription
-        const response = await fetch(
-          `https://graph.microsoft.com/v1.0/subscriptions/${webhookConfig.external_webhook_id}`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            }
-          }
-        )
-
-        if (!response.ok && response.status !== 404) {
-          logger.error('[Teams Trigger] Failed to delete subscription:', await response.text())
-        } else {
-          logger.debug('[Teams Trigger] Subscription deleted:', webhookConfig.external_webhook_id)
+        try {
+          accessToken = await decrypt(integration.access_token)
+        } catch (decryptError) {
+          logger.warn('[Teams Trigger] Failed to decrypt access token, will skip API cleanup:', decryptError)
         }
       }
 
-      // Delete webhook config from database
-      await supabase
-        .from('webhook_configs')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .eq('provider', 'teams')
+      // Delete each subscription
+      for (const resource of resources) {
+        if (accessToken && resource.external_id) {
+          try {
+            const response = await fetch(
+              `https://graph.microsoft.com/v1.0/subscriptions/${resource.external_id}`,
+              {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`
+                }
+              }
+            )
 
-      logger.debug('[Teams Trigger] Trigger deactivation complete')
+            if (!response.ok && response.status !== 404) {
+              logger.warn(`[Teams Trigger] Failed to delete subscription from Graph API: ${resource.external_id}`, await response.text())
+            } else {
+              logger.debug(`[Teams Trigger] Subscription deleted from Graph API: ${resource.external_id}`)
+            }
+          } catch (apiError) {
+            logger.warn(`[Teams Trigger] Error calling Graph API to delete subscription: ${resource.external_id}`, apiError)
+          }
+        }
+
+        // Delete from database regardless of API result
+        const { error: deleteError } = await supabase
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+
+        if (deleteError) {
+          logger.error(`[Teams Trigger] Failed to delete trigger resource from database: ${resource.id}`, deleteError)
+        } else {
+          logger.debug(`[Teams Trigger] Trigger resource deleted from database: ${resource.id}`)
+        }
+      }
+
+      logger.debug(`✅ ${modeLabel} [Teams Trigger] Trigger deactivation complete`)
     } catch (error: any) {
       logger.error('[Teams Trigger] Error deactivating trigger:', error)
       // Don't throw - we want to clean up even if Graph API call fails
@@ -206,15 +262,17 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
     try {
       const supabase = createAdminClient()
 
-      // Get webhook config
-      const { data: webhookConfig } = await supabase
-        .from('webhook_configs')
+      // Get trigger resource (production only)
+      const { data: resource, error: queryError } = await supabase
+        .from('trigger_resources')
         .select('*')
         .eq('workflow_id', workflowId)
         .eq('provider', 'teams')
+        .eq('status', 'active')
+        .or('is_test.is.null,is_test.eq.false')
         .single()
 
-      if (!webhookConfig || !webhookConfig.external_webhook_id) {
+      if (queryError || !resource || !resource.external_id) {
         return {
           healthy: false,
           message: 'No subscription found'
@@ -222,7 +280,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       }
 
       // Check subscription expiration
-      const expirationTime = new Date(webhookConfig.config.expirationDateTime).getTime()
+      const expirationTime = new Date(resource.config?.expirationDateTime).getTime()
       const now = Date.now()
       const hoursUntilExpiration = (expirationTime - now) / (1000 * 60 * 60)
 
@@ -235,7 +293,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
 
       // Renew if less than 24 hours remaining
       if (hoursUntilExpiration < 24) {
-        await this.renewSubscription(workflowId, userId, webhookConfig.external_webhook_id)
+        await this.renewSubscription(workflowId, userId, resource.external_id)
         return {
           healthy: true,
           message: 'Subscription renewed'
@@ -299,16 +357,29 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         throw new Error('Failed to renew subscription')
       }
 
-      // Update webhook config
+      // Update trigger resource - use proper JSON merge to preserve existing config
+      const { data: existingResource } = await supabase
+        .from('trigger_resources')
+        .select('config')
+        .eq('workflow_id', workflowId)
+        .eq('provider', 'teams')
+        .eq('external_id', subscriptionId)
+        .single()
+
+      const updatedConfig = {
+        ...(existingResource?.config || {}),
+        expirationDateTime: newExpiration.toISOString()
+      }
+
       await supabase
-        .from('webhook_configs')
+        .from('trigger_resources')
         .update({
-          config: {
-            expirationDateTime: newExpiration.toISOString()
-          }
+          config: updatedConfig,
+          updated_at: new Date().toISOString()
         })
         .eq('workflow_id', workflowId)
         .eq('provider', 'teams')
+        .eq('external_id', subscriptionId)
 
       logger.debug('[Teams Trigger] Subscription renewed:', subscriptionId)
     } catch (error: any) {
