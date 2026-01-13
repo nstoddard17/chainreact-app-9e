@@ -78,6 +78,76 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         webhookUrl
       })
 
+      // Reuse existing active test subscription for the same resource to avoid Graph limits
+      const { data: existingSubscription } = await supabase
+        .from('trigger_resources')
+        .select('*')
+        .eq('provider', 'teams')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .eq('is_test', true)
+        .contains('config', { resource })
+        .maybeSingle()
+
+      if (existingSubscription && testMode?.isTest) {
+        logger.debug('[Teams Trigger] Reusing existing test subscription:', {
+          subscriptionId: existingSubscription.external_id,
+          resource
+        })
+
+        await supabase
+          .from('trigger_resources')
+          .update({
+            workflow_id: workflowId,
+            node_id: nodeId,
+            test_session_id: testMode.testSessionId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingSubscription.id)
+
+        return
+      }
+
+      // If no local record exists, check Graph subscriptions and recreate the row
+      if (testMode?.isTest) {
+        const graphSubscription = await this.findGraphSubscription(accessToken, resource, webhookUrl)
+
+        if (graphSubscription) {
+          logger.debug('[Teams Trigger] Reusing Graph subscription without local record:', {
+            subscriptionId: graphSubscription.id,
+            resource
+          })
+
+          const { error: recreateError } = await supabase
+            .from('trigger_resources')
+            .insert({
+              workflow_id: workflowId,
+              user_id: userId,
+              node_id: nodeId,
+              provider: 'teams',
+              provider_id: 'teams',
+              trigger_type: triggerType,
+              external_id: graphSubscription.id,
+              webhook_url: webhookUrl,
+              config: {
+                resource,
+                changeType: changeTypes.join(','),
+                expirationDateTime: graphSubscription.expirationDateTime,
+                ...config
+              },
+              status: 'active',
+              is_test: true,
+              test_session_id: testMode.testSessionId
+            })
+
+          if (recreateError) {
+            logger.warn('[Teams Trigger] Failed to recreate trigger resource from Graph subscription:', recreateError)
+          }
+
+          return
+        }
+      }
+
       const response = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
         method: 'POST',
         headers: {
@@ -438,6 +508,44 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
 
       default:
         return ['created', 'updated']
+    }
+  }
+
+  private async findGraphSubscription(
+    accessToken: string,
+    resource: string,
+    notificationUrl: string
+  ): Promise<{ id: string; expirationDateTime: string } | null> {
+    try {
+      const response = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        logger.warn('[Teams Trigger] Failed to list Graph subscriptions:', response.status)
+        return null
+      }
+
+      const data = await response.json()
+      const subscriptions = Array.isArray(data?.value) ? data.value : []
+      const match = subscriptions.find((sub: any) =>
+        sub?.resource === resource && sub?.notificationUrl === notificationUrl
+      )
+
+      if (!match?.id) {
+        return null
+      }
+
+      return {
+        id: match.id,
+        expirationDateTime: match.expirationDateTime
+      }
+    } catch (error) {
+      logger.warn('[Teams Trigger] Error listing Graph subscriptions:', error)
+      return null
     }
   }
 }
