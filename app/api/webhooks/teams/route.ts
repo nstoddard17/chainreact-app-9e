@@ -33,19 +33,19 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-
-    // Microsoft Graph sends a validation token on subscription creation
-    // We need to respond with the validationToken in plain text
-    if (body.validationToken) {
+    // Microsoft Graph sends validationToken as a query param
+    const validationToken = request.nextUrl.searchParams.get('validationToken')
+    if (validationToken) {
       logger.debug('[Teams Webhook] Received validation request')
-      return new NextResponse(body.validationToken, {
+      return new NextResponse(validationToken, {
         status: 200,
         headers: {
           'Content-Type': 'text/plain'
         }
       })
     }
+
+    const body = await request.json()
 
     logger.debug('[Teams Webhook] Received change notification:', {
       valueCount: body.value?.length || 0
@@ -76,6 +76,21 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function GET(request: NextRequest) {
+  const validationToken = request.nextUrl.searchParams.get('validationToken')
+  if (!validationToken) {
+    return new NextResponse('Missing validation token', { status: 400 })
+  }
+
+  logger.debug('[Teams Webhook] Received validation request (GET)')
+  return new NextResponse(validationToken, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/plain'
+    }
+  })
+}
+
 /**
  * Process a single Teams change notification
  */
@@ -92,21 +107,31 @@ async function processTeamsNotification(notification: any) {
 
     const supabase = createAdminClient()
 
-    // Look up the workflow associated with this subscription
-    const { data: webhookConfig } = await supabase
-      .from('webhook_configs')
+    // Look up the trigger resource associated with this subscription
+    // Query trigger_resources table (updated from webhook_configs for consistency)
+    const { data: triggerResource, error: queryError } = await supabase
+      .from('trigger_resources')
       .select('*')
-      .eq('external_webhook_id', subscriptionId)
+      .eq('external_id', subscriptionId)
       .eq('provider', 'teams')
+      .eq('status', 'active')
       .single()
 
-    if (!webhookConfig) {
-      logger.warn('[Teams Webhook] No webhook config found for subscription:', subscriptionId)
+    if (queryError || !triggerResource) {
+      logger.warn('[Teams Webhook] No trigger resource found for subscription:', subscriptionId)
       return
     }
 
+    // Check if this is a test subscription
+    const isTestTrigger = triggerResource.is_test === true
+    const testSessionId = triggerResource.test_session_id
+
+    if (isTestTrigger) {
+      logger.debug('[Teams Webhook] Processing TEST trigger notification:', { testSessionId })
+    }
+
     // Determine the trigger type based on the resource and changeType
-    const triggerType = determineTriggerType(resource, changeType, webhookConfig.trigger_type)
+    const triggerType = determineTriggerType(resource, changeType, triggerResource.trigger_type)
 
     // Parse the resource URL to extract IDs
     const resourceIds = parseTeamsResourceUrl(resource)
@@ -119,10 +144,10 @@ async function processTeamsNotification(notification: any) {
       logger.debug('[Teams Webhook] Decrypting resource data')
 
       try {
-        // Get the private key from webhook config
-        const encryptedPrivateKey = webhookConfig.config.encryptedPrivateKey
+        // Get the private key from trigger resource config
+        const encryptedPrivateKey = triggerResource.config?.encryptedPrivateKey
         if (!encryptedPrivateKey) {
-          logger.error('[Teams Webhook] No private key found in webhook config')
+          logger.error('[Teams Webhook] No private key found in trigger resource config')
           throw new Error('No private key available for decryption')
         }
 
@@ -149,7 +174,7 @@ async function processTeamsNotification(notification: any) {
     if (!messageData && resourceIds.messageId) {
       logger.debug('[Teams Webhook] Fetching message details via API')
       messageData = await fetchMessageDetails(
-        webhookConfig.workflow_id,
+        triggerResource.workflow_id,
         resourceIds.teamId,
         resourceIds.channelId,
         resourceIds.chatId,
@@ -165,10 +190,27 @@ async function processTeamsNotification(notification: any) {
       notification
     )
 
-    // Execute the workflow
+    // For test triggers, store the result in the test session instead of executing workflow
+    if (isTestTrigger && testSessionId) {
+      logger.debug('[Teams Webhook] Storing test trigger result for session:', testSessionId)
+
+      await supabase
+        .from('workflow_test_sessions')
+        .update({
+          status: 'triggered',
+          trigger_data: triggerData,
+          triggered_at: new Date().toISOString()
+        })
+        .eq('id', testSessionId)
+
+      logger.debug('[Teams Webhook] Test trigger result stored successfully')
+      return
+    }
+
+    // Execute the workflow (production only)
     await executeWorkflow(
-      webhookConfig.workflow_id,
-      webhookConfig.user_id,
+      triggerResource.workflow_id,
+      triggerResource.user_id,
       triggerData
     )
 
@@ -392,16 +434,16 @@ async function processLifecycleNotification(notification: any) {
 
     const supabase = createAdminClient()
 
-    // Look up the webhook config
-    const { data: webhookConfig } = await supabase
-      .from('webhook_configs')
+    // Look up the trigger resource
+    const { data: triggerResource, error: queryError } = await supabase
+      .from('trigger_resources')
       .select('*')
-      .eq('external_webhook_id', subscriptionId)
+      .eq('external_id', subscriptionId)
       .eq('provider', 'teams')
       .single()
 
-    if (!webhookConfig) {
-      logger.warn('[Teams Webhook] No webhook config found for subscription:', subscriptionId)
+    if (queryError || !triggerResource) {
+      logger.warn('[Teams Webhook] No trigger resource found for subscription:', subscriptionId)
       return
     }
 
@@ -414,7 +456,7 @@ async function processLifecycleNotification(notification: any) {
         const { data: integration } = await supabase
           .from('integrations')
           .select('access_token')
-          .eq('user_id', webhookConfig.user_id)
+          .eq('user_id', triggerResource.user_id)
           .eq('provider', 'teams')
           .eq('status', 'connected')
           .single()
@@ -442,16 +484,19 @@ async function processLifecycleNotification(notification: any) {
           )
 
           if (response.ok) {
-            // Update webhook config with new expiration
+            // Update trigger resource with new expiration
+            const updatedConfig = {
+              ...(triggerResource.config || {}),
+              expirationDateTime: newExpiration.toISOString()
+            }
+
             await supabase
-              .from('webhook_configs')
+              .from('trigger_resources')
               .update({
-                config: {
-                  ...webhookConfig.config,
-                  expirationDateTime: newExpiration.toISOString()
-                }
+                config: updatedConfig,
+                updated_at: new Date().toISOString()
               })
-              .eq('id', webhookConfig.id)
+              .eq('id', triggerResource.id)
 
             logger.info('[Teams Webhook] Subscription reauthorized and renewed:', subscriptionId)
           } else {
@@ -464,11 +509,15 @@ async function processLifecycleNotification(notification: any) {
         // Subscription was removed (usually due to auth failure)
         logger.error('[Teams Webhook] Subscription removed:', subscriptionId)
 
-        // Mark webhook config as inactive
+        // Mark trigger resource as deleted
         await supabase
-          .from('webhook_configs')
-          .update({ status: 'deleted' })
-          .eq('id', webhookConfig.id)
+          .from('trigger_resources')
+          .update({
+            status: 'deleted',
+            deleted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', triggerResource.id)
 
         // TODO: Notify user that their workflow trigger is no longer active
         break

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect, useRef } from 'react'
 import ConfigurationForm from '../ConfigurationForm'
 import { ServiceConnectionSelector } from '../ServiceConnectionSelector'
 import { useIntegrationStore } from '@/stores/integrationStore'
@@ -36,10 +36,29 @@ interface SetupTabProps {
  */
 export function SetupTab(props: SetupTabProps) {
   const { nodeInfo, integrationName } = props
-  const { integrations, fetchIntegrations, connectApiKeyIntegration } = useIntegrationStore()
+  const { integrations, fetchIntegrations, connectApiKeyIntegration, loadingStates } = useIntegrationStore()
   const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
+
+  // Track if we've already requested integrations to avoid duplicate fetches
+  const hasRequestedIntegrationsRef = useRef(false)
+
+  // Check if integrations are still loading from the store
+  const isLoadingIntegrations = loadingStates?.['integrations'] ?? false
+
+  // Ensure integrations are loaded when the component mounts
+  // This prevents the "Not connected" flicker when clicking on a node
+  // if the integration store hasn't been populated yet
+  useEffect(() => {
+    if (nodeInfo?.providerId && !hasRequestedIntegrationsRef.current) {
+      hasRequestedIntegrationsRef.current = true
+      // Non-forced fetch to avoid wiping cache, just ensure the store has data
+      fetchIntegrations(false).catch(() => {
+        // Silently ignore errors - the UI will show "Not connected" which is acceptable
+      })
+    }
+  }, [nodeInfo?.providerId, fetchIntegrations])
 
   // Listen for reconnection events to refresh integration store
   React.useEffect(() => {
@@ -345,7 +364,7 @@ export function SetupTab(props: SetupTabProps) {
               onReconnect={handleReconnect}
               onSelectConnection={handleChangeAccount}
               onDeleteConnection={handleDeleteConnection}
-              isLoading={isConnecting}
+              isLoading={isConnecting || isLoadingIntegrations}
               autoFetch={false}
             />
           </div>

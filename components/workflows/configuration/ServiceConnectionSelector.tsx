@@ -616,8 +616,23 @@ export function ServiceConnectionSelector({
         </div>
       )}
 
-      {/* No Connections State - Only show when truly no accounts exist */}
-      {isDisconnected && (
+      {/* Loading State - Show when loading integrations but no connections found yet */}
+      {isDisconnected && isLoading && (
+        <div className="flex items-center gap-2">
+          <StaticIntegrationLogo
+            providerId={providerId}
+            providerName={providerName}
+            className="w-6 h-6 flex-shrink-0 opacity-60"
+          />
+          <div className="flex-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            Loading connection status...
+          </div>
+        </div>
+      )}
+
+      {/* No Connections State - Only show when truly no accounts exist and not loading */}
+      {isDisconnected && !isLoading && (
         <div className="flex items-center gap-2">
           <StaticIntegrationLogo
             providerId={providerId}
@@ -635,17 +650,8 @@ export function ServiceConnectionSelector({
               disabled={isLoading}
               className="flex-shrink-0 h-9"
             >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                  Connecting
-                </>
-              ) : (
-                <>
-                  <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                  Connect
-                </>
-              )}
+              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+              Connect
             </Button>
           )}
         </div>

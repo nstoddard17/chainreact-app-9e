@@ -157,6 +157,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
         triggerType,
         boardId,
         columnId,
+        mutation: mutation.trim(),
         event
       })
       const errorMessages = data.errors.map((e: any) => e.message).join(', ')
