@@ -11,6 +11,13 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import Image from "next/image"
 import {
   Sparkles,
@@ -1660,17 +1667,12 @@ export function FlowV2AgentPanel({
                                                       </label>
                                                       {/* Dropdown and Connect button in same row */}
                                                       <div className="flex gap-2">
-                                                        <select
-                                                          className={`flex-1 px-3 py-2 text-sm border rounded-md bg-background ${
-                                                            fieldErrors[planNode.id]?.some(err => err.toLowerCase().includes('connection'))
-                                                              ? 'border-red-500 focus:border-red-600 focus:ring-red-500'
-                                                              : 'border-input'
-                                                          }`}
+                                                        <Select
                                                           value={defaultConnectionValue}
-                                                          onChange={(e) => {
-                                                            handleFieldChange(planNode.id, 'connection', e.target.value)
+                                                          onValueChange={(value) => {
+                                                            handleFieldChange(planNode.id, 'connection', value)
                                                             // Collapse back to compact view after selection
-                                                            if (e.target.value) {
+                                                            if (value) {
                                                               setExpandedConnectionNodes(prev => ({
                                                                 ...prev,
                                                                 [planNode.id]: false
@@ -1678,13 +1680,23 @@ export function FlowV2AgentPanel({
                                                             }
                                                           }}
                                                         >
-                                                          <option value="">Select an option...</option>
-                                                          {providerConnections.map(conn => (
-                                                            <option key={conn.integrationId || conn.id} value={conn.integrationId || conn.id}>
-                                                              {getConnectionDisplayName(conn, planNode.providerId || '')}
-                                                            </option>
-                                                          ))}
-                                                        </select>
+                                                          <SelectTrigger
+                                                            className={`flex-1 pr-3 ${
+                                                              fieldErrors[planNode.id]?.some(err => err.toLowerCase().includes('connection'))
+                                                                ? 'border-red-500 focus:border-red-600 focus:ring-red-500'
+                                                                : ''
+                                                            }`}
+                                                          >
+                                                            <SelectValue placeholder="Select an option..." />
+                                                          </SelectTrigger>
+                                                          <SelectContent>
+                                                            {providerConnections.map(conn => (
+                                                              <SelectItem key={conn.integrationId || conn.id} value={conn.integrationId || conn.id}>
+                                                                {getConnectionDisplayName(conn, planNode.providerId || '')}
+                                                              </SelectItem>
+                                                            ))}
+                                                          </SelectContent>
+                                                        </Select>
                                                         <Button
                                                           variant="primary"
                                                           size="sm"
@@ -1781,27 +1793,36 @@ export function FlowV2AgentPanel({
                                                     {field.required && <span className="text-red-500">*</span>}
                                                     {isLoading && <span className="text-xs text-muted-foreground">(Loading...)</span>}
                                                   </label>
-                                                  <select
-                                                    className={`w-full px-3 py-2 text-sm border rounded-md bg-background ${
-                                                      fieldErrors[planNode.id]?.some(err =>
-                                                        err.toLowerCase().includes(field.label?.toLowerCase() || field.name.toLowerCase())
-                                                      )
-                                                        ? 'border-red-500 focus:border-red-600 focus:ring-red-500'
-                                                        : 'border-input'
-                                                    }`}
+                                                  <Select
                                                     value={nodeConfigs[planNode.id]?.[field.name] || ''}
-                                                    onChange={(e) => handleFieldChange(planNode.id, field.name, e.target.value)}
+                                                    onValueChange={(value) => handleFieldChange(planNode.id, field.name, value)}
                                                     disabled={isLoading}
                                                   >
-                                                    <option value="">
-                                                      {isLoading ? 'Loading options...' : (field.placeholder || 'Select an option...')}
-                                                    </option>
-                                                    {optionsToDisplay.map(opt => (
-                                                      <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
-                                                        {typeof opt === 'string' ? opt : (opt.label || (opt as any).name)}
-                                                      </option>
-                                                    ))}
-                                                  </select>
+                                                    <SelectTrigger
+                                                      className={`w-full pr-3 ${
+                                                        fieldErrors[planNode.id]?.some(err =>
+                                                          err.toLowerCase().includes(field.label?.toLowerCase() || field.name.toLowerCase())
+                                                        )
+                                                          ? 'border-red-500 focus:border-red-600 focus:ring-red-500'
+                                                          : ''
+                                                      }`}
+                                                    >
+                                                      <SelectValue
+                                                        placeholder={isLoading ? 'Loading options...' : (field.placeholder || 'Select an option...')}
+                                                      />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                      {optionsToDisplay.map(opt => {
+                                                        const optValue = typeof opt === 'string' ? opt : opt.value
+                                                        const optLabel = typeof opt === 'string' ? opt : (opt.label || (opt as any).name)
+                                                        return (
+                                                          <SelectItem key={optValue} value={optValue}>
+                                                            {optLabel}
+                                                          </SelectItem>
+                                                        )
+                                                      })}
+                                                    </SelectContent>
+                                                  </Select>
                                                   {field.description && (
                                                     <p className="text-xs text-muted-foreground">{field.description}</p>
                                                   )}

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { ChevronRight, Loader2, SkipForward, RefreshCw } from 'lucide-react'
+import { ChevronRight, Loader2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -20,7 +20,7 @@ interface NodeConfigurationCardProps {
   nodeType: string
   definition: NodeConfigDefinition
   onComplete: (config: Record<string, string | boolean>) => void
-  onSkip: () => void
+  onSkip?: () => void // Optional - kept for backwards compatibility but not used
   loadDynamicOptions?: (optionType: string) => Promise<ConfigQuestionOption[]>
 }
 
@@ -28,7 +28,7 @@ export function NodeConfigurationCard({
   nodeType,
   definition,
   onComplete,
-  onSkip,
+  onSkip: _onSkip, // Unused - defaults are pre-selected now
   loadDynamicOptions,
 }: NodeConfigurationCardProps) {
   const { getNodeConfigDefault } = useWorkflowPreferencesStore()
@@ -85,10 +85,6 @@ export function NodeConfigurationCard({
     } else {
       onComplete(config)
     }
-  }
-
-  const handleSkipToDefaults = () => {
-    onSkip()
   }
 
   // Refresh handler for dynamic options
@@ -229,17 +225,7 @@ export function NodeConfigurationCard({
         {followUpQuestion && renderQuestion(followUpQuestion, true)}
 
         {/* Actions */}
-        <div className="flex items-center justify-between pt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSkipToDefaults}
-            className="text-muted-foreground gap-1.5"
-          >
-            <SkipForward className="h-3.5 w-3.5" />
-            Skip - Use defaults
-          </Button>
-
+        <div className="flex items-center justify-end pt-2">
           <Button
             size="sm"
             onClick={handleNext}
