@@ -143,20 +143,30 @@ export function NodeConfigurationCard({
             onValueChange={(value) => handleValueChange(question.id, value)}
             className="space-y-2"
           >
-            {options.map(option => (
-              <div key={option.value} className="flex items-center space-x-2">
-                <RadioGroupItem value={option.value} id={`${question.id}-${option.value}`} />
-                <Label
-                  htmlFor={`${question.id}-${option.value}`}
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  {option.label}
-                  {option.isDefault && (
-                    <span className="ml-2 text-xs text-muted-foreground">(recommended)</span>
-                  )}
-                </Label>
-              </div>
-            ))}
+            {options.map(option => {
+              // Check if user has a saved default for this option
+              const userSavedDefault = savedDefaults[question.id]
+              const isUserDefault = userSavedDefault === option.value
+              const isSystemDefault = option.isDefault && !userSavedDefault
+
+              return (
+                <div key={option.value} className="flex items-center space-x-2">
+                  <RadioGroupItem value={option.value} id={`${question.id}-${option.value}`} />
+                  <Label
+                    htmlFor={`${question.id}-${option.value}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    {option.label}
+                    {isUserDefault && (
+                      <span className="ml-2 text-xs text-primary font-medium">(your default)</span>
+                    )}
+                    {isSystemDefault && (
+                      <span className="ml-2 text-xs text-muted-foreground">(recommended)</span>
+                    )}
+                  </Label>
+                </div>
+              )
+            })}
           </RadioGroup>
         ) : question.type === 'dropdown' ? (
           <div className="flex items-center gap-2">

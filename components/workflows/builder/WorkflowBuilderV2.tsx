@@ -95,6 +95,13 @@ import { logger } from '@/lib/utils/logger'
 import { safeLocalStorageSet } from '@/lib/utils/storage-cleanup'
 import { useAppContext } from "@/lib/contexts/AppContext"
 import { useChatPersistence } from "@/hooks/workflows/builder/useChatPersistence"
+import {
+  useWorkflowDraftAutoSave,
+  createDraftState,
+  restoreProviderSelections,
+  type WorkflowDraftState,
+} from "@/hooks/workflows/builder/useWorkflowDraftAutoSave"
+import { optionsPrefetchService } from "@/lib/workflows/configuration/optionsPrefetchService"
 
 type PendingChatMessage = {
   localId: string
@@ -276,18 +283,27 @@ async function planWorkflowWithTemplates(
     })
 
     // Convert template plan to edits format
-    const edits = match.plan.map((node) => ({
-      op: 'addNode',
-      node: {
-        id: node.id,
-        type: node.nodeType,
-        data: {
-          title: node.title,
+    // IMPORTANT: Generate UUIDs for node IDs instead of using template IDs like "action-1"
+    // The database expects UUID format for workflow_nodes.id and workflow_edges.source_node_id/target_node_id
+    // Also ensure node structure matches what handleBuild expects (providerId in metadata)
+    const edits = match.plan.map((node) => {
+      // Look up the node in the catalog to get isTrigger and other metadata
+      const catalogNode = ALL_NODE_COMPONENTS.find(c => c.type === node.nodeType)
+      const isTrigger = catalogNode?.isTrigger ?? node.nodeType.includes('_trigger_')
+
+      return {
+        op: 'addNode',
+        node: {
+          id: crypto.randomUUID(),
           type: node.nodeType,
-          providerId: node.providerId,
+          label: node.title,
+          metadata: {
+            providerId: node.providerId || catalogNode?.providerId,
+            isTrigger,
+          },
         },
-      },
-    }))
+      }
+    })
 
     return {
       result: {
@@ -575,6 +591,177 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const [pathLabels, setPathLabels] = useState<Record<string, string>>({})
   // NOTE: lastHasUnsavedChangesRef moved to useChatPersistence hook
 
+  // Workflow draft auto-save - persists building state to localStorage
+  const {
+    restoredDraft,
+    hasDraft,
+    isDraftLoaded,
+    saveDraft,
+    clearDraft,
+    addPendingRequest,
+    updatePendingRequest,
+    completePendingRequest,
+    getPendingRequests,
+    hasIncompleteRequests,
+  } = useWorkflowDraftAutoSave({
+    flowId,
+    enabled: !chatPersistenceEnabled, // Only auto-save drafts before workflow is saved to DB
+  })
+
+  // Track if we've restored from draft to avoid re-restoring
+  const hasRestoredFromDraftRef = useRef(false)
+
+  // Restore state from draft on load (only once, before workflow is saved)
+  useEffect(() => {
+    if (
+      !isDraftLoaded ||
+      hasRestoredFromDraftRef.current ||
+      !restoredDraft ||
+      chatPersistenceEnabled
+    ) {
+      return
+    }
+
+    hasRestoredFromDraftRef.current = true
+    logger.debug('[DraftRestore] Restoring workflow draft state...')
+
+    // Restore agent messages
+    if (restoredDraft.agentMessages?.length > 0) {
+      setAgentMessages(restoredDraft.agentMessages)
+    }
+
+    // Restore build machine state
+    if (restoredDraft.buildMachine) {
+      setBuildMachine(restoredDraft.buildMachine)
+    }
+
+    // Restore node configs
+    if (restoredDraft.nodeConfigs && Object.keys(restoredDraft.nodeConfigs).length > 0) {
+      setNodeConfigs(restoredDraft.nodeConfigs)
+    }
+
+    // Restore collected preferences
+    if (restoredDraft.collectedPreferences?.length > 0) {
+      setCollectedPreferences(restoredDraft.collectedPreferences)
+    }
+
+    // Restore provider selections
+    if (restoredDraft.providerSelections) {
+      setProviderSelections(restoreProviderSelections(restoredDraft.providerSelections))
+    }
+
+    // Restore pending prompt
+    if (restoredDraft.pendingPrompt) {
+      setPendingPrompt(restoredDraft.pendingPrompt)
+    }
+
+    // Restore selected provider
+    if (restoredDraft.selectedProviderId) {
+      setSelectedProviderId(restoredDraft.selectedProviderId)
+    }
+
+    logger.debug('[DraftRestore] Draft restored successfully')
+  }, [isDraftLoaded, restoredDraft, chatPersistenceEnabled])
+
+  // Auto-save draft when relevant state changes (debounced via hook)
+  useEffect(() => {
+    // Don't save if persistence is enabled (workflow already saved to DB)
+    if (chatPersistenceEnabled || !isDraftLoaded) {
+      return
+    }
+
+    // Save current state as draft
+    saveDraft(createDraftState({
+      agentMessages,
+      buildMachine,
+      nodeConfigs,
+      collectedPreferences,
+      providerSelections,
+      pendingPrompt,
+      selectedProviderId,
+      workflowName,
+    }))
+  }, [
+    chatPersistenceEnabled,
+    isDraftLoaded,
+    agentMessages,
+    buildMachine,
+    nodeConfigs,
+    collectedPreferences,
+    providerSelections,
+    pendingPrompt,
+    selectedProviderId,
+    workflowName,
+    saveDraft,
+  ])
+
+  // Clear draft when workflow is saved to database
+  useEffect(() => {
+    if (chatPersistenceEnabled && hasDraft) {
+      logger.debug('[DraftAutoSave] Workflow saved to DB, clearing local draft')
+      clearDraft()
+    }
+  }, [chatPersistenceEnabled, hasDraft, clearDraft])
+
+  // Show recovery notification for incomplete requests
+  const hasShownRecoveryRef = useRef(false)
+  useEffect(() => {
+    if (
+      !isDraftLoaded ||
+      hasShownRecoveryRef.current ||
+      !hasIncompleteRequests
+    ) {
+      return
+    }
+
+    hasShownRecoveryRef.current = true
+    const pendingRequests = getPendingRequests()
+    const failedRequests = pendingRequests.filter(r => r.status === 'failed')
+    const processingRequests = pendingRequests.filter(r => r.status === 'processing' || r.status === 'pending')
+
+    if (failedRequests.length > 0) {
+      // Show toast for failed requests
+      toast({
+        title: "Previous request failed",
+        description: `Your message "${failedRequests[0].userMessage.substring(0, 50)}..." wasn't processed. Would you like to try again?`,
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Re-submit the failed request
+              setAgentInput(failedRequests[0].userMessage)
+              // Clear the failed request
+              completePendingRequest(failedRequests[0].id)
+            }}
+          >
+            Retry
+          </Button>
+        ),
+      })
+    } else if (processingRequests.length > 0) {
+      // Show toast for interrupted requests
+      toast({
+        title: "Message was interrupted",
+        description: `Your message "${processingRequests[0].userMessage.substring(0, 50)}..." was interrupted. Would you like to resend it?`,
+        action: (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Re-submit the interrupted request
+              setAgentInput(processingRequests[0].userMessage)
+              // Clear the interrupted request
+              completePendingRequest(processingRequests[0].id)
+            }}
+          >
+            Resend
+          </Button>
+        ),
+      })
+    }
+  }, [isDraftLoaded, hasIncompleteRequests, getPendingRequests, toast, completePendingRequest])
+
   // NOTE: AI infrastructure init moved to consolidated mount effect (line ~414)
 
   // CONSOLIDATED: App ready init + workspace context sync
@@ -746,6 +933,35 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       },
       progress: { currentIndex: -1, done: 0, total: plan.length },
     }))
+
+    // Prefetch dropdown options for all nodes in the plan
+    // This runs in the background so options are ready when user opens config modals
+    const nodesToPrefetch = plan.map(p => ({
+      nodeType: p.nodeType,
+      providerId: p.providerId,
+    }))
+
+    // Check if provider is connected using the integration store
+    const isProviderConnected = (providerId: string) => {
+      const currentIntegrations = useIntegrationStore.getState().integrations
+      return currentIntegrations.some(
+        i => i.provider === providerId && i.status === 'connected'
+      )
+    }
+
+    // Define loader function that uses the existing dynamic options API
+    const loadOptionsFn = async (optionType: string, providerId?: string) => {
+      // This would call the same API that useDynamicOptions uses
+      // For now, we'll use a placeholder - the actual implementation
+      // will be handled by the configuration components
+      logger.debug('[Prefetch] Would prefetch:', { optionType, providerId })
+      return []
+    }
+
+    // Start prefetching in background (don't await)
+    optionsPrefetchService.prefetchForNodes(nodesToPrefetch, loadOptionsFn, isProviderConnected)
+      .then(() => logger.debug('[Prefetch] Background prefetch complete for plan'))
+      .catch(err => logger.warn('[Prefetch] Background prefetch failed:', err))
 
     const assistantLocalId = generateLocalId()
     const assistantCreatedAt = new Date().toISOString()
@@ -1485,6 +1701,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
             console.log('[URL Prompt Handler] Terms needing selection:', vagueTermsNeedingSelection.map(t => t.category?.vagueTerm))
 
+            // If user specified an email provider directly (e.g., "Gmail"), extract it for template matching
+            // This handles the case where no vague terms exist because user was specific
+            if (!providerMetadata) {
+              const emailApp = specificApps.find(app => app.category === 'email')
+              if (emailApp) {
+                console.log('[URL Prompt Handler] Using specific email app as provider:', emailApp.provider)
+                providerMetadata = {
+                  category: { vagueTerm: 'email', providers: [emailApp.provider] },
+                  provider: { id: emailApp.provider, displayName: emailApp.displayName, isConnected: true },
+                  allProviders: [{ id: emailApp.provider, displayName: emailApp.displayName, isConnected: true }]
+                }
+              }
+            }
+
             // If there are vague terms that need selection, show provider dropdown
             if (vagueTermsNeedingSelection.length > 0) {
               const [firstTerm, ...remainingTerms] = vagueTermsNeedingSelection
@@ -1541,8 +1771,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             await new Promise(resolve => setTimeout(resolve, 800))
             transitionTo(BuildState.PURPOSE)
 
+            // For template matching, we need the EMAIL provider specifically (templates like email-to-slack require it)
+            // Extract email provider from specificApps (not providerMetadata which might be notification/slack)
+            const emailApp = specificApps.find(app => app.category === 'email')
+            const emailProviderId = emailApp?.provider || providerMetadata?.provider?.id
+            console.log('[URL Prompt Handler] Email provider for template:', { emailApp: emailApp?.provider, emailProviderId, providerMetadataId: providerMetadata?.provider?.id })
+
             const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-              actions, finalPrompt, providerMetadata?.provider?.id, user?.id, flowId
+              actions, finalPrompt, emailProviderId, user?.id, flowId
             )
             console.log('[URL Prompt Handler] Received result from askAgent:', {
               workflowName: result.workflowName,
@@ -4573,7 +4809,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       createdAt: createdAtIso,
     }
 
+    // Generate unique request ID for tracking in-flight requests
+    const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
     setAgentMessages(prev => [...prev, localUserMessage])
+
+    // Track this as a pending request (for recovery if page crashes)
+    addPendingRequest({
+      id: requestId,
+      userMessage: userPrompt,
+    })
 
     if (!chatPersistenceEnabled || !flowState?.flow) {
       enqueuePendingMessage({
@@ -4713,10 +4958,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       await new Promise(resolve => setTimeout(resolve, 800))
       transitionTo(BuildState.PURPOSE)
 
+      // Mark request as processing before API call
+      updatePendingRequest(requestId, { status: 'processing' })
+
+      // For template matching, we need the EMAIL provider specifically (templates like email-to-slack require it)
+      // Extract email provider from specificApps (not providerMetadata which might be notification/slack)
+      const emailApp = specificApps.find(app => app.category === 'email')
+      const emailProviderId = emailApp?.provider || providerMetadata?.provider?.id
+
       // Call actual askAgent API (template matching first)
       // Use finalPrompt which may have auto-resolved terms (e.g., "Gmail" replacing "email")
       const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-        actions, finalPrompt, providerMetadata?.provider?.id, user?.id, flowId
+        actions, finalPrompt, emailProviderId, user?.id, flowId
       )
       console.log('[WorkflowBuilderV2] Received result from askAgent:', {
         workflowName: result.workflowName,
@@ -4727,10 +4980,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         promptId
       })
 
+      // Request completed successfully - remove from pending
+      completePendingRequest(requestId)
+
       // Use helper function to generate plan and update UI
       await continueWithPlanGeneration(result, finalPrompt, providerMetadata)
 
     } catch (error: any) {
+      // Mark request as failed for potential retry
+      updatePendingRequest(requestId, { status: 'failed' })
+
       toast({
         title: "Failed to create plan",
         description: error?.message || "Unable to generate workflow plan",
@@ -4742,8 +5001,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [
     agentInput,
     actions,
+    addPendingRequest,
     builder,
     chatPersistenceEnabled,
+    completePendingRequest,
     continueWithPlanGeneration,
     enqueuePendingMessage,
     flowId,
@@ -4753,6 +5014,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     replaceMessageByLocalId,
     toast,
     transitionTo,
+    updatePendingRequest,
   ])
 
   const handleBuild = useCallback(async () => {

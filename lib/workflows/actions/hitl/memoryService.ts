@@ -6,7 +6,19 @@
 import OpenAI from 'openai'
 import { logger } from '@/lib/utils/logger'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import type { ConversationMessage } from './types'
+import { saveExternalProviderContent } from './externalProviders'
+
+/**
+ * Create service role client for memory operations
+ */
+function getServiceRoleClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!
+  )
+}
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -316,39 +328,23 @@ async function saveToChainReactMemory(
 
 /**
  * Save content to provider-specific storage
+ * Supports ChainReact Memory, Google Docs, Notion, and OneDrive
  */
 async function saveToProvider(
   docInfo: any,
   content: string,
   userId: string
 ): Promise<boolean> {
-  const { provider, id, name } = docInfo
+  const { provider, id } = docInfo
 
   try {
-    switch (provider) {
-      case 'chainreact':
-        // Save to ChainReact Memory (Supabase)
-        return await saveToChainReactMemory(id, content, userId)
-
-      case 'google_docs':
-        // TODO: Implement Google Docs save
-        logger.warn('[Memory] Google Docs save not yet implemented')
-        return false
-
-      case 'notion':
-        // TODO: Implement Notion save
-        logger.warn('[Memory] Notion save not yet implemented')
-        return false
-
-      case 'onedrive':
-        // TODO: Implement OneDrive save
-        logger.warn('[Memory] OneDrive save not yet implemented')
-        return false
-
-      default:
-        logger.warn('[Memory] Unknown provider for saving', { provider })
-        return false
+    // ChainReact Memory is handled internally
+    if (provider === 'chainreact') {
+      return await saveToChainReactMemory(id, content, userId)
     }
+
+    // External providers are handled by the externalProviders module
+    return await saveExternalProviderContent(docInfo, content, userId)
   } catch (error: any) {
     logger.error('[Memory] Provider-specific save failed', { error: error.message, provider })
     return false
@@ -357,6 +353,7 @@ async function saveToProvider(
 
 /**
  * Cache learnings in Supabase database (optional performance optimization)
+ * Uses service role client to bypass RLS for system operations
  */
 export async function cacheLearningsInDatabase(
   userId: string,
@@ -365,7 +362,8 @@ export async function cacheLearningsInDatabase(
   learnings: Record<string, any>
 ): Promise<void> {
   try {
-    const supabase = await createSupabaseServerClient()
+    // Use service role client to bypass RLS
+    const serviceClient = getServiceRoleClient()
 
     // Store each learning as a separate record for easier querying
     const records = []
@@ -387,7 +385,7 @@ export async function cacheLearningsInDatabase(
     }
 
     if (records.length > 0) {
-      const { error } = await supabase
+      const { error } = await serviceClient
         .from('hitl_memory')
         .insert(records)
 
@@ -535,8 +533,9 @@ export async function processConversationLearnings(
     }
 
     // 5. Update conversation record with learnings summary
-    const supabase = await createSupabaseServerClient()
-    await supabase
+    // Use service role client to bypass RLS
+    const serviceClient = getServiceRoleClient()
+    await serviceClient
       .from('hitl_conversations')
       .update({
         learnings_extracted: newLearnings

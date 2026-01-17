@@ -334,10 +334,9 @@ function expandAIAgentChains(workflow: GeneratedWorkflow): GeneratedWorkflow {
 
 export async function generateEnhancedWorkflow(request: WorkflowGenerationRequest): Promise<GeneratedWorkflow> {
   try {
-    // Generate timestamp for unique IDs
-    const timestamp = Date.now()
-    const triggerId = `trigger-${timestamp}`
-    const aiAgentId = `node-${timestamp + 1}`
+    // Use UUIDs for database compatibility (workflow_nodes.id is uuid type)
+    const triggerId = crypto.randomUUID()
+    const aiAgentId = crypto.randomUUID()
 
     try {
       const completion = await openai.chat.completions.create({
@@ -386,8 +385,8 @@ Respond with ONLY valid JSON.`,
   } catch (error) {
     logger.error("Error generating enhanced workflow:", error)
     // Return a default customer support workflow as fallback
-    const timestamp = Date.now()
-    return createDefaultCustomerSupportWorkflow(`trigger-${timestamp}`, `node-${timestamp + 1}`)
+    // Use UUIDs for database compatibility
+    return createDefaultCustomerSupportWorkflow(crypto.randomUUID(), crypto.randomUUID())
   }
 }
 

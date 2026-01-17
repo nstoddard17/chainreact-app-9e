@@ -15,6 +15,7 @@ import { generateInitialAssistantOpening, detectScenario, type ScenarioDescripto
 import { generateContextAwareMessage } from './enhancedConversation'
 import { buildNodeContext } from './nodeContext'
 import { getDownstreamRequiredVariables, formatVariablesForPrompt, type DownstreamVariable } from './downstreamVariables'
+import { loadExternalProviderContent } from './externalProviders'
 
 /**
  * Create service role client for HITL database operations
@@ -354,35 +355,10 @@ async function loadKnowledgeBase(
 
 /**
  * Load content from a specific document
+ * Supports Google Docs, Notion, and OneDrive
  */
 async function loadDocumentContent(docInfo: any, userId: string): Promise<string | null> {
-  const { provider, id, url } = docInfo
-
-  try {
-    switch (provider) {
-      case 'google_docs':
-        // TODO: Implement Google Docs content fetching
-        logger.warn('[HITL] Google Docs content loading not yet implemented')
-        return null
-
-      case 'notion':
-        // TODO: Implement Notion content fetching
-        logger.warn('[HITL] Notion content loading not yet implemented')
-        return null
-
-      case 'onedrive':
-        // TODO: Implement OneDrive content fetching
-        logger.warn('[HITL] OneDrive content loading not yet implemented')
-        return null
-
-      default:
-        logger.warn('[HITL] Unknown document provider', { provider })
-        return null
-    }
-  } catch (error) {
-    logger.error('[HITL] Failed to load document content', { error, provider, id })
-    return null
-  }
+  return await loadExternalProviderContent(docInfo, userId)
 }
 
 /**
@@ -863,3 +839,9 @@ export async function executeHITL(
 
 // Re-export types
 export type { HITLConfig, ConversationMessage, ConversationState, ExtractedVariables, ContinuationDetectionResult } from './types'
+
+// Re-export services for external use
+export { processConversationLearnings, extractLearningsFromConversation } from './memoryService'
+export { loadExternalProviderContent, saveExternalProviderContent } from './externalProviders'
+export { getDownstreamRequiredVariables, formatVariablesForPrompt } from './downstreamVariables'
+export { buildNodeContext, getCondensedNodesCatalog } from './nodeContext'

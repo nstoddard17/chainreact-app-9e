@@ -989,10 +989,9 @@ function analyzeUserPrompt(prompt: string): string[] {
 
 export async function generateDynamicWorkflow(request: WorkflowGenerationRequest): Promise<GeneratedWorkflowResult> {
   try {
-    // Generate timestamp for unique IDs
-    const timestamp = Date.now()
-    const triggerId = `trigger-${timestamp}`
-    const aiAgentId = `node-${timestamp + 1}`
+    // Use UUIDs for database compatibility (workflow_nodes.id is uuid type)
+    const triggerId = crypto.randomUUID()
+    const aiAgentId = crypto.randomUUID()
 
     // Analyze user prompt to detect scenarios
     const detectedScenarios = analyzeUserPrompt(request.prompt)
@@ -1098,8 +1097,9 @@ Respond with ONLY valid JSON that creates chains for the detected scenarios.${ r
             }
           } else {
             // No trigger present, create one
+            // Use UUID for database compatibility
             generatedWorkflow.nodes.unshift({
-              id: `trigger-${Date.now()}`,
+              id: crypto.randomUUID(),
               type: 'custom',
               position: { x: 400, y: 100 },
               data: {

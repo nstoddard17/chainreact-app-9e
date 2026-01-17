@@ -175,11 +175,12 @@ export async function POST(req: NextRequest) {
     const plan: WorkflowPlan = JSON.parse(responseText)
 
     // Validate and enhance plan
+    // Use UUID for database compatibility (workflow_nodes.id is uuid type)
     const enhancedPlan: WorkflowPlan = {
       ...plan,
       nodes: plan.nodes.map((node, index) => ({
         ...node,
-        id: node.id || `node-${Date.now()}-${index}`,
+        id: node.id || crypto.randomUUID(),
         step: index + 1
       }))
     }

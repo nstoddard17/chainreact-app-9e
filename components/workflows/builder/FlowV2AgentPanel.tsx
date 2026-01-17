@@ -25,7 +25,15 @@ import {
   ArrowLeft,
   AtSign,
   Pause,
+  ChevronDown,
+  Check,
+  Plus,
 } from "lucide-react"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   BuildState,
   type BuildStateMachine,
@@ -175,9 +183,8 @@ export function FlowV2AgentPanel({
   // Track which nodes have completed their configuration questions (from nodeConfigQuestions.ts)
   const [completedConfigQuestions, setCompletedConfigQuestions] = useState<Record<string, boolean>>({})
 
-  // Track which nodes have the connection dropdown expanded (for changing connection)
-  // When collapsed (false), shows compact "Using: account@example.com" indicator
-  const [expandedConnectionNodes, setExpandedConnectionNodes] = useState<Record<string, boolean>>({})
+  // Track which nodes have the connection popover open
+  const [connectionPopoverOpen, setConnectionPopoverOpen] = useState<Record<string, boolean>>({})
 
   // Track which nodes are currently loading to prevent duplicate requests (infinite loop prevention)
   const loadingNodesRef = useRef<Set<string>>(new Set())
@@ -304,15 +311,17 @@ export function FlowV2AgentPanel({
 
     // Priority 2: Check if there's a marked default connection (future support)
     const defaultConnection = providerConnections.find(conn => conn.isDefault)
-    if (defaultConnection?.integrationId) {
-      console.log('[FlowV2AgentPanel] Using default connection:', defaultConnection.integrationId)
-      return defaultConnection.integrationId
+    const defaultConnId = defaultConnection?.integrationId || defaultConnection?.id
+    if (defaultConnId) {
+      console.log('[FlowV2AgentPanel] Using default connection:', defaultConnId)
+      return defaultConnId
     }
 
     // Priority 3: Auto-select if there's only one connection
-    if (providerConnections.length === 1 && providerConnections[0].integrationId) {
-      console.log('[FlowV2AgentPanel] Auto-selecting single connection:', providerConnections[0].integrationId)
-      return providerConnections[0].integrationId
+    const singleConnId = providerConnections[0]?.integrationId || providerConnections[0]?.id
+    if (providerConnections.length === 1 && singleConnId) {
+      console.log('[FlowV2AgentPanel] Auto-selecting single connection:', singleConnId)
+      return singleConnId
     }
 
     // No default - user must select
@@ -1604,152 +1613,168 @@ export function FlowV2AgentPanel({
                                         }
 
                                         // Show inline configuration (connection + required fields FIRST, then UX questions)
-                                        // If connection is not set, show connection first
-                                        // If connection is set but questions not completed, they'll be shown above
-                                        // Determine if we should show compact connection view
-                                        // Show compact view when: connection is auto-selected AND user hasn't clicked to expand
                                         const selectedConnection = providerConnections.find(
                                           conn => (conn.integrationId || conn.id) === defaultConnectionValue
                                         )
-                                        const showCompactConnection = defaultConnectionValue &&
-                                          selectedConnection &&
-                                          !expandedConnectionNodes[planNode.id] &&
-                                          !expiredConnections[defaultConnectionValue]
+                                        const isExpired = defaultConnectionValue && expiredConnections[defaultConnectionValue]
 
                                         return (
                                           <div className="w-full mt-4 space-y-3 border-t border-border pt-4">
                                             {requiresConnection && (
                                               <div className="space-y-2">
-                                                {showCompactConnection ? (
-                                                  // Compact connection view - shows when connection is already set
-                                                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
-                                                    <div className="flex items-center gap-2">
-                                                      <img
-                                                        src={getProviderIconPath(planNode.providerId || '')}
-                                                        alt={planNode.providerId || ''}
-                                                        className="w-5 h-5"
-                                                      />
-                                                      <div>
-                                                        <p className="text-sm font-medium text-foreground">
-                                                          {getConnectionDisplayName(selectedConnection, planNode.providerId || '')}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                          Connected account
-                                                        </p>
-                                                      </div>
-                                                    </div>
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      className="text-xs text-muted-foreground hover:text-foreground"
-                                                      onClick={() => setExpandedConnectionNodes(prev => ({
-                                                        ...prev,
-                                                        [planNode.id]: true
-                                                      }))}
+                                                {/* Connection selector - unified dropdown pill */}
+                                                <Popover
+                                                  open={connectionPopoverOpen[planNode.id] || false}
+                                                  onOpenChange={(open) => setConnectionPopoverOpen(prev => ({
+                                                    ...prev,
+                                                    [planNode.id]: open
+                                                  }))}
+                                                >
+                                                  <PopoverTrigger asChild>
+                                                    <button
+                                                      className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                                                        isExpired
+                                                          ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 hover:bg-red-100/50 dark:hover:bg-red-900/30'
+                                                          : selectedConnection
+                                                            ? 'bg-muted/50 hover:bg-muted border-border'
+                                                            : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 hover:bg-amber-100/50'
+                                                      }`}
                                                     >
-                                                      Change
-                                                    </Button>
-                                                  </div>
-                                                ) : (
-                                                  // Full connection selection view
-                                                  <>
-                                                    <p className="text-sm text-muted-foreground">
-                                                      {!defaultConnectionValue
-                                                        ? "Let's connect the service first — pick a saved connection or make a new one"
-                                                        : expandedConnectionNodes[planNode.id]
-                                                          ? "Select a different connection:"
-                                                          : `Using your ${getProviderDisplayName(planNode.providerId || '')} connection`}
-                                                    </p>
-
-                                                    <div className="space-y-2">
-                                                      <label className="text-xs font-medium text-foreground">
-                                                        Your {getProviderDisplayName(planNode.providerId || '')} connection
-                                                      </label>
-                                                      {/* Dropdown and Connect button in same row */}
-                                                      <div className="flex gap-2">
-                                                        <Select
-                                                          value={defaultConnectionValue}
-                                                          onValueChange={(value) => {
-                                                            handleFieldChange(planNode.id, 'connection', value)
-                                                            // Collapse back to compact view after selection
-                                                            if (value) {
-                                                              setExpandedConnectionNodes(prev => ({
-                                                                ...prev,
-                                                                [planNode.id]: false
-                                                              }))
-                                                            }
-                                                          }}
-                                                        >
-                                                          <SelectTrigger
-                                                            className={`flex-1 pr-3 ${
-                                                              fieldErrors[planNode.id]?.some(err => err.toLowerCase().includes('connection'))
-                                                                ? 'border-red-500 focus:border-red-600 focus:ring-red-500'
-                                                                : ''
-                                                            }`}
-                                                          >
-                                                            <SelectValue placeholder="Select an option..." />
-                                                          </SelectTrigger>
-                                                          <SelectContent>
-                                                            {providerConnections.map(conn => (
-                                                              <SelectItem key={conn.integrationId || conn.id} value={conn.integrationId || conn.id}>
-                                                                {getConnectionDisplayName(conn, planNode.providerId || '')}
-                                                              </SelectItem>
-                                                            ))}
-                                                          </SelectContent>
-                                                        </Select>
-                                                        <Button
-                                                          variant="primary"
-                                                          size="sm"
-                                                          className="whitespace-nowrap"
-                                                          onClick={() => {
-                                                            handleConnectIntegration(planNode.providerId || '', planNode.id)
-                                                          }}
-                                                        >
-                                                          + Connect
-                                                        </Button>
+                                                      <div className="flex items-center justify-center w-9 h-9 rounded-lg border bg-background shrink-0">
+                                                        <img
+                                                          src={getProviderIconPath(planNode.providerId || '')}
+                                                          alt={planNode.providerId || ''}
+                                                          className="w-5 h-5"
+                                                        />
                                                       </div>
+                                                      <div className="flex-1 min-w-0">
+                                                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                                          {getProviderDisplayName(planNode.providerId || '')} Account
+                                                        </div>
+                                                        <div className="font-medium text-sm text-foreground truncate">
+                                                          {selectedConnection
+                                                            ? getConnectionDisplayName(selectedConnection, planNode.providerId || '')
+                                                            : 'Select an account...'}
+                                                        </div>
+                                                      </div>
+                                                      <div className="flex items-center gap-1.5 text-muted-foreground shrink-0">
+                                                        <span className="text-xs font-medium">
+                                                          {selectedConnection ? 'Change' : 'Select'}
+                                                        </span>
+                                                        <ChevronDown className={`w-4 h-4 transition-transform ${connectionPopoverOpen[planNode.id] ? 'rotate-180' : ''}`} />
+                                                      </div>
+                                                    </button>
+                                                  </PopoverTrigger>
 
-                                                      {/* Duplicate account message */}
-                                                      {duplicateMessages[planNode.id]?.show && (
-                                                        <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-md">
-                                                          <p className="text-xs text-yellow-800">
-                                                            This account is already connected as <span className="font-medium">{duplicateMessages[planNode.id].connectionName}</span>
+                                                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                                    <div className="p-2 space-y-1">
+                                                      {/* Connected accounts */}
+                                                      {providerConnections.length > 0 && (
+                                                        <>
+                                                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-2 py-1">
+                                                            Your accounts
                                                           </p>
-                                                        </div>
+                                                          {providerConnections.map(conn => {
+                                                            const connId = conn.integrationId || conn.id
+                                                            const isSelected = connId === defaultConnectionValue
+                                                            const connExpired = expiredConnections[connId]
+                                                            return (
+                                                              <button
+                                                                key={connId}
+                                                                className={`w-full flex items-center gap-3 p-2.5 rounded-md text-left transition-colors ${
+                                                                  isSelected
+                                                                    ? 'bg-primary/10 border border-primary/20'
+                                                                    : 'hover:bg-muted'
+                                                                }`}
+                                                                onClick={() => {
+                                                                  handleFieldChange(planNode.id, 'connection', connId)
+                                                                  setConnectionPopoverOpen(prev => ({
+                                                                    ...prev,
+                                                                    [planNode.id]: false
+                                                                  }))
+                                                                }}
+                                                              >
+                                                                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-background border shrink-0">
+                                                                  <img
+                                                                    src={getProviderIconPath(planNode.providerId || '')}
+                                                                    alt=""
+                                                                    className="w-4 h-4"
+                                                                  />
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                  <div className="text-sm font-medium truncate">
+                                                                    {getConnectionDisplayName(conn, planNode.providerId || '')}
+                                                                  </div>
+                                                                  {connExpired && (
+                                                                    <div className="text-xs text-red-600">Expired - needs reconnect</div>
+                                                                  )}
+                                                                </div>
+                                                                {isSelected && <Check className="w-4 h-4 text-primary shrink-0" />}
+                                                              </button>
+                                                            )
+                                                          })}
+                                                        </>
                                                       )}
 
-                                                      {/* Expired connection warning */}
-                                                      {defaultConnectionValue && expiredConnections[defaultConnectionValue] && (
-                                                        <div className="px-3 py-2 bg-red-50 border border-red-200 rounded-md">
-                                                          <div className="flex items-start gap-2">
-                                                            <div className="flex-1">
-                                                              <p className="text-xs font-medium text-red-800">
-                                                                Connection Expired
-                                                              </p>
-                                                              <p className="text-xs text-red-700 mt-1">
-                                                                This {getProviderDisplayName(planNode.providerId || '')} account token has expired. Please reconnect to continue.
-                                                              </p>
-                                                            </div>
-                                                            <Button
-                                                              variant="destructive"
-                                                              size="sm"
-                                                              className="whitespace-nowrap shrink-0"
-                                                              onClick={() => {
-                                                                // Mark this connection as being reconnected (don't clear expired flag yet)
-                                                                setReconnectingConnections(prev => ({
-                                                                  ...prev,
-                                                                  [defaultConnectionValue]: true
-                                                                }))
-                                                                handleConnectIntegration(planNode.providerId || '', planNode.id)
-                                                              }}
-                                                            >
-                                                              Reconnect
-                                                            </Button>
-                                                          </div>
-                                                        </div>
+                                                      {/* Divider */}
+                                                      {providerConnections.length > 0 && (
+                                                        <div className="border-t border-border my-1" />
                                                       )}
+
+                                                      {/* Add new connection */}
+                                                      <button
+                                                        className="w-full flex items-center gap-3 p-2.5 rounded-md text-left hover:bg-muted transition-colors text-primary"
+                                                        onClick={() => {
+                                                          setConnectionPopoverOpen(prev => ({
+                                                            ...prev,
+                                                            [planNode.id]: false
+                                                          }))
+                                                          handleConnectIntegration(planNode.providerId || '', planNode.id)
+                                                        }}
+                                                      >
+                                                        <div className="flex items-center justify-center w-8 h-8 rounded-md bg-primary/10 border border-primary/20 shrink-0">
+                                                          <Plus className="w-4 h-4" />
+                                                        </div>
+                                                        <span className="text-sm font-medium">
+                                                          Connect new {getProviderDisplayName(planNode.providerId || '')} account
+                                                        </span>
+                                                      </button>
                                                     </div>
-                                                  </>
+                                                  </PopoverContent>
+                                                </Popover>
+
+                                                {/* Expired connection warning - below the selector */}
+                                                {isExpired && (
+                                                  <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                      <p className="text-xs text-red-700 dark:text-red-300">
+                                                        This connection has expired. Please reconnect to continue.
+                                                      </p>
+                                                      <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        className="whitespace-nowrap shrink-0 h-7 text-xs"
+                                                        onClick={() => {
+                                                          setReconnectingConnections(prev => ({
+                                                            ...prev,
+                                                            [defaultConnectionValue]: true
+                                                          }))
+                                                          handleConnectIntegration(planNode.providerId || '', planNode.id)
+                                                        }}
+                                                      >
+                                                        Reconnect
+                                                      </Button>
+                                                    </div>
+                                                  </div>
+                                                )}
+
+                                                {/* Duplicate account message */}
+                                                {duplicateMessages[planNode.id]?.show && (
+                                                  <div className="px-3 py-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+                                                    <p className="text-xs text-yellow-800 dark:text-yellow-300">
+                                                      This account is already connected as <span className="font-medium">{duplicateMessages[planNode.id].connectionName}</span>
+                                                    </p>
+                                                  </div>
                                                 )}
                                               </div>
                                             )}
@@ -1920,6 +1945,13 @@ export function FlowV2AgentPanel({
                                                       const { [planNode.id]: _, ...rest } = prev
                                                       return rest
                                                     })
+
+                                                    // Ensure auto-selected connection is saved before continuing
+                                                    // (the useEffect might not have run yet due to React batching)
+                                                    if (defaultConnectionValue && !nodeConfigs[planNode.id]?.connection) {
+                                                      console.log('[Continue] Saving auto-selected connection:', defaultConnectionValue)
+                                                      onNodeConfigChange(planNode.id, 'connection', defaultConnectionValue)
+                                                    }
 
                                                     onContinueNode()
                                                   }}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { useTheme } from "next-themes"
 import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import {
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import type { NodeComponent } from "@/lib/workflows/nodes/types"
 import { getIntegrationLogoClasses } from "@/lib/integrations/logoStyles"
+import { useProviderPrefetch } from "@/hooks/workflows/useOptionsPrefetch"
 
 interface IntegrationsSidePanelProps {
   isOpen: boolean
@@ -44,14 +45,28 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
   const [selectedCategory, setSelectedCategory] = useState<Category>('all')
   const [selectedIntegration, setSelectedIntegration] = useState<string | null>(null)
 
+  // Prefetch hook for pre-loading dropdown options
+  const { prefetchForProvider, prefetchForNodeType, cancelPrefetch } = useProviderPrefetch()
+
+  // Handle selecting an integration - triggers prefetch
+  const handleSelectIntegration = useCallback((integrationId: string) => {
+    setSelectedIntegration(integrationId)
+    // Start prefetching options for this provider in the background
+    // This populates the cache so config modal opens faster
+    if (mode === 'action') {
+      prefetchForProvider(integrationId)
+    }
+  }, [mode, prefetchForProvider])
+
   // Reset to main view (all integrations) when panel is opened
   useEffect(() => {
     if (isOpen) {
       setSelectedCategory('all')
       setSelectedIntegration(null)
       setSearchQuery("")
+      cancelPrefetch() // Cancel any in-flight prefetches
     }
-  }, [isOpen])
+  }, [isOpen, cancelPrefetch])
 
   // Group nodes by provider to create integrations list
   // Filter based on mode (triggers vs actions)
@@ -208,7 +223,7 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
   const renderIntegration = (integration: Integration) => (
     <div
       key={integration.id}
-      onClick={() => setSelectedIntegration(integration.id)}
+      onClick={() => handleSelectIntegration(integration.id)}
       className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-900 transition-colors cursor-pointer group border border-transparent hover:border-gray-200 dark:hover:border-slate-800"
     >
       {/* Icon */}

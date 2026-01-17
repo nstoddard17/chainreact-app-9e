@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils"
 import { logger } from "@/lib/utils/logger"
 import { useAuthStore } from "@/stores/authStore"
+import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,25 @@ interface AIWorkflowBuilderChatProps {
   onToggleCollapse?: () => void
   initialWelcomeMessage?: string
   initialPrompt?: string // Auto-send this prompt on mount
+}
+
+// Create a lookup map for quick node catalog access
+const NODE_CATALOG_MAP = new Map(
+  ALL_NODE_COMPONENTS.map((node) => [node.type, node])
+)
+
+// Helper to get outputSchema for a node type from the catalog
+function getOutputSchemaForNode(nodeType: string) {
+  const catalogNode = NODE_CATALOG_MAP.get(nodeType)
+  if (!catalogNode?.outputSchema) return undefined
+
+  // Return simplified output schema for AI consumption
+  return catalogNode.outputSchema.map(field => ({
+    name: field.name,
+    label: field.label,
+    type: field.type,
+    description: field.description
+  }))
 }
 
 export function AIWorkflowBuilderChat({
@@ -180,6 +200,17 @@ export function AIWorkflowBuilderChat({
       try {
         logger.info('[AIWorkflowBuilderChat] Sending to API:', { workflowId, initialPrompt })
 
+        // Build context from existing workflow nodes so AI knows what variables are available
+        const existingNodesContext = nodes.map(node => ({
+          id: node.id,
+          type: node.data.type,
+          title: node.data.title,
+          providerId: node.data.providerId,
+          config: node.data.config,
+          outputSchema: getOutputSchemaForNode(node.data.type),
+          isTrigger: NODE_CATALOG_MAP.get(node.data.type)?.isTrigger ?? false
+        }))
+
         const response = await fetch('/api/ai/workflow-builder', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -188,7 +219,7 @@ export function AIWorkflowBuilderChat({
             workflowId,
             connectedIntegrations,
             conversationHistory: [],
-            contextNodes: []
+            contextNodes: existingNodesContext
           })
         })
 
@@ -269,7 +300,9 @@ export function AIWorkflowBuilderChat({
             type: node.data.type,
             title: node.data.title,
             providerId: node.data.providerId,
-            config: node.data.config
+            config: node.data.config,
+            outputSchema: getOutputSchemaForNode(node.data.type),
+            isTrigger: NODE_CATALOG_MAP.get(node.data.type)?.isTrigger ?? false
           }))
         })
       })

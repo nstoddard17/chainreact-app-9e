@@ -823,92 +823,13 @@ body {
     background: #9ca3af;
   }
 
-  /* Fix dropdown styling - dark background with white text for all select dropdowns */
+  /* Select dropdown base styling - let the component handle theming */
   [data-radix-select-content] {
-    background: hsl(0 0% 10%) !important;
-    color: white !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
     max-height: min(200px, calc(100vh - 100px)) !important;
     overflow-y: auto !important;
     z-index: 50 !important;
     width: var(--radix-select-trigger-width) !important;
     min-width: var(--radix-select-trigger-width) !important;
-  }
-
-  /* Fix highlighted/hovered item styling - contrasting background with white text */
-  [role="option"][data-highlighted],
-  [data-radix-collection-item][data-highlighted],
-  [role="option"]:hover,
-  [role="option"]:focus {
-    background: hsl(0 0% 25%) !important;
-    color: white !important;
-  }
-
-  /* Override any orange/colored backgrounds on select items */
-  [role="option"][data-state="checked"],
-  [role="option"][data-state="checked"][data-highlighted],
-  [role="option"][data-state="checked"]:hover {
-    background: hsl(0 0% 20%) !important;
-    color: white !important;
-  }
-
-  /* Ultra aggressive white text selectors for all dropdown items */
-  [data-radix-select-content] [data-radix-select-item],
-  [data-radix-select-content] [role="option"],
-  [data-radix-select-viewport] [data-radix-select-item],
-  [data-radix-select-viewport] [role="option"] {
-    color: white !important;
-    --tw-text-opacity: 1 !important;
-  }
-
-  /* Target Radix SelectItem primitives directly */
-  [data-radix-select-item],
-  [data-radix-select-item-text] {
-    color: white !important;
-  }
-
-  /* Target the SelectItem text content with all possible selectors */
-  [data-radix-select-content] [data-radix-select-item] [data-radix-select-item-text],
-  [data-radix-select-content] [role="option"] [data-radix-select-item-text],
-  [data-radix-select-viewport] [data-radix-select-item-text] {
-    color: white !important;
-  }
-
-  /* Target all nested elements */
-  [data-radix-select-content] [data-radix-select-item] *,
-  [data-radix-select-content] [role="option"] *,
-  [data-radix-select-viewport] [data-radix-select-item] *,
-  [data-radix-select-viewport] [role="option"] *,
-  [data-radix-select-content] *,
-  [data-radix-select-viewport] * {
-    color: white !important;
-  }
-
-  /* Override Tailwind classes */
-  [data-radix-select-content] .text-popover-foreground,
-  [data-radix-select-content] .text-muted-foreground,
-  [data-radix-select-content] .text-foreground,
-  [data-radix-select-viewport] .text-popover-foreground,
-  [data-radix-select-viewport] .text-muted-foreground,
-  [data-radix-select-viewport] .text-foreground {
-    color: white !important;
-  }
-
-  /* Force inheritance */
-  [data-radix-select-content],
-  [data-radix-select-viewport] {
-    color: white !important;
-  }
-
-  /* Ensure consistency in dark mode */
-  .dark [data-radix-select-content] {
-    background: hsl(0 0% 10%) !important;
-    color: white !important;
-  }
-
-  .dark [data-radix-select-content] [data-radix-select-item] {
-    color: white !important;
   }
 
   /* Better text truncation for dropdown items (default) */

@@ -312,7 +312,8 @@ export async function POST(request: NextRequest) {
             }
 
             // Create node on canvas
-            const nodeId = `node-${Date.now()}-${i}`
+            // Use UUID for database compatibility (workflow_nodes.id is uuid type)
+            const nodeId = crypto.randomUUID()
             const position = calculateNodePosition(i, createdNodes, viewport)
             const nodeDescription = plannedNode.description || nodeComponent.description || ''
 

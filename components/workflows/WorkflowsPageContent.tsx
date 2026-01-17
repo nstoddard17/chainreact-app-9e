@@ -127,19 +127,26 @@ const validateWorkflow = (workflow: any) => {
     return { isValid: false, issues }
   }
 
-  const hasTrigger = nodes.some((node: any) => node.data?.isTrigger === true)
+  // Helper to check isTrigger from either Flow or ReactFlow format
+  const isNodeTrigger = (node: any) => node.data?.isTrigger ?? node.metadata?.isTrigger ?? node.type?.includes('_trigger_')
+  // Helper to get config from either format
+  const getNodeConfig = (node: any) => node.data?.config || node.config || {}
+  // Helper to check if node is a valid workflow node (not a placeholder)
+  const isWorkflowNode = (node: any) => node.type === 'custom' || (node.type && !node.type.startsWith('add-'))
+
+  const hasTrigger = nodes.some((node: any) => isNodeTrigger(node))
   if (!hasTrigger) {
     issues.push('No trigger node configured')
   }
 
-  const hasAction = nodes.some((node: any) => node.data?.isTrigger !== true && node.type === 'custom')
+  const hasAction = nodes.some((node: any) => !isNodeTrigger(node) && isWorkflowNode(node))
   if (!hasAction) {
     issues.push('No action nodes configured')
   }
 
   const unconfiguredNodes = nodes.filter((node: any) => {
-    if (node.type !== 'custom') return false
-    const config = node.data?.config || {}
+    if (!isWorkflowNode(node)) return false
+    const config = getNodeConfig(node)
     const configKeys = Object.keys(config)
     return configKeys.length === 0 || configKeys.every(key => !config[key])
   })
@@ -2375,45 +2382,60 @@ function WorkflowsContent() {
                                   )
                                 }
 
+                                // Helper to get node properties from either Flow format or ReactFlow format
+                                // Flow format: node.metadata?.providerId, node.type, node.label
+                                // ReactFlow format: node.data?.providerId, node.data?.type, node.data?.title
+                                const getNodeProviderId = (n: any) => n.data?.providerId || (n.metadata as any)?.providerId || (n.type?.includes('_') ? n.type.split('_')[0] : null)
+                                const getNodeIsTrigger = (n: any) => n.data?.isTrigger ?? (n.metadata as any)?.isTrigger ?? n.type?.includes('_trigger_')
+                                const getNodeTitle = (n: any) => n.data?.title || n.label || n.data?.type || n.type || 'Node'
+                                const getNodeType = (n: any) => n.data?.type || n.type || ''
+
                                 // Get trigger and action nodes
-                                const triggerNodes = nodes.filter(n => n.data?.isTrigger)
-                                const actionNodes = nodes.filter(n => !n.data?.isTrigger && n.type === 'custom')
+                                const triggerNodes = nodes.filter(n => getNodeIsTrigger(n))
+                                const actionNodes = nodes.filter(n => !getNodeIsTrigger(n) && (n.type === 'custom' || getNodeType(n)))
                                 const displayNodes = [...triggerNodes.slice(0, 1), ...actionNodes.slice(0, 3)]
 
                                 return (
                                   <div className="flex items-center justify-center gap-1.5 h-full px-2">
-                                    {displayNodes.map((node, idx) => (
-                                      <React.Fragment key={node.id}>
-                                        {/* Node representation */}
-                                        <div
-                                          className={cn(
-                                            "w-10 h-10 rounded-md flex items-center justify-center p-1.5 flex-shrink-0",
-                                            node.data?.isTrigger
-                                              ? "bg-green-100 border border-green-300"
-                                              : "bg-orange-100 border border-orange-300"
+                                    {displayNodes.map((node, idx) => {
+                                      const providerId = getNodeProviderId(node)
+                                      const isTrigger = getNodeIsTrigger(node)
+                                      const title = getNodeTitle(node)
+                                      const nodeType = getNodeType(node)
+
+                                      return (
+                                        <React.Fragment key={node.id}>
+                                          {/* Node representation */}
+                                          <div
+                                            className={cn(
+                                              "w-10 h-10 rounded-md flex items-center justify-center p-1.5 flex-shrink-0",
+                                              isTrigger
+                                                ? "bg-green-100 border border-green-300"
+                                                : "bg-orange-100 border border-orange-300"
+                                            )}
+                                            title={title}
+                                          >
+                                            {providerId ? (
+                                              <Image
+                                                src={`/integrations/${providerId}.svg`}
+                                                alt={title}
+                                                width={28}
+                                                height={28}
+                                                className="w-full h-full object-contain"
+                                              />
+                                            ) : (
+                                              <span className="text-xs font-medium text-slate-600">
+                                                {nodeType?.slice(0, 2).toUpperCase() || '?'}
+                                              </span>
+                                            )}
+                                          </div>
+                                          {/* Connection arrow */}
+                                          {idx < displayNodes.length - 1 && (
+                                            <div className="text-slate-400">→</div>
                                           )}
-                                          title={node.data?.title || node.data?.type || 'Node'}
-                                        >
-                                          {node.data?.providerId ? (
-                                            <Image
-                                              src={`/integrations/${node.data.providerId}.svg`}
-                                              alt={node.data?.title || node.data?.type || 'Node'}
-                                              width={28}
-                                              height={28}
-                                              className="w-full h-full object-contain"
-                                            />
-                                          ) : (
-                                            <span className="text-xs font-medium text-slate-600">
-                                              {node.data?.type?.slice(0, 2).toUpperCase() || '?'}
-                                            </span>
-                                          )}
-                                        </div>
-                                        {/* Connection arrow */}
-                                        {idx < displayNodes.length - 1 && (
-                                          <div className="text-slate-400">→</div>
-                                        )}
-                                      </React.Fragment>
-                                    ))}
+                                        </React.Fragment>
+                                      )
+                                    })}
                                     {nodes.length > 4 && (
                                       <div className="text-xs text-slate-400 ml-1">+{nodes.length - 4}</div>
                                     )}
