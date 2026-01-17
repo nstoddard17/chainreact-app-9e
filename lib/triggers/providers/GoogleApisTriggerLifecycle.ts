@@ -27,6 +27,13 @@ const getSupabase = () => createClient(
 )
 
 export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
+  private isGoogleSheetsTrigger(triggerType: string): boolean {
+    return [
+      'google_sheets_trigger_new_row',
+      'google_sheets_trigger_updated_row',
+      'google_sheets_trigger_new_worksheet'
+    ].includes(triggerType)
+  }
 
   /**
    * Activate Google API trigger
@@ -46,7 +53,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     // Get user's Google integration
     const { data: integration } = await getSupabase()
       .from('integrations')
-      .select('access_token, refresh_token')
+      .select('id, access_token, refresh_token')
       .eq('user_id', userId)
       .or(`provider.eq.${providerId},provider.eq.google`)
       .single()
@@ -76,6 +83,79 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       access_token: accessToken,
       refresh_token: refreshToken
     })
+
+    if (this.isGoogleSheetsTrigger(triggerType)) {
+      const spreadsheetId = config?.spreadsheetId
+      if (!spreadsheetId) {
+        throw new Error('Spreadsheet ID is required for Google Sheets triggers')
+      }
+
+      if (!integration?.id) {
+        throw new Error('Google Sheets integration ID not found')
+      }
+
+      const triggerTypeMap: Record<string, 'new_row' | 'updated_row' | 'new_worksheet'> = {
+        google_sheets_trigger_new_row: 'new_row',
+        google_sheets_trigger_updated_row: 'updated_row',
+        google_sheets_trigger_new_worksheet: 'new_worksheet'
+      }
+
+      const watchTriggerType = triggerTypeMap[triggerType]
+      if (!watchTriggerType) {
+        throw new Error(`Unknown Google Sheets trigger type: ${triggerType}`)
+      }
+
+      const webhookUrl = this.getWebhookUrl(providerId, testMode?.testSessionId)
+      const { setupGoogleSheetsWatch } = await import('@/lib/webhooks/google-sheets-watch-setup')
+      const watch = await setupGoogleSheetsWatch({
+        userId,
+        integrationId: integration.id,
+        spreadsheetId,
+        sheetName: config?.sheetName,
+        triggerType: watchTriggerType,
+        webhookUrl
+      })
+
+      const resourceData = {
+        workflow_id: workflowId,
+        user_id: userId,
+        provider: providerId,
+        provider_id: providerId,
+        trigger_type: triggerType,
+        node_id: nodeId,
+        resource_type: 'subscription',
+        resource_id: watch.resourceId,
+        external_id: watch.channelId,
+        config: {
+          ...config,
+          integrationId: integration.id,
+          spreadsheetId,
+          sheetName: config?.sheetName,
+          triggerType: watchTriggerType,
+          api: 'sheets',
+          webhookUrl
+        },
+        status: 'active',
+        expires_at: watch.expiration,
+        is_test: testMode?.isTest ?? false,
+        test_session_id: testMode?.testSessionId ?? null
+      }
+
+      const { error: insertError } = await getSupabase().from('trigger_resources').insert(resourceData)
+
+      if (insertError) {
+        if (insertError.code === '23503') {
+          logger.warn(`ƒsÿ‹,? Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+          logger.debug(`ƒo. Google Sheets watch created (without local record): ${watch.channelId}`)
+          return
+        }
+        logger.error(`ƒ?O Failed to store trigger resource:`, insertError)
+        throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+      }
+
+      logger.debug(`ƒo. Google Sheets watch created: ${watch.channelId}`)
+      return
+    }
 
     // Get resource and API info based on trigger type
     const { api, resourceId, events } = this.getResourceInfo(triggerType, config)
@@ -353,6 +433,15 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           case 'drive':
             await this.stopDriveWatch(oauth2Client, channelId, resourceId)
             break
+          case 'sheets': {
+            const integrationId = resource.config?.integrationId
+            if (!integrationId) {
+              throw new Error('Missing Google Sheets integration ID for watch cleanup')
+            }
+            const { stopGoogleSheetsWatch } = await import('@/lib/webhooks/google-sheets-watch-setup')
+            await stopGoogleSheetsWatch(userId, integrationId, channelId, resourceId)
+            break
+          }
         }
 
         // Mark as deleted in trigger_resources

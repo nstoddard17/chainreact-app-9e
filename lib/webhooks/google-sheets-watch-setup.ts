@@ -43,6 +43,7 @@ interface GoogleSheetsWatchConfig {
   spreadsheetId: string
   sheetName?: string // Optional: specific sheet to watch
   triggerType: 'new_row' | 'updated_row' | 'new_worksheet'
+  webhookUrl?: string
 }
 
 /**
@@ -176,7 +177,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       requestBody: {
         id: channelId,
         type: 'web_hook',
-        address: getGoogleWebhookCallbackUrl(),
+        address: config.webhookUrl || getGoogleWebhookCallbackUrl(),
         expiration: expiration.getTime().toString(),
         // Store metadata in token
         token: JSON.stringify({

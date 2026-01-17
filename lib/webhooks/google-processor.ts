@@ -1968,6 +1968,20 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
   try {
     const supabase = await createSupabaseServiceClient()
 
+    const { data: triggerResources, error: triggerError } = await supabase
+      .from('trigger_resources')
+      .select('id, workflow_id, config, status, provider_id, trigger_type')
+      .eq('trigger_type', triggerType)
+      .eq('status', 'active')
+      .eq('provider_id', 'google-sheets')
+      .eq('user_id', userId)
+      .or('is_test.is.null,is_test.eq.false')
+
+    if (triggerError) {
+      logger.error('[Google Sheets] Failed to fetch trigger resources:', triggerError)
+      return
+    }
+
     const { data: webhookConfigs, error: webhookError } = await supabase
       .from('webhook_configs')
       .select('id, workflow_id, config, status, provider_id, trigger_type')
@@ -1981,14 +1995,19 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
       return
     }
 
+    const mergedConfigs = [
+      ...(triggerResources || []),
+      ...(webhookConfigs || [])
+    ]
+
     logger.debug('[Google Sheets] Evaluating sheet workflows', {
       changeType,
       triggerType,
       spreadsheetId,
       sheetName: changeSheetName,
       sheetId: changeSheetId,
-      configs: webhookConfigs?.length || 0,
-      configMetadata: (webhookConfigs || []).map((c) => ({
+      configs: mergedConfigs.length,
+      configMetadata: mergedConfigs.map((c) => ({
         id: c.id,
         workflowId: c.workflow_id,
         hasConfig: !!c.config,
@@ -1999,11 +2018,11 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
       }))
     })
 
-    if (!webhookConfigs || webhookConfigs.length === 0) {
+    if (mergedConfigs.length === 0) {
       return
     }
 
-    const workflowIds = webhookConfigs
+    const workflowIds = mergedConfigs
       .map((config) => config.workflow_id)
       .filter((id): id is string => Boolean(id))
 
@@ -2051,7 +2070,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
       })
     }
 
-    for (const webhookConfig of webhookConfigs) {
+    for (const webhookConfig of mergedConfigs) {
       if (!webhookConfig.workflow_id) continue
 
       const workflow = workflows.find((w) => w.id === webhookConfig.workflow_id)
