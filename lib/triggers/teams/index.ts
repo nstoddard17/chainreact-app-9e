@@ -45,17 +45,16 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         throw new Error('Teams integration not found or not connected')
       }
 
-      const accessToken = await decrypt(integration.access_token)
-
-      if (triggerType === 'teams_trigger_new_chat_message' && !config?.chatId) {
-        throw new Error(
-          "Teams 'New Chat Message (All Chats)' subscriptions require application permissions. Provide a chatId or use app-only auth."
-        )
-      }
+      let accessToken = await decrypt(integration.access_token)
 
       if (triggerType === 'teams_trigger_new_chat') {
         const appAccessToken = await this.getAppOnlyAccessToken()
         logger.debug('[Teams Trigger] Using app-only token for new chat subscription')
+        accessToken = appAccessToken
+      }
+      if (triggerType === 'teams_trigger_new_chat_message' && !config?.chatId) {
+        const appAccessToken = await this.getAppOnlyAccessToken()
+        logger.debug('[Teams Trigger] Using app-only token for all-chats subscription')
         accessToken = appAccessToken
       }
 
@@ -321,7 +320,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
 
       // Delete each subscription
       for (const resource of resources) {
-        const needsAppToken = resource.trigger_type === 'teams_trigger_new_chat'
+        const needsAppToken = this.needsAppOnlyToken(resource.trigger_type, resource.config)
         if (needsAppToken && !appAccessToken) {
           try {
             appAccessToken = await this.getAppOnlyAccessToken()
@@ -459,7 +458,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       }
 
       let accessToken: string | null = null
-      if (existingResource.trigger_type === 'teams_trigger_new_chat') {
+      if (this.needsAppOnlyToken(existingResource.trigger_type, existingResource.config)) {
         accessToken = await this.getAppOnlyAccessToken()
       } else {
         // Get Teams integration
@@ -520,6 +519,19 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       logger.error('[Teams Trigger] Error renewing subscription:', error)
       throw error
     }
+  }
+
+  private needsAppOnlyToken(triggerType: string, config: any): boolean {
+    if (triggerType === 'teams_trigger_new_chat') {
+      return true
+    }
+
+    if (triggerType === 'teams_trigger_new_chat_message') {
+      const resource = config?.resource
+      return resource === '/chats/getAllMessages'
+    }
+
+    return false
   }
 
   private async getAppOnlyAccessToken(): Promise<string> {
