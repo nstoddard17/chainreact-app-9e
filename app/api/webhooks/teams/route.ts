@@ -197,7 +197,7 @@ async function processTeamsNotification(notification: any) {
       await supabase
         .from('workflow_test_sessions')
         .update({
-          status: 'triggered',
+          status: 'trigger_received',
           trigger_data: triggerData,
           triggered_at: new Date().toISOString()
         })
