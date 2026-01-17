@@ -204,7 +204,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
     })
 
     // Store the watch details in database for renewal and change tracking
-    await supabase.from('google_watch_subscriptions').upsert({
+    const { error: watchInsertError } = await supabase.from('google_watch_subscriptions').upsert({
       user_id: config.userId,
       integration_id: config.integrationId,
       provider: 'google-sheets',
@@ -224,6 +224,16 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
+
+    if (watchInsertError) {
+      logger.error('Failed to store Google Sheets watch metadata:', {
+        error: watchInsertError,
+        channelId,
+        spreadsheetId: config.spreadsheetId,
+        sheetName: config.sheetName,
+        triggerType: config.triggerType
+      })
+    }
 
     logger.debug('📦 Stored Google Sheets watch metadata', {
       userId: config.userId,
