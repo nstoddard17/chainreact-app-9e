@@ -211,8 +211,7 @@ async function processTeamsNotification(notification: any) {
         .from('workflow_test_sessions')
         .update({
           status: 'trigger_received',
-          trigger_data: triggerData,
-          triggered_at: new Date().toISOString()
+          trigger_data: triggerData
         })
         .eq('id', testSessionId)
 
