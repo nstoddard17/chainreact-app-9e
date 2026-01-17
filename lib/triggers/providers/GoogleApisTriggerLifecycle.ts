@@ -19,6 +19,7 @@ import {
 } from '../types'
 
 import { logger } from '@/lib/utils/logger'
+import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
 // Helper to create supabase client inside handlers
 const getSupabase = () => createClient(
@@ -584,13 +585,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
    * @param testSessionId - Optional test session ID for isolated test webhooks
    */
   private getWebhookUrl(providerId: string, testSessionId?: string): string {
-    const baseUrl = process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL ||
-                    process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL ||
-                    process.env.PUBLIC_WEBHOOK_BASE_URL
-
-    if (!baseUrl) {
-      throw new Error('Webhook base URL not configured')
-    }
+    const baseUrl = getWebhookBaseUrl()
 
     // Map provider to webhook endpoint
     // All Google services share the same webhook handler at /api/webhooks/google
