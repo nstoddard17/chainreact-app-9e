@@ -2,7 +2,7 @@ import { TriggerLifecycle, TriggerActivationContext, TriggerDeactivationContext,
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt, encrypt } from '@/lib/security/encryption'
 import { logger } from '@/lib/utils/logger'
-import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 import { generateEncryptionCertificate, rotateCertificateIfNeeded } from '@/lib/utils/encryptionCertificate'
 
 /**
@@ -60,7 +60,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       const includeResourceData = false
 
       // Create subscription
-      const baseUrl = getBaseUrl()
+      const baseUrl = getWebhookBaseUrl()
       const webhookUrl = `${baseUrl}/api/webhooks/teams`
       const subscriptionPayload: any = {
         changeType: changeTypes.join(','),
@@ -102,6 +102,10 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
             workflow_id: workflowId,
             node_id: nodeId,
             test_session_id: testMode.testSessionId,
+            config: {
+              ...(existingSubscription.config || {}),
+              webhookUrl
+            },
             updated_at: new Date().toISOString()
           })
           .eq('id', existingSubscription.id)
@@ -135,6 +139,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
                 resource,
                 changeType: changeTypes.join(','),
                 expirationDateTime: graphSubscription.expirationDateTime,
+                webhookUrl,
                 ...config
               },
               status: 'active',
@@ -190,6 +195,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
             resource: resource,
             changeType: subscriptionPayload.changeType,
             expirationDateTime: subscription.expirationDateTime,
+            webhookUrl,
             ...config
           },
           status: 'active',
