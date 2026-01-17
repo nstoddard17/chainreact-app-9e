@@ -384,15 +384,15 @@ function SimpleVariablePickerComponent({
           
           {/* Test results timestamp */}
           {hasTestResults() && (
-            <div className="px-3 py-2 bg-slate-50 border-b flex justify-between items-center">
-              <div className="text-xs text-slate-500 flex items-center gap-1">
+            <div className="px-3 py-2 bg-muted/50 border-b flex justify-between items-center">
+              <div className="text-xs text-muted-foreground flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
                 Test results available ({new Date(testTimestamp || 0).toLocaleTimeString()})
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={clearTestResults} 
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearTestResults}
                 className="h-6 text-xs"
               >
                 Clear
@@ -407,7 +407,7 @@ function SimpleVariablePickerComponent({
                   <>
                     <CircleAlert className="h-5 w-5 mx-auto mb-2 text-amber-500" />
                     <p>No previous nodes available.</p>
-                    <p className="text-xs mt-1 text-slate-400">
+                    <p className="text-xs mt-1 text-muted-foreground">
                       Variables can only come from nodes that appear before this one in the workflow.
                     </p>
                   </>
@@ -421,25 +421,25 @@ function SimpleVariablePickerComponent({
                 const hasOutputs = node.outputs && node.outputs.length > 0
                 const nodeResult = getNodeTestResult(node.id)
                 const isNodeTested = nodeResult !== null
-                
+
                 return (
-                  <div key={node.id} className="border-b border-gray-100 last:border-b-0">
+                  <div key={node.id} className="border-b border-border last:border-b-0">
                     {/* Node Header - Clickable to expand/collapse */}
-                    <div 
-                      className={`flex items-center justify-between px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors ${isNodeTested ? 'bg-green-50 hover:bg-green-100' : ''}`}
+                    <div
+                      className={`flex items-center justify-between px-3 py-2 hover:bg-muted cursor-pointer transition-colors ${isNodeTested ? 'bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30' : ''}`}
                       onClick={() => hasOutputs && toggleNodeExpansion(node.id)}
                     >
                       <div className="flex items-center gap-2">
                         {hasOutputs && (
                           <div className="w-4 h-4 flex items-center justify-center">
                             {isExpanded ? (
-                              <ChevronDown className="h-3 w-3 text-gray-500" />
+                              <ChevronDown className="h-3 w-3 text-muted-foreground" />
                             ) : (
-                              <ChevronRight className="h-3 w-3 text-gray-500" />
+                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
                             )}
                           </div>
                         )}
-                        <span className="text-sm font-medium text-gray-900">{node.title}</span>
+                        <span className="text-sm font-medium text-foreground">{node.title}</span>
                         {hasOutputs && (
                           <Badge variant="secondary" className="text-xs">
                             {node.outputs.length}
@@ -450,10 +450,10 @@ function SimpleVariablePickerComponent({
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Node Outputs - Expandable dropdown */}
                     {isExpanded && hasOutputs && (
-                      <div className="bg-gray-50 border-t border-gray-100">
+                      <div className="bg-muted/50 border-t border-border">
                         {node.outputs.map((output: any) => {
                           // Use friendly node type for variable reference (engine resolves by type)
                           const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
@@ -465,25 +465,25 @@ function SimpleVariablePickerComponent({
                           return (
                             <div
                               key={`${node.id}-${output.name}`}
-                              className="flex items-center justify-between px-4 py-2 hover:bg-blue-100 dark:hover:bg-blue-900 cursor-pointer transition-colors"
+                              className="flex items-center justify-between px-4 py-2 hover:bg-accent cursor-pointer transition-colors"
                               onClick={() => handleVariableSelect(variableRef)}
                             >
                               <div className="flex items-center gap-2 flex-1">
-                                <Badge variant="outline" className={`text-xs bg-white ${hasValue ? 'border-green-300' : ''}`}>
+                                <Badge variant="outline" className={`text-xs bg-background ${hasValue ? 'border-green-300 dark:border-green-700' : ''}`}>
                                   {output.type}
                                 </Badge>
-                                <code className="text-sm text-gray-700 font-mono">{displayRef}</code>
+                                <code className="text-sm text-foreground font-mono">{displayRef}</code>
                                 {output.label && output.label !== output.name && (
-                                  <span className="text-xs text-gray-500">({output.label})</span>
+                                  <span className="text-xs text-muted-foreground">({output.label})</span>
                                 )}
                               </div>
-                              
+
                               <div className="flex items-center">
                                 {/* Show variable value if available */}
                                 {hasValue && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <Badge className="mr-2 bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
+                                        <Badge className="mr-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors">
                                           {formatVariableValue(variableValue)}
                                         </Badge>
                                       </TooltipTrigger>
@@ -497,11 +497,11 @@ function SimpleVariablePickerComponent({
                                       </TooltipContent>
                                     </Tooltip>
                                 )}
-                                
+
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-6 w-6 p-0 hover:bg-gray-200"
+                                  className="h-6 w-6 p-0 hover:bg-muted"
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     copyToClipboard(variableRef)

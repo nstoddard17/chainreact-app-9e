@@ -1124,6 +1124,8 @@ export function FieldRenderer({
             placeholder={field.placeholder || "Type your Slack message..."}
             error={error}
             workflowNodes={workflowData?.nodes}
+            workflowData={workflowData}
+            currentNodeId={currentNodeId}
             className={cn(
               error && "border-red-500"
             )}

@@ -63,7 +63,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   const revision = await supabase
     .from("workflows_revisions")
     .select("id")
-    .eq("flow_id", flowId)
+    .eq("workflow_id", flowId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()

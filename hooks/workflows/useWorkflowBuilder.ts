@@ -2302,7 +2302,8 @@ export function useWorkflowBuilder() {
       })
     } else {
       // Add trigger without configuration (e.g., manual trigger)
-      const newNodeId = `trigger-${Date.now()}`
+      // Use UUID for database compatibility (workflow_nodes.id is uuid type)
+      const newNodeId = crypto.randomUUID()
       const newNode: Node = {
         id: newNodeId,
         type: 'custom',
@@ -2524,7 +2525,8 @@ export function useWorkflowBuilder() {
     // Clear the backup since we're successfully adding a new trigger
     deletedTriggerBackupRef.current = null
 
-    const newNodeId = `trigger-${Date.now()}`
+    // Use UUID for database compatibility (workflow_nodes.id is uuid type)
+    const newNodeId = crypto.randomUUID()
     const newNode: Node = {
       id: newNodeId,
       type: 'custom',
@@ -2641,11 +2643,9 @@ export function useWorkflowBuilder() {
 
     // logger.debug('AI Agent metadata:', { parentAIAgentId, parentChainIndex })
 
-    // Generate proper node ID for AI agent chains
-    const timestamp = Date.now()
-    const newNodeId = parentAIAgentId
-      ? `${parentAIAgentId}-node-${timestamp}-${timestamp}`  // AI agent chain node format
-      : `action-${timestamp}`  // Regular action node format
+    // Generate proper node ID using UUID for database compatibility
+    // (workflow_nodes.id is uuid type)
+    const newNodeId = crypto.randomUUID()
 
     // logger.debug('Generated newNodeId:', newNodeId, 'isAIAgentChain:', !!parentAIAgentId)
 

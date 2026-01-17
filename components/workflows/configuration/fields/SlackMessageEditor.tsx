@@ -25,6 +25,11 @@ import {
 import { useVariableDropTarget } from '../hooks/useVariableDropTarget'
 import { insertVariableIntoContentEditable } from '@/lib/workflows/variableInsertion'
 import { Input } from '@/components/ui/input'
+import { useUpstreamVariables } from '../hooks/useUpstreamVariables'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
+import { StaticIntegrationLogo } from '@/components/ui/static-integration-logo'
+import { Variable } from 'lucide-react'
 
 interface SlackMessageEditorProps {
   value: string
@@ -34,6 +39,8 @@ interface SlackMessageEditorProps {
   error?: string
   availableVariables?: string[]
   workflowNodes?: any[]
+  workflowData?: { nodes: any[]; edges: any[] }
+  currentNodeId?: string
   onAttachmentClick?: () => void
   onFileSelect?: (files: File[]) => void
 }
@@ -86,6 +93,8 @@ export function SlackMessageEditor({
   error,
   availableVariables = [],
   workflowNodes = [],
+  workflowData,
+  currentNodeId,
   onAttachmentClick,
   onFileSelect
 }: SlackMessageEditorProps) {
@@ -96,6 +105,17 @@ export function SlackMessageEditor({
   const fileDialogOpenRef = useRef(false)
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const [mentionPickerOpen, setMentionPickerOpen] = useState(false)
+
+  // Get upstream variables from previous nodes in the workflow (same as Discord)
+  const { upstreamNodes, hasVariables } = useUpstreamVariables({
+    workflowData,
+    currentNodeId
+  })
+
+  // Get nodes that have variables (computed from the hook - same as Discord)
+  const nodesWithVariables = React.useMemo(() => {
+    return upstreamNodes.filter(node => node.outputs.length > 0)
+  }, [upstreamNodes])
 
   // Initialize editor content on mount or when value changes externally
   React.useEffect(() => {
@@ -444,7 +464,7 @@ export function SlackMessageEditor({
 
           <div className="flex-1" />
 
-          {/* Variables Dropdown */}
+          {/* Variables Picker - Discord-style Popover */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -454,33 +474,81 @@ export function SlackMessageEditor({
                 className="h-7 px-2 text-xs hover:bg-muted"
               >
                 <Braces className="h-3.5 w-3.5 mr-1" />
-                Variables
+                Insert workflow variable
                 <ChevronDown className="h-3 w-3 ml-1" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm">Insert Variable</h4>
-                {availableVariables.length > 0 ? (
-                  <div className="space-y-1 max-h-60 overflow-y-auto">
-                    {availableVariables.map((variable) => (
-                      <Button
-                        key={variable}
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start font-mono text-xs"
-                        onClick={() => insertVariable(variable)}
-                      >
-                        {`{{${variable}}}`}
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Add a trigger or action to use variables
-                  </p>
-                )}
+            <PopoverContent className="w-[400px] p-0" align="end">
+              <div className="p-3 border-b">
+                <h4 className="text-sm font-medium">Insert Variable</h4>
+                <p className="text-xs text-muted-foreground mt-1">Add dynamic data from previous workflow steps</p>
               </div>
+              <ScrollArea className="h-[300px]">
+                <div className="p-2">
+                  {!hasVariables || nodesWithVariables.length === 0 ? (
+                    <div className="text-center py-8 px-4">
+                      <Variable className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">No variables available</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Add other nodes to your workflow to create dynamic content
+                      </p>
+                    </div>
+                  ) : (
+                    nodesWithVariables.map((node) => (
+                      <div key={node.id} className="mb-3">
+                        {/* Node Header */}
+                        <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/50 rounded-t-md">
+                          {node.providerId ? (
+                            <StaticIntegrationLogo
+                              providerId={node.providerId}
+                              providerName={node.title}
+                            />
+                          ) : (
+                            <div className="w-5 h-5 rounded bg-muted flex items-center justify-center">
+                              <Variable className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                          )}
+                          <span className="font-medium text-sm">{node.title}</span>
+                          <Badge variant="secondary" className="ml-auto text-[10px]">
+                            {node.outputs.length}
+                          </Badge>
+                        </div>
+                        {/* Node Outputs */}
+                        <div className="border border-border border-t-0 rounded-b-md divide-y divide-border/50">
+                          {node.outputs.map((output: any) => {
+                            // Use friendly node type for variable reference (engine resolves by type)
+                            const referencePrefix = node.isTrigger ? 'trigger' : (node.type || node.id)
+                            const variableRef = `{{${referencePrefix}.${output.name}}}`
+                            const displayRef = `${referencePrefix}.${output.name}`
+                            return (
+                              <div
+                                key={`${node.id}-${output.name}`}
+                                className="flex flex-col gap-0.5 px-3 py-2 hover:bg-muted/50 cursor-pointer"
+                                onClick={() => insertVariable(variableRef)}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <code className="text-sm font-medium font-mono">
+                                    {displayRef}
+                                  </code>
+                                  {output.type && (
+                                    <Badge variant="outline" className="text-[10px] font-mono border-border text-muted-foreground">
+                                      {output.type}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {output.label || output.name}
+                                  {output.description && ` — ${output.description}`}
+                                </p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
             </PopoverContent>
           </Popover>
         </div>

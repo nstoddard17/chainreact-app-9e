@@ -26,6 +26,7 @@ import {
 import { executeAIAgent } from './aiAgent'
 import { processAIFields as processAIFieldsForChains, ProcessingContext } from './ai/fieldProcessor'
 import { processAIFields, hasAIPlaceholders } from './ai/aiFieldProcessor'
+import { resolveValue } from './actions/core/resolveValue'
 
 import { logger } from '@/lib/utils/logger'
 // Re-export getIntegrationById for backward compatibility
@@ -372,7 +373,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   }
   
   // Process AI fields if needed
-  const processedConfig = await processAIFieldsIfNeeded(type, config, {
+  const aiProcessedConfig = await processAIFieldsIfNeeded(type, config, {
     userId,
     workflowId: workflowId || 'unknown',
     executionId: input?.executionId || 'unknown',
@@ -380,6 +381,10 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     trigger: input?.trigger,
     previousResults: input?.previousResults
   })
+
+  // Resolve template variables ({{trigger.subject}}, {{nodeId.field}}, etc.)
+  // This is CRITICAL for variable substitution to work in action configs
+  const processedConfig = resolveValue(aiProcessedConfig, input)
 
   // Check if environment is properly configured
   const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -832,35 +837,4 @@ function getAvailableActions(config: any): string[] {
   return config.outputPaths
     .filter((path: any) => path.actionId)
     .map((path: any) => path.actionId)
-}
-
-/**
- * Helper function to resolve variable references in config
- */
-function resolveValue(value: any, input: Record<string, any>): any {
-  if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
-    // Extract variable references and replace them
-    return value.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
-      const keys = path.split('.')
-      let result = input
-      for (const key of keys) {
-        result = result?.[key]
-      }
-      return result ?? match
-    })
-  }
-  
-  if (Array.isArray(value)) {
-    return value.map(item => resolveValue(item, input))
-  }
-  
-  if (value && typeof value === 'object') {
-    const resolved: Record<string, any> = {}
-    for (const [key, val] of Object.entries(value)) {
-      resolved[key] = resolveValue(val, input)
-    }
-    return resolved
-  }
-  
-  return value
 }
