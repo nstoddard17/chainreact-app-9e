@@ -32,11 +32,17 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Entry-point log to catch ALL incoming requests (visible in production)
+  logger.info('[Teams Webhook] POST received', {
+    url: request.url,
+    hasValidationToken: !!request.nextUrl.searchParams.get('validationToken')
+  })
+
   try {
     // Microsoft Graph sends validationToken as a query param
     const validationToken = request.nextUrl.searchParams.get('validationToken')
     if (validationToken) {
-      logger.debug('[Teams Webhook] Received validation request')
+      logger.info('[Teams Webhook] Received validation request')
       return new NextResponse(validationToken, {
         status: 200,
         headers: {
@@ -47,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
-    logger.debug('[Teams Webhook] Received change notification:', {
+    logger.info('[Teams Webhook] Received change notification:', {
       valueCount: body.value?.length || 0
     })
 
@@ -98,7 +104,7 @@ async function processTeamsNotification(notification: any) {
   try {
     const { subscriptionId, changeType, resource, resourceData, encryptedContent } = notification
 
-    logger.debug('[Teams Webhook] Processing notification:', {
+    logger.info('[Teams Webhook] Processing notification:', {
       subscriptionId,
       changeType,
       resource,
@@ -118,7 +124,7 @@ async function processTeamsNotification(notification: any) {
       .single()
 
     if (queryError || !triggerResource) {
-      logger.warn('[Teams Webhook] No trigger resource found for subscription:', subscriptionId)
+      logger.warn('[Teams Webhook] No trigger resource found for subscription:', { subscriptionId, queryError: queryError?.message })
       return
     }
 
@@ -126,8 +132,15 @@ async function processTeamsNotification(notification: any) {
     const isTestTrigger = triggerResource.is_test === true
     const testSessionId = triggerResource.test_session_id
 
+    logger.info('[Teams Webhook] Found trigger resource:', {
+      workflowId: triggerResource.workflow_id,
+      isTestTrigger,
+      testSessionId,
+      triggerType: triggerResource.trigger_type
+    })
+
     if (isTestTrigger) {
-      logger.debug('[Teams Webhook] Processing TEST trigger notification:', { testSessionId })
+      logger.info('[Teams Webhook] Processing TEST trigger notification:', { testSessionId })
     }
 
     // Determine the trigger type based on the resource and changeType
@@ -192,18 +205,21 @@ async function processTeamsNotification(notification: any) {
 
     // For test triggers, store the result in the test session instead of executing workflow
     if (isTestTrigger && testSessionId) {
-      logger.debug('[Teams Webhook] Storing test trigger result for session:', testSessionId)
+      logger.info('[Teams Webhook] Storing test trigger result for session:', testSessionId)
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('workflow_test_sessions')
         .update({
-          status: 'triggered',
-          trigger_data: triggerData,
-          triggered_at: new Date().toISOString()
+          status: 'trigger_received',
+          trigger_data: triggerData
         })
         .eq('id', testSessionId)
 
-      logger.debug('[Teams Webhook] Test trigger result stored successfully')
+      if (updateError) {
+        logger.error('[Teams Webhook] Failed to update test session:', { testSessionId, error: updateError.message })
+      } else {
+        logger.info('[Teams Webhook] Test trigger result stored successfully')
+      }
       return
     }
 

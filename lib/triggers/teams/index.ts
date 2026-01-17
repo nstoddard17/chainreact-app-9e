@@ -2,7 +2,7 @@ import { TriggerLifecycle, TriggerActivationContext, TriggerDeactivationContext,
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt, encrypt } from '@/lib/security/encryption'
 import { logger } from '@/lib/utils/logger'
-import { getBaseUrl } from '@/lib/utils/getBaseUrl'
+import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 import { generateEncryptionCertificate, rotateCertificateIfNeeded } from '@/lib/utils/encryptionCertificate'
 
 /**
@@ -45,7 +45,18 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         throw new Error('Teams integration not found or not connected')
       }
 
-      const accessToken = await decrypt(integration.access_token)
+      let accessToken = await decrypt(integration.access_token)
+
+      if (triggerType === 'teams_trigger_new_chat') {
+        const appAccessToken = await this.getAppOnlyAccessToken()
+        logger.debug('[Teams Trigger] Using app-only token for new chat subscription')
+        accessToken = appAccessToken
+      }
+      if (triggerType === 'teams_trigger_new_chat_message' && !config?.chatId) {
+        const appAccessToken = await this.getAppOnlyAccessToken()
+        logger.debug('[Teams Trigger] Using app-only token for all-chats subscription')
+        accessToken = appAccessToken
+      }
 
       // Build subscription resource based on trigger type
       const resource = this.buildSubscriptionResource(triggerType, config)
@@ -60,7 +71,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       const includeResourceData = false
 
       // Create subscription
-      const baseUrl = getBaseUrl()
+      const baseUrl = getWebhookBaseUrl()
       const webhookUrl = `${baseUrl}/api/webhooks/teams`
       const subscriptionPayload: any = {
         changeType: changeTypes.join(','),
@@ -91,22 +102,48 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         .maybeSingle()
 
       if (existingSubscription && testMode?.isTest) {
-        logger.debug('[Teams Trigger] Reusing existing test subscription:', {
+        const expirationRaw = existingSubscription.config?.expirationDateTime
+        const expirationMs = expirationRaw ? Date.parse(expirationRaw) : NaN
+        const isExpired = !Number.isFinite(expirationMs) || expirationMs <= Date.now() + 60000
+
+        if (!isExpired) {
+          const graphSubscription = await this.findGraphSubscription(accessToken, resource, webhookUrl)
+
+          if (graphSubscription?.id) {
+            logger.debug('[Teams Trigger] Reusing existing test subscription:', {
+              subscriptionId: existingSubscription.external_id,
+              resource
+            })
+
+            await supabase
+              .from('trigger_resources')
+              .update({
+                workflow_id: workflowId,
+                node_id: nodeId,
+                test_session_id: testMode.testSessionId,
+                config: {
+                  ...(existingSubscription.config || {}),
+                  expirationDateTime: graphSubscription.expirationDateTime || existingSubscription.config?.expirationDateTime,
+                  webhookUrl
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingSubscription.id)
+
+            return
+          }
+        }
+
+        logger.debug('[Teams Trigger] Removing stale test subscription record:', {
           subscriptionId: existingSubscription.external_id,
-          resource
+          resource,
+          isExpired
         })
 
         await supabase
           .from('trigger_resources')
-          .update({
-            workflow_id: workflowId,
-            node_id: nodeId,
-            test_session_id: testMode.testSessionId,
-            updated_at: new Date().toISOString()
-          })
+          .delete()
           .eq('id', existingSubscription.id)
-
-        return
       }
 
       // If no local record exists, check Graph subscriptions and recreate the row
@@ -135,6 +172,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
                 resource,
                 changeType: changeTypes.join(','),
                 expirationDateTime: graphSubscription.expirationDateTime,
+                webhookUrl,
                 ...config
               },
               status: 'active',
@@ -190,6 +228,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
             resource: resource,
             changeType: subscriptionPayload.changeType,
             expirationDateTime: subscription.expirationDateTime,
+            webhookUrl,
             ...config
           },
           status: 'active',
@@ -259,7 +298,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         return
       }
 
-      // Get Teams integration for API calls
+      // Get Teams integration for delegated API calls
       const { data: integration } = await supabase
         .from('integrations')
         .select('access_token')
@@ -268,17 +307,30 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         .eq('status', 'connected')
         .single()
 
-      let accessToken: string | null = null
+      let userAccessToken: string | null = null
       if (integration && integration.access_token) {
         try {
-          accessToken = await decrypt(integration.access_token)
+          userAccessToken = await decrypt(integration.access_token)
         } catch (decryptError) {
-          logger.warn('[Teams Trigger] Failed to decrypt access token, will skip API cleanup:', decryptError)
+          logger.warn('[Teams Trigger] Failed to decrypt access token, will skip delegated API cleanup:', decryptError)
         }
       }
 
+      let appAccessToken: string | null = null
+
       // Delete each subscription
       for (const resource of resources) {
+        const needsAppToken = this.needsAppOnlyToken(resource.trigger_type, resource.config)
+        if (needsAppToken && !appAccessToken) {
+          try {
+            appAccessToken = await this.getAppOnlyAccessToken()
+          } catch (tokenError) {
+            logger.warn('[Teams Trigger] Failed to get app-only token, will skip app-only API cleanup:', tokenError)
+          }
+        }
+
+        const accessToken = needsAppToken ? appAccessToken : userAccessToken
+
         if (accessToken && resource.external_id) {
           try {
             const response = await fetch(
@@ -393,20 +445,37 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
     try {
       const supabase = createAdminClient()
 
-      // Get Teams integration
-      const { data: integration } = await supabase
-        .from('integrations')
-        .select('access_token')
-        .eq('user_id', userId)
+      const { data: existingResource } = await supabase
+        .from('trigger_resources')
+        .select('config, trigger_type')
+        .eq('workflow_id', workflowId)
         .eq('provider', 'teams')
-        .eq('status', 'connected')
+        .eq('external_id', subscriptionId)
         .single()
 
-      if (!integration || !integration.access_token) {
-        throw new Error('Teams integration not found')
+      if (!existingResource) {
+        throw new Error('Trigger resource not found')
       }
 
-      const accessToken = await decrypt(integration.access_token)
+      let accessToken: string | null = null
+      if (this.needsAppOnlyToken(existingResource.trigger_type, existingResource.config)) {
+        accessToken = await this.getAppOnlyAccessToken()
+      } else {
+        // Get Teams integration
+        const { data: integration } = await supabase
+          .from('integrations')
+          .select('access_token')
+          .eq('user_id', userId)
+          .eq('provider', 'teams')
+          .eq('status', 'connected')
+          .single()
+
+        if (!integration || !integration.access_token) {
+          throw new Error('Teams integration not found')
+        }
+
+        accessToken = await decrypt(integration.access_token)
+      }
 
       // Extend expiration by 3 days
       const newExpiration = new Date()
@@ -430,15 +499,6 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         throw new Error('Failed to renew subscription')
       }
 
-      // Update trigger resource - use proper JSON merge to preserve existing config
-      const { data: existingResource } = await supabase
-        .from('trigger_resources')
-        .select('config')
-        .eq('workflow_id', workflowId)
-        .eq('provider', 'teams')
-        .eq('external_id', subscriptionId)
-        .single()
-
       const updatedConfig = {
         ...(existingResource?.config || {}),
         expirationDateTime: newExpiration.toISOString()
@@ -459,6 +519,53 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       logger.error('[Teams Trigger] Error renewing subscription:', error)
       throw error
     }
+  }
+
+  private needsAppOnlyToken(triggerType: string, config: any): boolean {
+    if (triggerType === 'teams_trigger_new_chat') {
+      return true
+    }
+
+    if (triggerType === 'teams_trigger_new_chat_message') {
+      const resource = config?.resource
+      return resource === '/chats/getAllMessages'
+    }
+
+    return false
+  }
+
+  private async getAppOnlyAccessToken(): Promise<string> {
+    const tenantId = process.env.TEAMS_TENANT_ID || process.env.MICROSOFT_TENANT_ID
+    const clientId = process.env.TEAMS_CLIENT_ID
+    const clientSecret = process.env.TEAMS_CLIENT_SECRET
+
+    if (!tenantId || !clientId || !clientSecret) {
+      throw new Error('Missing Teams app credentials (TEAMS_TENANT_ID, TEAMS_CLIENT_ID, TEAMS_CLIENT_SECRET)')
+    }
+
+    const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+        scope: 'https://graph.microsoft.com/.default'
+      })
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to get Teams app-only token: ${errorText}`)
+    }
+
+    const data = await response.json()
+    if (!data?.access_token) {
+      throw new Error('Teams app-only token response missing access_token')
+    }
+
+    return data.access_token
   }
 
   /**

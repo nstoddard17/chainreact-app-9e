@@ -248,12 +248,25 @@ export async function POST(request: NextRequest) {
       console.log('🧪 [test-trigger] Test session ID:', testSessionId)
 
       // Pass test mode config to ensure separate webhook URL is used
-      await triggerManager.activateWorkflowTriggers(
+      const activationResult = await triggerManager.activateWorkflowTriggers(
         effectiveWorkflowId,
         user.id,
         [triggerNode],
         { isTest: true, testSessionId }
       )
+
+      if (!activationResult.success) {
+        console.error('🧪 [test-trigger] ❌ Trigger activation failed:', activationResult.errors)
+        // Clean up the test session since activation failed
+        await supabase
+          .from('workflow_test_sessions')
+          .update({
+            status: 'failed',
+            ended_at: new Date().toISOString(),
+          })
+          .eq('id', testSessionId)
+        return errorResponse('Failed to activate trigger: ' + activationResult.errors.join(', '), 500)
+      }
 
       console.log('🧪 [test-trigger] ✅ Trigger activated successfully!')
       logger.debug(`✅ Trigger activated for testing, waiting for SSE clients...`)
