@@ -280,6 +280,19 @@ export async function POST(request: NextRequest) {
         .eq('test_session_id', testSessionId)
         .maybeSingle()
 
+      let googleWatchSubscription: any = null
+      if (triggerResource?.provider_id === 'google-sheets' && triggerResource.external_id) {
+        const { data: watchRow } = await supabase
+          .from('google_watch_subscriptions')
+          .select('channel_id, resource_id, expiration, provider, metadata, updated_at')
+          .eq('channel_id', triggerResource.external_id)
+          .maybeSingle()
+
+        if (watchRow) {
+          googleWatchSubscription = watchRow
+        }
+      }
+
       return jsonResponse({
         success: true,
         testSessionId,
@@ -299,6 +312,7 @@ export async function POST(request: NextRequest) {
               config: triggerResource.config
             }
           : null,
+        googleWatchSubscription,
         sessionStored: testSessionCreated,
         sessionError: sessionError
           ? {
