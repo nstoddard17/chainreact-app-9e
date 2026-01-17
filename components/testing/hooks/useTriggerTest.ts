@@ -270,7 +270,8 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
         expiresAt: data.expiresAt,
         webhookUrl: data.webhookUrl || 'N/A',
         sessionStored: data.sessionStored,
-        sessionError: data.sessionError || null
+        sessionError: data.sessionError || null,
+        triggerResource: data.triggerResource || null
       })
 
       if (data.sessionStored === false) {

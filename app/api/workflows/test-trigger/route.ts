@@ -273,10 +273,11 @@ export async function POST(request: NextRequest) {
 
       const { data: triggerResource } = await supabase
         .from('trigger_resources')
-        .select('config')
+        .select('id, provider_id, trigger_type, resource_id, external_id, config, test_session_id')
         .eq('workflow_id', effectiveWorkflowId)
         .eq('node_id', nodeId)
         .eq('status', 'active')
+        .eq('test_session_id', testSessionId)
         .maybeSingle()
 
       return jsonResponse({
@@ -287,6 +288,17 @@ export async function POST(request: NextRequest) {
         expiresAt: new Date(Date.now() + sessionTimeout).toISOString(),
         message: `Trigger activated. Waiting up to ${MAX_WAIT_TIME_MS / 1000} seconds for an event.`,
         webhookUrl: triggerResource?.config?.webhookUrl,
+        triggerResource: triggerResource
+          ? {
+              id: triggerResource.id,
+              providerId: triggerResource.provider_id,
+              triggerType: triggerResource.trigger_type,
+              resourceId: triggerResource.resource_id,
+              externalId: triggerResource.external_id,
+              testSessionId: triggerResource.test_session_id,
+              config: triggerResource.config
+            }
+          : null,
         sessionStored: testSessionCreated,
         sessionError: sessionError
           ? {
