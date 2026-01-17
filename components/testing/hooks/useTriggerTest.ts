@@ -271,7 +271,8 @@ export function useTriggerTest(options: UseTriggerTestOptions = {}): UseTriggerT
         webhookUrl: data.webhookUrl || 'N/A',
         sessionStored: data.sessionStored,
         sessionError: data.sessionError || null,
-        triggerResource: data.triggerResource || null
+        triggerResource: data.triggerResource || null,
+        googleWatchSubscription: data.googleWatchSubscription || null
       })
 
       if (data.sessionStored === false) {
