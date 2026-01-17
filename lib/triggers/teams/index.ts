@@ -526,6 +526,10 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       return true
     }
 
+    if (triggerType === 'teams_trigger_user_joins_team') {
+      return true
+    }
+
     if (triggerType === 'teams_trigger_new_chat_message') {
       const resource = config?.resource
       return resource === '/chats/getAllMessages'
@@ -579,6 +583,12 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         // Subscribe to messages in a specific channel
         return `/teams/${config.teamId}/channels/${config.channelId}/messages`
 
+      case 'teams_trigger_user_joins_team':
+        if (!config.teamId) {
+          throw new Error('teamId is required for user joins team trigger')
+        }
+        return `/teams/${config.teamId}/members`
+
       case 'teams_trigger_new_chat_message':
         if (config.chatId) {
           // Subscribe to messages in a specific chat
@@ -610,6 +620,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       case 'teams_trigger_new_reply':
       case 'teams_trigger_channel_mention':
       case 'teams_trigger_new_chat_message':
+      case 'teams_trigger_user_joins_team':
         return ['created']
 
       case 'teams_trigger_new_chat':
