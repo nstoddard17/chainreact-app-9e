@@ -91,26 +91,48 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         .maybeSingle()
 
       if (existingSubscription && testMode?.isTest) {
-        logger.debug('[Teams Trigger] Reusing existing test subscription:', {
+        const expirationRaw = existingSubscription.config?.expirationDateTime
+        const expirationMs = expirationRaw ? Date.parse(expirationRaw) : NaN
+        const isExpired = !Number.isFinite(expirationMs) || expirationMs <= Date.now() + 60000
+
+        if (!isExpired) {
+          const graphSubscription = await this.findGraphSubscription(accessToken, resource, webhookUrl)
+
+          if (graphSubscription?.id) {
+            logger.debug('[Teams Trigger] Reusing existing test subscription:', {
+              subscriptionId: existingSubscription.external_id,
+              resource
+            })
+
+            await supabase
+              .from('trigger_resources')
+              .update({
+                workflow_id: workflowId,
+                node_id: nodeId,
+                test_session_id: testMode.testSessionId,
+                config: {
+                  ...(existingSubscription.config || {}),
+                  expirationDateTime: graphSubscription.expirationDateTime || existingSubscription.config?.expirationDateTime,
+                  webhookUrl
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingSubscription.id)
+
+            return
+          }
+        }
+
+        logger.debug('[Teams Trigger] Removing stale test subscription record:', {
           subscriptionId: existingSubscription.external_id,
-          resource
+          resource,
+          isExpired
         })
 
         await supabase
           .from('trigger_resources')
-          .update({
-            workflow_id: workflowId,
-            node_id: nodeId,
-            test_session_id: testMode.testSessionId,
-            config: {
-              ...(existingSubscription.config || {}),
-              webhookUrl
-            },
-            updated_at: new Date().toISOString()
-          })
+          .delete()
           .eq('id', existingSubscription.id)
-
-        return
       }
 
       // If no local record exists, check Graph subscriptions and recreate the row
