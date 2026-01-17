@@ -32,11 +32,17 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Entry-point log to catch ALL incoming requests (visible in production)
+  logger.info('[Teams Webhook] POST received', {
+    url: request.url,
+    hasValidationToken: !!request.nextUrl.searchParams.get('validationToken')
+  })
+
   try {
     // Microsoft Graph sends validationToken as a query param
     const validationToken = request.nextUrl.searchParams.get('validationToken')
     if (validationToken) {
-      logger.debug('[Teams Webhook] Received validation request')
+      logger.info('[Teams Webhook] Received validation request')
       return new NextResponse(validationToken, {
         status: 200,
         headers: {
@@ -47,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
-    logger.debug('[Teams Webhook] Received change notification:', {
+    logger.info('[Teams Webhook] Received change notification:', {
       valueCount: body.value?.length || 0
     })
 
@@ -98,7 +104,7 @@ async function processTeamsNotification(notification: any) {
   try {
     const { subscriptionId, changeType, resource, resourceData, encryptedContent } = notification
 
-    logger.debug('[Teams Webhook] Processing notification:', {
+    logger.info('[Teams Webhook] Processing notification:', {
       subscriptionId,
       changeType,
       resource,
