@@ -3,7 +3,7 @@ import { NodeComponent } from "../../../types"
 export const columnChangedTriggerSchema: NodeComponent = {
   type: "monday_trigger_column_changed",
   title: "Column Value Changed",
-  description: "Triggers when a specific column value changes in a Monday.com board.",
+  description: "Triggers when a column value changes in a Monday.com board.",
   isTrigger: true,
   providerId: "monday",
   category: "Productivity",
@@ -15,7 +15,7 @@ export const columnChangedTriggerSchema: NodeComponent = {
       label: "Board",
       type: "select",
       dynamic: "monday_boards",
-      required: true,
+      required: false,
       loadOnMount: true,
       placeholder: "Select a board...",
       description: "The Monday.com board to monitor"
@@ -29,7 +29,7 @@ export const columnChangedTriggerSchema: NodeComponent = {
       dependsOn: "boardId",
       required: true,
       placeholder: "Select a column...",
-      description: "The specific column to monitor for changes",
+      description: "Optional: limit to a specific column",
       hidden: {
         $deps: ["boardId"],
         $condition: { boardId: { $exists: false } }
