@@ -594,6 +594,11 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       return 'created,updated'
     }
 
+    // OneNote only supports "updated" changeType for pages in Microsoft Graph subscriptions
+    if (triggerType.startsWith('microsoft-onenote_')) {
+      return 'updated'
+    }
+
     // For new/created/sent triggers, only watch 'created' to avoid duplicate notifications
     // Microsoft Graph sends both 'created' and 'updated' for new items, causing duplicates
     if (triggerType.includes('new') || triggerType.includes('created') || triggerType.includes('sent')) {
