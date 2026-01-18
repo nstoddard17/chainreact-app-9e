@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const workflowId = searchParams.get('workflowId')
     const nodeId = searchParams.get('nodeId')
+    const testSessionId = searchParams.get('testSessionId')
 
     const triggerMapping: Record<string, string> = {
       'create_item': 'monday_trigger_new_item',
@@ -142,6 +143,26 @@ export async function POST(request: NextRequest) {
     }
 
     const transformedPayload = transformMondayPayload(eventType, event)
+
+    if (testSessionId) {
+      logger.info('[Monday Webhook] Storing test trigger result for session:', testSessionId)
+      const { error: updateError } = await getSupabase()
+        .from('workflow_test_sessions')
+        .update({
+          status: 'trigger_received',
+          trigger_data: transformedPayload
+        })
+        .eq('id', testSessionId)
+
+      if (updateError) {
+        logger.error('[Monday Webhook] Failed to update test session:', { testSessionId, error: updateError.message })
+      } else {
+        logger.info('[Monday Webhook] Test trigger result stored successfully')
+      }
+
+      const response = NextResponse.json({ received: true, testSessionId })
+      return addCorsHeaders(response, request, { allowCredentials: true })
+    }
 
     const supabase = getSupabase()
     const eventIdBase = event?.eventId || event?.id || event?.itemId || event?.pulseId || event?.boardId || 'event'
