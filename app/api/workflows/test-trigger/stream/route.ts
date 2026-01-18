@@ -132,6 +132,15 @@ export async function GET(request: NextRequest) {
             data: current.trigger_data,
             timestamp: Date.now(),
           })
+          await admin
+            .from('workflow_test_sessions')
+            .update({
+              status: 'completed',
+              ended_at: new Date().toISOString(),
+            })
+            .eq('id', sessionId)
+
+          await cleanupTestTrigger()
           return
         }
 
