@@ -15,7 +15,7 @@ export const columnChangedTriggerSchema: NodeComponent = {
       label: "Board",
       type: "select",
       dynamic: "monday_boards",
-      required: false,
+      required: true,
       loadOnMount: true,
       placeholder: "Select a board...",
       description: "The Monday.com board to monitor"
@@ -27,7 +27,7 @@ export const columnChangedTriggerSchema: NodeComponent = {
       dynamic: "monday_columns",
       dynamicParent: "boardId",
       dependsOn: "boardId",
-      required: true,
+      required: false,
       placeholder: "Select a column...",
       description: "Optional: limit to a specific column",
       hidden: {
