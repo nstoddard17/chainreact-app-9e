@@ -127,6 +127,7 @@ export async function POST(request: NextRequest) {
     const triggerMapping: Record<string, string> = {
       'create_item': 'monday_trigger_new_item',
       'change_column_value': 'monday_trigger_column_changed',
+      'update_column_value': 'monday_trigger_column_changed',
       'item_moved_to_any_group': 'monday_trigger_item_moved',
       'create_subitem': 'monday_trigger_new_subitem',
       'create_update': 'monday_trigger_new_update'
