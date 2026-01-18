@@ -79,14 +79,14 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     // IMPORTANT: For column-specific webhooks, Monday.com requires 'change_specific_column_value' event
     // The 'change_column_value' event does NOT accept a config parameter
     const baseEvent = this.getEventForTriggerType(triggerType)
-    const event = columnId && baseEvent === 'change_column_value'
+    let event = columnId && baseEvent === 'change_column_value'
       ? 'change_specific_column_value'
       : baseEvent
 
     // Monday.com API 2025-04: config must be passed as a JSON string (the value itself is a string)
     // For change_specific_column_value, config should be: "{\"columnId\": \"column_id\"}"
     // Note: The JSON type in Monday's GraphQL expects a stringified JSON value
-    const configValue = columnId && event === 'change_specific_column_value'
+    let configValue = columnId && event === 'change_specific_column_value'
       ? JSON.stringify({ columnId: columnId.toString() })
       : null
 
@@ -103,32 +103,36 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
 
     // Build the mutation - embed config directly in query string to avoid variable type issues
     // Monday.com's GraphQL is picky about how JSON type variables are passed
-    const mutation = configValue
-      ? `
+    const buildMutation = (eventName: string, configJson: string | null) => (
+      configJson
+        ? `
       mutation {
         create_webhook(
           board_id: ${boardId},
           url: "${fullWebhookUrl}",
-          event: ${event},
-          config: ${JSON.stringify(configValue)}
+          event: ${eventName},
+          config: ${JSON.stringify(configJson)}
         ) {
           id
           board_id
         }
       }
     `
-      : `
+        : `
       mutation {
         create_webhook(
           board_id: ${boardId},
           url: "${fullWebhookUrl}",
-          event: ${event}
+          event: ${eventName}
         ) {
           id
           board_id
         }
       }
     `
+    )
+
+    let mutation = buildMutation(event, configValue)
 
     // No variables needed - values are embedded in the query
     const variables = {}
