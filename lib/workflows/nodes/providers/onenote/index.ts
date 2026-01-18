@@ -14,11 +14,7 @@ import {
 import { newNoteTriggerSchema } from "./triggers/newNote.schema"
 
 // Microsoft OneNote Triggers
-// Note: Microsoft Graph doesn't support webhook subscriptions for OneNote resources
-// OneNote Webhooks API was deprecated in May 2023
-// See: https://devblogs.microsoft.com/microsoft365dev/onenote-webhooks-api-deprecation/
-//
-// Implementation: Using polling-based triggers that check for new/modified notes periodically
+// Implementation: Microsoft Graph subscriptions for OneNote page changes
 
 // Resolve the trigger icon
 const onenoteTriggerNewNote: NodeComponent = {
@@ -803,7 +799,7 @@ const onenoteActionGetSectionDetails: NodeComponent = {
 
 // Export all OneNote nodes
 export const onenoteNodes: NodeComponent[] = [
-  // Triggers (1) - Polling-based
+  // Triggers (1) - Graph subscriptions
   onenoteTriggerNewNote,
 
   // Actions - Note: Delete Section/Notebook not supported by Microsoft Graph API

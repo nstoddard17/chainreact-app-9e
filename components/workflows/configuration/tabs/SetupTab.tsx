@@ -75,18 +75,6 @@ export function SetupTab(props: SetupTabProps) {
     return () => window.removeEventListener('integration-reconnected' as any, handleReconnectionEvent as any)
   }, [nodeInfo?.providerId, fetchIntegrations])
 
-  // Listen for window focus (when OAuth popup closes) to refresh integrations
-  React.useEffect(() => {
-    const handleFocus = async () => {
-      if (isConnecting) {
-        await fetchIntegrations(true)
-        setIsConnecting(false)
-      }
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [isConnecting, fetchIntegrations])
 
   // Determine if this node requires an integration connection
   const requiresConnection = useMemo(() => {

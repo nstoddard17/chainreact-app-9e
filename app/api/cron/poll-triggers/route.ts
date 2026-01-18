@@ -3,7 +3,6 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { createAdminClient } from '@/lib/supabase/admin';
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes';
-import { pollOneNoteForNewNotes, getLastPollTime, updateLastPollTime } from '@/lib/workflows/triggers/polling/onenote';
 
 import { logger } from '@/lib/utils/logger'
 
@@ -88,35 +87,6 @@ async function fetchDataForPollingTrigger(
   if (!nodeComponent) return [];
 
   logger.debug(`Polling for ${nodeComponent.title} for user ${userId}...`);
-
-  // Handle OneNote polling trigger
-  if (triggerNode.data.type === 'microsoft-onenote_trigger_new_note') {
-    try {
-      const config = triggerNode.data.config || {};
-      const lastPollTime = await getLastPollTime(workflowId, triggerNode.id);
-
-      const newNotes = await pollOneNoteForNewNotes(
-        userId,
-        workflowId,
-        {
-          notebookId: config.notebookId,
-          sectionId: config.sectionId,
-          pollingInterval: config.pollingInterval
-        },
-        lastPollTime || undefined
-      );
-
-      // Update last poll time if we found notes
-      if (newNotes.length > 0) {
-        await updateLastPollTime(workflowId, triggerNode.id);
-      }
-
-      return newNotes;
-    } catch (error: any) {
-      logger.error('Error polling OneNote trigger:', { error: error.message, userId, workflowId });
-      return [];
-    }
-  }
 
   // For other polling triggers, return empty array (to be implemented)
   logger.debug(`No polling handler implemented for ${nodeComponent.title}`);

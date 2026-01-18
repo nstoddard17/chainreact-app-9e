@@ -380,8 +380,6 @@ async function processNotifications(
         }
       }
 
-      // OneNote triggers removed - doesn't support webhooks (API deprecated May 2023)
-
       // For Teams channel message triggers, fetch the actual message data
       const isTeamsMessageTrigger = resourceLower.includes('/teams/') && resourceLower.includes('/channels/') && resourceLower.includes('/messages')
       if (isTeamsMessageTrigger && userId && triggerConfig) {
