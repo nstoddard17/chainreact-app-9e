@@ -155,7 +155,7 @@ export async function setupGoogleDriveWatch(config: GoogleDriveWatchConfig): Pro
     })
 
     // Store the watch details in database for renewal
-    await supabase.from('google_watch_subscriptions').upsert({
+    const { error: watchInsertError } = await supabase.from('google_watch_subscriptions').upsert({
       user_id: config.userId,
       integration_id: config.integrationId,
       provider: 'google-drive',
@@ -170,6 +170,16 @@ export async function setupGoogleDriveWatch(config: GoogleDriveWatchConfig): Pro
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
+
+    if (watchInsertError) {
+      logger.error('Failed to store Google Drive watch metadata:', {
+        error: watchInsertError,
+        channelId,
+        folderId: config.folderId
+      })
+      // Critical failure - without stored metadata, we can't process incoming webhooks
+      throw new Error(`Failed to store watch metadata: ${watchInsertError.message}`)
+    }
 
     return {
       channelId,

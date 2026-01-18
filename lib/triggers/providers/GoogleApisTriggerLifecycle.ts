@@ -134,6 +134,11 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           sheetName: config?.sheetName,
           triggerType: watchTriggerType,
           resourceId: watch.resourceId,
+          pageToken: watch.pageToken,
+          lastRowCount: watch.lastRowCount ?? null,
+          lastSheetCount: watch.lastSheetCount ?? null,
+          sheetData: watch.sheetData || {},
+          rowSignatures: watch.rowSignatures || {},
           api: 'sheets',
           webhookUrl
         },

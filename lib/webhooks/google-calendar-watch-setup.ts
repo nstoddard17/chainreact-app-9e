@@ -179,7 +179,7 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
     })
 
     // Store the watch details in database for renewal
-    await supabase.from('google_watch_subscriptions').insert({
+    const { error: watchInsertError } = await supabase.from('google_watch_subscriptions').insert({
       user_id: config.userId,
       integration_id: config.integrationId,
       provider: 'google-calendar',
@@ -196,6 +196,16 @@ export async function setupGoogleCalendarWatch(config: GoogleCalendarWatchConfig
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
+
+    if (watchInsertError) {
+      logger.error('Failed to store Google Calendar watch metadata:', {
+        error: watchInsertError,
+        channelId,
+        calendarId
+      })
+      // Critical failure - without stored metadata, we can't process incoming webhooks
+      throw new Error(`Failed to store watch metadata: ${watchInsertError.message}`)
+    }
 
     return {
       channelId,
