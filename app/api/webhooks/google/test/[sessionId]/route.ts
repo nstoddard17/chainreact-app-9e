@@ -123,6 +123,12 @@ export async function POST(
 
     // Determine the source service
     const sourceService = determineGoogleService(eventData)
+    logger.debug(`[${requestId}] [Google Test Webhook] Service resolved`, {
+      sessionId,
+      sourceService,
+      hasEventData: !!eventData,
+      hasToken: !!eventData?.token
+    })
 
     // Log the parsed event
     await logWebhookEvent({

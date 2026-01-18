@@ -2853,6 +2853,14 @@ export async function processGoogleEventForTestSession(event: {
 }): Promise<any> {
   const { service, eventData, requestId, testSessionId, testSession } = event
 
+  logger.debug('[Test Session] Google test webhook received', {
+    requestId,
+    testSessionId,
+    service,
+    hasEventData: !!eventData,
+    eventKeys: eventData ? Object.keys(eventData).slice(0, 12) : []
+  })
+
   logger.debug(`🧪 [Test Session] Processing ${service} event for session ${testSessionId}`)
 
   try {

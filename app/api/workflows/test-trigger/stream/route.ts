@@ -73,6 +73,26 @@ export async function GET(request: NextRequest) {
 
   const startTime = Date.now()
   let lastPingAt = 0
+  const cleanupTestTrigger = async () => {
+    try {
+      if (!session?.workflow_id || !session?.user_id) return
+      const { triggerLifecycleManager } = await import('@/lib/triggers')
+      await triggerLifecycleManager.deactivateWorkflowTriggers(
+        session.workflow_id,
+        session.user_id,
+        sessionId
+      )
+      logger.debug('[test-trigger-stream] Test trigger deactivated after timeout', {
+        sessionId,
+        workflowId: session.workflow_id
+      })
+    } catch (cleanupError) {
+      logger.warn('[test-trigger-stream] Failed to deactivate test trigger after timeout', {
+        sessionId,
+        error: cleanupError
+      })
+    }
+  }
 
   const pollLoop = async () => {
     try {
@@ -134,6 +154,7 @@ export async function GET(request: NextRequest) {
             })
             .eq('id', sessionId)
 
+          await cleanupTestTrigger()
           await sendEvent({
             type: 'timeout',
             sessionId,
@@ -158,6 +179,7 @@ export async function GET(request: NextRequest) {
         })
         .eq('id', sessionId)
 
+      await cleanupTestTrigger()
       await sendEvent({
         type: 'timeout',
         sessionId,
