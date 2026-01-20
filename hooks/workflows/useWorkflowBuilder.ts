@@ -1539,13 +1539,29 @@ export function useWorkflowBuilder() {
 
         // Load nodes and edges from normalized tables asynchronously
         const loadWorkflowGraph = async () => {
-          const [nodesResult, edgesResult] = await Promise.all([
-            supabase.from('workflow_nodes').select('*').eq('workflow_id', workflowId).order('display_order'),
-            supabase.from('workflow_edges').select('*').eq('workflow_id', workflowId)
-          ])
+          try {
+            const [nodesResult, edgesResult] = await Promise.all([
+              supabase.from('workflow_nodes').select('*').eq('workflow_id', workflowId).order('display_order'),
+              supabase.from('workflow_edges').select('*').eq('workflow_id', workflowId)
+            ])
 
-          // Map normalized nodes to WorkflowNode format
-          const loadedNodes: WorkflowNode[] = (nodesResult.data || []).map((n: any) => ({
+            // Handle errors gracefully - workflow may use JSONB storage instead of normalized tables
+            if (nodesResult.error) {
+              // Only log once per session to avoid console spam
+              if (typeof window !== 'undefined' && !(window as any).__wfNodesErrorLogged) {
+                (window as any).__wfNodesErrorLogged = true
+                console.debug('[WorkflowBuilder] Could not load from workflow_nodes table:', nodesResult.error.message)
+              }
+            }
+            if (edgesResult.error) {
+              if (typeof window !== 'undefined' && !(window as any).__wfEdgesErrorLogged) {
+                (window as any).__wfEdgesErrorLogged = true
+                console.debug('[WorkflowBuilder] Could not load from workflow_edges table:', edgesResult.error.message)
+              }
+            }
+
+            // Map normalized nodes to WorkflowNode format
+            const loadedNodes: WorkflowNode[] = (nodesResult.data || []).map((n: any) => ({
             id: n.id,
             type: 'custom',  // React Flow component type - always 'custom' for workflow nodes
             position: { x: n.position_x, y: n.position_y },
@@ -1569,6 +1585,11 @@ export function useWorkflowBuilder() {
           }))
 
           return { nodes: loadedNodes, connections: loadedConnections }
+          } catch (error) {
+            // Gracefully handle errors - return empty arrays to fall back to JSONB storage
+            console.debug('[WorkflowBuilder] Error loading normalized workflow graph:', error)
+            return { nodes: [], connections: [] }
+          }
         }
 
         loadWorkflowGraph().then(({ nodes: workflowNodes, connections: workflowConnections }) => {

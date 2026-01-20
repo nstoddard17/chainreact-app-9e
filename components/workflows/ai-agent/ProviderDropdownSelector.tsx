@@ -120,6 +120,7 @@ export function ProviderDropdownSelector({
               width={22}
               height={22}
               className="shrink-0"
+              style={{ width: 'auto', height: 'auto' }}
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -166,6 +167,7 @@ export function ProviderDropdownSelector({
                       width={22}
                       height={22}
                       className="shrink-0"
+                      style={{ width: 'auto', height: 'auto' }}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -201,6 +203,7 @@ export function ProviderDropdownSelector({
                           width={20}
                           height={20}
                           className="shrink-0"
+                          style={{ width: 'auto', height: 'auto' }}
                         />
                       </div>
                       <div className="flex-1 min-w-0">

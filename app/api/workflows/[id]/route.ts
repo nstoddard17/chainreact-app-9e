@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
@@ -323,10 +324,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       // Save to normalized table
       const repository = await getFlowRepository(serviceClient)
 
+      // Helper to check if a string is a valid UUID
+      const isValidUUID = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+
       const flowEdges = connections
         .filter((conn: any) => conn && (conn.source || conn.from) && (conn.target || conn.to))
         .map((conn: any) => ({
-          id: conn.id || `e-${conn.source || conn.from}-${conn.target || conn.to}`,
+          // Use existing ID only if it's a valid UUID, otherwise generate a new one
+          id: (conn.id && isValidUUID(conn.id)) ? conn.id : randomUUID(),
           from: {
             nodeId: String(conn.source || conn.from),
             portId: conn.sourceHandle || 'source',

@@ -384,7 +384,40 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
 
   // Resolve template variables ({{trigger.subject}}, {{nodeId.field}}, etc.)
   // This is CRITICAL for variable substitution to work in action configs
-  const processedConfig = resolveValue(aiProcessedConfig, input)
+  // When testing actions without real trigger data, provide sample values so the message is readable
+  const mockTriggerOutputs = !input?.trigger ? {
+    // Gmail trigger variables
+    from: { value: 'sender@example.com' },
+    to: { value: 'you@company.com' },
+    subject: { value: 'Sample Email Subject' },
+    body: { value: 'This is a sample email body from the trigger.' },
+    snippet: { value: 'This is a sample email snippet...' },
+    date: { value: new Date().toLocaleDateString() },
+    id: { value: 'msg_sample_12345' },
+    threadId: { value: 'thread_sample_67890' },
+    messageId: { value: '<sample@example.com>' },
+    receivedAt: { value: new Date().toISOString() },
+    attachments: { value: '[]' },
+    // Slack trigger variables
+    user: { value: '@sampleuser' },
+    username: { value: 'Sample User' },
+    text: { value: 'Sample message text from trigger' },
+    channel: { value: '#sample-channel' },
+    channelId: { value: 'C12345678' },
+    ts: { value: Date.now().toString() },
+    // Discord trigger variables
+    author: { value: 'SampleUser#1234' },
+    content: { value: 'Sample Discord message content' },
+    channelName: { value: '#general' },
+    // Generic variables
+    name: { value: 'Sample Name' },
+    email: { value: 'sample@example.com' },
+    message: { value: 'Sample message content' },
+    title: { value: 'Sample Title' },
+    description: { value: 'Sample description text' },
+  } : undefined
+
+  const processedConfig = resolveValue(aiProcessedConfig, input, mockTriggerOutputs)
 
   // Check if environment is properly configured
   const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY

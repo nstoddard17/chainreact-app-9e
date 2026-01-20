@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database, PauseCircle, RefreshCw } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database, PauseCircle, RefreshCw, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -118,6 +118,7 @@ export interface CustomNodeData {
   isFlowTesting?: boolean // Disable interactions during flow testing
   shouldSuppressConfigureClick?: () => boolean
   onChangeNode?: (nodeId: string) => void // Open integrations panel to change this node's type/app
+  nodeCost?: number // Task cost for this node (0 = free, > 0 = uses tasks)
 }
 
 type SlackConfigSection = {
@@ -1980,6 +1981,31 @@ function CustomNode({ id, data, selected }: NodeProps) {
             </TooltipTrigger>
             <TooltipContent side="right" className="text-xs">
               <p>Test data cached{testResult?.success ? ' (passed)' : ''}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+
+      {/* Task cost badge - show only if node has task cost */}
+      {typeof data.nodeCost === 'number' && data.nodeCost > 0 && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className={cn(
+                "absolute z-20 noDrag noPan",
+                hasTestData && !nodeExecutionData ? "top-2 left-9" : "top-2 left-2"
+              )}>
+                <Badge
+                  variant="outline"
+                  className="text-xs px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300"
+                >
+                  <Zap className="w-3 h-3 mr-0.5" />
+                  {data.nodeCost}
+                </Badge>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">
+              <p>Uses {data.nodeCost} task{data.nodeCost !== 1 ? 's' : ''} per execution</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

@@ -77,11 +77,13 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   const runId = uuid()
   const now = new Date().toISOString()
 
+  // Note: workflow_executions is a view over 'executions' table
+  // Valid status values are: 'pending', 'running', 'completed', 'failed', 'paused'
   const runInsert = await supabase.from("workflow_executions").insert({
     id: runId,
     workflow_id: flowId,
     user_id: user.id,
-    status: parsed.data.status === "success" ? "success" : "error",
+    status: parsed.data.status === "success" ? "completed" : "failed",
     input_data: {},
     output_data: {
       source: "node_test",
