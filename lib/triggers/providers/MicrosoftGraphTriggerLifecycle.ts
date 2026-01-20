@@ -91,7 +91,20 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           logger.debug('✅ /me/messages call succeeded - token has mail read permission')
         }
       }
-      // OneNote removed - doesn't support webhooks (API deprecated May 2023)
+      if (provider === 'microsoft-onenote') {
+        const notebooksResponse = await fetch('https://graph.microsoft.com/v1.0/me/onenote/notebooks?$top=1', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+
+        if (!notebooksResponse.ok) {
+          const errorText = await notebooksResponse.text()
+          logger.error('ƒ?O /me/onenote/notebooks call failed:', notebooksResponse.status, notebooksResponse.statusText)
+          logger.error('   Error details:', errorText)
+          throw new Error(`Token lacks OneNote permissions. Status: ${notebooksResponse.status}. Please reconnect Microsoft OneNote integration.`)
+        } else {
+          logger.debug('ƒo. /me/onenote/notebooks call succeeded - token has OneNote permissions')
+        }
+      }
       // Add other providers (Teams, OneDrive) here as needed
     } catch (testError) {
       logger.error('❌ Token permission test failed:', testError)
@@ -424,9 +437,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     // Extract provider prefix from trigger type
     if (triggerType.startsWith('microsoft-outlook_')) return 'microsoft-outlook'
     if (triggerType.startsWith('microsoft_excel_')) return 'microsoft-excel'
+    if (triggerType.startsWith('microsoft-onenote_')) return 'microsoft-onenote'
     if (triggerType.startsWith('teams_')) return 'teams'
     if (triggerType.startsWith('onedrive_')) return 'onedrive'
-    // OneNote removed - doesn't support webhooks
 
     // Default to microsoft-outlook for generic microsoft triggers
     return 'microsoft-outlook'
@@ -438,7 +451,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    */
   private getResourceForTrigger(triggerType: string, config?: Record<string, any>): string | null {
     // Strip provider prefix if present (e.g., "microsoft-outlook_trigger_new_email" -> "trigger_new_email")
-    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|teams|onedrive)_/, '')
+    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|microsoft-onenote|teams|onedrive)_/, '')
 
     const resourceMap: Record<string, string | ((config?: Record<string, any>) => string)> = {
       // Email triggers
@@ -535,9 +548,18 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           return `/me/drive/items/${config.workbookId}`
         }
         return '/me/drive/root'
-      }
+      },
 
-      // OneNote triggers removed - doesn't support webhooks (API deprecated May 2023)
+      // OneNote triggers
+      'trigger_new_note': (config?: Record<string, any>) => {
+        if (config?.sectionId) {
+          return `/me/onenote/sections/${config.sectionId}/pages`
+        }
+        if (config?.notebookId) {
+          return `/me/onenote/notebooks/${config.notebookId}/sections/pages`
+        }
+        return '/me/onenote/pages'
+      }
     }
 
     const resource = resourceMap[simplifiedType]
@@ -555,7 +577,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    */
   private getChangeTypeForTrigger(triggerType: string): string {
     // Strip provider prefix if present
-    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|teams|onedrive)_/, '')
+    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|microsoft-onenote|teams|onedrive)_/, '')
 
     // Email flagged trigger needs to watch for updates (flag changes are updates)
     if (simplifiedType === 'trigger_email_flagged') {
@@ -570,6 +592,11 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     // Calendar event start uses event create/update webhooks to schedule delayed runs
     if (simplifiedType === 'trigger_calendar_event_start') {
       return 'created,updated'
+    }
+
+    // OneNote only supports "updated" changeType for pages in Microsoft Graph subscriptions
+    if (triggerType.startsWith('microsoft-onenote_')) {
+      return 'updated'
     }
 
     // For new/created/sent triggers, only watch 'created' to avoid duplicate notifications

@@ -125,7 +125,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
         trigger_type: triggerType,
         node_id: nodeId,
         resource_type: 'subscription',
-        resource_id: watch.resourceId,
+        resource_id: watch.channelId,
         external_id: watch.channelId,
         config: {
           ...config,
@@ -133,6 +133,12 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           spreadsheetId,
           sheetName: config?.sheetName,
           triggerType: watchTriggerType,
+          resourceId: watch.resourceId,
+          pageToken: watch.pageToken,
+          lastRowCount: watch.lastRowCount ?? null,
+          lastSheetCount: watch.lastSheetCount ?? null,
+          sheetData: watch.sheetData || {},
+          rowSignatures: watch.rowSignatures || {},
           api: 'sheets',
           webhookUrl
         },

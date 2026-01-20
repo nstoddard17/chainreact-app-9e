@@ -28,7 +28,7 @@ export async function registerGoogleWebhook(registration: WebhookRegistration): 
     
     // Store registration in database
     const supabase = await createSupabaseServiceClient()
-    await supabase
+    const { error: insertError } = await supabase
       .from('webhook_registrations')
       .insert({
         provider,
@@ -39,11 +39,16 @@ export async function registerGoogleWebhook(registration: WebhookRegistration): 
         status: 'active',
         created_at: new Date().toISOString()
       })
-    
+
+    if (insertError) {
+      logger.error('Failed to store Google webhook registration:', insertError)
+      throw new Error(`Failed to store webhook registration: ${insertError.message}`)
+    }
+
     return true
   } catch (error) {
     logger.error('Failed to register Google webhook:', error)
-    return false
+    throw error // Re-throw to ensure callers know about the failure
   }
 }
 
@@ -62,7 +67,7 @@ export async function registerGmailWebhook(registration: WebhookRegistration): P
     
     // Store registration in database
     const supabase = await createSupabaseServiceClient()
-    await supabase
+    const { error: insertError } = await supabase
       .from('webhook_registrations')
       .insert({
         provider: 'gmail',
@@ -73,11 +78,16 @@ export async function registerGmailWebhook(registration: WebhookRegistration): P
         status: 'active',
         created_at: new Date().toISOString()
       })
-    
+
+    if (insertError) {
+      logger.error('Failed to store Gmail webhook registration:', insertError)
+      throw new Error(`Failed to store webhook registration: ${insertError.message}`)
+    }
+
     return true
   } catch (error) {
     logger.error('Failed to register Gmail webhook:', error)
-    return false
+    throw error // Re-throw to ensure callers know about the failure
   }
 }
 
@@ -127,7 +137,7 @@ export async function registerDiscordWebhook(registration: WebhookRegistration):
     
     // Store the registration for tracking (but no external webhook needed)
     const supabase = await createSupabaseServiceClient()
-    await supabase
+    const { error: insertError } = await supabase
       .from('webhook_registrations')
       .insert({
         provider: 'discord',
@@ -145,30 +155,35 @@ export async function registerDiscordWebhook(registration: WebhookRegistration):
         },
         created_at: new Date().toISOString()
       })
-    
+
+    if (insertError) {
+      logger.error('Failed to store Discord webhook registration:', insertError)
+      throw new Error(`Failed to store webhook registration: ${insertError.message}`)
+    }
+
     logger.debug('🎉 Discord Gateway listener registered successfully!')
     return true
-    
+
   } catch (error) {
     logger.error('Failed to register Discord Gateway listener:', error)
-    return false
+    throw error // Re-throw to ensure callers know about the failure
   }
 }
 
 export async function registerSlackWebhook(registration: WebhookRegistration): Promise<boolean> {
   try {
     const { webhookUrl, events, secret } = registration
-    
+
     // For Slack, we register with Slack's Events API
     logger.debug('Registering Slack webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
     })
-    
+
     // Store registration in database
     const supabase = await createSupabaseServiceClient()
-    await supabase
+    const { error: insertError } = await supabase
       .from('webhook_registrations')
       .insert({
         provider: 'slack',
@@ -178,28 +193,33 @@ export async function registerSlackWebhook(registration: WebhookRegistration): P
         status: 'active',
         created_at: new Date().toISOString()
       })
-    
+
+    if (insertError) {
+      logger.error('Failed to store Slack webhook registration:', insertError)
+      throw new Error(`Failed to store webhook registration: ${insertError.message}`)
+    }
+
     return true
   } catch (error) {
     logger.error('Failed to register Slack webhook:', error)
-    return false
+    throw error // Re-throw to ensure callers know about the failure
   }
 }
 
 export async function registerGitHubWebhook(registration: WebhookRegistration): Promise<boolean> {
   try {
     const { webhookUrl, events, secret } = registration
-    
+
     // For GitHub, we register with GitHub's webhook system
     logger.debug('Registering GitHub webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
     })
-    
+
     // Store registration in database
     const supabase = await createSupabaseServiceClient()
-    await supabase
+    const { error: insertError } = await supabase
       .from('webhook_registrations')
       .insert({
         provider: 'github',
@@ -209,28 +229,33 @@ export async function registerGitHubWebhook(registration: WebhookRegistration): 
         status: 'active',
         created_at: new Date().toISOString()
       })
-    
+
+    if (insertError) {
+      logger.error('Failed to store GitHub webhook registration:', insertError)
+      throw new Error(`Failed to store webhook registration: ${insertError.message}`)
+    }
+
     return true
   } catch (error) {
     logger.error('Failed to register GitHub webhook:', error)
-    return false
+    throw error // Re-throw to ensure callers know about the failure
   }
 }
 
 export async function registerNotionWebhook(registration: WebhookRegistration): Promise<boolean> {
   try {
     const { webhookUrl, events, secret } = registration
-    
+
     // For Notion, we register with Notion's webhook system
     logger.debug('Registering Notion webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
     })
-    
+
     // Store registration in database
     const supabase = await createSupabaseServiceClient()
-    await supabase
+    const { error: insertError } = await supabase
       .from('webhook_registrations')
       .insert({
         provider: 'notion',
@@ -240,11 +265,16 @@ export async function registerNotionWebhook(registration: WebhookRegistration): 
         status: 'active',
         created_at: new Date().toISOString()
       })
-    
+
+    if (insertError) {
+      logger.error('Failed to store Notion webhook registration:', insertError)
+      throw new Error(`Failed to store webhook registration: ${insertError.message}`)
+    }
+
     return true
   } catch (error) {
     logger.error('Failed to register Notion webhook:', error)
-    return false
+    throw error // Re-throw to ensure callers know about the failure
   }
 }
 

@@ -151,7 +151,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
       })
 
       // Store in trigger_resources with polling config
-      await getSupabase().from('trigger_resources').insert({
+      const { error: insertError } = await getSupabase().from('trigger_resources').insert({
         workflow_id: workflowId,
         user_id: userId,
         provider: 'mailchimp',
@@ -166,6 +166,15 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         },
         created_at: new Date().toISOString()
       })
+
+      if (insertError) {
+        logger.error('Failed to store Mailchimp polling trigger:', {
+          error: insertError,
+          workflowId,
+          triggerType
+        })
+        throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+      }
 
       return
     }

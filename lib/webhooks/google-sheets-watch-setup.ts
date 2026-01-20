@@ -51,7 +51,16 @@ interface GoogleSheetsWatchConfig {
  * Since Sheets doesn't have native webhooks, we use Drive API to watch the spreadsheet file
  * and then check for specific changes within the sheet
  */
-export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): Promise<{ channelId: string; resourceId: string; expiration: string; lastRowCount?: number }> {
+export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): Promise<{
+  channelId: string
+  resourceId: string
+  expiration: string
+  lastRowCount?: number
+  lastSheetCount?: number
+  pageToken: string
+  sheetData?: Record<string, any>
+  rowSignatures?: Record<string, string>
+}> {
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -204,7 +213,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
     })
 
     // Store the watch details in database for renewal and change tracking
-    await supabase.from('google_watch_subscriptions').upsert({
+    const { error: watchInsertError } = await supabase.from('google_watch_subscriptions').upsert({
       user_id: config.userId,
       integration_id: config.integrationId,
       provider: 'google-sheets',
@@ -225,6 +234,18 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       updated_at: new Date().toISOString()
     })
 
+    if (watchInsertError) {
+      logger.error('Failed to store Google Sheets watch metadata:', {
+        error: watchInsertError,
+        channelId,
+        spreadsheetId: config.spreadsheetId,
+        sheetName: config.sheetName,
+        triggerType: config.triggerType
+      })
+      // Critical failure - without stored metadata, we can't process incoming webhooks
+      throw new Error(`Failed to store watch metadata: ${watchInsertError.message}`)
+    }
+
     logger.debug('📦 Stored Google Sheets watch metadata', {
       userId: config.userId,
       integrationId: config.integrationId,
@@ -241,7 +262,11 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       channelId,
       resourceId: watchResponse.data.resourceId,
       expiration: new Date(parseInt(watchResponse.data.expiration)).toISOString(),
-      lastRowCount
+      lastRowCount,
+      lastSheetCount,
+      pageToken: startPageToken,
+      sheetData,
+      rowSignatures: initialRowSignatures || {}
     }
   } catch (error) {
     logger.error('Failed to set up Google Sheets watch:', error)

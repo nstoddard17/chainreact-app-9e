@@ -193,30 +193,6 @@ export function ServiceConnectionSelector({
     }
   }
 
-  // Listen for window focus (when OAuth popup closes)
-  useEffect(() => {
-    const handleFocus = async () => {
-      logger.debug('[ServiceConnectionSelector] Window focused, checking if should refresh', {
-        providerId,
-        isRefreshing
-      })
-      if (isRefreshing) {
-        try {
-          await fetchAllConnections()
-          logger.debug('[ServiceConnectionSelector] Connections refreshed after focus')
-        } catch (error: any) {
-          logger.error('[ServiceConnectionSelector] Failed to refresh on focus', { error: error.message })
-        } finally {
-          // Always clear spinner after refresh completes
-          setIsRefreshing(false)
-          logger.debug('[ServiceConnectionSelector] Cleared refreshing state after focus')
-        }
-      }
-    }
-
-    window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [isRefreshing, providerId, fetchAllConnections])
 
   // Listen for integration reconnection events
   useEffect(() => {

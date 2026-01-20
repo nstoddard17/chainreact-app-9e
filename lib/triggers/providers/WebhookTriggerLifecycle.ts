@@ -89,7 +89,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Also create entry in webhook_configs for tracking and management
-    await getSupabase().from('webhook_configs').insert({
+    const { error: configInsertError } = await getSupabase().from('webhook_configs').insert({
       user_id: userId,
       workflow_id: workflowId,
       name: `Webhook for ${workflowId}`,
@@ -101,6 +101,16 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
       provider_id: 'webhook',
       status: 'active'
     })
+
+    if (configInsertError) {
+      // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
+      if (configInsertError.code === '23503') {
+        logger.warn(`⚠️ Could not store webhook config (workflow may be unsaved): ${configInsertError.message}`)
+      } else {
+        logger.error(`❌ Failed to store webhook config:`, configInsertError)
+        throw new Error(`Failed to store webhook config: ${configInsertError.message}`)
+      }
+    }
 
     logger.debug(`✅ Webhook trigger activated`, {
       webhookUrl,

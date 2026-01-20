@@ -67,8 +67,32 @@ export function getApiBaseUrl(): string {
 /**
  * Get webhook-specific base URL that supports environment-specific configuration
  * This function prioritizes environment variables and provides clear fallbacks
+ *
+ * IMPORTANT: In production, we ALWAYS use the production domain (chainreact.app)
+ * to ensure webhooks are sent to the correct URL. The NEXT_PUBLIC_WEBHOOK_HTTPS_URL
+ * is only used in development for local testing with ngrok.
  */
 export function getWebhookBaseUrl(): string {
+  // In production, ALWAYS use the production URL
+  // This prevents accidental use of development/ngrok URLs in production
+  if (process.env.NODE_ENV === 'production') {
+    // Allow explicit override via PUBLIC_WEBHOOK_BASE_URL (server-only, not bundled)
+    // This is useful for staging environments
+    if (process.env.PUBLIC_WEBHOOK_BASE_URL) {
+      return process.env.PUBLIC_WEBHOOK_BASE_URL.replace(/\/$/, '')
+    }
+
+    // Use NEXT_PUBLIC_APP_URL if it's a production URL (not localhost/ngrok)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    if (appUrl && !appUrl.includes('localhost') && !appUrl.includes('ngrok')) {
+      return appUrl.replace(/\/$/, '')
+    }
+
+    // Fallback to hardcoded production URL
+    return "https://chainreact.app"
+  }
+
+  // Development mode: use explicit webhook URL for ngrok/tunnel support
   const explicitBase =
     process.env.PUBLIC_WEBHOOK_BASE_URL ||
     process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL ||
@@ -88,7 +112,7 @@ export function getWebhookBaseUrl(): string {
     ) {
       return `${window.location.protocol}//${window.location.host}`
     }
-  } else if (process.env.NODE_ENV === 'development') {
+  } else {
     const port = process.env.PORT || '3000'
     return `http://localhost:${port}`
   }

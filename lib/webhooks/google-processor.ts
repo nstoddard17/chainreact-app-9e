@@ -649,12 +649,13 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
 
   // Prefer channel-scoped lookup to handle multiple rows
   let subscription: any = null
+  let subscriptionSource: 'google_watch_subscriptions' | 'trigger_resources' | 'none' = 'none'
   const channelId: string | null = (event.eventData?.channelId) 
     || (event.eventData?.headers?.['x-goog-channel-id'])
     || null
   let subscriptionMetadata: any = null
 
-  if (channelId) {
+  if (channelId && subscriptionSource === 'google_watch_subscriptions') {
     const { data: byChannel } = await supabase
       .from('google_watch_subscriptions')
       .select('page_token, updated_at, provider, metadata')
@@ -663,6 +664,9 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       .limit(1)
       .maybeSingle()
     subscription = byChannel
+    if (byChannel) {
+      subscriptionSource = 'google_watch_subscriptions'
+    }
     if (byChannel?.provider && !metadata?.provider) {
       metadata = {
         ...metadata,
@@ -693,6 +697,9 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       .limit(1)
       .maybeSingle()
     subscription = latest
+    if (latest) {
+      subscriptionSource = 'google_watch_subscriptions'
+    }
     if (latest?.metadata) {
       if (typeof latest.metadata === 'object') {
         subscriptionMetadata = latest.metadata
@@ -703,6 +710,26 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           subscriptionMetadata = null
         }
       }
+    }
+  }
+
+  if (isSheetsWatch && (!subscription || !subscription.page_token) && channelId) {
+    const { data: triggerResource } = await supabase
+      .from('trigger_resources')
+      .select('id, config, updated_at')
+      .eq('provider_id', 'google-sheets')
+      .eq('external_id', channelId)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (triggerResource?.config) {
+      subscription = {
+        page_token: triggerResource.config?.pageToken,
+        updated_at: triggerResource.updated_at,
+        metadata: triggerResource.config
+      }
+      subscriptionSource = 'trigger_resources'
+      subscriptionMetadata = triggerResource.config
     }
   }
 
@@ -957,15 +984,39 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
 
   const nextPageToken = changes.nextPageToken
   if (nextPageToken && nextPageToken !== subscription.page_token) {
-    await supabase
-      .from('google_watch_subscriptions')
-      .update({
-        page_token: nextPageToken,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', metadata.userId)
-      .eq('integration_id', metadata.integrationId)
-      .eq('provider', 'google-drive')
+    if (subscriptionSource === 'google_watch_subscriptions') {
+      await supabase
+        .from('google_watch_subscriptions')
+        .update({
+          page_token: nextPageToken,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', metadata.userId)
+        .eq('integration_id', metadata.integrationId)
+        .eq('provider', subscriptionProviderFilter)
+    } else if (subscriptionSource === 'trigger_resources' && channelId) {
+      const { data: existing } = await supabase
+        .from('trigger_resources')
+        .select('config')
+        .eq('provider_id', 'google-sheets')
+        .eq('external_id', channelId)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      const updatedConfig = {
+        ...(existing?.config || {}),
+        pageToken: nextPageToken
+      }
+
+      await supabase
+        .from('trigger_resources')
+        .update({
+          config: updatedConfig,
+          updated_at: new Date().toISOString()
+        })
+        .eq('provider_id', 'google-sheets')
+        .eq('external_id', channelId)
+    }
   }
 
   if (isSheetsWatch) {
@@ -2801,6 +2852,14 @@ export async function processGoogleEventForTestSession(event: {
   testSession: any
 }): Promise<any> {
   const { service, eventData, requestId, testSessionId, testSession } = event
+
+  logger.debug('[Test Session] Google test webhook received', {
+    requestId,
+    testSessionId,
+    service,
+    hasEventData: !!eventData,
+    eventKeys: eventData ? Object.keys(eventData).slice(0, 12) : []
+  })
 
   logger.debug(`🧪 [Test Session] Processing ${service} event for session ${testSessionId}`)
 

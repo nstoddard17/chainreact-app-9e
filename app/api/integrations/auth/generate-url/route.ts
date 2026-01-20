@@ -1278,9 +1278,30 @@ async function generateMondayAuthUrl(stateObject: any, supabase: any): Promise<s
   })
 
   // Add scopes - ONLY AFTER configuring them in Monday.com app settings
-  // Required scopes: me:read, boards:read, boards:write, users:read, updates:read, updates:write, assets:read
+  // Required scopes: me:read, boards:read, boards:write, docs:read, docs:write, workspaces:read, workspaces:write,
+  // users:read, users:write, account:read, notifications:write, updates:read, assets:read, tags:read, teams:read,
+  // teams:write, webhooks:write, webhooks:read
   // Configure at: https://auth.monday.com/developers
-  const scopes = ['me:read', 'boards:read', 'boards:write', 'users:read', 'updates:read', 'updates:write', 'assets:read']
+  const scopes = [
+    'me:read',
+    'boards:read',
+    'boards:write',
+    'docs:read',
+    'docs:write',
+    'workspaces:read',
+    'workspaces:write',
+    'users:read',
+    'users:write',
+    'account:read',
+    'notifications:write',
+    'updates:read',
+    'assets:read',
+    'tags:read',
+    'teams:read',
+    'teams:write',
+    'webhooks:write',
+    'webhooks:read'
+  ]
   if (scopes.length > 0) {
     params.append('scope', scopes.join(' '))
   }

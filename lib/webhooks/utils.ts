@@ -10,28 +10,30 @@ import { logger } from '@/lib/utils/logger'
  * In production or if env var not set, uses the request origin
  */
 export function getWebhookBaseUrl(req?: Request): string {
-  // In development, prefer the webhook HTTPS URL from environment
-  if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL) {
-    // Remove trailing slash if present
-    return process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL.replace(/\/$/, '')
+  const envWebhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL
+  const envPublicUrl = process.env.NEXT_PUBLIC_URL
+  const envVercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined
+
+  if (process.env.NODE_ENV === 'development') {
+    if (envWebhookUrl) return envWebhookUrl.replace(/\/$/, '')
+    if (req) {
+      const url = new URL(req.url)
+      return url.origin
+    }
+    if (envPublicUrl) return envPublicUrl.replace(/\/$/, '')
+    if (envVercelUrl) return envVercelUrl.replace(/\/$/, '')
+    return 'http://localhost:3000'
   }
 
-  // If we have a request object, use its origin
+  // Production: prefer explicit public URL envs, then request origin
+  if (envPublicUrl) return envPublicUrl.replace(/\/$/, '')
+  if (envWebhookUrl) return envWebhookUrl.replace(/\/$/, '')
+  if (envVercelUrl) return envVercelUrl.replace(/\/$/, '')
   if (req) {
     const url = new URL(req.url)
     return url.origin
   }
 
-  // Fallback to public URL environment variables
-  if (process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL) {
-    return process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL.replace(/\/$/, '')
-  }
-
-  if (process.env.NEXT_PUBLIC_URL) {
-    return process.env.NEXT_PUBLIC_URL.replace(/\/$/, '')
-  }
-
-  // Last resort fallback
   return 'http://localhost:3000'
 }
 

@@ -130,7 +130,7 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<GmailWa
     const channelId = `gmail-${config.userId}-${Date.now()}`
 
     // Store the watch details in database for renewal
-    await supabase.from('google_watch_subscriptions').upsert({
+    const { error: watchInsertError } = await supabase.from('google_watch_subscriptions').upsert({
       user_id: config.userId,
       integration_id: config.integrationId,
       provider: 'gmail',
@@ -146,6 +146,16 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<GmailWa
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
+
+    if (watchInsertError) {
+      logger.error('Failed to store Gmail watch metadata:', {
+        error: watchInsertError,
+        channelId,
+        emailAddress: profile.data.emailAddress
+      })
+      // Critical failure - without stored metadata, we can't process incoming webhooks
+      throw new Error(`Failed to store watch metadata: ${watchInsertError.message}`)
+    }
 
     return {
       historyId: response.data.historyId,

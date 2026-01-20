@@ -3,13 +3,13 @@ import { NodeComponent } from "../../../types"
 export const newNoteTriggerSchema: NodeComponent = {
   type: "microsoft-onenote_trigger_new_note",
   title: "New Note in Section",
-  description: "Triggers when a new note is created in a notebook/section. Uses polling (checks every 15 minutes).",
+  description: "Triggers when a new note is created in a notebook/section.",
   isTrigger: true,
   providerId: "microsoft-onenote",
   category: "Productivity",
   icon: "FileText" as any, // Will be resolved in index file
   producesOutput: true,
-  triggerType: "polling",
+  triggerType: "webhook",
   requiredScopes: ["Notes.Read", "Notes.ReadWrite.All"],
   configSchema: [
     {
@@ -32,20 +32,7 @@ export const newNoteTriggerSchema: NodeComponent = {
       dependsOn: "notebookId",
       description: "Optionally filter to a specific section. Leave blank to monitor all sections in the notebook."
     },
-    {
-      name: "pollingInterval",
-      label: "Check Frequency",
-      type: "select",
-      required: false,
-      defaultValue: "15",
-      options: [
-        { value: "5", label: "Every 5 minutes" },
-        { value: "15", label: "Every 15 minutes (recommended)" },
-        { value: "30", label: "Every 30 minutes" },
-        { value: "60", label: "Every hour" }
-      ],
-      description: "How often to check for new notes"
-    }
+    
   ],
   outputSchema: [
     {
