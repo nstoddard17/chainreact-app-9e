@@ -101,7 +101,12 @@ interface PanelActions {
   onProviderConnect?: (providerId: string) => void
   onProviderChange?: (providerId: string) => void
   // New handlers for enhanced chat flow
-  onProviderDropdownSelect?: (providerId: string, isConnected: boolean) => void
+  // metaContext passes the full dropdown metadata to fix race conditions after page refresh
+  onProviderDropdownSelect?: (providerId: string, isConnected: boolean, metaContext?: {
+    pendingPrompt?: string
+    category?: any
+    remainingTerms?: any[]
+  }) => void
   onConnectionComplete?: (providerId: string, email?: string) => void
   onConnectionSkip?: (providerId: string) => void
   onNodeConfigComplete?: (nodeType: string, config: Record<string, any>) => void
@@ -1253,7 +1258,13 @@ export function FlowV2AgentPanel({
                           categoryKey={meta.providerDropdown.category.vagueTerm}
                           providers={meta.providerDropdown.providers}
                           preSelectedProviderId={meta.providerDropdown.preSelectedProviderId}
-                          onSelect={onProviderDropdownSelect}
+                          onSelect={(providerId, isConnected) =>
+                            onProviderDropdownSelect(providerId, isConnected, {
+                              pendingPrompt: meta.pendingPrompt,
+                              category: meta.providerDropdown.category,
+                              remainingTerms: meta.remainingTerms,
+                            })
+                          }
                         />
                       </div>
                     )}
@@ -1401,7 +1412,13 @@ export function FlowV2AgentPanel({
                                         categoryKey={meta.providerDropdown.category.vagueTerm}
                                         providers={meta.providerDropdown.providers}
                                         preSelectedProviderId={meta.providerDropdown.preSelectedProviderId}
-                                        onSelect={onProviderDropdownSelect}
+                                        onSelect={(providerId, isConnected) =>
+                                          onProviderDropdownSelect(providerId, isConnected, {
+                                            pendingPrompt: meta.pendingPrompt,
+                                            category: meta.providerDropdown.category,
+                                            remainingTerms: meta.remainingTerms,
+                                          })
+                                        }
                                       />
                                     </div>
                                   )

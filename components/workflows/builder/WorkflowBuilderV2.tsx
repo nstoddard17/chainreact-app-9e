@@ -777,6 +777,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     if (meta?.providerDropdown?.category && meta?.pendingPrompt) {
       console.log('[ChatRestore] ✅ Restoring provider selection state from chat history')
+      console.log('[ChatRestore] Setting state:', {
+        pendingPrompt: meta.pendingPrompt,
+        providerCategory: meta.providerDropdown.category?.vagueTerm,
+        remainingTerms: meta.remainingTerms?.length || 0,
+      })
       setAwaitingProviderSelection(true)
       setPendingPrompt(meta.pendingPrompt)
       setProviderCategory(meta.providerDropdown.category)
@@ -786,7 +791,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       // Open the agent panel to show the dropdown
       setAgentOpen(true)
     } else {
-      console.log('[ChatRestore] ❌ Missing required meta fields for restoration')
+      console.log('[ChatRestore] ❌ Missing required meta fields for restoration:', {
+        hasCategory: !!meta?.providerDropdown?.category,
+        hasPendingPrompt: !!meta?.pendingPrompt,
+      })
     }
 
     hasRestoredFromChatHistoryRef.current = true
@@ -1195,30 +1203,49 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [flowId, generateLocalId, chatPersistenceEnabled, enqueuePendingMessage, replaceMessageByLocalId])
 
   // Provider selection handlers
-  const handleProviderSelect = useCallback(async (providerId: string) => {
-    if (!pendingPrompt || !providerCategory || !actions) return
+  const handleProviderSelect = useCallback(async (
+    providerId: string,
+    effectivePrompt?: string,
+    effectiveCategory?: any,
+    effectiveRemainingTerms?: any[]
+  ) => {
+    // Use effective values if passed, otherwise fall back to state
+    // This fixes a race condition where state may not have been restored yet after page refresh
+    const promptToUse = effectivePrompt || pendingPrompt
+    const categoryToUse = effectiveCategory || providerCategory
+    const remainingTermsToUse = effectiveRemainingTerms ?? pendingVagueTerms
+
+    if (!promptToUse || !categoryToUse || !actions) {
+      console.log('[Provider Selection] Missing required state:', {
+        promptToUse: !!promptToUse,
+        categoryToUse: !!categoryToUse,
+        actions: !!actions
+      })
+      return
+    }
 
     console.log('[Provider Selection] User selected provider:', providerId)
-    console.log('[Provider Selection] Current vague term:', providerCategory.vagueTerm)
-    console.log('[Provider Selection] Remaining pending terms:', pendingVagueTerms.length)
+    console.log('[Provider Selection] Using prompt:', promptToUse?.substring(0, 50))
+    console.log('[Provider Selection] Current vague term:', categoryToUse.vagueTerm)
+    console.log('[Provider Selection] Remaining pending terms:', remainingTermsToUse.length)
 
     // Store the selection
     const newSelections = new Map(providerSelections)
-    newSelections.set(providerCategory.vagueTerm, providerId)
+    newSelections.set(categoryToUse.vagueTerm, providerId)
     setProviderSelections(newSelections)
 
     // Replace vague term with specific provider in prompt
     const modifiedPrompt = replaceVagueTermWithProvider(
-      pendingPrompt,
-      providerCategory.vagueTerm,
+      promptToUse,
+      categoryToUse.vagueTerm,
       providerId
     )
 
     console.log('[Provider Selection] Modified prompt:', modifiedPrompt)
 
     // Check if there are more pending vague terms to resolve
-    if (pendingVagueTerms.length > 0) {
-      const [nextTerm, ...remainingTerms] = pendingVagueTerms
+    if (remainingTermsToUse.length > 0) {
+      const [nextTerm, ...remainingTerms] = remainingTermsToUse
       console.log('[Provider Selection] More terms to resolve:', nextTerm.category?.displayName)
 
       // Show next provider dropdown
@@ -1232,7 +1259,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Capture all selections before clearing state
     const allSelections = new Map(newSelections)
-    allSelections.set(providerCategory.vagueTerm, providerId)
+    allSelections.set(categoryToUse.vagueTerm, providerId)
     console.log('[Provider Selection] All provider selections:', Object.fromEntries(allSelections))
 
     // Reset selection state
@@ -1483,17 +1510,42 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [agentMessages, buildMachine.plan, toast])
 
   // Enhanced chat flow handlers
-  const handleProviderDropdownSelect = useCallback(async (providerId: string, isConnected: boolean) => {
+  const handleProviderDropdownSelect = useCallback(async (
+    providerId: string,
+    isConnected: boolean,
+    metaContext?: {
+      pendingPrompt?: string
+      category?: any
+      remainingTerms?: any[]
+    }
+  ) => {
+    // Use metaContext values if available (passed from message meta), fallback to state
+    // This fixes a race condition where state may not have been restored yet after page refresh
+    const effectivePendingPrompt = metaContext?.pendingPrompt || pendingPrompt
+    const effectiveCategory = metaContext?.category || providerCategory
+    const effectiveRemainingTerms = metaContext?.remainingTerms || pendingVagueTerms
+
     console.log('[Provider Dropdown] User selected:', providerId, 'isConnected:', isConnected)
+    console.log('[Provider Dropdown] Current state:', {
+      promptFromMeta: metaContext?.pendingPrompt ? metaContext.pendingPrompt.substring(0, 50) : null,
+      promptFromState: pendingPrompt ? pendingPrompt.substring(0, 50) : null,
+      effectivePrompt: effectivePendingPrompt ? effectivePendingPrompt.substring(0, 50) : null,
+      categoryFromMeta: metaContext?.category?.vagueTerm,
+      categoryFromState: providerCategory?.vagueTerm,
+      effectiveCategory: effectiveCategory?.vagueTerm,
+      remainingTermsFromMeta: metaContext?.remainingTerms?.length,
+      remainingTermsFromState: pendingVagueTerms.length,
+      awaitingProviderSelection,
+    })
 
     // Track selected provider
     setSelectedProviderId(providerId)
 
     // Add preference to collection (will be offered to save at end)
-    const category = providerCategory?.vagueTerm || 'unknown'
+    const categoryName = effectiveCategory?.vagueTerm || 'unknown'
     setCollectedPreferences(prev => [...prev, {
       id: `provider-${providerId}`,
-      category,
+      category: categoryName,
       provider: providerId,
       providerName: getProviderDisplayName(providerId),
     }])
@@ -1501,10 +1553,27 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Always proceed with workflow building
     // Connection check happens later during WAITING_USER (node configuration)
     // This lets users see the full workflow plan before connecting accounts
-    if (pendingPrompt) {
-      handleProviderSelect(providerId)
+    if (effectivePendingPrompt && effectiveCategory) {
+      console.log('[Provider Dropdown] ✅ Calling handleProviderSelect with context')
+      // Update state with values from meta if not already set (ensures subsequent calls have them)
+      if (metaContext?.pendingPrompt && !pendingPrompt) {
+        setPendingPrompt(metaContext.pendingPrompt)
+      }
+      if (metaContext?.category && !providerCategory) {
+        setProviderCategory(metaContext.category)
+      }
+      if (metaContext?.remainingTerms && pendingVagueTerms.length === 0) {
+        setPendingVagueTerms(metaContext.remainingTerms)
+      }
+      handleProviderSelect(providerId, effectivePendingPrompt, effectiveCategory, effectiveRemainingTerms)
+    } else {
+      console.log('[Provider Dropdown] ⚠️ Missing required context:', {
+        hasPendingPrompt: !!effectivePendingPrompt,
+        hasCategory: !!effectiveCategory
+      })
+      console.log('[Provider Dropdown] This may happen if state was not properly restored after page refresh')
     }
-  }, [pendingPrompt, providerCategory, handleProviderSelect])
+  }, [pendingPrompt, providerCategory, pendingVagueTerms, awaitingProviderSelection, handleProviderSelect])
 
   const handleConnectionComplete = useCallback(async (providerId: string, email?: string) => {
     console.log('[Connection Complete]', providerId, 'email:', email)
