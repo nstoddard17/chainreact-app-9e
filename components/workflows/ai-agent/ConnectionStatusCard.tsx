@@ -128,15 +128,13 @@ export function ConnectionStatusCard({
       <div className="rounded-lg border bg-card p-4 space-y-4">
         {/* Provider header */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted/50 border border-border shrink-0">
-            <Image
-              src={getProviderIconPath(providerId)}
-              alt={providerName}
-              width={28}
-              height={28}
-              className="shrink-0"
-            />
-          </div>
+          <Image
+            src={getProviderIconPath(providerId)}
+            alt={providerName}
+            width={28}
+            height={28}
+            className="shrink-0"
+          />
           <div className="flex-1 min-w-0">
             <h4 className="font-semibold text-sm text-foreground">{providerName}</h4>
 

@@ -50,15 +50,13 @@ export function ProviderSelectionUI({
                 className="group relative h-auto py-4 px-4 flex items-center justify-start gap-4 w-full rounded-lg border-2 border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 transition-all duration-200 shadow-sm hover:shadow-md"
                 onClick={() => onSelect(provider.id)}
               >
-                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-background border border-border shadow-sm shrink-0">
-                  <Image
-                    src={getProviderIconPath(provider.id)}
-                    alt={provider.displayName}
-                    width={28}
-                    height={28}
-                    className="shrink-0"
-                  />
-                </div>
+                <Image
+                  src={getProviderIconPath(provider.id)}
+                  alt={provider.displayName}
+                  width={28}
+                  height={28}
+                  className="shrink-0"
+                />
                 <div className="flex-1 text-left min-w-0">
                   <div className="font-semibold text-sm truncate text-foreground">{provider.displayName}</div>
                   <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 mt-0.5">
@@ -87,15 +85,13 @@ export function ProviderSelectionUI({
                 onClick={() => onConnect(provider.id)}
               >
                 <div className="flex items-center gap-4 min-w-0 flex-1">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-muted/50 border border-border shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <Image
-                      src={getProviderIconPath(provider.id)}
-                      alt={provider.displayName}
-                      width={28}
-                      height={28}
-                      className="shrink-0"
-                    />
-                  </div>
+                  <Image
+                    src={getProviderIconPath(provider.id)}
+                    alt={provider.displayName}
+                    width={28}
+                    height={28}
+                    className="shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                  />
                   <div className="text-left min-w-0 flex-1">
                     <div className="font-semibold text-sm truncate text-foreground">{provider.displayName}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">Not connected</div>

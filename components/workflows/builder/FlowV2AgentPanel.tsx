@@ -1657,13 +1657,11 @@ export function FlowV2AgentPanel({
                                                             : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 hover:bg-amber-100/50'
                                                       }`}
                                                     >
-                                                      <div className="flex items-center justify-center w-9 h-9 rounded-lg border bg-background shrink-0">
-                                                        <img
-                                                          src={getProviderIconPath(planNode.providerId || '')}
-                                                          alt={planNode.providerId || ''}
-                                                          className="w-5 h-5"
-                                                        />
-                                                      </div>
+                                                      <img
+                                                        src={getProviderIconPath(planNode.providerId || '')}
+                                                        alt={planNode.providerId || ''}
+                                                        className="w-6 h-6 shrink-0"
+                                                      />
                                                       <div className="flex-1 min-w-0">
                                                         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                                           {getProviderDisplayName(planNode.providerId || '')} Account
@@ -1711,13 +1709,11 @@ export function FlowV2AgentPanel({
                                                                   }))
                                                                 }}
                                                               >
-                                                                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-background border shrink-0">
-                                                                  <img
-                                                                    src={getProviderIconPath(planNode.providerId || '')}
-                                                                    alt=""
-                                                                    className="w-4 h-4"
-                                                                  />
-                                                                </div>
+                                                                <img
+                                                                  src={getProviderIconPath(planNode.providerId || '')}
+                                                                  alt=""
+                                                                  className="w-5 h-5 shrink-0"
+                                                                />
                                                                 <div className="flex-1 min-w-0">
                                                                   <div className="text-sm font-medium truncate">
                                                                     {getConnectionDisplayName(conn, planNode.providerId || '')}
