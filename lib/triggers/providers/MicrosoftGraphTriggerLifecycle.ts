@@ -533,19 +533,19 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
       // OneDrive triggers (schema uses trigger_new_file and trigger_file_modified)
       'trigger_new_file': (config?: Record<string, any>) => {
-        // Watch specific folder if configured, otherwise watch drive root
-        if (config?.folderId) {
-          return `/me/drive/items/${config.folderId}`
+        // OneDrive subscriptions reject /me/drive/items/{id}; prefer drive root unless driveId is known.
+        if (config?.driveId && config?.folderId) {
+          return `/drives/${config.driveId}/items/${config.folderId}`
         }
         return '/me/drive/root'
       },
       'trigger_file_created': '/me/drive/root', // Legacy alias
       'trigger_file_modified': (config?: Record<string, any>) => {
-        if (config?.folderId) {
-          return `/me/drive/items/${config.folderId}`
+        if (config?.driveId && config?.folderId) {
+          return `/drives/${config.driveId}/items/${config.folderId}`
         }
-        if (config?.fileId) {
-          return `/me/drive/items/${config.fileId}`
+        if (config?.driveId && config?.fileId) {
+          return `/drives/${config.driveId}/items/${config.fileId}`
         }
         return '/me/drive/root'
       },
@@ -555,26 +555,26 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       // Excel workbook files are stored in OneDrive, so we watch the drive root for changes
       'trigger_new_row': (config?: Record<string, any>) => {
         // Watch the specific workbook file for changes if workbookId is provided
-        if (config?.workbookId) {
-          return `/me/drive/items/${config.workbookId}`
+        if (config?.driveId && config?.workbookId) {
+          return `/drives/${config.driveId}/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
       'trigger_new_worksheet': (config?: Record<string, any>) => {
-        if (config?.workbookId) {
-          return `/me/drive/items/${config.workbookId}`
+        if (config?.driveId && config?.workbookId) {
+          return `/drives/${config.driveId}/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
       'trigger_updated_row': (config?: Record<string, any>) => {
-        if (config?.workbookId) {
-          return `/me/drive/items/${config.workbookId}`
+        if (config?.driveId && config?.workbookId) {
+          return `/drives/${config.driveId}/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
       'trigger_new_table_row': (config?: Record<string, any>) => {
-        if (config?.workbookId) {
-          return `/me/drive/items/${config.workbookId}`
+        if (config?.driveId && config?.workbookId) {
+          return `/drives/${config.driveId}/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
