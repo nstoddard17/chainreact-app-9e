@@ -440,13 +440,23 @@ async function processNotifications(
       }
 
       // OneDrive triggers (file created/modified)
+      logger.debug('🔍 Checking OneDrive trigger conditions:', {
+        triggerType,
+        startsWithOneDrive: triggerType?.startsWith('onedrive_'),
+        userId: !!userId,
+        changeType,
+        resource,
+        resourceDataId: change?.resourceData?.id
+      })
+
       if (triggerType?.startsWith('onedrive_') && userId) {
+        logger.debug('✅ OneDrive trigger detected, fetching item data...')
         const onedriveData = await fetchOneDriveItemData(
           userId,
           change?.resourceData?.id || null,
           triggerConfig,
           triggerType,
-          changeType
+          changeType || 'updated'
         )
 
         if (!onedriveData) {
@@ -1224,6 +1234,16 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
   const supabase = getSupabase()
   const startTime = Date.now()
 
+  logger.debug('🧪 [Test Webhook] Received notification for test session:', {
+    testSessionId,
+    notificationCount: notifications.length,
+    notificationTypes: notifications.map(n => ({
+      subscriptionId: n?.subscriptionId,
+      changeType: n?.changeType,
+      resource: n?.resource
+    }))
+  })
+
   try {
     // Validate the test session exists and is listening
     const { data: testSession, error: sessionError } = await supabase
@@ -1454,14 +1474,23 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       }
 
       // OneDrive triggers (file created/modified)
+      logger.debug('🧪 [Test Webhook] Checking OneDrive trigger conditions:', {
+        triggerType,
+        startsWithOneDrive: triggerType?.startsWith('onedrive_'),
+        userId: !!userId,
+        changeType: notification?.changeType,
+        resourceDataId: notification?.resourceData?.id
+      })
+
       if (triggerType?.startsWith('onedrive_') && userId) {
         try {
+          logger.debug('🧪 [Test Webhook] OneDrive trigger detected, fetching item data...')
           const onedriveData = await fetchOneDriveItemData(
             userId,
             notification?.resourceData?.id || null,
             triggerConfig,
             triggerType,
-            notification?.changeType || 'created'
+            notification?.changeType || 'updated'
           )
 
           if (!onedriveData) {
@@ -1572,14 +1601,24 @@ async function fetchOneDriveItemData(
   triggerType: string,
   changeType: string
 ): Promise<Record<string, any> | null> {
+  logger.debug('📂 [OneDrive] fetchOneDriveItemData called:', {
+    userId: userId.substring(0, 8) + '...',
+    itemId,
+    triggerType,
+    changeType,
+    configKeys: triggerConfig ? Object.keys(triggerConfig) : []
+  })
+
   try {
     const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
     const graphAuth = new MicrosoftGraphAuth()
     const accessToken = await graphAuth.getValidAccessToken(userId, 'onedrive')
+    logger.debug('📂 [OneDrive] Got access token')
 
-    // If we don't have a specific item ID, we need to fetch recent changes
+    // If we don't have a specific item ID, or it's "root", we need to fetch recent changes
     // This happens when subscribing to /me/drive/root
-    if (!itemId) {
+    if (!itemId || itemId === 'root') {
+      logger.debug('📂 [OneDrive] No item ID, fetching delta...')
       // Fetch recent items using delta query
       const deltaResponse = await fetch(
         'https://graph.microsoft.com/v1.0/me/drive/root/delta?$top=10&$select=id,name,size,file,folder,parentReference,createdDateTime,lastModifiedDateTime,webUrl,@microsoft.graph.downloadUrl',
@@ -1592,21 +1631,34 @@ async function fetchOneDriveItemData(
       )
 
       if (!deltaResponse.ok) {
-        logger.warn('Failed to fetch OneDrive delta:', { status: deltaResponse.status })
+        const errorText = await deltaResponse.text()
+        logger.warn('📂 [OneDrive] Failed to fetch delta:', { status: deltaResponse.status, error: errorText })
         return null
       }
 
       const deltaData = await deltaResponse.json()
       const items = Array.isArray(deltaData?.value) ? deltaData.value : []
+      logger.debug('📂 [OneDrive] Delta returned items:', {
+        count: items.length,
+        names: items.slice(0, 5).map((i: any) => i.name)
+      })
+
+      if (items.length === 0) {
+        logger.debug('📂 [OneDrive] No items in delta response')
+        return null
+      }
 
       // Find the most recently changed item that matches our filters
       for (const item of items) {
+        logger.debug('📂 [OneDrive] Checking item:', { name: item.name, id: item.id })
         const matchResult = matchesOneDriveFilters(item, triggerConfig, triggerType, changeType)
         if (matchResult) {
+          logger.debug('📂 [OneDrive] ✅ Found matching item:', { name: item.name })
           return formatOneDriveItem(item)
         }
       }
 
+      logger.debug('📂 [OneDrive] No items matched filters after checking all delta items')
       return null
     }
 
@@ -1653,17 +1705,52 @@ function matchesOneDriveFilters(
   const isFile = !!item.file
   const isFolder = !!item.folder
 
+  logger.debug('📂 [OneDrive] matchesOneDriveFilters:', {
+    itemName: item.name,
+    isFile,
+    isFolder,
+    triggerType,
+    changeType,
+    watchType: triggerConfig?.watchType,
+    folderId: triggerConfig?.folderId,
+    fileType: triggerConfig?.fileType,
+    modifiedTime: item.lastModifiedDateTime
+  })
+
+  // For file_modified trigger, ensure the item was recently modified (within last 5 minutes)
+  if (triggerType === 'onedrive_trigger_file_modified') {
+    const modifiedAt = item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime) : null
+    const now = Date.now()
+    const isRecentlyModified = modifiedAt && (now - modifiedAt.getTime()) < 5 * 60 * 1000
+
+    if (!isRecentlyModified) {
+      logger.debug('📂 [OneDrive] Item not recently modified, skipping:', {
+        itemName: item.name,
+        modifiedAt: modifiedAt?.toISOString(),
+        minutesAgo: modifiedAt ? Math.round((now - modifiedAt.getTime()) / 60000) : 'N/A'
+      })
+      return false
+    }
+  }
+
   // Check watchType filter
   const watchType = triggerConfig?.watchType || 'any'
-  if (watchType === 'files' && !isFile) return false
-  if (watchType === 'folders' && !isFolder) return false
+  if (watchType === 'files' && !isFile) {
+    logger.debug('📂 [OneDrive] watchType=files but item is folder, skipping')
+    return false
+  }
+  if (watchType === 'folders' && !isFolder) {
+    logger.debug('📂 [OneDrive] watchType=folders but item is file, skipping')
+    return false
+  }
 
   // Check folderId filter (item must be in this folder or subfolder)
-  if (triggerConfig?.folderId) {
+  if (triggerConfig?.folderId && triggerConfig.folderId !== 'root') {
     const parentFolderId = item.parentReference?.id
     const includeSubfolders = triggerConfig?.includeSubfolders !== false
 
     if (!includeSubfolders && parentFolderId !== triggerConfig.folderId) {
+      logger.debug('📂 [OneDrive] Item not in configured folder (no subfolders), skipping')
       return false
     }
 
@@ -1672,6 +1759,7 @@ function matchesOneDriveFilters(
       const parentPath = item.parentReference?.path || ''
       // This is a simple check - might need enhancement for deeply nested folders
       if (!parentPath.includes(triggerConfig.folderId) && parentFolderId !== triggerConfig.folderId) {
+        logger.debug('📂 [OneDrive] Item not in configured folder tree, skipping')
         return false
       }
     }
@@ -1684,7 +1772,10 @@ function matchesOneDriveFilters(
     const extension = fileName.split('.').pop()?.toLowerCase() || ''
 
     const fileTypeMatches = checkFileTypeMatch(triggerConfig.fileType, mimeType, extension)
-    if (!fileTypeMatches) return false
+    if (!fileTypeMatches) {
+      logger.debug('📂 [OneDrive] fileType filter not matched, skipping')
+      return false
+    }
   }
 
   // Check if this is a "new file" trigger but the change is an update
@@ -1704,6 +1795,7 @@ function matchesOneDriveFilters(
         Math.abs(modifiedAt.getTime() - createdAt.getTime()) < 30 * 1000
 
       if (!isNew && !isJustCreated) {
+        logger.debug('📂 [OneDrive] new_file trigger but item is not new, skipping')
         return false
       }
     }
@@ -1711,9 +1803,11 @@ function matchesOneDriveFilters(
 
   // Check sharedOnly filter
   if (triggerConfig?.sharedOnly && !item.shared) {
+    logger.debug('📂 [OneDrive] sharedOnly filter not matched, skipping')
     return false
   }
 
+  logger.debug('📂 [OneDrive] ✅ Item matches all filters:', { itemName: item.name })
   return true
 }
 
