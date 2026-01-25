@@ -552,13 +552,8 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
       // OneNote triggers
       'trigger_new_note': (config?: Record<string, any>) => {
-        if (config?.sectionId) {
-          return `/me/onenote/sections/${config.sectionId}/pages`
-        }
-        if (config?.notebookId) {
-          return `/me/onenote/notebooks/${config.notebookId}/sections/pages`
-        }
-        return '/me/onenote/pages'
+        // OneNote page notifications are not supported directly; use OneDrive changes as a signal.
+        return '/me/drive/root'
       }
     }
 
