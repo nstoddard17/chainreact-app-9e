@@ -439,6 +439,69 @@ async function processNotifications(
         continue
       }
 
+      // OneDrive triggers (file created/modified)
+      if (triggerType?.startsWith('onedrive_') && userId) {
+        const onedriveData = await fetchOneDriveItemData(
+          userId,
+          change?.resourceData?.id || null,
+          triggerConfig,
+          triggerType,
+          changeType
+        )
+
+        if (!onedriveData) {
+          logger.debug('Skipping OneDrive notification - no matching item or filtered out:', {
+            subscriptionId: subId,
+            triggerType,
+            changeType
+          })
+          continue
+        }
+
+        // Trigger workflow execution directly
+        if (workflowId) {
+          const base = getWebhookBaseUrl()
+          const executionUrl = `${base}/api/workflows/execute`
+
+          const executionPayload = {
+            workflowId,
+            testMode: false,
+            executionMode: 'live',
+            skipTriggers: true,
+            inputData: {
+              source: 'microsoft-graph-onedrive',
+              subscriptionId: subId,
+              triggerType,
+              changeType,
+              onedrive: onedriveData
+            }
+          }
+
+          logger.debug('Calling execution API for OneDrive trigger:', executionUrl)
+
+          const response = await fetch(executionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-id': userId
+            },
+            body: JSON.stringify(executionPayload)
+          })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            logger.error('OneDrive workflow execution failed:', {
+              status: response.status,
+              error: errorText
+            })
+          }
+        } else {
+          logger.warn('Cannot trigger OneDrive workflow - missing workflowId')
+        }
+
+        continue
+      }
+
       // For Teams channel message triggers, fetch the actual message data
       const isTeamsMessageTrigger = resourceLower.includes('/teams/') && resourceLower.includes('/channels/') && resourceLower.includes('/messages')
       if (isTeamsMessageTrigger && userId && triggerConfig) {
@@ -1390,6 +1453,38 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
         }
       }
 
+      // OneDrive triggers (file created/modified)
+      if (triggerType?.startsWith('onedrive_') && userId) {
+        try {
+          const onedriveData = await fetchOneDriveItemData(
+            userId,
+            notification?.resourceData?.id || null,
+            triggerConfig,
+            triggerType,
+            notification?.changeType || 'created'
+          )
+
+          if (!onedriveData) {
+            logger.debug('[Test Webhook] OneDrive trigger skipped - no matching item')
+            continue
+          }
+
+          await supabase
+            .from('workflow_test_sessions')
+            .update({
+              status: 'trigger_received',
+              trigger_data: onedriveData
+            })
+            .eq('id', testSessionId)
+
+          logger.debug(`[Test Webhook] OneDrive trigger data stored for session ${testSessionId}`)
+          continue
+        } catch (onedriveError) {
+          logger.error('[Test Webhook] Error handling OneDrive trigger:', onedriveError)
+          continue
+        }
+      }
+
       // OneNote triggers (use OneDrive change notifications as a signal)
       if (triggerType?.startsWith('microsoft-onenote_') && userId) {
         try {
@@ -1464,6 +1559,241 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       .eq('id', testSessionId)
 
     return errorResponse('Internal server error', 500)
+  }
+}
+
+/**
+ * Fetch OneDrive item data and apply filters
+ */
+async function fetchOneDriveItemData(
+  userId: string,
+  itemId: string | null,
+  triggerConfig: Record<string, any> | null,
+  triggerType: string,
+  changeType: string
+): Promise<Record<string, any> | null> {
+  try {
+    const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+    const graphAuth = new MicrosoftGraphAuth()
+    const accessToken = await graphAuth.getValidAccessToken(userId, 'onedrive')
+
+    // If we don't have a specific item ID, we need to fetch recent changes
+    // This happens when subscribing to /me/drive/root
+    if (!itemId) {
+      // Fetch recent items using delta query
+      const deltaResponse = await fetch(
+        'https://graph.microsoft.com/v1.0/me/drive/root/delta?$top=10&$select=id,name,size,file,folder,parentReference,createdDateTime,lastModifiedDateTime,webUrl,@microsoft.graph.downloadUrl',
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+
+      if (!deltaResponse.ok) {
+        logger.warn('Failed to fetch OneDrive delta:', { status: deltaResponse.status })
+        return null
+      }
+
+      const deltaData = await deltaResponse.json()
+      const items = Array.isArray(deltaData?.value) ? deltaData.value : []
+
+      // Find the most recently changed item that matches our filters
+      for (const item of items) {
+        const matchResult = matchesOneDriveFilters(item, triggerConfig, triggerType, changeType)
+        if (matchResult) {
+          return formatOneDriveItem(item)
+        }
+      }
+
+      return null
+    }
+
+    // Fetch specific item by ID
+    const response = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}?$select=id,name,size,file,folder,parentReference,createdDateTime,lastModifiedDateTime,webUrl,@microsoft.graph.downloadUrl`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.warn('Failed to fetch OneDrive item:', { status: response.status, error: errorText })
+      return null
+    }
+
+    const item = await response.json()
+
+    // Apply filters
+    if (!matchesOneDriveFilters(item, triggerConfig, triggerType, changeType)) {
+      return null
+    }
+
+    return formatOneDriveItem(item)
+  } catch (error) {
+    logger.error('Error fetching OneDrive item details:', error)
+    return null
+  }
+}
+
+/**
+ * Check if OneDrive item matches trigger filters
+ */
+function matchesOneDriveFilters(
+  item: any,
+  triggerConfig: Record<string, any> | null,
+  triggerType: string,
+  changeType: string
+): boolean {
+  const isFile = !!item.file
+  const isFolder = !!item.folder
+
+  // Check watchType filter
+  const watchType = triggerConfig?.watchType || 'any'
+  if (watchType === 'files' && !isFile) return false
+  if (watchType === 'folders' && !isFolder) return false
+
+  // Check folderId filter (item must be in this folder or subfolder)
+  if (triggerConfig?.folderId) {
+    const parentFolderId = item.parentReference?.id
+    const includeSubfolders = triggerConfig?.includeSubfolders !== false
+
+    if (!includeSubfolders && parentFolderId !== triggerConfig.folderId) {
+      return false
+    }
+
+    // For subfolders, check if the path includes the configured folder
+    if (includeSubfolders) {
+      const parentPath = item.parentReference?.path || ''
+      // This is a simple check - might need enhancement for deeply nested folders
+      if (!parentPath.includes(triggerConfig.folderId) && parentFolderId !== triggerConfig.folderId) {
+        return false
+      }
+    }
+  }
+
+  // Check fileType filter (only for files)
+  if (isFile && triggerConfig?.fileType && triggerConfig.fileType !== 'any') {
+    const mimeType = item.file?.mimeType || ''
+    const fileName = item.name || ''
+    const extension = fileName.split('.').pop()?.toLowerCase() || ''
+
+    const fileTypeMatches = checkFileTypeMatch(triggerConfig.fileType, mimeType, extension)
+    if (!fileTypeMatches) return false
+  }
+
+  // Check if this is a "new file" trigger but the change is an update
+  if (triggerType === 'onedrive_trigger_new_file') {
+    const triggerOnUpdates = triggerConfig?.triggerOnUpdates === true
+
+    if (changeType === 'updated' && !triggerOnUpdates) {
+      // Check if this is actually a new file (created within last few minutes)
+      const createdAt = item.createdDateTime ? new Date(item.createdDateTime) : null
+      const modifiedAt = item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime) : null
+      const now = Date.now()
+
+      // Consider "new" if created within last 5 minutes
+      const isNew = createdAt && (now - createdAt.getTime()) < 5 * 60 * 1000
+      // Or if created and modified times are very close (within 30 seconds)
+      const isJustCreated = createdAt && modifiedAt &&
+        Math.abs(modifiedAt.getTime() - createdAt.getTime()) < 30 * 1000
+
+      if (!isNew && !isJustCreated) {
+        return false
+      }
+    }
+  }
+
+  // Check sharedOnly filter
+  if (triggerConfig?.sharedOnly && !item.shared) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Check if file type matches the configured filter
+ */
+function checkFileTypeMatch(filterType: string, mimeType: string, extension: string): boolean {
+  const typeMap: Record<string, { mimes: string[], extensions: string[] }> = {
+    'documents': {
+      mimes: ['application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml', 'text/plain', 'application/rtf'],
+      extensions: ['doc', 'docx', 'txt', 'rtf', 'odt']
+    },
+    'images': {
+      mimes: ['image/'],
+      extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff']
+    },
+    'audio': {
+      mimes: ['audio/'],
+      extensions: ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg', 'wma']
+    },
+    'video': {
+      mimes: ['video/'],
+      extensions: ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm']
+    },
+    'spreadsheets': {
+      mimes: ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml'],
+      extensions: ['xls', 'xlsx', 'csv', 'ods']
+    },
+    'presentations': {
+      mimes: ['application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml'],
+      extensions: ['ppt', 'pptx', 'odp']
+    },
+    'pdf': {
+      mimes: ['application/pdf'],
+      extensions: ['pdf']
+    },
+    'archives': {
+      mimes: ['application/zip', 'application/x-rar', 'application/x-7z-compressed', 'application/gzip'],
+      extensions: ['zip', 'rar', '7z', 'gz', 'tar']
+    }
+  }
+
+  const config = typeMap[filterType]
+  if (!config) return true // Unknown filter type, allow all
+
+  // Check MIME type
+  for (const mime of config.mimes) {
+    if (mimeType.startsWith(mime) || mimeType.includes(mime)) {
+      return true
+    }
+  }
+
+  // Check extension
+  if (config.extensions.includes(extension)) {
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Format OneDrive item data for workflow output
+ */
+function formatOneDriveItem(item: any): Record<string, any> {
+  const isFile = !!item.file
+  return {
+    id: item.id,
+    name: item.name,
+    type: isFile ? 'file' : 'folder',
+    size: item.size || 0,
+    path: item.parentReference?.path
+      ? `${item.parentReference.path}/${item.name}`.replace('/drive/root:', '')
+      : `/${item.name}`,
+    webUrl: item.webUrl,
+    mimeType: item.file?.mimeType || '',
+    createdTime: item.createdDateTime,
+    modifiedTime: item.lastModifiedDateTime,
+    downloadUrl: item['@microsoft.graph.downloadUrl'] || null,
+    parentFolderId: item.parentReference?.id || null,
+    parentFolderPath: item.parentReference?.path?.replace('/drive/root:', '') || '/'
   }
 }
 

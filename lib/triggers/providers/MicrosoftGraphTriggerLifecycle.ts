@@ -98,14 +98,28 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
         if (!notebooksResponse.ok) {
           const errorText = await notebooksResponse.text()
-          logger.error('ƒ?O /me/onenote/notebooks call failed:', notebooksResponse.status, notebooksResponse.statusText)
+          logger.error('❌ /me/onenote/notebooks call failed:', notebooksResponse.status, notebooksResponse.statusText)
           logger.error('   Error details:', errorText)
           throw new Error(`Token lacks OneNote permissions. Status: ${notebooksResponse.status}. Please reconnect Microsoft OneNote integration.`)
         } else {
-          logger.debug('ƒo. /me/onenote/notebooks call succeeded - token has OneNote permissions')
+          logger.debug('✅ /me/onenote/notebooks call succeeded - token has OneNote permissions')
         }
       }
-      // Add other providers (Teams, OneDrive) here as needed
+      if (provider === 'onedrive') {
+        const driveResponse = await fetch('https://graph.microsoft.com/v1.0/me/drive?$select=id,name', {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+
+        if (!driveResponse.ok) {
+          const errorText = await driveResponse.text()
+          logger.error('❌ /me/drive call failed:', driveResponse.status, driveResponse.statusText)
+          logger.error('   Error details:', errorText)
+          throw new Error(`Token lacks OneDrive permissions. Status: ${driveResponse.status}. Please reconnect Microsoft OneDrive integration.`)
+        } else {
+          logger.debug('✅ /me/drive call succeeded - token has OneDrive permissions')
+        }
+      }
+      // Add other providers (Teams) here as needed
     } catch (testError) {
       logger.error('❌ Token permission test failed:', testError)
       throw testError
@@ -517,9 +531,24 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
         throw new Error('teamId is required for user joins team trigger')
       },
 
-      // OneDrive triggers
-      'trigger_file_created': '/me/drive/root',
-      'trigger_file_modified': '/me/drive/root',
+      // OneDrive triggers (schema uses trigger_new_file and trigger_file_modified)
+      'trigger_new_file': (config?: Record<string, any>) => {
+        // Watch specific folder if configured, otherwise watch drive root
+        if (config?.folderId) {
+          return `/me/drive/items/${config.folderId}`
+        }
+        return '/me/drive/root'
+      },
+      'trigger_file_created': '/me/drive/root', // Legacy alias
+      'trigger_file_modified': (config?: Record<string, any>) => {
+        if (config?.folderId) {
+          return `/me/drive/items/${config.folderId}`
+        }
+        if (config?.fileId) {
+          return `/me/drive/items/${config.fileId}`
+        }
+        return '/me/drive/root'
+      },
       'trigger_file_shared': '/me/drive/root',
 
       // Microsoft Excel triggers (use OneDrive file change notifications)
