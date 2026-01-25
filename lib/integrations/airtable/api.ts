@@ -17,7 +17,7 @@ export async function listAirtableBases(accessToken: string): Promise<AirtableBa
   if (!res.ok) {
     try {
       const err = await res.json()
-      // eslint-disable-next-line no-console
+       
       logger.error("Airtable list bases error:", err)
     } catch {}
     throw new Error(`Failed to list Airtable bases (status ${res.status})`)

@@ -18,6 +18,7 @@ type PendingChatMessage = {
   subtext?: string
   meta?: Record<string, any>
   createdAt?: string
+  ephemeral?: boolean  // Mark messages that should NOT be persisted (UI state only)
 }
 
 interface UseChatPersistenceOptions {
@@ -101,41 +102,55 @@ export function useChatPersistence({
 
   // Queue a message for later persistence
   const enqueuePendingMessage = useCallback((message: PendingChatMessage) => {
+    console.log('📥 [Chat Debug] Enqueueing message:', {
+      role: message.role,
+      text: message.text?.substring(0, 50),
+      localId: message.localId?.substring(0, 15),
+      ephemeral: message.ephemeral,
+      queueLength: pendingChatMessagesRef.current.length + 1
+    })
     pendingChatMessagesRef.current.push(message)
   }, [])
 
-  // Either persist a status message immediately or queue it for later
+  // Add a status message to the UI (always ephemeral - never persisted to database)
+  // Status messages like "Building workflow...", "Flow ready ✅" are UI state only
   const persistOrQueueStatus = useCallback(
     async (text: string, subtext?: string) => {
-      if (chatPersistenceEnabled && flowState?.flow) {
-        try {
-          await ChatService.addOrUpdateStatus(flowId, text, subtext)
-        } catch (error) {
-          console.error('Failed to persist status message:', error)
-        }
-        return
-      }
-
+      // Status messages are ephemeral - they're UI state that should always be shown
+      // during the session but never saved to the database
       enqueuePendingMessage({
         localId: generateLocalId(),
         role: 'status',
         text,
         subtext,
         createdAt: new Date().toISOString(),
+        ephemeral: true,  // UI state only - should NOT be persisted
       })
     },
-    [chatPersistenceEnabled, enqueuePendingMessage, flowId, flowState?.flow, generateLocalId]
+    [enqueuePendingMessage, generateLocalId]
   )
 
-  // Cleanup: Clear pending messages on unmount if workflow was never saved
+  // Track whether persistence was ever enabled to determine cleanup behavior
+  const wasEverPersistenceEnabledRef = useRef(false)
+  useEffect(() => {
+    if (chatPersistenceEnabled) {
+      wasEverPersistenceEnabledRef.current = true
+    }
+  }, [chatPersistenceEnabled])
+
+  // Cleanup: Clear pending messages ONLY on actual component unmount if workflow was never saved
+  // IMPORTANT: We must use empty deps [] to only run on true unmount, NOT on state changes.
+  // Otherwise, when chatPersistenceEnabled changes from false to true, the cleanup runs
+  // with the OLD closure value (false), clearing messages before they can be flushed.
   useEffect(() => {
     return () => {
-      if (!chatPersistenceEnabled && pendingChatMessagesRef.current.length > 0) {
+      // Only clear if persistence was NEVER enabled (workflow never saved)
+      if (!wasEverPersistenceEnabledRef.current && pendingChatMessagesRef.current.length > 0) {
         console.log('🧹 [Chat Debug] Clearing pending messages on unmount (workflow never saved)')
         pendingChatMessagesRef.current = []
       }
     }
-  }, [chatPersistenceEnabled])
+  }, []) // Empty deps - only run on true unmount
 
   // Load chat history on mount (only for saved workflows with auth ready)
   useEffect(() => {
@@ -290,6 +305,21 @@ export function useChatPersistence({
 
   // Flush pending messages to database (only for saved workflows with auth ready)
   useEffect(() => {
+    // Debug: Log all conditions to understand when flush runs
+    console.log('🔍 [Flush Effect] Checking conditions:', {
+      chatPersistenceEnabled,
+      hasFlow: !!flowState?.flow,
+      revisionId: flowState?.revisionId?.substring(0, 8),
+      authInitialized,
+      pendingCount: pendingChatMessagesRef.current.length,
+      pendingMessages: pendingChatMessagesRef.current.map(m => ({
+        role: m.role,
+        text: m.text?.substring(0, 30),
+        localId: m.localId?.substring(0, 10),
+        ephemeral: m.ephemeral
+      }))
+    })
+
     if (
       !chatPersistenceEnabled ||
       !flowState?.flow ||
@@ -297,6 +327,7 @@ export function useChatPersistence({
       !authInitialized ||
       pendingChatMessagesRef.current.length === 0
     ) {
+      console.log('🔍 [Flush Effect] Skipping - conditions not met')
       return
     }
 
@@ -306,10 +337,22 @@ export function useChatPersistence({
       const pending = [...pendingChatMessagesRef.current]
       pendingChatMessagesRef.current = []
 
-      console.log('🚀 [Chat Debug] Flushing pending messages:', pending.length)
+      console.log('🚀 [Chat Debug] Flushing pending messages:', pending.length, pending.map(m => ({ role: m.role, text: m.text?.substring(0, 30) })))
 
       for (const item of pending) {
         if (cancelled) return
+
+        // Skip ephemeral messages - they are UI state only (e.g., provider dropdowns)
+        if (item.ephemeral) {
+          console.log('  ⏭️  Skipping ephemeral message (UI state only):', item.role)
+          continue
+        }
+
+        // Skip messages with empty text - these should never be persisted
+        if (!item.text?.trim()) {
+          console.log('  ⏭️  Skipping message with empty text:', item.role)
+          continue
+        }
 
         // Check if message already has a database ID (was already saved)
         // Only skip if there's a matching message with a REAL database ID (not local-)

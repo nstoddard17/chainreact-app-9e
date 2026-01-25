@@ -602,6 +602,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     hasDraft,
     isDraftLoaded,
     saveDraft,
+    saveImmediately,
     clearDraft,
     addPendingRequest,
     updatePendingRequest,
@@ -610,74 +611,112 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     hasIncompleteRequests,
   } = useWorkflowDraftAutoSave({
     flowId,
-    enabled: !chatPersistenceEnabled, // Only auto-save drafts before workflow is saved to DB
+    enabled: true, // Always enabled - saves build state (provider selection, node configs) for both saved & unsaved workflows
   })
 
   // Track if we've restored from draft to avoid re-restoring
   const hasRestoredFromDraftRef = useRef(false)
 
-  // Restore state from draft on load (only once, before workflow is saved)
+  // Restore state from draft on load
+  // For UNSAVED workflows: restore everything including chat messages
+  // For SAVED workflows: restore build state (questions, progress) but NOT chat messages (they come from DB)
   useEffect(() => {
     if (
       !isDraftLoaded ||
       hasRestoredFromDraftRef.current ||
-      !restoredDraft ||
-      chatPersistenceEnabled
+      !restoredDraft
     ) {
       return
     }
 
     hasRestoredFromDraftRef.current = true
-    logger.debug('[DraftRestore] Restoring workflow draft state...')
+    logger.debug('[DraftRestore] Restoring workflow draft state...', { chatPersistenceEnabled })
 
-    // Restore agent messages
-    if (restoredDraft.agentMessages?.length > 0) {
+    // Restore agent messages ONLY for unsaved workflows
+    // For saved workflows, messages come from the database via useChatPersistence
+    if (!chatPersistenceEnabled && restoredDraft.agentMessages?.length > 0) {
       setAgentMessages(restoredDraft.agentMessages)
+      console.log('[DraftRestore] Restored agent messages from localStorage (unsaved workflow)')
     }
 
-    // Restore build machine state
+    // ALWAYS restore build machine state - this tracks guided setup progress
+    // Even for saved workflows, we need to resume from where the user left off
     if (restoredDraft.buildMachine) {
       setBuildMachine(restoredDraft.buildMachine)
+      console.log('[DraftRestore] Restored build machine state:', {
+        state: restoredDraft.buildMachine.state,
+        planLength: restoredDraft.buildMachine.plan?.length,
+        progress: restoredDraft.buildMachine.progress,
+      })
     }
 
-    // Restore node configs
+    // ALWAYS restore node configs - user's configuration choices
     if (restoredDraft.nodeConfigs && Object.keys(restoredDraft.nodeConfigs).length > 0) {
       setNodeConfigs(restoredDraft.nodeConfigs)
+      console.log('[DraftRestore] Restored node configs:', Object.keys(restoredDraft.nodeConfigs).length, 'nodes')
     }
 
-    // Restore collected preferences
+    // ALWAYS restore collected preferences
     if (restoredDraft.collectedPreferences?.length > 0) {
       setCollectedPreferences(restoredDraft.collectedPreferences)
+      console.log('[DraftRestore] Restored collected preferences:', restoredDraft.collectedPreferences.length)
     }
 
-    // Restore provider selections
+    // ALWAYS restore provider selections
     if (restoredDraft.providerSelections) {
-      setProviderSelections(restoreProviderSelections(restoredDraft.providerSelections))
+      const selections = restoreProviderSelections(restoredDraft.providerSelections)
+      setProviderSelections(selections)
+      console.log('[DraftRestore] Restored provider selections:', Object.fromEntries(selections))
     }
 
-    // Restore pending prompt
+    // ALWAYS restore pending prompt
     if (restoredDraft.pendingPrompt) {
       setPendingPrompt(restoredDraft.pendingPrompt)
+      console.log('[DraftRestore] Restored pending prompt:', restoredDraft.pendingPrompt.substring(0, 50))
     }
 
-    // Restore selected provider
+    // ALWAYS restore selected provider
     if (restoredDraft.selectedProviderId) {
       setSelectedProviderId(restoredDraft.selectedProviderId)
     }
 
+    // ALWAYS restore provider disambiguation state (for dropdown flow)
+    if (restoredDraft.awaitingProviderSelection) {
+      setAwaitingProviderSelection(restoredDraft.awaitingProviderSelection)
+      console.log('[DraftRestore] Restored awaitingProviderSelection:', restoredDraft.awaitingProviderSelection)
+    }
+    if (restoredDraft.providerCategory) {
+      setProviderCategory(restoredDraft.providerCategory)
+      console.log('[DraftRestore] Restored providerCategory:', restoredDraft.providerCategory?.vagueTerm)
+    }
+    if (restoredDraft.pendingVagueTerms?.length > 0) {
+      setPendingVagueTerms(restoredDraft.pendingVagueTerms)
+      console.log('[DraftRestore] Restored pendingVagueTerms:', restoredDraft.pendingVagueTerms.length)
+    }
+
+    // Open the agent panel if we're in the middle of provider selection
+    if (restoredDraft.awaitingProviderSelection || restoredDraft.pendingPrompt) {
+      setAgentOpen(true)
+      console.log('[DraftRestore] Opened agent panel (provider selection in progress)')
+    }
+
+    console.log('[DraftRestore] Draft restored successfully')
     logger.debug('[DraftRestore] Draft restored successfully')
   }, [isDraftLoaded, restoredDraft, chatPersistenceEnabled])
 
   // Auto-save draft when relevant state changes (debounced via hook)
+  // IMPORTANT: Continue saving build state even after workflow is saved to DB
+  // This allows users to resume guided setup after page refresh
   useEffect(() => {
-    // Don't save if persistence is enabled (workflow already saved to DB)
-    if (chatPersistenceEnabled || !isDraftLoaded) {
+    if (!isDraftLoaded) {
       return
     }
 
     // Save current state as draft
+    // For saved workflows (chatPersistenceEnabled=true), we still save build state
+    // but can skip agentMessages since they're persisted to DB
     saveDraft(createDraftState({
-      agentMessages,
+      agentMessages: chatPersistenceEnabled ? [] : agentMessages, // Skip if persisted to DB
       buildMachine,
       nodeConfigs,
       collectedPreferences,
@@ -685,6 +724,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       pendingPrompt,
       selectedProviderId,
       workflowName,
+      // Provider disambiguation state (for restoring dropdown flow)
+      awaitingProviderSelection,
+      providerCategory,
+      pendingVagueTerms,
     }))
   }, [
     chatPersistenceEnabled,
@@ -698,15 +741,86 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     selectedProviderId,
     workflowName,
     saveDraft,
+    // Provider disambiguation state
+    awaitingProviderSelection,
+    providerCategory,
+    pendingVagueTerms,
   ])
 
-  // Clear draft when workflow is saved to database
+  // Clear draft only when guided setup is COMPLETE (all nodes configured, flow ready)
+  // Don't clear just because workflow is saved - user may still be configuring
   useEffect(() => {
-    if (chatPersistenceEnabled && hasDraft) {
-      logger.debug('[DraftAutoSave] Workflow saved to DB, clearing local draft')
+    // Only clear draft when build is complete (IDLE state with no pending work)
+    const isSetupComplete = buildMachine.state === 'idle' &&
+      buildMachine.plan.length > 0 &&
+      buildMachine.progress.done === buildMachine.progress.total
+
+    if (isSetupComplete && hasDraft) {
+      logger.debug('[DraftAutoSave] Guided setup complete, clearing local draft')
       clearDraft()
     }
-  }, [chatPersistenceEnabled, hasDraft, clearDraft])
+  }, [buildMachine.state, buildMachine.plan.length, buildMachine.progress.done, buildMachine.progress.total, hasDraft, clearDraft])
+
+  // Recreate dropdown message when restoring from draft after page refresh
+  // This is needed because dropdown messages are ephemeral (not saved to DB)
+  // The draft saves awaitingProviderSelection, providerCategory, etc. but not the message itself
+  const hasRecreatedDropdownRef = useRef(false)
+  useEffect(() => {
+    // Only run once per session
+    if (hasRecreatedDropdownRef.current) return
+
+    // Need: awaitingProviderSelection, providerCategory, integrations loaded, no existing dropdown message
+    if (!awaitingProviderSelection || !providerCategory || integrations.length === 0) {
+      return
+    }
+
+    // Check if there's already a dropdown message in agentMessages
+    const hasDropdownMessage = agentMessages.some(
+      msg => msg.role === 'assistant' && msg.meta?.providerDropdown
+    )
+    if (hasDropdownMessage) {
+      hasRecreatedDropdownRef.current = true
+      return
+    }
+
+    // Recreate the dropdown message
+    console.log('[DropdownRecreate] Recreating dropdown message after page refresh:', {
+      category: providerCategory?.vagueTerm,
+      pendingPrompt: pendingPrompt?.substring(0, 50),
+    })
+
+    const providerOptions = getProviderOptions(
+      providerCategory,
+      integrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+    )
+    const connectedProviders = providerOptions.filter(p => p.isConnected)
+    const preSelectedProvider = connectedProviders.length > 0 ? connectedProviders[0] : null
+
+    const localId = generateLocalId()
+    const createdAt = new Date().toISOString()
+    const dropdownMeta = {
+      providerDropdown: {
+        category: providerCategory,
+        providers: providerOptions,
+        preSelectedProviderId: preSelectedProvider?.id,
+      },
+      pendingPrompt: pendingPrompt,
+      remainingTerms: pendingVagueTerms,
+    }
+    const dropdownMessage: ChatMessage = {
+      id: localId,
+      flowId,
+      role: 'assistant',
+      text: '',
+      meta: dropdownMeta,
+      createdAt,
+      ephemeral: true,
+    }
+
+    setAgentMessages(prev => [...prev, dropdownMessage])
+    hasRecreatedDropdownRef.current = true
+    console.log('[DropdownRecreate] Dropdown message recreated successfully')
+  }, [awaitingProviderSelection, providerCategory, integrations, agentMessages, pendingPrompt, pendingVagueTerms, flowId, generateLocalId])
 
   // Restore provider selection state from chat history when loaded from database
   const hasRestoredFromChatHistoryRef = useRef(false)
@@ -969,6 +1083,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     originalPrompt: string,
     providerMeta?: { category: any; provider: any; allProviders: any[] } | Array<{ category: any; provider: any; allProviders: any[] }>
   ) => {
+    console.log('🎯 [continueWithPlanGeneration] CALLED with:', {
+      hasResult: !!result,
+      editsCount: result?.edits?.length,
+      originalPrompt: originalPrompt?.substring(0, 50),
+      hasProviderMeta: !!providerMeta,
+      chatPersistenceEnabled,
+      hasFlowState: !!flowState?.flow,
+    })
     // Generate plan from edits
     const plan: PlanNode[] = (result.edits || [])
       .filter((edit: any) => edit.op === 'addNode')
@@ -993,8 +1115,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         }
       })
 
-    // Silent plan - no assistant message (workflow speaks for itself)
-    const assistantText = ''
+    // Generate plan summary text for chat persistence
+    const planSummary = plan.map(p => p.title).join(' → ')
+    const assistantText = plan.length > 0
+      ? `Here's your workflow: ${planSummary}`
+      : 'I created a workflow based on your request.'
     const assistantMeta: Record<string, any> = {
       plan: { edits: result.edits, nodeCount: plan.length }
     }
@@ -1073,7 +1198,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     setAgentMessages(prev => [...prev, localAssistantMessage])
 
+    console.log('[continueWithPlanGeneration] Saving assistant message:', {
+      chatPersistenceEnabled,
+      hasFlowState: !!flowState?.flow,
+      assistantTextLength: assistantText?.length,
+      assistantText: assistantText?.substring(0, 50),
+    })
+
     if (!chatPersistenceEnabled || !flowState?.flow) {
+      console.log('[continueWithPlanGeneration] Enqueueing message (persistence not enabled)')
       enqueuePendingMessage({
         localId: assistantLocalId,
         role: 'assistant',
@@ -1082,14 +1215,19 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         createdAt: assistantCreatedAt,
       })
     } else {
+      console.log('[continueWithPlanGeneration] Saving directly to database via ChatService')
       ChatService.addAssistantResponse(flowId, assistantText, assistantMeta)
         .then((saved) => {
+          console.log('[continueWithPlanGeneration] ChatService response:', {
+            saved: !!saved,
+            savedId: saved?.id,
+          })
           if (saved) {
             replaceMessageByLocalId(assistantLocalId, saved)
           }
         })
         .catch((error) => {
-          console.error("Failed to save assistant response:", error)
+          console.error("[continueWithPlanGeneration] Failed to save assistant response:", error)
         })
     }
 
@@ -1172,35 +1310,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       text: '',
       meta: dropdownMeta,
       createdAt,
+      ephemeral: true,  // UI state only - should NOT be persisted to database
     }
     setAgentMessages(prev => [...prev, dropdownMessage])
 
-    // Persist the dropdown message to database or queue
-    if (chatPersistenceEnabled) {
-      // Save directly to database when persistence is enabled
-      console.log('[showNextProviderDropdown] Saving dropdown message to DB')
-      ChatService.addAssistantResponse(flowId, '', dropdownMeta)
-        .then((saved) => {
-          if (saved) {
-            console.log('[showNextProviderDropdown] ✅ Saved to DB with ID:', saved.id)
-            replaceMessageByLocalId(localId, saved)
-          }
-        })
-        .catch((error) => {
-          console.error("[showNextProviderDropdown] Failed to save provider dropdown message:", error)
-        })
-    } else {
-      // Queue for later when persistence isn't enabled yet
-      console.log('[showNextProviderDropdown] Enqueueing dropdown message (persistence not enabled)')
-      enqueuePendingMessage({
-        localId,
-        role: 'assistant',
-        text: '',
-        meta: dropdownMeta,
-        createdAt,
-      })
-    }
-  }, [flowId, generateLocalId, chatPersistenceEnabled, enqueuePendingMessage, replaceMessageByLocalId])
+    // Queue the ephemeral message - it will be skipped during persistence flush
+    console.log('[showNextProviderDropdown] Adding ephemeral dropdown message (will not be persisted)')
+    enqueuePendingMessage({
+      localId,
+      role: 'assistant',
+      text: '',
+      meta: dropdownMeta,
+      createdAt,
+      ephemeral: true,
+    })
+  }, [flowId, generateLocalId, enqueuePendingMessage])
 
   // Provider selection handlers
   const handleProviderSelect = useCallback(async (
@@ -1543,12 +1667,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
 
     // Add preference to collection (will be offered to save at end)
     const categoryName = effectiveCategory?.vagueTerm || 'unknown'
-    setCollectedPreferences(prev => [...prev, {
+    const newPreference = {
       id: `provider-${providerId}`,
       category: categoryName,
       provider: providerId,
       providerName: getProviderDisplayName(providerId),
-    }])
+    }
+    setCollectedPreferences(prev => [...prev, newPreference])
+
+    // Update provider selections Map
+    const newSelections = new Map(providerSelections)
+    newSelections.set(categoryName, providerId)
+    setProviderSelections(newSelections)
+
+    // CRITICAL: Save immediately to localStorage (bypasses debounce)
+    // This ensures selections survive page refresh even if build gets stuck
+    saveImmediately({
+      providerSelections: Object.fromEntries(newSelections),
+      collectedPreferences: [...collectedPreferences, newPreference],
+      pendingPrompt: effectivePendingPrompt || '',
+      selectedProviderId: providerId,
+    })
+    console.log('[Provider Dropdown] ✅ Saved provider selection immediately:', categoryName, '->', providerId)
 
     // Always proceed with workflow building
     // Connection check happens later during WAITING_USER (node configuration)
@@ -1573,7 +1713,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       })
       console.log('[Provider Dropdown] This may happen if state was not properly restored after page refresh')
     }
-  }, [pendingPrompt, providerCategory, pendingVagueTerms, awaitingProviderSelection, handleProviderSelect])
+  }, [pendingPrompt, providerCategory, pendingVagueTerms, awaitingProviderSelection, handleProviderSelect, providerSelections, collectedPreferences, saveImmediately])
 
   const handleConnectionComplete = useCallback(async (providerId: string, email?: string) => {
     console.log('[Connection Complete]', providerId, 'email:', email)
@@ -1992,33 +2132,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
                 text: '',
                 meta: dropdownMeta,
                 createdAt,
+                ephemeral: true,  // UI state only - should NOT be persisted to database
               }
               setAgentMessages(prev => [...prev, dropdownMessage])
-              console.log('[URL Prompt Handler] Added dropdown message to state, chatPersistenceEnabled:', chatPersistenceEnabled)
+              console.log('[URL Prompt Handler] Added ephemeral dropdown message to state (will not be persisted)')
 
-              // Persist the dropdown message to database
-              if (chatPersistenceEnabled) {
-                console.log('[URL Prompt Handler] Saving dropdown message to DB with meta:', JSON.stringify(dropdownMeta).slice(0, 200))
-                ChatService.addAssistantResponse(flowId, '', dropdownMeta)
-                  .then((saved) => {
-                    if (saved) {
-                      console.log('[URL Prompt Handler] ✅ Saved to DB with ID:', saved.id)
-                      replaceMessageByLocalId(localId, saved)
-                    }
-                  })
-                  .catch((error) => {
-                    console.error("[URL Prompt Handler] Failed to save dropdown message:", error)
-                  })
-              } else {
-                console.log('[URL Prompt Handler] Enqueueing dropdown message (persistence not enabled)')
-                enqueuePendingMessage({
-                  localId,
-                  role: 'assistant',
-                  text: '',
-                  meta: dropdownMeta,
-                  createdAt,
-                })
-              }
+              // Queue the ephemeral message - it will be skipped during persistence flush
+              enqueuePendingMessage({
+                localId,
+                role: 'assistant',
+                text: '',
+                meta: dropdownMeta,
+                createdAt,
+                ephemeral: true,
+              })
               return
             }
 
@@ -5217,32 +5344,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         text: '',
         meta: dropdownMeta,
         createdAt,
+        ephemeral: true,  // UI state only - should NOT be persisted to database
       }
       setAgentMessages(prev => [...prev, dropdownMessage])
 
-      // Persist the dropdown message to database
-      if (chatPersistenceEnabled) {
-        console.log('[Provider Disambiguation] Saving dropdown message to DB')
-        ChatService.addAssistantResponse(flowId, '', dropdownMeta)
-          .then((saved) => {
-            if (saved) {
-              console.log('[Provider Disambiguation] ✅ Saved to DB with ID:', saved.id)
-              replaceMessageByLocalId(localId, saved)
-            }
-          })
-          .catch((error) => {
-            console.error("[Provider Disambiguation] Failed to save dropdown message:", error)
-          })
-      } else {
-        console.log('[Provider Disambiguation] Enqueueing dropdown message (persistence not enabled)')
-        enqueuePendingMessage({
-          localId,
-          role: 'assistant',
-          text: '',
-          meta: dropdownMeta,
-          createdAt,
-        })
-      }
+      // Queue the ephemeral message - it will be skipped during persistence flush
+      console.log('[Provider Disambiguation] Adding ephemeral dropdown message (will not be persisted)')
+      enqueuePendingMessage({
+        localId,
+        role: 'assistant',
+        text: '',
+        meta: dropdownMeta,
+        createdAt,
+        ephemeral: true,
+      })
       return
     }
 
@@ -6043,6 +6158,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         transitionTo(BuildState.COMPLETE)
 
         // Add preferences save message if we collected any preferences during the build
+        // This is UI-only (ephemeral) - should not be persisted to database
         if (collectedPreferences.length > 0) {
           setAgentMessages(prev => [...prev, {
             id: generateLocalId(),
@@ -6055,6 +6171,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
               }
             },
             createdAt: new Date().toISOString(),
+            ephemeral: true,  // UI state only - should NOT be persisted
           }])
         }
       } else {
@@ -6116,6 +6233,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       transitionTo(BuildState.COMPLETE)
 
       // Add preferences save message if we collected any preferences during the build
+      // This is UI-only (ephemeral) - should not be persisted to database
       if (collectedPreferences.length > 0) {
         setAgentMessages(prev => [...prev, {
           id: generateLocalId(),
@@ -6128,6 +6246,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
             }
           },
           createdAt: new Date().toISOString(),
+          ephemeral: true,  // UI state only - should NOT be persisted
         }])
       }
     } else {
@@ -6683,6 +6802,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
               nodeConfigs,
               awaitingProviderSelection,
               providerCategory,
+              providerSelections: Object.fromEntries(providerSelections),
             }}
             actions={{
               onInputChange: value => setAgentInput(value),

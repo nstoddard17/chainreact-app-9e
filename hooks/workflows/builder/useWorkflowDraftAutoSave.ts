@@ -71,6 +71,11 @@ export interface WorkflowDraftState {
   pendingPrompt: string
   selectedProviderId: string | null
 
+  // Provider disambiguation state (for restoring dropdown flow after refresh)
+  awaitingProviderSelection?: boolean
+  providerCategory?: any // The current vague term category being resolved
+  pendingVagueTerms?: any[] // Remaining vague terms to resolve after current one
+
   // In-flight request tracking
   pendingRequests: PendingAgentRequest[]
 
@@ -92,6 +97,7 @@ interface UseWorkflowDraftAutoSaveReturn {
 
   // Auto-save
   saveDraft: (state: Partial<WorkflowDraftState>) => void
+  saveImmediately: (state: Partial<WorkflowDraftState>) => void // Bypasses debounce for critical state
 
   // Manual controls
   clearDraft: () => void
@@ -228,6 +234,43 @@ export function useWorkflowDraftAutoSave({
     [enabled, flowId]
   )
 
+  // Save draft immediately (bypasses debounce for critical state like provider selections)
+  const saveImmediately = useCallback(
+    (state: Partial<WorkflowDraftState>) => {
+      if (!enabled || !flowId || typeof window === 'undefined') return
+
+      // Merge with current draft state
+      currentDraftRef.current = {
+        ...currentDraftRef.current,
+        ...state,
+        lastUpdated: new Date().toISOString(),
+      }
+
+      // Clear any pending debounced save
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+      }
+
+      try {
+        const draftToSave = currentDraftRef.current as WorkflowDraftState
+        const serialized = JSON.stringify(draftToSave)
+
+        const key = getDraftKey(flowId)
+        safeLocalStorageSet(key, serialized)
+        lastSavedRef.current = serialized
+        setHasDraft(true)
+
+        logger.debug('[DraftAutoSave] Draft saved immediately for flow:', flowId, {
+          providerSelectionsCount: Object.keys(draftToSave.providerSelections || {}).length,
+        })
+      } catch (error) {
+        logger.error('[DraftAutoSave] Failed to save draft immediately:', error)
+      }
+    },
+    [enabled, flowId]
+  )
+
   // Load draft on mount
   useEffect(() => {
     if (!enabled || !flowId) {
@@ -337,6 +380,7 @@ export function useWorkflowDraftAutoSave({
     hasDraft,
     isDraftLoaded,
     saveDraft,
+    saveImmediately,
     clearDraft,
     loadDraft,
     // Pending request tracking
@@ -361,6 +405,10 @@ export function createDraftState(options: {
   selectedProviderId: string | null
   workflowName?: string
   pendingRequests?: PendingAgentRequest[]
+  // Provider disambiguation state
+  awaitingProviderSelection?: boolean
+  providerCategory?: any
+  pendingVagueTerms?: any[]
 }): WorkflowDraftState {
   return {
     agentMessages: options.agentMessages,
@@ -373,6 +421,10 @@ export function createDraftState(options: {
     workflowName: options.workflowName,
     pendingRequests: options.pendingRequests || [],
     lastUpdated: new Date().toISOString(),
+    // Provider disambiguation state
+    awaitingProviderSelection: options.awaitingProviderSelection,
+    providerCategory: options.providerCategory,
+    pendingVagueTerms: options.pendingVagueTerms,
   }
 }
 

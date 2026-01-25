@@ -27,6 +27,8 @@ interface ProviderDropdownSelectorProps {
   preSelectedProviderId?: string
   loading?: boolean
   disabled?: boolean
+  /** If provided, auto-continues with this saved selection on mount (for restoring after page refresh) */
+  savedSelection?: string
 }
 
 function getProviderIconPath(providerId: string): string {
@@ -59,9 +61,11 @@ export function ProviderDropdownSelector({
   preSelectedProviderId,
   loading = false,
   disabled = false,
+  savedSelection,
 }: ProviderDropdownSelectorProps) {
   const [open, setOpen] = useState(false)
   const [hasConfirmed, setHasConfirmed] = useState(false)
+  const hasAutoConfirmedRef = React.useRef(false)
   const { getDefaultProvider } = useWorkflowPreferencesStore()
   const defaultProvider = getDefaultProvider(categoryKey)
 
@@ -91,6 +95,28 @@ export function ProviderDropdownSelector({
       setSelectedProvider(firstConnected?.id || providers[0].id)
     }
   }, [preSelectedProviderId, providers, selectedProvider])
+
+  // Auto-continue with saved selection (for restoring after page refresh)
+  useEffect(() => {
+    if (
+      savedSelection &&
+      providers.length > 0 &&
+      !hasConfirmed &&
+      !hasAutoConfirmedRef.current
+    ) {
+      const provider = providers.find(p => p.id === savedSelection)
+      if (provider) {
+        console.log('[ProviderDropdown] Auto-continuing with saved selection:', savedSelection)
+        hasAutoConfirmedRef.current = true
+        setSelectedProvider(savedSelection)
+        setHasConfirmed(true)
+        // Small delay to ensure state is updated before calling onSelect
+        setTimeout(() => {
+          onSelect(savedSelection, provider.isConnected)
+        }, 50)
+      }
+    }
+  }, [savedSelection, providers, hasConfirmed, onSelect])
 
   const selectedProviderData = providers.find(p => p.id === selectedProvider)
 
@@ -150,7 +176,7 @@ export function ProviderDropdownSelector({
           <PopoverTrigger asChild>
             <button
               disabled={disabled || loading}
-              className="w-full flex items-center gap-3 p-3 rounded-lg bg-background text-left hover:bg-accent/30 transition-colors"
+              className="w-full flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-background text-left hover:border-border hover:bg-accent/30 transition-all"
             >
               {selectedProviderData ? (
                 <>

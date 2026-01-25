@@ -221,7 +221,7 @@ export function AIMessageConfiguration({
         await loadOptions(fieldName, undefined, undefined, forceReload)
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
+       
       logger.error('[AIMessageConfiguration] Failed to load dynamic options', error)
     }
   }, [loadOptions, nodeInfo?.configSchema, values])
@@ -327,7 +327,7 @@ export function AIMessageConfiguration({
         toast({ title: "No changes made", description: "The model kept the original wording." })
       }
     } catch (error: any) {
-      // eslint-disable-next-line no-console
+       
       logger.error('[AIMessageConfiguration] Improve prompt failed', error)
       toast({
         title: "Unable to improve prompt",

@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 
     return jsonResponse({ improvedPrompt: improvedPrompt || prompt })
   } catch (error) {
-    // eslint-disable-next-line no-console
+     
     logger.error("[Improve Prompt] Failed to refine prompt", error)
     return errorResponse("Failed to improve prompt" , 500)
   }

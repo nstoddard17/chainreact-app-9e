@@ -2695,7 +2695,7 @@ export function AirtableConfiguration({
 
       logger.debug('[AirtableConfig] Table changed, invalidated cache for attachment fields');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [values.tableName]);
 
   // Auto-load config schema fields with autoLoad: true when they become visible

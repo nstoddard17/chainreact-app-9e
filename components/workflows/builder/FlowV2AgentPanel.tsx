@@ -86,6 +86,8 @@ interface PanelStateProps {
   nodeConfigs: Record<string, Record<string, any>>
   awaitingProviderSelection?: boolean
   providerCategory?: any
+  /** Saved provider selections for auto-continue after page refresh */
+  providerSelections?: Record<string, string>
 }
 
 interface PanelActions {
@@ -135,6 +137,7 @@ export function FlowV2AgentPanel({
     nodeConfigs,
     awaitingProviderSelection,
     providerCategory,
+    providerSelections,
   } = state
   const {
     onInputChange,
@@ -1258,6 +1261,7 @@ export function FlowV2AgentPanel({
                           categoryKey={meta.providerDropdown.category.vagueTerm}
                           providers={meta.providerDropdown.providers}
                           preSelectedProviderId={meta.providerDropdown.preSelectedProviderId}
+                          savedSelection={providerSelections?.[meta.providerDropdown.category.vagueTerm]}
                           onSelect={(providerId, isConnected) =>
                             onProviderDropdownSelect(providerId, isConnected, {
                               pendingPrompt: meta.pendingPrompt,
@@ -1412,6 +1416,7 @@ export function FlowV2AgentPanel({
                                         categoryKey={meta.providerDropdown.category.vagueTerm}
                                         providers={meta.providerDropdown.providers}
                                         preSelectedProviderId={meta.providerDropdown.preSelectedProviderId}
+                                        savedSelection={providerSelections?.[meta.providerDropdown.category.vagueTerm]}
                                         onSelect={(providerId, isConnected) =>
                                           onProviderDropdownSelect(providerId, isConnected, {
                                             pendingPrompt: meta.pendingPrompt,

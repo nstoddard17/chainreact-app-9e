@@ -108,8 +108,8 @@ export async function POST(
 
     const { role, text, subtext, meta } = body as Partial<ChatMessage>
 
-    if (!role || text === undefined || text === null) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    if (!role || !text?.trim()) {
+      return NextResponse.json({ error: 'Message content cannot be empty' }, { status: 400 })
     }
 
     if (!['user', 'assistant', 'status'].includes(role)) {
@@ -162,6 +162,11 @@ export async function PATCH(
 
     if (!messageId) {
       return NextResponse.json({ error: 'Missing messageId' }, { status: 400 })
+    }
+
+    // Reject empty content updates
+    if (text !== undefined && !text?.trim()) {
+      return NextResponse.json({ error: 'Message content cannot be empty' }, { status: 400 })
     }
 
     // Update message using service role (bypasses RLS)

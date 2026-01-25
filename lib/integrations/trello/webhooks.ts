@@ -51,7 +51,7 @@ export async function registerTrelloWebhooksForUser(userId: string) {
       })
     } catch (e) {
       // ignore duplicates
-      // eslint-disable-next-line no-console
+       
       logger.warn('trello webhook create warn', e)
     }
   }

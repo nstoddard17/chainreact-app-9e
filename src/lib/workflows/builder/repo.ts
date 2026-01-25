@@ -608,9 +608,21 @@ export class FlowRepository {
       }
     }
 
+    // Helper to check if a string is a valid UUID
+    const isValidUuid = (str: string): boolean => {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      return uuidRegex.test(str)
+    }
+
     // Convert Flow edges to database records
-    const edgeRecords = uniqueEdges.map((edge) => ({
-      id: edge.id,
+    // Note: React Flow creates edge IDs like "sourceId-targetId" which are not valid UUIDs
+    // We need to generate proper UUIDs for storage
+    const edgeRecords = uniqueEdges.map((edge) => {
+      const edgeIdIsValid = isValidUuid(edge.id)
+      const finalId = edgeIdIsValid ? edge.id : randomUUID()
+      console.log(`[FlowRepository] Edge ID check: original="${edge.id}", isValidUuid=${edgeIdIsValid}, using="${finalId}"`)
+      return {
+        id: finalId,
       workflow_id: flowId,
       user_id: userId || null,
       source_node_id: edge.from.nodeId,
@@ -621,7 +633,8 @@ export class FlowRepository {
       mappings: edge.mappings,
       metadata: edge.metadata || null,
       updated_at: now,
-    }))
+    }
+    })
 
     if (edgeRecords.length === 0) {
       // If no edges, just delete all existing edges for this workflow
@@ -667,11 +680,15 @@ export class FlowRepository {
       }
     }
 
-    // Upsert edges
+    // Upsert edges - use the unique connection constraint to handle duplicates
+    // This ensures we update existing edges rather than creating duplicates
     const { error: upsertError } = await this.withFallback((client) =>
       client
         .from(WORKFLOW_EDGES_TABLE)
-        .upsert(edgeRecords, { onConflict: "id" })
+        .upsert(edgeRecords, {
+          onConflict: "workflow_id,source_node_id,target_node_id",
+          ignoreDuplicates: false
+        })
     )
 
     if (upsertError) {

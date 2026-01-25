@@ -1,3 +1,35 @@
+## 2026-01-24 – Fix React Agent Chat Persistence on Page Refresh
+
+Fixed an issue where refreshing the page during React Agent workflow creation would clear the chat and lose provider selection state.
+
+### Root Cause
+Provider dropdown messages were marked as `ephemeral: true` with empty text, so they weren't persisted to the database. Additionally, draft auto-save was disabled for saved workflows, preventing localStorage from preserving the state.
+
+### Changes Made
+
+1. **Enabled draft auto-save for all workflows** (`WorkflowBuilderV2.tsx` line 614)
+   - Changed from `enabled: !chatPersistenceEnabled` to `enabled: true`
+   - Draft now saves build state (provider selections, node configs, disambiguation state) for both saved and unsaved workflows
+
+2. **Added dropdown recreation effect** (`WorkflowBuilderV2.tsx` after line 762)
+   - When page refreshes and draft is restored with `awaitingProviderSelection: true`
+   - Waits for integrations to load
+   - Recreates the dropdown message in memory so the UI renders correctly
+   - Uses `hasRecreatedDropdownRef` to ensure it only runs once per session
+
+### Files Modified
+- `components/workflows/builder/WorkflowBuilderV2.tsx`
+
+### Behavior After Fix
+1. User starts creating workflow with React Agent
+2. Provider disambiguation dropdown appears
+3. User refreshes page (or page is accidentally closed)
+4. On reload: draft is restored, integrations load, dropdown is recreated
+5. If user had already selected a provider, `ProviderDropdownSelector` auto-continues
+6. If user hadn't selected yet, dropdown appears again for them to choose
+
+---
+
 ## 2025-11-29 – Notion Webhook Guided Setup Implementation
 
 Implemented best-in-class webhook setup experience for Notion triggers, surpassing competitors like Zapier and Make.com with automated guidance, real-time verification, and smart status tracking.

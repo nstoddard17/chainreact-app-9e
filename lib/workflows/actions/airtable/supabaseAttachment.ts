@@ -125,7 +125,7 @@ export function scheduleTempAttachmentCleanup(paths: string[], delayMs: number =
   setTimeout(async () => {
     try {
       await deleteTempAttachments(paths)
-      logger.debug(`🧹 [Airtable] Cleaned up ${paths.length} temporary Supabase attachment(s)`) // eslint-disable-line no-console
+      logger.debug(`🧹 [Airtable] Cleaned up ${paths.length} temporary Supabase attachment(s)`)  
     } catch (error) {
       logger.error('❌ [Airtable] Failed to clean up Supabase attachments:', error)
     }

@@ -198,7 +198,7 @@ export default function AIAssistantContent() {
       mounted = false
       clearTimeout(timeoutId)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [])
 
   const loadConversations = async () => {

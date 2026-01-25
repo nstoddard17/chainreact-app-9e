@@ -13,6 +13,7 @@ export interface ChatMessage {
   subtext?: string
   createdAt?: string
   meta?: Record<string, any>
+  ephemeral?: boolean  // Local-only UI state, should NOT be persisted to database
 }
 
 export class ChatService {
@@ -58,6 +59,12 @@ export class ChatService {
     try {
       if (!flowId) {
         throw new Error('Missing flowId')
+      }
+
+      // Skip saving messages with empty text - these are UI-only state
+      if (!message.text?.trim()) {
+        logger.debug('ChatService.addMessage: Skipping empty message', { flowId, role: message.role })
+        return null
       }
 
       const response = await fetch(`/api/workflows/${flowId}/chat`, {
