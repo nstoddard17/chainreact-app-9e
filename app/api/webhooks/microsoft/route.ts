@@ -380,6 +380,65 @@ async function processNotifications(
         }
       }
 
+      // OneNote triggers (use OneDrive change notifications as a signal)
+      if (triggerType?.startsWith('microsoft-onenote_') && userId) {
+        const onenoteData = await fetchLatestOneNotePage(
+          userId,
+          triggerConfig?.notebookId || null,
+          triggerConfig?.sectionId || null,
+          triggerType
+        )
+
+        if (!onenoteData) {
+          logger.debug('Skipping OneNote notification - no matching recent page:', {
+            subscriptionId: subId
+          })
+          continue
+        }
+
+        // Trigger workflow execution directly (no queue needed)
+        if (workflowId) {
+          const base = getWebhookBaseUrl()
+          const executionUrl = `${base}/api/workflows/execute`
+
+          const executionPayload = {
+            workflowId,
+            testMode: false,
+            executionMode: 'live',
+            skipTriggers: true,
+            inputData: {
+              source: 'microsoft-graph-onenote',
+              subscriptionId: subId,
+              triggerType,
+              onenote: onenoteData
+            }
+          }
+
+          logger.debug('Calling execution API for OneNote trigger:', executionUrl)
+
+          const response = await fetch(executionUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-user-id': userId
+            },
+            body: JSON.stringify(executionPayload)
+          })
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            logger.error('OneNote workflow execution failed:', {
+              status: response.status,
+              error: errorText
+            })
+          }
+        } else {
+          logger.warn('Cannot trigger OneNote workflow - missing workflowId')
+        }
+
+        continue
+      }
+
       // For Teams channel message triggers, fetch the actual message data
       const isTeamsMessageTrigger = resourceLower.includes('/teams/') && resourceLower.includes('/channels/') && resourceLower.includes('/messages')
       if (isTeamsMessageTrigger && userId && triggerConfig) {
@@ -1331,6 +1390,37 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
         }
       }
 
+      // OneNote triggers (use OneDrive change notifications as a signal)
+      if (triggerType?.startsWith('microsoft-onenote_') && userId) {
+        try {
+          const onenoteData = await fetchLatestOneNotePage(
+            userId,
+            triggerConfig?.notebookId || null,
+            triggerConfig?.sectionId || null,
+            triggerType
+          )
+
+          if (!onenoteData) {
+            logger.debug('[Test Webhook] OneNote trigger skipped - no matching recent page')
+            continue
+          }
+
+          await supabase
+            .from('workflow_test_sessions')
+            .update({
+              status: 'trigger_received',
+              trigger_data: onenoteData
+            })
+            .eq('id', testSessionId)
+
+          logger.debug(`[Test Webhook] OneNote trigger data stored for session ${testSessionId}`)
+          continue
+        } catch (onenoteError) {
+          logger.error('[Test Webhook] Error handling OneNote trigger:', onenoteError)
+          continue
+        }
+      }
+
       // Build event data from notification
       const eventData = {
         subscriptionId,
@@ -1374,6 +1464,80 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       .eq('id', testSessionId)
 
     return errorResponse('Internal server error', 500)
+  }
+}
+
+async function fetchLatestOneNotePage(
+  userId: string,
+  notebookId: string | null,
+  sectionId: string | null,
+  triggerType: string
+): Promise<Record<string, any> | null> {
+  try {
+    const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+    const graphAuth = new MicrosoftGraphAuth()
+    const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-onenote')
+
+    const response = await fetch(
+      'https://graph.microsoft.com/v1.0/me/onenote/pages?$top=10&$orderby=createdDateTime desc&$select=id,title,createdDateTime,lastModifiedDateTime,contentUrl,links,parentNotebook,parentSection,webUrl',
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.warn('Failed to fetch OneNote pages:', { status: response.status, error: errorText })
+      return null
+    }
+
+    const data = await response.json()
+    const pages = Array.isArray(data?.value) ? data.value : []
+    if (pages.length === 0) return null
+
+    const match = pages.find((page: any) => {
+      if (sectionId && page?.parentSection?.id) {
+        return page.parentSection.id === sectionId
+      }
+      if (notebookId && page?.parentNotebook?.id) {
+        return page.parentNotebook.id === notebookId
+      }
+      return true
+    })
+
+    if (!match) return null
+
+    const createdAt = match.createdDateTime ? new Date(match.createdDateTime) : null
+    const modifiedAt = match.lastModifiedDateTime ? new Date(match.lastModifiedDateTime) : null
+    const now = Date.now()
+    const isNewish = createdAt ? (now - createdAt.getTime()) < 10 * 60 * 1000 : false
+    const isNewPage = createdAt && modifiedAt
+      ? Math.abs(modifiedAt.getTime() - createdAt.getTime()) < 30 * 1000
+      : false
+
+    if (triggerType === 'microsoft-onenote_trigger_new_note' && !(isNewPage || isNewish)) {
+      return null
+    }
+
+    return {
+      id: match.id,
+      title: match.title,
+      content: null,
+      contentUrl: match.contentUrl,
+      webUrl: match.links?.oneNoteWebUrl?.href || match.links?.oneNoteClientUrl?.href || match.webUrl,
+      createdDateTime: match.createdDateTime,
+      lastModifiedDateTime: match.lastModifiedDateTime,
+      notebookId: match.parentNotebook?.id || notebookId,
+      notebookName: match.parentNotebook?.displayName || null,
+      sectionId: match.parentSection?.id || sectionId,
+      sectionName: match.parentSection?.displayName || null
+    }
+  } catch (error) {
+    logger.error('Error fetching OneNote page details:', error)
+    return null
   }
 }
 

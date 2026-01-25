@@ -3,7 +3,7 @@ import { NodeComponent } from "../../../types"
 export const newNoteTriggerSchema: NodeComponent = {
   type: "microsoft-onenote_trigger_new_note",
   title: "New Note in Section",
-  description: "Triggers when a new note is created in a notebook/section.",
+  description: "Triggers when a new note is created in a notebook/section (uses OneDrive change notifications as a signal).",
   isTrigger: true,
   providerId: "microsoft-onenote",
   category: "Productivity",
