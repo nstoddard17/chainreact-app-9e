@@ -121,7 +121,8 @@ export class MicrosoftGraphSubscriptionManager {
           statusText: response.statusText,
           error: errorText
         })
-        throw new Error(`Failed to create subscription: ${response.status} ${response.statusText}`)
+        const errorSuffix = errorText ? ` - ${errorText}` : ''
+        throw new Error(`Failed to create subscription: ${response.status} ${response.statusText}${errorSuffix}`)
       }
 
       const subscriptionData = await response.json()
