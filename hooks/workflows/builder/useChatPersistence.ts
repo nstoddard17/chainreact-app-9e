@@ -37,6 +37,7 @@ interface UseChatPersistenceReturn {
   // State
   chatPersistenceEnabled: boolean
   isChatLoading: boolean
+  chatHistoryLoaded: boolean
 
   // Functions
   generateLocalId: () => string
@@ -56,6 +57,7 @@ export function useChatPersistence({
   // State
   const [chatPersistenceEnabled, setChatPersistenceEnabled] = useState(false)
   const [isChatLoading, setIsChatLoading] = useState(false)
+  const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false)
 
   // Refs
   const pendingChatMessagesRef = useRef<PendingChatMessage[]>([])
@@ -145,8 +147,16 @@ export function useChatPersistence({
       authInitialized,
     })
 
-    if (!flowId || !flowState?.flow || !flowState?.revisionId || !authInitialized) {
+    if (!flowId || !flowState?.flow || !authInitialized) {
       console.log('  → Skipping loadChatHistory (dependencies not ready)')
+      return
+    }
+
+    // For new workflows (no revisionId), there's no chat history to load
+    // Mark as loaded immediately so URL Prompt Handler can proceed
+    if (!flowState?.revisionId) {
+      console.log('  → New workflow (no revisionId), marking chat history as loaded')
+      setChatHistoryLoaded(true)
       return
     }
 
@@ -157,6 +167,17 @@ export function useChatPersistence({
         const messages = await ChatService.getHistory(flowId)
         console.log('🔍 [Chat Debug] loadChatHistory called')
         console.log('  Loaded from DB:', messages.length, 'messages')
+
+        // Log any dropdown messages to debug persistence
+        const dropdownMsgs = messages.filter((m: any) => m.meta?.providerDropdown)
+        if (dropdownMsgs.length > 0) {
+          console.log('  📦 Dropdown messages in DB:', dropdownMsgs.map((m: any) => ({
+            id: m.id,
+            metaKeys: Object.keys(m.meta || {}),
+            hasPendingPrompt: !!m.meta?.pendingPrompt,
+            pendingPrompt: m.meta?.pendingPrompt?.substring(0, 50),
+          })))
+        }
 
         setAgentMessages((prev) => {
           if (!messages || messages.length === 0) {
@@ -210,6 +231,9 @@ export function useChatPersistence({
         console.error('Failed to load chat history:', error)
       } finally {
         setIsChatLoading(false)
+        // Mark chat history as loaded AFTER setAgentMessages has been called
+        // This ensures the URL Prompt Handler waits for messages to be in state
+        setChatHistoryLoaded(true)
       }
     }
 
@@ -287,14 +311,18 @@ export function useChatPersistence({
       for (const item of pending) {
         if (cancelled) return
 
-        const alreadyExists = agentMessages.some(
-          (msg) => msg.role === item.role && msg.text === item.text
+        // Check if message already has a database ID (was already saved)
+        // Only skip if there's a matching message with a REAL database ID (not local-)
+        const existingWithDbId = agentMessages.find(
+          (msg) => msg.id === item.localId ||
+            (msg.role === item.role && msg.text === item.text && msg.id && !msg.id.startsWith('local-'))
         )
 
-        if (alreadyExists) {
-          console.log('  ⏭️  Skipping pending message (already exists):', {
+        if (existingWithDbId && existingWithDbId.id && !existingWithDbId.id.startsWith('local-')) {
+          console.log('  ⏭️  Skipping pending message (already saved to DB):', {
             role: item.role,
             text: item.text.substring(0, 50),
+            dbId: existingWithDbId.id,
           })
           continue
         }
@@ -352,6 +380,7 @@ export function useChatPersistence({
   return {
     chatPersistenceEnabled,
     isChatLoading,
+    chatHistoryLoaded,
     generateLocalId,
     replaceMessageByLocalId,
     enqueuePendingMessage,

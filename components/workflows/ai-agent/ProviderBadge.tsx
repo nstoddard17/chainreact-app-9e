@@ -123,15 +123,13 @@ export function ProviderBadge({
     return (
       <div className="relative inline-block w-full" ref={dropdownRef}>
         <div className="w-full flex items-center gap-3 px-4 py-3 bg-muted/50 border-2 border-border rounded-lg shadow-sm">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-background border border-border shadow-sm shrink-0">
-            <Image
-              src={getProviderIconPath(selectedProvider.id)}
-              alt={selectedProvider.displayName}
-              width={28}
-              height={28}
-              className="shrink-0 opacity-50"
-            />
-          </div>
+          <Image
+            src={getProviderIconPath(selectedProvider.id)}
+            alt={selectedProvider.displayName}
+            width={28}
+            height={28}
+            className="shrink-0 opacity-50"
+          />
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
             <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
@@ -164,15 +162,13 @@ export function ProviderBadge({
               }
             }}
           >
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-background border border-amber-300 dark:border-amber-700 shadow-sm shrink-0">
-              <Image
-                src={getProviderIconPath(selectedProvider.id)}
-                alt={selectedProvider.displayName}
-                width={24}
-                height={24}
-                className="shrink-0 opacity-70"
-              />
-            </div>
+            <Image
+              src={getProviderIconPath(selectedProvider.id)}
+              alt={selectedProvider.displayName}
+              width={24}
+              height={24}
+              className="shrink-0 opacity-70"
+            />
             <div className="flex-1 min-w-0">
               <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
               <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
@@ -210,15 +206,13 @@ export function ProviderBadge({
             }
           }}
         >
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-background border border-border shadow-sm shrink-0">
-            <Image
-              src={getProviderIconPath(selectedProvider.id)}
-              alt={selectedProvider.displayName}
-              width={28}
-              height={28}
-              className="shrink-0"
-            />
-          </div>
+          <Image
+            src={getProviderIconPath(selectedProvider.id)}
+            alt={selectedProvider.displayName}
+            width={28}
+            height={28}
+            className="shrink-0"
+          />
           <div className="flex-1 text-left min-w-0">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
             <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
@@ -243,15 +237,13 @@ export function ProviderBadge({
                   className="w-full group relative px-3 py-2.5 bg-primary/10 hover:bg-primary/15 rounded-lg flex items-center gap-3 text-left border border-primary/20 transition-colors"
                   onClick={() => setShowDropdown(false)}
                 >
-                  <div className="flex items-center justify-center w-8 h-8 rounded-md bg-background/60 border border-border/50 shrink-0">
-                    <Image
-                      src={getProviderIconPath(selectedProvider.id)}
-                      alt={selectedProvider.displayName}
-                      width={22}
-                      height={22}
-                      className="shrink-0"
-                    />
-                  </div>
+                  <Image
+                    src={getProviderIconPath(selectedProvider.id)}
+                    alt={selectedProvider.displayName}
+                    width={22}
+                    height={22}
+                    className="shrink-0"
+                  />
                   <span className="text-sm font-semibold flex-1">{selectedProvider.displayName}</span>
                   <Check className="w-4 h-4 text-primary" strokeWidth={2.5} />
                 </button>
@@ -266,15 +258,13 @@ export function ProviderBadge({
                       setShowDropdown(false)
                     }}
                   >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted border border-border shrink-0">
-                      <Image
-                        src={getProviderIconPath(provider.id)}
-                        alt={provider.displayName}
-                        width={22}
-                        height={22}
-                        className="shrink-0"
-                      />
-                    </div>
+                    <Image
+                      src={getProviderIconPath(provider.id)}
+                      alt={provider.displayName}
+                      width={22}
+                      height={22}
+                      className="shrink-0"
+                    />
                     <span className="text-sm font-medium flex-1">{provider.displayName}</span>
                     <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" strokeWidth={2.5} />
                   </button>
@@ -301,15 +291,13 @@ export function ProviderBadge({
                       setShowDropdown(false)
                     }}
                   >
-                    <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted/50 border border-border shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                      <Image
-                        src={getProviderIconPath(provider.id)}
-                        alt={provider.displayName}
-                        width={22}
-                        height={22}
-                        className="shrink-0"
-                      />
-                    </div>
+                    <Image
+                      src={getProviderIconPath(provider.id)}
+                      alt={provider.displayName}
+                      width={22}
+                      height={22}
+                      className="shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                    />
                     <span className="text-sm font-medium flex-1">{provider.displayName}</span>
                     <div className="flex items-center gap-1.5 text-primary">
                       <span className="text-xs font-semibold uppercase tracking-wide">Connect</span>

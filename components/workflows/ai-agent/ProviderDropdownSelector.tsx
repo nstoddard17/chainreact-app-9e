@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useMemo, useEffect } from 'react'
-import Image from 'next/image'
 import { Check, ChevronDown, ArrowRight, Mail, Calendar, HardDrive, MessageSquare, Database } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -113,15 +112,11 @@ export function ProviderDropdownSelector({
     return (
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden w-full max-w-md">
         <div className="px-4 py-3 flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg border bg-background shrink-0">
-            <Image
-              src={getProviderIconPath(selectedProvider)}
-              alt={selectedProviderData?.displayName || ''}
-              width={22}
-              height={22}
-              className="shrink-0"
-            />
-          </div>
+          <img
+            src={getProviderIconPath(selectedProvider)}
+            alt={selectedProviderData?.displayName || ''}
+            className="w-6 h-6 shrink-0"
+          />
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{categoryName} App</div>
             <div className="font-medium text-sm">{selectedProviderData?.displayName}</div>
@@ -155,19 +150,15 @@ export function ProviderDropdownSelector({
           <PopoverTrigger asChild>
             <button
               disabled={disabled || loading}
-              className="w-full flex items-center gap-3 p-3 rounded-lg border bg-background text-left hover:bg-accent/30 transition-colors"
+              className="w-full flex items-center gap-3 p-3 rounded-lg bg-background text-left hover:bg-accent/30 transition-colors"
             >
               {selectedProviderData ? (
                 <>
-                  <div className="flex items-center justify-center w-9 h-9 rounded-lg border bg-background shrink-0">
-                    <Image
-                      src={getProviderIconPath(selectedProviderData.id)}
-                      alt={selectedProviderData.displayName}
-                      width={22}
-                      height={22}
-                      className="shrink-0"
-                    />
-                  </div>
+                  <img
+                    src={getProviderIconPath(selectedProviderData.id)}
+                    alt={selectedProviderData.displayName}
+                    className="w-6 h-6 shrink-0"
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-sm">{selectedProviderData.displayName}</div>
                   </div>
@@ -194,15 +185,11 @@ export function ProviderDropdownSelector({
                       onSelect={() => handleSelect(provider.id)}
                       className="flex items-center gap-3 py-2.5 cursor-pointer"
                     >
-                      <div className="flex items-center justify-center w-8 h-8 rounded-md bg-background border shrink-0">
-                        <Image
-                          src={getProviderIconPath(provider.id)}
-                          alt={provider.displayName}
-                          width={20}
-                          height={20}
-                          className="shrink-0"
-                        />
-                      </div>
+                      <img
+                        src={getProviderIconPath(provider.id)}
+                        alt={provider.displayName}
+                        className="w-5 h-5 shrink-0"
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm">{provider.displayName}</div>
                       </div>

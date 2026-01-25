@@ -1724,6 +1724,53 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     }
   }, [flushPendingConfig, load])
 
+  // Flush pending config changes on page unload using sendBeacon
+  // This ensures config changes are saved even if the user refreshes before debounce completes
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const pendingEntries = Array.from(pendingConfigRef.current.entries())
+      if (pendingEntries.length === 0 || !flowRef.current) {
+        return
+      }
+
+      // Clear the debounce timer since we're flushing now
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+        debounceRef.current = null
+      }
+
+      // Build the edits
+      const edits = pendingEntries.map(([nodeId, patch]) => ({
+        op: "setConfig",
+        nodeId,
+        patch,
+      }))
+
+      // Apply edits to the current flow
+      const baseFlow = flowRef.current
+      const nextFlow = applyPlannerEdits(baseFlow, edits as PlannerEdit[])
+
+      // Use sendBeacon for reliable delivery on page unload
+      // This is the recommended way to save data when the page is being closed
+      const url = `${flowApiUrl(flowId, '/apply-edits')}`
+      const blob = new Blob([JSON.stringify({
+        flow: nextFlow,
+        version: nextFlow.version,
+      })], { type: 'application/json' })
+
+      navigator.sendBeacon(url, blob)
+      console.log('[useFlowV2Builder] Flushed pending config via sendBeacon on page unload')
+
+      // Clear the pending config
+      pendingConfigRef.current = new Map()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [flowId])
+
   return {
     ...builder,
     flowState,
