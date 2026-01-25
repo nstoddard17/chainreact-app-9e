@@ -623,6 +623,17 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       return 'updated'
     }
 
+    // OneDrive only supports "updated" changeType - it doesn't support "created" or "deleted" separately
+    // All changes (new files, modified files, etc.) are reported as "updated" via delta queries
+    if (triggerType.startsWith('onedrive_')) {
+      return 'updated'
+    }
+
+    // Microsoft Excel triggers use OneDrive subscriptions, which only support "updated"
+    if (triggerType.startsWith('microsoft_excel_')) {
+      return 'updated'
+    }
+
     // For new/created/sent triggers, only watch 'created' to avoid duplicate notifications
     // Microsoft Graph sends both 'created' and 'updated' for new items, causing duplicates
     if (triggerType.includes('new') || triggerType.includes('created') || triggerType.includes('sent')) {
