@@ -420,14 +420,11 @@ async function processNotifications(
         ? `${userId || 'unknown'}:${messageId}` // Email: ignore changeType (created+updated are duplicates)
         : `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}` // Other: include changeType
 
-      logger.debug('🔑 Deduplication check:', {
+      logger.info('🔑 Deduplication check:', {
         dedupKey,
         messageId,
         changeType,
-        isEmailNotification,
-        resource,
-        subscriptionId: subId,
-        userId
+        resource
       })
 
       // Try to insert dedup key - if it fails due to unique constraint, it's a duplicate
@@ -443,9 +440,8 @@ async function processNotifications(
         // Duplicate key violation (unique constraint) or other error
         if (dedupError.code === '23505') {
           // PostgreSQL unique violation error code
-          logger.debug('⏭️ Skipping duplicate notification (already processed):', {
+          logger.info('⏭️ Skipping duplicate notification (already processed):', {
             dedupKey,
-            messageId,
             subscriptionId: subId
           })
           continue
@@ -454,6 +450,8 @@ async function processNotifications(
           logger.warn('⚠️ Deduplication insert error (continuing anyway):', dedupError)
         }
       }
+
+      logger.info('✅ Dedup check passed, continuing processing')
 
       // Check if this changeType should trigger the workflow
       // Get the expected changeTypes from trigger config
