@@ -9,8 +9,16 @@ const graphAuth = new MicrosoftGraphAuth()
 
 /**
  * DELETE /api/microsoft-graph/cleanup-subscriptions
- * Deletes ALL Microsoft Graph subscriptions for the authenticated user
- * This is useful for cleaning up orphaned subscriptions
+ * Deletes Microsoft Graph subscriptions for the authenticated user
+ *
+ * Query params:
+ * - subscriptionId: Delete only this specific subscription (optional)
+ * - orphanedOnly: Only delete subscriptions not tracked in trigger_resources (optional)
+ *
+ * Examples:
+ * - DELETE /api/microsoft-graph/cleanup-subscriptions (delete ALL subscriptions)
+ * - DELETE /api/microsoft-graph/cleanup-subscriptions?subscriptionId=abc-123 (delete specific)
+ * - DELETE /api/microsoft-graph/cleanup-subscriptions?orphanedOnly=true (delete only orphaned)
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -22,15 +30,68 @@ export async function DELETE(request: NextRequest) {
       return errorResponse('Unauthorized' , 401)
     }
 
-    logger.debug('🧹 Starting cleanup of all Microsoft Graph subscriptions for user:', user.id)
+    // Parse query params
+    const { searchParams } = new URL(request.url)
+    const subscriptionId = searchParams.get('subscriptionId')
+    const orphanedOnly = searchParams.get('orphanedOnly') === 'true'
 
-    // Get access token for Microsoft Graph
+    logger.debug('🧹 Starting Microsoft Graph subscription cleanup for user:', {
+      userId: user.id,
+      subscriptionId,
+      orphanedOnly
+    })
+
+    // Get access token for Microsoft Graph (try any Microsoft integration)
     let accessToken: string
     try {
-      accessToken = await graphAuth.getValidAccessToken(user.id, 'microsoft-outlook')
+      accessToken = await graphAuth.getValidAccessToken(user.id)
     } catch (error) {
-      return errorResponse('No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
-      , 400)
+      return errorResponse('No Microsoft integration found. Please connect a Microsoft service first.', 400)
+    }
+
+    // Get trigger_resources to identify orphaned subscriptions
+    const { data: triggerResources } = await supabase
+      .from('trigger_resources')
+      .select('id, external_id')
+      .eq('user_id', user.id)
+      .like('provider_id', 'microsoft%')
+      .eq('resource_type', 'subscription')
+
+    const trackedIds = new Set(triggerResources?.map(tr => tr.external_id) || [])
+
+    // If deleting specific subscription
+    if (subscriptionId) {
+      logger.debug(`🗑️ Deleting specific subscription: ${subscriptionId}`)
+
+      const deleteResponse = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${subscriptionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+
+      if (deleteResponse.ok || deleteResponse.status === 204) {
+        logger.debug(`✅ Deleted subscription: ${subscriptionId}`)
+        return jsonResponse({
+          success: true,
+          message: `Deleted subscription ${subscriptionId}`,
+          results: [{ id: subscriptionId, status: 'deleted' }]
+        })
+      } else if (deleteResponse.status === 404) {
+        return jsonResponse({
+          success: true,
+          message: `Subscription ${subscriptionId} not found (may have already expired)`,
+          results: [{ id: subscriptionId, status: 'not_found' }]
+        })
+      } else {
+        const errorText = await deleteResponse.text()
+        logger.error(`❌ Failed to delete subscription ${subscriptionId}:`, errorText)
+        return jsonResponse({
+          success: false,
+          error: 'Failed to delete subscription',
+          details: errorText
+        }, { status: deleteResponse.status })
+      }
     }
 
     // List all subscriptions
@@ -53,9 +114,15 @@ export async function DELETE(request: NextRequest) {
     }
 
     const listData = await listResponse.json()
-    const subscriptions = listData.value || []
+    let subscriptions = listData.value || []
 
-    logger.debug(`📊 Found ${subscriptions.length} subscription(s)`)
+    // If orphanedOnly, filter to only orphaned subscriptions
+    if (orphanedOnly) {
+      subscriptions = subscriptions.filter((sub: any) => !trackedIds.has(sub.id))
+      logger.debug(`📊 Found ${subscriptions.length} orphaned subscription(s) to delete`)
+    } else {
+      logger.debug(`📊 Found ${subscriptions.length} subscription(s) to delete`)
+    }
 
     // Delete each subscription
     const results = []
@@ -96,16 +163,10 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    // Also clean up orphaned records in trigger_resources
-    logger.debug('🧹 Cleaning up orphaned trigger_resources records...')
-    const { data: triggerResources } = await supabase
-      .from('trigger_resources')
-      .select('id, external_id')
-      .eq('user_id', user.id)
-      .like('provider_id', 'microsoft%')
-      .eq('resource_type', 'subscription')
-
-    if (triggerResources && triggerResources.length > 0) {
+    // Clean up orphaned trigger_resources records (only if not orphanedOnly mode)
+    let triggerResourcesDeleted = 0
+    if (!orphanedOnly && triggerResources && triggerResources.length > 0) {
+      logger.debug('🧹 Cleaning up orphaned trigger_resources records...')
       const { error: deleteError } = await supabase
         .from('trigger_resources')
         .delete()
@@ -116,7 +177,8 @@ export async function DELETE(request: NextRequest) {
       if (deleteError) {
         logger.error('❌ Failed to clean up trigger_resources:', deleteError)
       } else {
-        logger.debug(`✅ Cleaned up ${triggerResources.length} trigger_resources record(s)`)
+        triggerResourcesDeleted = triggerResources.length
+        logger.debug(`✅ Cleaned up ${triggerResourcesDeleted} trigger_resources record(s)`)
       }
     }
 
@@ -124,7 +186,7 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: `Cleaned up ${results.length} Microsoft Graph subscription(s)`,
       results,
-      triggerResourcesDeleted: triggerResources?.length || 0
+      triggerResourcesDeleted
     })
 
   } catch (error: any) {
@@ -148,13 +210,12 @@ export async function GET(request: NextRequest) {
       return errorResponse('Unauthorized' , 401)
     }
 
-    // Get access token for Microsoft Graph
+    // Get access token for Microsoft Graph (try any Microsoft integration)
     let accessToken: string
     try {
-      accessToken = await graphAuth.getValidAccessToken(user.id, 'microsoft-outlook')
+      accessToken = await graphAuth.getValidAccessToken(user.id)
     } catch (error) {
-      return errorResponse('No Microsoft Outlook integration found. Please connect Microsoft Outlook first.'
-      , 400)
+      return errorResponse('No Microsoft integration found. Please connect a Microsoft service first.', 400)
     }
 
     // List all subscriptions
