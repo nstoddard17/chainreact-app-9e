@@ -324,10 +324,12 @@ async function processNotifications(
   headers: any,
   requestId: string | undefined
 ): Promise<void> {
+  logger.info('🔄 Starting processNotifications with', notifications.length, 'notifications')
+
   for (const change of notifications) {
     try {
       // SECURITY: Don't log full resource data (contains PII/IDs)
-      logger.debug('🔍 Processing notification:', {
+      logger.info('🔍 Processing notification:', {
         subscriptionId: change?.subscriptionId,
         changeType: change?.changeType,
         resourceType: change?.resourceData?.['@odata.type'],
@@ -348,7 +350,7 @@ async function processNotifications(
       let triggerConfig: any = null
       let triggerType: string | null = null
       if (subId) {
-        logger.debug('🔍 Looking up subscription:', subId)
+        logger.info('🔍 Looking up subscription:', subId)
 
         const { data: triggerResource, error: resourceError } = await getSupabase()
           .from('trigger_resources')
@@ -476,6 +478,13 @@ async function processNotifications(
 
       // Support both tableName and worksheetName for backwards compatibility
       const excelTableOrSheet = triggerConfig?.tableName || triggerConfig?.worksheetName
+      logger.info('🔎 Excel trigger check:', {
+        triggerType,
+        hasWorkbookId: !!triggerConfig?.workbookId,
+        excelTableOrSheet,
+        userId,
+        willProcess: !!(triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && excelTableOrSheet && userId)
+      })
       if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && excelTableOrSheet && userId) {
         try {
           logger.info('[Microsoft Excel] Processing file-change notification', {
