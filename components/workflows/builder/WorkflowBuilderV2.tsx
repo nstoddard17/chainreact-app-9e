@@ -4241,18 +4241,36 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [builder?.nodes])
 
   // Handle workflow activation with placeholder validation
-  const handleToggleLiveWithValidation = useCallback(() => {
+  const handleToggleLiveWithValidation = useCallback(async () => {
     // Check for placeholders - button should be disabled, but just in case
     if (hasPlaceholders()) {
       return
     }
 
-    // If no placeholders, show coming soon (activation not implemented yet for Flow V2)
-    toast({
-      title: "Coming soon",
-      description: "This action is not yet wired to the Flow v2 backend.",
-    })
-  }, [hasPlaceholders, toast])
+    const isCurrentlyActive = flowState?.workflowStatus === 'active'
+
+    if (isCurrentlyActive) {
+      // Deactivate workflow
+      const result = await actions?.deactivateWorkflow()
+      toast({
+        title: result?.success ? "Workflow Deactivated" : "Deactivation Failed",
+        description: result?.message || (result?.success
+          ? "Your workflow has been deactivated."
+          : "Please try again."),
+        variant: result?.success ? "default" : "destructive",
+      })
+    } else {
+      // Activate workflow
+      const result = await actions?.activateWorkflow()
+      toast({
+        title: result?.success ? "Workflow Published" : "Activation Failed",
+        description: result?.message || (result?.success
+          ? "Your workflow is now active!"
+          : "Please try again."),
+        variant: result?.success ? "default" : "destructive",
+      })
+    }
+  }, [hasPlaceholders, flowState?.workflowStatus, actions, toast])
 
   // Get test store actions
   const {
@@ -6625,9 +6643,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       ? () => persistName(workflowName.trim())
       : async () => {},
     handleToggleLive: handleToggleLiveWithValidation,
-    isUpdatingStatus: false,
+    isUpdatingStatus: flowState?.isUpdatingStatus ?? false,
     hasPlaceholders: hasPlaceholders(),
-    currentWorkflow: null,
+    currentWorkflow: flowState?.workflowStatus ? { status: flowState.workflowStatus } : null,
     workflowId: flowId,
     editTemplateId: null,
     isTemplateEditing: false,
@@ -6651,7 +6669,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     activeRunId: flowState?.lastRunId,
     onGenerateApiKey: hasPublishedRevision ? handleGenerateApiKey : undefined,
     canGenerateApiKey: hasPublishedRevision,
-  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.lastRunId, flowState?.revisionId, handleGenerateApiKey, handleNameChange, handleOpenTestDialog, handleToggleLiveWithValidation, hasPlaceholders, hasPublishedRevision, nameDirty, persistName, workflowName])
+  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.isUpdatingStatus, flowState?.lastRunId, flowState?.revisionId, flowState?.workflowStatus, handleGenerateApiKey, handleNameChange, handleOpenTestDialog, handleToggleLiveWithValidation, hasPlaceholders, hasPublishedRevision, nameDirty, persistName, workflowName])
 
   // Derive active execution node name from flow test status
   const activeExecutionNodeName = flowTestStatus?.currentNodeLabel ?? null
