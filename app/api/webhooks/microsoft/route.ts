@@ -413,45 +413,58 @@ async function processNotifications(
       const messageId = change?.resourceData?.id || change?.resourceData?.['@odata.id'] || resource || 'unknown'
 
       // For email notifications (messages), ignore changeType in dedup key because Microsoft sends both 'created' and 'updated'
+      // For drive/file notifications, SKIP deduplication entirely - they use delta queries for actual change detection
       // For other resources, include changeType to allow separate processing
       const resourceLower = resource?.toLowerCase() || ''
       const isEmailNotification = resourceLower.includes('/messages') || resourceLower.includes('/mailfolders')
-      const dedupKey = isEmailNotification
-        ? `${userId || 'unknown'}:${messageId}` // Email: ignore changeType (created+updated are duplicates)
-        : `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}` // Other: include changeType
+      const isDriveNotification = resourceLower.includes('/drives/') || resourceLower.includes('/drive/') || resourceLower.includes('/driveitems')
 
-      logger.info('🔑 Deduplication check:', {
-        dedupKey,
-        messageId,
-        changeType,
-        resource
-      })
+      // Skip deduplication for drive notifications - Excel triggers get row-level changes via delta queries
+      // The webhook just tells us "something changed", then we query for actual changes
+      if (isDriveNotification) {
+        logger.info('📂 Drive notification - skipping deduplication (uses delta queries for change detection):', {
+          resource,
+          changeType,
+          subscriptionId: subId
+        })
+      } else {
+        const dedupKey = isEmailNotification
+          ? `${userId || 'unknown'}:${messageId}` // Email: ignore changeType (created+updated are duplicates)
+          : `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}` // Other: include changeType
 
-      // Try to insert dedup key - if it fails due to unique constraint, it's a duplicate
-      const { error: dedupError } = await getSupabase()
-        .from('microsoft_webhook_dedup')
-        .insert({
-          subscription_id: subId || 'unknown',
-          resource_data_hash: messageId || 'unknown',
-          dedup_key: dedupKey
+        logger.info('🔑 Deduplication check:', {
+          dedupKey,
+          messageId,
+          changeType,
+          resource
         })
 
-      if (dedupError) {
-        // Duplicate key violation (unique constraint) or other error
-        if (dedupError.code === '23505') {
-          // PostgreSQL unique violation error code
-          logger.info('⏭️ Skipping duplicate notification (already processed):', {
-            dedupKey,
-            subscriptionId: subId
+        // Try to insert dedup key - if it fails due to unique constraint, it's a duplicate
+        const { error: dedupError } = await getSupabase()
+          .from('microsoft_webhook_dedup')
+          .insert({
+            subscription_id: subId || 'unknown',
+            resource_data_hash: messageId || 'unknown',
+            dedup_key: dedupKey
           })
-          continue
-        } else {
-          // Other error, log but continue processing
-          logger.warn('⚠️ Deduplication insert error (continuing anyway):', dedupError)
-        }
-      }
 
-      logger.info('✅ Dedup check passed, continuing processing')
+        if (dedupError) {
+          // Duplicate key violation (unique constraint) or other error
+          if (dedupError.code === '23505') {
+            // PostgreSQL unique violation error code
+            logger.info('⏭️ Skipping duplicate notification (already processed):', {
+              dedupKey,
+              subscriptionId: subId
+            })
+            continue
+          } else {
+            // Other error, log but continue processing
+            logger.warn('⚠️ Deduplication insert error (continuing anyway):', dedupError)
+          }
+        }
+
+        logger.info('✅ Dedup check passed, continuing processing')
+      }
 
       // Check if this changeType should trigger the workflow
       // Get the expected changeTypes from trigger config
