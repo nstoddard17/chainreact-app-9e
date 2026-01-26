@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabase()
+    logger.info('[Poll] Trigger poll cron started')
     const roleCache = new Map<string, string>()
 
     const { data: triggers, error } = await supabase
@@ -81,6 +82,12 @@ export async function POST(request: NextRequest) {
         })
       }
     }
+
+    logger.info('[Poll] Trigger poll cron completed', {
+      processed,
+      skipped,
+      errors
+    })
 
     return jsonResponse({
       success: true,
