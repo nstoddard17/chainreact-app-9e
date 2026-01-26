@@ -708,6 +708,9 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   // gate their useEffects that touch nodes until initial load is done
   const isInitialLoadCompleteRef = useRef<boolean>(false)
 
+  // Guard to prevent concurrent load calls (e.g., from React StrictMode double-invoke)
+  const isLoadInProgressRef = useRef<boolean>(false)
+
   // Helper to mark that the workflow has had an action node this session
   const markHasHadActionNode = useCallback(() => {
     if (!hasHadActionNodeRef.current) {
@@ -1075,6 +1078,13 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   const load = useCallback(async () => {
     if (!flowId) return
 
+    // Prevent concurrent loads (e.g., from React StrictMode double-invoke)
+    if (isLoadInProgressRef.current) {
+      console.log('[useFlowV2Builder] Load already in progress, skipping duplicate call')
+      return
+    }
+    isLoadInProgressRef.current = true
+
     // Helper to repair missing edges in a flow
     const repairFlowEdges = (flow: Flow): { repairedFlow: Flow; hadRepairs: boolean } => {
       const missingEdgeEdits = detectMissingEdges(flow)
@@ -1166,6 +1176,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         }))
       } finally {
         setLoading(false)
+        isLoadInProgressRef.current = false
       }
       return
     }
@@ -1243,6 +1254,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       }))
     } finally {
       setLoading(false)
+      isLoadInProgressRef.current = false
     }
   }, [flowId, setLoading, syncLatestRunId, updateReactFlowGraph])
 

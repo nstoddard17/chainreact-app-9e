@@ -36,7 +36,7 @@ interface LegacyAdapterState {
 
 interface LegacyAdapterActions {
   askAgent: (prompt: string) => Promise<any>
-  applyEdits: (edits: any[]) => Promise<void>
+  applyEdits: (edits: any[], options?: { skipGraphUpdate?: boolean }) => Promise<void>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   addNode: (type: string, position?: { x: number; y: number }) => Promise<void>
   deleteNode: (nodeId: string) => Promise<void>
@@ -116,8 +116,8 @@ export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevisi
   const actions: LegacyAdapterActions | null = builder
     ? {
         askAgent: builder.actions.askAgent,
-        applyEdits: async (edits) => {
-          await builder.actions.applyEdits(edits)
+        applyEdits: async (edits, options) => {
+          await builder.actions.applyEdits(edits, options)
         },
         updateConfig: builder.actions.updateConfig,
         addNode: builder.actions.addNode,

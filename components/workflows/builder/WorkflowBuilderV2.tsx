@@ -499,6 +499,30 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
   }, [cleanupTestTrigger])
 
+  // Auto-deactivate workflow when leaving page if it's active but incomplete (has placeholders)
+  // This ensures workflows without triggers cannot remain in active state
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Check if workflow is active and has placeholders
+      const isActive = flowState?.workflowStatus === 'active'
+      const hasPlaceholderNodes = builder?.nodes?.some((n: any) => n.data?.isPlaceholder) ?? false
+
+      if (isActive && hasPlaceholderNodes && flowId) {
+        console.log('[WorkflowBuilder] Auto-deactivating incomplete workflow on page leave')
+        // Use sendBeacon for reliable delivery on page unload
+        navigator.sendBeacon(
+          `/api/workflows/${flowId}/deactivate`,
+          new Blob([JSON.stringify({})], { type: 'application/json' })
+        )
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [flowId, flowState?.workflowStatus, builder?.nodes])
+
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
   const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
   const [configuringNode, setConfiguringNode] = useState<any>(null)
@@ -3890,7 +3914,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // Persist to backend without waiting for response
     // The UI is already updated optimistically above - don't let backend response overwrite it
     const deleteEdits = nodeIds.map(nodeId => ({ op: "deleteNode", nodeId }))
-    actions.applyEdits(deleteEdits).catch((error: any) => {
+    actions.applyEdits(deleteEdits, { skipGraphUpdate: true }).catch((error: any) => {
       // Rollback on error
       builder.setNodes(currentNodes)
       builder.setEdges(currentEdges)
@@ -3901,7 +3925,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         variant: "destructive",
       })
     })
-  }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode])
+
+    // Auto-deactivate workflow if trigger was deleted and workflow was active
+    const deletedTrigger = nodeIds.some(nodeId => {
+      const node = currentNodes.find((n: any) => n.id === nodeId)
+      if (!node) return false
+      const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+      return node.data?.isTrigger || nodeComponent?.isTrigger
+    })
+
+    if (deletedTrigger && flowState?.workflowStatus === 'active') {
+      console.log('[WorkflowBuilder] Trigger deleted from active workflow, auto-deactivating')
+      actions.deactivateWorkflow().then((result) => {
+        toast({
+          title: "Workflow Deactivated",
+          description: "Workflow was deactivated because the trigger was removed.",
+          variant: "default",
+        })
+      }).catch((error: any) => {
+        console.error('[WorkflowBuilder] Failed to auto-deactivate workflow:', error)
+      })
+    }
+  }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode, flowState?.workflowStatus])
 
   const handleNodeDelete = useCallback(async (nodeId: string) => {
     await handleDeleteNodes([nodeId])
