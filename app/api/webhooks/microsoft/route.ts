@@ -380,6 +380,19 @@ async function processNotifications(
         }
       }
 
+      // Microsoft Excel triggers: only process changes for the configured workbook
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId) {
+        const changedItemId = change?.resourceData?.id
+        if (changedItemId && changedItemId !== triggerConfig.workbookId) {
+          logger.debug('[Microsoft Excel] Skipping notification - workbook mismatch', {
+            changedItemId,
+            expectedWorkbookId: triggerConfig.workbookId,
+            subscriptionId: subId
+          })
+          continue
+        }
+      }
+
       // OneNote triggers (use OneDrive change notifications as a signal)
       if (triggerType?.startsWith('microsoft-onenote_') && userId) {
         const onenoteData = await fetchLatestOneNotePage(
@@ -1295,6 +1308,19 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       const userId = triggerResource.user_id
       const resource = notification?.resource || ''
       const resourceLower = resource.toLowerCase()
+
+      // Microsoft Excel triggers: only process changes for the configured workbook
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId) {
+        const changedItemId = notification?.resourceData?.id
+        if (changedItemId && changedItemId !== triggerConfig.workbookId) {
+          logger.debug('[Microsoft Excel] Skipping test notification - workbook mismatch', {
+            changedItemId,
+            expectedWorkbookId: triggerConfig.workbookId,
+            subscriptionId
+          })
+          continue
+        }
+      }
 
       // Calendar event start trigger (test mode) - trigger immediately with scheduled metadata
       if (resourceLower.includes('/events') && triggerType === 'microsoft-outlook_trigger_calendar_event_start') {

@@ -560,7 +560,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
         // Watch the specific workbook file for changes if workbookId is provided
         if (config?.workbookId) {
           if (config?.driveId) {
-            return `/drives/${config.driveId}/items/${config.workbookId}`
+            return `/drives/${config.driveId}/root`
           }
         }
         return '/me/drive/root'
@@ -568,7 +568,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       'trigger_new_worksheet': (config?: Record<string, any>) => {
         if (config?.workbookId) {
           if (config?.driveId) {
-            return `/drives/${config.driveId}/items/${config.workbookId}`
+            return `/drives/${config.driveId}/root`
           }
         }
         return '/me/drive/root'
@@ -576,7 +576,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       'trigger_updated_row': (config?: Record<string, any>) => {
         if (config?.workbookId) {
           if (config?.driveId) {
-            return `/drives/${config.driveId}/items/${config.workbookId}`
+            return `/drives/${config.driveId}/root`
           }
         }
         return '/me/drive/root'
@@ -584,7 +584,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       'trigger_new_table_row': (config?: Record<string, any>) => {
         if (config?.workbookId) {
           if (config?.driveId) {
-            return `/drives/${config.driveId}/items/${config.workbookId}`
+            return `/drives/${config.driveId}/root`
           }
         }
         return '/me/drive/root'
