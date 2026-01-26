@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation"
 import Image from "next/image"
 import { useAuthStore } from "@/stores/authStore"
 import { useDebugStore } from "@/stores/debugStore"
-import { useWorkflowCostStore } from "@/stores/workflowCostStore"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -90,10 +89,6 @@ export function NewSidebar() {
   // Task quota state - personal workspace only
   const [tasksUsed, setTasksUsed] = useState(0)
   const [tasksLimit, setTasksLimit] = useState(100)
-
-  // Get estimated workflow cost from store (for workflow builder page)
-  const { estimatedTasks, workflowId } = useWorkflowCostStore()
-  const isOnWorkflowBuilder = pathname?.startsWith('/workflows/') && pathname !== '/workflows'
 
   // Check if user is admin
   const isAdmin = profile?.admin === true
@@ -302,15 +297,6 @@ export function NewSidebar() {
                     style={{ width: `${Math.min((tasksUsed / tasksLimit) * 100, 100)}%` }}
                   />
               </div>
-              {/* Show estimated workflow cost when on workflow builder */}
-              {isOnWorkflowBuilder && estimatedTasks > 0 && (
-                <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                  <span>Est. for workflow:</span>
-                  <span className="font-medium text-amber-600 dark:text-amber-400">
-                    {estimatedTasks} task{estimatedTasks !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
           <Button

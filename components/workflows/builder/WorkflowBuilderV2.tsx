@@ -81,7 +81,7 @@ import {
 import { BuildChoreographer } from "@/lib/workflows/ai-agent/build-choreography"
 import { ChatService, type ChatMessage } from "@/lib/workflows/ai-agent/chat-service"
 import { CostTracker, estimateWorkflowCost } from "@/lib/workflows/ai-agent/cost-tracker"
-import { CostDisplay } from "@/components/workflows/ai-agent/CostDisplay"
+import { TaskBalanceWidget } from "./TaskBalanceWidget"
 import { getWorkflowTaskCost, getNodeTaskCost } from "@/lib/workflows/cost-calculator"
 import { useWorkflowCostStore } from "@/stores/workflowCostStore"
 import { WorkflowStatusBar } from "./WorkflowStatusBar"
@@ -6591,11 +6591,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     }
   }, [buildMachine.state, buildMachine.progress, builder])
 
-  // Get cost breakdown for CostDisplay
-  const costBreakdown = useMemo(() => {
-    return costTrackerRef.current?.getCostBreakdown?.() ?? []
-  }, [costActual])
-
   // Real-time workflow task cost calculation
   const { setWorkflowCost, clearWorkflowCost } = useWorkflowCostStore()
   const workflowTaskCost = useMemo(() => {
@@ -6667,17 +6662,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         <div
           style={{ height: "100%", width: "100%", position: "relative" }}
         >
-          {/* Cost Display in Top Right - Always show estimated tasks */}
+          {/* Task Balance Widget in Top Right */}
           <div className="absolute top-4 right-4 z-50">
-            <CostDisplay
-              estimate={costEstimate}
-              actual={costActual}
-              breakdown={costBreakdown}
-              variant="header"
-              displayMode="tasks"
-              estimatedTasks={workflowTaskCost.total}
-              alwaysShow
-            />
+            <TaskBalanceWidget />
           </div>
 
           <FlowV2BuilderContent
