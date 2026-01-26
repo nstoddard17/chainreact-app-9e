@@ -6645,7 +6645,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     handleToggleLive: handleToggleLiveWithValidation,
     isUpdatingStatus: flowState?.isUpdatingStatus ?? false,
     hasPlaceholders: hasPlaceholders(),
-    currentWorkflow: flowState?.workflowStatus ? { status: flowState.workflowStatus } : null,
+    currentWorkflow: flowState?.workflowStatus
+      ? { status: flowState.workflowStatus, is_active: flowState.workflowStatus === 'active' }
+      : null,
     workflowId: flowId,
     editTemplateId: null,
     isTemplateEditing: false,
