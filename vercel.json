@@ -13,6 +13,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/poll-triggers",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/resume-stuck-workflows",
       "schedule": "*/2 * * * *"
     },
