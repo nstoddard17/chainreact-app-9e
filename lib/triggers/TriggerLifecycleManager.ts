@@ -479,6 +479,7 @@ export class TriggerLifecycleManager {
     const configOnly: Array<{ nodeId: string; resource: any; newConfig: any }> = []
     const resourceChange: Array<{ nodeId: string; resource: any; newNode: any }> = []
     const typeChange: Array<{ nodeId: string; resource: any; newNode: any }> = []
+    const typeChangeReuseSubscription: Array<{ nodeId: string; resource: any; newNode: any; newTriggerType: string; newConfig: any }> = []
     const removed: string[] = []
     const added: any[] = []
 
@@ -498,6 +499,21 @@ export class TriggerLifecycleManager {
 
       // Check for trigger type change
       if (newTriggerType !== resource.trigger_type) {
+        // Check if subscription can be reused (same underlying resource)
+        const lifecycle = this.getLifecycle(resource.provider_id)
+        if (lifecycle?.getSubscriptionResource) {
+          const oldResource = lifecycle.getSubscriptionResource(resource.trigger_type, resource.config)
+          const newResource = lifecycle.getSubscriptionResource(newTriggerType, newConfig)
+
+          if (oldResource && newResource && oldResource === newResource) {
+            // Same subscription resource - can reuse the subscription, just update the record
+            logger.debug(`🔄 Trigger type changed but subscription resource is same: ${oldResource}`)
+            typeChangeReuseSubscription.push({ nodeId, resource, newNode, newTriggerType, newConfig })
+            continue
+          }
+        }
+
+        // Different resource or no optimization available - full recreate
         typeChange.push({ nodeId, resource, newNode })
         continue
       }
@@ -557,7 +573,7 @@ export class TriggerLifecycleManager {
     }
 
     // Log categorization
-    logger.debug(`📊 Categorization: ${unchanged.length} unchanged, ${configOnly.length} config-only, ${resourceChange.length} resource change, ${typeChange.length} type change, ${removed.length} removed, ${added.length} added`)
+    logger.debug(`📊 Categorization: ${unchanged.length} unchanged, ${configOnly.length} config-only, ${resourceChange.length} resource change, ${typeChange.length} type change (full recreate), ${typeChangeReuseSubscription.length} type change (reuse subscription), ${removed.length} removed, ${added.length} added`)
 
     // Execute operations
     // 1. Remove deleted triggers
@@ -598,7 +614,34 @@ export class TriggerLifecycleManager {
       }
     }
 
-    // 3. Handle resource changes (deactivate + reactivate)
+    // 3. Handle type changes that can reuse the same subscription
+    for (const { nodeId, resource, newNode, newTriggerType, newConfig } of typeChangeReuseSubscription) {
+      try {
+        // Extract polling state from existing config
+        const pollingState = this.extractPollingState(resource.config)
+
+        // Merge new config with preserved polling state
+        const mergedConfig = this.mergeConfigs(newConfig, pollingState)
+
+        // Update database record with new trigger type and config (keep same subscription)
+        await getSupabase()
+          .from('trigger_resources')
+          .update({
+            trigger_type: newTriggerType,
+            config: mergedConfig,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', resource.id)
+
+        logger.debug(`✅ TYPE_CHANGE_REUSE: Node ${nodeId} (${resource.trigger_type} → ${newTriggerType}, preserved subscription ${resource.external_id})`)
+      } catch (error) {
+        const errorMsg = `Failed to update trigger type for ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        logger.error(`❌ ${errorMsg}`)
+        errors.push(errorMsg)
+      }
+    }
+
+    // 4. Handle resource changes (deactivate + reactivate)
     for (const { nodeId, resource, newNode } of resourceChange) {
       try {
         // Deactivate old trigger
@@ -630,7 +673,7 @@ export class TriggerLifecycleManager {
       }
     }
 
-    // 4. Handle trigger type changes (deactivate + reactivate)
+    // 5. Handle trigger type changes that require full recreate (deactivate + reactivate)
     for (const { nodeId, resource, newNode } of typeChange) {
       try {
         // Deactivate old trigger
@@ -662,7 +705,7 @@ export class TriggerLifecycleManager {
       }
     }
 
-    // 5. Activate newly added triggers
+    // 6. Activate newly added triggers
     for (const node of added) {
       try {
         const providerId = node.data?.providerId
