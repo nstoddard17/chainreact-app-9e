@@ -36,7 +36,7 @@ interface LegacyAdapterState {
 
 interface LegacyAdapterActions {
   askAgent: (prompt: string) => Promise<any>
-  applyEdits: (edits: any[]) => Promise<void>
+  applyEdits: (edits: any[], options?: { skipGraphUpdate?: boolean }) => Promise<void>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   addNode: (type: string, position?: { x: number; y: number }) => Promise<void>
   deleteNode: (nodeId: string) => Promise<void>
@@ -55,6 +55,8 @@ interface LegacyAdapterActions {
   publish: () => Promise<{ revisionId: string }>
   listSecrets: () => Promise<Array<{ id: string; name: string }>>
   createSecret: (name: string, value: string) => Promise<void>
+  activateWorkflow: () => Promise<{ success: boolean; message?: string }>
+  deactivateWorkflow: () => Promise<{ success: boolean; message?: string }>
 }
 
 export interface UseFlowV2LegacyAdapterResult {
@@ -90,7 +92,7 @@ function mapEdges(edges: any[]): LegacyEdge[] {
   }))
 }
 
-export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevision?: any }) {
+export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevision?: any; initialStatus?: 'draft' | 'active' | 'inactive' }) {
   const builder = useFlowV2Builder(flowId, options)
 
   const state = useMemo<LegacyAdapterState>(() => {
@@ -114,8 +116,8 @@ export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevisi
   const actions: LegacyAdapterActions | null = builder
     ? {
         askAgent: builder.actions.askAgent,
-        applyEdits: async (edits) => {
-          await builder.actions.applyEdits(edits)
+        applyEdits: async (edits, options) => {
+          await builder.actions.applyEdits(edits, options)
         },
         updateConfig: builder.actions.updateConfig,
         addNode: builder.actions.addNode,
@@ -130,6 +132,8 @@ export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevisi
         publish: builder.actions.publish,
         listSecrets: builder.actions.listSecrets,
         createSecret: builder.actions.createSecret,
+        activateWorkflow: builder.actions.activateWorkflow,
+        deactivateWorkflow: builder.actions.deactivateWorkflow,
       }
     : null
 

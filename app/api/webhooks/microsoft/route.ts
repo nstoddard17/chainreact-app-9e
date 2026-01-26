@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
+import crypto from 'crypto'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -127,6 +128,82 @@ const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
     supportsAttachment: false,
     supportsCompanyName: true
   }
+}
+
+type ExcelRowSnapshot = {
+  rowHashes: Record<string, string>
+  rowCount: number
+  updatedAt: string
+}
+
+type ExcelTableSnapshot = {
+  rows: any[]
+  columns: string[]
+  rowHashes: Record<string, string>
+}
+
+async function fetchExcelTableSnapshot(
+  accessToken: string,
+  workbookId: string,
+  tableName: string
+): Promise<ExcelTableSnapshot> {
+  const baseUrl = 'https://graph.microsoft.com/v1.0'
+  const encodedTableName = encodeURIComponent(tableName)
+  const rowsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedTableName}/rows?$top=200`
+  const columnsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedTableName}/columns?$select=name`
+
+  const [rowsResponse, columnsResponse] = await Promise.all([
+    fetch(rowsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    }),
+    fetch(columnsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+  ])
+
+  if (!rowsResponse.ok) {
+    const errorText = await rowsResponse.text()
+    throw new Error(`Excel rows fetch failed: ${rowsResponse.status} ${errorText}`)
+  }
+
+  if (!columnsResponse.ok) {
+    const errorText = await columnsResponse.text()
+    throw new Error(`Excel columns fetch failed: ${columnsResponse.status} ${errorText}`)
+  }
+
+  const rowsPayload = await rowsResponse.json()
+  const columnsPayload = await columnsResponse.json()
+
+  const rows = Array.isArray(rowsPayload?.value) ? rowsPayload.value : []
+  const columns = Array.isArray(columnsPayload?.value)
+    ? columnsPayload.value.map((col: any) => col?.name).filter(Boolean)
+    : []
+
+  const rowHashes: Record<string, string> = {}
+  rows.forEach((row: any) => {
+    const rowId = row?.id || ''
+    const values = Array.isArray(row?.values?.[0]) ? row.values[0] : row?.values
+    if (!rowId || !Array.isArray(values)) return
+    const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
+    rowHashes[rowId] = hash
+  })
+
+  return { rows, columns, rowHashes }
+}
+
+function buildExcelRowData(values: any[] | undefined, columns: string[]) {
+  if (!Array.isArray(values) || columns.length === 0) return null
+  const rowData: Record<string, any> = {}
+  columns.forEach((name, index) => {
+    rowData[name] = values[index]
+  })
+  return rowData
 }
 
 
@@ -380,6 +457,201 @@ async function processNotifications(
         }
       }
 
+      // Microsoft Excel triggers: only process changes for the configured workbook
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId) {
+        const changedItemId = change?.resourceData?.id
+        if (changedItemId && changedItemId !== triggerConfig.workbookId) {
+          logger.debug('[Microsoft Excel] Skipping notification - workbook mismatch', {
+            changedItemId,
+            expectedWorkbookId: triggerConfig.workbookId,
+            subscriptionId: subId
+          })
+          continue
+        }
+      }
+
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName && userId) {
+        try {
+          logger.info('[Microsoft Excel] Processing file-change notification', {
+            subscriptionId: subId,
+            triggerType,
+            workbookId: triggerConfig.workbookId,
+            tableName: triggerConfig.tableName,
+            resourceDataId: change?.resourceData?.id
+          })
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-excel')
+
+          const snapshot = await fetchExcelTableSnapshot(
+            accessToken,
+            triggerConfig.workbookId,
+            triggerConfig.tableName
+          )
+
+          const previousSnapshot = triggerConfig.excelRowSnapshot as ExcelRowSnapshot | undefined
+          const currentSnapshot: ExcelRowSnapshot = {
+            rowHashes: snapshot.rowHashes,
+            rowCount: snapshot.rows.length,
+            updatedAt: new Date().toISOString()
+          }
+
+          if (!previousSnapshot) {
+            logger.info('[Microsoft Excel] Seeding snapshot (no previous snapshot)', {
+              rowCount: currentSnapshot.rowCount
+            })
+            if (triggerResourceId) {
+              await getSupabase()
+                .from('trigger_resources')
+                .update({
+                  config: {
+                    ...triggerConfig,
+                    excelRowSnapshot: currentSnapshot
+                  },
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', triggerResourceId)
+            }
+            continue
+          }
+
+          const newRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => !previousSnapshot?.rowHashes?.[rowId])
+          const hasRowIdDiff = !!newRowId
+          const hasCountDiff = currentSnapshot.rowCount > previousSnapshot.rowCount
+          const changedRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
+              && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
+
+          logger.info('[Microsoft Excel] Snapshot diff results', {
+            newRowId: newRowId || null,
+            changedRowId: changedRowId || null,
+            previousRowCount: previousSnapshot.rowCount,
+            currentRowCount: currentSnapshot.rowCount,
+            rowHashesCount: Object.keys(snapshot.rowHashes).length
+          })
+
+          if (triggerResourceId) {
+            await getSupabase()
+              .from('trigger_resources')
+              .update({
+                config: {
+                  ...triggerConfig,
+                  excelRowSnapshot: currentSnapshot
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', triggerResourceId)
+          }
+
+          if (triggerType === 'microsoft_excel_trigger_new_table_row' && (hasRowIdDiff || hasCountDiff)) {
+            const newRow = hasRowIdDiff
+              ? snapshot.rows.find((row: any) => row?.id === newRowId)
+              : snapshot.rows[snapshot.rows.length - 1]
+            const values = Array.isArray(newRow?.values?.[0]) ? newRow.values[0] : newRow?.values
+            const rowData = buildExcelRowData(values, snapshot.columns)
+
+            if (workflowId) {
+              const base = getWebhookBaseUrl()
+              const executionUrl = `${base}/api/workflows/execute`
+
+              const executionPayload = {
+                workflowId,
+                testMode: false,
+                executionMode: 'live',
+                skipTriggers: true,
+                inputData: {
+                  source: 'microsoft-excel-file-change',
+                  subscriptionId: subId,
+                  triggerType,
+                  workbookId: triggerConfig.workbookId,
+                  tableName: triggerConfig.tableName,
+                  rowId: hasRowIdDiff ? newRowId : newRow?.id || null,
+                  values,
+                  rowData,
+                  columns: snapshot.columns
+                }
+              }
+
+              logger.debug('[Microsoft Excel] Triggering workflow execution:', executionUrl)
+
+              const response = await fetch(executionUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-user-id': userId
+                },
+                body: JSON.stringify(executionPayload)
+              })
+
+              if (!response.ok) {
+                const errorText = await response.text()
+                logger.error('[Microsoft Excel] Workflow execution failed:', {
+                  status: response.status,
+                  error: errorText
+                })
+              }
+            }
+            continue
+          }
+
+          if (triggerType === 'microsoft_excel_trigger_updated_row' && changedRowId) {
+            const changedRow = snapshot.rows.find((row: any) => row?.id === changedRowId)
+            const values = Array.isArray(changedRow?.values?.[0]) ? changedRow.values[0] : changedRow?.values
+            const rowData = buildExcelRowData(values, snapshot.columns)
+
+            if (workflowId) {
+              const base = getWebhookBaseUrl()
+              const executionUrl = `${base}/api/workflows/execute`
+
+              const executionPayload = {
+                workflowId,
+                testMode: false,
+                executionMode: 'live',
+                skipTriggers: true,
+                inputData: {
+                  source: 'microsoft-excel-file-change',
+                  subscriptionId: subId,
+                  triggerType,
+                  workbookId: triggerConfig.workbookId,
+                  tableName: triggerConfig.tableName,
+                  rowId: changedRowId,
+                  values,
+                  rowData,
+                  columns: snapshot.columns
+                }
+              }
+
+              logger.debug('[Microsoft Excel] Triggering workflow execution:', executionUrl)
+
+              const response = await fetch(executionUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-user-id': userId
+                },
+                body: JSON.stringify(executionPayload)
+              })
+
+              if (!response.ok) {
+                const errorText = await response.text()
+                logger.error('[Microsoft Excel] Workflow execution failed:', {
+                  status: response.status,
+                  error: errorText
+                })
+              }
+            }
+            continue
+          }
+        } catch (excelError) {
+          logger.warn('[Microsoft Excel] Failed to process table change', excelError)
+        }
+      }
+
+      if (triggerType?.startsWith('microsoft_excel_')) {
+        continue
+      }
+
       // OneNote triggers (use OneDrive change notifications as a signal)
       if (triggerType?.startsWith('microsoft-onenote_') && userId) {
         const onenoteData = await fetchLatestOneNotePage(
@@ -440,13 +712,23 @@ async function processNotifications(
       }
 
       // OneDrive triggers (file created/modified)
+      logger.debug('🔍 Checking OneDrive trigger conditions:', {
+        triggerType,
+        startsWithOneDrive: triggerType?.startsWith('onedrive_'),
+        userId: !!userId,
+        changeType,
+        resource,
+        resourceDataId: change?.resourceData?.id
+      })
+
       if (triggerType?.startsWith('onedrive_') && userId) {
+        logger.debug('✅ OneDrive trigger detected, fetching item data...')
         const onedriveData = await fetchOneDriveItemData(
           userId,
           change?.resourceData?.id || null,
           triggerConfig,
           triggerType,
-          changeType
+          changeType || 'updated'
         )
 
         if (!onedriveData) {
@@ -1144,7 +1426,7 @@ export async function POST(request: NextRequest) {
     const isTestMode = !!testSessionId
     const modeLabel = isTestMode ? '🧪 TEST' : '📥'
 
-    logger.debug(`${modeLabel} Microsoft Graph webhook received:`, {
+    logger.info(`${modeLabel} Microsoft Graph webhook received:`, {
       headers: Object.keys(headers),
       bodyLength: body.length,
       testSessionId: testSessionId || null,
@@ -1176,13 +1458,22 @@ export async function POST(request: NextRequest) {
     // Notifications arrive as an array in payload.value
     const notifications: any[] = Array.isArray(payload?.value) ? payload.value : []
     // SECURITY: Don't log full payload (contains PII/resource IDs)
-    logger.debug('📋 Webhook payload analysis:', {
+    logger.info('📋 Webhook payload analysis:', {
       hasValue: !!payload?.value,
       valueIsArray: Array.isArray(payload?.value),
       notificationCount: notifications.length,
       payloadKeys: Object.keys(payload || {}),
       testSessionId: testSessionId || null
     })
+
+    if (notifications.length > 0) {
+      logger.info(`${modeLabel} Microsoft Graph notification summary:`, {
+        subscriptionIds: notifications.map(n => n?.subscriptionId).filter(Boolean),
+        changeTypes: notifications.map(n => n?.changeType).filter(Boolean),
+        resources: notifications.map(n => n?.resource).filter(Boolean),
+        resourceDataIds: notifications.map(n => n?.resourceData?.id).filter(Boolean)
+      })
+    }
 
     if (notifications.length === 0) {
       logger.warn('⚠️ Microsoft webhook payload has no notifications (value array empty)')
@@ -1223,6 +1514,16 @@ export async function POST(request: NextRequest) {
 async function handleTestModeWebhook(testSessionId: string, notifications: any[]): Promise<NextResponse> {
   const supabase = getSupabase()
   const startTime = Date.now()
+
+  logger.debug('🧪 [Test Webhook] Received notification for test session:', {
+    testSessionId,
+    notificationCount: notifications.length,
+    notificationTypes: notifications.map(n => ({
+      subscriptionId: n?.subscriptionId,
+      changeType: n?.changeType,
+      resource: n?.resource
+    }))
+  })
 
   try {
     // Validate the test session exists and is listening
@@ -1275,6 +1576,147 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       const userId = triggerResource.user_id
       const resource = notification?.resource || ''
       const resourceLower = resource.toLowerCase()
+
+      // Microsoft Excel triggers: only process changes for the configured workbook
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId) {
+        const changedItemId = notification?.resourceData?.id
+        if (changedItemId && changedItemId !== triggerConfig.workbookId) {
+          logger.debug('[Microsoft Excel] Skipping test notification - workbook mismatch', {
+            changedItemId,
+            expectedWorkbookId: triggerConfig.workbookId,
+            subscriptionId
+          })
+          continue
+        }
+      }
+
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName) {
+        try {
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-excel')
+
+          const snapshot = await fetchExcelTableSnapshot(
+            accessToken,
+            triggerConfig.workbookId,
+            triggerConfig.tableName
+          )
+
+          const previousSnapshot = triggerConfig.excelRowSnapshot as ExcelRowSnapshot | undefined
+          const currentSnapshot: ExcelRowSnapshot = {
+            rowHashes: snapshot.rowHashes,
+            rowCount: snapshot.rows.length,
+            updatedAt: new Date().toISOString()
+          }
+
+          if (!previousSnapshot) {
+            await supabase
+              .from('trigger_resources')
+              .update({
+                config: {
+                  ...triggerConfig,
+                  excelRowSnapshot: currentSnapshot
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', triggerResource.id)
+            continue
+          }
+
+          const newRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => !previousSnapshot?.rowHashes?.[rowId])
+          const changedRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
+              && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
+          const hasRowIdDiff = !!newRowId
+          const hasCountDiff = currentSnapshot.rowCount > previousSnapshot.rowCount
+
+          logger.debug('[Test Webhook] Excel snapshot diff results', {
+            newRowId: newRowId || null,
+            changedRowId: changedRowId || null,
+            previousRowCount: previousSnapshot.rowCount,
+            currentRowCount: currentSnapshot.rowCount,
+            rowHashesCount: Object.keys(snapshot.rowHashes).length
+          })
+
+          await supabase
+            .from('trigger_resources')
+            .update({
+              config: {
+                ...triggerConfig,
+                excelRowSnapshot: currentSnapshot
+              },
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', triggerResource.id)
+
+          if (triggerType === 'microsoft_excel_trigger_new_table_row' && (hasRowIdDiff || hasCountDiff)) {
+            const newRow = hasRowIdDiff
+              ? snapshot.rows.find((row: any) => row?.id === newRowId)
+              : snapshot.rows[snapshot.rows.length - 1]
+            const values = Array.isArray(newRow?.values?.[0]) ? newRow.values[0] : newRow?.values
+            const rowData = buildExcelRowData(values, snapshot.columns)
+            const triggerData = {
+              trigger: {
+                type: triggerType,
+                workbookId: triggerConfig.workbookId,
+                tableName: triggerConfig.tableName,
+                rowId: hasRowIdDiff ? newRowId : newRow?.id || null
+              },
+              row: newRow,
+              values,
+              rowData,
+              columns: snapshot.columns,
+              _testSession: true,
+              _source: 'microsoft-excel-file-change'
+            }
+
+            await supabase
+              .from('workflow_test_sessions')
+              .update({
+                status: 'trigger_received',
+                trigger_data: triggerData
+              })
+              .eq('id', testSessionId)
+            continue
+          }
+
+          if (triggerType === 'microsoft_excel_trigger_updated_row' && changedRowId) {
+            const changedRow = snapshot.rows.find((row: any) => row?.id === changedRowId)
+            const values = Array.isArray(changedRow?.values?.[0]) ? changedRow.values[0] : changedRow?.values
+            const rowData = buildExcelRowData(values, snapshot.columns)
+            const triggerData = {
+              trigger: {
+                type: triggerType,
+                workbookId: triggerConfig.workbookId,
+                tableName: triggerConfig.tableName,
+                rowId: changedRowId
+              },
+              row: changedRow,
+              values,
+              rowData,
+              columns: snapshot.columns,
+              _testSession: true,
+              _source: 'microsoft-excel-file-change'
+            }
+
+            await supabase
+              .from('workflow_test_sessions')
+              .update({
+                status: 'trigger_received',
+                trigger_data: triggerData
+              })
+              .eq('id', testSessionId)
+            continue
+          }
+        } catch (excelError) {
+          logger.warn('[Test Webhook] Excel table change processing failed', excelError)
+        }
+      }
+
+      if (triggerType?.startsWith('microsoft_excel_')) {
+        continue
+      }
 
       // Calendar event start trigger (test mode) - trigger immediately with scheduled metadata
       if (resourceLower.includes('/events') && triggerType === 'microsoft-outlook_trigger_calendar_event_start') {
@@ -1454,14 +1896,23 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       }
 
       // OneDrive triggers (file created/modified)
+      logger.debug('🧪 [Test Webhook] Checking OneDrive trigger conditions:', {
+        triggerType,
+        startsWithOneDrive: triggerType?.startsWith('onedrive_'),
+        userId: !!userId,
+        changeType: notification?.changeType,
+        resourceDataId: notification?.resourceData?.id
+      })
+
       if (triggerType?.startsWith('onedrive_') && userId) {
         try {
+          logger.debug('🧪 [Test Webhook] OneDrive trigger detected, fetching item data...')
           const onedriveData = await fetchOneDriveItemData(
             userId,
             notification?.resourceData?.id || null,
             triggerConfig,
             triggerType,
-            notification?.changeType || 'created'
+            notification?.changeType || 'updated'
           )
 
           if (!onedriveData) {
@@ -1572,14 +2023,24 @@ async function fetchOneDriveItemData(
   triggerType: string,
   changeType: string
 ): Promise<Record<string, any> | null> {
+  logger.debug('📂 [OneDrive] fetchOneDriveItemData called:', {
+    userId: userId.substring(0, 8) + '...',
+    itemId,
+    triggerType,
+    changeType,
+    configKeys: triggerConfig ? Object.keys(triggerConfig) : []
+  })
+
   try {
     const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
     const graphAuth = new MicrosoftGraphAuth()
     const accessToken = await graphAuth.getValidAccessToken(userId, 'onedrive')
+    logger.debug('📂 [OneDrive] Got access token')
 
-    // If we don't have a specific item ID, we need to fetch recent changes
+    // If we don't have a specific item ID, or it's "root", we need to fetch recent changes
     // This happens when subscribing to /me/drive/root
-    if (!itemId) {
+    if (!itemId || itemId === 'root') {
+      logger.debug('📂 [OneDrive] No item ID, fetching delta...')
       // Fetch recent items using delta query
       const deltaResponse = await fetch(
         'https://graph.microsoft.com/v1.0/me/drive/root/delta?$top=10&$select=id,name,size,file,folder,parentReference,createdDateTime,lastModifiedDateTime,webUrl,@microsoft.graph.downloadUrl',
@@ -1592,21 +2053,34 @@ async function fetchOneDriveItemData(
       )
 
       if (!deltaResponse.ok) {
-        logger.warn('Failed to fetch OneDrive delta:', { status: deltaResponse.status })
+        const errorText = await deltaResponse.text()
+        logger.warn('📂 [OneDrive] Failed to fetch delta:', { status: deltaResponse.status, error: errorText })
         return null
       }
 
       const deltaData = await deltaResponse.json()
       const items = Array.isArray(deltaData?.value) ? deltaData.value : []
+      logger.debug('📂 [OneDrive] Delta returned items:', {
+        count: items.length,
+        names: items.slice(0, 5).map((i: any) => i.name)
+      })
+
+      if (items.length === 0) {
+        logger.debug('📂 [OneDrive] No items in delta response')
+        return null
+      }
 
       // Find the most recently changed item that matches our filters
       for (const item of items) {
+        logger.debug('📂 [OneDrive] Checking item:', { name: item.name, id: item.id })
         const matchResult = matchesOneDriveFilters(item, triggerConfig, triggerType, changeType)
         if (matchResult) {
+          logger.debug('📂 [OneDrive] ✅ Found matching item:', { name: item.name })
           return formatOneDriveItem(item)
         }
       }
 
+      logger.debug('📂 [OneDrive] No items matched filters after checking all delta items')
       return null
     }
 
@@ -1653,17 +2127,52 @@ function matchesOneDriveFilters(
   const isFile = !!item.file
   const isFolder = !!item.folder
 
+  logger.debug('📂 [OneDrive] matchesOneDriveFilters:', {
+    itemName: item.name,
+    isFile,
+    isFolder,
+    triggerType,
+    changeType,
+    watchType: triggerConfig?.watchType,
+    folderId: triggerConfig?.folderId,
+    fileType: triggerConfig?.fileType,
+    modifiedTime: item.lastModifiedDateTime
+  })
+
+  // For file_modified trigger, ensure the item was recently modified (within last 5 minutes)
+  if (triggerType === 'onedrive_trigger_file_modified') {
+    const modifiedAt = item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime) : null
+    const now = Date.now()
+    const isRecentlyModified = modifiedAt && (now - modifiedAt.getTime()) < 5 * 60 * 1000
+
+    if (!isRecentlyModified) {
+      logger.debug('📂 [OneDrive] Item not recently modified, skipping:', {
+        itemName: item.name,
+        modifiedAt: modifiedAt?.toISOString(),
+        minutesAgo: modifiedAt ? Math.round((now - modifiedAt.getTime()) / 60000) : 'N/A'
+      })
+      return false
+    }
+  }
+
   // Check watchType filter
   const watchType = triggerConfig?.watchType || 'any'
-  if (watchType === 'files' && !isFile) return false
-  if (watchType === 'folders' && !isFolder) return false
+  if (watchType === 'files' && !isFile) {
+    logger.debug('📂 [OneDrive] watchType=files but item is folder, skipping')
+    return false
+  }
+  if (watchType === 'folders' && !isFolder) {
+    logger.debug('📂 [OneDrive] watchType=folders but item is file, skipping')
+    return false
+  }
 
   // Check folderId filter (item must be in this folder or subfolder)
-  if (triggerConfig?.folderId) {
+  if (triggerConfig?.folderId && triggerConfig.folderId !== 'root') {
     const parentFolderId = item.parentReference?.id
     const includeSubfolders = triggerConfig?.includeSubfolders !== false
 
     if (!includeSubfolders && parentFolderId !== triggerConfig.folderId) {
+      logger.debug('📂 [OneDrive] Item not in configured folder (no subfolders), skipping')
       return false
     }
 
@@ -1672,6 +2181,7 @@ function matchesOneDriveFilters(
       const parentPath = item.parentReference?.path || ''
       // This is a simple check - might need enhancement for deeply nested folders
       if (!parentPath.includes(triggerConfig.folderId) && parentFolderId !== triggerConfig.folderId) {
+        logger.debug('📂 [OneDrive] Item not in configured folder tree, skipping')
         return false
       }
     }
@@ -1684,7 +2194,10 @@ function matchesOneDriveFilters(
     const extension = fileName.split('.').pop()?.toLowerCase() || ''
 
     const fileTypeMatches = checkFileTypeMatch(triggerConfig.fileType, mimeType, extension)
-    if (!fileTypeMatches) return false
+    if (!fileTypeMatches) {
+      logger.debug('📂 [OneDrive] fileType filter not matched, skipping')
+      return false
+    }
   }
 
   // Check if this is a "new file" trigger but the change is an update
@@ -1704,6 +2217,7 @@ function matchesOneDriveFilters(
         Math.abs(modifiedAt.getTime() - createdAt.getTime()) < 30 * 1000
 
       if (!isNew && !isJustCreated) {
+        logger.debug('📂 [OneDrive] new_file trigger but item is not new, skipping')
         return false
       }
     }
@@ -1711,9 +2225,11 @@ function matchesOneDriveFilters(
 
   // Check sharedOnly filter
   if (triggerConfig?.sharedOnly && !item.shared) {
+    logger.debug('📂 [OneDrive] sharedOnly filter not matched, skipping')
     return false
   }
 
+  logger.debug('📂 [OneDrive] ✅ Item matches all filters:', { itemName: item.name })
   return true
 }
 

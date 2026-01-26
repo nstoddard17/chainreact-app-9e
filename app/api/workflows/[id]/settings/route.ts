@@ -24,7 +24,7 @@ export async function GET(
     // Fetch workflow settings
     const { data: workflow, error } = await supabase
       .from('workflows')
-      .select('id, name, description, settings')
+      .select('id, name, description, settings, status')
       .eq('id', workflowId)
       .eq('user_id', user.id)
       .single()
@@ -62,7 +62,8 @@ export async function GET(
 
     return jsonResponse({
       success: true,
-      settings
+      settings,
+      status: workflow.status || 'draft'
     })
   } catch (error) {
     logger.error('Error in workflow settings GET API:', error)

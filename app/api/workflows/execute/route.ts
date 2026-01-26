@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       : await createSupabaseRouteHandlerClient()
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
-      .select("id, name, user_id, team_id, status")
+      .select("id, name, user_id, status, workspace_id, workspace_type")
       .eq("id", workflowId)
       .single()
 
@@ -218,11 +218,11 @@ export async function POST(request: NextRequest) {
     // ============================================================================
     // CHECK: Team suspension status
     // ============================================================================
-    if (workflow.team_id) {
+    if (workflow.workspace_type === 'team' && workflow.workspace_id) {
       const { data: team, error: teamError } = await supabase
         .from("teams")
         .select("id, name, suspended_at, suspension_reason, grace_period_ends_at")
-        .eq("id", workflow.team_id)
+        .eq("id", workflow.workspace_id)
         .single()
 
       if (teamError) {

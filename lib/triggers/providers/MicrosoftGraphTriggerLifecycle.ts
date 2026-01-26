@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { MicrosoftGraphAuth } from '@/lib/microsoft-graph/auth'
 import { safeDecrypt } from '@/lib/security/encryption'
+import crypto from 'crypto'
 import {
   TriggerLifecycle,
   TriggerActivationContext,
@@ -56,6 +57,12 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Determine resource based on trigger type
+    if (triggerType.startsWith('microsoft_excel_')) {
+      await this.ensureExcelDriveId(config, accessToken)
+    }
+    if (triggerType.startsWith('microsoft_excel_')) {
+      config.pollingEnabled = true
+    }
     const resource = this.getResourceForTrigger(triggerType, config)
     const changeType = this.getChangeTypeForTrigger(triggerType)
 
@@ -178,6 +185,45 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     }
 
     logger.debug(`✅ Microsoft Graph subscription created and saved to trigger_resources: ${subscription.id}`)
+
+    if (triggerType.startsWith('microsoft_excel_') && config?.workbookId && config?.tableName) {
+      try {
+        const snapshot = await this.fetchExcelTableSnapshot(accessToken, config.workbookId, config.tableName)
+        await getSupabase()
+          .from('trigger_resources')
+          .update({
+            config: {
+              ...config,
+              excelRowSnapshot: snapshot
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('external_id', subscription.id)
+          .eq('resource_type', 'subscription')
+      } catch (snapshotError) {
+        logger.warn('⚠️ Failed to seed Excel snapshot on activation:', snapshotError)
+      }
+    }
+
+    if (triggerType.startsWith('microsoft_excel_') && config?.workbookId && config?.worksheetName) {
+      try {
+        const hasHeaders = config.hasHeaders === true || config.hasHeaders === 'yes'
+        const snapshot = await this.fetchExcelWorksheetSnapshot(accessToken, config.workbookId, config.worksheetName, hasHeaders)
+        await getSupabase()
+          .from('trigger_resources')
+          .update({
+            config: {
+              ...config,
+              excelRowSnapshot: snapshot
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('external_id', subscription.id)
+          .eq('resource_type', 'subscription')
+      } catch (snapshotError) {
+        logger.warn('⚠️ Failed to seed Excel worksheet snapshot on activation:', snapshotError)
+      }
+    }
 
     if (triggerType === 'microsoft-outlook_trigger_calendar_event_start' && !testMode?.isTest) {
       try {
@@ -340,6 +386,34 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       expiresAt: nearestExpiration?.toISOString(),
       lastChecked: new Date().toISOString()
     }
+  }
+
+  /**
+   * Define resource identity keys for Microsoft Graph triggers
+   * These keys identify what resource is being monitored
+   */
+  getResourceIdentityKeys(): string[] {
+    return [
+      // Excel identifiers
+      'workbookId',
+      'worksheetName',
+      'tableName',
+
+      // Calendar identifiers
+      'calendarId',
+
+      // Outlook email identifiers
+      'folder',
+
+      // OneDrive identifiers
+      'driveId',
+      'folderId',
+      'fileId',
+
+      // Teams identifiers
+      'teamId',
+      'channelId'
+    ]
   }
 
   private parseGraphDateTime(value: any): Date | null {
@@ -533,19 +607,19 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
       // OneDrive triggers (schema uses trigger_new_file and trigger_file_modified)
       'trigger_new_file': (config?: Record<string, any>) => {
-        // Watch specific folder if configured, otherwise watch drive root
-        if (config?.folderId) {
-          return `/me/drive/items/${config.folderId}`
+        // OneDrive subscriptions reject /me/drive/items/{id}; prefer drive root unless driveId is known.
+        if (config?.driveId && config?.folderId) {
+          return `/drives/${config.driveId}/items/${config.folderId}`
         }
         return '/me/drive/root'
       },
       'trigger_file_created': '/me/drive/root', // Legacy alias
       'trigger_file_modified': (config?: Record<string, any>) => {
-        if (config?.folderId) {
-          return `/me/drive/items/${config.folderId}`
+        if (config?.driveId && config?.folderId) {
+          return `/drives/${config.driveId}/items/${config.folderId}`
         }
-        if (config?.fileId) {
-          return `/me/drive/items/${config.fileId}`
+        if (config?.driveId && config?.fileId) {
+          return `/drives/${config.driveId}/items/${config.fileId}`
         }
         return '/me/drive/root'
       },
@@ -556,25 +630,33 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       'trigger_new_row': (config?: Record<string, any>) => {
         // Watch the specific workbook file for changes if workbookId is provided
         if (config?.workbookId) {
-          return `/me/drive/items/${config.workbookId}`
+          if (config?.driveId) {
+            return `/drives/${config.driveId}/root`
+          }
         }
         return '/me/drive/root'
       },
       'trigger_new_worksheet': (config?: Record<string, any>) => {
         if (config?.workbookId) {
-          return `/me/drive/items/${config.workbookId}`
+          if (config?.driveId) {
+            return `/drives/${config.driveId}/root`
+          }
         }
         return '/me/drive/root'
       },
       'trigger_updated_row': (config?: Record<string, any>) => {
         if (config?.workbookId) {
-          return `/me/drive/items/${config.workbookId}`
+          if (config?.driveId) {
+            return `/drives/${config.driveId}/root`
+          }
         }
         return '/me/drive/root'
       },
       'trigger_new_table_row': (config?: Record<string, any>) => {
         if (config?.workbookId) {
-          return `/me/drive/items/${config.workbookId}`
+          if (config?.driveId) {
+            return `/drives/${config.driveId}/root`
+          }
         }
         return '/me/drive/root'
       },
@@ -623,6 +705,17 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       return 'updated'
     }
 
+    // OneDrive only supports "updated" changeType - it doesn't support "created" or "deleted" separately
+    // All changes (new files, modified files, etc.) are reported as "updated" via delta queries
+    if (triggerType.startsWith('onedrive_')) {
+      return 'updated'
+    }
+
+    // Microsoft Excel triggers use OneDrive subscriptions, which only support "updated"
+    if (triggerType.startsWith('microsoft_excel_')) {
+      return 'updated'
+    }
+
     // For new/created/sent triggers, only watch 'created' to avoid duplicate notifications
     // Microsoft Graph sends both 'created' and 'updated' for new items, causing duplicates
     if (triggerType.includes('new') || triggerType.includes('created') || triggerType.includes('sent')) {
@@ -635,5 +728,128 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
     // Default to watching all changes
     return 'created,updated,deleted'
+  }
+
+  private async ensureExcelDriveId(
+    config: Record<string, any> | undefined,
+    accessToken: string
+  ): Promise<void> {
+    if (!config?.workbookId || config?.driveId) return
+
+    try {
+      const response = await fetch(
+        `https://graph.microsoft.com/v1.0/me/drive/items/${config.workbookId}?$select=id,driveId,parentReference`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        logger.warn('[MicrosoftGraphTriggerLifecycle] Failed to resolve Excel driveId', {
+          status: response.status,
+          error: errorText
+        })
+        return
+      }
+
+      const item = await response.json()
+      const driveId = item?.driveId || item?.parentReference?.driveId
+      if (driveId) {
+        config.driveId = driveId
+      } else {
+        logger.warn('[MicrosoftGraphTriggerLifecycle] driveId missing in Excel workbook response', {
+          workbookId: config.workbookId
+        })
+      }
+    } catch (error) {
+      logger.warn('[MicrosoftGraphTriggerLifecycle] Error resolving Excel driveId', error)
+    }
+  }
+
+  private async fetchExcelTableSnapshot(
+    accessToken: string,
+    workbookId: string,
+    tableName: string
+  ): Promise<{ rowHashes: Record<string, string>; rowCount: number; updatedAt: string }> {
+    const baseUrl = 'https://graph.microsoft.com/v1.0'
+    const encodedTableName = encodeURIComponent(tableName)
+    const rowsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedTableName}/rows?$top=200`
+
+    const rowsResponse = await fetch(rowsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!rowsResponse.ok) {
+      const errorText = await rowsResponse.text()
+      throw new Error(`Excel rows fetch failed: ${rowsResponse.status} ${errorText}`)
+    }
+
+    const rowsPayload = await rowsResponse.json()
+    const rows = Array.isArray(rowsPayload?.value) ? rowsPayload.value : []
+    const rowHashes: Record<string, string> = {}
+    rows.forEach((row: any) => {
+      const rowId = row?.id || ''
+      const values = Array.isArray(row?.values?.[0]) ? row.values[0] : row?.values
+      if (!rowId || !Array.isArray(values)) return
+      const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
+      rowHashes[rowId] = hash
+    })
+
+    return {
+      rowHashes,
+      rowCount: rows.length,
+      updatedAt: new Date().toISOString()
+    }
+  }
+
+  private async fetchExcelWorksheetSnapshot(
+    accessToken: string,
+    workbookId: string,
+    worksheetName: string,
+    hasHeaders: boolean
+  ): Promise<{ rowHashes: Record<string, string>; rowCount: number; updatedAt: string }> {
+    const baseUrl = 'https://graph.microsoft.com/v1.0'
+    const encodedName = encodeURIComponent(worksheetName.replace(/'/g, "''"))
+    const usedRangeUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/worksheets('${encodedName}')/usedRange?valuesOnly=true`
+
+    const response = await fetch(usedRangeUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Excel usedRange fetch failed: ${response.status} ${errorText}`)
+    }
+
+    const payload = await response.json()
+    const rows = Array.isArray(payload?.values) ? payload.values : []
+    const rowHashes: Record<string, string> = {}
+
+    rows.forEach((values: any[], index: number) => {
+      if (!Array.isArray(values)) return
+      const rowIndex = index + 1
+      if (hasHeaders && rowIndex === 1) return
+      const rowId = `row-${rowIndex}`
+      const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
+      rowHashes[rowId] = hash
+    })
+
+    const rowCount = hasHeaders ? Math.max(rows.length - 1, 0) : rows.length
+
+    return {
+      rowHashes,
+      rowCount,
+      updatedAt: new Date().toISOString()
+    }
   }
 }

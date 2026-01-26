@@ -807,26 +807,29 @@ function WorkflowsContent() {
       e.stopPropagation()
     }
 
-    if (workflow.status !== 'active') {
-      const validation = validateWorkflow(workflow)
-      if (!validation.isValid) {
-        toast({
-          title: "Cannot Activate Workflow",
-          description: validation.issues.join(', '),
-          variant: "destructive"
-        })
-        return
-      }
-    }
-
-    const newStatus = workflow.status === 'active' ? 'draft' : 'active'
+    const isCurrentlyActive = workflow.status === 'active'
     setLoading(prev => ({ ...prev, [`status-${workflow.id}`]: true }))
 
     try {
-      await updateWorkflow(workflow.id, { status: newStatus })
+      const endpoint = isCurrentlyActive
+        ? `/api/workflows/${workflow.id}/deactivate`
+        : `/api/workflows/${workflow.id}/activate`
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to ${isCurrentlyActive ? 'deactivate' : 'activate'} workflow`)
+      }
+
       toast({
-        title: newStatus === 'active' ? "Workflow Activated" : "Workflow Paused",
-        description: `"${workflow.name}" is now ${newStatus}.`,
+        title: isCurrentlyActive ? "Workflow Deactivated" : "Workflow Activated",
+        description: data.activation?.message || data.deactivation?.message ||
+          `"${workflow.name}" is now ${isCurrentlyActive ? 'inactive' : 'active'}.`,
       })
       fetchWorkflows()
     } catch (error: any) {
@@ -1862,7 +1865,6 @@ function WorkflowsContent() {
                   {filteredAndSortedWorkflows.map((workflow) => {
                     const creatorInfo = getCreatorInfo(workflow)
                     const folderName = getFolderName(workflow)
-                    const validation = validateWorkflow(workflow)
                     const stats = executionStats[workflow.id] || { total: 0, today: 0, success: 0, failed: 0 }
 
                     return (
@@ -1995,28 +1997,15 @@ function WorkflowsContent() {
                                   <Switch
                                     checked={workflow.status === 'active'}
                                     onCheckedChange={() => handleToggleStatus(workflow)}
-                                    disabled={loading[`status-${workflow.id}`] || !validation.isValid}
-                                    className={cn(
-                                      !validation.isValid && "opacity-50 cursor-not-allowed"
-                                    )}
+                                    disabled={loading[`status-${workflow.id}`]}
                                   />
-                                  {!validation.isValid && (
-                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                  )}
                                 </div>
                               </TooltipTrigger>
-                              {!validation.isValid && (
-                                <TooltipContent side="top">
-                                  <p className="text-sm">Workflow setup is incomplete and cannot be activated</p>
-                                </TooltipContent>
-                              )}
-                              {validation.isValid && (
-                                <TooltipContent side="top">
-                                  <p className="text-xs">
-                                    {workflow.status === 'active' ? 'Deactivate workflow' : 'Activate workflow'}
-                                  </p>
-                                </TooltipContent>
-                              )}
+                              <TooltipContent side="top">
+                                <p className="text-xs">
+                                  {workflow.status === 'active' ? 'Deactivate workflow' : 'Activate workflow'}
+                                </p>
+                              </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         </td>
@@ -2155,7 +2144,6 @@ function WorkflowsContent() {
                     {filteredAndSortedWorkflows.map((workflow) => {
                       const creatorInfo = getCreatorInfo(workflow)
                       const folderName = getFolderName(workflow)
-                      const validation = validateWorkflow(workflow)
                       const stats = executionStats[workflow.id] || { total: 0, today: 0, success: 0, failed: 0 }
 
                       return (
@@ -2485,26 +2473,16 @@ function WorkflowsContent() {
                                     <Switch
                                       checked={workflow.status === 'active'}
                                       onCheckedChange={() => handleToggleStatus(workflow)}
-                                      disabled={loading[`status-${workflow.id}`] || !validation.isValid}
-                                      className={cn(
-                                        "scale-75",
-                                        !validation.isValid && "opacity-50 cursor-not-allowed"
-                                      )}
+                                      disabled={loading[`status-${workflow.id}`]}
+                                      className="scale-75"
                                     />
-                                    {!validation.isValid && (
-                                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                                    )}
                                   </div>
                                 </TooltipTrigger>
-                                {!validation.isValid ? (
-                                  <TooltipContent side="top">
-                                    <p className="text-sm">Workflow setup is incomplete and cannot be activated</p>
-                                  </TooltipContent>
-                                ) : (
-                                  <TooltipContent side="top">
-                                    <p className="text-xs">{workflow.status === 'active' ? 'Active' : 'Draft'}</p>
-                                  </TooltipContent>
-                                )}
+                                <TooltipContent side="top">
+                                  <p className="text-xs">
+                                    {workflow.status === 'active' ? 'Deactivate workflow' : 'Activate workflow'}
+                                  </p>
+                                </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
 

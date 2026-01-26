@@ -16,6 +16,7 @@ export interface UseFlowV2BuilderOptions {
   initialPrompt?: string
   autoOpenAgentPanel?: boolean
   initialRevision?: any // Pre-fetched revision data from server
+  initialStatus?: 'draft' | 'active' | 'inactive' // Pre-fetched workflow status from server
 }
 
 type PlannerEdit =
@@ -99,6 +100,8 @@ interface FlowV2BuilderState {
   runs: Record<string, RunDetails>
   nodeSnapshots: Record<string, NodeSnapshotResult>
   secrets: Array<{ id: string; name: string }>
+  workflowStatus: 'draft' | 'active' | 'inactive' | null
+  isUpdatingStatus: boolean
 }
 
 export interface ApplyEditsOptions {
@@ -125,6 +128,8 @@ export interface FlowV2BuilderActions {
   createSecret: (name: string, value: string, workspaceId?: string) => Promise<{ id: string; name: string }>
   estimate: () => Promise<any | null>
   publish: () => Promise<{ revisionId: string }>
+  activateWorkflow: () => Promise<{ success: boolean; message?: string }>
+  deactivateWorkflow: () => Promise<{ success: boolean; message?: string }>
 }
 
 interface UseFlowV2BuilderResult extends ReturnType<typeof useWorkflowBuilder> {
@@ -682,6 +687,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     runs: {},
     nodeSnapshots: {},
     secrets: [],
+    workflowStatus: options?.initialStatus || null,
+    isUpdatingStatus: false,
   }))
 
   const flowRef = useRef<Flow | null>(null)
@@ -700,6 +707,9 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   // This ref is exposed to consumers (e.g., WorkflowBuilderV2) so they can
   // gate their useEffects that touch nodes until initial load is done
   const isInitialLoadCompleteRef = useRef<boolean>(false)
+
+  // Guard to prevent concurrent load calls (e.g., from React StrictMode double-invoke)
+  const isLoadInProgressRef = useRef<boolean>(false)
 
   // Helper to mark that the workflow has had an action node this session
   const markHasHadActionNode = useCallback(() => {
@@ -1068,6 +1078,13 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   const load = useCallback(async () => {
     if (!flowId) return
 
+    // Prevent concurrent loads (e.g., from React StrictMode double-invoke)
+    if (isLoadInProgressRef.current) {
+      console.log('[useFlowV2Builder] Load already in progress, skipping duplicate call')
+      return
+    }
+    isLoadInProgressRef.current = true
+
     // Helper to repair missing edges in a flow
     const repairFlowEdges = (flow: Flow): { repairedFlow: Flow; hadRepairs: boolean } => {
       const missingEdgeEdits = detectMissingEdges(flow)
@@ -1114,6 +1131,15 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       initialRevisionUsedRef.current = true
       setLoading(true)
       try {
+        // Use initialStatus if provided from server, otherwise fetch from settings
+        let workflowStatus: string = options?.initialStatus || 'draft'
+        if (!options?.initialStatus) {
+          const settingsResponse = await fetch(`/api/workflows/${flowId}/settings`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+          workflowStatus = settingsResponse?.status || 'draft'
+        }
+
         let flow = FlowSchema.parse(options.initialRevision.graph)
 
         // Detect and repair missing edges
@@ -1139,6 +1165,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           revisionId: options.initialRevision.id,
           version: flow.version,
           revisionCount: 1, // We don't have revision count from server, set to 1
+          workflowStatus: workflowStatus as 'draft' | 'active' | 'inactive',
           error: undefined,
         }))
         void syncLatestRunId()
@@ -1149,6 +1176,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         }))
       } finally {
         setLoading(false)
+        isLoadInProgressRef.current = false
       }
       return
     }
@@ -1156,9 +1184,29 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     // Otherwise, fetch from API as usual
     setLoading(true)
     try {
-      const revisionsPayload = await fetchJson<{ revisions?: Array<{ id: string; version: number }> }>(
-        `${flowApiUrl(flowId, '/revisions')}`
-      )
+      // Use initialStatus if provided, otherwise fetch from settings in parallel with revisions
+      let workflowStatus: string = options?.initialStatus || 'draft'
+      let revisionsPayload: { revisions?: Array<{ id: string; version: number }> }
+
+      if (options?.initialStatus) {
+        // Skip settings fetch when status is provided
+        revisionsPayload = await fetchJson<{ revisions?: Array<{ id: string; version: number }> }>(
+          `${flowApiUrl(flowId, '/revisions')}`
+        )
+      } else {
+        // Fetch revisions and workflow status in parallel
+        const [revPayload, settingsResponse] = await Promise.all([
+          fetchJson<{ revisions?: Array<{ id: string; version: number }> }>(
+            `${flowApiUrl(flowId, '/revisions')}`
+          ),
+          fetch(`/api/workflows/${flowId}/settings`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        ])
+        revisionsPayload = revPayload
+        workflowStatus = settingsResponse?.status || 'draft'
+      }
+
       const revisions = (revisionsPayload.revisions ?? []).slice().sort((a, b) => b.version - a.version)
       if (revisions.length === 0) {
         throw new Error("Flow revision not found")
@@ -1193,6 +1241,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         revisionId: revisionPayload.revision.id,
         version: flow.version ?? revisions[0].version,
         revisionCount: revisions.length,
+        workflowStatus: workflowStatus as 'draft' | 'active' | 'inactive',
         error: undefined,
       }))
       void syncLatestRunId()
@@ -1205,6 +1254,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       }))
     } finally {
       setLoading(false)
+      isLoadInProgressRef.current = false
     }
   }, [flowId, setLoading, syncLatestRunId, updateReactFlowGraph])
 
@@ -1640,6 +1690,50 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     return payload
   }, [flowId])
 
+  const activateWorkflow = useCallback(async (): Promise<{ success: boolean; message?: string }> => {
+    if (!flowId) return { success: false, message: 'No workflow ID' }
+
+    setFlowState((prev) => ({ ...prev, isUpdatingStatus: true }))
+
+    try {
+      const res = await fetch(`/api/workflows/${flowId}/activate`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Activation failed')
+
+      setFlowState((prev) => ({ ...prev, workflowStatus: 'active' }))
+      return { success: true, message: data.activation?.message }
+    } catch (e: any) {
+      return { success: false, message: e.message }
+    } finally {
+      setFlowState((prev) => ({ ...prev, isUpdatingStatus: false }))
+    }
+  }, [flowId])
+
+  const deactivateWorkflow = useCallback(async (): Promise<{ success: boolean; message?: string }> => {
+    if (!flowId) return { success: false, message: 'No workflow ID' }
+
+    setFlowState((prev) => ({ ...prev, isUpdatingStatus: true }))
+
+    try {
+      const res = await fetch(`/api/workflows/${flowId}/deactivate`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Deactivation failed')
+
+      setFlowState((prev) => ({ ...prev, workflowStatus: 'inactive' }))
+      return { success: true, message: data.deactivation?.message }
+    } catch (e: any) {
+      return { success: false, message: e.message }
+    } finally {
+      setFlowState((prev) => ({ ...prev, isUpdatingStatus: false }))
+    }
+  }, [flowId])
+
   const loadRevision = useCallback(
     async (revisionId: string) => {
       setLoading(true)
@@ -1685,13 +1779,17 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       createSecret,
       estimate,
       publish,
+      activateWorkflow,
+      deactivateWorkflow,
     }),
     [
+      activateWorkflow,
       addNode,
       applyEdits,
       askAgent,
       connectEdge,
       createSecret,
+      deactivateWorkflow,
       deleteNode,
       loadRevision,
       moveNodes,

@@ -363,9 +363,10 @@ async function planWorkflowWithTemplates(
 interface WorkflowBuilderV2Props {
   flowId: string
   initialRevision?: any
+  initialStatus?: 'draft' | 'active' | 'inactive'
 }
 
-export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2Props) {
+export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: WorkflowBuilderV2Props) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -375,7 +376,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const appContext = useAppContext()
   const { isReady: appReady } = appContext
 
-  const adapter = useFlowV2LegacyAdapter(flowId, { initialRevision })
+  const adapter = useFlowV2LegacyAdapter(flowId, { initialRevision, initialStatus })
   const { integrations, fetchIntegrations, setWorkspaceContext: setIntegrationWorkspaceContext } = useIntegrationStore()
   const { workspaceContext } = useWorkspaceContext()
   const builder = adapter.flowState
@@ -497,6 +498,30 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       }
     }
   }, [cleanupTestTrigger])
+
+  // Auto-deactivate workflow when leaving page if it's active but incomplete (has placeholders)
+  // This ensures workflows without triggers cannot remain in active state
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Check if workflow is active and has placeholders
+      const isActive = flowState?.workflowStatus === 'active'
+      const hasPlaceholderNodes = builder?.nodes?.some((n: any) => n.data?.isPlaceholder) ?? false
+
+      if (isActive && hasPlaceholderNodes && flowId) {
+        console.log('[WorkflowBuilder] Auto-deactivating incomplete workflow on page leave')
+        // Use sendBeacon for reliable delivery on page unload
+        navigator.sendBeacon(
+          `/api/workflows/${flowId}/deactivate`,
+          new Blob([JSON.stringify({})], { type: 'application/json' })
+        )
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [flowId, flowState?.workflowStatus, builder?.nodes])
 
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
   const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
@@ -3889,7 +3914,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     // Persist to backend without waiting for response
     // The UI is already updated optimistically above - don't let backend response overwrite it
     const deleteEdits = nodeIds.map(nodeId => ({ op: "deleteNode", nodeId }))
-    actions.applyEdits(deleteEdits).catch((error: any) => {
+    actions.applyEdits(deleteEdits, { skipGraphUpdate: true }).catch((error: any) => {
       // Rollback on error
       builder.setNodes(currentNodes)
       builder.setEdges(currentEdges)
@@ -3900,7 +3925,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
         variant: "destructive",
       })
     })
-  }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode])
+
+    // Auto-deactivate workflow if trigger was deleted and workflow was active
+    const deletedTrigger = nodeIds.some(nodeId => {
+      const node = currentNodes.find((n: any) => n.id === nodeId)
+      if (!node) return false
+      const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+      return node.data?.isTrigger || nodeComponent?.isTrigger
+    })
+
+    if (deletedTrigger && flowState?.workflowStatus === 'active') {
+      console.log('[WorkflowBuilder] Trigger deleted from active workflow, auto-deactivating')
+      actions.deactivateWorkflow().then((result) => {
+        toast({
+          title: "Workflow Deactivated",
+          description: "Workflow was deactivated because the trigger was removed.",
+          variant: "default",
+        })
+      }).catch((error: any) => {
+        console.error('[WorkflowBuilder] Failed to auto-deactivate workflow:', error)
+      })
+    }
+  }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode, flowState?.workflowStatus])
 
   const handleNodeDelete = useCallback(async (nodeId: string) => {
     await handleDeleteNodes([nodeId])
@@ -4241,18 +4287,36 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   }, [builder?.nodes])
 
   // Handle workflow activation with placeholder validation
-  const handleToggleLiveWithValidation = useCallback(() => {
+  const handleToggleLiveWithValidation = useCallback(async () => {
     // Check for placeholders - button should be disabled, but just in case
     if (hasPlaceholders()) {
       return
     }
 
-    // If no placeholders, show coming soon (activation not implemented yet for Flow V2)
-    toast({
-      title: "Coming soon",
-      description: "This action is not yet wired to the Flow v2 backend.",
-    })
-  }, [hasPlaceholders, toast])
+    const isCurrentlyActive = flowState?.workflowStatus === 'active'
+
+    if (isCurrentlyActive) {
+      // Deactivate workflow
+      const result = await actions?.deactivateWorkflow()
+      toast({
+        title: result?.success ? "Workflow Deactivated" : "Deactivation Failed",
+        description: result?.message || (result?.success
+          ? "Your workflow has been deactivated."
+          : "Please try again."),
+        variant: result?.success ? "default" : "destructive",
+      })
+    } else {
+      // Activate workflow
+      const result = await actions?.activateWorkflow()
+      toast({
+        title: result?.success ? "Workflow Published" : "Activation Failed",
+        description: result?.message || (result?.success
+          ? "Your workflow is now active!"
+          : "Please try again."),
+        variant: result?.success ? "default" : "destructive",
+      })
+    }
+  }, [hasPlaceholders, flowState?.workflowStatus, actions, toast])
 
   // Get test store actions
   const {
@@ -6620,9 +6684,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
       ? () => persistName(workflowName.trim())
       : async () => {},
     handleToggleLive: handleToggleLiveWithValidation,
-    isUpdatingStatus: false,
+    isUpdatingStatus: flowState?.isUpdatingStatus ?? false,
     hasPlaceholders: hasPlaceholders(),
-    currentWorkflow: null,
+    currentWorkflow: flowState?.workflowStatus
+      ? { status: flowState.workflowStatus, is_active: flowState.workflowStatus === 'active' }
+      : null,
     workflowId: flowId,
     editTemplateId: null,
     isTemplateEditing: false,
@@ -6646,7 +6712,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
     activeRunId: flowState?.lastRunId,
     onGenerateApiKey: hasPublishedRevision ? handleGenerateApiKey : undefined,
     canGenerateApiKey: hasPublishedRevision,
-  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.lastRunId, flowState?.revisionId, handleGenerateApiKey, handleNameChange, handleOpenTestDialog, handleToggleLiveWithValidation, hasPlaceholders, hasPublishedRevision, nameDirty, persistName, workflowName])
+  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.isUpdatingStatus, flowState?.lastRunId, flowState?.revisionId, flowState?.workflowStatus, handleGenerateApiKey, handleNameChange, handleOpenTestDialog, handleToggleLiveWithValidation, hasPlaceholders, hasPublishedRevision, nameDirty, persistName, workflowName])
 
   // Derive active execution node name from flow test status
   const activeExecutionNodeName = flowTestStatus?.currentNodeLabel ?? null

@@ -337,7 +337,23 @@ export function ConfigurationModal({
     [workflowData, currentNodeId, nodeInfo?.configSchema, effectiveInitialData]
   )
 
-  const validationState = effectiveInitialData?.__validationState
+  // Check if validation state is stale (from a different node type)
+  const validationState = React.useMemo(() => {
+    const state = effectiveInitialData?.__validationState
+    if (!state?.missingRequired?.length) return state
+
+    // Get current node's field names from configSchema
+    const currentFieldNames = (nodeInfo?.configSchema || []).map((f: any) => f.name)
+
+    // If missingRequired contains fields that don't exist in current schema,
+    // the validation state is stale (from a previous node type) - ignore it
+    const hasStaleFields = state.missingRequired.some(
+      (fieldName: string) => !currentFieldNames.includes(fieldName)
+    )
+
+    return hasStaleFields ? null : state
+  }, [effectiveInitialData?.__validationState, nodeInfo?.configSchema])
+
   const showValidationAlert = React.useMemo(() => {
     if (!validationState) return false
     if (validationState.isValid === false) return true

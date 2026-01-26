@@ -6,6 +6,37 @@ import { getRouteClient, getFlowRepository, getServiceClient } from "@/src/lib/w
 import { triggerLifecycleManager } from "@/lib/triggers/TriggerLifecycleManager"
 import { logger } from "@/lib/utils/logger"
 
+/**
+ * Detect if any trigger TYPE changed between existing resources and new nodes.
+ * Config changes within the same type do NOT trigger this - only actual type changes.
+ *
+ * @param existingResources - Current trigger_resources from database
+ * @param newTriggerNodes - New trigger nodes from the flow
+ * @returns true if any trigger TYPE changed
+ */
+function detectTriggerTypeChange(
+  existingResources: Array<{ node_id: string; trigger_type: string }>,
+  newTriggerNodes: Array<{ id: string; type: string }>
+): boolean {
+  // Build a map of existing trigger types by node ID
+  const existingTypeByNodeId = new Map(
+    existingResources.map(r => [r.node_id, r.trigger_type])
+  )
+
+  // Check each new trigger node
+  for (const newNode of newTriggerNodes) {
+    const existingType = existingTypeByNodeId.get(newNode.id)
+
+    // If this node has an existing resource with a different type, it's a type change
+    if (existingType && existingType !== newNode.type) {
+      logger.debug(`[apply-edits] Detected trigger type change for node ${newNode.id}: ${existingType} → ${newNode.type}`)
+      return true
+    }
+  }
+
+  return false
+}
+
 const ApplyEditsSchema = z.object({
   flow: FlowSchema,
   // Note: version is no longer used - saveGraph auto-increments versions
@@ -65,7 +96,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
 
   const existingDefinition = await supabase
     .from("workflows")
-    .select("id")
+    .select("id, status")
     .eq("id", flowId)
     .maybeSingle()
 
@@ -114,6 +145,59 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     } catch (cleanupError) {
       // Don't fail the entire request if cleanup fails - log and continue
       logger.error('[apply-edits] Failed to cleanup orphaned triggers:', cleanupError)
+    }
+
+    // Handle trigger TYPE changes in active workflows
+    // When trigger type changes, do full deactivate + reactivate to ensure clean state
+    if (existingDefinition.data?.status === 'active') {
+      try {
+        // Get existing trigger resources
+        const { data: existingResources } = await serviceClient
+          .from('trigger_resources')
+          .select('node_id, trigger_type')
+          .eq('workflow_id', flowId)
+          .or('is_test.is.null,is_test.eq.false')
+
+        // Get new trigger nodes from the flow
+        const newTriggerNodes = (flow.nodes || []).filter((n: any) => n.metadata?.isTrigger)
+
+        // Check if any trigger TYPE changed
+        const triggerTypeChanged = detectTriggerTypeChange(existingResources || [], newTriggerNodes)
+
+        if (triggerTypeChanged) {
+          logger.debug(`[apply-edits] Trigger TYPE changed in active workflow ${flowId} - doing full deactivate + reactivate`)
+
+          // Deactivate all existing triggers
+          await triggerLifecycleManager.deactivateWorkflowTriggers(flowId, user.id)
+
+          // Reactivate with new trigger configuration
+          // Convert flow nodes to legacy format expected by activateWorkflowTriggers
+          const legacyNodes = newTriggerNodes.map((n: any) => ({
+            id: n.id,
+            data: {
+              type: n.type,
+              isTrigger: true,
+              providerId: n.metadata?.providerId,
+              config: n.config
+            }
+          }))
+
+          const activationResult = await triggerLifecycleManager.activateWorkflowTriggers(
+            flowId,
+            user.id,
+            legacyNodes
+          )
+
+          if (activationResult.errors.length > 0) {
+            logger.warn(`[apply-edits] Trigger reactivation had errors: ${activationResult.errors.join(', ')}`)
+          } else {
+            logger.debug(`[apply-edits] Successfully reactivated ${newTriggerNodes.length} triggers`)
+          }
+        }
+      } catch (triggerError) {
+        // Don't fail the request if trigger handling fails - log and continue
+        logger.error('[apply-edits] Failed to handle trigger type change:', triggerError)
+      }
     }
 
     return NextResponse.json({
