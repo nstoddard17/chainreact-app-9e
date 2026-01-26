@@ -474,13 +474,15 @@ async function processNotifications(
         }
       }
 
-      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName && userId) {
+      // Support both tableName and worksheetName for backwards compatibility
+      const excelTableOrSheet = triggerConfig?.tableName || triggerConfig?.worksheetName
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && excelTableOrSheet && userId) {
         try {
           logger.info('[Microsoft Excel] Processing file-change notification', {
             subscriptionId: subId,
             triggerType,
             workbookId: triggerConfig.workbookId,
-            tableName: triggerConfig.tableName,
+            tableName: excelTableOrSheet,
             resourceDataId: change?.resourceData?.id
           })
           const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
@@ -490,7 +492,7 @@ async function processNotifications(
           const snapshot = await fetchExcelTableSnapshot(
             accessToken,
             triggerConfig.workbookId,
-            triggerConfig.tableName
+            excelTableOrSheet
           )
 
           const previousSnapshot = triggerConfig.excelRowSnapshot as ExcelRowSnapshot | undefined
@@ -569,7 +571,7 @@ async function processNotifications(
                   subscriptionId: subId,
                   triggerType,
                   workbookId: triggerConfig.workbookId,
-                  tableName: triggerConfig.tableName,
+                  tableName: excelTableOrSheet || testExcelTableOrSheet,
                   rowId: hasRowIdDiff ? newRowId : newRow?.id || null,
                   values,
                   rowData,
@@ -618,7 +620,7 @@ async function processNotifications(
                   subscriptionId: subId,
                   triggerType,
                   workbookId: triggerConfig.workbookId,
-                  tableName: triggerConfig.tableName,
+                  tableName: excelTableOrSheet || testExcelTableOrSheet,
                   rowId: changedRowId,
                   values,
                   rowData,
@@ -1594,7 +1596,9 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
         }
       }
 
-      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName) {
+      // Support both tableName and worksheetName for backwards compatibility
+      const testExcelTableOrSheet = triggerConfig?.tableName || triggerConfig?.worksheetName
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && testExcelTableOrSheet) {
         try {
           const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
           const graphAuth = new MicrosoftGraphAuth()
@@ -1603,7 +1607,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
           const snapshot = await fetchExcelTableSnapshot(
             accessToken,
             triggerConfig.workbookId,
-            triggerConfig.tableName
+            testExcelTableOrSheet
           )
 
           const previousSnapshot = triggerConfig.excelRowSnapshot as ExcelRowSnapshot | undefined
@@ -1664,7 +1668,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               trigger: {
                 type: triggerType,
                 workbookId: triggerConfig.workbookId,
-                tableName: triggerConfig.tableName,
+                tableName: excelTableOrSheet || testExcelTableOrSheet,
                 rowId: hasRowIdDiff ? newRowId : newRow?.id || null
               },
               row: newRow,
@@ -1693,7 +1697,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               trigger: {
                 type: triggerType,
                 workbookId: triggerConfig.workbookId,
-                tableName: triggerConfig.tableName,
+                tableName: excelTableOrSheet || testExcelTableOrSheet,
                 rowId: changedRowId
               },
               row: changedRow,
