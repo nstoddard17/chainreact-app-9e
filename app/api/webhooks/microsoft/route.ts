@@ -424,7 +424,11 @@ async function processNotifications(
       // Try to insert dedup key - if it fails due to unique constraint, it's a duplicate
       const { error: dedupError } = await getSupabase()
         .from('microsoft_webhook_dedup')
-        .insert({ dedup_key: dedupKey })
+        .insert({
+          subscription_id: subId || 'unknown',
+          resource_data_hash: messageId || 'unknown',
+          dedup_key: dedupKey
+        })
 
       if (dedupError) {
         // Duplicate key violation (unique constraint) or other error
