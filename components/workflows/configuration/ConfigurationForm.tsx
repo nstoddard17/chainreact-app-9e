@@ -10,6 +10,7 @@ import { useWorkflowStore } from '@/stores/workflowStore';
 import { useDebugStore } from '@/stores/debugStore';
 import { ConfigurationLoadingScreen } from '@/components/ui/loading-screen';
 import { useFieldValidation } from './hooks/useFieldValidation';
+import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility';
 
 // Provider-specific components
 import { DiscordConfiguration } from './providers/DiscordConfiguration';
@@ -1251,7 +1252,14 @@ function ConfigurationForm({
       }
 
       // Don't cache dynamicOptions - always fetch fresh from Airtable
-      const missingRequiredFields = getMissingRequiredFields();
+      // Validate against actual submitted values, not potentially stale form state
+      const missingRequiredFields = nodeInfo?.configSchema
+        ? FieldVisibilityEngine.getMissingRequiredFields(
+            nodeInfo.configSchema,
+            submissionWithLabels,
+            nodeInfo
+          )
+        : [];
       const allRequiredFields = getAllRequiredFields();
 
       const validationState = {
