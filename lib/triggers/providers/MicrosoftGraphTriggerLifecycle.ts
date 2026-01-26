@@ -555,26 +555,38 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       // Excel workbook files are stored in OneDrive, so we watch the drive root for changes
       'trigger_new_row': (config?: Record<string, any>) => {
         // Watch the specific workbook file for changes if workbookId is provided
-        if (config?.driveId && config?.workbookId) {
-          return `/drives/${config.driveId}/items/${config.workbookId}`
+        if (config?.workbookId) {
+          if (config?.driveId) {
+            return `/drives/${config.driveId}/items/${config.workbookId}`
+          }
+          return `/me/drive/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
       'trigger_new_worksheet': (config?: Record<string, any>) => {
-        if (config?.driveId && config?.workbookId) {
-          return `/drives/${config.driveId}/items/${config.workbookId}`
+        if (config?.workbookId) {
+          if (config?.driveId) {
+            return `/drives/${config.driveId}/items/${config.workbookId}`
+          }
+          return `/me/drive/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
       'trigger_updated_row': (config?: Record<string, any>) => {
-        if (config?.driveId && config?.workbookId) {
-          return `/drives/${config.driveId}/items/${config.workbookId}`
+        if (config?.workbookId) {
+          if (config?.driveId) {
+            return `/drives/${config.driveId}/items/${config.workbookId}`
+          }
+          return `/me/drive/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
       'trigger_new_table_row': (config?: Record<string, any>) => {
-        if (config?.driveId && config?.workbookId) {
-          return `/drives/${config.driveId}/items/${config.workbookId}`
+        if (config?.workbookId) {
+          if (config?.driveId) {
+            return `/drives/${config.driveId}/items/${config.workbookId}`
+          }
+          return `/me/drive/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
