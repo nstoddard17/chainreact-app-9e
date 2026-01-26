@@ -33,6 +33,19 @@ export const microsoftExcelNodes: NodeComponent[] = [
         placeholder: "Select a worksheet",
         description: "The specific worksheet (tab) within the workbook"
       },
+      {
+        name: "hasHeaders",
+        label: "First row contains headers",
+        type: "select",
+        required: true,
+        dependsOn: "worksheetName",
+        options: [
+          { value: "yes", label: "Yes - Use row 1 as headers" },
+          { value: "no", label: "No - Treat row 1 as data" }
+        ],
+        defaultValue: "yes",
+        description: "Whether the first row contains column headers"
+      },
     ],
     outputSchema: [
       {
@@ -158,6 +171,19 @@ export const microsoftExcelNodes: NodeComponent[] = [
         dependsOn: "workbookId",
         placeholder: "Select a worksheet",
         description: "The specific worksheet (tab) within the workbook"
+      },
+      {
+        name: "hasHeaders",
+        label: "First row contains headers",
+        type: "select",
+        required: true,
+        dependsOn: "worksheetName",
+        options: [
+          { value: "yes", label: "Yes - Use row 1 as headers" },
+          { value: "no", label: "No - Treat row 1 as data" }
+        ],
+        defaultValue: "yes",
+        description: "Whether the first row contains column headers"
       },
     ],
     outputSchema: [
