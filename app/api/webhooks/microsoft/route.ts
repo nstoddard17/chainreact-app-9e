@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
+import crypto from 'crypto'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -127,6 +128,82 @@ const TRIGGER_FILTER_CONFIG: Record<string, TriggerFilterConfig> = {
     supportsAttachment: false,
     supportsCompanyName: true
   }
+}
+
+type ExcelRowSnapshot = {
+  rowHashes: Record<string, string>
+  rowCount: number
+  updatedAt: string
+}
+
+type ExcelTableSnapshot = {
+  rows: any[]
+  columns: string[]
+  rowHashes: Record<string, string>
+}
+
+async function fetchExcelTableSnapshot(
+  accessToken: string,
+  workbookId: string,
+  tableName: string
+): Promise<ExcelTableSnapshot> {
+  const baseUrl = 'https://graph.microsoft.com/v1.0'
+  const encodedTableName = encodeURIComponent(tableName)
+  const rowsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedTableName}/rows?$top=200`
+  const columnsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedTableName}/columns?$select=name`
+
+  const [rowsResponse, columnsResponse] = await Promise.all([
+    fetch(rowsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    }),
+    fetch(columnsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+  ])
+
+  if (!rowsResponse.ok) {
+    const errorText = await rowsResponse.text()
+    throw new Error(`Excel rows fetch failed: ${rowsResponse.status} ${errorText}`)
+  }
+
+  if (!columnsResponse.ok) {
+    const errorText = await columnsResponse.text()
+    throw new Error(`Excel columns fetch failed: ${columnsResponse.status} ${errorText}`)
+  }
+
+  const rowsPayload = await rowsResponse.json()
+  const columnsPayload = await columnsResponse.json()
+
+  const rows = Array.isArray(rowsPayload?.value) ? rowsPayload.value : []
+  const columns = Array.isArray(columnsPayload?.value)
+    ? columnsPayload.value.map((col: any) => col?.name).filter(Boolean)
+    : []
+
+  const rowHashes: Record<string, string> = {}
+  rows.forEach((row: any) => {
+    const rowId = row?.id || ''
+    const values = Array.isArray(row?.values?.[0]) ? row.values[0] : row?.values
+    if (!rowId || !Array.isArray(values)) return
+    const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
+    rowHashes[rowId] = hash
+  })
+
+  return { rows, columns, rowHashes }
+}
+
+function buildExcelRowData(values: any[] | undefined, columns: string[]) {
+  if (!Array.isArray(values) || columns.length === 0) return null
+  const rowData: Record<string, any> = {}
+  columns.forEach((name, index) => {
+    rowData[name] = values[index]
+  })
+  return rowData
 }
 
 
@@ -391,6 +468,169 @@ async function processNotifications(
           })
           continue
         }
+      }
+
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName && userId) {
+        try {
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-excel')
+
+          const snapshot = await fetchExcelTableSnapshot(
+            accessToken,
+            triggerConfig.workbookId,
+            triggerConfig.tableName
+          )
+
+          const previousSnapshot = triggerConfig.excelRowSnapshot as ExcelRowSnapshot | undefined
+          const currentSnapshot: ExcelRowSnapshot = {
+            rowHashes: snapshot.rowHashes,
+            rowCount: snapshot.rows.length,
+            updatedAt: new Date().toISOString()
+          }
+
+          if (!previousSnapshot) {
+            if (triggerResourceId) {
+              await getSupabase()
+                .from('trigger_resources')
+                .update({
+                  config: {
+                    ...triggerConfig,
+                    excelRowSnapshot: currentSnapshot
+                  },
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', triggerResourceId)
+            }
+            continue
+          }
+
+          const newRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => !previousSnapshot?.rowHashes?.[rowId])
+          const changedRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
+              && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
+          const changedRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
+              && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
+
+          if (triggerResourceId) {
+            await getSupabase()
+              .from('trigger_resources')
+              .update({
+                config: {
+                  ...triggerConfig,
+                  excelRowSnapshot: currentSnapshot
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', triggerResourceId)
+          }
+
+          if (triggerType === 'microsoft_excel_trigger_new_table_row' && newRowId) {
+            const newRow = snapshot.rows.find((row: any) => row?.id === newRowId)
+            const values = Array.isArray(newRow?.values?.[0]) ? newRow.values[0] : newRow?.values
+            const rowData = buildExcelRowData(values, snapshot.columns)
+
+            if (workflowId) {
+              const base = getWebhookBaseUrl()
+              const executionUrl = `${base}/api/workflows/execute`
+
+              const executionPayload = {
+                workflowId,
+                testMode: false,
+                executionMode: 'live',
+                skipTriggers: true,
+                inputData: {
+                  source: 'microsoft-excel-file-change',
+                  subscriptionId: subId,
+                  triggerType,
+                  workbookId: triggerConfig.workbookId,
+                  tableName: triggerConfig.tableName,
+                  rowId: newRowId,
+                  values,
+                  rowData,
+                  columns: snapshot.columns
+                }
+              }
+
+              logger.debug('[Microsoft Excel] Triggering workflow execution:', executionUrl)
+
+              const response = await fetch(executionUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-user-id': userId
+                },
+                body: JSON.stringify(executionPayload)
+              })
+
+              if (!response.ok) {
+                const errorText = await response.text()
+                logger.error('[Microsoft Excel] Workflow execution failed:', {
+                  status: response.status,
+                  error: errorText
+                })
+              }
+            }
+            continue
+          }
+
+          if (triggerType === 'microsoft_excel_trigger_updated_row' && changedRowId) {
+            const changedRow = snapshot.rows.find((row: any) => row?.id === changedRowId)
+            const values = Array.isArray(changedRow?.values?.[0]) ? changedRow.values[0] : changedRow?.values
+            const rowData = buildExcelRowData(values, snapshot.columns)
+
+            if (workflowId) {
+              const base = getWebhookBaseUrl()
+              const executionUrl = `${base}/api/workflows/execute`
+
+              const executionPayload = {
+                workflowId,
+                testMode: false,
+                executionMode: 'live',
+                skipTriggers: true,
+                inputData: {
+                  source: 'microsoft-excel-file-change',
+                  subscriptionId: subId,
+                  triggerType,
+                  workbookId: triggerConfig.workbookId,
+                  tableName: triggerConfig.tableName,
+                  rowId: changedRowId,
+                  values,
+                  rowData,
+                  columns: snapshot.columns
+                }
+              }
+
+              logger.debug('[Microsoft Excel] Triggering workflow execution:', executionUrl)
+
+              const response = await fetch(executionUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-user-id': userId
+                },
+                body: JSON.stringify(executionPayload)
+              })
+
+              if (!response.ok) {
+                const errorText = await response.text()
+                logger.error('[Microsoft Excel] Workflow execution failed:', {
+                  status: response.status,
+                  error: errorText
+                })
+              }
+            }
+            continue
+          }
+        } catch (excelError) {
+          logger.warn('[Microsoft Excel] Failed to process table change', excelError)
+        }
+      }
+
+      if (triggerType?.startsWith('microsoft_excel_')) {
+        continue
       }
 
       // OneNote triggers (use OneDrive change notifications as a signal)
@@ -1320,6 +1560,119 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
           })
           continue
         }
+      }
+
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName) {
+        try {
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-excel')
+
+          const snapshot = await fetchExcelTableSnapshot(
+            accessToken,
+            triggerConfig.workbookId,
+            triggerConfig.tableName
+          )
+
+          const previousSnapshot = triggerConfig.excelRowSnapshot as ExcelRowSnapshot | undefined
+          const currentSnapshot: ExcelRowSnapshot = {
+            rowHashes: snapshot.rowHashes,
+            rowCount: snapshot.rows.length,
+            updatedAt: new Date().toISOString()
+          }
+
+          if (!previousSnapshot) {
+            await supabase
+              .from('trigger_resources')
+              .update({
+                config: {
+                  ...triggerConfig,
+                  excelRowSnapshot: currentSnapshot
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', triggerResource.id)
+            continue
+          }
+
+          const newRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => !previousSnapshot?.rowHashes?.[rowId])
+
+          await supabase
+            .from('trigger_resources')
+            .update({
+              config: {
+                ...triggerConfig,
+                excelRowSnapshot: currentSnapshot
+              },
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', triggerResource.id)
+
+          if (triggerType === 'microsoft_excel_trigger_new_table_row' && newRowId) {
+            const newRow = snapshot.rows.find((row: any) => row?.id === newRowId)
+            const values = Array.isArray(newRow?.values?.[0]) ? newRow.values[0] : newRow?.values
+            const rowData = buildExcelRowData(values, snapshot.columns)
+            const triggerData = {
+              trigger: {
+                type: triggerType,
+                workbookId: triggerConfig.workbookId,
+                tableName: triggerConfig.tableName,
+                rowId: newRowId
+              },
+              row: newRow,
+              values,
+              rowData,
+              columns: snapshot.columns,
+              _testSession: true,
+              _source: 'microsoft-excel-file-change'
+            }
+
+            await supabase
+              .from('workflow_test_sessions')
+              .update({
+                status: 'trigger_received',
+                trigger_data: triggerData
+              })
+              .eq('id', testSessionId)
+            continue
+          }
+
+          if (triggerType === 'microsoft_excel_trigger_updated_row' && changedRowId) {
+            const changedRow = snapshot.rows.find((row: any) => row?.id === changedRowId)
+            const values = Array.isArray(changedRow?.values?.[0]) ? changedRow.values[0] : changedRow?.values
+            const rowData = buildExcelRowData(values, snapshot.columns)
+            const triggerData = {
+              trigger: {
+                type: triggerType,
+                workbookId: triggerConfig.workbookId,
+                tableName: triggerConfig.tableName,
+                rowId: changedRowId
+              },
+              row: changedRow,
+              values,
+              rowData,
+              columns: snapshot.columns,
+              _testSession: true,
+              _source: 'microsoft-excel-file-change'
+            }
+
+            await supabase
+              .from('workflow_test_sessions')
+              .update({
+                status: 'trigger_received',
+                trigger_data: triggerData
+              })
+              .eq('id', testSessionId)
+            continue
+          }
+        } catch (excelError) {
+          logger.warn('[Test Webhook] Excel table change processing failed', excelError)
+        }
+      }
+
+      if (triggerType?.startsWith('microsoft_excel_')) {
+        continue
       }
 
       // Calendar event start trigger (test mode) - trigger immediately with scheduled metadata

@@ -9,6 +9,7 @@ import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphSubscriptionManager } from '@/lib/microsoft-graph/subscriptionManager'
 import { MicrosoftGraphAuth } from '@/lib/microsoft-graph/auth'
 import { safeDecrypt } from '@/lib/security/encryption'
+import crypto from 'crypto'
 import {
   TriggerLifecycle,
   TriggerActivationContext,
@@ -181,6 +182,25 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     }
 
     logger.debug(`✅ Microsoft Graph subscription created and saved to trigger_resources: ${subscription.id}`)
+
+    if (triggerType.startsWith('microsoft_excel_') && config?.workbookId && config?.tableName) {
+      try {
+        const snapshot = await this.fetchExcelTableSnapshot(accessToken, config.workbookId, config.tableName)
+        await getSupabase()
+          .from('trigger_resources')
+          .update({
+            config: {
+              ...config,
+              excelRowSnapshot: snapshot
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('external_id', subscription.id)
+          .eq('resource_type', 'subscription')
+      } catch (snapshotError) {
+        logger.warn('⚠️ Failed to seed Excel snapshot on activation:', snapshotError)
+      }
+    }
 
     if (triggerType === 'microsoft-outlook_trigger_calendar_event_start' && !testMode?.isTest) {
       try {
@@ -696,6 +716,45 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       }
     } catch (error) {
       logger.warn('[MicrosoftGraphTriggerLifecycle] Error resolving Excel driveId', error)
+    }
+  }
+
+  private async fetchExcelTableSnapshot(
+    accessToken: string,
+    workbookId: string,
+    tableName: string
+  ): Promise<{ rowHashes: Record<string, string>; rowCount: number; updatedAt: string }> {
+    const baseUrl = 'https://graph.microsoft.com/v1.0'
+    const encodedTableName = encodeURIComponent(tableName)
+    const rowsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedTableName}/rows?$top=200`
+
+    const rowsResponse = await fetch(rowsUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!rowsResponse.ok) {
+      const errorText = await rowsResponse.text()
+      throw new Error(`Excel rows fetch failed: ${rowsResponse.status} ${errorText}`)
+    }
+
+    const rowsPayload = await rowsResponse.json()
+    const rows = Array.isArray(rowsPayload?.value) ? rowsPayload.value : []
+    const rowHashes: Record<string, string> = {}
+    rows.forEach((row: any) => {
+      const rowId = row?.id || ''
+      const values = Array.isArray(row?.values?.[0]) ? row.values[0] : row?.values
+      if (!rowId || !Array.isArray(values)) return
+      const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
+      rowHashes[rowId] = hash
+    })
+
+    return {
+      rowHashes,
+      rowCount: rows.length,
+      updatedAt: new Date().toISOString()
     }
   }
 }
