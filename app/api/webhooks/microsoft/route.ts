@@ -360,6 +360,17 @@ async function processNotifications(
           .like('provider_id', 'microsoft%')
           .maybeSingle()
 
+        // Check for database errors
+        if (resourceError) {
+          logger.error('❌ Database error looking up subscription:', {
+            subId,
+            error: resourceError.message,
+            code: resourceError.code,
+            details: resourceError.details
+          })
+          continue
+        }
+
         if (!triggerResource) {
           logger.warn('⚠️ Subscription not found in trigger_resources (likely old/orphaned subscription):', {
             subId,
@@ -388,17 +399,13 @@ async function processNotifications(
           }
         }
 
-        logger.debug('✅ Resolved from trigger_resources:', {
+        logger.info('✅ Resolved from trigger_resources:', {
           subscriptionId: subId,
           userId,
           workflowId,
           triggerResourceId,
           triggerType,
-          // Log trigger config fields for debugging filters
-          triggerConfigKeys: triggerConfig ? Object.keys(triggerConfig) : [],
-          triggerConfigTo: triggerConfig?.to || null,
-          triggerConfigFrom: triggerConfig?.from || null,
-          triggerConfigSubject: triggerConfig?.subject || null
+          triggerConfigKeys: triggerConfig ? Object.keys(triggerConfig) : []
         })
       }
 
