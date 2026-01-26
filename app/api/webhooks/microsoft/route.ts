@@ -517,6 +517,8 @@ async function processNotifications(
 
           const newRowId = Object.keys(snapshot.rowHashes)
             .find((rowId) => !previousSnapshot?.rowHashes?.[rowId])
+          const hasRowIdDiff = !!newRowId
+          const hasCountDiff = currentSnapshot.rowCount > previousSnapshot.rowCount
           const changedRowId = Object.keys(snapshot.rowHashes)
             .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
               && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
@@ -525,7 +527,8 @@ async function processNotifications(
             newRowId: newRowId || null,
             changedRowId: changedRowId || null,
             previousRowCount: previousSnapshot.rowCount,
-            currentRowCount: currentSnapshot.rowCount
+            currentRowCount: currentSnapshot.rowCount,
+            rowHashesCount: Object.keys(snapshot.rowHashes).length
           })
 
           if (triggerResourceId) {
@@ -541,8 +544,10 @@ async function processNotifications(
               .eq('id', triggerResourceId)
           }
 
-          if (triggerType === 'microsoft_excel_trigger_new_table_row' && newRowId) {
-            const newRow = snapshot.rows.find((row: any) => row?.id === newRowId)
+          if (triggerType === 'microsoft_excel_trigger_new_table_row' && (hasRowIdDiff || hasCountDiff)) {
+            const newRow = hasRowIdDiff
+              ? snapshot.rows.find((row: any) => row?.id === newRowId)
+              : snapshot.rows[snapshot.rows.length - 1]
             const values = Array.isArray(newRow?.values?.[0]) ? newRow.values[0] : newRow?.values
             const rowData = buildExcelRowData(values, snapshot.columns)
 
@@ -561,7 +566,7 @@ async function processNotifications(
                   triggerType,
                   workbookId: triggerConfig.workbookId,
                   tableName: triggerConfig.tableName,
-                  rowId: newRowId,
+                  rowId: hasRowIdDiff ? newRowId : newRow?.id || null,
                   values,
                   rowData,
                   columns: snapshot.columns
@@ -1620,6 +1625,19 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
 
           const newRowId = Object.keys(snapshot.rowHashes)
             .find((rowId) => !previousSnapshot?.rowHashes?.[rowId])
+          const changedRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
+              && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
+          const hasRowIdDiff = !!newRowId
+          const hasCountDiff = currentSnapshot.rowCount > previousSnapshot.rowCount
+
+          logger.debug('[Test Webhook] Excel snapshot diff results', {
+            newRowId: newRowId || null,
+            changedRowId: changedRowId || null,
+            previousRowCount: previousSnapshot.rowCount,
+            currentRowCount: currentSnapshot.rowCount,
+            rowHashesCount: Object.keys(snapshot.rowHashes).length
+          })
 
           await supabase
             .from('trigger_resources')
@@ -1632,8 +1650,10 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
             })
             .eq('id', triggerResource.id)
 
-          if (triggerType === 'microsoft_excel_trigger_new_table_row' && newRowId) {
-            const newRow = snapshot.rows.find((row: any) => row?.id === newRowId)
+          if (triggerType === 'microsoft_excel_trigger_new_table_row' && (hasRowIdDiff || hasCountDiff)) {
+            const newRow = hasRowIdDiff
+              ? snapshot.rows.find((row: any) => row?.id === newRowId)
+              : snapshot.rows[snapshot.rows.length - 1]
             const values = Array.isArray(newRow?.values?.[0]) ? newRow.values[0] : newRow?.values
             const rowData = buildExcelRowData(values, snapshot.columns)
             const triggerData = {
@@ -1641,7 +1661,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
                 type: triggerType,
                 workbookId: triggerConfig.workbookId,
                 tableName: triggerConfig.tableName,
-                rowId: newRowId
+                rowId: hasRowIdDiff ? newRowId : newRow?.id || null
               },
               row: newRow,
               values,
