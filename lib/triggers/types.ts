@@ -107,20 +107,6 @@ export interface TriggerLifecycle {
    * @returns Array of config property names that identify the monitored resource
    */
   getResourceIdentityKeys?(): string[]
-
-  /**
-   * Optional: Get the subscription resource path for a trigger type and config.
-   * Used to determine if two different trigger types can share the same subscription.
-   *
-   * For example, Microsoft Excel triggers (new_row, new_worksheet, updated_row) all
-   * watch the same OneDrive resource (/drives/{driveId}/root), so when switching
-   * between them, we can reuse the existing subscription instead of recreating it.
-   *
-   * @param triggerType - The trigger type string
-   * @param config - The trigger configuration
-   * @returns The subscription resource path, or null if not applicable
-   */
-  getSubscriptionResource?(triggerType: string, config?: Record<string, any>): string | null
 }
 
 /**

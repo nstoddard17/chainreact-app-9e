@@ -416,18 +416,6 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     ]
   }
 
-  /**
-   * Get the subscription resource path for a trigger type and config.
-   * Used to determine if two different trigger types can share the same subscription.
-   *
-   * For example, Microsoft Excel triggers (new_row, new_worksheet, updated_row) all
-   * watch the same OneDrive resource (/drives/{driveId}/root), so when switching
-   * between them, we can reuse the existing subscription.
-   */
-  getSubscriptionResource(triggerType: string, config?: Record<string, any>): string | null {
-    return this.getResourceForTrigger(triggerType, config)
-  }
-
   private parseGraphDateTime(value: any): Date | null {
     const raw = value?.dateTime
     if (!raw || typeof raw !== 'string') return null
