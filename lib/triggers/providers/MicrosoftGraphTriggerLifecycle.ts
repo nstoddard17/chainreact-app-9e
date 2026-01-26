@@ -56,6 +56,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Determine resource based on trigger type
+    if (triggerType.startsWith('microsoft_excel_')) {
+      await this.ensureExcelDriveId(config, accessToken)
+    }
     const resource = this.getResourceForTrigger(triggerType, config)
     const changeType = this.getChangeTypeForTrigger(triggerType)
 
@@ -559,7 +562,6 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           if (config?.driveId) {
             return `/drives/${config.driveId}/items/${config.workbookId}`
           }
-          return `/me/drive/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
@@ -568,7 +570,6 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           if (config?.driveId) {
             return `/drives/${config.driveId}/items/${config.workbookId}`
           }
-          return `/me/drive/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
@@ -577,7 +578,6 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           if (config?.driveId) {
             return `/drives/${config.driveId}/items/${config.workbookId}`
           }
-          return `/me/drive/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
@@ -586,7 +586,6 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           if (config?.driveId) {
             return `/drives/${config.driveId}/items/${config.workbookId}`
           }
-          return `/me/drive/items/${config.workbookId}`
         }
         return '/me/drive/root'
       },
@@ -658,5 +657,45 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
     // Default to watching all changes
     return 'created,updated,deleted'
+  }
+
+  private async ensureExcelDriveId(
+    config: Record<string, any> | undefined,
+    accessToken: string
+  ): Promise<void> {
+    if (!config?.workbookId || config?.driveId) return
+
+    try {
+      const response = await fetch(
+        `https://graph.microsoft.com/v1.0/me/drive/items/${config.workbookId}?$select=id,driveId,parentReference`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        logger.warn('[MicrosoftGraphTriggerLifecycle] Failed to resolve Excel driveId', {
+          status: response.status,
+          error: errorText
+        })
+        return
+      }
+
+      const item = await response.json()
+      const driveId = item?.driveId || item?.parentReference?.driveId
+      if (driveId) {
+        config.driveId = driveId
+      } else {
+        logger.warn('[MicrosoftGraphTriggerLifecycle] driveId missing in Excel workbook response', {
+          workbookId: config.workbookId
+        })
+      }
+    } catch (error) {
+      logger.warn('[MicrosoftGraphTriggerLifecycle] Error resolving Excel driveId', error)
+    }
   }
 }
