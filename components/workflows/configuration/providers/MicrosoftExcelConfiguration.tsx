@@ -227,22 +227,40 @@ export function MicrosoftExcelConfiguration({
     // Validate required fields
     const validationErrors: Record<string, string> = {};
 
+    // Detect if this is a trigger (not an action)
+    const isTrigger = nodeInfo?.type?.startsWith('microsoft_excel_trigger_');
+    const isTableRowTrigger = nodeInfo?.type === 'microsoft_excel_trigger_new_table_row';
+    const isWorksheetTrigger = ['microsoft_excel_trigger_new_row', 'microsoft_excel_trigger_updated_row'].includes(nodeInfo?.type);
+    const isNewWorksheetTrigger = nodeInfo?.type === 'microsoft_excel_trigger_new_worksheet';
+
     // Check if this is a dedicated action type (doesn't use unified "action" field)
     const isDedicatedAction = nodeInfo?.type?.startsWith('microsoft_excel_action_');
     const isAddTableRowAction = nodeInfo?.type === 'microsoft_excel_action_add_table_row';
     const isDedicatedAddRowAction = nodeInfo?.type === 'microsoft_excel_action_add_row';
 
-    // Basic validation
+    // Basic validation - workbookId required for all
     if (!values.workbookId) validationErrors.workbookId = 'Workbook is required';
 
-    // For add_table_row action, validate tableName instead of worksheetName
-    if (isAddTableRowAction) {
+    // TRIGGER VALIDATION
+    if (isTableRowTrigger) {
+      // Table-based trigger: requires workbookId + tableName
+      if (!values.tableName) validationErrors.tableName = 'Table is required';
+    } else if (isWorksheetTrigger) {
+      // Worksheet-based trigger: requires workbookId + worksheetName
+      if (!values.worksheetName) validationErrors.worksheetName = 'Worksheet is required';
+    } else if (isNewWorksheetTrigger) {
+      // New worksheet trigger: only requires workbookId (already validated above)
+      // No additional validation needed
+    }
+    // ACTION VALIDATION
+    else if (isAddTableRowAction) {
+      // Add row to table action: requires workbookId + tableName
       if (!values.tableName) validationErrors.tableName = 'Table is required';
     } else if (isDedicatedAddRowAction) {
       // For worksheet-based add_row action, require worksheetName
       if (!values.worksheetName) validationErrors.worksheetName = 'Worksheet is required';
-    } else if (!isDedicatedAction) {
-      // For unified action, require worksheetName and action
+    } else if (!isDedicatedAction && !isTrigger) {
+      // For unified action only, require worksheetName and action
       if (!values.worksheetName) validationErrors.worksheetName = 'Worksheet is required';
       if (!values.action) validationErrors.action = 'Action is required';
     }
