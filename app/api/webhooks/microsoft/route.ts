@@ -510,9 +510,6 @@ async function processNotifications(
           const changedRowId = Object.keys(snapshot.rowHashes)
             .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
               && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
-          const changedRowId = Object.keys(snapshot.rowHashes)
-            .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
-              && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
 
           if (triggerResourceId) {
             await getSupabase()
