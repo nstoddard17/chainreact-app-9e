@@ -559,32 +559,60 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const shouldUnregisterWebhooks = data && statusProvided && wasActive && !isActiveNow
 
     if (shouldRegisterWebhooks) {
-      // Clean up existing resources first if previously active
-      if (wasActive) {
+      const { triggerLifecycleManager } = await import('@/lib/triggers')
+
+      // Smart update: preserve polling state when appropriate
+      if (wasActive && nodesProvided) {
+        logger.debug('🔄 Workflow is active and nodes provided - using smart trigger update')
         try {
-          const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
-          const webhookManager = new TriggerWebhookManager()
-          await webhookManager.unregisterWorkflowWebhooks(data.id)
-          logger.debug('♻️ Unregistered existing webhooks before re-registering')
+          const result = await triggerLifecycleManager.updateWorkflowTriggers(
+            data.id,
+            user.id,
+            nodes
+          )
 
-          const { triggerLifecycleManager } = await import('@/lib/triggers')
-          await triggerLifecycleManager.deactivateWorkflowTriggers(data.id, user.id)
-          logger.debug('♻️ Deactivated existing trigger resources before re-activating')
-        } catch (cleanupErr) {
-          logger.warn('⚠️ Failed to cleanup existing resources prior to re-register:', cleanupErr)
+          if (!result.success) {
+            logger.error('❌ Trigger update had errors:', result.errors)
+            // Continue - partial success is acceptable
+          } else {
+            logger.debug('✅ All triggers updated successfully')
+          }
+        } catch (updateErr) {
+          logger.error('❌ Failed to update triggers:', updateErr)
+          // Log error but don't fail the workflow update
         }
-      }
+      } else if (statusChangedToActive && !wasActive) {
+        // Fresh activation
+        logger.debug('🚀 Workflow being freshly activated - activating all triggers')
+        try {
+          const result = await triggerLifecycleManager.activateWorkflowTriggers(
+            data.id,
+            user.id,
+            nodes
+          )
 
-      // Activate triggers
-      try {
-        const { triggerLifecycleManager } = await import('@/lib/triggers')
-        const result = await triggerLifecycleManager.activateWorkflowTriggers(
-          data.id,
-          user.id,
-          nodes
-        )
-        if (result.errors.length > 0) {
-          logger.error('❌ Trigger activation failed:', result.errors)
+          if (result.errors.length > 0) {
+            logger.error('❌ Trigger activation failed:', result.errors)
+            const { data: rolledBackWorkflow } = await serviceClient
+              .from('workflows')
+              .update({ status: 'inactive', updated_at: new Date().toISOString() })
+              .eq('id', data.id)
+              .select()
+              .single()
+
+            return jsonResponse({
+              ...rolledBackWorkflow,
+              nodes,
+              connections,
+              triggerActivationError: {
+                message: 'Failed to activate workflow triggers',
+                details: result.errors
+              }
+            }, { status: 200 })
+          }
+          logger.debug('✅ All lifecycle-managed triggers activated successfully')
+        } catch (lifecycleErr) {
+          logger.error('❌ Failed to activate lifecycle-managed triggers:', lifecycleErr)
           const { data: rolledBackWorkflow } = await serviceClient
             .from('workflows')
             .update({ status: 'inactive', updated_at: new Date().toISOString() })
@@ -598,30 +626,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
             connections,
             triggerActivationError: {
               message: 'Failed to activate workflow triggers',
-              details: result.errors
+              details: lifecycleErr instanceof Error ? lifecycleErr.message : String(lifecycleErr)
             }
           }, { status: 200 })
         }
-        logger.debug('✅ All lifecycle-managed triggers activated successfully')
-      } catch (lifecycleErr) {
-        logger.error('❌ Failed to activate lifecycle-managed triggers:', lifecycleErr)
-        const { data: rolledBackWorkflow } = await serviceClient
-          .from('workflows')
-          .update({ status: 'inactive', updated_at: new Date().toISOString() })
-          .eq('id', data.id)
-          .select()
-          .single()
-
-        return jsonResponse({
-          ...rolledBackWorkflow,
-          nodes,
-          connections,
-          triggerActivationError: {
-            message: 'Failed to activate workflow triggers',
-            details: lifecycleErr instanceof Error ? lifecycleErr.message : String(lifecycleErr)
-          }
-        }, { status: 200 })
       }
+      // else: wasActive && !nodesProvided → no trigger changes, skip
     }
 
     if (shouldUnregisterWebhooks) {

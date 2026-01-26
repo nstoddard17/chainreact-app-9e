@@ -368,6 +368,34 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     }
   }
 
+  /**
+   * Define resource identity keys for Microsoft Graph triggers
+   * These keys identify what resource is being monitored
+   */
+  getResourceIdentityKeys(): string[] {
+    return [
+      // Excel identifiers
+      'workbookId',
+      'worksheetName',
+      'tableName',
+
+      // Calendar identifiers
+      'calendarId',
+
+      // Outlook email identifiers
+      'folder',
+
+      // OneDrive identifiers
+      'driveId',
+      'folderId',
+      'fileId',
+
+      // Teams identifiers
+      'teamId',
+      'channelId'
+    ]
+  }
+
   private parseGraphDateTime(value: any): Date | null {
     const raw = value?.dateTime
     if (!raw || typeof raw !== 'string') return null

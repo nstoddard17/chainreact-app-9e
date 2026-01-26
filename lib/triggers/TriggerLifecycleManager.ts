@@ -432,6 +432,331 @@ export class TriggerLifecycleManager {
   }
 
   /**
+   * Smart trigger update - preserves polling state when appropriate
+   *
+   * Analyzes what changed in the workflow triggers and:
+   * - UNCHANGED: Skips triggers that haven't changed
+   * - CONFIG_ONLY: Updates config in database while preserving polling state
+   * - RESOURCE_CHANGE: Full deactivate + reactivate (resource identifiers changed)
+   * - TYPE_CHANGE: Full deactivate + reactivate (trigger type changed)
+   * - REMOVED: Deactivates and deletes removed triggers
+   * - ADDED: Activates newly added triggers
+   *
+   * @param workflowId - The workflow ID
+   * @param userId - The user ID
+   * @param newNodes - The updated workflow nodes
+   * @returns Result with success status and any errors
+   */
+  async updateWorkflowTriggers(
+    workflowId: string,
+    userId: string,
+    newNodes: any[]
+  ): Promise<{ success: boolean; errors: string[] }> {
+    const errors: string[] = []
+
+    // Query existing trigger resources (production only, not test)
+    const { data: existingResources } = await getSupabase()
+      .from('trigger_resources')
+      .select('*')
+      .eq('workflow_id', workflowId)
+      .or('is_test.is.null,is_test.eq.false')
+
+    // Extract trigger nodes from new nodes
+    const newTriggerNodes = newNodes.filter((node: any) => node.data?.isTrigger)
+
+    // Build maps for easy lookup
+    const existingByNodeId = new Map(
+      (existingResources || []).map(r => [r.node_id, r])
+    )
+    const newByNodeId = new Map(
+      newTriggerNodes.map(n => [n.id, n])
+    )
+
+    logger.debug(`🔄 Updating triggers: ${existingByNodeId.size} existing, ${newByNodeId.size} new`)
+
+    // Categorize changes
+    const unchanged: string[] = []
+    const configOnly: Array<{ nodeId: string; resource: any; newConfig: any }> = []
+    const resourceChange: Array<{ nodeId: string; resource: any; newNode: any }> = []
+    const typeChange: Array<{ nodeId: string; resource: any; newNode: any }> = []
+    const removed: string[] = []
+    const added: any[] = []
+
+    // Check existing resources
+    for (const [nodeId, resource] of existingByNodeId) {
+      const newNode = newByNodeId.get(nodeId)
+
+      if (!newNode) {
+        // Node was removed
+        removed.push(nodeId)
+        continue
+      }
+
+      const newTriggerType = newNode.data?.type
+      const newConfig = newNode.data?.config || {}
+      const newProviderId = newNode.data?.providerId
+
+      // Check for trigger type change
+      if (newTriggerType !== resource.trigger_type) {
+        typeChange.push({ nodeId, resource, newNode })
+        continue
+      }
+
+      // Check for provider change (shouldn't happen, but handle it)
+      if (newProviderId !== resource.provider_id) {
+        resourceChange.push({ nodeId, resource, newNode })
+        continue
+      }
+
+      // Get lifecycle handler
+      const lifecycle = this.getLifecycle(resource.provider_id)
+      if (!lifecycle) {
+        // No lifecycle = no optimization possible
+        logger.debug(`ℹ️ No lifecycle for ${resource.provider_id}, treating as resource change`)
+        resourceChange.push({ nodeId, resource, newNode })
+        continue
+      }
+
+      // Check if provider implements resource identity keys
+      const resourceKeys = lifecycle.getResourceIdentityKeys?.() || []
+
+      if (resourceKeys.length === 0) {
+        // Provider doesn't implement optimization, fall back to full deactivate+activate
+        logger.debug(`ℹ️ Provider ${resource.provider_id} doesn't implement getResourceIdentityKeys(), treating as resource change`)
+        resourceChange.push({ nodeId, resource, newNode })
+        continue
+      }
+
+      // Extract resource identifiers from old and new configs
+      const oldIdentifiers = this.extractResourceIdentifiers(lifecycle, resource.config)
+      const newIdentifiers = this.extractResourceIdentifiers(lifecycle, newConfig)
+
+      // Compare resource identifiers
+      if (this.resourceIdentifiersEqual(oldIdentifiers, newIdentifiers)) {
+        // Same resource, check if config actually changed
+        const configChanged = JSON.stringify(resource.config) !== JSON.stringify(newConfig)
+
+        if (!configChanged) {
+          // Nothing changed
+          unchanged.push(nodeId)
+        } else {
+          // Config-only change, preserve polling state
+          configOnly.push({ nodeId, resource, newConfig })
+        }
+      } else {
+        // Different resource identifiers
+        resourceChange.push({ nodeId, resource, newNode })
+      }
+    }
+
+    // Find newly added nodes
+    for (const [nodeId, newNode] of newByNodeId) {
+      if (!existingByNodeId.has(nodeId)) {
+        added.push(newNode)
+      }
+    }
+
+    // Log categorization
+    logger.debug(`📊 Categorization: ${unchanged.length} unchanged, ${configOnly.length} config-only, ${resourceChange.length} resource change, ${typeChange.length} type change, ${removed.length} removed, ${added.length} added`)
+
+    // Execute operations
+    // 1. Remove deleted triggers
+    for (const nodeId of removed) {
+      try {
+        await this.deleteNodeTrigger(workflowId, userId, nodeId)
+        logger.debug(`✅ REMOVED: Node ${nodeId}`)
+      } catch (error) {
+        const errorMsg = `Failed to remove trigger ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        logger.error(`❌ ${errorMsg}`)
+        errors.push(errorMsg)
+      }
+    }
+
+    // 2. Update config-only changes (preserve polling state)
+    for (const { nodeId, resource, newConfig } of configOnly) {
+      try {
+        // Extract polling state from existing config
+        const pollingState = this.extractPollingState(resource.config)
+
+        // Merge new config with preserved polling state
+        const mergedConfig = this.mergeConfigs(newConfig, pollingState)
+
+        // Update database record
+        await getSupabase()
+          .from('trigger_resources')
+          .update({
+            config: mergedConfig,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', resource.id)
+
+        logger.debug(`✅ CONFIG_ONLY: Node ${nodeId} (preserved polling state)`)
+      } catch (error) {
+        const errorMsg = `Failed to update config for trigger ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        logger.error(`❌ ${errorMsg}`)
+        errors.push(errorMsg)
+      }
+    }
+
+    // 3. Handle resource changes (deactivate + reactivate)
+    for (const { nodeId, resource, newNode } of resourceChange) {
+      try {
+        // Deactivate old trigger
+        await this.deleteNodeTrigger(workflowId, userId, nodeId)
+
+        // Activate new trigger
+        const providerId = newNode.data?.providerId
+        const triggerType = newNode.data?.type
+        const config = newNode.data?.config || {}
+
+        const lifecycle = this.getLifecycle(providerId)
+        if (lifecycle) {
+          const context: TriggerActivationContext = {
+            workflowId,
+            userId,
+            nodeId,
+            triggerType,
+            providerId,
+            config
+          }
+
+          await lifecycle.onActivate(context)
+          logger.debug(`✅ RESOURCE_CHANGE: Node ${nodeId} (deactivated + reactivated)`)
+        }
+      } catch (error) {
+        const errorMsg = `Failed to handle resource change for trigger ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        logger.error(`❌ ${errorMsg}`)
+        errors.push(errorMsg)
+      }
+    }
+
+    // 4. Handle trigger type changes (deactivate + reactivate)
+    for (const { nodeId, resource, newNode } of typeChange) {
+      try {
+        // Deactivate old trigger
+        await this.deleteNodeTrigger(workflowId, userId, nodeId)
+
+        // Activate new trigger
+        const providerId = newNode.data?.providerId
+        const triggerType = newNode.data?.type
+        const config = newNode.data?.config || {}
+
+        const lifecycle = this.getLifecycle(providerId)
+        if (lifecycle) {
+          const context: TriggerActivationContext = {
+            workflowId,
+            userId,
+            nodeId,
+            triggerType,
+            providerId,
+            config
+          }
+
+          await lifecycle.onActivate(context)
+          logger.debug(`✅ TYPE_CHANGE: Node ${nodeId} (${resource.trigger_type} → ${triggerType})`)
+        }
+      } catch (error) {
+        const errorMsg = `Failed to handle type change for trigger ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        logger.error(`❌ ${errorMsg}`)
+        errors.push(errorMsg)
+      }
+    }
+
+    // 5. Activate newly added triggers
+    for (const node of added) {
+      try {
+        const providerId = node.data?.providerId
+        const triggerType = node.data?.type
+        const config = node.data?.config || {}
+
+        const lifecycle = this.getLifecycle(providerId)
+        if (lifecycle) {
+          const context: TriggerActivationContext = {
+            workflowId,
+            userId,
+            nodeId: node.id,
+            triggerType,
+            providerId,
+            config
+          }
+
+          await lifecycle.onActivate(context)
+          logger.debug(`✅ ADDED: Node ${node.id}`)
+        }
+      } catch (error) {
+        const errorMsg = `Failed to activate new trigger ${node.id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        logger.error(`❌ ${errorMsg}`)
+        errors.push(errorMsg)
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      errors
+    }
+  }
+
+  /**
+   * Helper: Extract resource identifiers from trigger config
+   * Uses provider's getResourceIdentityKeys() to determine which config values identify the resource
+   */
+  private extractResourceIdentifiers(
+    lifecycle: TriggerLifecycle,
+    config: any
+  ): Record<string, any> {
+    const keys = lifecycle.getResourceIdentityKeys?.() || []
+    const identifiers: Record<string, any> = {}
+
+    for (const key of keys) {
+      if (config[key] !== undefined) {
+        identifiers[key] = config[key]
+      }
+    }
+
+    return identifiers
+  }
+
+  /**
+   * Helper: Compare two resource identifier objects for equality
+   */
+  private resourceIdentifiersEqual(id1: any, id2: any): boolean {
+    const keys1 = Object.keys(id1).sort()
+    const keys2 = Object.keys(id2).sort()
+
+    // Different keys = different resource
+    if (keys1.join(',') !== keys2.join(',')) {
+      return false
+    }
+
+    // Same keys, check values
+    return keys1.every(key => id1[key] === id2[key])
+  }
+
+  /**
+   * Helper: Extract polling state from config for preservation
+   */
+  private extractPollingState(config: any): any {
+    return {
+      polling: config.polling,
+      excelRowSnapshot: config.excelRowSnapshot,
+      excelWorksheetSnapshot: config.excelWorksheetSnapshot,
+      lastPolledAt: config.lastPolledAt
+    }
+  }
+
+  /**
+   * Helper: Merge new config with preserved polling state
+   */
+  private mergeConfigs(newConfig: any, pollingState: any): any {
+    // Filter out undefined values from polling state
+    const filteredPollingState = Object.fromEntries(
+      Object.entries(pollingState).filter(([_, value]) => value !== undefined)
+    )
+
+    return { ...newConfig, ...filteredPollingState }
+  }
+
+  /**
    * Get all registered providers
    */
   getRegisteredProviders(): string[] {

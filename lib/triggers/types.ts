@@ -91,6 +91,22 @@ export interface TriggerLifecycle {
    * @returns Promise with health status
    */
   checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus>
+
+  /**
+   * Optional: Define which config keys identify the target resource.
+   * Used to determine if a trigger monitors the same resource after configuration changes.
+   *
+   * When a trigger's configuration changes, the system uses these keys to decide whether
+   * to preserve polling state (same resource) or reset it (different resource).
+   *
+   * Example for Excel: ['workbookId', 'worksheetName', 'tableName']
+   * Example for Gmail: ['labelId', 'query']
+   *
+   * If not implemented, the system will fall back to full deactivate+activate cycle.
+   *
+   * @returns Array of config property names that identify the monitored resource
+   */
+  getResourceIdentityKeys?(): string[]
 }
 
 /**
