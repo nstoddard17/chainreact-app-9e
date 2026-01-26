@@ -472,7 +472,7 @@ async function processNotifications(
 
       if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName && userId) {
         try {
-          logger.debug('[Microsoft Excel] Processing file-change notification', {
+          logger.info('[Microsoft Excel] Processing file-change notification', {
             subscriptionId: subId,
             triggerType,
             workbookId: triggerConfig.workbookId,
@@ -497,7 +497,7 @@ async function processNotifications(
           }
 
           if (!previousSnapshot) {
-            logger.debug('[Microsoft Excel] Seeding snapshot (no previous snapshot)', {
+            logger.info('[Microsoft Excel] Seeding snapshot (no previous snapshot)', {
               rowCount: currentSnapshot.rowCount
             })
             if (triggerResourceId) {
@@ -521,7 +521,7 @@ async function processNotifications(
             .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
               && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
 
-          logger.debug('[Microsoft Excel] Snapshot diff results', {
+          logger.info('[Microsoft Excel] Snapshot diff results', {
             newRowId: newRowId || null,
             changedRowId: changedRowId || null,
             previousRowCount: previousSnapshot.rowCount,
@@ -1421,7 +1421,7 @@ export async function POST(request: NextRequest) {
     const isTestMode = !!testSessionId
     const modeLabel = isTestMode ? '🧪 TEST' : '📥'
 
-    logger.debug(`${modeLabel} Microsoft Graph webhook received:`, {
+    logger.info(`${modeLabel} Microsoft Graph webhook received:`, {
       headers: Object.keys(headers),
       bodyLength: body.length,
       testSessionId: testSessionId || null,
@@ -1453,7 +1453,7 @@ export async function POST(request: NextRequest) {
     // Notifications arrive as an array in payload.value
     const notifications: any[] = Array.isArray(payload?.value) ? payload.value : []
     // SECURITY: Don't log full payload (contains PII/resource IDs)
-    logger.debug('📋 Webhook payload analysis:', {
+    logger.info('📋 Webhook payload analysis:', {
       hasValue: !!payload?.value,
       valueIsArray: Array.isArray(payload?.value),
       notificationCount: notifications.length,
@@ -1462,7 +1462,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (notifications.length > 0) {
-      logger.debug(`${modeLabel} Microsoft Graph notification summary:`, {
+      logger.info(`${modeLabel} Microsoft Graph notification summary:`, {
         subscriptionIds: notifications.map(n => n?.subscriptionId).filter(Boolean),
         changeTypes: notifications.map(n => n?.changeType).filter(Boolean),
         resources: notifications.map(n => n?.resource).filter(Boolean),
