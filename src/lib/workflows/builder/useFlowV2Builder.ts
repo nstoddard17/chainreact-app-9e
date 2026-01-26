@@ -1192,6 +1192,32 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     }
     isLoadInProgressRef.current = true
 
+    // Helper to auto-deactivate workflow if it's marked active but has no triggers
+    // This handles edge cases where the workflow state is inconsistent
+    const autoDeactivateIfNeeded = async (flow: Flow, status: string) => {
+      if (status !== 'active') return status
+
+      // Check if the flow has any trigger nodes
+      const hasTriggers = (flow.nodes || []).some((n: any) => n.metadata?.isTrigger)
+      if (hasTriggers) return status
+
+      // No triggers but marked active - auto-deactivate
+      console.log(`[useFlowV2Builder] Auto-deactivating workflow ${flowId} - no triggers but marked active`)
+      try {
+        const response = await fetch(`/api/workflows/${flowId}/deactivate`, {
+          method: 'POST',
+          credentials: 'include',
+        })
+        if (response.ok) {
+          console.log(`[useFlowV2Builder] Successfully auto-deactivated workflow ${flowId}`)
+          return 'draft'
+        }
+      } catch (error) {
+        console.error('[useFlowV2Builder] Failed to auto-deactivate workflow:', error)
+      }
+      return status
+    }
+
     // Helper to repair missing edges in a flow
     const repairFlowEdges = (flow: Flow): { repairedFlow: Flow; hadRepairs: boolean } => {
       const missingEdgeEdits = detectMissingEdges(flow)
@@ -1266,13 +1292,16 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         // calling setNodes while we're still setting up the initial state
         isInitialLoadCompleteRef.current = true
 
+        // Auto-deactivate if workflow is active but has no triggers
+        const correctedStatus = await autoDeactivateIfNeeded(flow, workflowStatus)
+
         setFlowState((prev) => ({
           ...prev,
           flow,
           revisionId: options.initialRevision.id,
           version: flow.version,
           revisionCount: 1, // We don't have revision count from server, set to 1
-          workflowStatus: workflowStatus as 'draft' | 'active' | 'inactive',
+          workflowStatus: correctedStatus as 'draft' | 'active' | 'inactive',
           error: undefined,
         }))
         void syncLatestRunId()
@@ -1342,13 +1371,16 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       // Mark initial load as complete AFTER updateReactFlowGraph
       isInitialLoadCompleteRef.current = true
 
+      // Auto-deactivate if workflow is active but has no triggers
+      const correctedStatus = await autoDeactivateIfNeeded(flow, workflowStatus)
+
       setFlowState((prev) => ({
         ...prev,
         flow,
         revisionId: revisionPayload.revision.id,
         version: flow.version ?? revisions[0].version,
         revisionCount: revisions.length,
-        workflowStatus: workflowStatus as 'draft' | 'active' | 'inactive',
+        workflowStatus: correctedStatus as 'draft' | 'active' | 'inactive',
         error: undefined,
       }))
       void syncLatestRunId()
@@ -1420,7 +1452,12 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
         setSaving(true)
         try {
-          const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
+          const payload = await fetchJson<{
+            flow: Flow
+            revisionId?: string
+            version?: number
+            workflowStatus?: 'draft' | 'active' | 'inactive'
+          }>(
             `${flowApiUrl(flowId, '/apply-edits')}`,
             {
               method: "POST",
@@ -1442,6 +1479,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             ...prev,
             revisionCount: (prev.revisionCount ?? 0) + 1,
             pendingAgentEdits: [],
+            // Update workflow status if it changed (e.g., auto-deactivation when trigger is removed)
+            ...(payload.workflowStatus ? { workflowStatus: payload.workflowStatus } : {}),
           }))
 
           return updatedFlow

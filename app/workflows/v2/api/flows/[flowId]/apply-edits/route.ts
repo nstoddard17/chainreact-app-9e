@@ -147,6 +147,35 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       logger.error('[apply-edits] Failed to cleanup orphaned triggers:', cleanupError)
     }
 
+    // Auto-deactivate workflow if it's active but no longer has any triggers
+    // A workflow without triggers can't run, so it should be deactivated
+    const triggerNodes = (flow.nodes || []).filter((n: any) => n.metadata?.isTrigger)
+    if (existingDefinition.data?.status === 'active' && triggerNodes.length === 0) {
+      try {
+        logger.info(`[apply-edits] Auto-deactivating workflow ${flowId} - no triggers remaining`)
+
+        // Deactivate any remaining trigger resources
+        await triggerLifecycleManager.deactivateWorkflowTriggers(flowId, user.id)
+
+        // Update workflow status to draft
+        const { error: deactivateError } = await serviceClient
+          .from('workflows')
+          .update({
+            status: 'draft',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', flowId)
+
+        if (deactivateError) {
+          logger.error('[apply-edits] Failed to auto-deactivate workflow:', deactivateError)
+        } else {
+          logger.info(`[apply-edits] Successfully auto-deactivated workflow ${flowId}`)
+        }
+      } catch (deactivateError) {
+        logger.error('[apply-edits] Failed to auto-deactivate workflow:', deactivateError)
+      }
+    }
+
     // Handle trigger TYPE changes in active workflows
     // When trigger type changes, do full deactivate + reactivate to ensure clean state
     if (existingDefinition.data?.status === 'active') {
@@ -200,11 +229,20 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       }
     }
 
+    // Fetch the current workflow status to return to the client
+    // This is important because the status may have been auto-updated (e.g., auto-deactivation)
+    const { data: updatedWorkflow } = await serviceClient
+      .from('workflows')
+      .select('status')
+      .eq('id', flowId)
+      .single()
+
     return NextResponse.json({
       ok: true,
       flow: revision.graph,
       revisionId: revision.id,
       version: revision.version,
+      workflowStatus: updatedWorkflow?.status || existingDefinition.data?.status,
     })
   } catch (error: any) {
     console.error('[apply-edits] Failed to create revision:', error)
