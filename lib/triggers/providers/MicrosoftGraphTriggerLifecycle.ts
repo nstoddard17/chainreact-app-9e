@@ -205,6 +205,26 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
+    if (triggerType.startsWith('microsoft_excel_') && config?.workbookId && config?.worksheetName) {
+      try {
+        const hasHeaders = config.hasHeaders === true || config.hasHeaders === 'yes'
+        const snapshot = await this.fetchExcelWorksheetSnapshot(accessToken, config.workbookId, config.worksheetName, hasHeaders)
+        await getSupabase()
+          .from('trigger_resources')
+          .update({
+            config: {
+              ...config,
+              excelRowSnapshot: snapshot
+            },
+            updated_at: new Date().toISOString()
+          })
+          .eq('external_id', subscription.id)
+          .eq('resource_type', 'subscription')
+      } catch (snapshotError) {
+        logger.warn('⚠️ Failed to seed Excel worksheet snapshot on activation:', snapshotError)
+      }
+    }
+
     if (triggerType === 'microsoft-outlook_trigger_calendar_event_start' && !testMode?.isTest) {
       try {
         await this.seedCalendarStartSchedules(workflowId, userId, nodeId, config, accessToken)
@@ -785,6 +805,50 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     return {
       rowHashes,
       rowCount: rows.length,
+      updatedAt: new Date().toISOString()
+    }
+  }
+
+  private async fetchExcelWorksheetSnapshot(
+    accessToken: string,
+    workbookId: string,
+    worksheetName: string,
+    hasHeaders: boolean
+  ): Promise<{ rowHashes: Record<string, string>; rowCount: number; updatedAt: string }> {
+    const baseUrl = 'https://graph.microsoft.com/v1.0'
+    const encodedName = encodeURIComponent(worksheetName.replace(/'/g, "''"))
+    const usedRangeUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/worksheets('${encodedName}')/usedRange?valuesOnly=true`
+
+    const response = await fetch(usedRangeUrl, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Excel usedRange fetch failed: ${response.status} ${errorText}`)
+    }
+
+    const payload = await response.json()
+    const rows = Array.isArray(payload?.values) ? payload.values : []
+    const rowHashes: Record<string, string> = {}
+
+    rows.forEach((values: any[], index: number) => {
+      if (!Array.isArray(values)) return
+      const rowIndex = index + 1
+      if (hasHeaders && rowIndex === 1) return
+      const rowId = `row-${rowIndex}`
+      const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
+      rowHashes[rowId] = hash
+    })
+
+    const rowCount = hasHeaders ? Math.max(rows.length - 1, 0) : rows.length
+
+    return {
+      rowHashes,
+      rowCount,
       updatedAt: new Date().toISOString()
     }
   }
