@@ -521,15 +521,6 @@ async function processNotifications(
             .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
               && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
 
-          logger.debug('[Test Webhook] Excel snapshot diff results', {
-            newRowId: newRowId || null,
-            changedRowId: changedRowId || null,
-            previousRowCount: previousSnapshot.rowCount,
-            currentRowCount: currentSnapshot.rowCount
-          })
-          const changedRowId = Object.keys(snapshot.rowHashes)
-            .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
-              && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
           logger.debug('[Microsoft Excel] Snapshot diff results', {
             newRowId: newRowId || null,
             changedRowId: changedRowId || null,
