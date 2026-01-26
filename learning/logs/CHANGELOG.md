@@ -1,3 +1,29 @@
+## 2026-01-25 – Add Task Balance Widget to Workflow Builder
+
+Added a comprehensive task balance widget to the workflow builder header that shows users their remaining tasks and estimated workflow cost.
+
+### New Component: `TaskBalanceWidget`
+- **Location:** `components/workflows/builder/TaskBalanceWidget.tsx`
+- **Features:**
+  - Shows remaining tasks with color-coded status (green/amber/red based on usage)
+  - Displays estimated task cost for the current workflow
+  - Warning indicator when workflow would exceed remaining balance
+  - Popover with detailed breakdown and progress bar
+  - Note that testing is free and doesn't count against balance
+
+### Integration
+- Added to `BuilderHeader.tsx` between status badge and undo/redo buttons
+- Uses existing `workflowCostStore` for estimated workflow cost
+- Fetches user's task balance from `authStore` profile (`tasks_used`, `tasks_limit`)
+
+### Visual Design
+- Compact display with Zap icon and remaining count
+- Click to expand popover with full details
+- Color transitions: emerald (< 75%) → amber (75-90%) → red (> 90%)
+- Budget warning when workflow cost exceeds remaining tasks
+
+---
+
 ## 2026-01-24 – Fix React Agent Chat Persistence on Page Refresh
 
 Fixed an issue where refreshing the page during React Agent workflow creation would clear the chat and lose provider selection state.
