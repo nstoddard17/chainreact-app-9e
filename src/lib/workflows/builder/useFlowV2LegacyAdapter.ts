@@ -55,6 +55,8 @@ interface LegacyAdapterActions {
   publish: () => Promise<{ revisionId: string }>
   listSecrets: () => Promise<Array<{ id: string; name: string }>>
   createSecret: (name: string, value: string) => Promise<void>
+  activateWorkflow: () => Promise<{ success: boolean; message?: string }>
+  deactivateWorkflow: () => Promise<{ success: boolean; message?: string }>
 }
 
 export interface UseFlowV2LegacyAdapterResult {
@@ -130,6 +132,8 @@ export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevisi
         publish: builder.actions.publish,
         listSecrets: builder.actions.listSecrets,
         createSecret: builder.actions.createSecret,
+        activateWorkflow: builder.actions.activateWorkflow,
+        deactivateWorkflow: builder.actions.deactivateWorkflow,
       }
     : null
 
