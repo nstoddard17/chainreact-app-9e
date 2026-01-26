@@ -1,13 +1,33 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { Edge as ReactFlowEdge, Node as ReactFlowNode, XYPosition } from "@xyflow/react"
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react"
+import {
+  useNodesState,
+  useEdgesState,
+  useReactFlow,
+  type Edge as ReactFlowEdge,
+  type Node as ReactFlowNode,
+  type XYPosition,
+  type OnNodesChange,
+  type OnEdgesChange,
+  type Connection,
+} from "@xyflow/react"
 
-import { useWorkflowBuilder } from "@/hooks/workflows/useWorkflowBuilder"
 import { FlowSchema, type Flow, type FlowInterface, type Node as FlowNode, type Edge as FlowEdge } from "./schema"
 import { addNodeEdit, oldConnectToEdge, generateId } from "../compat/v2Adapter"
 import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
 import { flowApiUrl } from "./api/paths"
+
+// Node components for nodeTypes
+import CustomNode from "@/components/workflows/CustomNode"
+import { AddActionNode } from "@/components/workflows/AddActionNode"
+import { ChainPlaceholderNode } from "@/components/workflows/ChainPlaceholderNode"
+import InsertActionNode from "@/components/workflows/InsertActionNode"
+import { TriggerPlaceholderNode } from "@/components/workflows/nodes/TriggerPlaceholderNode"
+import { ActionPlaceholderNode } from "@/components/workflows/nodes/ActionPlaceholderNode"
+
+// Edge component for edgeTypes
+import FlowEdge from "@/components/workflows/builder/FlowEdges"
 
 const LINEAR_STACK_X = 400
 const DEFAULT_VERTICAL_SPACING = 180
@@ -132,9 +152,36 @@ export interface FlowV2BuilderActions {
   deactivateWorkflow: () => Promise<{ success: boolean; message?: string }>
 }
 
-interface UseFlowV2BuilderResult extends ReturnType<typeof useWorkflowBuilder> {
+export interface UseFlowV2BuilderResult {
+  // React Flow state
+  nodes: ReactFlowNode[]
+  edges: ReactFlowEdge[]
+  setNodes: (update: ReactFlowNode[] | ((nodes: ReactFlowNode[]) => ReactFlowNode[])) => void
+  setEdges: (update: ReactFlowEdge[] | ((edges: ReactFlowEdge[]) => ReactFlowEdge[])) => void
+  onNodesChange: OnNodesChange<ReactFlowNode>
+  onEdgesChange: OnEdgesChange<ReactFlowEdge>
+  onConnect: (connection: Connection) => void
+  nodeTypes: Record<string, any>
+  edgeTypes: Record<string, any>
+  fitView: (options?: any) => void
+  getNodes: () => ReactFlowNode[]
+  getEdges: () => ReactFlowEdge[]
+
+  // Utility functions
+  updateNodeData: (nodeId: string, data: Partial<any>) => void
+
+  // Workflow metadata
+  workflowName: string
+  setWorkflowName: (name: string) => void
+  hasUnsavedChanges: boolean
+  setHasUnsavedChanges: (value: boolean) => void
+
+  // V2-specific state and actions
   flowState: FlowV2BuilderState
   actions: FlowV2BuilderActions
+
+  // Loading guard ref
+  isInitialLoadCompleteRef: MutableRefObject<boolean>
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" }
@@ -663,9 +710,69 @@ function shouldAlignToLinearColumn(node: ReactFlowNode): boolean {
 }
 
 export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptions): UseFlowV2BuilderResult | null {
-  const builder = useWorkflowBuilder()
+  // React Flow state - no longer depending on useWorkflowBuilder
+  const [nodes, setNodesInternal, onNodesChange] = useNodesState<ReactFlowNode>([])
+  const [edges, setEdgesInternal, onEdgesChange] = useEdgesState<ReactFlowEdge>([])
+  const { fitView, getNodes, getEdges } = useReactFlow()
 
-  const { setNodes, setEdges, setWorkflowName, setHasUnsavedChanges, getNodes } = builder
+  // Wrapped setNodes with sanitization
+  const setNodes = useCallback((update: ReactFlowNode[] | ((nodes: ReactFlowNode[]) => ReactFlowNode[])) => {
+    setNodesInternal((currentNodes) => {
+      const nextNodes = typeof update === 'function' ? update(currentNodes) : update
+      // Sanitize: remove undefined/null nodes
+      return nextNodes.filter((n: any) => n != null)
+    })
+  }, [setNodesInternal])
+
+  // Wrapped setEdges with sanitization
+  const setEdges = useCallback((update: ReactFlowEdge[] | ((edges: ReactFlowEdge[]) => ReactFlowEdge[])) => {
+    setEdgesInternal((currentEdges) => {
+      const nextEdges = typeof update === 'function' ? update(currentEdges) : update
+      // Sanitize: remove undefined/null edges
+      return nextEdges.filter((e: any) => e != null)
+    })
+  }, [setEdgesInternal])
+
+  // Node and edge types for React Flow
+  const nodeTypes = useMemo(() => ({
+    custom: CustomNode,
+    addAction: AddActionNode,
+    chainPlaceholder: ChainPlaceholderNode,
+    insertAction: InsertActionNode,
+    trigger_placeholder: TriggerPlaceholderNode,
+    action_placeholder: ActionPlaceholderNode,
+  }), [])
+
+  const edgeTypes = useMemo(() => ({
+    custom: FlowEdge,
+  }), [])
+
+  // Utility function to update a single node's data
+  const updateNodeData = useCallback((nodeId: string, data: Partial<any>) => {
+    setNodes((nds: ReactFlowNode[]) => nds.map(n =>
+      n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n
+    ))
+  }, [setNodes])
+
+  // Connection handler for when user connects two nodes
+  const onConnect = useCallback((connection: Connection) => {
+    if (!connection.source || !connection.target) return
+    setEdges((eds: ReactFlowEdge[]) => [
+      ...eds,
+      {
+        id: `e-${connection.source}-${connection.target}`,
+        source: connection.source,
+        target: connection.target,
+        sourceHandle: connection.sourceHandle ?? undefined,
+        targetHandle: connection.targetHandle ?? undefined,
+        type: 'custom',
+      }
+    ])
+  }, [setEdges])
+
+  // Workflow metadata state
+  const [workflowName, setWorkflowName] = useState("Untitled Flow")
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   // Track if we've used the initial revision
   const initialRevisionUsedRef = useRef(false)
@@ -1870,9 +1977,33 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   }, [flowId])
 
   return {
-    ...builder,
+    // React Flow state
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    onNodesChange,
+    onEdgesChange,
+    onConnect,
+    nodeTypes,
+    edgeTypes,
+    fitView,
+    getNodes,
+    getEdges,
+
+    // Utility functions
+    updateNodeData,
+
+    // Workflow metadata
+    workflowName,
+    setWorkflowName,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
+
+    // V2-specific state and actions
     flowState,
     actions,
+
     // Expose the loading guard ref so consumers can gate their useEffects
     isInitialLoadCompleteRef,
   }
