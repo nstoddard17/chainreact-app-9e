@@ -62,20 +62,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     logger.info(`🚀 Activating workflow: ${workflow.name} (${workflow.id})`)
 
-    // Load nodes and edges from normalized tables for validation
-    const [nodesResult, edgesResult] = await Promise.all([
-      serviceClient
-        .from('workflow_nodes')
-        .select('id, node_type, is_trigger, config, provider_id')
-        .eq('workflow_id', resolvedParams.id),
-      serviceClient
-        .from('workflow_edges')
-        .select('id, source_node_id, target_node_id')
-        .eq('workflow_id', resolvedParams.id)
-    ])
+    // Load nodes from normalized table for validation
+    const { data: nodesData, error: nodesError } = await serviceClient
+      .from('workflow_nodes')
+      .select('id, node_type, is_trigger, config, provider_id')
+      .eq('workflow_id', resolvedParams.id)
 
-    // Convert to format expected by validation logic and TriggerLifecycleManager
-    const nodes = (nodesResult.data || []).map((n: any) => ({
+    if (nodesError) {
+      logger.error('❌ Failed to load workflow nodes:', nodesError)
+      return errorResponse('Failed to load workflow nodes', 500)
+    }
+
+    // Simple validation: workflow needs at least 1 trigger (is_trigger=true) and at least 1 action (is_trigger=false)
+    // Both are already filtered by workflow_id in the query above
+    const triggerCount = (nodesData || []).filter((n: any) => n.is_trigger === true).length
+    const actionCount = (nodesData || []).filter((n: any) => n.is_trigger === false).length
+
+    if (triggerCount === 0) {
+      return errorResponse('Workflow must have at least one trigger', 400)
+    }
+
+    if (actionCount === 0) {
+      return errorResponse('Workflow must have at least one action', 400)
+    }
+
+    // Convert nodes to format expected by TriggerLifecycleManager
+    const nodes = (nodesData || []).map((n: any) => ({
       id: n.id,
       data: {
         type: n.node_type,
@@ -84,61 +96,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         providerId: n.provider_id
       }
     }))
-    const connections = (edgesResult.data || []).map((e: any) => ({
-      id: e.id,
-      source: e.source_node_id,
-      target: e.target_node_id
-    }))
-
-    const triggerNodes = nodes.filter((n: any) => n?.data?.isTrigger)
-    const actionNodeIds = new Set<string>(
-      nodes.filter((n: any) => !n?.data?.isTrigger && n?.data?.type).map((n: any) => n.id)
-    )
-
-    if (triggerNodes.length === 0) {
-      return errorResponse('Workflow must have at least one trigger', 400)
-    }
-
-    if (actionNodeIds.size === 0) {
-      return errorResponse('Workflow must have at least one action', 400)
-    }
-
-    // Check if any trigger is connected to an action (BFS from triggers)
-    const hasConnectedAction = (() => {
-      const nextMap = new Map<string, string[]>()
-      const edges = connections.filter((e: any) => e && (e.source || e.from) && (e.target || e.to))
-
-      for (const e of edges) {
-        const src = String(e.source || e.from)
-        const tgt = String(e.target || e.to)
-        if (!nextMap.has(src)) nextMap.set(src, [])
-        nextMap.get(src)!.push(tgt)
-      }
-
-      const visited = new Set<string>()
-      const queue: string[] = triggerNodes.map((t: any) => String(t.id))
-      for (const t of queue) visited.add(t)
-
-      while (queue.length > 0) {
-        const cur = queue.shift() as string
-        if (actionNodeIds.has(cur)) return true
-        const neighbors = nextMap.get(cur) || []
-        for (const n of neighbors) {
-          if (!visited.has(n)) {
-            visited.add(n)
-            queue.push(n)
-          }
-        }
-      }
-      return false
-    })()
-
-    if (!hasConnectedAction) {
-      return errorResponse(
-        'No action nodes connected to a trigger. Connect at least one action to activate this workflow.',
-        400
-      )
-    }
 
     // Step 1: Update status to active (optimistic)
     const { data: activatedWorkflow, error: updateError } = await serviceClient
