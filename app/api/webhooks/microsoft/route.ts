@@ -472,6 +472,13 @@ async function processNotifications(
 
       if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName && userId) {
         try {
+          logger.debug('[Microsoft Excel] Processing file-change notification', {
+            subscriptionId: subId,
+            triggerType,
+            workbookId: triggerConfig.workbookId,
+            tableName: triggerConfig.tableName,
+            resourceDataId: change?.resourceData?.id
+          })
           const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
           const graphAuth = new MicrosoftGraphAuth()
           const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-excel')
@@ -490,6 +497,9 @@ async function processNotifications(
           }
 
           if (!previousSnapshot) {
+            logger.debug('[Microsoft Excel] Seeding snapshot (no previous snapshot)', {
+              rowCount: currentSnapshot.rowCount
+            })
             if (triggerResourceId) {
               await getSupabase()
                 .from('trigger_resources')
@@ -510,6 +520,22 @@ async function processNotifications(
           const changedRowId = Object.keys(snapshot.rowHashes)
             .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
               && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
+
+          logger.debug('[Test Webhook] Excel snapshot diff results', {
+            newRowId: newRowId || null,
+            changedRowId: changedRowId || null,
+            previousRowCount: previousSnapshot.rowCount,
+            currentRowCount: currentSnapshot.rowCount
+          })
+          const changedRowId = Object.keys(snapshot.rowHashes)
+            .find((rowId) => previousSnapshot?.rowHashes?.[rowId]
+              && previousSnapshot.rowHashes[rowId] !== snapshot.rowHashes[rowId])
+          logger.debug('[Microsoft Excel] Snapshot diff results', {
+            newRowId: newRowId || null,
+            changedRowId: changedRowId || null,
+            previousRowCount: previousSnapshot.rowCount,
+            currentRowCount: currentSnapshot.rowCount
+          })
 
           if (triggerResourceId) {
             await getSupabase()
@@ -1443,6 +1469,15 @@ export async function POST(request: NextRequest) {
       payloadKeys: Object.keys(payload || {}),
       testSessionId: testSessionId || null
     })
+
+    if (notifications.length > 0) {
+      logger.debug(`${modeLabel} Microsoft Graph notification summary:`, {
+        subscriptionIds: notifications.map(n => n?.subscriptionId).filter(Boolean),
+        changeTypes: notifications.map(n => n?.changeType).filter(Boolean),
+        resources: notifications.map(n => n?.resource).filter(Boolean),
+        resourceDataIds: notifications.map(n => n?.resourceData?.id).filter(Boolean)
+      })
+    }
 
     if (notifications.length === 0) {
       logger.warn('⚠️ Microsoft webhook payload has no notifications (value array empty)')
