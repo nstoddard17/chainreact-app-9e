@@ -21,6 +21,8 @@ import { WebhookTriggerLifecycle } from './providers/WebhookTriggerLifecycle'
 import { TeamsTriggerLifecycle } from './teams'
 import { MailchimpTriggerLifecycle } from './providers/MailchimpTriggerLifecycle'
 import { TrelloTriggerLifecycle } from './providers/TrelloTriggerLifecycle'
+import { registerPollingHandler } from './polling'
+import { microsoftExcelPollingHandler } from './pollers/microsoft-excel'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -165,6 +167,8 @@ triggerLifecycleManager.registerProvider({
 // etc.
 
 logger.debug('✅ Trigger lifecycle providers registered:', triggerLifecycleManager.getRegisteredProviders())
+
+registerPollingHandler(microsoftExcelPollingHandler)
 
 // Export the manager for use in workflow activation/deactivation
 export { triggerLifecycleManager } from './TriggerLifecycleManager'

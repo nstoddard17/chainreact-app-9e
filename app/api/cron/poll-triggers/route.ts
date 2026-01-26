@@ -1,94 +1,104 @@
-import { NextResponse } from 'next/server'
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine';
-import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes';
+import { NextRequest } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
+import { findPollingHandler } from '@/lib/triggers/polling'
 import { logger } from '@/lib/utils/logger'
 
-export async function GET() {
-  const supabase = createAdminClient();
-  const executionEngine = new AdvancedExecutionEngine();
+const DEFAULT_POLL_INTERVAL_MS = 15 * 60 * 1000
 
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
+
+export async function POST(request: NextRequest) {
   try {
-    const { data: activeWorkflows, error } = await supabase
-      .from('workflows')
-      .select('id, name, user_id, status')
-      .eq('status', 'active');
+    const authHeader = request.headers.get('authorization')
+    const cronSecret = process.env.CRON_SECRET
 
-    if (error) {
-      throw error;
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      return errorResponse('Unauthorized', 401)
     }
 
-    for (const workflow of activeWorkflows) {
-      // Load nodes from normalized table
-      const { data: dbNodes } = await supabase
-        .from('workflow_nodes')
-        .select('*')
-        .eq('workflow_id', workflow.id)
-        .order('display_order')
+    const supabase = getSupabase()
+    const roleCache = new Map<string, string>()
 
-      const nodes = (dbNodes || []).map((n: any) => ({
-        id: n.id,
-        type: n.node_type,
-        position: { x: n.position_x, y: n.position_y },
-        data: {
-          type: n.node_type,
-          label: n.label,
-          config: n.config || {},
-          isTrigger: n.is_trigger,
-          triggerType: n.config?.triggerType,
-          providerId: n.provider_id
-        }
-      }))
+    const { data: triggers, error } = await supabase
+      .from('trigger_resources')
+      .select('id, user_id, workflow_id, trigger_type, config, status')
+      .eq('status', 'active')
+      .eq('config->>pollingEnabled', 'true')
 
-      const pollingTriggers = nodes.filter(
-        (node: any) => node.data.isTrigger && node.data.triggerType === 'polling'
-      );
+    if (error) {
+      logger.error('[Poll] Failed to fetch pollable triggers:', error)
+      return errorResponse('Failed to fetch pollable triggers', 500)
+    }
 
-      for (const triggerNode of pollingTriggers) {
-        const newData = await fetchDataForPollingTrigger(
-          triggerNode,
-          workflow.user_id,
-          workflow.id
-        );
+    const now = Date.now()
+    let processed = 0
+    let skipped = 0
+    let errors = 0
 
-        if (newData && newData.length > 0) {
-          logger.debug(`Found ${newData.length} new items for workflow ${workflow.id}`);
+    for (const trigger of triggers || []) {
+      const handler = findPollingHandler(trigger)
+      if (!handler) {
+        skipped += 1
+        continue
+      }
 
-          for (const item of newData) {
-            const executionSession = await executionEngine.createExecutionSession(
-              workflow.id,
-              workflow.user_id,
-              'scheduled',
-              { inputData: item }
-            );
+      const config = trigger.config || {}
+      const lastPollAt = config.polling?.lastPolledAt
+        ? new Date(config.polling.lastPolledAt).getTime()
+        : 0
 
-            // Asynchronously execute the workflow for each new item
-            executionEngine.executeWorkflowAdvanced(executionSession.id, item);
-          }
-        }
+      let userRole = roleCache.get(trigger.user_id)
+      if (!userRole) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', trigger.user_id)
+          .maybeSingle()
+        userRole = profile?.role || 'free'
+        roleCache.set(trigger.user_id, userRole)
+      }
+
+      const pollInterval = handler.getIntervalMs(userRole) || DEFAULT_POLL_INTERVAL_MS
+      if (now - lastPollAt < pollInterval) {
+        skipped += 1
+        continue
+      }
+
+      try {
+        await handler.poll({ trigger, userRole, now })
+        processed += 1
+      } catch (pollError) {
+        errors += 1
+        logger.warn('[Poll] Poll handler failed', {
+          triggerId: trigger.id,
+          handlerId: handler.id,
+          error: pollError
+        })
       }
     }
 
-    return jsonResponse({ success: true, message: 'Polling complete.' });
+    return jsonResponse({
+      success: true,
+      processed,
+      skipped,
+      errors,
+      timestamp: new Date().toISOString()
+    })
   } catch (error: any) {
-    logger.error('Polling cron job error:', error);
-    return errorResponse('Internal server error' , 500);
+    logger.error('[Poll] Error:', error)
+    return errorResponse(error.message || 'Poll failed', 500)
   }
 }
 
-async function fetchDataForPollingTrigger(
-  triggerNode: any,
-  userId: string,
-  workflowId: string
-): Promise<any[]> {
-  const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === triggerNode.data.type);
-  if (!nodeComponent) return [];
-
-  logger.debug(`Polling for ${nodeComponent.title} for user ${userId}...`);
-
-  // For other polling triggers, return empty array (to be implemented)
-  logger.debug(`No polling handler implemented for ${nodeComponent.title}`);
-  return [];
+export async function GET() {
+  return jsonResponse({
+    status: 'healthy',
+    service: 'trigger-poll',
+    timestamp: new Date().toISOString()
+  })
 }

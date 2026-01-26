@@ -60,6 +60,9 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     if (triggerType.startsWith('microsoft_excel_')) {
       await this.ensureExcelDriveId(config, accessToken)
     }
+    if (triggerType.startsWith('microsoft_excel_')) {
+      config.pollingEnabled = true
+    }
     const resource = this.getResourceForTrigger(triggerType, config)
     const changeType = this.getChangeTypeForTrigger(triggerType)
 
