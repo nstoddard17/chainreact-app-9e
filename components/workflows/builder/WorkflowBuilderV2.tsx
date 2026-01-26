@@ -363,9 +363,10 @@ async function planWorkflowWithTemplates(
 interface WorkflowBuilderV2Props {
   flowId: string
   initialRevision?: any
+  initialStatus?: 'draft' | 'active' | 'inactive'
 }
 
-export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2Props) {
+export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: WorkflowBuilderV2Props) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -375,7 +376,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision }: WorkflowBuilderV2
   const appContext = useAppContext()
   const { isReady: appReady } = appContext
 
-  const adapter = useFlowV2LegacyAdapter(flowId, { initialRevision })
+  const adapter = useFlowV2LegacyAdapter(flowId, { initialRevision, initialStatus })
   const { integrations, fetchIntegrations, setWorkspaceContext: setIntegrationWorkspaceContext } = useIntegrationStore()
   const { workspaceContext } = useWorkspaceContext()
   const builder = adapter.flowState

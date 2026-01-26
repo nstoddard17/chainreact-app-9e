@@ -92,7 +92,7 @@ function mapEdges(edges: any[]): LegacyEdge[] {
   }))
 }
 
-export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevision?: any }) {
+export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevision?: any; initialStatus?: 'draft' | 'active' | 'inactive' }) {
   const builder = useFlowV2Builder(flowId, options)
 
   const state = useMemo<LegacyAdapterState>(() => {

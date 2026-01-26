@@ -16,6 +16,7 @@ export interface UseFlowV2BuilderOptions {
   initialPrompt?: string
   autoOpenAgentPanel?: boolean
   initialRevision?: any // Pre-fetched revision data from server
+  initialStatus?: 'draft' | 'active' | 'inactive' // Pre-fetched workflow status from server
 }
 
 type PlannerEdit =
@@ -686,7 +687,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     runs: {},
     nodeSnapshots: {},
     secrets: [],
-    workflowStatus: null,
+    workflowStatus: options?.initialStatus || null,
     isUpdatingStatus: false,
   }))
 
@@ -1120,11 +1121,14 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       initialRevisionUsedRef.current = true
       setLoading(true)
       try {
-        // Fetch workflow status even when using initial revision
-        const settingsResponse = await fetch(`/api/workflows/${flowId}/settings`, { credentials: 'include' })
-          .then(r => r.ok ? r.json() : null)
-          .catch(() => null)
-        const workflowStatus = settingsResponse?.status || 'draft'
+        // Use initialStatus if provided from server, otherwise fetch from settings
+        let workflowStatus: string = options?.initialStatus || 'draft'
+        if (!options?.initialStatus) {
+          const settingsResponse = await fetch(`/api/workflows/${flowId}/settings`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+          workflowStatus = settingsResponse?.status || 'draft'
+        }
 
         let flow = FlowSchema.parse(options.initialRevision.graph)
 
@@ -1169,22 +1173,35 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     // Otherwise, fetch from API as usual
     setLoading(true)
     try {
-      // Fetch revisions and workflow status in parallel
-      const [revisionsPayload, settingsResponse] = await Promise.all([
-        fetchJson<{ revisions?: Array<{ id: string; version: number }> }>(
+      // Use initialStatus if provided, otherwise fetch from settings in parallel with revisions
+      let workflowStatus: string = options?.initialStatus || 'draft'
+      let revisionsPayload: { revisions?: Array<{ id: string; version: number }> }
+
+      if (options?.initialStatus) {
+        // Skip settings fetch when status is provided
+        revisionsPayload = await fetchJson<{ revisions?: Array<{ id: string; version: number }> }>(
           `${flowApiUrl(flowId, '/revisions')}`
-        ),
-        fetch(`/api/workflows/${flowId}/settings`, { credentials: 'include' })
-          .then(r => r.ok ? r.json() : null)
-          .catch(() => null)
-      ])
+        )
+      } else {
+        // Fetch revisions and workflow status in parallel
+        const [revPayload, settingsResponse] = await Promise.all([
+          fetchJson<{ revisions?: Array<{ id: string; version: number }> }>(
+            `${flowApiUrl(flowId, '/revisions')}`
+          ),
+          fetch(`/api/workflows/${flowId}/settings`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        ])
+        revisionsPayload = revPayload
+        workflowStatus = settingsResponse?.status || 'draft'
+      }
+
       const revisions = (revisionsPayload.revisions ?? []).slice().sort((a, b) => b.version - a.version)
       if (revisions.length === 0) {
         throw new Error("Flow revision not found")
       }
 
       const revisionId = revisions[0].id
-      const workflowStatus = settingsResponse?.status || 'draft'
 
       const revisionPayload = await fetchJson<{ revision: { id: string; flowId: string; graph: Flow } }>(
         `${flowApiUrl(flowId, `/revisions/${revisionId}`)}`

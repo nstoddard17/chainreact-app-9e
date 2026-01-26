@@ -33,7 +33,7 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
   // Check workflows table for access
   const { data: flowRow } = await serviceClient
     .from("workflows")
-    .select("id, user_id, workspace_id")
+    .select("id, user_id, workspace_id, status")
     .eq("id", flowId)
     .maybeSingle()
 
@@ -83,7 +83,7 @@ export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
   return (
     <TooltipProvider>
       <ReactFlowProvider>
-        <WorkflowBuilderV2 flowId={flowId} initialRevision={revision} />
+        <WorkflowBuilderV2 flowId={flowId} initialRevision={revision} initialStatus={flowRow.status} />
       </ReactFlowProvider>
     </TooltipProvider>
   )
