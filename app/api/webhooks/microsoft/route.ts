@@ -565,16 +565,170 @@ async function processNotifications(
         }
       }
 
-      // Support both tableName and worksheetName for backwards compatibility
+      // Handle microsoft_excel_trigger_new_worksheet - detects new worksheets in workbook
+      if (triggerType === 'microsoft_excel_trigger_new_worksheet' && triggerConfig?.workbookId && userId) {
+        try {
+          logger.info('[Microsoft Excel] Processing new worksheet trigger', {
+            subscriptionId: subId,
+            triggerType,
+            workbookId: triggerConfig.workbookId
+          })
+
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-excel')
+
+          // Fetch current worksheets
+          const worksheetsUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${triggerConfig.workbookId}/workbook/worksheets`
+          const worksheetsResponse = await fetch(worksheetsUrl, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (!worksheetsResponse.ok) {
+            const errorText = await worksheetsResponse.text()
+            logger.error('[Microsoft Excel] Failed to fetch worksheets:', {
+              status: worksheetsResponse.status,
+              error: errorText
+            })
+            continue
+          }
+
+          const worksheetsData = await worksheetsResponse.json()
+          const currentWorksheets = (worksheetsData?.value || []).map((ws: any) => ({
+            id: ws.id,
+            name: ws.name,
+            position: ws.position
+          }))
+
+          const currentWorksheetIds = new Set(currentWorksheets.map((ws: any) => ws.id))
+          const previousWorksheetIds = new Set(triggerConfig.worksheetSnapshot?.ids || [])
+
+          logger.info('[Microsoft Excel] Worksheet comparison:', {
+            currentCount: currentWorksheets.length,
+            previousCount: previousWorksheetIds.size,
+            currentIds: Array.from(currentWorksheetIds),
+            previousIds: Array.from(previousWorksheetIds)
+          })
+
+          // Find new worksheets (IDs in current but not in previous)
+          const newWorksheets = currentWorksheets.filter((ws: any) => !previousWorksheetIds.has(ws.id))
+
+          // Update the snapshot
+          if (triggerResourceId) {
+            await getSupabase()
+              .from('trigger_resources')
+              .update({
+                config: {
+                  ...triggerConfig,
+                  worksheetSnapshot: {
+                    ids: Array.from(currentWorksheetIds),
+                    names: currentWorksheets.map((ws: any) => ws.name),
+                    updatedAt: new Date().toISOString()
+                  }
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', triggerResourceId)
+          }
+
+          // If no previous snapshot, this is the first run - seed it
+          if (previousWorksheetIds.size === 0) {
+            logger.info('[Microsoft Excel] Seeding worksheet snapshot (no previous snapshot)', {
+              worksheetCount: currentWorksheets.length
+            })
+            continue
+          }
+
+          // If new worksheets found, trigger workflow for each
+          if (newWorksheets.length > 0) {
+            logger.info('[Microsoft Excel] ✅ New worksheet(s) detected:', {
+              newWorksheets: newWorksheets.map((ws: any) => ws.name),
+              workflowId
+            })
+
+            for (const newWorksheet of newWorksheets) {
+              if (workflowId) {
+                const base = getWebhookBaseUrl()
+                const executionUrl = `${base}/api/workflows/execute`
+
+                const executionPayload = {
+                  workflowId,
+                  testMode: false,
+                  executionMode: 'live',
+                  skipTriggers: true,
+                  inputData: {
+                    source: 'microsoft-excel-worksheet-created',
+                    subscriptionId: subId,
+                    triggerType,
+                    workbookId: triggerConfig.workbookId,
+                    worksheet: {
+                      id: newWorksheet.id,
+                      name: newWorksheet.name,
+                      position: newWorksheet.position
+                    }
+                  }
+                }
+
+                logger.info('[Microsoft Excel] Triggering workflow for new worksheet:', {
+                  worksheetName: newWorksheet.name,
+                  workflowId
+                })
+
+                const response = await fetch(executionUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': userId
+                  },
+                  body: JSON.stringify(executionPayload)
+                })
+
+                if (!response.ok) {
+                  const errorText = await response.text()
+                  logger.error('[Microsoft Excel] Workflow execution failed:', {
+                    status: response.status,
+                    error: errorText
+                  })
+                } else {
+                  logger.info('[Microsoft Excel] ✅ Workflow execution triggered successfully for worksheet:', newWorksheet.name)
+                }
+              }
+            }
+          } else {
+            logger.debug('[Microsoft Excel] No new worksheets detected')
+          }
+
+          continue
+        } catch (worksheetError: any) {
+          logger.error('[Microsoft Excel] Failed to process new worksheet trigger:', {
+            error: worksheetError?.message || String(worksheetError),
+            stack: worksheetError?.stack?.split('\n').slice(0, 3).join(' | '),
+            workbookId: triggerConfig?.workbookId,
+            subscriptionId: subId
+          })
+        }
+      }
+
+      // Support both tableName and worksheetName for backwards compatibility (for row-based triggers)
       const excelTableOrSheet = triggerConfig?.tableName || triggerConfig?.worksheetName
-      logger.info('🔎 Excel trigger check:', {
-        triggerType,
-        hasWorkbookId: !!triggerConfig?.workbookId,
-        excelTableOrSheet,
-        userId,
-        willProcess: !!(triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && excelTableOrSheet && userId)
-      })
-      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && excelTableOrSheet && userId) {
+
+      // Only log and process row-based triggers here (new_worksheet is handled above)
+      const isRowBasedExcelTrigger = triggerType?.startsWith('microsoft_excel_') &&
+                                      triggerType !== 'microsoft_excel_trigger_new_worksheet' &&
+                                      triggerConfig?.workbookId &&
+                                      excelTableOrSheet &&
+                                      userId
+
+      if (isRowBasedExcelTrigger) {
+        logger.info('🔎 Excel row trigger check:', {
+          triggerType,
+          hasWorkbookId: !!triggerConfig?.workbookId,
+          excelTableOrSheet,
+          userId
+        })
         try {
           logger.info('[Microsoft Excel] Processing file-change notification', {
             subscriptionId: subId,
