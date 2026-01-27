@@ -540,6 +540,108 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const [agentMessages, setAgentMessages] = useState<ChatMessage[]>([])
   const [isAgentLoading, setIsAgentLoading] = useState(false)
   const [agentStatus, setAgentStatus] = useState("")
+  const lastConfigNodeIdRef = useRef<string | null>(null)
+
+  const getConfigPanelWidth = useCallback(() => {
+    if (typeof window === 'undefined') return 600
+    const viewportWidth = window.innerWidth
+    return viewportWidth < 640 ? viewportWidth : 600
+  }, [])
+
+  const getViewportMetrics = useCallback((configOpen: boolean) => {
+    const headerHeight = 48
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
+    const leftOffset = agentOpen ? agentPanelWidth : 0
+    const rightOffset = configOpen ? getConfigPanelWidth() : 0
+    let availableWidth = viewportWidth - leftOffset - rightOffset
+    const availableHeight = viewportHeight - headerHeight
+
+    if (availableWidth < 200) {
+      availableWidth = viewportWidth
+    }
+
+    return {
+      headerHeight,
+      viewportWidth,
+      viewportHeight,
+      leftOffset,
+      rightOffset,
+      availableWidth,
+      availableHeight,
+    }
+  }, [agentOpen, agentPanelWidth, getConfigPanelWidth])
+
+  const focusConfigNode = useCallback((nodeId: string) => {
+    const instance = reactFlowInstanceRef.current
+    if (!instance || !nodeId) return
+    const node = instance.getNode(nodeId)
+    if (!node) return
+
+    const {
+      headerHeight,
+      leftOffset,
+      availableWidth,
+      availableHeight,
+    } = getViewportMetrics(true)
+
+    const currentZoom = instance.getViewport?.().zoom ?? 1
+    const zoom = Math.min(1.2, Math.max(currentZoom, 1.05))
+    const nodeWidth = node.width ?? 360
+    const nodeHeight = node.height ?? 100
+    const nodeCenterX = node.position.x + nodeWidth / 2
+    const nodeCenterY = node.position.y + nodeHeight / 2
+    const screenCenterX = leftOffset + (availableWidth / 2)
+    const screenCenterY = headerHeight + (availableHeight / 2)
+    const viewportX = screenCenterX - (nodeCenterX * zoom)
+    const viewportY = screenCenterY - (nodeCenterY * zoom)
+
+    instance.setViewport({ x: viewportX, y: viewportY, zoom }, { duration: 450 })
+  }, [getViewportMetrics])
+
+  const fitWorkflowToViewport = useCallback(() => {
+    const instance = reactFlowInstanceRef.current
+    if (!instance) return
+    const nodes = instance.getNodes?.() ?? []
+    if (nodes.length === 0) return
+
+    const {
+      headerHeight,
+      leftOffset,
+      availableWidth,
+      availableHeight,
+    } = getViewportMetrics(false)
+
+    const bounds = nodes.reduce((acc, node) => {
+      const width = node.width ?? 360
+      const height = node.height ?? 100
+      acc.minX = Math.min(acc.minX, node.position.x)
+      acc.minY = Math.min(acc.minY, node.position.y)
+      acc.maxX = Math.max(acc.maxX, node.position.x + width)
+      acc.maxY = Math.max(acc.maxY, node.position.y + height)
+      return acc
+    }, {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY,
+    })
+
+    const padding = 120
+    const boundsWidth = Math.max(1, bounds.maxX - bounds.minX + (padding * 2))
+    const boundsHeight = Math.max(1, bounds.maxY - bounds.minY + (padding * 2))
+    const zoomX = availableWidth / boundsWidth
+    const zoomY = availableHeight / boundsHeight
+    const zoom = Math.max(0.3, Math.min(1, zoomX, zoomY))
+    const centerX = (bounds.minX + bounds.maxX) / 2
+    const centerY = (bounds.minY + bounds.maxY) / 2
+    const screenCenterX = leftOffset + (availableWidth / 2)
+    const screenCenterY = headerHeight + (availableHeight / 2)
+    const viewportX = screenCenterX - (centerX * zoom)
+    const viewportY = screenCenterY - (centerY * zoom)
+
+    instance.setViewport({ x: viewportX, y: viewportY, zoom }, { duration: 500 })
+  }, [getViewportMetrics])
 
   // Provider disambiguation state
   const [awaitingProviderSelection, setAwaitingProviderSelection] = useState(false)
@@ -1093,6 +1195,25 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     if (typeof window === "undefined") return
     window.localStorage.setItem("reactAgentPanelOpen", String(agentOpen))
   }, [agentOpen])
+
+  useEffect(() => {
+    if (!configuringNode?.id) return
+    lastConfigNodeIdRef.current = configuringNode.id
+    const timer = setTimeout(() => {
+      focusConfigNode(configuringNode.id)
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [configuringNode?.id, agentOpen, agentPanelWidth, focusConfigNode])
+
+  useEffect(() => {
+    if (configuringNode) return
+    if (!lastConfigNodeIdRef.current) return
+    const timer = setTimeout(() => {
+      fitWorkflowToViewport()
+      lastConfigNodeIdRef.current = null
+    }, 150)
+    return () => clearTimeout(timer)
+  }, [configuringNode, agentOpen, agentPanelWidth, fitWorkflowToViewport])
 
   // Build state machine handlers (defined early for use in URL prompt handler)
   const transitionTo = useCallback((nextState: BuildState) => {
