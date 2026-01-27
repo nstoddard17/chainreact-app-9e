@@ -33,6 +33,14 @@ export const microsoftExcelNodes: NodeComponent[] = [
         placeholder: "Select a worksheet",
         description: "The specific worksheet (tab) within the workbook"
       },
+      {
+        name: "hasHeaders",
+        label: "First Row Contains Headers",
+        type: "boolean",
+        required: false,
+        default: true,
+        description: "If enabled, the first row is treated as column headers and excluded from row tracking"
+      },
     ],
     outputSchema: [
       {
@@ -158,6 +166,14 @@ export const microsoftExcelNodes: NodeComponent[] = [
         dependsOn: "workbookId",
         placeholder: "Select a worksheet",
         description: "The specific worksheet (tab) within the workbook"
+      },
+      {
+        name: "hasHeaders",
+        label: "First Row Contains Headers",
+        type: "boolean",
+        required: false,
+        default: true,
+        description: "If enabled, the first row is treated as column headers and excluded from row tracking"
       },
     ],
     outputSchema: [

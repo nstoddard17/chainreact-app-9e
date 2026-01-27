@@ -43,6 +43,7 @@ export function SetupTab(props: SetupTabProps) {
 
   // Track if we've already requested integrations to avoid duplicate fetches
   const hasRequestedIntegrationsRef = useRef(false)
+  const lastProviderKeyRef = useRef<string | null>(null)
 
   // Check if integrations are still loading from the store
   const isLoadingIntegrations = loadingStates?.['integrations'] ?? false
@@ -51,15 +52,27 @@ export function SetupTab(props: SetupTabProps) {
   // This prevents the "Not connected" flicker when clicking on a node
   // if the integration store hasn't been populated yet
   useEffect(() => {
+    const providerKey = nodeInfo?.providerId
+      ? `${nodeInfo.providerId}|${currentNodeId || ''}|${nodeInfo.type || ''}`
+      : null
+
+    if (providerKey && lastProviderKeyRef.current !== providerKey) {
+      hasRequestedIntegrationsRef.current = false
+      lastProviderKeyRef.current = providerKey
+    }
+
     if (nodeInfo?.providerId && !hasRequestedIntegrationsRef.current) {
       hasRequestedIntegrationsRef.current = true
-      const shouldForce = integrations.length === 0
+      const providerIntegrations = integrations.filter(
+        int => int.provider === nodeInfo.providerId
+      )
+      const shouldForce = integrations.length === 0 || providerIntegrations.length === 0
       // Force refresh if the store is empty to avoid stale "Not connected" state
       fetchIntegrations(shouldForce).catch(() => {
         // Silently ignore errors - the UI will show "Not connected" which is acceptable
       })
     }
-  }, [nodeInfo?.providerId, fetchIntegrations, integrations.length])
+  }, [nodeInfo?.providerId, nodeInfo?.type, currentNodeId, fetchIntegrations, integrations])
 
   // Listen for reconnection events to refresh integration store
   React.useEffect(() => {

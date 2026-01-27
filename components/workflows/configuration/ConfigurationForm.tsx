@@ -288,6 +288,7 @@ function ConfigurationForm({
 
   // Ensure Google providers and Microsoft Excel appear connected by fetching integrations if store hasn't resolved yet
   const hasRequestedIntegrationsRef = useRef(false);
+  const lastProviderKeyRef = useRef<string | null>(null);
 
   // Store values in a ref to create a stable getFormValues callback that doesn't cause loadOptions to be recreated
   const valuesRef = useRef(values);
@@ -299,14 +300,20 @@ function ConfigurationForm({
   const getFormValuesStable = useCallback(() => valuesRef.current, []);
   useEffect(() => {
     if (!provider) return;
+    const providerKey = `${provider}|${currentNodeId || ''}|${nodeInfo?.type || ''}`;
+    if (lastProviderKeyRef.current !== providerKey) {
+      hasRequestedIntegrationsRef.current = false;
+      lastProviderKeyRef.current = providerKey;
+    }
     const isGoogleProvider = provider === 'google-sheets' || provider === 'google_drive' || provider === 'google-drive' || provider === 'google-docs' || provider === 'google_calendar' || provider === 'google-calendar' || provider === 'google' || provider === 'gmail';
     const isMicrosoftExcel = provider === 'microsoft-excel';
     if ((isGoogleProvider || isMicrosoftExcel) && !integration && !hasRequestedIntegrationsRef.current) {
       hasRequestedIntegrationsRef.current = true;
       // Non-forced fetch to avoid wiping cache mid-UI, just ensure the store has data
-      try { fetchIntegrations(false); } catch {}
+      const shouldForce = integrations.length === 0;
+      try { fetchIntegrations(shouldForce); } catch {}
     }
-  }, [provider, integration, fetchIntegrations]);
+  }, [provider, currentNodeId, nodeInfo?.type, integration, fetchIntegrations, integrations.length]);
 
   // Suppress background integration refreshes while the configuration modal is open
   useEffect(() => {

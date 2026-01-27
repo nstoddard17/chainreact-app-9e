@@ -536,7 +536,7 @@ const BuilderHeaderComponent = ({
                     size="icon"
                     onClick={onToggleViewLock}
                     disabled={!onToggleViewLock}
-                    title={isViewLocked ? "Unlock view" : "Lock view"}
+                    title={isViewLocked ? "View locked (click to unlock)" : "Lock view"}
                     className="h-8 w-8"
                   >
                     {isViewLocked ? (
