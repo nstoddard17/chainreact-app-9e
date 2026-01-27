@@ -1246,7 +1246,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       fitWorkflowToViewport()
     }, 250)
     return () => clearTimeout(timer)
-  }, [builder?.nodes?.length, reactFlowProps?.nodes?.length, isViewLocked, fitWorkflowToViewport])
+  }, [builder?.nodes?.length, isViewLocked, fitWorkflowToViewport])
 
   // Build state machine handlers (defined early for use in URL prompt handler)
   const transitionTo = useCallback((nextState: BuildState) => {
