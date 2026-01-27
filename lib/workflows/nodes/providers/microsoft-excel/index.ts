@@ -131,7 +131,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
   {
     type: "microsoft_excel_trigger_updated_row",
     title: "Updated Row in Worksheet",
-    description: "Triggers when a row is updated in an Excel worksheet",
+    description: "Triggers when a row is updated in an Excel worksheet (uses position-based tracking)",
     icon: FileSpreadsheet,
     isTrigger: true,
     providerId: "microsoft-excel",
@@ -279,6 +279,83 @@ export const microsoftExcelNodes: NodeComponent[] = [
         label: "Timestamp",
         type: "string",
         description: "ISO timestamp when the row was added"
+      }
+    ],
+  },
+  {
+    type: "microsoft_excel_trigger_updated_table_row",
+    title: "Updated Row in Table",
+    description: "Triggers when a row is updated in an Excel table (uses stable table row IDs)",
+    icon: List,
+    providerId: "microsoft-excel",
+    category: "Productivity",
+    isTrigger: true,
+    producesOutput: true,
+    requiredIntegration: "microsoft-excel",
+    configSchema: [
+      {
+        name: "workbookId",
+        label: "Workbook",
+        type: "select",
+        dynamic: "microsoft-excel_workbooks",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select a workbook",
+        description: "Choose a workbook from your OneDrive account"
+      },
+      {
+        name: "tableName",
+        label: "Table",
+        type: "select",
+        dynamic: "microsoft-excel_tables",
+        required: true,
+        dependsOn: "workbookId",
+        placeholder: "Select a table",
+        description: "The Excel table to monitor for updated rows"
+      },
+    ],
+    outputSchema: [
+      {
+        name: "rowIndex",
+        label: "Row Index",
+        type: "number",
+        description: "The index of the updated row in the table"
+      },
+      {
+        name: "rowId",
+        label: "Row ID",
+        type: "string",
+        description: "The stable unique ID of the updated row"
+      },
+      {
+        name: "values",
+        label: "Updated Values",
+        type: "array",
+        description: "Array of cell values in the updated row"
+      },
+      {
+        name: "rowData",
+        label: "Row Data",
+        type: "object",
+        description: "Updated row data as key-value pairs (column headers as keys)"
+      },
+      {
+        name: "tableName",
+        label: "Table Name",
+        type: "string",
+        description: "Name of the table where row was updated"
+      },
+      {
+        name: "workbookId",
+        label: "Workbook ID",
+        type: "string",
+        description: "ID of the workbook"
+      },
+      {
+        name: "timestamp",
+        label: "Timestamp",
+        type: "string",
+        description: "ISO timestamp when the row was updated"
       }
     ],
   },

@@ -866,10 +866,21 @@ async function processNotifications(
             continue
           }
 
-          if (triggerType === 'microsoft_excel_trigger_updated_row' && changedRowId) {
+          // Handle both worksheet-based (updated_row) and table-based (updated_table_row) triggers
+          const isUpdatedRowTrigger = triggerType === 'microsoft_excel_trigger_updated_row' ||
+                                       triggerType === 'microsoft_excel_trigger_updated_table_row'
+
+          if (isUpdatedRowTrigger && changedRowId) {
             const changedRow = snapshot.rows.find((row: any) => row?.id === changedRowId)
             const values = Array.isArray(changedRow?.values?.[0]) ? changedRow.values[0] : changedRow?.values
             const rowData = buildExcelRowData(values, snapshot.columns)
+
+            logger.info('[Microsoft Excel] ✅ Updated row detected, triggering workflow:', {
+              triggerType,
+              rowId: changedRowId,
+              workflowId,
+              columnCount: snapshot.columns.length
+            })
 
             if (workflowId) {
               const base = getWebhookBaseUrl()
@@ -885,7 +896,7 @@ async function processNotifications(
                   subscriptionId: subId,
                   triggerType,
                   workbookId: triggerConfig.workbookId,
-                  tableName: excelTableOrSheet || testExcelTableOrSheet,
+                  worksheetName: excelTableOrSheet,
                   rowId: changedRowId,
                   values,
                   rowData,
@@ -893,7 +904,10 @@ async function processNotifications(
                 }
               }
 
-              logger.debug('[Microsoft Excel] Triggering workflow execution:', executionUrl)
+              logger.info('[Microsoft Excel] Triggering workflow for updated row:', {
+                rowId: changedRowId,
+                workflowId
+              })
 
               const response = await fetch(executionUrl, {
                 method: 'POST',
@@ -910,6 +924,8 @@ async function processNotifications(
                   status: response.status,
                   error: errorText
                 })
+              } else {
+                logger.info('[Microsoft Excel] ✅ Workflow execution triggered successfully for updated row')
               }
             }
             continue
@@ -1970,7 +1986,11 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
             continue
           }
 
-          if (triggerType === 'microsoft_excel_trigger_updated_row' && changedRowId) {
+          // Handle both worksheet-based (updated_row) and table-based (updated_table_row) triggers
+          const isUpdatedRowTrigger = triggerType === 'microsoft_excel_trigger_updated_row' ||
+                                       triggerType === 'microsoft_excel_trigger_updated_table_row'
+
+          if (isUpdatedRowTrigger && changedRowId) {
             const changedRow = snapshot.rows.find((row: any) => row?.id === changedRowId)
             const values = Array.isArray(changedRow?.values?.[0]) ? changedRow.values[0] : changedRow?.values
             const rowData = buildExcelRowData(values, snapshot.columns)
@@ -1978,7 +1998,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               trigger: {
                 type: triggerType,
                 workbookId: triggerConfig.workbookId,
-                tableName: excelTableOrSheet || testExcelTableOrSheet,
+                worksheetName: testExcelTableOrSheet,
                 rowId: changedRowId
               },
               row: changedRow,
@@ -1988,6 +2008,12 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               _testSession: true,
               _source: 'microsoft-excel-file-change'
             }
+
+            logger.info('[Test Webhook] ✅ Updated row detected, storing trigger data:', {
+              triggerType,
+              rowId: changedRowId,
+              testSessionId
+            })
 
             await supabase
               .from('workflow_test_sessions')
