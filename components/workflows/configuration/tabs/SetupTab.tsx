@@ -35,7 +35,7 @@ interface SetupTabProps {
  * 2. ConfigurationForm - All field configuration
  */
 export function SetupTab(props: SetupTabProps) {
-  const { nodeInfo, integrationName } = props
+  const { nodeInfo, integrationName, currentNodeId } = props
   const { integrations, fetchIntegrations, connectApiKeyIntegration, loadingStates } = useIntegrationStore()
   const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
