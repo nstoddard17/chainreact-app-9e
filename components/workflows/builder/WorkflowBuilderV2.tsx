@@ -82,6 +82,7 @@ import { BuildChoreographer } from "@/lib/workflows/ai-agent/build-choreography"
 import { ChatService, type ChatMessage } from "@/lib/workflows/ai-agent/chat-service"
 import { CostTracker, estimateWorkflowCost } from "@/lib/workflows/ai-agent/cost-tracker"
 import { TaskBalanceWidget } from "./TaskBalanceWidget"
+import { DisconnectedIntegrationsDialog, getDisconnectedIntegrations } from "./DisconnectedIntegrationsDialog"
 import { getWorkflowTaskCost, getNodeTaskCost } from "@/lib/workflows/cost-calculator"
 import { useWorkflowCostStore } from "@/stores/workflowCostStore"
 import { WorkflowStatusBar } from "./WorkflowStatusBar"
@@ -399,6 +400,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const [isNodeTesting, setIsNodeTesting] = useState(false) // True while testing a single node
   const [nodeTestingName, setNodeTestingName] = useState<string | null>(null) // Name of node being tested
   const [isTestModeDialogOpen, setIsTestModeDialogOpen] = useState(false) // Test/Live mode dialog
+  const [isDisconnectedDialogOpen, setIsDisconnectedDialogOpen] = useState(false) // Disconnected integrations dialog
+  const [disconnectedIntegrations, setDisconnectedIntegrations] = useState<any[]>([]) // List of disconnected integrations
 
   // Ref to track if test is in progress and abort controller for cleanup
   const testAbortControllerRef = useRef<AbortController | null>(null)
@@ -4457,6 +4460,19 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       })
       return
     }
+
+    // Check for disconnected integrations
+    const currentIntegrations = useIntegrationStore.getState().integrations
+    const disconnected = getDisconnectedIntegrations(builder.nodes, currentIntegrations)
+
+    if (disconnected.length > 0) {
+      // Show the disconnected integrations dialog first
+      setDisconnectedIntegrations(disconnected)
+      setIsDisconnectedDialogOpen(true)
+      return
+    }
+
+    // All integrations connected, open test dialog
     setIsTestModeDialogOpen(true)
   }, [builder?.nodes, hasPlaceholders, toast])
 
@@ -6728,8 +6744,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         <div
           style={{ height: "100%", width: "100%", position: "relative" }}
         >
-          {/* Task Balance Widget in Top Right */}
-          <div className="absolute top-4 right-4 z-50">
+          {/* Task Balance Widget in Top Right - z-10 so it goes behind config panels */}
+          <div className="absolute top-4 right-4 z-10">
             <TaskBalanceWidget />
           </div>
 
@@ -6908,6 +6924,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         isExecuting={isFlowTesting}
         isListening={testFlowStatus === 'listening'}
         listeningTimeRemaining={listeningTimeRemaining ?? undefined}
+      />
+
+      {/* Disconnected Integrations Dialog */}
+      <DisconnectedIntegrationsDialog
+        open={isDisconnectedDialogOpen}
+        onOpenChange={setIsDisconnectedDialogOpen}
+        disconnectedIntegrations={disconnectedIntegrations}
+        onAllConnected={() => {
+          setIsDisconnectedDialogOpen(false)
+          setIsTestModeDialogOpen(true)
+        }}
       />
 
       {configuringNode && (() => {
