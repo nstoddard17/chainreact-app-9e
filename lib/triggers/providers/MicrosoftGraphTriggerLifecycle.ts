@@ -660,6 +660,14 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
         }
         return '/me/drive/root'
       },
+      'trigger_updated_table_row': (config?: Record<string, any>) => {
+        if (config?.workbookId) {
+          if (config?.driveId) {
+            return `/drives/${config.driveId}/root`
+          }
+        }
+        return '/me/drive/root'
+      },
 
       // OneNote triggers
       'trigger_new_note': (config?: Record<string, any>) => {
