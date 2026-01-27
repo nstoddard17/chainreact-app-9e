@@ -27,7 +27,7 @@ import { TriggerPlaceholderNode } from "@/components/workflows/nodes/TriggerPlac
 import { ActionPlaceholderNode } from "@/components/workflows/nodes/ActionPlaceholderNode"
 
 // Edge component for edgeTypes
-import FlowEdge from "@/components/workflows/builder/FlowEdges"
+import { FlowEdge as FlowEdgeComponent } from "@/components/workflows/builder/FlowEdges"
 
 const LINEAR_STACK_X = 400
 const DEFAULT_VERTICAL_SPACING = 180
@@ -744,7 +744,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   }), [])
 
   const edgeTypes = useMemo(() => ({
-    custom: FlowEdge,
+    custom: FlowEdgeComponent,
   }), [])
 
   // Utility function to update a single node's data
