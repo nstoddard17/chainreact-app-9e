@@ -541,6 +541,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const [isAgentLoading, setIsAgentLoading] = useState(false)
   const [agentStatus, setAgentStatus] = useState("")
   const lastConfigNodeIdRef = useRef<string | null>(null)
+  const [isViewLocked, setIsViewLocked] = useState(false)
+  const hasInitialCenterRef = useRef(false)
 
   const getConfigPanelWidth = useCallback(() => {
     if (typeof window === 'undefined') return 600
@@ -573,6 +575,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [agentOpen, agentPanelWidth, getConfigPanelWidth])
 
   const focusConfigNode = useCallback((nodeId: string) => {
+    if (isViewLocked) return
     const instance = reactFlowInstanceRef.current
     if (!instance || !nodeId) return
     const node = instance.getNode(nodeId)
@@ -599,7 +602,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     instance.setViewport({ x: viewportX, y: viewportY, zoom }, { duration: 450 })
   }, [getViewportMetrics])
 
-  const fitWorkflowToViewport = useCallback(() => {
+  const fitWorkflowToViewport = useCallback((options: { force?: boolean } = {}) => {
+    if (isViewLocked && !options.force) return
     const instance = reactFlowInstanceRef.current
     if (!instance) return
     const nodes = instance.getNodes?.() ?? []
@@ -641,7 +645,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const viewportY = screenCenterY - (centerY * zoom)
 
     instance.setViewport({ x: viewportX, y: viewportY, zoom }, { duration: 500 })
-  }, [getViewportMetrics])
+  }, [getViewportMetrics, isViewLocked])
 
   // Provider disambiguation state
   const [awaitingProviderSelection, setAwaitingProviderSelection] = useState(false)
@@ -1196,6 +1200,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     window.localStorage.setItem("reactAgentPanelOpen", String(agentOpen))
   }, [agentOpen])
 
+  const handleRecenterView = useCallback(() => {
+    fitWorkflowToViewport({ force: true })
+  }, [fitWorkflowToViewport])
+
+  const handleToggleViewLock = useCallback(() => {
+    setIsViewLocked(prev => !prev)
+  }, [])
+
   useEffect(() => {
     if (!configuringNode?.id) return
     lastConfigNodeIdRef.current = configuringNode.id
@@ -1214,6 +1226,27 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }, 150)
     return () => clearTimeout(timer)
   }, [configuringNode, agentOpen, agentPanelWidth, fitWorkflowToViewport])
+
+  useEffect(() => {
+    if (configuringNode || isViewLocked) return
+    const timer = setTimeout(() => {
+      fitWorkflowToViewport()
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [agentOpen, agentPanelWidth, configuringNode, isViewLocked, fitWorkflowToViewport])
+
+  useEffect(() => {
+    if (isViewLocked) return
+    if (!reactFlowInstanceRef.current) return
+    const nodes = reactFlowInstanceRef.current.getNodes?.() ?? []
+    if (nodes.length === 0) return
+    if (hasInitialCenterRef.current) return
+    hasInitialCenterRef.current = true
+    const timer = setTimeout(() => {
+      fitWorkflowToViewport()
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [builder?.nodes?.length, reactFlowProps?.nodes?.length, isViewLocked, fitWorkflowToViewport])
 
   // Build state machine handlers (defined early for use in URL prompt handler)
   const transitionTo = useCallback((nextState: BuildState) => {
@@ -6849,7 +6882,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     activeRunId: flowState?.lastRunId,
     onGenerateApiKey: hasPublishedRevision ? handleGenerateApiKey : undefined,
     canGenerateApiKey: hasPublishedRevision,
-  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.isUpdatingStatus, flowState?.lastRunId, flowState?.revisionId, flowState?.workflowStatus, handleGenerateApiKey, handleNameChange, handleOpenTestDialog, handleToggleLiveWithValidation, hasPlaceholders, hasPublishedRevision, nameDirty, persistName, workflowName])
+    onRecenterView: handleRecenterView,
+    onToggleViewLock: handleToggleViewLock,
+    isViewLocked,
+  }), [actions, builder, comingSoon, flowId, flowState?.hasUnsavedChanges, flowState?.isSaving, flowState?.isUpdatingStatus, flowState?.lastRunId, flowState?.revisionId, flowState?.workflowStatus, handleGenerateApiKey, handleNameChange, handleOpenTestDialog, handleToggleLiveWithValidation, handleRecenterView, handleToggleViewLock, hasPlaceholders, hasPublishedRevision, isViewLocked, nameDirty, persistName, workflowName])
 
   // Derive active execution node name from flow test status
   const activeExecutionNodeName = flowTestStatus?.currentNodeLabel ?? null

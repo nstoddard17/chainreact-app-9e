@@ -51,6 +51,9 @@ import {
   Files,
   Workflow,
   CloudCog,
+  LocateFixed,
+  Lock,
+  Unlock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useWorkflowActions } from "@/hooks/workflows/useWorkflowActions"
@@ -86,6 +89,9 @@ interface BuilderHeaderProps {
   handleRedo?: () => void
   canUndo?: boolean
   canRedo?: boolean
+  onRecenterView?: () => void
+  onToggleViewLock?: () => void
+  isViewLocked?: boolean
   setShowExecutionHistory?: (show: boolean) => void
   onSelectHistoryRun?: (runId: string) => Promise<void> | void
   activeRunId?: string | null
@@ -118,6 +124,9 @@ const BuilderHeaderComponent = ({
   handleRedo,
   canUndo = false,
   canRedo = false,
+  onRecenterView,
+  onToggleViewLock,
+  isViewLocked = false,
   setShowExecutionHistory,
   onSelectHistoryRun,
   activeRunId,
@@ -501,6 +510,45 @@ const BuilderHeaderComponent = ({
             >
               <Redo2 className="w-4 h-4" />
             </Button>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onRecenterView}
+                    disabled={!onRecenterView}
+                    title="Recenter workflow"
+                    className="h-8 w-8"
+                  >
+                    <LocateFixed className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Recenter</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isViewLocked ? "secondary" : "ghost"}
+                    size="icon"
+                    onClick={onToggleViewLock}
+                    disabled={!onToggleViewLock}
+                    title={isViewLocked ? "Unlock view" : "Lock view"}
+                    className="h-8 w-8"
+                  >
+                    {isViewLocked ? (
+                      <Lock className="w-4 h-4" />
+                    ) : (
+                      <Unlock className="w-4 h-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{isViewLocked ? "View locked" : "Lock view"}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           <div className="flex items-center gap-2">

@@ -802,10 +802,11 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     const rowsPayload = await rowsResponse.json()
     const rows = Array.isArray(rowsPayload?.value) ? rowsPayload.value : []
     const rowHashes: Record<string, string> = {}
-    rows.forEach((row: any) => {
-      const rowId = row?.id || ''
+    rows.forEach((row: any, index: number) => {
+      // Use index-based fallback to match webhook handler's ID generation
+      const rowId = row?.id || `row_${index}`
       const values = Array.isArray(row?.values?.[0]) ? row.values[0] : row?.values
-      if (!rowId || !Array.isArray(values)) return
+      if (!Array.isArray(values)) return
       const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
       rowHashes[rowId] = hash
     })
@@ -847,7 +848,8 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       if (!Array.isArray(values)) return
       const rowIndex = index + 1
       if (hasHeaders && rowIndex === 1) return
-      const rowId = `row-${rowIndex}`
+      // Use worksheet_row_ format to match webhook handler's ID generation
+      const rowId = `worksheet_row_${rowIndex}`
       const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
       rowHashes[rowId] = hash
     })
