@@ -145,53 +145,124 @@ type ExcelTableSnapshot = {
 async function fetchExcelTableSnapshot(
   accessToken: string,
   workbookId: string,
-  tableName: string
+  tableOrSheetName: string
 ): Promise<ExcelTableSnapshot> {
   const baseUrl = 'https://graph.microsoft.com/v1.0'
-  const encodedTableName = encodeURIComponent(tableName)
-  const rowsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedTableName}/rows?$top=200`
-  const columnsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedTableName}/columns?$select=name`
+  const encodedName = encodeURIComponent(tableOrSheetName)
 
-  const [rowsResponse, columnsResponse] = await Promise.all([
-    fetch(rowsUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    }),
-    fetch(columnsUrl, {
+  // First, try fetching as a Table (named Excel Table created via Insert > Table)
+  const tableRowsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedName}/rows?$top=200`
+  const tableColumnsUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/tables/${encodedName}/columns?$select=name`
+
+  logger.info('[Excel] Attempting to fetch as Table:', { tableOrSheetName, workbookId })
+
+  const tableRowsResponse = await fetch(tableRowsUrl, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    }
+  })
+
+  // If table fetch succeeds, use table data
+  if (tableRowsResponse.ok) {
+    logger.info('[Excel] ✅ Found as Table, fetching columns...')
+    const columnsResponse = await fetch(tableColumnsUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       }
     })
-  ])
 
-  if (!rowsResponse.ok) {
-    const errorText = await rowsResponse.text()
-    throw new Error(`Excel rows fetch failed: ${rowsResponse.status} ${errorText}`)
+    if (!columnsResponse.ok) {
+      const errorText = await columnsResponse.text()
+      throw new Error(`Excel table columns fetch failed: ${columnsResponse.status} ${errorText}`)
+    }
+
+    const rowsPayload = await tableRowsResponse.json()
+    const columnsPayload = await columnsResponse.json()
+
+    const rows = Array.isArray(rowsPayload?.value) ? rowsPayload.value : []
+    const columns = Array.isArray(columnsPayload?.value)
+      ? columnsPayload.value.map((col: any) => col?.name).filter(Boolean)
+      : []
+
+    logger.info('[Excel] Table data fetched:', { rowCount: rows.length, columnCount: columns.length })
+
+    const rowHashes: Record<string, string> = {}
+    rows.forEach((row: any, index: number) => {
+      const rowId = row?.id || `row_${index}`
+      const values = Array.isArray(row?.values?.[0]) ? row.values[0] : row?.values
+      if (!Array.isArray(values)) return
+      const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
+      rowHashes[rowId] = hash
+    })
+
+    return { rows, columns, rowHashes }
   }
 
-  if (!columnsResponse.ok) {
-    const errorText = await columnsResponse.text()
-    throw new Error(`Excel columns fetch failed: ${columnsResponse.status} ${errorText}`)
+  // Table fetch failed - try as Worksheet instead
+  logger.info('[Excel] Table not found, trying as Worksheet...', {
+    tableStatus: tableRowsResponse.status,
+    tableOrSheetName
+  })
+
+  // Fetch worksheet's used range (gets all data in the sheet)
+  const worksheetUrl = `${baseUrl}/me/drive/items/${workbookId}/workbook/worksheets/${encodedName}/usedRange?$select=values,address,rowCount,columnCount`
+
+  const worksheetResponse = await fetch(worksheetUrl, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    }
+  })
+
+  if (!worksheetResponse.ok) {
+    const errorText = await worksheetResponse.text()
+    logger.error('[Excel] Both Table and Worksheet fetch failed:', {
+      tableStatus: tableRowsResponse.status,
+      worksheetStatus: worksheetResponse.status,
+      worksheetError: errorText
+    })
+    throw new Error(`Excel worksheet fetch failed: ${worksheetResponse.status} ${errorText}. Neither Table nor Worksheet named "${tableOrSheetName}" was found.`)
   }
 
-  const rowsPayload = await rowsResponse.json()
-  const columnsPayload = await columnsResponse.json()
+  const worksheetData = await worksheetResponse.json()
+  const allValues = worksheetData?.values || []
 
-  const rows = Array.isArray(rowsPayload?.value) ? rowsPayload.value : []
-  const columns = Array.isArray(columnsPayload?.value)
-    ? columnsPayload.value.map((col: any) => col?.name).filter(Boolean)
-    : []
+  logger.info('[Excel] ✅ Worksheet data fetched:', {
+    address: worksheetData?.address,
+    totalRows: allValues.length,
+    rowCount: worksheetData?.rowCount,
+    columnCount: worksheetData?.columnCount
+  })
+
+  if (allValues.length === 0) {
+    return { rows: [], columns: [], rowHashes: {} }
+  }
+
+  // First row is assumed to be headers (column names)
+  const columns = (allValues[0] || []).map((val: any) => String(val || ''))
+  const dataRows = allValues.slice(1) // Skip header row
+
+  // Convert worksheet rows to a format similar to table rows
+  const rows = dataRows.map((rowValues: any[], index: number) => ({
+    id: `worksheet_row_${index + 2}`, // +2 because index 0 = row 2 in Excel (row 1 is header)
+    values: [rowValues] // Wrap in array to match table format
+  }))
 
   const rowHashes: Record<string, string> = {}
   rows.forEach((row: any) => {
-    const rowId = row?.id || ''
-    const values = Array.isArray(row?.values?.[0]) ? row.values[0] : row?.values
-    if (!rowId || !Array.isArray(values)) return
+    const rowId = row.id
+    const values = row.values[0]
+    if (!Array.isArray(values)) return
     const hash = crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex')
     rowHashes[rowId] = hash
+  })
+
+  logger.info('[Excel] Worksheet snapshot created:', {
+    columnCount: columns.length,
+    rowCount: rows.length,
+    columns: columns.slice(0, 5) // Log first 5 column names
   })
 
   return { rows, columns, rowHashes }
@@ -324,10 +395,12 @@ async function processNotifications(
   headers: any,
   requestId: string | undefined
 ): Promise<void> {
+  logger.info('🔄 Starting processNotifications with', notifications.length, 'notifications')
+
   for (const change of notifications) {
     try {
       // SECURITY: Don't log full resource data (contains PII/IDs)
-      logger.debug('🔍 Processing notification:', {
+      logger.info('🔍 Processing notification:', {
         subscriptionId: change?.subscriptionId,
         changeType: change?.changeType,
         resourceType: change?.resourceData?.['@odata.type'],
@@ -348,7 +421,7 @@ async function processNotifications(
       let triggerConfig: any = null
       let triggerType: string | null = null
       if (subId) {
-        logger.debug('🔍 Looking up subscription:', subId)
+        logger.info('🔍 Looking up subscription:', subId)
 
         const { data: triggerResource, error: resourceError } = await getSupabase()
           .from('trigger_resources')
@@ -357,6 +430,17 @@ async function processNotifications(
           .eq('resource_type', 'subscription')
           .like('provider_id', 'microsoft%')
           .maybeSingle()
+
+        // Check for database errors
+        if (resourceError) {
+          logger.error('❌ Database error looking up subscription:', {
+            subId,
+            error: resourceError.message,
+            code: resourceError.code,
+            details: resourceError.details
+          })
+          continue
+        }
 
         if (!triggerResource) {
           logger.warn('⚠️ Subscription not found in trigger_resources (likely old/orphaned subscription):', {
@@ -386,17 +470,13 @@ async function processNotifications(
           }
         }
 
-        logger.debug('✅ Resolved from trigger_resources:', {
+        logger.info('✅ Resolved from trigger_resources:', {
           subscriptionId: subId,
           userId,
           workflowId,
           triggerResourceId,
           triggerType,
-          // Log trigger config fields for debugging filters
-          triggerConfigKeys: triggerConfig ? Object.keys(triggerConfig) : [],
-          triggerConfigTo: triggerConfig?.to || null,
-          triggerConfigFrom: triggerConfig?.from || null,
-          triggerConfigSubject: triggerConfig?.subject || null
+          triggerConfigKeys: triggerConfig ? Object.keys(triggerConfig) : []
         })
       }
 
@@ -404,42 +484,57 @@ async function processNotifications(
       const messageId = change?.resourceData?.id || change?.resourceData?.['@odata.id'] || resource || 'unknown'
 
       // For email notifications (messages), ignore changeType in dedup key because Microsoft sends both 'created' and 'updated'
+      // For drive/file notifications, SKIP deduplication entirely - they use delta queries for actual change detection
       // For other resources, include changeType to allow separate processing
       const resourceLower = resource?.toLowerCase() || ''
       const isEmailNotification = resourceLower.includes('/messages') || resourceLower.includes('/mailfolders')
-      const dedupKey = isEmailNotification
-        ? `${userId || 'unknown'}:${messageId}` // Email: ignore changeType (created+updated are duplicates)
-        : `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}` // Other: include changeType
+      const isDriveNotification = resourceLower.includes('/drives/') || resourceLower.includes('/drive/') || resourceLower.includes('/driveitems')
 
-      logger.debug('🔑 Deduplication check:', {
-        dedupKey,
-        messageId,
-        changeType,
-        isEmailNotification,
-        resource,
-        subscriptionId: subId,
-        userId
-      })
+      // Skip deduplication for drive notifications - Excel triggers get row-level changes via delta queries
+      // The webhook just tells us "something changed", then we query for actual changes
+      if (isDriveNotification) {
+        logger.info('📂 Drive notification - skipping deduplication (uses delta queries for change detection):', {
+          resource,
+          changeType,
+          subscriptionId: subId
+        })
+      } else {
+        const dedupKey = isEmailNotification
+          ? `${userId || 'unknown'}:${messageId}` // Email: ignore changeType (created+updated are duplicates)
+          : `${userId || 'unknown'}:${messageId}:${changeType || 'unknown'}` // Other: include changeType
 
-      // Try to insert dedup key - if it fails due to unique constraint, it's a duplicate
-      const { error: dedupError } = await getSupabase()
-        .from('microsoft_webhook_dedup')
-        .insert({ dedup_key: dedupKey })
+        logger.info('🔑 Deduplication check:', {
+          dedupKey,
+          messageId,
+          changeType,
+          resource
+        })
 
-      if (dedupError) {
-        // Duplicate key violation (unique constraint) or other error
-        if (dedupError.code === '23505') {
-          // PostgreSQL unique violation error code
-          logger.debug('⏭️ Skipping duplicate notification (already processed):', {
-            dedupKey,
-            messageId,
-            subscriptionId: subId
+        // Try to insert dedup key - if it fails due to unique constraint, it's a duplicate
+        const { error: dedupError } = await getSupabase()
+          .from('microsoft_webhook_dedup')
+          .insert({
+            subscription_id: subId || 'unknown',
+            resource_data_hash: messageId || 'unknown',
+            dedup_key: dedupKey
           })
-          continue
-        } else {
-          // Other error, log but continue processing
-          logger.warn('⚠️ Deduplication insert error (continuing anyway):', dedupError)
+
+        if (dedupError) {
+          // Duplicate key violation (unique constraint) or other error
+          if (dedupError.code === '23505') {
+            // PostgreSQL unique violation error code
+            logger.info('⏭️ Skipping duplicate notification (already processed):', {
+              dedupKey,
+              subscriptionId: subId
+            })
+            continue
+          } else {
+            // Other error, log but continue processing
+            logger.warn('⚠️ Deduplication insert error (continuing anyway):', dedupError)
+          }
         }
+
+        logger.info('✅ Dedup check passed, continuing processing')
       }
 
       // Check if this changeType should trigger the workflow
@@ -470,13 +565,22 @@ async function processNotifications(
         }
       }
 
-      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName && userId) {
+      // Support both tableName and worksheetName for backwards compatibility
+      const excelTableOrSheet = triggerConfig?.tableName || triggerConfig?.worksheetName
+      logger.info('🔎 Excel trigger check:', {
+        triggerType,
+        hasWorkbookId: !!triggerConfig?.workbookId,
+        excelTableOrSheet,
+        userId,
+        willProcess: !!(triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && excelTableOrSheet && userId)
+      })
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && excelTableOrSheet && userId) {
         try {
           logger.info('[Microsoft Excel] Processing file-change notification', {
             subscriptionId: subId,
             triggerType,
             workbookId: triggerConfig.workbookId,
-            tableName: triggerConfig.tableName,
+            tableName: excelTableOrSheet,
             resourceDataId: change?.resourceData?.id
           })
           const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
@@ -486,7 +590,7 @@ async function processNotifications(
           const snapshot = await fetchExcelTableSnapshot(
             accessToken,
             triggerConfig.workbookId,
-            triggerConfig.tableName
+            excelTableOrSheet
           )
 
           const previousSnapshot = triggerConfig.excelRowSnapshot as ExcelRowSnapshot | undefined
@@ -544,12 +648,23 @@ async function processNotifications(
               .eq('id', triggerResourceId)
           }
 
-          if (triggerType === 'microsoft_excel_trigger_new_table_row' && (hasRowIdDiff || hasCountDiff)) {
+          // Handle both worksheet-based (new_row) and table-based (new_table_row) triggers
+          const isNewRowTrigger = triggerType === 'microsoft_excel_trigger_new_row' ||
+                                   triggerType === 'microsoft_excel_trigger_new_table_row'
+
+          if (isNewRowTrigger && (hasRowIdDiff || hasCountDiff)) {
             const newRow = hasRowIdDiff
               ? snapshot.rows.find((row: any) => row?.id === newRowId)
               : snapshot.rows[snapshot.rows.length - 1]
             const values = Array.isArray(newRow?.values?.[0]) ? newRow.values[0] : newRow?.values
             const rowData = buildExcelRowData(values, snapshot.columns)
+
+            logger.info('[Microsoft Excel] ✅ New row detected, triggering workflow:', {
+              triggerType,
+              rowId: hasRowIdDiff ? newRowId : newRow?.id || null,
+              workflowId,
+              columnCount: snapshot.columns.length
+            })
 
             if (workflowId) {
               const base = getWebhookBaseUrl()
@@ -565,7 +680,7 @@ async function processNotifications(
                   subscriptionId: subId,
                   triggerType,
                   workbookId: triggerConfig.workbookId,
-                  tableName: triggerConfig.tableName,
+                  worksheetName: excelTableOrSheet,
                   rowId: hasRowIdDiff ? newRowId : newRow?.id || null,
                   values,
                   rowData,
@@ -573,7 +688,7 @@ async function processNotifications(
                 }
               }
 
-              logger.debug('[Microsoft Excel] Triggering workflow execution:', executionUrl)
+              logger.info('[Microsoft Excel] Triggering workflow execution:', { executionUrl, workflowId })
 
               const response = await fetch(executionUrl, {
                 method: 'POST',
@@ -590,6 +705,8 @@ async function processNotifications(
                   status: response.status,
                   error: errorText
                 })
+              } else {
+                logger.info('[Microsoft Excel] ✅ Workflow execution triggered successfully')
               }
             }
             continue
@@ -614,7 +731,7 @@ async function processNotifications(
                   subscriptionId: subId,
                   triggerType,
                   workbookId: triggerConfig.workbookId,
-                  tableName: triggerConfig.tableName,
+                  tableName: excelTableOrSheet || testExcelTableOrSheet,
                   rowId: changedRowId,
                   values,
                   rowData,
@@ -643,8 +760,14 @@ async function processNotifications(
             }
             continue
           }
-        } catch (excelError) {
-          logger.warn('[Microsoft Excel] Failed to process table change', excelError)
+        } catch (excelError: any) {
+          logger.error('[Microsoft Excel] Failed to process table change:', {
+            error: excelError?.message || String(excelError),
+            stack: excelError?.stack?.split('\n').slice(0, 3).join(' | '),
+            workbookId: triggerConfig?.workbookId,
+            tableOrSheet: excelTableOrSheet,
+            subscriptionId: subId
+          })
         }
       }
 
@@ -1590,7 +1713,9 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
         }
       }
 
-      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && triggerConfig?.tableName) {
+      // Support both tableName and worksheetName for backwards compatibility
+      const testExcelTableOrSheet = triggerConfig?.tableName || triggerConfig?.worksheetName
+      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && testExcelTableOrSheet) {
         try {
           const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
           const graphAuth = new MicrosoftGraphAuth()
@@ -1599,7 +1724,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
           const snapshot = await fetchExcelTableSnapshot(
             accessToken,
             triggerConfig.workbookId,
-            triggerConfig.tableName
+            testExcelTableOrSheet
           )
 
           const previousSnapshot = triggerConfig.excelRowSnapshot as ExcelRowSnapshot | undefined
@@ -1650,7 +1775,11 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
             })
             .eq('id', triggerResource.id)
 
-          if (triggerType === 'microsoft_excel_trigger_new_table_row' && (hasRowIdDiff || hasCountDiff)) {
+          // Handle both worksheet-based (new_row) and table-based (new_table_row) triggers
+          const isNewRowTrigger = triggerType === 'microsoft_excel_trigger_new_row' ||
+                                   triggerType === 'microsoft_excel_trigger_new_table_row'
+
+          if (isNewRowTrigger && (hasRowIdDiff || hasCountDiff)) {
             const newRow = hasRowIdDiff
               ? snapshot.rows.find((row: any) => row?.id === newRowId)
               : snapshot.rows[snapshot.rows.length - 1]
@@ -1660,7 +1789,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               trigger: {
                 type: triggerType,
                 workbookId: triggerConfig.workbookId,
-                tableName: triggerConfig.tableName,
+                worksheetName: testExcelTableOrSheet,
                 rowId: hasRowIdDiff ? newRowId : newRow?.id || null
               },
               row: newRow,
@@ -1670,6 +1799,12 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               _testSession: true,
               _source: 'microsoft-excel-file-change'
             }
+
+            logger.info('[Test Webhook] ✅ New row detected, storing trigger data:', {
+              triggerType,
+              rowId: hasRowIdDiff ? newRowId : newRow?.id || null,
+              testSessionId
+            })
 
             await supabase
               .from('workflow_test_sessions')
@@ -1689,7 +1824,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               trigger: {
                 type: triggerType,
                 workbookId: triggerConfig.workbookId,
-                tableName: triggerConfig.tableName,
+                tableName: excelTableOrSheet || testExcelTableOrSheet,
                 rowId: changedRowId
               },
               row: changedRow,
@@ -1709,8 +1844,13 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               .eq('id', testSessionId)
             continue
           }
-        } catch (excelError) {
-          logger.warn('[Test Webhook] Excel table change processing failed', excelError)
+        } catch (excelError: any) {
+          logger.error('[Test Webhook] Excel table change processing failed:', {
+            error: excelError?.message || String(excelError),
+            stack: excelError?.stack?.split('\n').slice(0, 3).join(' | '),
+            workbookId: triggerConfig?.workbookId,
+            tableOrSheet: testExcelTableOrSheet
+          })
         }
       }
 
