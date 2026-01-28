@@ -55,7 +55,7 @@ import type { NodeComponent } from "@/lib/workflows/nodes/types"
 import ConfigurationForm from "./ConfigurationForm"
 import { ConfigurationDataInspector } from "./ConfigurationDataInspector"
 import { VariableDragProvider } from "./VariableDragContext"
-import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, Sparkles, Wrench, SlidersHorizontal, TestTube2, ArrowRight } from "lucide-react"
+import { Settings, Zap, Bot, MessageSquare, Mail, Calendar, FileText, Database, Globe, Shield, Bell, Sparkles, Wrench, SlidersHorizontal, TestTube2, ArrowRight, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
@@ -724,6 +724,17 @@ export function ConfigurationModal({
                 >
                   <ArrowRight className="h-4 w-4 text-slate-600 dark:text-slate-400" />
                 </Button>
+                {onBack && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onBack}
+                    className="flex-shrink-0 h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    title="Back to apps"
+                  >
+                    <ArrowLeft className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                  </Button>
+                )}
 
                 {/* Integration Logo or Node-specific Icon */}
                 <div className="flex-shrink-0">

@@ -530,6 +530,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
   const [configuringNode, setConfiguringNode] = useState<any>(null)
 
+  // Derived configuringNodeId for lightweight dependency in reactFlowProps useMemo
+  // This prevents the entire useMemo from recalculating when the full node object changes
+  const configuringNodeId = configuringNode?.id ?? null
+
   // Agent panel state
   const [agentPanelWidth, setAgentPanelWidth] = useState(() =>
     computeReactAgentPanelWidth(typeof window === "undefined" ? undefined : window)
@@ -550,12 +554,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     return viewportWidth < 640 ? viewportWidth : 600
   }, [])
 
-  const getViewportMetrics = useCallback((configOpen: boolean) => {
+  const getIntegrationsPanelWidth = useCallback(() => {
+    if (typeof window === 'undefined') return 600
+    const viewportWidth = window.innerWidth
+    return viewportWidth < 640 ? viewportWidth : 600
+  }, [])
+
+  const getViewportMetrics = useCallback((rightPanelWidth: number) => {
     const headerHeight = 48
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
     const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
     const leftOffset = agentOpen ? agentPanelWidth : 0
-    const rightOffset = configOpen ? getConfigPanelWidth() : 0
+    const rightOffset = rightPanelWidth
     let availableWidth = viewportWidth - leftOffset - rightOffset
     const availableHeight = viewportHeight - headerHeight
 
@@ -572,7 +582,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       availableWidth,
       availableHeight,
     }
-  }, [agentOpen, agentPanelWidth, getConfigPanelWidth])
+  }, [agentOpen, agentPanelWidth])
 
   const focusConfigNode = useCallback((nodeId: string) => {
     if (isViewLocked) return
@@ -586,7 +596,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       leftOffset,
       availableWidth,
       availableHeight,
-    } = getViewportMetrics(true)
+    } = getViewportMetrics(getConfigPanelWidth())
 
     const currentZoom = instance.getViewport?.().zoom ?? 1
     const zoom = Math.min(1.2, Math.max(currentZoom, 1.05))
@@ -600,9 +610,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const viewportY = screenCenterY - (nodeCenterY * zoom)
 
     instance.setViewport({ x: viewportX, y: viewportY, zoom }, { duration: 450 })
-  }, [getViewportMetrics])
+  }, [getViewportMetrics, getConfigPanelWidth, isViewLocked])
 
-  const fitWorkflowToViewport = useCallback((options: { force?: boolean } = {}) => {
+  const fitWorkflowToViewport = useCallback((options: { force?: boolean; rightPanelWidth?: number } = {}) => {
     if (isViewLocked && !options.force) return
     const instance = reactFlowInstanceRef.current
     if (!instance) return
@@ -614,7 +624,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       leftOffset,
       availableWidth,
       availableHeight,
-    } = getViewportMetrics(false)
+    } = getViewportMetrics(options.rightPanelWidth ?? 0)
 
     const bounds = nodes.reduce((acc, node) => {
       const width = node.width ?? 360
@@ -1217,23 +1227,51 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     return () => clearTimeout(timer)
   }, [configuringNode?.id, agentOpen, agentPanelWidth, focusConfigNode])
 
+  // Debug logging for config modal open - runs once per node ID change
+  useEffect(() => {
+    if (!configuringNode?.id) return
+    const nodeType = configuringNode?.data?.type || configuringNode?.type
+    const nodeInfo = nodeType ? getNodeByType(nodeType) : null
+    console.log('🔧 [WorkflowBuilder] Opening config for node:', {
+      nodeId: configuringNode?.id,
+      nodeType,
+      nodeInfo: nodeInfo ? { type: nodeInfo.type, title: (nodeInfo as any).title, label: (nodeInfo as any).label } : null,
+      nodeData: configuringNode?.data,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally only log when node ID changes, not on data changes
+  }, [configuringNode?.id])
+
   useEffect(() => {
     if (configuringNode) return
     if (!lastConfigNodeIdRef.current) return
     const timer = setTimeout(() => {
-      fitWorkflowToViewport()
+      fitWorkflowToViewport({
+        rightPanelWidth: isIntegrationsPanelOpen ? getIntegrationsPanelWidth() : 0
+      })
       lastConfigNodeIdRef.current = null
     }, 150)
     return () => clearTimeout(timer)
-  }, [configuringNode, agentOpen, agentPanelWidth, fitWorkflowToViewport])
+  }, [configuringNode, agentOpen, agentPanelWidth, isIntegrationsPanelOpen, getIntegrationsPanelWidth, fitWorkflowToViewport])
 
   useEffect(() => {
     if (configuringNode || isViewLocked) return
     const timer = setTimeout(() => {
-      fitWorkflowToViewport()
+      fitWorkflowToViewport({
+        rightPanelWidth: isIntegrationsPanelOpen ? getIntegrationsPanelWidth() : 0
+      })
     }, 200)
     return () => clearTimeout(timer)
-  }, [agentOpen, agentPanelWidth, configuringNode, isViewLocked, fitWorkflowToViewport])
+  }, [agentOpen, agentPanelWidth, configuringNode, isIntegrationsPanelOpen, getIntegrationsPanelWidth, isViewLocked, fitWorkflowToViewport])
+
+  useEffect(() => {
+    if (configuringNode || isViewLocked) return
+    const timer = setTimeout(() => {
+      fitWorkflowToViewport({
+        rightPanelWidth: isIntegrationsPanelOpen ? getIntegrationsPanelWidth() : 0
+      })
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [isIntegrationsPanelOpen, configuringNode, isViewLocked, getIntegrationsPanelWidth, fitWorkflowToViewport])
 
   useEffect(() => {
     if (isViewLocked) return
@@ -1243,10 +1281,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     if (hasInitialCenterRef.current) return
     hasInitialCenterRef.current = true
     const timer = setTimeout(() => {
-      fitWorkflowToViewport()
+      fitWorkflowToViewport({
+        rightPanelWidth: isIntegrationsPanelOpen ? getIntegrationsPanelWidth() : 0
+      })
     }, 250)
     return () => clearTimeout(timer)
-  }, [builder?.nodes?.length, isViewLocked, fitWorkflowToViewport])
+  }, [builder?.nodes?.length, isIntegrationsPanelOpen, getIntegrationsPanelWidth, isViewLocked, fitWorkflowToViewport])
 
   // Build state machine handlers (defined early for use in URL prompt handler)
   const transitionTo = useCallback((nextState: BuildState) => {
@@ -3371,7 +3411,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           onAddNodeAfter: handleAddNodeAfter,
           onTestNode: handleTestNode,
           onTestFlowFromHere: handleTestFlowFromHere,
-          isBeingConfigured: configuringNode?.id === node.id,
+          isBeingConfigured: configuringNodeId === node.id,
           isBeingReordered: activeReorderDrag?.nodeId === node.id,
           reorderDragOffset:
             activeReorderDrag?.nodeId === node.id ? reorderDragOffset : 0,
@@ -3392,10 +3432,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     // Handler for inserting a node in the middle of an edge
     const handleInsertNodeOnEdge = (edgeId: string, position: { x: number; y: number }) => {
-      // Close config modal if open
-      if (configuringNode) {
-        setConfiguringNode(null)
-      }
+      // Close config modal if open (unconditional - no-op if already null)
+      setConfiguringNode(null)
 
       // Find the edge to get the source node
       const edge = builder.edges.find((e: any) => e.id === edgeId)
@@ -3442,7 +3480,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     return result
-  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNode, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex])
+  }, [builder, handleAddNodeAfter, handleTestNode, handleTestFlowFromHere, handleReorderPointerDown, configuringNodeId, activeReorderDrag, getReorderableData, reorderDragOffset, reorderPreviewIndex])
 
   // Name update handler
   const persistName = useCallback(
@@ -4156,12 +4194,27 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     setChangingNodeId(nodeId)
     setSelectedNodeId(null)
     setAddingAfterNodeId(null)
+    setConfiguringNode(null)
 
     // Open integrations panel with correct mode
     openIntegrationsPanel(isTrigger ? 'trigger' : 'action')
 
     console.log(`[WorkflowBuilder] Opening integrations panel to change ${isTrigger ? 'trigger' : 'action'} node:`, nodeId)
   }, [builder?.nodes, openIntegrationsPanel])
+
+  const handleBackToIntegrations = useCallback(() => {
+    if (!configuringNode) return
+    const node = configuringNode
+    const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
+    const isTrigger = node.data?.isTrigger || nodeComponent?.isTrigger
+
+    setChangingNodeId(node.id)
+    setSelectedNodeId(null)
+    setAddingAfterNodeId(null)
+    setConfiguringNode(null)
+
+    openIntegrationsPanel(isTrigger ? 'trigger' : 'action')
+  }, [configuringNode, openIntegrationsPanel])
 
   // Handle node duplication
   const handleNodeDuplicate = useCallback(async (nodeId: string) => {
@@ -7098,13 +7151,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         const nodeType = configuringNode?.data?.type || configuringNode?.type
         const nodeInfo = nodeType ? getNodeByType(nodeType) : null
 
-        // Debug logging
-        console.log('🔧 [WorkflowBuilder] Opening config for node:', {
-          nodeId: configuringNode?.id,
-          nodeType,
-          nodeInfo: nodeInfo ? { type: nodeInfo.type, title: (nodeInfo as any).title, label: (nodeInfo as any).label } : null,
-          nodeData: configuringNode?.data,
-        })
+        // NOTE: Debug logging moved to useEffect to prevent logging on every render
+        // See useEffect near line 1220 that logs once per configuringNode?.id change
 
         // INSTANT REOPEN: Calculate initial data with stable reference
         // NOTE: We rely on ConfigurationModal's internal effectiveInitialData useMemo
@@ -7148,6 +7196,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               handleSaveNodeConfig(configuringNode.id, config)
               setConfiguringNode(null)
             }}
+            onBack={handleBackToIntegrations}
             nodeInfo={nodeInfo}
             integrationName={configuringNode?.data?.providerId || nodeType || 'Unknown'}
             initialData={initialData}
