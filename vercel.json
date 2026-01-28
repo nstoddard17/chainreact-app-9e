@@ -32,6 +32,5 @@
       "path": "/api/cron/check-team-suspensions",
       "schedule": "0 */6 * * *"
     }
-  ],
-  "functions": {}
+  ]
 }
