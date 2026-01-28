@@ -60,6 +60,14 @@ export function useChatPersistence({
   const [isChatLoading, setIsChatLoading] = useState(false)
   const [chatHistoryLoaded, setChatHistoryLoaded] = useState(false)
 
+  // Debug: Log when chatHistoryLoaded changes (helps diagnose stuck URL Prompt Handler)
+  useEffect(() => {
+    console.log('[ChatPersistence] chatHistoryLoaded changed to:', chatHistoryLoaded, {
+      flowId,
+      timestamp: new Date().toISOString(),
+    })
+  }, [chatHistoryLoaded, flowId])
+
   // Refs
   const pendingChatMessagesRef = useRef<PendingChatMessage[]>([])
   const initialRevisionCountRef = useRef<number | null>(null)
@@ -163,7 +171,22 @@ export function useChatPersistence({
     })
 
     if (!flowId || !flowState?.flow || !authInitialized) {
-      console.log('  → Skipping loadChatHistory (dependencies not ready)')
+      console.log('  → Skipping loadChatHistory (dependencies not ready)', {
+        hasFlowId: !!flowId,
+        hasFlow: !!flowState?.flow,
+        flowStateExists: !!flowState,
+        revisionId: flowState?.revisionId,
+        authInitialized,
+      })
+      // IMPORTANT: For new workflows coming from AI agent page, we need to mark
+      // chatHistoryLoaded as true even if flowState.flow isn't ready yet.
+      // Otherwise the URL Prompt Handler waits forever.
+      // If flowState exists but has no revisionId, this is a new workflow - safe to proceed
+      // If flowState doesn't exist yet, we can't determine this, so we wait
+      if (flowId && authInitialized && flowState && !flowState.revisionId) {
+        console.log('  → New workflow (flowState exists but no revisionId), marking chat history as loaded to unblock URL Prompt Handler')
+        setChatHistoryLoaded(true)
+      }
       return
     }
 

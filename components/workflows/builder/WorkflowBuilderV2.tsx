@@ -388,6 +388,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const { isIntegrationConnected } = useIntegrationSelection()
   const { prefetchNodeConfig } = usePrefetchConfig()
 
+  // Debug: Log when key initialization states change (helps diagnose stuck builds after restart)
+  useEffect(() => {
+    console.log('[WorkflowBuilder Init] Key states:', {
+      hasActions: !!actions,
+      hasBuilder: !!builder,
+      hasFlowState: !!flowState,
+      authInitialized,
+      flowId,
+      timestamp: new Date().toISOString(),
+    })
+  }, [actions, builder, flowState, authInitialized, flowId])
+
   // State management
   const [workflowName, setWorkflowName] = useState(adapter.state.flowName)
   const [nameDirty, setNameDirty] = useState(false)
@@ -1929,15 +1941,34 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
   // Handle prompt parameter from URL (e.g., from AI agent page)
   useEffect(() => {
-    if (!actions) return
-    if (promptProcessedRef.current) return
+    // Comprehensive logging for debugging stuck animation after dev restart
+    console.log('[URL Prompt Handler] Effect triggered', {
+      hasActions: !!actions,
+      promptProcessed: promptProcessedRef.current,
+      isChatLoading,
+      chatHistoryLoaded,
+      agentMessagesCount: agentMessages.length,
+      promptParam: promptParam ? promptParam.substring(0, 30) + '...' : null,
+      hasSessionStoragePrompt: typeof window !== 'undefined' ? !!window.sessionStorage.getItem("flowv2:pendingPrompt") : 'N/A',
+      flowId,
+      timestamp: new Date().toISOString(),
+    })
+
+    if (!actions) {
+      console.log('[URL Prompt Handler] ❌ BLOCKED: actions not available yet - adapter may not be initialized')
+      return
+    }
+    if (promptProcessedRef.current) {
+      console.log('[URL Prompt Handler] ⏭️ SKIPPED: prompt already processed')
+      return
+    }
 
     // Wait for chat history to be fully loaded before processing URL prompts
     // This prevents duplicate messages when refreshing a page with existing chat history
     // chatHistoryLoaded is set AFTER setAgentMessages completes, avoiding the race condition
     // where isChatLoading is false but agentMessages hasn't been updated yet
     if (isChatLoading || !chatHistoryLoaded) {
-      console.log('[URL Prompt Handler] Waiting for chat history to load...', { isChatLoading, chatHistoryLoaded })
+      console.log('[URL Prompt Handler] ⏳ WAITING: chat history not loaded yet', { isChatLoading, chatHistoryLoaded })
       return
     }
 
@@ -2178,18 +2209,23 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             }
 
             // Start the animated build process
+            console.log('[URL Prompt Handler] 🎬 Starting animation sequence...')
             transitionTo(BuildState.THINKING)
 
             await new Promise(resolve => setTimeout(resolve, 1000))
+            console.log('[URL Prompt Handler] → SUBTASKS')
             transitionTo(BuildState.SUBTASKS)
 
             await new Promise(resolve => setTimeout(resolve, 800))
+            console.log('[URL Prompt Handler] → COLLECT_NODES')
             transitionTo(BuildState.COLLECT_NODES)
 
             await new Promise(resolve => setTimeout(resolve, 800))
+            console.log('[URL Prompt Handler] → OUTLINE')
             transitionTo(BuildState.OUTLINE)
 
             await new Promise(resolve => setTimeout(resolve, 800))
+            console.log('[URL Prompt Handler] → PURPOSE (calling planWorkflowWithTemplates next...)')
             transitionTo(BuildState.PURPOSE)
 
             // For template matching, we need the EMAIL provider specifically (templates like email-to-slack require it)
@@ -2198,9 +2234,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             const emailProviderId = emailApp?.provider || providerMetadata?.provider?.id
             console.log('[URL Prompt Handler] Email provider for template:', { emailApp: emailApp?.provider, emailProviderId, providerMetadataId: providerMetadata?.provider?.id })
 
+            console.log('[URL Prompt Handler] 📡 Calling planWorkflowWithTemplates...')
             const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
               actions, finalPrompt, emailProviderId, user?.id, flowId
             )
+            console.log('[URL Prompt Handler] ✅ planWorkflowWithTemplates returned')
             console.log('[URL Prompt Handler] Received result from askAgent:', {
               workflowName: result.workflowName,
               editsCount: result.edits?.length,
@@ -2211,8 +2249,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             })
 
             // Use helper function to generate plan and update UI (with provider metadata if auto-selected)
+            console.log('[URL Prompt Handler] 🏗️ Calling continueWithPlanGeneration...')
             await continueWithPlanGeneration(result, finalPrompt, providerMetadata)
+            console.log('[URL Prompt Handler] ✅ continueWithPlanGeneration completed - should now be in PLAN_READY state')
           } catch (error: any) {
+            console.error('[URL Prompt Handler] ❌ ERROR in async block:', error)
             toast({
               title: "Failed to create plan",
               description: error?.message || "Unable to generate workflow plan",

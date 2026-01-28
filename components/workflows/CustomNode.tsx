@@ -1991,10 +1991,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className={cn(
-                "absolute z-20 noDrag noPan",
-                hasTestData && !nodeExecutionData ? "top-2 left-9" : "top-2 left-2"
-              )}>
+              <div className="absolute bottom-2 right-2 z-20 noDrag noPan">
                 <Badge
                   variant="outline"
                   className="text-xs px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300"
@@ -2004,7 +2001,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                 </Badge>
               </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">
+            <TooltipContent side="left" className="text-xs">
               <p>Uses {data.nodeCost} task{data.nodeCost !== 1 ? 's' : ''} per execution</p>
             </TooltipContent>
           </Tooltip>
