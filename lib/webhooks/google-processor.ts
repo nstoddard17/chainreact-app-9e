@@ -1468,34 +1468,36 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
   try {
     const supabase = await createSupabaseServiceClient()
 
+    // Note: Use trigger_resources as source of truth (webhook_configs has different schema)
     let query = supabase
-      .from('webhook_configs')
+      .from('trigger_resources')
       .select('id, workflow_id, config, status, provider_id, trigger_type')
       .eq('trigger_type', triggerType)
       .eq('status', 'active')
       .eq('provider_id', 'google-calendar')
+      .or('is_test.is.null,is_test.eq.false')
 
     if (userId) {
       query = query.eq('user_id', userId)
     }
 
-    const { data: webhookConfigs, error: webhookError } = await query
+    const { data: triggerResources, error: triggerError } = await query
 
-    if (webhookError) {
-      logger.error('[Google Calendar] Failed to fetch webhook configs:', webhookError)
+    if (triggerError) {
+      logger.error('[Google Calendar] Failed to fetch trigger resources:', triggerError)
       return
     }
 
-    if (!webhookConfigs || webhookConfigs.length === 0) {
+    if (!triggerResources || triggerResources.length === 0) {
       return
     }
 
-    const workflowIds = webhookConfigs
+    const workflowIds = triggerResources
       .map((config) => config.workflow_id)
       .filter((id): id is string => Boolean(id))
 
     if (workflowIds.length === 0) {
-      calendarDebug('No workflow IDs associated with webhook configs, skipping', {
+      calendarDebug('No workflow IDs associated with trigger resources, skipping', {
         changeType
       })
       return
@@ -1555,13 +1557,13 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
       })
     }
 
-    for (const webhookConfig of webhookConfigs) {
-      if (!webhookConfig.workflow_id) continue
+    for (const triggerResource of triggerResources) {
+      if (!triggerResource.workflow_id) continue
 
-      const workflow = workflows.find((w) => w.id === webhookConfig.workflow_id)
+      const workflow = workflows.find((w) => w.id === triggerResource.workflow_id)
       if (!workflow) {
-        calendarDebug('Workflow not found for webhook config, skipping', {
-          workflowId: webhookConfig.workflow_id
+        calendarDebug('Workflow not found for trigger resource, skipping', {
+          workflowId: triggerResource.workflow_id
         })
         continue
       }
@@ -1573,7 +1575,7 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
         connections: edgesByWorkflow.get(workflow.id) || []
       }
 
-      const configData = (webhookConfig.config || {}) as any
+      const configData = (triggerResource.config || {}) as any
       const watchConfig = configData.watch || {}
 
       const configuredCalendars: string[] | null = Array.isArray(configData.calendars) ? configData.calendars : null
@@ -1779,24 +1781,26 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
   try {
     const supabase = await createSupabaseServiceClient()
 
-    const { data: webhookConfigs, error: webhookError } = await supabase
-      .from('webhook_configs')
+    // Note: Use trigger_resources as source of truth (webhook_configs has different schema)
+    const { data: triggerResources, error: triggerError } = await supabase
+      .from('trigger_resources')
       .select('id, workflow_id, config, status, provider_id, trigger_type')
       .eq('trigger_type', triggerType)
       .eq('status', 'active')
       .eq('provider_id', 'google-drive')
       .eq('user_id', userId)
+      .or('is_test.is.null,is_test.eq.false')
 
-    if (webhookError) {
-      logger.error('[Google Drive] Failed to fetch webhook configs:', webhookError)
+    if (triggerError) {
+      logger.error('[Google Drive] Failed to fetch trigger resources:', triggerError)
       return
     }
 
-    if (!webhookConfigs || webhookConfigs.length === 0) {
+    if (!triggerResources || triggerResources.length === 0) {
       return
     }
 
-    const workflowIds = webhookConfigs
+    const workflowIds = triggerResources
       .map((config) => config.workflow_id)
       .filter((id): id is string => Boolean(id))
 
@@ -1843,15 +1847,15 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
       })
     }
 
-    for (const webhookConfig of webhookConfigs) {
-      if (!webhookConfig.workflow_id) continue
+    for (const triggerResource of triggerResources) {
+      if (!triggerResource.workflow_id) continue
 
-      const workflow = workflows.find((w) => w.id === webhookConfig.workflow_id)
+      const workflow = workflows.find((w) => w.id === triggerResource.workflow_id)
       if (!workflow) {
         continue
       }
 
-      const configData = (webhookConfig.config || {}) as any
+      const configData = (triggerResource.config || {}) as any
       const nodes = driveNodesByWorkflow.get(workflow.id) || []
 
       const matchingTriggers = nodes.filter((node: any) => {
@@ -2033,23 +2037,10 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
       return
     }
 
-    const { data: webhookConfigs, error: webhookError } = await supabase
-      .from('webhook_configs')
-      .select('id, workflow_id, config, status, provider_id, trigger_type')
-      .eq('trigger_type', triggerType)
-      .eq('status', 'active')
-      .eq('provider_id', 'google-sheets')
-      .eq('user_id', userId)
-
-    if (webhookError) {
-      logger.error('[Google Sheets] Failed to fetch webhook configs:', webhookError)
-      return
-    }
-
-    const mergedConfigs = [
-      ...(triggerResources || []),
-      ...(webhookConfigs || [])
-    ]
+    // Note: webhook_configs table has different schema (no config/provider_id/trigger_type columns)
+    // trigger_resources is the source of truth for Google Sheets triggers
+    // We only use trigger_resources now - the webhook_configs query was legacy code
+    const mergedConfigs = [...(triggerResources || [])]
 
     logger.debug('[Google Sheets] Evaluating sheet workflows', {
       changeType,

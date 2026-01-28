@@ -1107,42 +1107,27 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
       logger.debug(`[Gmail Processor] Found ${gmailTriggerNodes.length} Gmail trigger(s) in workflow ${workflow.id}`)
 
-      const { data: configRows, error: configError } = await supabase
-        .from('webhook_configs')
+      // Primary: Check trigger_resources table (source of truth for lifecycle-managed triggers)
+      const { data: triggerResource, error: triggerError } = await supabase
+        .from('trigger_resources')
         .select('id, config')
         .eq('workflow_id', workflow.id)
         .eq('trigger_type', 'gmail_trigger_new_email')
         .eq('status', 'active')
-        .order('updated_at', { ascending: false })
+        .or('is_test.is.null,is_test.eq.false')
+        .order('created_at', { ascending: false })
         .limit(1)
+        .maybeSingle()
 
-      if (configError) {
-        logger.error('Failed to fetch Gmail webhook config:', configError)
+      if (triggerError) {
+        logger.error('Failed to fetch Gmail trigger resource:', triggerError)
         continue
       }
 
-      let webhookConfig = configRows?.[0]
+      let webhookConfig: { id: string; config: any } | null = null
       let watchConfig: any = {}
 
-      if (!webhookConfig) {
-        // Fallback: Check trigger_resources table (newer implementation)
-        logger.debug('⚠️ No webhook_configs found, checking trigger_resources as fallback...')
-        const { data: triggerResource } = await supabase
-          .from('trigger_resources')
-          .select('id, config')
-          .eq('workflow_id', workflow.id)
-          .eq('trigger_type', 'gmail_trigger_new_email')
-          .eq('status', 'active')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (!triggerResource) {
-          logger.debug('⚠️ No Gmail trigger configuration found in webhook_configs or trigger_resources, skipping')
-          continue
-        }
-
-        // Use trigger_resources config
+      if (triggerResource) {
         webhookConfig = {
           id: triggerResource.id,
           config: triggerResource.config
@@ -1150,7 +1135,25 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         watchConfig = triggerResource.config || {}
         logger.debug('✅ Found Gmail trigger in trigger_resources table')
       } else {
+        // Fallback: Check webhook_configs table (legacy data)
+        logger.debug('⚠️ No trigger_resources found, checking webhook_configs as fallback...')
+        const { data: configRows, error: configError } = await supabase
+          .from('webhook_configs')
+          .select('id, config')
+          .eq('workflow_id', workflow.id)
+          .eq('trigger_type', 'gmail_trigger_new_email')
+          .eq('status', 'active')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+
+        if (configError || !configRows?.[0]) {
+          logger.debug('⚠️ No Gmail trigger configuration found in trigger_resources or webhook_configs, skipping')
+          continue
+        }
+
+        webhookConfig = configRows[0]
         watchConfig = webhookConfig.config?.watch || {}
+        logger.debug('✅ Found Gmail trigger in webhook_configs table (legacy)')
       }
 
       if (watchConfig.emailAddress && watchConfig.emailAddress !== event.eventData.emailAddress) {

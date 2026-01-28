@@ -53,6 +53,7 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Store polling trigger resource
+    const resourceId = `poll-${workflowId}-${nodeId}`
     const { error: insertError } = await getSupabase().from('trigger_resources').insert({
       workflow_id: workflowId,
       user_id: userId,
@@ -61,6 +62,7 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
       trigger_type: triggerType,
       node_id: nodeId,
       resource_type: 'polling',
+      resource_id: resourceId, // Generated ID for polling triggers
       config: {
         ...config,
         pollingEnabled: true
