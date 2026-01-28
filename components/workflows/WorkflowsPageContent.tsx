@@ -193,7 +193,7 @@ function WorkflowsContent() {
   const CACHE_DURATION = 30000 // 30 seconds cache
 
   useEffect(() => {
-    console.log('🎯 WorkflowsContent mounted - Version: No dropdowns, tabs properly aligned - v4')
+    logger.debug('🎯 [WorkflowsContent] Component mounted - v4')
   }, [])
 
   // REMOVED: Duplicate fetchWorkflows call on mount
@@ -360,6 +360,7 @@ function WorkflowsContent() {
     if (!shareDialog.open) {
       setSelectedTeamIds([])
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchTeamsList is not memoized, shareDialog.open is the trigger
   }, [shareDialog.open, availableTeams.length, loadingTeams])
 
   const fetchExecutionStats = async () => {

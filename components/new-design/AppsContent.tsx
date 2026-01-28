@@ -74,7 +74,8 @@ export function AppsContent() {
     if (user) {
       fetchAllIntegrations()
     }
-  }, [user, fetchAllIntegrations])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAllIntegrations is store method, user is the actual trigger
+  }, [user])
 
   // Prevent React 18 Strict Mode double-fetch
   const hasInitializedRef = useRef(false)
