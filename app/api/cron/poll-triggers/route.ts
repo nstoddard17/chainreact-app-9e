@@ -5,6 +5,9 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { findPollingHandler } from '@/lib/triggers/polling'
 import { logger } from '@/lib/utils/logger'
 
+// Import triggers index to ensure all polling handlers are registered
+import '@/lib/triggers'
+
 const DEFAULT_POLL_INTERVAL_MS = 15 * 60 * 1000
 
 const getSupabase = () => createClient(

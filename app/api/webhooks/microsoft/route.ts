@@ -445,8 +445,47 @@ async function processNotifications(
         if (!triggerResource) {
           logger.warn('⚠️ Subscription not found in trigger_resources (likely old/orphaned subscription):', {
             subId,
-            message: 'This subscription is not tracked in trigger_resources. Deactivate/reactivate workflow to clean up.'
+            message: 'This subscription is not tracked in trigger_resources. Attempting cleanup.'
           })
+
+          // Best-effort cleanup of orphaned subscription
+          try {
+            // Try to find any Microsoft integration to get a token
+            const { data: integrations } = await supabase
+              .from('integrations')
+              .select('user_id, provider')
+              .or('provider.like.microsoft%,provider.eq.onedrive,provider.eq.teams')
+              .limit(5)
+
+            if (integrations && integrations.length > 0) {
+              const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+              const graphAuth = new MicrosoftGraphAuth()
+
+              // Try each integration until one works
+              for (const integration of integrations) {
+                try {
+                  const accessToken = await graphAuth.getValidAccessToken(integration.user_id, integration.provider)
+
+                  const deleteResponse = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${subId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                  })
+
+                  if (deleteResponse.ok || deleteResponse.status === 404) {
+                    logger.info('🧹 Cleaned up orphaned subscription:', subId)
+                    break
+                  }
+                  // 403 means different tenant/user, try next integration
+                } catch (tokenError) {
+                  // Token refresh failed or other error, try next integration
+                  continue
+                }
+              }
+            }
+          } catch (cleanupError) {
+            logger.debug('Could not clean up orphaned subscription (will auto-expire):', subId)
+          }
+
           continue
         }
 
