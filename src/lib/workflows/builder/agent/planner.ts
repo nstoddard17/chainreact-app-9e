@@ -6,10 +6,27 @@ import { createHash } from "crypto"
 import { ALL_NODE_COMPONENTS } from "../../../../../lib/workflows/nodes"
 import type { NodeComponent } from "../../../../../lib/workflows/nodes/types"
 import OpenAI from "openai"
+import { logger } from "../../../../../lib/utils/logger"
+// Import LLM planner and types
+import { planWithLLM, llmOutputToPlannerResult } from "./llmPlanner"
+import { parseRefinementIntent, looksLikeRefinement, applyRefinement } from "./refinementParser"
+import type {
+  ReasoningStep,
+  NodeConfiguration,
+  ConversationMessage,
+  LLMPlannerInput,
+  ExtendedPlannerResult,
+} from "./types"
 
 export interface PlannerInput {
   prompt: string
   flow: Flow
+  /** Connected integrations for context */
+  connectedIntegrations?: string[]
+  /** Conversation history for refinement context */
+  conversationHistory?: ConversationMessage[]
+  /** Whether to prefer LLM planner (default: true) */
+  useLLM?: boolean
 }
 
 export type Edit =
@@ -17,6 +34,10 @@ export type Edit =
   | { op: "connect"; edge: Edge }
   | { op: "setConfig"; nodeId: string; patch: Record<string, any> }
   | { op: "setInterface"; inputs: FlowInterface["inputs"]; outputs: FlowInterface["outputs"] }
+  // Extended edit operations for branching support
+  | { op: "addBranch"; afterNodeId: string; condition: { field: string; operator: string; value?: any }; truePath: Node[]; falsePath?: Node[] }
+  | { op: "mergeBranches"; sourceNodeIds: string[]; mergeNodeId: string }
+  | { op: "removeNode"; nodeId: string; reconnect: boolean }
 
 export interface PlannerResult {
   edits: Edit[]
@@ -24,12 +45,26 @@ export interface PlannerResult {
   rationale: string
   deterministicHash: string
   workflowName?: string
+  /** Reasoning steps from LLM planner (if used) */
+  reasoning?: ReasoningStep[]
+  /** Partial configuration metadata from LLM planner */
+  partialConfigs?: Record<string, NodeConfiguration>
+  /** Plan version for refinement tracking */
+  planVersion?: number
+  /** Method used for planning */
+  planningMethod?: 'llm' | 'pattern'
 }
 
-// Initialize OpenAI client for workflow name generation
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
+// Lazy-initialize OpenAI client for workflow name generation
+let _openai: OpenAI | null = null
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY!,
+    })
+  }
+  return _openai
+}
 
 // Create a lookup map for quick node access
 const NODE_CATALOG_MAP = new Map<string, NodeComponent>(
@@ -529,7 +564,96 @@ export function checkPrerequisites(flow: Flow): string[] {
   return Array.from(new Set(requirements))
 }
 
-export async function planEdits({ prompt, flow }: PlannerInput): Promise<PlannerResult> {
+/**
+ * Main entry point for workflow planning
+ *
+ * Uses LLM-first approach with pattern matching fallback:
+ * 1. Try LLM planner for complex workflows (10+ nodes, branching, refinements)
+ * 2. Fall back to pattern matching if LLM fails or returns low confidence
+ * 3. Pattern matching is also used directly for simple, well-known patterns
+ */
+export async function planEdits({
+  prompt,
+  flow,
+  connectedIntegrations = [],
+  conversationHistory = [],
+  useLLM = true,
+}: PlannerInput): Promise<PlannerResult> {
+  const existingNodeIds = new Set(flow.nodes.map((node) => node.id))
+
+  // Check if this is a refinement request
+  if (looksLikeRefinement(prompt) && flow.nodes.length > 0) {
+    logger.debug('[Planner] Detected refinement request', { prompt })
+    const refinementIntent = parseRefinementIntent(prompt, flow.nodes)
+
+    if (refinementIntent && refinementIntent.confidence !== 'low') {
+      logger.debug('[Planner] Applying refinement', { intent: refinementIntent })
+      const edges = flow.edges.map(e => ({ id: e.id, from: e.from, to: e.to }))
+      const result = applyRefinement(refinementIntent, flow.nodes, edges, 1)
+
+      if (result.success) {
+        return {
+          edits: result.edits,
+          prerequisites: [],
+          rationale: `Refinement: ${refinementIntent.matchedText}`,
+          deterministicHash: computeDeterministicHash(result.edits),
+          reasoning: result.reasoning,
+          planVersion: result.newPlanVersion,
+          planningMethod: 'llm',
+        }
+      }
+    }
+  }
+
+  // Try LLM planner first (for complex requests)
+  if (useLLM) {
+    try {
+      logger.debug('[Planner] Attempting LLM-based planning', { prompt })
+
+      const llmInput: LLMPlannerInput = {
+        prompt,
+        flow: { nodes: flow.nodes, edges: flow.edges },
+        connectedIntegrations,
+        conversationHistory,
+      }
+
+      const llmResult = await planWithLLM(llmInput)
+
+      // Check if LLM result is usable
+      if (llmResult.confidence !== 'low' && llmResult.nodes.length > 0) {
+        const plannerResult = llmOutputToPlannerResult(llmResult, existingNodeIds)
+
+        logger.debug('[Planner] LLM planning successful', {
+          nodeCount: llmResult.nodes.length,
+          confidence: llmResult.confidence,
+        })
+
+        return {
+          ...plannerResult,
+          planningMethod: 'llm',
+          planVersion: llmResult.planVersion,
+        }
+      }
+
+      logger.debug('[Planner] LLM result low confidence, falling back to patterns', {
+        confidence: llmResult.confidence,
+        nodeCount: llmResult.nodes.length,
+      })
+    } catch (error) {
+      logger.warn('[Planner] LLM planner failed, falling back to patterns', { error })
+    }
+  }
+
+  // Fall back to pattern matching
+  logger.debug('[Planner] Using pattern-based planning', { prompt })
+  return planEditsWithPatterns({ prompt, flow })
+}
+
+/**
+ * Pattern-based planning (original implementation)
+ * Used as fallback when LLM planner fails or for simple patterns
+ */
+async function planEditsWithPatterns({ prompt, flow }: { prompt: string; flow: Flow }): Promise<PlannerResult> {
   const edits: Edit[] = []
   const prerequisites: string[] = []
   const rationaleParts: string[] = []
@@ -747,7 +871,7 @@ export async function planEdits({ prompt, flow }: PlannerInput): Promise<Planner
 
   // Generate workflow name from prompt using AI
   const workflowName = await generateWorkflowNameWithAI(prompt, planTemplate)
-  console.log('[Planner] Generated workflow name:', workflowName, 'from prompt:', prompt)
+  logger.debug('[Planner] Generated workflow name', { workflowName, prompt })
 
   return {
     edits,
@@ -755,6 +879,7 @@ export async function planEdits({ prompt, flow }: PlannerInput): Promise<Planner
     rationale: finalRationale,
     deterministicHash,
     workflowName,
+    planningMethod: 'pattern',
   }
 }
 
@@ -764,7 +889,7 @@ async function generateWorkflowNameWithAI(prompt: string, planTemplate: PlanTemp
   const maxLength = 50
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini", // Cheap, fast model
       messages: [
         {

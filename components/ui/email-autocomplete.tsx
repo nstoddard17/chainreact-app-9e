@@ -62,9 +62,16 @@ export function EmailAutocomplete({
   const updateDropdownPosition = () => {
     if (inputRef.current) {
       const rect = inputRef.current.getBoundingClientRect()
+      // Use fallbacks for scroll position (older iOS Safari compatibility)
+      const scrollY = typeof window !== 'undefined'
+        ? (window.scrollY ?? window.pageYOffset ?? document.documentElement?.scrollTop ?? 0)
+        : 0
+      const scrollX = typeof window !== 'undefined'
+        ? (window.scrollX ?? window.pageXOffset ?? document.documentElement?.scrollLeft ?? 0)
+        : 0
       setDropdownPosition({
-        top: rect.bottom + window.scrollY + 4, // Add small gap
-        left: rect.left + window.scrollX,
+        top: rect.bottom + scrollY + 4, // Add small gap
+        left: rect.left + scrollX,
         width: rect.width
       })
     }
@@ -315,7 +322,13 @@ export function EmailAutocomplete({
     if (selectedIndex >= 0 && listRef.current) {
       const selectedElement = listRef.current.children[selectedIndex] as HTMLElement
       if (selectedElement) {
-        selectedElement.scrollIntoView({ block: "nearest" })
+        // Use try-catch for scrollIntoView options (older iOS Safari compatibility)
+        try {
+          selectedElement.scrollIntoView({ block: "nearest" })
+        } catch {
+          // Fallback for browsers that don't support options
+          selectedElement.scrollIntoView(false)
+        }
       }
     }
   }, [selectedIndex])
@@ -455,7 +468,7 @@ export function EmailAutocomplete({
       </div>
 
       {/* Suggestions dropdown using portal */}
-      {isOpen && typeof window !== 'undefined' && createPortal(
+      {isOpen && typeof window !== 'undefined' && typeof document !== 'undefined' && document.body && createPortal(
         <div
           className="fixed bg-popover border border-border rounded-md shadow-lg text-popover-foreground pointer-events-auto"
           data-email-dropdown="true"

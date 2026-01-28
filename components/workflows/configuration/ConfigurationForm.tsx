@@ -1348,12 +1348,17 @@ function ConfigurationForm({
     );
   }
 
-  // Show loading screen during initial load only when there are dynamic fields to fetch
+  // Show loading screen during initial load only when:
+  // 1. There are dynamic fields to fetch AND
+  // 2. This is NOT a reopen (reopening should show saved values immediately)
   const hasDynamicFields = Array.isArray(nodeInfo?.configSchema) && nodeInfo.configSchema.some((field: any) => field?.dynamic);
 
-  if ((isInitialLoading || isLoadingDynamicOptions) && hasDynamicFields) {
+  // When reopening a previously saved node, skip the loading screen entirely
+  // The saved values should display immediately; dynamic options load in the background
+  // and dropdowns will show loading state only when the user opens them
+  if ((isInitialLoading || isLoadingDynamicOptions) && hasDynamicFields && !isReopen) {
     return (
-      <ConfigurationLoadingScreen 
+      <ConfigurationLoadingScreen
         integrationName={integrationName}
       />
     );

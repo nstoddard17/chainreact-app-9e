@@ -17,9 +17,16 @@ export default function AuthInitializer() {
     if (!cleanupStarted.current) {
       cleanupStarted.current = true
       // Run cleanup asynchronously to not block app startup
-      requestIdleCallback(() => {
-        cleanupWorkflowLocalStorage()
-      }, { timeout: 5000 })
+      // Use requestIdleCallback with fallback for older browsers (iOS Safari < 16)
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(() => {
+          cleanupWorkflowLocalStorage()
+        }, { timeout: 5000 })
+      } else {
+        setTimeout(() => {
+          cleanupWorkflowLocalStorage()
+        }, 1)
+      }
     }
   }, [])
 

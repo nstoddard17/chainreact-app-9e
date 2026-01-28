@@ -5,18 +5,49 @@
  * Handles loading chat history, queuing messages before workflow is saved,
  * and flushing pending messages once persistence is enabled.
  *
+ * Extended to support LLM planner features:
+ * - Reasoning steps metadata
+ * - Plan version tracking
+ * - Workflow snapshots for refinement context
+ * - Partial configuration metadata
+ *
  * Extracted from WorkflowBuilderV2.tsx to reduce complexity.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChatService, type ChatMessage } from '@/lib/workflows/ai-agent/chat-service'
+import type { ReasoningStep, NodeConfiguration } from '@/src/lib/workflows/builder/agent/types'
+
+/**
+ * Extended metadata for chat messages with LLM planner support
+ */
+export interface ChatMessageMeta {
+  /** Reasoning steps from LLM planner */
+  reasoningSteps?: ReasoningStep[]
+  /** Plan version for refinement tracking */
+  planVersion?: number
+  /** JSON serialized workflow state for context */
+  workflowSnapshot?: string
+  /** Partial configuration metadata per node */
+  partialConfigs?: Record<string, NodeConfiguration>
+  /** Whether this message is a refinement */
+  isRefinement?: boolean
+  /** Type of refinement if applicable */
+  refinementType?: string
+  /** Planning method used */
+  planningMethod?: 'llm' | 'pattern'
+  /** Original prompt for reference */
+  originalPrompt?: string
+  /** Any other metadata */
+  [key: string]: any
+}
 
 type PendingChatMessage = {
   localId: string
   role: ChatMessage['role']
   text: string
   subtext?: string
-  meta?: Record<string, any>
+  meta?: ChatMessageMeta
   createdAt?: string
   ephemeral?: boolean  // Mark messages that should NOT be persisted (UI state only)
 }
@@ -45,6 +76,10 @@ interface UseChatPersistenceReturn {
   replaceMessageByLocalId: (localId: string, saved: ChatMessage) => void
   enqueuePendingMessage: (message: PendingChatMessage) => void
   persistOrQueueStatus: (text: string, subtext?: string) => Promise<void>
+  /** Get the current plan version from conversation history */
+  getCurrentPlanVersion: () => number
+  /** Create a workflow snapshot for refinement context */
+  createWorkflowSnapshot: (flow: any) => string
 }
 
 export function useChatPersistence({
@@ -443,6 +478,42 @@ export function useChatPersistence({
     replaceMessageByLocalId,
   ])
 
+  // Get the current plan version from conversation history
+  const getCurrentPlanVersion = useCallback((): number => {
+    // Find the most recent message with a plan version
+    const messagesWithVersion = agentMessages
+      .filter(m => m.meta?.planVersion !== undefined)
+      .sort((a, b) => {
+        const aTime = new Date(a.createdAt || 0).getTime()
+        const bTime = new Date(b.createdAt || 0).getTime()
+        return bTime - aTime // Sort descending (most recent first)
+      })
+
+    return messagesWithVersion[0]?.meta?.planVersion ?? 0
+  }, [agentMessages])
+
+  // Create a workflow snapshot for refinement context
+  const createWorkflowSnapshot = useCallback((flow: any): string => {
+    if (!flow) return ''
+    try {
+      // Create a minimal snapshot with just node types and connections
+      const snapshot = {
+        nodes: flow.nodes?.map((n: any) => ({
+          id: n.id,
+          type: n.type,
+          label: n.label,
+        })) || [],
+        edges: flow.edges?.map((e: any) => ({
+          from: e.from?.nodeId,
+          to: e.to?.nodeId,
+        })) || [],
+      }
+      return JSON.stringify(snapshot)
+    } catch {
+      return ''
+    }
+  }, [])
+
   return {
     chatPersistenceEnabled,
     isChatLoading,
@@ -451,5 +522,7 @@ export function useChatPersistence({
     replaceMessageByLocalId,
     enqueuePendingMessage,
     persistOrQueueStatus,
+    getCurrentPlanVersion,
+    createWorkflowSnapshot,
   }
 }

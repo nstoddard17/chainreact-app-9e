@@ -60,6 +60,9 @@ import { PromptEnhancer } from "../ai-agent/PromptEnhancer"
 import { getProviderOptions } from "@/lib/workflows/ai-agent/providerDisambiguation"
 import { getNodeConfigQuestions } from "@/lib/workflows/ai-agent/nodeConfigQuestions"
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from "../configuration/utils/connectionExemptions"
+import { ReasoningDisplay, PartialConfigBadge, StreamingReasoning } from "./ReasoningDisplay"
+import type { ReasoningStep, NodeConfiguration, ConfigConfidence } from "@/src/lib/workflows/builder/agent/types"
+import { looksLikeRefinement } from "@/src/lib/workflows/builder/agent/refinementParser"
 
 /**
  * Maps provider IDs to their actual icon filenames
@@ -88,6 +91,16 @@ interface PanelStateProps {
   providerCategory?: any
   /** Saved provider selections for auto-continue after page refresh */
   providerSelections?: Record<string, string>
+  /** Reasoning steps from LLM planner */
+  reasoning?: ReasoningStep[]
+  /** Partial configuration metadata per node */
+  partialConfigs?: Record<string, NodeConfiguration>
+  /** Overall planning confidence */
+  planConfidence?: ConfigConfidence
+  /** Planning method used (llm or pattern) */
+  planningMethod?: 'llm' | 'pattern'
+  /** Whether reasoning is currently streaming */
+  isReasoningStreaming?: boolean
 }
 
 interface PanelActions {
@@ -138,6 +151,11 @@ export function FlowV2AgentPanel({
     awaitingProviderSelection,
     providerCategory,
     providerSelections,
+    reasoning,
+    partialConfigs,
+    planConfidence,
+    planningMethod,
+    isReasoningStreaming,
   } = state
   const {
     onInputChange,
@@ -1375,12 +1393,41 @@ export function FlowV2AgentPanel({
                     </div>
                   )}
 
+                  {/* Streaming Reasoning - show during planning phases when LLM is thinking */}
+                  {isReasoningStreaming && reasoning && reasoning.length > 0 && (
+                    buildMachine.state === BuildState.THINKING ||
+                    buildMachine.state === BuildState.SUBTASKS ||
+                    buildMachine.state === BuildState.COLLECT_NODES
+                  ) && (
+                    <div className="w-full max-w-[95%]">
+                      <StreamingReasoning
+                        steps={reasoning}
+                        isStreaming={isReasoningStreaming}
+                      />
+                    </div>
+                  )}
+
                   {/* Outline text only shown during OUTLINE state, hidden once plan is ready */}
                   {buildMachine.state === BuildState.OUTLINE && buildMachine.stagedText.outline && (
                     <div className="flex w-full">
                       <div className="text-sm text-muted-foreground">
                         {buildMachine.stagedText.outline}
                       </div>
+                    </div>
+                  )}
+
+                  {/* AI Reasoning Display - shown when plan is ready and LLM was used */}
+                  {reasoning && reasoning.length > 0 && planningMethod === 'llm' && (
+                    buildMachine.state === BuildState.PLAN_READY ||
+                    buildMachine.state === BuildState.BUILDING_SKELETON ||
+                    buildMachine.state === BuildState.WAITING_USER
+                  ) && (
+                    <div className="w-full max-w-[95%] mb-3">
+                      <ReasoningDisplay
+                        steps={reasoning}
+                        confidence={planConfidence}
+                        defaultOpen={false}
+                      />
                     </div>
                   )}
 
@@ -2144,7 +2191,16 @@ export function FlowV2AgentPanel({
               <div className="relative">
                 {agentInput === '' && (
                   <div className="absolute left-0 top-0 pointer-events-none px-3 py-2 text-sm text-muted-foreground leading-normal">
-                    How can ChainReact help you today?
+                    {buildMachine.plan.length > 0
+                      ? "Refine your workflow (e.g., 'add a filter before step 2')..."
+                      : "How can ChainReact help you today?"
+                    }
+                  </div>
+                )}
+                {/* Refinement indicator when user is typing a refinement command */}
+                {agentInput.trim() && buildMachine.plan.length > 0 && looksLikeRefinement(agentInput) && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-primary font-medium">
+                    Refining...
                   </div>
                 )}
                 <input
