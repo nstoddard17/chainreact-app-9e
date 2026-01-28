@@ -12,14 +12,20 @@ import {
   FolderOpen
 } from "lucide-react"
 import { newNoteTriggerSchema } from "./triggers/newNote.schema"
+import { updatedNoteTriggerSchema } from "./triggers/updatedNote.schema"
 
 // Microsoft OneNote Triggers
-// Implementation: Microsoft Graph subscriptions for OneNote page changes
+// Implementation: Polling-based detection (Microsoft Graph deprecated OneNote webhooks May 2023)
 
-// Resolve the trigger icon
+// Resolve the trigger icons
 const onenoteTriggerNewNote: NodeComponent = {
   ...newNoteTriggerSchema,
   icon: FileText
+}
+
+const onenoteTriggerUpdatedNote: NodeComponent = {
+  ...updatedNoteTriggerSchema,
+  icon: Edit
 }
 
 // Microsoft OneNote Actions
@@ -799,8 +805,9 @@ const onenoteActionGetSectionDetails: NodeComponent = {
 
 // Export all OneNote nodes
 export const onenoteNodes: NodeComponent[] = [
-  // Triggers (1) - Graph subscriptions
+  // Triggers - Polling-based (Microsoft Graph deprecated OneNote webhooks May 2023)
   onenoteTriggerNewNote,
+  onenoteTriggerUpdatedNote,
 
   // Actions - Note: Delete Section/Notebook not supported by Microsoft Graph API
   // Create actions

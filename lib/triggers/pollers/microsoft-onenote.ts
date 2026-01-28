@@ -27,6 +27,11 @@ type PageSnapshot = {
   updatedAt: string
 }
 
+type PageUpdateSnapshot = {
+  pageLastModified: Record<string, string>  // pageId -> lastModifiedDateTime
+  updatedAt: string
+}
+
 async function fetchPagesSnapshot(
   accessToken: string,
   notebookId: string,
@@ -209,6 +214,133 @@ export const microsoftOnenotePollingHandler: PollingHandler = {
           triggerType: trigger.trigger_type,
           notebookId: config.notebookId,
           sectionId: config.sectionId,
+          ...pageData
+        }
+      }
+
+      const base = getWebhookBaseUrl()
+      const response = await fetch(`${base}/api/workflows/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': trigger.user_id
+        },
+        body: JSON.stringify(executionPayload)
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        logger.error('[OneNote Poll] Workflow execution failed', {
+          status: response.status,
+          error: errorText,
+          workflowId: trigger.workflow_id
+        })
+      }
+
+      return
+    }
+
+    // Handle updated note trigger - detects when a page is edited
+    if (trigger.trigger_type === 'microsoft-onenote_trigger_updated_note') {
+      const snapshot = await fetchPagesSnapshot(accessToken, config.notebookId, config.sectionId)
+      const previousSnapshot = config.onenotePageUpdateSnapshot as PageUpdateSnapshot | undefined
+
+      // Build current snapshot with lastModifiedDateTime for each page
+      const pageLastModified: Record<string, string> = {}
+      snapshot.pages.forEach((page: any) => {
+        if (page.id && page.lastModifiedDateTime) {
+          pageLastModified[page.id] = page.lastModifiedDateTime
+        }
+      })
+
+      const currentSnapshot: PageUpdateSnapshot = {
+        pageLastModified,
+        updatedAt: new Date().toISOString()
+      }
+
+      // Find updated page - optionally filter to specific pageId if configured
+      let updatedPageId: string | undefined
+      let previousModifiedDateTime: string | undefined
+      const pagesToCheck = config.pageId
+        ? [config.pageId]
+        : Object.keys(pageLastModified)
+
+      for (const pageId of pagesToCheck) {
+        const previousTimestamp = previousSnapshot?.pageLastModified?.[pageId]
+        const currentTimestamp = pageLastModified[pageId]
+
+        // Skip if page not found or no previous timestamp to compare
+        if (!currentTimestamp || !previousTimestamp) continue
+
+        // Check if lastModifiedDateTime has changed
+        if (new Date(currentTimestamp).getTime() > new Date(previousTimestamp).getTime()) {
+          updatedPageId = pageId
+          previousModifiedDateTime = previousTimestamp
+          break
+        }
+      }
+
+      // Update snapshot in database
+      await getSupabase()
+        .from('trigger_resources')
+        .update({
+          config: {
+            ...config,
+            onenotePageUpdateSnapshot: currentSnapshot,
+            polling: {
+              ...(config.polling || {}),
+              lastPolledAt: new Date().toISOString()
+            }
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', trigger.id)
+
+      // Skip trigger on first poll (just capture baseline)
+      if (!previousSnapshot) {
+        logger.debug('[OneNote Poll] First poll - captured baseline for update detection', {
+          pageCount: Object.keys(pageLastModified).length,
+          triggerId: trigger.id
+        })
+        return
+      }
+
+      // If no updated page found, nothing to do
+      if (!updatedPageId) {
+        logger.debug('[OneNote Poll] No page updates detected', {
+          triggerId: trigger.id,
+          workflowId: trigger.workflow_id,
+          watchingSpecificPage: !!config.pageId
+        })
+        return
+      }
+
+      // Find the updated page data
+      const updatedPage = snapshot.pages.find((page: any) => page.id === updatedPageId)
+      if (!updatedPage) return
+
+      const pageData = formatPageOutput(updatedPage, config.notebookId, config.sectionId)
+
+      logger.debug('[OneNote Poll] Page update detected, triggering workflow', {
+        pageId: updatedPageId,
+        pageTitle: updatedPage.title,
+        previousModified: previousModifiedDateTime,
+        currentModified: updatedPage.lastModifiedDateTime,
+        workflowId: trigger.workflow_id
+      })
+
+      // Trigger workflow execution
+      const executionPayload = {
+        workflowId: trigger.workflow_id,
+        testMode: false,
+        executionMode: 'live',
+        skipTriggers: true,
+        inputData: {
+          source: 'microsoft-onenote-poll',
+          triggerType: trigger.trigger_type,
+          notebookId: config.notebookId,
+          sectionId: config.sectionId,
+          previousModifiedDateTime,
           ...pageData
         }
       }
