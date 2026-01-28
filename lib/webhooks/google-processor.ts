@@ -1,5 +1,4 @@
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
-import { queueWebhookTask } from '@/lib/webhooks/task-queue'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 import { google } from 'googleapis'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
@@ -2608,15 +2607,6 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
 async function processGenericGoogleEvent(event: GoogleWebhookEvent): Promise<any> {
   // Generic Google event processing
   logger.debug('Processing generic Google webhook event:', event.service)
-  
-  // Queue for background processing if needed
-  await queueWebhookTask({
-    provider: 'google',
-    service: event.service,
-    eventData: event.eventData,
-    requestId: event.requestId
-  })
-  
   return { processed: true, service: event.service }
 }
 

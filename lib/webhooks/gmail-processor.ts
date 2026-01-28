@@ -1,5 +1,4 @@
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
-import { queueWebhookTask } from '@/lib/webhooks/task-queue'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 import { google } from 'googleapis'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
@@ -230,16 +229,7 @@ async function processGmailEventData(event: GmailWebhookEvent): Promise<any> {
 // Gmail event handlers
 async function handleGmailNewMessage(eventData: any): Promise<any> {
   logger.debug('Processing Gmail new message event')
-
-  // Queue for background processing to fetch full message details
-  await queueWebhookTask({
-    provider: 'gmail',
-    service: 'gmail',
-    eventType: 'message.new',
-    eventData,
-    requestId: eventData.requestId
-  })
-
+  // Note: Real processing happens in triggerMatchingGmailWorkflows() before this is called
   return {
     processed: true,
     type: 'gmail_new_message'
