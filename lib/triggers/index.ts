@@ -23,6 +23,9 @@ import { MailchimpTriggerLifecycle } from './providers/MailchimpTriggerLifecycle
 import { TrelloTriggerLifecycle } from './providers/TrelloTriggerLifecycle'
 import { registerPollingHandler } from './polling'
 import { microsoftExcelPollingHandler } from './pollers/microsoft-excel'
+import { microsoftOnenotePollingHandler } from './pollers/microsoft-onenote'
+import { googleSheetsPollingHandler } from './pollers/google-sheets'
+import { OneNoteTriggerLifecycle } from './providers/OneNoteTriggerLifecycle'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -31,7 +34,6 @@ const microsoftLifecycle = new MicrosoftGraphTriggerLifecycle()
 const microsoftProviders = [
   'microsoft',
   'microsoft-outlook',
-  'microsoft-onenote',
   'microsoft-excel',
   'onedrive'
 ]
@@ -43,6 +45,15 @@ microsoftProviders.forEach(providerId => {
     requiresExternalResources: true,
     description: `Microsoft Graph subscriptions for ${providerId}`
   })
+})
+
+// Register OneNote provider with dedicated polling lifecycle
+// Microsoft Graph does NOT support direct OneNote webhooks (deprecated May 2023)
+triggerLifecycleManager.registerProvider({
+  providerId: 'microsoft-onenote',
+  lifecycle: new OneNoteTriggerLifecycle(),
+  requiresExternalResources: false, // Polling-based, no external webhooks
+  description: 'Microsoft OneNote polling triggers for new pages'
 })
 
 // Register Teams provider with dedicated lifecycle (uses Graph API change notifications)
@@ -169,6 +180,8 @@ triggerLifecycleManager.registerProvider({
 logger.debug('✅ Trigger lifecycle providers registered:', triggerLifecycleManager.getRegisteredProviders())
 
 registerPollingHandler(microsoftExcelPollingHandler)
+registerPollingHandler(microsoftOnenotePollingHandler)
+registerPollingHandler(googleSheetsPollingHandler)
 
 // Export the manager for use in workflow activation/deactivation
 export { triggerLifecycleManager } from './TriggerLifecycleManager'

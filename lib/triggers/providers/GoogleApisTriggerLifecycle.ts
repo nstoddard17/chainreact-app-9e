@@ -117,6 +117,22 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
         webhookUrl
       })
 
+      // Build initial snapshots for polling support
+      const googleSheetsRowSnapshot = {
+        rowHashes: watch.rowSignatures || {},
+        rowCount: watch.lastRowCount ?? 0,
+        updatedAt: new Date().toISOString()
+      }
+
+      const googleSheetsWorksheetSnapshot = {
+        sheets: Object.entries(watch.sheetData || {}).map(([id, data]: [string, any]) => ({
+          sheetId: parseInt(id),
+          title: data?.title || ''
+        })),
+        sheetCount: watch.lastSheetCount ?? 0,
+        updatedAt: new Date().toISOString()
+      }
+
       const resourceData = {
         workflow_id: workflowId,
         user_id: userId,
@@ -140,7 +156,14 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           sheetData: watch.sheetData || {},
           rowSignatures: watch.rowSignatures || {},
           api: 'sheets',
-          webhookUrl
+          webhookUrl,
+          // Enable polling as backup/enhancement to webhooks
+          pollingEnabled: true,
+          googleSheetsRowSnapshot,
+          googleSheetsWorksheetSnapshot,
+          polling: {
+            lastPolledAt: new Date().toISOString()
+          }
         },
         status: 'active',
         expires_at: watch.expiration,

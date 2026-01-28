@@ -1,7 +1,7 @@
 /**
  * Microsoft Graph Trigger Lifecycle
  *
- * Manages subscriptions for Microsoft Graph triggers (Outlook, Teams, OneDrive, OneNote)
+ * Manages subscriptions for Microsoft Graph triggers (Outlook, Teams, OneDrive, Excel)
  * Implements proper lifecycle: create on activate, delete on deactivate/delete
  */
 
@@ -96,20 +96,6 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           throw new Error(`Token lacks Mail.Read permission. Status: ${messagesResponse.status}. Please reconnect Microsoft Outlook integration.`)
         } else {
           logger.debug('✅ /me/messages call succeeded - token has mail read permission')
-        }
-      }
-      if (provider === 'microsoft-onenote') {
-        const notebooksResponse = await fetch('https://graph.microsoft.com/v1.0/me/onenote/notebooks?$top=1', {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-        })
-
-        if (!notebooksResponse.ok) {
-          const errorText = await notebooksResponse.text()
-          logger.error('❌ /me/onenote/notebooks call failed:', notebooksResponse.status, notebooksResponse.statusText)
-          logger.error('   Error details:', errorText)
-          throw new Error(`Token lacks OneNote permissions. Status: ${notebooksResponse.status}. Please reconnect Microsoft OneNote integration.`)
-        } else {
-          logger.debug('✅ /me/onenote/notebooks call succeeded - token has OneNote permissions')
         }
       }
       if (provider === 'onedrive') {
@@ -525,7 +511,6 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     // Extract provider prefix from trigger type
     if (triggerType.startsWith('microsoft-outlook_')) return 'microsoft-outlook'
     if (triggerType.startsWith('microsoft_excel_')) return 'microsoft-excel'
-    if (triggerType.startsWith('microsoft-onenote_')) return 'microsoft-onenote'
     if (triggerType.startsWith('teams_')) return 'teams'
     if (triggerType.startsWith('onedrive_')) return 'onedrive'
 
@@ -539,7 +524,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    */
   private getResourceForTrigger(triggerType: string, config?: Record<string, any>): string | null {
     // Strip provider prefix if present (e.g., "microsoft-outlook_trigger_new_email" -> "trigger_new_email")
-    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|microsoft-onenote|teams|onedrive)_/, '')
+    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|teams|onedrive)_/, '')
 
     const resourceMap: Record<string, string | ((config?: Record<string, any>) => string)> = {
       // Email triggers
@@ -667,12 +652,6 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           }
         }
         return '/me/drive/root'
-      },
-
-      // OneNote triggers
-      'trigger_new_note': (config?: Record<string, any>) => {
-        // OneNote page notifications are not supported directly; use OneDrive changes as a signal.
-        return '/me/drive/root'
       }
     }
 
@@ -691,7 +670,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
    */
   private getChangeTypeForTrigger(triggerType: string): string {
     // Strip provider prefix if present
-    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|microsoft-onenote|teams|onedrive)_/, '')
+    const simplifiedType = triggerType.replace(/^(microsoft-outlook|microsoft_excel|teams|onedrive)_/, '')
 
     // Email flagged trigger needs to watch for updates (flag changes are updates)
     if (simplifiedType === 'trigger_email_flagged') {
@@ -706,11 +685,6 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     // Calendar event start uses event create/update webhooks to schedule delayed runs
     if (simplifiedType === 'trigger_calendar_event_start') {
       return 'created,updated'
-    }
-
-    // OneNote only supports "updated" changeType for pages in Microsoft Graph subscriptions
-    if (triggerType.startsWith('microsoft-onenote_')) {
-      return 'updated'
     }
 
     // OneDrive only supports "updated" changeType - it doesn't support "created" or "deleted" separately

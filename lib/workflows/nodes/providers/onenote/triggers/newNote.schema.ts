@@ -3,13 +3,13 @@ import { NodeComponent } from "../../../types"
 export const newNoteTriggerSchema: NodeComponent = {
   type: "microsoft-onenote_trigger_new_note",
   title: "New Note in Section",
-  description: "Triggers when a new note is created in a notebook/section (uses OneDrive change notifications as a signal).",
+  description: "Triggers when a new note is created in a notebook/section.",
   isTrigger: true,
   providerId: "microsoft-onenote",
   category: "Productivity",
   icon: "FileText" as any, // Will be resolved in index file
   producesOutput: true,
-  triggerType: "webhook",
+  triggerType: "polling",
   requiredScopes: ["Notes.Read", "Notes.ReadWrite.All"],
   configSchema: [
     {
