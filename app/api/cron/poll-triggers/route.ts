@@ -28,16 +28,23 @@ export async function POST(request: NextRequest) {
     logger.info('[Poll] Trigger poll cron started')
     const roleCache = new Map<string, string>()
 
+    // Use contains() to properly match boolean pollingEnabled in JSONB config
     const { data: triggers, error } = await supabase
       .from('trigger_resources')
       .select('id, user_id, workflow_id, trigger_type, config, status')
       .eq('status', 'active')
-      .eq('config->>pollingEnabled', 'true')
+      .contains('config', { pollingEnabled: true })
 
     if (error) {
       logger.error('[Poll] Failed to fetch pollable triggers:', error)
       return errorResponse('Failed to fetch pollable triggers', 500)
     }
+
+    // Debug: Log what triggers were found
+    logger.info('[Poll] Found pollable triggers:', {
+      count: triggers?.length || 0,
+      triggerTypes: triggers?.map(t => t.trigger_type) || []
+    })
 
     const now = Date.now()
     let processed = 0
@@ -47,6 +54,10 @@ export async function POST(request: NextRequest) {
     for (const trigger of triggers || []) {
       const handler = findPollingHandler(trigger)
       if (!handler) {
+        logger.debug('[Poll] No handler found for trigger:', {
+          triggerId: trigger.id,
+          triggerType: trigger.trigger_type
+        })
         skipped += 1
         continue
       }
@@ -69,11 +80,24 @@ export async function POST(request: NextRequest) {
 
       const pollInterval = handler.getIntervalMs(userRole) || DEFAULT_POLL_INTERVAL_MS
       if (now - lastPollAt < pollInterval) {
+        logger.debug('[Poll] Skipping - interval not elapsed:', {
+          triggerId: trigger.id,
+          triggerType: trigger.trigger_type,
+          lastPollAt: lastPollAt ? new Date(lastPollAt).toISOString() : 'never',
+          nextPollAt: new Date(lastPollAt + pollInterval).toISOString(),
+          intervalMs: pollInterval
+        })
         skipped += 1
         continue
       }
 
       try {
+        logger.info('[Poll] Executing poll handler:', {
+          triggerId: trigger.id,
+          triggerType: trigger.trigger_type,
+          handlerId: handler.id,
+          userRole
+        })
         await handler.poll({ trigger, userRole, now })
         processed += 1
       } catch (pollError) {

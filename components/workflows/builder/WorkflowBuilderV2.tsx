@@ -3803,22 +3803,37 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     setChangingNodeId(null)
 
     try {
-      // If changing an existing node, delete the old one first
+      let newNodeId: string
+
+      // If changing an existing node, use atomic replaceNode to avoid intermediate states
       if (isChangingNode && nodeIdBeingChanged) {
-        console.log('📌 [WorkflowBuilder] Deleting old node before adding replacement:', nodeIdBeingChanged)
-        await actions.deleteNode(nodeIdBeingChanged)
-      }
+        console.log('📌 [WorkflowBuilder] Replacing node atomically:', nodeIdBeingChanged, '→', nodeData.type)
+        // replaceNode handles: delete old, add new, preserve integration_id, update edges in place
+        newNodeId = await actions.replaceNode(
+          nodeIdBeingChanged,
+          nodeData.type,
+          position,
+          ['integration_id'] // Preserve integration connection when switching same provider
+        )
+        console.log('📌 [WorkflowBuilder] Node replaced successfully:', newNodeId)
 
-      // Save node to database - updateReactFlowGraph will handle UI updates including action placeholder
-      console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
-      const newNode = await actions.addNode(nodeData.type, position)
+        // Only update configuring node if we opened the config modal
+        if (needsConfiguration) {
+          setConfiguringNode((current: any) => {
+            if (current && current.id === tempId) {
+              return { ...current, id: newNodeId, data: { ...current.data, _optimistic: false } }
+            }
+            return current
+          })
+        }
+        // Note: Edges are automatically updated by replaceNode - no manual reconnection needed
+      } else {
+        // Not changing an existing node - use regular addNode
+        console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
+        newNodeId = await actions.addNode(nodeData.type, position)
 
-      console.log('📌 [WorkflowBuilder] Node saved successfully, updateReactFlowGraph will handle placeholder')
+        console.log('📌 [WorkflowBuilder] Node saved successfully, updateReactFlowGraph will handle placeholder')
 
-      // Update the configuring node with the real node ID from DB
-      // Note: actions.addNode returns a string (the node ID), not an object
-      const newNodeId = newNode
-      if (newNodeId) {
         // Only update configuring node if we opened the config modal
         if (needsConfiguration) {
           setConfiguringNode((current: any) => {
@@ -3829,34 +3844,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           })
         }
 
-        // If changing a node, reconnect the edges that were connected to the old node
-        if (isChangingNode && edgesConnectedToChangedNode.length > 0) {
-          console.log('🔗 [WorkflowBuilder] Reconnecting edges for changed node:', edgesConnectedToChangedNode)
-
-          for (const edge of edgesConnectedToChangedNode) {
-            if (edge.source === nodeIdBeingChanged) {
-              // Edge was FROM the old node - create edge FROM new node TO the target
-              await actions.connectEdge({
-                sourceId: newNodeId,
-                targetId: edge.target,
-                sourceHandle: edge.sourceHandle || 'source',
-                targetHandle: edge.targetHandle
-              })
-            } else if (edge.target === nodeIdBeingChanged) {
-              // Edge was TO the old node - create edge FROM source TO new node
-              await actions.connectEdge({
-                sourceId: edge.source,
-                targetId: newNodeId,
-                sourceHandle: edge.sourceHandle || 'source',
-                targetHandle: edge.targetHandle
-              })
-            }
-          }
-          console.log('🔗 [WorkflowBuilder] Edges reconnected for changed node')
-        }
-        // If adding after a node (not replacing placeholder or changing), create edge and handle insertion
+        // If adding after a node (not replacing placeholder), create edge and handle insertion
         // Note: Using previousNodeId which was saved before setSelectedNodeId(null) was called
-        else if (previousNodeId && !isReplacingPlaceholder) {
+        if (previousNodeId && !isReplacingPlaceholder) {
           console.log('🔗 [WorkflowBuilder] Inserting node after:', previousNodeId)
 
           // Find what was connected after the selected node
