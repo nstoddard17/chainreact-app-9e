@@ -1,13 +1,13 @@
 import { NodeComponent } from "../../../types"
 
-export const newNoteTriggerSchema: NodeComponent = {
-  type: "microsoft-onenote_trigger_new_note",
-  title: "New Note in Section",
-  description: "Triggers when a new note is created in a notebook/section.",
+export const updatedNoteTriggerSchema: NodeComponent = {
+  type: "microsoft-onenote_trigger_updated_note",
+  title: "Updated Note Page",
+  description: "Triggers when a page in OneNote is edited or updated.",
   isTrigger: true,
   providerId: "microsoft-onenote",
   category: "Productivity",
-  icon: "FileText" as any, // Will be resolved in index file
+  icon: "FileText" as any,
   producesOutput: true,
   triggerType: "polling",
   requiredScopes: ["Notes.Read", "Notes.ReadWrite.All"],
@@ -20,7 +20,7 @@ export const newNoteTriggerSchema: NodeComponent = {
       required: true,
       placeholder: "Select a notebook",
       loadOnMount: true,
-      description: "The notebook to monitor for new notes"
+      description: "The notebook to monitor for page updates"
     },
     {
       name: "sectionId",
@@ -28,24 +28,33 @@ export const newNoteTriggerSchema: NodeComponent = {
       type: "select",
       dynamic: "onenote_sections",
       required: false,
-      placeholder: "All sections",
+      placeholder: "All sections (optional)",
       dependsOn: "notebookId",
-      description: "Optionally filter to a specific section. Leave blank to monitor all sections in the notebook."
+      description: "Optionally filter to a specific section. Leave blank to monitor all sections."
     },
-    
+    {
+      name: "pageId",
+      label: "Page to Watch",
+      type: "select",
+      dynamic: "onenote_pages",
+      required: false,
+      placeholder: "All pages (optional)",
+      dependsOn: "sectionId",
+      description: "Optionally watch a specific page. Leave blank to monitor all pages in the section/notebook."
+    }
   ],
   outputSchema: [
     {
       name: "id",
       label: "Page ID",
       type: "string",
-      description: "The unique ID of the new page"
+      description: "The unique ID of the updated page"
     },
     {
       name: "title",
       label: "Page Title",
       type: "string",
-      description: "The title of the new page"
+      description: "The title of the updated page"
     },
     {
       name: "content",
@@ -75,7 +84,13 @@ export const newNoteTriggerSchema: NodeComponent = {
       name: "lastModifiedDateTime",
       label: "Last Modified Date",
       type: "string",
-      description: "When the page was last modified"
+      description: "When the page was last modified (current)"
+    },
+    {
+      name: "previousModifiedDateTime",
+      label: "Previous Modified Date",
+      type: "string",
+      description: "The previous modification timestamp (before this update)"
     },
     {
       name: "level",

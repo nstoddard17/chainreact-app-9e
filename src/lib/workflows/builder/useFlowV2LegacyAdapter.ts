@@ -57,6 +57,7 @@ interface LegacyAdapterActions {
   createSecret: (name: string, value: string) => Promise<void>
   activateWorkflow: () => Promise<{ success: boolean; message?: string }>
   deactivateWorkflow: () => Promise<{ success: boolean; message?: string }>
+  replaceNode: (oldNodeId: string, newType: string, position?: { x: number; y: number }, preserveConfig?: string[]) => Promise<string>
 }
 
 export interface UseFlowV2LegacyAdapterResult {
@@ -134,6 +135,7 @@ export function useFlowV2LegacyAdapter(flowId: string, options?: { initialRevisi
         createSecret: builder.actions.createSecret,
         activateWorkflow: builder.actions.activateWorkflow,
         deactivateWorkflow: builder.actions.deactivateWorkflow,
+        replaceNode: builder.actions.replaceNode,
       }
     : null
 

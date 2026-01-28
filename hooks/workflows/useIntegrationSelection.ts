@@ -165,9 +165,7 @@ export function useIntegrationSelection() {
       return true
     }
 
-    // Get integrations directly from store - check actual database records
-    const storeIntegrations = useIntegrationStore.getState().integrations
-
+    // Use storeIntegrations from the subscribed hook (line 20) - reactive to store changes
     // Helper to check if status means connected
     const isConnectedStatus = (status?: string) => {
       const v = (status || '').toLowerCase()
@@ -192,7 +190,7 @@ export function useIntegrationSelection() {
     // For all other integrations (including Google services), check exact database match
     // Don't use the "all Google services share auth" logic - check actual DB records
     return storeIntegrations.some(i => i.provider === integrationId && isConnectedStatus(i.status))
-  }, [])
+  }, [storeIntegrations])
 
   const filterIntegrations = useCallback((
     integrations: IntegrationInfo[],

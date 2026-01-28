@@ -445,8 +445,47 @@ async function processNotifications(
         if (!triggerResource) {
           logger.warn('⚠️ Subscription not found in trigger_resources (likely old/orphaned subscription):', {
             subId,
-            message: 'This subscription is not tracked in trigger_resources. Deactivate/reactivate workflow to clean up.'
+            message: 'This subscription is not tracked in trigger_resources. Attempting cleanup.'
           })
+
+          // Best-effort cleanup of orphaned subscription
+          try {
+            // Try to find any Microsoft integration to get a token
+            const { data: integrations } = await supabase
+              .from('integrations')
+              .select('user_id, provider')
+              .or('provider.like.microsoft%,provider.eq.onedrive,provider.eq.teams')
+              .limit(5)
+
+            if (integrations && integrations.length > 0) {
+              const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+              const graphAuth = new MicrosoftGraphAuth()
+
+              // Try each integration until one works
+              for (const integration of integrations) {
+                try {
+                  const accessToken = await graphAuth.getValidAccessToken(integration.user_id, integration.provider)
+
+                  const deleteResponse = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${subId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                  })
+
+                  if (deleteResponse.ok || deleteResponse.status === 404) {
+                    logger.info('🧹 Cleaned up orphaned subscription:', subId)
+                    break
+                  }
+                  // 403 means different tenant/user, try next integration
+                } catch (tokenError) {
+                  // Token refresh failed or other error, try next integration
+                  continue
+                }
+              }
+            }
+          } catch (cleanupError) {
+            logger.debug('Could not clean up orphaned subscription (will auto-expire):', subId)
+          }
+
           continue
         }
 
@@ -565,16 +604,170 @@ async function processNotifications(
         }
       }
 
-      // Support both tableName and worksheetName for backwards compatibility
+      // Handle microsoft_excel_trigger_new_worksheet - detects new worksheets in workbook
+      if (triggerType === 'microsoft_excel_trigger_new_worksheet' && triggerConfig?.workbookId && userId) {
+        try {
+          logger.info('[Microsoft Excel] Processing new worksheet trigger', {
+            subscriptionId: subId,
+            triggerType,
+            workbookId: triggerConfig.workbookId
+          })
+
+          const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
+          const graphAuth = new MicrosoftGraphAuth()
+          const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-excel')
+
+          // Fetch current worksheets
+          const worksheetsUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${triggerConfig.workbookId}/workbook/worksheets`
+          const worksheetsResponse = await fetch(worksheetsUrl, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          })
+
+          if (!worksheetsResponse.ok) {
+            const errorText = await worksheetsResponse.text()
+            logger.error('[Microsoft Excel] Failed to fetch worksheets:', {
+              status: worksheetsResponse.status,
+              error: errorText
+            })
+            continue
+          }
+
+          const worksheetsData = await worksheetsResponse.json()
+          const currentWorksheets = (worksheetsData?.value || []).map((ws: any) => ({
+            id: ws.id,
+            name: ws.name,
+            position: ws.position
+          }))
+
+          const currentWorksheetIds = new Set(currentWorksheets.map((ws: any) => ws.id))
+          const previousWorksheetIds = new Set(triggerConfig.worksheetSnapshot?.ids || [])
+
+          logger.info('[Microsoft Excel] Worksheet comparison:', {
+            currentCount: currentWorksheets.length,
+            previousCount: previousWorksheetIds.size,
+            currentIds: Array.from(currentWorksheetIds),
+            previousIds: Array.from(previousWorksheetIds)
+          })
+
+          // Find new worksheets (IDs in current but not in previous)
+          const newWorksheets = currentWorksheets.filter((ws: any) => !previousWorksheetIds.has(ws.id))
+
+          // Update the snapshot
+          if (triggerResourceId) {
+            await getSupabase()
+              .from('trigger_resources')
+              .update({
+                config: {
+                  ...triggerConfig,
+                  worksheetSnapshot: {
+                    ids: Array.from(currentWorksheetIds),
+                    names: currentWorksheets.map((ws: any) => ws.name),
+                    updatedAt: new Date().toISOString()
+                  }
+                },
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', triggerResourceId)
+          }
+
+          // If no previous snapshot, this is the first run - seed it
+          if (previousWorksheetIds.size === 0) {
+            logger.info('[Microsoft Excel] Seeding worksheet snapshot (no previous snapshot)', {
+              worksheetCount: currentWorksheets.length
+            })
+            continue
+          }
+
+          // If new worksheets found, trigger workflow for each
+          if (newWorksheets.length > 0) {
+            logger.info('[Microsoft Excel] ✅ New worksheet(s) detected:', {
+              newWorksheets: newWorksheets.map((ws: any) => ws.name),
+              workflowId
+            })
+
+            for (const newWorksheet of newWorksheets) {
+              if (workflowId) {
+                const base = getWebhookBaseUrl()
+                const executionUrl = `${base}/api/workflows/execute`
+
+                const executionPayload = {
+                  workflowId,
+                  testMode: false,
+                  executionMode: 'live',
+                  skipTriggers: true,
+                  inputData: {
+                    source: 'microsoft-excel-worksheet-created',
+                    subscriptionId: subId,
+                    triggerType,
+                    workbookId: triggerConfig.workbookId,
+                    worksheet: {
+                      id: newWorksheet.id,
+                      name: newWorksheet.name,
+                      position: newWorksheet.position
+                    }
+                  }
+                }
+
+                logger.info('[Microsoft Excel] Triggering workflow for new worksheet:', {
+                  worksheetName: newWorksheet.name,
+                  workflowId
+                })
+
+                const response = await fetch(executionUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-id': userId
+                  },
+                  body: JSON.stringify(executionPayload)
+                })
+
+                if (!response.ok) {
+                  const errorText = await response.text()
+                  logger.error('[Microsoft Excel] Workflow execution failed:', {
+                    status: response.status,
+                    error: errorText
+                  })
+                } else {
+                  logger.info('[Microsoft Excel] ✅ Workflow execution triggered successfully for worksheet:', newWorksheet.name)
+                }
+              }
+            }
+          } else {
+            logger.debug('[Microsoft Excel] No new worksheets detected')
+          }
+
+          continue
+        } catch (worksheetError: any) {
+          logger.error('[Microsoft Excel] Failed to process new worksheet trigger:', {
+            error: worksheetError?.message || String(worksheetError),
+            stack: worksheetError?.stack?.split('\n').slice(0, 3).join(' | '),
+            workbookId: triggerConfig?.workbookId,
+            subscriptionId: subId
+          })
+        }
+      }
+
+      // Support both tableName and worksheetName for backwards compatibility (for row-based triggers)
       const excelTableOrSheet = triggerConfig?.tableName || triggerConfig?.worksheetName
-      logger.info('🔎 Excel trigger check:', {
-        triggerType,
-        hasWorkbookId: !!triggerConfig?.workbookId,
-        excelTableOrSheet,
-        userId,
-        willProcess: !!(triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && excelTableOrSheet && userId)
-      })
-      if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId && excelTableOrSheet && userId) {
+
+      // Only log and process row-based triggers here (new_worksheet is handled above)
+      const isRowBasedExcelTrigger = triggerType?.startsWith('microsoft_excel_') &&
+                                      triggerType !== 'microsoft_excel_trigger_new_worksheet' &&
+                                      triggerConfig?.workbookId &&
+                                      excelTableOrSheet &&
+                                      userId
+
+      if (isRowBasedExcelTrigger) {
+        logger.info('🔎 Excel row trigger check:', {
+          triggerType,
+          hasWorkbookId: !!triggerConfig?.workbookId,
+          excelTableOrSheet,
+          userId
+        })
         try {
           logger.info('[Microsoft Excel] Processing file-change notification', {
             subscriptionId: subId,
@@ -712,10 +905,21 @@ async function processNotifications(
             continue
           }
 
-          if (triggerType === 'microsoft_excel_trigger_updated_row' && changedRowId) {
+          // Handle both worksheet-based (updated_row) and table-based (updated_table_row) triggers
+          const isUpdatedRowTrigger = triggerType === 'microsoft_excel_trigger_updated_row' ||
+                                       triggerType === 'microsoft_excel_trigger_updated_table_row'
+
+          if (isUpdatedRowTrigger && changedRowId) {
             const changedRow = snapshot.rows.find((row: any) => row?.id === changedRowId)
             const values = Array.isArray(changedRow?.values?.[0]) ? changedRow.values[0] : changedRow?.values
             const rowData = buildExcelRowData(values, snapshot.columns)
+
+            logger.info('[Microsoft Excel] ✅ Updated row detected, triggering workflow:', {
+              triggerType,
+              rowId: changedRowId,
+              workflowId,
+              columnCount: snapshot.columns.length
+            })
 
             if (workflowId) {
               const base = getWebhookBaseUrl()
@@ -731,7 +935,7 @@ async function processNotifications(
                   subscriptionId: subId,
                   triggerType,
                   workbookId: triggerConfig.workbookId,
-                  tableName: excelTableOrSheet || testExcelTableOrSheet,
+                  worksheetName: excelTableOrSheet,
                   rowId: changedRowId,
                   values,
                   rowData,
@@ -739,7 +943,10 @@ async function processNotifications(
                 }
               }
 
-              logger.debug('[Microsoft Excel] Triggering workflow execution:', executionUrl)
+              logger.info('[Microsoft Excel] Triggering workflow for updated row:', {
+                rowId: changedRowId,
+                workflowId
+              })
 
               const response = await fetch(executionUrl, {
                 method: 'POST',
@@ -756,6 +963,8 @@ async function processNotifications(
                   status: response.status,
                   error: errorText
                 })
+              } else {
+                logger.info('[Microsoft Excel] ✅ Workflow execution triggered successfully for updated row')
               }
             }
             continue
@@ -775,62 +984,8 @@ async function processNotifications(
         continue
       }
 
-      // OneNote triggers (use OneDrive change notifications as a signal)
-      if (triggerType?.startsWith('microsoft-onenote_') && userId) {
-        const onenoteData = await fetchLatestOneNotePage(
-          userId,
-          triggerConfig?.notebookId || null,
-          triggerConfig?.sectionId || null,
-          triggerType
-        )
-
-        if (!onenoteData) {
-          logger.debug('Skipping OneNote notification - no matching recent page:', {
-            subscriptionId: subId
-          })
-          continue
-        }
-
-        // Trigger workflow execution directly (no queue needed)
-        if (workflowId) {
-          const base = getWebhookBaseUrl()
-          const executionUrl = `${base}/api/workflows/execute`
-
-          const executionPayload = {
-            workflowId,
-            testMode: false,
-            executionMode: 'live',
-            skipTriggers: true,
-            inputData: {
-              source: 'microsoft-graph-onenote',
-              subscriptionId: subId,
-              triggerType,
-              onenote: onenoteData
-            }
-          }
-
-          logger.debug('Calling execution API for OneNote trigger:', executionUrl)
-
-          const response = await fetch(executionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-user-id': userId
-            },
-            body: JSON.stringify(executionPayload)
-          })
-
-          if (!response.ok) {
-            const errorText = await response.text()
-            logger.error('OneNote workflow execution failed:', {
-              status: response.status,
-              error: errorText
-            })
-          }
-        } else {
-          logger.warn('Cannot trigger OneNote workflow - missing workflowId')
-        }
-
+      // OneNote triggers now use polling system (see /lib/triggers/pollers/microsoft-onenote.ts)
+      if (triggerType?.startsWith('microsoft-onenote_')) {
         continue
       }
 
@@ -1816,7 +1971,11 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
             continue
           }
 
-          if (triggerType === 'microsoft_excel_trigger_updated_row' && changedRowId) {
+          // Handle both worksheet-based (updated_row) and table-based (updated_table_row) triggers
+          const isUpdatedRowTrigger = triggerType === 'microsoft_excel_trigger_updated_row' ||
+                                       triggerType === 'microsoft_excel_trigger_updated_table_row'
+
+          if (isUpdatedRowTrigger && changedRowId) {
             const changedRow = snapshot.rows.find((row: any) => row?.id === changedRowId)
             const values = Array.isArray(changedRow?.values?.[0]) ? changedRow.values[0] : changedRow?.values
             const rowData = buildExcelRowData(values, snapshot.columns)
@@ -1824,7 +1983,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               trigger: {
                 type: triggerType,
                 workbookId: triggerConfig.workbookId,
-                tableName: excelTableOrSheet || testExcelTableOrSheet,
+                worksheetName: testExcelTableOrSheet,
                 rowId: changedRowId
               },
               row: changedRow,
@@ -1834,6 +1993,12 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
               _testSession: true,
               _source: 'microsoft-excel-file-change'
             }
+
+            logger.info('[Test Webhook] ✅ Updated row detected, storing trigger data:', {
+              triggerType,
+              rowId: changedRowId,
+              testSessionId
+            })
 
             await supabase
               .from('workflow_test_sessions')
@@ -2076,35 +2241,9 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
         }
       }
 
-      // OneNote triggers (use OneDrive change notifications as a signal)
-      if (triggerType?.startsWith('microsoft-onenote_') && userId) {
-        try {
-          const onenoteData = await fetchLatestOneNotePage(
-            userId,
-            triggerConfig?.notebookId || null,
-            triggerConfig?.sectionId || null,
-            triggerType
-          )
-
-          if (!onenoteData) {
-            logger.debug('[Test Webhook] OneNote trigger skipped - no matching recent page')
-            continue
-          }
-
-          await supabase
-            .from('workflow_test_sessions')
-            .update({
-              status: 'trigger_received',
-              trigger_data: onenoteData
-            })
-            .eq('id', testSessionId)
-
-          logger.debug(`[Test Webhook] OneNote trigger data stored for session ${testSessionId}`)
-          continue
-        } catch (onenoteError) {
-          logger.error('[Test Webhook] Error handling OneNote trigger:', onenoteError)
-          continue
-        }
+      // OneNote triggers now use polling system (see /lib/triggers/pollers/microsoft-onenote.ts)
+      if (triggerType?.startsWith('microsoft-onenote_')) {
+        continue
       }
 
       // Build event data from notification
@@ -2450,80 +2589,6 @@ function formatOneDriveItem(item: any): Record<string, any> {
     downloadUrl: item['@microsoft.graph.downloadUrl'] || null,
     parentFolderId: item.parentReference?.id || null,
     parentFolderPath: item.parentReference?.path?.replace('/drive/root:', '') || '/'
-  }
-}
-
-async function fetchLatestOneNotePage(
-  userId: string,
-  notebookId: string | null,
-  sectionId: string | null,
-  triggerType: string
-): Promise<Record<string, any> | null> {
-  try {
-    const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
-    const graphAuth = new MicrosoftGraphAuth()
-    const accessToken = await graphAuth.getValidAccessToken(userId, 'microsoft-onenote')
-
-    const response = await fetch(
-      'https://graph.microsoft.com/v1.0/me/onenote/pages?$top=10&$orderby=createdDateTime desc&$select=id,title,createdDateTime,lastModifiedDateTime,contentUrl,links,parentNotebook,parentSection,webUrl',
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      logger.warn('Failed to fetch OneNote pages:', { status: response.status, error: errorText })
-      return null
-    }
-
-    const data = await response.json()
-    const pages = Array.isArray(data?.value) ? data.value : []
-    if (pages.length === 0) return null
-
-    const match = pages.find((page: any) => {
-      if (sectionId && page?.parentSection?.id) {
-        return page.parentSection.id === sectionId
-      }
-      if (notebookId && page?.parentNotebook?.id) {
-        return page.parentNotebook.id === notebookId
-      }
-      return true
-    })
-
-    if (!match) return null
-
-    const createdAt = match.createdDateTime ? new Date(match.createdDateTime) : null
-    const modifiedAt = match.lastModifiedDateTime ? new Date(match.lastModifiedDateTime) : null
-    const now = Date.now()
-    const isNewish = createdAt ? (now - createdAt.getTime()) < 10 * 60 * 1000 : false
-    const isNewPage = createdAt && modifiedAt
-      ? Math.abs(modifiedAt.getTime() - createdAt.getTime()) < 30 * 1000
-      : false
-
-    if (triggerType === 'microsoft-onenote_trigger_new_note' && !(isNewPage || isNewish)) {
-      return null
-    }
-
-    return {
-      id: match.id,
-      title: match.title,
-      content: null,
-      contentUrl: match.contentUrl,
-      webUrl: match.links?.oneNoteWebUrl?.href || match.links?.oneNoteClientUrl?.href || match.webUrl,
-      createdDateTime: match.createdDateTime,
-      lastModifiedDateTime: match.lastModifiedDateTime,
-      notebookId: match.parentNotebook?.id || notebookId,
-      notebookName: match.parentNotebook?.displayName || null,
-      sectionId: match.parentSection?.id || sectionId,
-      sectionName: match.parentSection?.displayName || null
-    }
-  } catch (error) {
-    logger.error('Error fetching OneNote page details:', error)
-    return null
   }
 }
 

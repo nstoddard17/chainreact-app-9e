@@ -74,7 +74,8 @@ export function AppsContent() {
     if (user) {
       fetchAllIntegrations()
     }
-  }, [user, fetchAllIntegrations])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAllIntegrations is store method, user is the actual trigger
+  }, [user])
 
   // Prevent React 18 Strict Mode double-fetch
   const hasInitializedRef = useRef(false)
@@ -373,11 +374,11 @@ export function AppsContent() {
                         <div className="mb-4">
                           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Most Popular</h3>
                         </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr items-stretch">
                           {popularApps.map((provider) => (
-                            <Card key={provider.id} className="hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
-                              <CardContent className="py-5 px-4">
-                                <div className="flex items-center justify-between gap-3">
+                            <Card key={provider.id} className="h-full hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
+                              <CardContent className="h-full py-5 px-4">
+                                <div className="flex items-center justify-between gap-3 h-full">
                                   <div className="flex items-center gap-3 flex-1 min-w-0">
                                     <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                                       <img
@@ -418,11 +419,11 @@ export function AppsContent() {
                         <div className="mb-4">
                           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">All Apps (A-Z)</h3>
                         </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr items-stretch">
                           {otherApps.map((provider) => (
-                            <Card key={provider.id} className="hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
-                              <CardContent className="py-5 px-4">
-                                <div className="flex items-center justify-between gap-3">
+                            <Card key={provider.id} className="h-full hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
+                              <CardContent className="h-full py-5 px-4">
+                                <div className="flex items-center justify-between gap-3 h-full">
                                   <div className="flex items-center gap-3 flex-1 min-w-0">
                                     <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                                       <img
@@ -459,11 +460,11 @@ export function AppsContent() {
 
                     {/* Search Results - Show all apps in one grid */}
                     {availableSearchQuery && (
-                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr items-stretch">
                         {availableApps.map((provider) => (
-                          <Card key={provider.id} className="hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
-                            <CardContent className="py-5 px-4">
-                              <div className="flex items-center justify-between gap-3">
+                          <Card key={provider.id} className="h-full hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
+                            <CardContent className="h-full py-5 px-4">
+                              <div className="flex items-center justify-between gap-3 h-full">
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                   <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
                                     <img
@@ -511,14 +512,14 @@ export function AppsContent() {
             <h3 className="text-lg font-semibold">Needs Attention</h3>
             <Badge variant="destructive">{appsNeedingAttention.length}</Badge>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr items-stretch">
             {appsNeedingAttention.map((provider) => {
               const connection = getConnectionStatus(provider.id)
               const isExpired = connection?.status === 'expired' || connection?.status === 'needs_reauthorization'
 
               return (
-                <Card key={provider.id} className="group hover:shadow-md transition-all border-destructive/50">
-                  <CardContent className="p-4">
+                <Card key={provider.id} className="group h-full hover:shadow-md transition-all border-destructive/50">
+                  <CardContent className="p-4 h-full flex flex-col">
                     <div className="flex items-start gap-3 mb-3">
                       {/* App Icon */}
                       <div className="w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 bg-white dark:bg-slate-900">
@@ -576,7 +577,7 @@ export function AppsContent() {
 
                     {/* Connection Details */}
                     {connection && (
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground mt-auto">
                         <p>Connected {new Date(connection.created_at).toLocaleDateString()}</p>
                         {connection.expires_at && (
                           <p className="text-destructive">
@@ -604,8 +605,8 @@ export function AppsContent() {
             if (!provider) return null
 
             return (
-              <Card className="group hover:shadow-md transition-all">
-                <CardContent className="p-4">
+              <Card className="group h-full hover:shadow-md transition-all">
+                <CardContent className="p-4 h-full flex flex-col">
                   <div className="flex items-start gap-3 mb-3">
                     {/* App Icon */}
                     <div className="w-10 h-10 rounded-lg border flex items-center justify-center flex-shrink-0 bg-white dark:bg-slate-900">
@@ -735,7 +736,7 @@ export function AppsContent() {
 
                   {/* Connection Details */}
                   {integration && (
-                    <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="text-xs text-muted-foreground space-y-1 mt-auto">
                       {isSharedAuth && (
                         <p className="text-orange-600 dark:text-orange-400">Shares connection with {providers.find(p => p.id === sharedWith)?.name || sharedWith}</p>
                       )}

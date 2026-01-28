@@ -35,7 +35,7 @@ interface SetupTabProps {
  * 2. ConfigurationForm - All field configuration
  */
 export function SetupTab(props: SetupTabProps) {
-  const { nodeInfo, integrationName } = props
+  const { nodeInfo, integrationName, currentNodeId } = props
   const { integrations, fetchIntegrations, connectApiKeyIntegration, loadingStates } = useIntegrationStore()
   const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
@@ -43,6 +43,7 @@ export function SetupTab(props: SetupTabProps) {
 
   // Track if we've already requested integrations to avoid duplicate fetches
   const hasRequestedIntegrationsRef = useRef(false)
+  const lastProviderKeyRef = useRef<string | null>(null)
 
   // Check if integrations are still loading from the store
   const isLoadingIntegrations = loadingStates?.['integrations'] ?? false
@@ -51,14 +52,27 @@ export function SetupTab(props: SetupTabProps) {
   // This prevents the "Not connected" flicker when clicking on a node
   // if the integration store hasn't been populated yet
   useEffect(() => {
+    const providerKey = nodeInfo?.providerId
+      ? `${nodeInfo.providerId}|${currentNodeId || ''}|${nodeInfo.type || ''}`
+      : null
+
+    if (providerKey && lastProviderKeyRef.current !== providerKey) {
+      hasRequestedIntegrationsRef.current = false
+      lastProviderKeyRef.current = providerKey
+    }
+
     if (nodeInfo?.providerId && !hasRequestedIntegrationsRef.current) {
       hasRequestedIntegrationsRef.current = true
-      // Non-forced fetch to avoid wiping cache, just ensure the store has data
-      fetchIntegrations(false).catch(() => {
+      const providerIntegrations = integrations.filter(
+        int => int.provider === nodeInfo.providerId
+      )
+      const shouldForce = integrations.length === 0 || providerIntegrations.length === 0
+      // Force refresh if the store is empty to avoid stale "Not connected" state
+      fetchIntegrations(shouldForce).catch(() => {
         // Silently ignore errors - the UI will show "Not connected" which is acceptable
       })
     }
-  }, [nodeInfo?.providerId, fetchIntegrations])
+  }, [nodeInfo?.providerId, nodeInfo?.type, currentNodeId, fetchIntegrations, integrations])
 
   // Listen for reconnection events to refresh integration store
   React.useEffect(() => {
@@ -95,15 +109,47 @@ export function SetupTab(props: SetupTabProps) {
       int => int.provider === nodeInfo.providerId
     )
 
+    const isConnectedStatus = (status?: string) => {
+      if (!status) return false
+      const normalized = status.toLowerCase()
+      return (
+        normalized === 'connected' ||
+        normalized === 'authorized' ||
+        normalized === 'active' ||
+        normalized === 'valid' ||
+        normalized === 'ready' ||
+        normalized === 'ok'
+      )
+    }
+
+    const isErrorStatus = (status?: string) => {
+      if (!status) return false
+      const normalized = status.toLowerCase()
+      return (
+        normalized === 'expired' ||
+        normalized === 'needs_reauthorization' ||
+        normalized === 'unauthorized' ||
+        normalized === 'error'
+      )
+    }
+
+    const isPendingStatus = (status?: string) => {
+      if (!status) return false
+      const normalized = status.toLowerCase()
+      return normalized === 'pending' || normalized === 'refreshing'
+    }
+
     // Map to Connection format
     return providerIntegrations.map(integration => {
       // Determine UI status based on integration status
-      let uiStatus: 'connected' | 'disconnected' | 'error' = 'disconnected'
+      let uiStatus: 'connected' | 'disconnected' | 'error' | 'pending' = 'disconnected'
 
-      if (integration.status === 'connected') {
+      if (isConnectedStatus(integration.status)) {
         uiStatus = 'connected'
-      } else if (integration.status === 'expired' || integration.status === 'needs_reauthorization') {
-        // Token expired or needs reauth → show as error so user can reconnect
+      } else if (isPendingStatus(integration.status)) {
+        uiStatus = 'pending'
+      } else if (isErrorStatus(integration.status)) {
+        // Token expired or needs reauth -> show as error so user can reconnect
         uiStatus = 'error'
       }
 
@@ -402,3 +448,4 @@ export function SetupTab(props: SetupTabProps) {
     </>
   )
 }
+

@@ -680,13 +680,14 @@ export class FlowRepository {
       }
     }
 
-    // Upsert edges - use the unique connection constraint to handle duplicates
-    // This ensures we update existing edges rather than creating duplicates
+    // Upsert edges by primary key (id) to handle node replacements correctly
+    // When replaceNode changes an edge's source/target while keeping the same edge ID,
+    // we need to update the existing row rather than trying to insert a new one
     const { error: upsertError } = await this.withFallback((client) =>
       client
         .from(WORKFLOW_EDGES_TABLE)
         .upsert(edgeRecords, {
-          onConflict: "workflow_id,source_node_id,target_node_id",
+          onConflict: "id",
           ignoreDuplicates: false
         })
     )

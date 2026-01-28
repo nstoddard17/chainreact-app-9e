@@ -9,10 +9,6 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/cron/process-webhook-tasks",
-      "schedule": "*/5 * * * *"
-    },
-    {
       "path": "/api/cron/poll-triggers",
       "schedule": "* * * * *"
     },
@@ -36,10 +32,5 @@
       "path": "/api/cron/check-team-suspensions",
       "schedule": "0 */6 * * *"
     }
-  ],
-  "functions": {
-    "app/api/cron/process-webhook-tasks/route.ts": {
-      "maxDuration": 300
-    }
-  }
+  ]
 }

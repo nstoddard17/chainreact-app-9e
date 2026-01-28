@@ -48,6 +48,7 @@ type PlannerEdit =
   | { op: "reorderNodes"; nodeIds: string[] }
   | { op: "moveNode"; nodeId: string; position: { x: number; y: number } }
   | { op: "updateNode"; nodeId: string; updates: { title?: string; description?: string } }
+  | { op: "replaceNode"; oldNodeId: string; newNode: FlowNode; preserveConfig?: string[] }
 
 interface AgentResult {
   edits: PlannerEdit[]
@@ -138,6 +139,7 @@ export interface FlowV2BuilderActions {
   updateFlowName: (name: string) => Promise<void>
   addNode: (type: string, position?: XYPosition, nodeId?: string) => Promise<string>
   deleteNode: (nodeId: string) => Promise<void>
+  replaceNode: (oldNodeId: string, newType: string, position?: XYPosition, preserveConfig?: string[]) => Promise<string>
   moveNodes: (moves: Array<{ nodeId: string; position: { x: number; y: number } }>) => Promise<void>
   connectEdge: (params: { sourceId: string; targetId: string; sourceHandle?: string; targetHandle?: string }) => Promise<void>
   run: (inputs: any) => Promise<{ runId: string }>
@@ -490,6 +492,56 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
             target.description = edit.updates.description
           }
         }
+        break
+      }
+      case "replaceNode": {
+        // Atomic node replacement - avoids intermediate "no trigger" state
+        const oldNode = working.nodes.find((node) => node.id === edit.oldNodeId)
+        if (!oldNode) {
+          console.warn(`[applyPlannerEdits] replaceNode: old node ${edit.oldNodeId} not found`)
+          break
+        }
+
+        // Preserve specified config fields from old node (default: integration_id)
+        const preservedConfig: Record<string, any> = {}
+        if (edit.preserveConfig && oldNode.config) {
+          for (const key of edit.preserveConfig) {
+            if (oldNode.config[key] !== undefined) {
+              preservedConfig[key] = oldNode.config[key]
+            }
+          }
+        }
+
+        // Get old node's position
+        const oldPosition = (oldNode.metadata as any)?.position
+
+        // Create new node with preserved config and old position
+        const newNode: FlowNode = {
+          ...edit.newNode,
+          config: {
+            ...(edit.newNode.config ?? {}),
+            ...preservedConfig,
+          },
+          metadata: {
+            ...(edit.newNode.metadata ?? {}),
+            position: oldPosition ?? (edit.newNode.metadata as any)?.position,
+          },
+        }
+
+        // Update edges to point to the new node ID (in place, not delete+recreate)
+        for (const edge of working.edges) {
+          if (edge.to.nodeId === edit.oldNodeId) {
+            edge.to = { ...edge.to, nodeId: newNode.id }
+          }
+          if (edge.from.nodeId === edit.oldNodeId) {
+            edge.from = { ...edge.from, nodeId: newNode.id }
+          }
+        }
+
+        // Remove old node and add new node atomically
+        working.nodes = working.nodes.filter((node) => node.id !== edit.oldNodeId)
+        working.nodes.push(newNode)
+
         break
       }
       default: {
@@ -1652,6 +1704,28 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     [applyEdits]
   )
 
+  const replaceNode = useCallback(
+    async (oldNodeId: string, newType: string, position?: XYPosition, preserveConfig?: string[]) => {
+      // Generate new ID for the replacement node
+      const newId = generateId(newType.replace(/\W+/g, "-") || "node")
+
+      // Create the new node structure using addNodeEdit helper
+      const addEdit = addNodeEdit(newType, position, newId)
+
+      // Create atomic replaceNode edit - preserves config (like integration_id) and updates edges in place
+      const edit: PlannerEdit = {
+        op: "replaceNode",
+        oldNodeId,
+        newNode: addEdit.node,
+        preserveConfig: preserveConfig ?? ['integration_id'], // Default to preserving integration_id
+      }
+
+      await applyEdits([edit])
+      return newId
+    },
+    [applyEdits]
+  )
+
   const moveNodes = useCallback(
     async (moves: Array<{ nodeId: string; position: { x: number; y: number } }>) => {
       if (moves.length === 0) return
@@ -1915,6 +1989,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       updateFlowName,
       addNode,
       deleteNode,
+      replaceNode,
       moveNodes,
       connectEdge,
       run,
@@ -1946,6 +2021,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       load,
       publish,
       refreshRun,
+      replaceNode,
       run,
       runFromHere,
       updateConfig,

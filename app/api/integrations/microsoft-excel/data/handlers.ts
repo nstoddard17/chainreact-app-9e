@@ -585,43 +585,11 @@ const fetchTables: ExcelDataHandler = async (integration: MicrosoftExcelIntegrat
     const data = await response.json()
     const tables = data.value || []
 
-    // Fetch row count for each table in parallel
-    const tablesWithRowCount = await Promise.all(
-      tables.map(async (table: any) => {
-        try {
-          // Get actual row count by fetching the table rows (excluding header row)
-          const rowsUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/tables/${encodeURIComponent(table.name || table.id)}/rows/$count`
-
-          const rowsResponse = await fetchWithTimeout(rowsUrl, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }, 5000) // Shorter timeout for count queries
-
-          let rowCount = 0
-          if (rowsResponse.ok) {
-            const countText = await rowsResponse.text()
-            rowCount = parseInt(countText, 10) || 0
-          }
-
-          return {
-            value: table.name || table.id,
-            label: table.name || `Table ${table.id}`,
-            description: `${rowCount} row${rowCount !== 1 ? 's' : ''}`
-          }
-        } catch (error) {
-          // If fetching row count fails, fall back to the table's rowCount property
-          return {
-            value: table.name || table.id,
-            label: table.name || `Table ${table.id}`,
-            description: `${table.rowCount || 0} row${table.rowCount !== 1 ? 's' : ''}`
-          }
-        }
-      })
-    )
-
-    return tablesWithRowCount
+    // Format for dropdown - just return table names
+    return tables.map((table: any) => ({
+      value: table.name || table.id,
+      label: table.name || `Table ${table.id}`
+    }))
 
   } catch (error) {
     throw error

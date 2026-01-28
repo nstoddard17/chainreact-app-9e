@@ -416,6 +416,33 @@ interface TriggerLifecycle {
 - Manager: `/lib/triggers/TriggerLifecycleManager.ts`
 - Registry: `/lib/triggers/index.ts`
 
+### Polling Trigger Implementation - MANDATORY
+**CRITICAL:** Polling triggers MUST initialize snapshots during `onActivate()` to prevent the "first poll miss" bug.
+
+**The Bug:** Without initial snapshot, the first poll captures baseline and returns without triggering. Events during that first cycle are silently dropped.
+
+**Checklist for ANY new polling-based trigger:**
+
+**In Lifecycle `onActivate()`:**
+- [ ] Fetch initial resource state from the provider API
+- [ ] Build snapshot object with current state
+- [ ] Store snapshot in `trigger_resources.config` during insert
+- [ ] Log: `logger.debug('[Provider] Initial snapshot captured')`
+
+**In Poller `poll()`:**
+- [ ] Read `previousSnapshot` from config
+- [ ] Guard: `if (!previousSnapshot) { update snapshot, return }`
+- [ ] Compare current state to `previousSnapshot`
+- [ ] Fire triggers only on detected changes
+- [ ] Update snapshot in DB after comparison
+
+**Red Flags (indicates missing initialization):**
+- ❌ Poller reads snapshot but lifecycle never creates it
+- ❌ Every poll thinks it's the first poll
+- ❌ First event after activation is always missed
+
+**Reference:** `GoogleApisTriggerLifecycle.ts:120-135`
+
 ---
 
 ## 🔧 DEVELOPMENT SETUP

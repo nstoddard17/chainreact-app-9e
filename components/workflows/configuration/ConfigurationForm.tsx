@@ -212,7 +212,7 @@ function ConfigurationForm({
   const integration = React.useMemo(() => {
     if (skipConnectionCheck || !providerToCheck) return null;
     return getIntegrationByProvider(providerToCheck);
-  }, [skipConnectionCheck, providerToCheck, getIntegrationByProvider, integrations]);
+  }, [skipConnectionCheck, providerToCheck, getIntegrationByProvider]);
 
   // NEW: Multi-account support - get all accounts for this provider
   const allIntegrations = !skipConnectionCheck && providerToCheck
@@ -288,6 +288,7 @@ function ConfigurationForm({
 
   // Ensure Google providers and Microsoft Excel appear connected by fetching integrations if store hasn't resolved yet
   const hasRequestedIntegrationsRef = useRef(false);
+  const lastProviderKeyRef = useRef<string | null>(null);
 
   // Store values in a ref to create a stable getFormValues callback that doesn't cause loadOptions to be recreated
   const valuesRef = useRef(values);
@@ -299,14 +300,20 @@ function ConfigurationForm({
   const getFormValuesStable = useCallback(() => valuesRef.current, []);
   useEffect(() => {
     if (!provider) return;
+    const providerKey = `${provider}|${currentNodeId || ''}|${nodeInfo?.type || ''}`;
+    if (lastProviderKeyRef.current !== providerKey) {
+      hasRequestedIntegrationsRef.current = false;
+      lastProviderKeyRef.current = providerKey;
+    }
     const isGoogleProvider = provider === 'google-sheets' || provider === 'google_drive' || provider === 'google-drive' || provider === 'google-docs' || provider === 'google_calendar' || provider === 'google-calendar' || provider === 'google' || provider === 'gmail';
     const isMicrosoftExcel = provider === 'microsoft-excel';
     if ((isGoogleProvider || isMicrosoftExcel) && !integration && !hasRequestedIntegrationsRef.current) {
       hasRequestedIntegrationsRef.current = true;
       // Non-forced fetch to avoid wiping cache mid-UI, just ensure the store has data
-      try { fetchIntegrations(false); } catch {}
+      const shouldForce = integrations.length === 0;
+      try { fetchIntegrations(shouldForce); } catch {}
     }
-  }, [provider, integration, fetchIntegrations]);
+  }, [provider, currentNodeId, nodeInfo?.type, integration, fetchIntegrations, integrations.length]);
 
   // Suppress background integration refreshes while the configuration modal is open
   useEffect(() => {
@@ -392,7 +399,7 @@ function ConfigurationForm({
       delete newErrors[field];
       return newErrors;
     });
-  }, [provider, nodeInfo?.type, values]);
+  }, []);
 
   // Ref to track which fields have already loaded options to prevent infinite loops
   const loadedFieldsWithValues = useRef<Set<string>>(new Set());
@@ -400,12 +407,9 @@ function ConfigurationForm({
   // Ref to track if we've auto-loaded fields to prevent duplicate loads within the same render cycle
   const hasAutoLoadedRef = useRef(false);
 
-  // Reset hasAutoLoadedRef on mount to ensure fresh load each time modal opens
-  useEffect(() => {
-    if (hasAutoLoadedRef.current) {
-      hasAutoLoadedRef.current = false;
-    }
-  }, [nodeInfo?.type, currentNodeId]);
+  // NOTE: hasAutoLoadedRef is reset in the useEffect at ~line 932 (Reset hasLoadedOnMount)
+  // A separate useEffect was removed here as it was redundant - that effect already
+  // resets hasAutoLoadedRef.current = false along with other refs
 
   // DISABLED: Auto-loading is now handled by useDynamicOptions hook
   // This was causing duplicate loads (3-5x) because both ConfigurationForm and useDynamicOptions
@@ -484,18 +488,8 @@ function ConfigurationForm({
   // Use the consolidated handler as setValue (except for Discord which uses setValueBase directly)
   const setValue = handleFieldChange;
 
-  // NOW we can do the conditional return (after all hooks)
-  if (!nodeInfo) {
-    logger.debug('⚠️ [ConfigForm] No nodeInfo provided');
-    return (
-      <div className="flex items-center justify-center h-32 text-slate-500">
-        <div className="text-center">
-          <Settings className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-          <p>No configuration available for this node.</p>
-        </div>
-      </div>
-    );
-  }
+  // NOTE: Conditional return for !nodeInfo moved to after all hooks (see ~line 1341)
+  // This ensures React hooks are always called in the same order
 
   logger.debug('🔍 [ConfigForm] Provider routing:', {
     provider,
@@ -565,13 +559,15 @@ function ConfigurationForm({
             logger.debug(`🚫 [ConfigForm] Marked selector field as cleared: ${key}`);
 
             // Also ensure this field is not marked as an AI field
-            if (aiFields[key]) {
-              setAiFields(prev => {
+            // Use functional update to avoid needing aiFields in deps
+            setAiFields(prev => {
+              if (prev[key]) {
                 const newFields = { ...prev };
                 delete newFields[key];
                 return newFields;
-              });
-            }
+              }
+              return prev;
+            });
             return;
           }
 
@@ -742,7 +738,7 @@ function ConfigurationForm({
     logger.debug('🔍 [ConfigForm] isConnectedToAIAgent:', isConnectedToAIAgent);
     setValues(normalizedInitialValues);
     setIsInitialLoading(false);
-  }, [nodeInfo, initialData, isConnectedToAIAgent]);
+  }, [nodeInfo, initialData, isConnectedToAIAgent, currentNodeId]);
 
   // Sync aiFields state with values that contain AI placeholders
   useEffect(() => {
@@ -849,6 +845,9 @@ function ConfigurationForm({
   const lastLoadedNodeTypeKeyRef = useRef<string | null>(null);
   // Counter that increments when modal reopens to force reload
   const [reloadCounter, setReloadCounter] = useState(0);
+  // STRICT MODE GUARD: Track the last load timestamp to prevent double-execution
+  // React 18 Strict Mode unmounts/remounts components, causing effects to run twice
+  const lastLoadTimestampRef = useRef<{ key: string; time: number } | null>(null);
 
   // Ensure integrations are loaded on mount - WITH DEBOUNCE
   useEffect(() => {
@@ -919,7 +918,8 @@ function ConfigurationForm({
         componentId
       });
     };
-  }, []); // Empty deps - cleanup only runs on unmount
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally empty deps: cleanup only runs on unmount
+  }, []);
 
   // Reset hasLoadedOnMount and clear options when modal opens (nodeInfo changes)
   useEffect(() => {
@@ -976,7 +976,8 @@ function ConfigurationForm({
         }
       });
     }
-  }, [nodeInfo?.id, nodeInfo?.type, resetOptions]); // Track nodeId and nodeType changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally only track nodeId and nodeType changes
+  }, [nodeInfo?.id, nodeInfo?.type, resetOptions]);
 
   // Load fields marked with loadOnMount immediately when form opens
   /**
@@ -996,7 +997,18 @@ function ConfigurationForm({
 
     // Check if we've already loaded for this specific node instance
     // Use a combination of nodeId, nodeType, and currentNodeId to ensure uniqueness
-    const nodeInstanceKey = `${nodeInfo?.id}-${nodeInfo?.type}-${currentNodeId}`;
+    const nodeInstanceKey = `${nodeInfo?.id}-${nodeInfo?.type}-${currentNodeId}-${reloadCounter}`;
+
+    // STRICT MODE GUARD: Skip if we've loaded this exact instance within the last 100ms
+    // This prevents React 18 Strict Mode from triggering duplicate loads during unmount/remount
+    const now = Date.now();
+    if (lastLoadTimestampRef.current) {
+      const { key: lastKey, time: lastTime } = lastLoadTimestampRef.current;
+      if (lastKey === nodeInstanceKey && (now - lastTime) < 100) {
+        logger.debug('⏭️ [ConfigForm] Skipping duplicate load - Strict Mode guard', { nodeInstanceKey });
+        return;
+      }
+    }
 
     // Track node type changes to force reload even with same node ID
     const currentNodeTypeKey = `${nodeInfo?.id}-${nodeInfo?.type}`;
@@ -1144,6 +1156,9 @@ function ConfigurationForm({
     });
 
     if (fieldsToLoad.length > 0) {
+      // STRICT MODE GUARD: Record this load to prevent duplicate execution
+      lastLoadTimestampRef.current = { key: nodeInstanceKey, time: now };
+
       // Mark loadOnMount fields as loaded
       hasLoadedOnMount.current = true;
       lastLoadedNodeTypeKeyRef.current = currentNodeTypeKey;
@@ -1164,7 +1179,8 @@ function ConfigurationForm({
         }))
       );
     }
-  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection, reloadCounter]); // FIXED: Removed values/dynamicOptions to prevent feedback loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally removed values/dynamicOptions to prevent feedback loop
+  }, [nodeInfo?.id, nodeInfo?.type, currentNodeId, isInitialLoading, loadOptionsParallel, needsConnection, reloadCounter]);
 
   /**
    * PURPOSE: Handle edge cases that can't fit in the unified loader
@@ -1201,7 +1217,8 @@ function ConfigurationForm({
     return () => {
       window.removeEventListener('integration-reconnected', handleReconnection as EventListener);
     };
-  }, []); // Empty dependency array - event listeners only need to be set up once
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally empty: event listeners only set up once on mount
+  }, []);
 
   // Handle form submission
   const handleSubmit = async (submissionValues: Record<string, any>) => {
@@ -1316,6 +1333,20 @@ function ConfigurationForm({
       logger.error('Error connecting integration:', error);
     }
   };
+
+  // NOW we can do the conditional return (after all hooks have been called)
+  // This ensures React hooks are always called in the same order on every render
+  if (!nodeInfo) {
+    logger.debug('⚠️ [ConfigForm] No nodeInfo provided');
+    return (
+      <div className="flex items-center justify-center h-32 text-slate-500">
+        <div className="text-center">
+          <Settings className="h-8 w-8 mx-auto mb-2 text-slate-400" />
+          <p>No configuration available for this node.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading screen during initial load only when there are dynamic fields to fetch
   const hasDynamicFields = Array.isArray(nodeInfo?.configSchema) && nodeInfo.configSchema.some((field: any) => field?.dynamic);

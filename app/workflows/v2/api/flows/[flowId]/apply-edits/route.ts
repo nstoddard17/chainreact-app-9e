@@ -147,9 +147,58 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       logger.error('[apply-edits] Failed to cleanup orphaned triggers:', cleanupError)
     }
 
+    // For active workflows, activate any NEW trigger nodes that don't have resources yet
+    // This handles the case where a trigger node is REPLACED (old node removed, new node added)
+    // The cleanup above removes old trigger resources, but we need to create new ones
+    const triggerNodes = (flow.nodes || []).filter((n: any) => n.metadata?.isTrigger)
+    if (existingDefinition.data?.status === 'active' && triggerNodes.length > 0) {
+      try {
+        // Get existing trigger resources (after cleanup)
+        const { data: existingResources } = await serviceClient
+          .from('trigger_resources')
+          .select('node_id')
+          .eq('workflow_id', flowId)
+          .or('is_test.is.null,is_test.eq.false')
+
+        const existingNodeIds = new Set((existingResources || []).map((r: any) => r.node_id))
+
+        // Find trigger nodes that don't have resources yet
+        const newTriggerNodes = triggerNodes.filter((n: any) => !existingNodeIds.has(n.id))
+
+        if (newTriggerNodes.length > 0) {
+          logger.debug(`[apply-edits] Found ${newTriggerNodes.length} new trigger(s) in active workflow - activating`)
+
+          const legacyNodes = newTriggerNodes.map((n: any) => ({
+            id: n.id,
+            data: {
+              type: n.type,
+              isTrigger: true,
+              providerId: n.metadata?.providerId,
+              config: n.config
+            }
+          }))
+
+          const activationResult = await triggerLifecycleManager.activateWorkflowTriggers(
+            flowId,
+            user.id,
+            legacyNodes
+          )
+
+          if (activationResult.errors.length > 0) {
+            logger.warn(`[apply-edits] New trigger activation had errors: ${activationResult.errors.join(', ')}`)
+          } else {
+            logger.debug(`[apply-edits] Successfully activated ${newTriggerNodes.length} new trigger(s)`)
+          }
+        }
+      } catch (activationError) {
+        // Don't fail the request if activation fails - log and continue
+        logger.error('[apply-edits] Failed to activate new triggers:', activationError)
+      }
+    }
+
     // Auto-deactivate workflow if it's active but no longer has any triggers
     // A workflow without triggers can't run, so it should be deactivated
-    const triggerNodes = (flow.nodes || []).filter((n: any) => n.metadata?.isTrigger)
+    // Note: triggerNodes is already defined above
     if (existingDefinition.data?.status === 'active' && triggerNodes.length === 0) {
       try {
         logger.info(`[apply-edits] Auto-deactivating workflow ${flowId} - no triggers remaining`)
