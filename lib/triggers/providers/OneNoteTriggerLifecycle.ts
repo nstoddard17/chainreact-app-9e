@@ -6,6 +6,7 @@
  * does not support direct OneNote webhooks (deprecated May 2023).
  */
 
+import * as crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { MicrosoftGraphAuth } from '@/lib/microsoft-graph/auth'
 import {
@@ -33,9 +34,17 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
       configKeys: Object.keys(config || {})
     })
 
+    // Build initial snapshot for polling (prevents "first poll miss" bug)
+    // The poller needs a baseline to compare against - without this, the first poll
+    // just captures baseline and returns without triggering on any existing changes.
+    // See: GoogleApisTriggerLifecycle.ts:120-135 for reference pattern
+    let onenotePageSnapshot: any = null
+    let onenotePageUpdateSnapshot: any = null
+    let accessToken: string
+
     // Verify token is valid and has OneNote permissions
     try {
-      const accessToken = await this.graphAuth.getValidAccessToken(userId, 'microsoft-onenote')
+      accessToken = await this.graphAuth.getValidAccessToken(userId, 'microsoft-onenote')
 
       // Test permissions by fetching notebooks
       const response = await fetch('https://graph.microsoft.com/v1.0/me/onenote/notebooks?$top=1', {
@@ -52,6 +61,62 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
       throw new Error('Microsoft OneNote integration not connected or token expired. Please reconnect your Microsoft OneNote account.')
     }
 
+    // Capture initial snapshot (non-critical - if this fails, poller will capture on first run)
+    if (config.notebookId) {
+      try {
+        // Fetch current pages to establish baseline
+        const endpoint = config.sectionId
+          ? `https://graph.microsoft.com/v1.0/me/onenote/sections/${config.sectionId}/pages`
+          : `https://graph.microsoft.com/v1.0/me/onenote/pages?$filter=parentSection/parentNotebook/id eq '${config.notebookId}'`
+
+        const pagesResponse = await fetch(endpoint, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+
+        if (pagesResponse.ok) {
+          const pagesData = await pagesResponse.json()
+          const pages = pagesData.value || []
+
+          // Build page ID hash map (same structure as poller uses)
+          const pageIds: Record<string, string> = {}
+          pages.forEach((page: any) => {
+            if (page.id) {
+              const metadata = JSON.stringify({
+                title: page.title,
+                createdDateTime: page.createdDateTime
+              })
+              pageIds[page.id] = crypto.createHash('sha256').update(metadata).digest('hex')
+            }
+          })
+
+          onenotePageSnapshot = {
+            pageIds,
+            updatedAt: new Date().toISOString()
+          }
+
+          // For update triggers, also track lastModifiedDateTime
+          const updatePageIds: Record<string, string> = {}
+          pages.forEach((page: any) => {
+            if (page.id && page.lastModifiedDateTime) {
+              updatePageIds[page.id] = page.lastModifiedDateTime
+            }
+          })
+
+          onenotePageUpdateSnapshot = {
+            pageIds: updatePageIds,
+            updatedAt: new Date().toISOString()
+          }
+
+          logger.debug('[OneNote] Initial snapshot captured', {
+            pageCount: Object.keys(pageIds).length,
+            triggerType
+          })
+        }
+      } catch (snapshotError) {
+        logger.warn('[OneNote] Could not capture initial snapshot (will capture on first poll):', snapshotError)
+      }
+    }
+
     // Store polling trigger resource
     const resourceId = `poll-${workflowId}-${nodeId}`
     const { error: insertError } = await getSupabase().from('trigger_resources').insert({
@@ -65,7 +130,12 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
       resource_id: resourceId, // Generated ID for polling triggers
       config: {
         ...config,
-        pollingEnabled: true
+        pollingEnabled: true,
+        onenotePageSnapshot,
+        onenotePageUpdateSnapshot,
+        polling: {
+          lastPolledAt: new Date().toISOString()
+        }
       },
       status: 'active',
       is_test: testMode?.isTest ?? false,
