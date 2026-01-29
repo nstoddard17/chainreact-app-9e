@@ -37,19 +37,61 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
 
     logger.debug(`🔔 Activating Slack trigger for workflow ${workflowId}`, {
       triggerType,
+      userId,
       config
     })
 
     // Verify Slack integration exists
-    const { data: integration } = await getSupabase()
+    // First, check what integrations exist for this user and provider
+    const { data: allSlackIntegrations, error: listError } = await getSupabase()
       .from('integrations')
-      .select('id')
+      .select('id, user_id, provider, status, workspace_type, connected_by')
+      .eq('provider', 'slack')
+
+    logger.debug(`🔍 All Slack integrations in database:`, {
+      count: allSlackIntegrations?.length || 0,
+      integrations: allSlackIntegrations?.map(i => ({
+        id: i.id,
+        user_id: i.user_id,
+        status: i.status,
+        workspace_type: i.workspace_type,
+        connected_by: i.connected_by
+      })),
+      listError: listError?.message
+    })
+
+    // Now try to find the specific integration for this user
+    const { data: integration, error: fetchError } = await getSupabase()
+      .from('integrations')
+      .select('id, status')
       .eq('user_id', userId)
       .eq('provider', 'slack')
       .single()
 
+    logger.debug(`🔍 Slack integration lookup for user ${userId}:`, {
+      found: !!integration,
+      integration,
+      error: fetchError?.message,
+      errorCode: fetchError?.code
+    })
+
     if (!integration) {
-      throw new Error('Slack integration not found for user')
+      // Provide more context in the error
+      const hasAnySlack = allSlackIntegrations && allSlackIntegrations.length > 0
+      const hasTeamSlack = allSlackIntegrations?.some(i => i.workspace_type !== 'personal' && i.connected_by === userId)
+
+      if (hasTeamSlack) {
+        throw new Error('Slack integration found but connected as team/org integration. Personal integration required.')
+      } else if (hasAnySlack) {
+        throw new Error(`Slack integration exists but not for user ${userId}. Found ${allSlackIntegrations.length} integration(s) for other users.`)
+      } else {
+        throw new Error('Slack integration not found for user. Please connect Slack in the Integrations page.')
+      }
+    }
+
+    // Also check if the integration is connected
+    if (integration.status !== 'connected') {
+      throw new Error(`Slack integration is not connected (status: ${integration.status}). Please reconnect Slack.`)
     }
 
     // Store trigger metadata for event routing
