@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { useTheme } from "next-themes"
 import { ProfessionalSearch } from "@/components/ui/professional-search"
 import { Button } from "@/components/ui/button"
@@ -58,9 +58,16 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
     }
   }, [mode, prefetchForProvider])
 
-  // Reset to main view (all integrations) when panel is opened
+  // Track previous isOpen value to detect actual transitions
+  const wasOpenRef = useRef(isOpen)
+
+  // Reset to main view (all integrations) ONLY when panel transitions from closed to open
   useEffect(() => {
-    if (isOpen) {
+    const wasOpen = wasOpenRef.current
+    wasOpenRef.current = isOpen
+
+    // Only reset when transitioning from closed (false) to open (true)
+    if (isOpen && !wasOpen) {
       setSelectedCategory('all')
       setSelectedIntegration(null)
       setSearchQuery("")
@@ -128,7 +135,7 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
   const selectedIntegrationNodes = useMemo(() => {
     if (!selectedIntegration) return []
 
-    return ALL_NODE_COMPONENTS
+    const nodes = ALL_NODE_COMPONENTS
       .filter(node =>
         node.providerId === selectedIntegration &&
         (mode === 'trigger' ? node.isTrigger : !node.isTrigger)
@@ -139,6 +146,8 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
         if (!a.isTrigger && b.isTrigger) return 1
         return a.title.localeCompare(b.title)
       })
+
+    return nodes
   }, [selectedIntegration, mode])
 
   // Filter integrations based on search and category
@@ -182,7 +191,6 @@ export function IntegrationsSidePanel({ isOpen, onClose, onNodeSelect, mode = 'a
     const providerLogo = !shouldUseNodeIcon && node.providerId ? `/integrations/${node.providerId}.svg` : null
 
     const handleClick = () => {
-      console.log('🔘 [IntegrationsSidePanel] Node clicked:', node.type, node.title)
       onNodeSelect(node)
     }
 

@@ -104,10 +104,25 @@ export function SetupTab(props: SetupTabProps) {
   const connections = useMemo(() => {
     if (!requiresConnection || !nodeInfo?.providerId) return []
 
+    // DEBUG: Log all integrations to help trace connection status issues
+    console.log('🔍 [SetupTab] Debug - All integrations:', integrations.map(int => ({
+      id: int.id,
+      provider: int.provider,
+      status: int.status,
+      workspace_type: int.workspace_type
+    })))
+    console.log('🔍 [SetupTab] Debug - Looking for provider:', nodeInfo.providerId)
+
     // Get all integrations that match this provider
     const providerIntegrations = integrations.filter(
       int => int.provider === nodeInfo.providerId
     )
+
+    console.log('🔍 [SetupTab] Debug - Matching integrations:', providerIntegrations.map(int => ({
+      id: int.id,
+      provider: int.provider,
+      status: int.status
+    })))
 
     const isConnectedStatus = (status?: string) => {
       if (!status) return false
@@ -153,7 +168,7 @@ export function SetupTab(props: SetupTabProps) {
         uiStatus = 'error'
       }
 
-      return {
+      const mappedConnection = {
         id: integration.id,
         provider: integration.provider,
         email: integration.email,
@@ -168,6 +183,14 @@ export function SetupTab(props: SetupTabProps) {
         workspace_id: integration.workspace_id,
         created_at: integration.created_at,
       }
+
+      console.log('🔍 [SetupTab] Debug - Mapped connection:', {
+        provider: mappedConnection.provider,
+        status: mappedConnection.status,
+        originalStatus: integration.status
+      })
+
+      return mappedConnection
     })
   }, [requiresConnection, nodeInfo?.providerId, integrations])
 

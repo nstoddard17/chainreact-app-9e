@@ -35,18 +35,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return errorResponse("Invalid workflow ID format", 400)
     }
 
-    // Verify user owns this workflow
-    const { data: workflow, error: checkError } = await supabase
+    // Use service client to bypass RLS for lookup, then manually verify authorization
+    // This fixes 404 errors when RLS policies don't include the user
+    const serviceClient = await createSupabaseServiceClient()
+    const { data: workflow, error: checkError } = await serviceClient
       .from("workflows")
-      .select("id, user_id, status, name")
+      .select("id, user_id, status, name, workspace_id")
       .eq("id", resolvedParams.id)
       .single()
 
     if (checkError || !workflow) {
+      logger.warn(`Workflow not found: ${resolvedParams.id}`, { error: checkError })
       return errorResponse("Workflow not found", 404)
     }
 
-    if (workflow.user_id !== user.id) {
+    // Check if user owns the workflow directly
+    let hasAccess = workflow.user_id === user.id
+
+    // Check workspace membership if not direct owner
+    if (!hasAccess && workflow.workspace_id) {
+      const { data: membership } = await serviceClient
+        .from("workspace_members")
+        .select("role")
+        .eq("workspace_id", workflow.workspace_id)
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (membership) {
+        // editor or higher can deactivate
+        const roleHierarchy: Record<string, number> = { viewer: 0, editor: 1, admin: 2, owner: 3 }
+        hasAccess = (roleHierarchy[membership.role] ?? -1) >= 1
+      }
+    }
+
+    if (!hasAccess) {
       return errorResponse("Not authorized to deactivate this workflow", 403)
     }
 
@@ -81,8 +103,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       errors.push(`Trigger cleanup: ${triggerError.message}`)
     }
 
-    // Step 3: Update workflow status to inactive
-    const serviceClient = await createSupabaseServiceClient()
+    // Step 3: Update workflow status to inactive (reuse serviceClient from above)
     const { data: updatedWorkflow, error: updateError } = await serviceClient
       .from("workflows")
       .update({

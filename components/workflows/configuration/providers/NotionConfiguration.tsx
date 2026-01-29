@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { GenericConfiguration } from './GenericConfiguration';
 
 import { logger } from '@/lib/utils/logger'
@@ -32,6 +32,13 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
   const { nodeInfo, values, loadOptions, loadingFields = new Set(), dynamicOptions, setValue } = props;
   const [isLoadingWorkspace, setIsLoadingWorkspace] = useState(false);
   const [databaseMetadata, setDatabaseMetadata] = useState<{ title: string; description: string } | null>(null);
+
+  // Use refs to stabilize callback and track loaded workspaces to prevent infinite loops
+  const loadOptionsRef = useRef(loadOptions);
+  loadOptionsRef.current = loadOptions;
+
+  // Track which workspaces we've already loaded pages for
+  const loadedPagesForWorkspaceRef = useRef<string | null>(null);
   
   // Only apply special visibility handling for actions that have visibility conditions
   const hasVisibilityConditions = nodeInfo?.configSchema?.some((field: any) => 
@@ -189,31 +196,30 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
   }, [nodeInfo, values, hasVisibilityConditions]);
 
   
+  // Track if we've already loaded workspaces to prevent double-load
+  const hasLoadedWorkspacesRef = useRef(false);
+
   // Load workspaces immediately when component mounts
   useEffect(() => {
+    // Prevent double-loading on remount/strict mode
+    if (hasLoadedWorkspacesRef.current) {
+      return;
+    }
+
     const loadWorkspaces = async () => {
       logger.debug('🔄 [NotionConfig] Loading workspaces for:', nodeInfo?.type);
-      logger.debug('  Current dynamic options:', props.dynamicOptions);
-      logger.debug('  Loading fields:', loadingFields);
 
-      // Only load if not already loading and we don't have options yet
-      if (!loadingFields.has('workspace') && !props.dynamicOptions['workspace']?.length) {
-        logger.debug('  ✅ Loading workspaces...');
-        setIsLoadingWorkspace(true);
-        try {
-          // FIXED: Changed forceRefresh from true to false to enable request deduplication
-          // Workspaces rarely change, so caching is safe and prevents duplicate loads
-          await loadOptions('workspace', undefined, undefined, false);
-        } catch (error) {
-          logger.error('  ❌ Failed to load workspaces:', error);
-        } finally {
-          setIsLoadingWorkspace(false);
-        }
-      } else {
-        logger.debug('  ⏭️ Skipping workspace load:', {
-          isLoading: loadingFields.has('workspace'),
-          hasOptions: props.dynamicOptions['workspace']?.length > 0
-        });
+      hasLoadedWorkspacesRef.current = true;
+      setIsLoadingWorkspace(true);
+      try {
+        // Use ref to get stable loadOptions function
+        await loadOptionsRef.current('workspace', undefined, undefined, false);
+      } catch (error) {
+        logger.error('  ❌ Failed to load workspaces:', error);
+        // Reset on error so retry is possible
+        hasLoadedWorkspacesRef.current = false;
+      } finally {
+        setIsLoadingWorkspace(false);
       }
     };
 
@@ -224,42 +230,52 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
   useEffect(() => {
     const loadPages = async () => {
       // Check if we have a workspace selected and the page field exists
-      const hasPageField = nodeInfo?.configSchema?.some((field: any) => 
+      const hasPageField = nodeInfo?.configSchema?.some((field: any) =>
         field.name === 'page' && field.dependsOn === 'workspace'
       );
-      
+
       if (!hasPageField || !values.workspace) {
         return;
       }
-      
+
       // For unified actions (manage_page, manage_database, etc.), check if operation is selected
       const isUnifiedAction = nodeInfo?.type?.includes('_manage_');
       if (isUnifiedAction) {
         // Check if operation field exists and has a value
-        const hasOperationField = nodeInfo?.configSchema?.some((field: any) => 
+        const hasOperationField = nodeInfo?.configSchema?.some((field: any) =>
           field.name === 'operation'
         );
-        
+
         if (hasOperationField && !values.operation) {
           logger.debug('🔄 [NotionConfig] Skipping page load - operation not selected yet');
           return; // Don't load pages until operation is selected
         }
       }
-      
+
+      // CRITICAL: Track which workspace we've loaded to prevent infinite loops
+      // Only load if workspace changed from what we've already loaded
+      if (loadedPagesForWorkspaceRef.current === values.workspace) {
+        logger.debug('🔄 [NotionConfig] Already loaded pages for workspace:', values.workspace);
+        return;
+      }
+
       logger.debug('🔄 [NotionConfig] Auto-loading pages for workspace:', values.workspace);
-      
-      // Check if we already have pages loaded for this workspace
-      if (!props.dynamicOptions['page']?.length && !loadingFields.has('page')) {
-        try {
-          await loadOptions('page', 'workspace', values.workspace, true);
-        } catch (error) {
-          logger.error('  ❌ Failed to auto-load pages:', error);
-        }
+
+      // Mark this workspace as being loaded BEFORE the async call
+      loadedPagesForWorkspaceRef.current = values.workspace;
+
+      try {
+        // Use ref to get stable loadOptions function
+        await loadOptionsRef.current('page', 'workspace', values.workspace, true);
+      } catch (error) {
+        logger.error('  ❌ Failed to auto-load pages:', error);
+        // Reset on error so retry is possible
+        loadedPagesForWorkspaceRef.current = null;
       }
     };
-    
+
     loadPages();
-  }, [values.workspace, values.operation, nodeInfo, loadOptions, props.dynamicOptions, loadingFields]); // Load when workspace or operation changes
+  }, [values.workspace, values.operation, nodeInfo?.type]); // Minimal stable dependencies
   
   // Remove auto-loading - let fields load when they're opened/focused
   // This prevents the infinite reload loop when there are no options

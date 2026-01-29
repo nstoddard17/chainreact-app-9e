@@ -190,7 +190,8 @@ export async function GET(request: NextRequest) {
     // Filter integrations based on access
     const accessibleIntegrations = integrations.filter(integration => {
       // Personal integrations - user must be the owner
-      if (integration.workspace_type === 'personal') {
+      // Treat null/undefined workspace_type as 'personal' for backward compatibility
+      if (integration.workspace_type === 'personal' || !integration.workspace_type) {
         // Owner always has access
         if (integration.user_id === user.id) {
           return true
@@ -230,7 +231,8 @@ export async function GET(request: NextRequest) {
         )
 
         // For personal integrations owned by user, admin permission
-        if (integration.workspace_type === 'personal' && isOwner) {
+        // Treat null/undefined workspace_type as 'personal' for backward compatibility
+        if ((integration.workspace_type === 'personal' || !integration.workspace_type) && isOwner) {
           return {
             ...integration,
             user_permission: 'admin' as const,

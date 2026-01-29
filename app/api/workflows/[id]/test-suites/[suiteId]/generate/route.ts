@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { checkWorkflowAccess } from "@/src/lib/workflows/builder/api/helpers"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -14,12 +15,21 @@ export async function POST(request: Request, { params }: { params: { id: string;
     // Get the supabase client
     const supabase = await createSupabaseRouteHandlerClient()
 
-    // Validate the workflow and test suite exist
-    const { data: workflow, error: workflowError } = await supabase.from("workflows").select("id, name, user_id").eq("id", id).single()
-
-    if (workflowError || !workflow) {
-      return errorResponse("Workflow not found" , 404)
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) {
+      return errorResponse("Unauthorized", 401)
     }
+
+    // Check workflow access using service client with explicit authorization
+    const accessCheck = await checkWorkflowAccess(id, user.id, 'editor')
+
+    if (!accessCheck.hasAccess) {
+      const status = accessCheck.error === "Flow not found" ? 404 : 403
+      return errorResponse(accessCheck.error || "Forbidden", status)
+    }
+
+    const workflow = accessCheck.workflow!
 
     const { data: testSuite, error: testSuiteError } = await supabase
       .from("test_suites")

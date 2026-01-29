@@ -77,10 +77,11 @@ export async function GET(request: NextRequest) {
       .select('*')
 
     // Filter by workspace context
+    // For 'personal' workspace, also include integrations with null workspace_type (backward compatibility)
     if (workspaceType === 'personal') {
       integrationsQuery = integrationsQuery
-        .eq('workspace_type', 'personal')
         .eq('user_id', user.id)
+        .or('workspace_type.eq.personal,workspace_type.is.null')
     } else if (workspaceType === 'team' && workspaceId) {
       integrationsQuery = integrationsQuery
         .eq('workspace_type', 'team')
@@ -185,7 +186,9 @@ export async function GET(request: NextRequest) {
         });
       } else {
         // Fall back to implicit permissions based on workspace type and ownership
-        if (workspaceType === 'personal' && integration.user_id === user.id) {
+        // Treat null/undefined workspace_type as 'personal' for backward compatibility
+        const isPersonalWorkspace = workspaceType === 'personal' || !integration.workspace_type
+        if (isPersonalWorkspace && integration.user_id === user.id) {
           // Owner of personal integration has admin access
           userPermission = 'admin'
         } else if (workspaceType === 'team' || workspaceType === 'organization') {

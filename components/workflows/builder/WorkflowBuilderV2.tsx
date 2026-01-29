@@ -373,6 +373,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const pathname = usePathname()
   const promptParam = searchParams?.get("prompt") ?? searchParams?.get("initialPrompt") ?? null
 
+  // Store router and searchParams in refs to avoid useEffect dependency loops
+  // These hooks return new object instances every render, causing infinite loops
+  // when used directly in dependency arrays
+  const routerRef = useRef(router)
+  const searchParamsRef = useRef(searchParams)
+  useEffect(() => {
+    routerRef.current = router
+    searchParamsRef.current = searchParams
+  }, [router, searchParams])
+
   // Use unified app context
   const appContext = useAppContext()
   const { isReady: appReady } = appContext
@@ -389,16 +399,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const { prefetchNodeConfig } = usePrefetchConfig()
 
   // Debug: Log when key initialization states change (helps diagnose stuck builds after restart)
+  // Using derived booleans as deps instead of object refs to prevent infinite loops
+  const hasActions = !!actions
+  const hasBuilder = !!builder
+  const hasFlowState = !!flowState
   useEffect(() => {
+    // Only log on actual state transitions, not every render
     console.log('[WorkflowBuilder Init] Key states:', {
-      hasActions: !!actions,
-      hasBuilder: !!builder,
-      hasFlowState: !!flowState,
+      hasActions,
+      hasBuilder,
+      hasFlowState,
       authInitialized,
       flowId,
       timestamp: new Date().toISOString(),
     })
-  }, [actions, builder, flowState, authInitialized, flowId])
+  }, [hasActions, hasBuilder, hasFlowState, authInitialized, flowId])
 
   // State management
   const [workflowName, setWorkflowName] = useState(adapter.state.flowName)
@@ -2174,12 +2189,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       // Clear the URL prompt parameter to prevent any future reprocessing
       // This is critical for page refreshes - without this, the URL still has ?prompt=...
       // and could cause issues on subsequent re-renders or navigation
-      if ((promptParam || searchParams?.get('initialPrompt')) && pathname) {
-        const newParams = new URLSearchParams(searchParams?.toString() || '')
+      if ((promptParam || searchParamsRef.current?.get('initialPrompt')) && pathname) {
+        const newParams = new URLSearchParams(searchParamsRef.current?.toString() || '')
         newParams.delete('prompt')
         newParams.delete('initialPrompt')
         const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
-        router.replace(newUrl, { scroll: false })
+        routerRef.current.replace(newUrl, { scroll: false })
         console.log('[URL Prompt Handler] Cleared URL prompt (chat history exists, preventing duplicate processing)')
       }
       return
@@ -2208,11 +2223,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // This ensures the prompt is only processed once, and subsequent refreshes
     // will load chat history from the database instead of re-creating messages
     if (promptParam && pathname) {
-      const newParams = new URLSearchParams(searchParams?.toString() || '')
+      const newParams = new URLSearchParams(searchParamsRef.current?.toString() || '')
       newParams.delete('prompt')
       newParams.delete('initialPrompt')
       const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
-      router.replace(newUrl, { scroll: false })
+      routerRef.current.replace(newUrl, { scroll: false })
       console.log('[URL Prompt Handler] Cleared prompt from URL to prevent duplicate processing on refresh')
     }
 
@@ -2475,8 +2490,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     pathname,
     promptParam,
     replaceMessageByLocalId,
-    router,
-    searchParams,
+    // NOTE: router and searchParams removed from deps - they create new instances
+    // on every render causing infinite loops. Using refs (routerRef, searchParamsRef) instead.
     toast,
     transitionTo,
   ])

@@ -379,52 +379,27 @@ const BuilderHeaderComponent = ({
 
   return (
     <>
-      <div className="h-12 border-b bg-white flex items-center justify-between px-6 shrink-0">
-        <div className="flex-1 min-w-0 flex items-center gap-6">
+      <div className="h-12 border-b bg-white dark:bg-gray-900 dark:border-gray-800 flex items-center justify-between px-3 sm:px-4 md:px-6 shrink-0">
+        {/* Left Section: Back + Name + Status */}
+        <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-4 md:gap-6">
           <button
             onClick={() => {
-              // If currently saving, set pending navigation flag and wait
               if (isSaving) {
                 setPendingNavigation(true)
                 return
               }
-              // Not saving, navigate immediately
               router.push('/workflows')
             }}
             disabled={isSaving || pendingNavigation}
-            className="group flex items-center gap-2 px-0 py-2 bg-transparent border-none transition-all duration-200 ease-out hover:-translate-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="group flex items-center gap-1.5 sm:gap-2 px-0 py-2 bg-transparent border-none transition-all duration-200 ease-out hover:-translate-x-1 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             title={isSaving || pendingNavigation ? "Saving..." : "Back to workflows"}
           >
             {isSaving || pendingNavigation ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-[#9CA3AF]" />
             ) : (
               <>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="flex-shrink-0"
-                >
-                  {/* Simple left arrow with rounded ends */}
-                  <path
-                    d="M 10 7 L 4 7"
-                    stroke="#D1D5DB"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    className="group-hover:stroke-[#9CA3AF] transition-colors duration-200"
-                  />
-                  <path
-                    d="M 6 5 L 4 7 L 6 9"
-                    stroke="#D1D5DB"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="group-hover:stroke-[#9CA3AF] transition-colors duration-200"
-                  />
-                </svg>
-                <span className="text-sm font-medium text-[#D1D5DB] group-hover:text-[#9CA3AF] transition-colors duration-200">
+                <ArrowLeft className="w-4 h-4 text-gray-400 group-hover:text-gray-500 transition-colors" />
+                <span className="hidden sm:inline text-sm font-medium text-gray-400 group-hover:text-gray-500 transition-colors">
                   Back
                 </span>
               </>
@@ -448,27 +423,27 @@ const BuilderHeaderComponent = ({
                 }
               }}
               autoFocus
-              className="text-sm font-semibold border-none outline-none ring-0 px-2 py-1 bg-transparent max-w-md"
+              className="text-sm font-semibold border-none outline-none ring-0 px-2 py-1 bg-transparent w-full max-w-[120px] sm:max-w-[200px] md:max-w-md"
               style={{ boxShadow: 'none', border: 'none', height: 'auto' }}
               placeholder="Untitled Workflow"
               maxLength={100}
             />
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <div
                 onClick={() => setIsEditingName(true)}
-                className="cursor-pointer hover:bg-accent px-2 py-1 rounded-md transition-colors"
+                className="cursor-pointer hover:bg-accent px-1.5 sm:px-2 py-1 rounded-md transition-colors min-w-0"
               >
-                <h1 className="text-sm font-semibold truncate">
+                <h1 className="text-sm font-semibold truncate max-w-[100px] sm:max-w-[160px] md:max-w-none">
                   {workflowName || "Untitled Workflow"}
                 </h1>
               </div>
               <span
                 className={cn(
-                  "text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap font-medium",
+                  "text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap font-medium shrink-0 hidden xs:inline-flex",
                   currentWorkflow?.is_active
-                    ? "bg-green-50 text-green-700 border border-green-200"
-                    : "bg-gray-100 text-gray-500"
+                    ? "bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                    : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
                 )}
               >
                 {currentWorkflow?.is_active ? "Scheduled" : "Not scheduled"}
@@ -479,7 +454,7 @@ const BuilderHeaderComponent = ({
           {statusBadge && (
             <span
               className={cn(
-                "text-xs px-2 py-0.5 rounded-md border",
+                "text-xs px-1.5 sm:px-2 py-0.5 rounded-md border shrink-0 hidden sm:inline-flex",
                 statusBadge.className
               )}
             >
@@ -488,8 +463,10 @@ const BuilderHeaderComponent = ({
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
+        {/* Right Section: Actions */}
+        <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+          {/* Undo/Redo - Hidden on mobile */}
+          <div className="hidden md:flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
@@ -512,7 +489,8 @@ const BuilderHeaderComponent = ({
             </Button>
           </div>
 
-          <div className="flex items-center gap-1">
+          {/* View Controls - Hidden on mobile */}
+          <div className="hidden lg:flex items-center gap-1">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -551,18 +529,18 @@ const BuilderHeaderComponent = ({
             </TooltipProvider>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Secondary Actions - Hidden on small screens */}
+          <div className="hidden sm:flex items-center gap-1">
             <TooltipProvider>
-              {/* Run via API Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => {
-                      // TODO: Implement Run via API functionality
                       toast({ title: "Run via API", description: "Coming soon!" })
                     }}
+                    className="h-8 w-8"
                   >
                     <CloudCog className="w-4 h-4" />
                   </Button>
@@ -570,13 +548,13 @@ const BuilderHeaderComponent = ({
                 <TooltipContent>Run via API</TooltipContent>
               </Tooltip>
 
-              {/* History Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowHistoryDialog(true)}
+                    className="h-8 w-8"
                   >
                     <History className="w-4 h-4" />
                   </Button>
@@ -584,13 +562,13 @@ const BuilderHeaderComponent = ({
                 <TooltipContent>History</TooltipContent>
               </Tooltip>
 
-              {/* Versions Button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => setShowVersionsDialog(true)}
+                    className="h-8 w-8 hidden md:inline-flex"
                   >
                     <Layers className="w-4 h-4" />
                   </Button>
@@ -598,7 +576,10 @@ const BuilderHeaderComponent = ({
                 <TooltipContent>Versions</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </div>
 
+          {/* Primary Actions: Test + Publish */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {/* Test Button */}
             {handleExecuteLive && (
               <Button
@@ -606,10 +587,10 @@ const BuilderHeaderComponent = ({
                 size="sm"
                 onClick={handleExecuteLive}
                 disabled={isLiveTestingDisabled || hasPlaceholders}
-                className="flex items-center gap-2"
+                className="flex items-center gap-1.5 h-8 px-2 sm:px-3"
               >
                 <Play className="w-4 h-4" />
-                <span>Test</span>
+                <span className="hidden xs:inline">Test</span>
               </Button>
             )}
 
@@ -621,7 +602,7 @@ const BuilderHeaderComponent = ({
                 onClick={handleToggleLive}
                 disabled={isUpdatingStatus || hasPlaceholders}
                 className={cn(
-                  "flex items-center gap-2",
+                  "flex items-center gap-1.5 h-8 px-2 sm:px-3",
                   isActive
                     ? "bg-green-600 hover:bg-green-700 text-white"
                     : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -632,26 +613,27 @@ const BuilderHeaderComponent = ({
                 ) : (
                   <Rocket className="w-4 h-4" />
                 )}
-                <span>{isActive ? "Published" : "Publish"}</span>
+                <span className="hidden xs:inline">{isActive ? "Published" : "Publish"}</span>
               </Button>
             )}
-
-            <TooltipProvider>
-              {/* Share Button */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowShareDialog(true)}
-                  >
-                    <Share2 className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Share</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </div>
+
+          {/* Share Button - Hidden on mobile, in menu */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setShowShareDialog(true)}
+                  className="h-8 w-8 hidden sm:inline-flex"
+                >
+                  <Share2 className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Share</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -660,6 +642,35 @@ const BuilderHeaderComponent = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
+              {/* Mobile-only: View controls */}
+              <DropdownMenuItem onClick={onRecenterView} className="lg:hidden">
+                <LocateFixed className="w-4 h-4 mr-2" />
+                Recenter View
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={onToggleViewLock} className="lg:hidden">
+                {isViewLocked ? <Lock className="w-4 h-4 mr-2" /> : <Unlock className="w-4 h-4 mr-2" />}
+                {isViewLocked ? "Unlock View" : "Lock View"}
+              </DropdownMenuItem>
+
+              {/* Mobile-only: Undo/Redo */}
+              <DropdownMenuItem onClick={handleUndo} disabled={!canUndo} className="md:hidden">
+                <Undo2 className="w-4 h-4 mr-2" />
+                Undo
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={handleRedo} disabled={!canRedo} className="md:hidden">
+                <Redo2 className="w-4 h-4 mr-2" />
+                Redo
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator className="lg:hidden" />
+
+              {/* Mobile-only: Share */}
+              <DropdownMenuItem onClick={() => setShowShareDialog(true)} className="sm:hidden">
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </DropdownMenuItem>
 
               <DropdownMenuItem onClick={handleExportWorkflow}>
                 <Download className="w-4 h-4 mr-2" />
@@ -678,21 +689,29 @@ const BuilderHeaderComponent = ({
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem onClick={() => setShowVersionsDialog(true)} className="sm:hidden">
-                <GitBranch className="w-4 h-4 mr-2" />
+              {/* Mobile-only: API */}
+              <DropdownMenuItem
+                onClick={() => toast({ title: "Run via API", description: "Coming soon!" })}
+                className="sm:hidden"
+              >
+                <CloudCog className="w-4 h-4 mr-2" />
+                Run via API
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setShowVersionsDialog(true)} className="md:hidden">
+                <Layers className="w-4 h-4 mr-2" />
                 Versions
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={() => {
                 setShowHistoryDialog(true)
                 setShowExecutionHistory?.(true)
-              }}>
+              }} className="sm:hidden">
                 <History className="w-4 h-4 mr-2" />
                 Workflow History
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={() => {
-                // TODO: Open workflow settings dialog
                 toast({
                   title: "Workflow Settings",
                   description: "Settings will be available when publishing the workflow.",
