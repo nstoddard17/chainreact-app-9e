@@ -330,6 +330,13 @@ async function saveIntegration(
       integrationData.provider_user_id = providerUserId
     }
 
+    // Extract team_id for Slack workspace identification (enables webhook filtering)
+    // This allows webhook events to be routed to the correct integration by team ID
+    const teamId = additionalData.team_id || additionalData.teamId || null
+    if (teamId) {
+      integrationData.team_id = teamId
+    }
+
     // NEW: Set provider_account_id for multi-account deduplication (non-email accounts)
     // This is used when email is not available (e.g., Airtable, Trello)
     const providerAccountId = additionalData.provider_account_id || additionalData.account_id ||

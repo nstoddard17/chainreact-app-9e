@@ -15,6 +15,26 @@ export interface WebhookEvent {
 }
 
 /**
+ * Get Slack team ID from integration
+ * Used for workspace filtering - ensures events only trigger workflows for the correct workspace
+ */
+async function getSlackTeamIdFromIntegration(integrationId: string): Promise<string | null> {
+  const supabase = await createSupabaseServiceClient()
+
+  const { data: integration } = await supabase
+    .from('integrations')
+    .select('team_id, metadata')
+    .eq('id', integrationId)
+    .eq('provider', 'slack')
+    .single()
+
+  if (!integration) return null
+
+  // Try top-level first, then metadata for backwards compatibility
+  return integration.team_id || (integration.metadata as any)?.team_id || null
+}
+
+/**
  * Enhanced webhook event processor with instant execution
  */
 
@@ -154,13 +174,15 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
     })
   )
 
-  // Filter workflows based on trigger conditions
-  const matchingWorkflows = workflowsWithNodes.filter(workflow => {
+  // First pass: Filter workflows by trigger type (sync filtering)
+  const potentialWorkflows: Array<{ workflow: any; triggerNode: any }> = []
+
+  for (const workflow of workflowsWithNodes) {
     logger.debug(`🔍 Checking workflow: "${workflow.name}"`)
 
     if (!workflow.nodes || workflow.nodes.length === 0) {
       logger.debug(`   ❌ No nodes found`)
-      return false
+      continue
     }
 
     const triggerNode = workflow.nodes?.find((node: any) => {
@@ -219,28 +241,52 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
 
       return true
     })
-    
+
     if (!triggerNode) {
       logger.debug(`   ❌ No matching trigger found`)
-      return false
+      continue
     }
-    
+
     logger.debug(`   ✅ Found matching trigger!`)
-    
-    // Apply custom filters if configured
-    return applyTriggerFilters(triggerNode, event)
-  }) || []
-  
+    potentialWorkflows.push({ workflow, triggerNode })
+  }
+
+  // Second pass: Apply async filters (e.g., Slack workspace filtering)
+  const matchingWorkflows: any[] = []
+  for (const { workflow, triggerNode } of potentialWorkflows) {
+    const passesFilters = await applyTriggerFilters(triggerNode, event)
+    if (passesFilters) {
+      matchingWorkflows.push(workflow)
+    }
+  }
+
   logger.debug(`🎯 Found ${matchingWorkflows.length} matching workflows`)
   return matchingWorkflows
 }
 
 /**
- * Apply custom trigger filters (e.g., sender, subject, etc.)
+ * Apply custom trigger filters (e.g., sender, subject, workspace, etc.)
+ * Made async to support Slack workspace lookup
  */
-function applyTriggerFilters(triggerNode: any, event: WebhookEvent): boolean {
+async function applyTriggerFilters(triggerNode: any, event: WebhookEvent): Promise<boolean> {
   const config = triggerNode.data?.triggerConfig || triggerNode.data?.config || {}
-  
+
+  // Slack specific filters - filter by workspace (team)
+  if (event.provider === 'slack') {
+    const workspaceIntegrationId = config.workspace || config.integrationId
+    const eventTeamId = event.eventData?.team || event.eventData?.message?.team
+
+    if (workspaceIntegrationId && eventTeamId) {
+      // Look up the integration's team_id and compare
+      const expectedTeamId = await getSlackTeamIdFromIntegration(workspaceIntegrationId)
+      if (expectedTeamId && expectedTeamId !== eventTeamId) {
+        logger.debug(`   ❌ Slack workspace mismatch: event team=${eventTeamId}, expected=${expectedTeamId}`)
+        return false
+      }
+      logger.debug(`   ✅ Slack workspace match: ${eventTeamId}`)
+    }
+  }
+
   // Gmail specific filters
   if (event.provider === 'gmail') {
     if (config.sender_filter && event.eventData.from) {

@@ -33,6 +33,16 @@ export const stripeNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
+        name: "stripe_account",
+        label: "Stripe Account",
+        type: "select",
+        dynamic: "stripe_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Stripe account",
+        description: "Select which Stripe account to use for this trigger"
+      },
+      {
         name: "notificationOnly",
         label: "Trigger Configuration",
         type: "select",
@@ -927,6 +937,16 @@ export const stripeNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
+        name: "stripe_account",
+        label: "Stripe Account",
+        type: "select",
+        dynamic: "stripe_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Stripe account",
+        description: "Select which Stripe account to use for this trigger"
+      },
+      {
         name: "notificationOnly",
         label: "Trigger Configuration",
         type: "select",
@@ -955,6 +975,16 @@ export const stripeNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
+      {
+        name: "stripe_account",
+        label: "Stripe Account",
+        type: "select",
+        dynamic: "stripe_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Stripe account",
+        description: "Select which Stripe account to use for this trigger"
+      },
       {
         name: "notificationOnly",
         label: "Trigger Configuration",
@@ -986,6 +1016,16 @@ export const stripeNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
+        name: "stripe_account",
+        label: "Stripe Account",
+        type: "select",
+        dynamic: "stripe_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Stripe account",
+        description: "Select which Stripe account to use for this trigger"
+      },
+      {
         name: "notificationOnly",
         label: "Trigger Configuration",
         type: "select",
@@ -1014,6 +1054,16 @@ export const stripeNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
+      {
+        name: "stripe_account",
+        label: "Stripe Account",
+        type: "select",
+        dynamic: "stripe_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Stripe account",
+        description: "Select which Stripe account to use for this trigger"
+      },
       {
         name: "notificationOnly",
         label: "Trigger Configuration",
@@ -1046,6 +1096,16 @@ export const stripeNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
+        name: "stripe_account",
+        label: "Stripe Account",
+        type: "select",
+        dynamic: "stripe_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Stripe account",
+        description: "Select which Stripe account to use for this trigger"
+      },
+      {
         name: "notificationOnly",
         label: "Trigger Configuration",
         type: "select",
@@ -1077,6 +1137,16 @@ export const stripeNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
+      {
+        name: "stripe_account",
+        label: "Stripe Account",
+        type: "select",
+        dynamic: "stripe_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Stripe account",
+        description: "Select which Stripe account to use for this trigger"
+      },
       {
         name: "notificationOnly",
         label: "Trigger Configuration",
@@ -1111,6 +1181,16 @@ export const stripeNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
+        name: "stripe_account",
+        label: "Stripe Account",
+        type: "select",
+        dynamic: "stripe_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Stripe account",
+        description: "Select which Stripe account to use for this trigger"
+      },
+      {
         name: "notificationOnly",
         label: "Trigger Configuration",
         type: "select",
@@ -1142,6 +1222,16 @@ export const stripeNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
+      {
+        name: "stripe_account",
+        label: "Stripe Account",
+        type: "select",
+        dynamic: "stripe_accounts",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Stripe account",
+        description: "Select which Stripe account to use for this trigger"
+      },
       {
         name: "notificationOnly",
         label: "Trigger Configuration",

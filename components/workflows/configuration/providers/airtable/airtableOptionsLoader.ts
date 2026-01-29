@@ -167,9 +167,14 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const bases = result.data || [];
 
+      // Return compound value "integrationId:baseId" for multi-account support
+      // This allows the trigger lifecycle to know which integration to use
       const formattedBases = bases.map((base: any) => ({
-        value: base.id || base.value,
+        value: `${integrationId}:${base.id || base.value}`,
         label: base.name || base.label || base.id,
+        // Keep original IDs for reference
+        integrationId: integrationId,
+        baseId: base.id || base.value,
       }));
 
       // Store in cache
@@ -185,15 +190,18 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
   }
 
   private async loadTables(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { dependsOnValue: baseId, integrationId, signal, forceRefresh } = params;
+    const { dependsOnValue: baseIdValue, integrationId, signal, forceRefresh } = params;
 
-    if (!baseId || !integrationId) {
+    if (!baseIdValue || !integrationId) {
       logger.debug('🔍 [Airtable] Cannot load tables without baseId and integrationId');
       return [];
     }
 
+    // Parse compound value "integrationId:baseId" or use as-is for legacy format
+    const actualBaseId = baseIdValue.includes(':') ? baseIdValue.split(':')[1] : baseIdValue;
+
     // Build cache key
-    const cacheKey = buildCacheKey('airtable', integrationId, 'tableName', { baseId });
+    const cacheKey = buildCacheKey('airtable', integrationId, 'tableName', { baseId: actualBaseId });
     const cacheStore = useConfigCacheStore.getState();
 
     // Force refresh handling
@@ -219,7 +227,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         body: JSON.stringify({
           integrationId,
           dataType: 'airtable_tables',
-          options: { baseId },
+          options: { baseId: actualBaseId },
           forceRefresh
         }),
         signal

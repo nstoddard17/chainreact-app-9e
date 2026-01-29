@@ -1643,6 +1643,35 @@ const twitterMappings: Record<string, FieldMapping> = {
 
 // Stripe field mappings
 const stripeMappings: Record<string, FieldMapping> = {
+  // Triggers - all use stripe_account for multi-account support
+  stripe_trigger_new_payment: {
+    stripe_account: "stripe_accounts",
+  },
+  stripe_trigger_customer_created: {
+    stripe_account: "stripe_accounts",
+  },
+  stripe_trigger_subscription_created: {
+    stripe_account: "stripe_accounts",
+  },
+  stripe_trigger_subscription_deleted: {
+    stripe_account: "stripe_accounts",
+  },
+  stripe_trigger_invoice_payment_failed: {
+    stripe_account: "stripe_accounts",
+  },
+  stripe_trigger_new_dispute: {
+    stripe_account: "stripe_accounts",
+  },
+  stripe_trigger_refunded_charge: {
+    stripe_account: "stripe_accounts",
+  },
+  stripe_trigger_subscription_updated: {
+    stripe_account: "stripe_accounts",
+  },
+  stripe_trigger_checkout_session_completed: {
+    stripe_account: "stripe_accounts",
+  },
+  // Actions
   stripe_action_create_customer: {
     payment_method: "stripe_payment_methods",
   },

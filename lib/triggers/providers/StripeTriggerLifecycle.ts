@@ -37,16 +37,43 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       config
     })
 
-    // Get user's Stripe integration
-    const { data: integration } = await getSupabase()
-      .from('integrations')
-      .select('access_token')
-      .eq('user_id', userId)
-      .eq('provider', 'stripe')
-      .single()
+    // Get integration ID from config (multi-account support)
+    const integrationId = config?.stripe_account
+
+    let integration: { id: string; access_token: string } | null = null
+
+    if (integrationId) {
+      // Look up by specific integration ID (multi-account support)
+      const { data, error } = await getSupabase()
+        .from('integrations')
+        .select('id, access_token')
+        .eq('id', integrationId)
+        .eq('provider', 'stripe')
+        .single()
+
+      if (error || !data) {
+        throw new Error('Selected Stripe account not found. Please reconnect the integration.')
+      }
+      integration = data
+    } else {
+      // Legacy fallback: look up by user_id (for existing workflows without stripe_account)
+      const { data, error } = await getSupabase()
+        .from('integrations')
+        .select('id, access_token')
+        .eq('user_id', userId)
+        .eq('provider', 'stripe')
+        .eq('status', 'connected')
+        .limit(1)
+
+      if (error || !data || data.length === 0) {
+        throw new Error('No Stripe integration found for user. Please configure the trigger with a Stripe account.')
+      }
+      integration = data[0]
+      logger.warn(`⚠️ [Stripe] Using legacy user_id lookup - workflow should be updated to use stripe_account field`)
+    }
 
     if (!integration) {
-      throw new Error('Stripe integration not found for user')
+      throw new Error('Stripe integration not found')
     }
 
     // Decrypt access token
@@ -94,6 +121,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       external_id: endpoint.id,
       config: {
         ...config,
+        integrationId: integration.id, // Store integration ID for deactivation
         webhookUrl: endpoint.url,
         webhookSecret: endpoint.secret,
         enabledEvents
@@ -138,13 +166,31 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Get user's access token
-    const { data: integration } = await getSupabase()
-      .from('integrations')
-      .select('access_token')
-      .eq('user_id', userId)
-      .eq('provider', 'stripe')
-      .single()
+    // Get integration ID from first resource's config (stored during activation)
+    const storedIntegrationId = resources[0]?.config?.integrationId
+
+    let integration: { access_token: string } | null = null
+
+    if (storedIntegrationId) {
+      // Look up by stored integration ID
+      const { data } = await getSupabase()
+        .from('integrations')
+        .select('access_token')
+        .eq('id', storedIntegrationId)
+        .eq('provider', 'stripe')
+        .single()
+      integration = data
+    } else {
+      // Legacy fallback: look up by user_id
+      const { data } = await getSupabase()
+        .from('integrations')
+        .select('access_token')
+        .eq('user_id', userId)
+        .eq('provider', 'stripe')
+        .eq('status', 'connected')
+        .limit(1)
+      integration = data?.[0] || null
+    }
 
     if (!integration) {
       logger.warn(`⚠️ Stripe integration not found, marking webhooks as deleted`)
@@ -234,13 +280,31 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
-    // Get user's Stripe integration
-    const { data: integration } = await getSupabase()
-      .from('integrations')
-      .select('access_token')
-      .eq('user_id', userId)
-      .eq('provider', 'stripe')
-      .single()
+    // Get integration ID from first resource's config (stored during activation)
+    const storedIntegrationId = resources[0]?.config?.integrationId
+
+    let integration: { access_token: string } | null = null
+
+    if (storedIntegrationId) {
+      // Look up by stored integration ID
+      const { data } = await getSupabase()
+        .from('integrations')
+        .select('access_token')
+        .eq('id', storedIntegrationId)
+        .eq('provider', 'stripe')
+        .single()
+      integration = data
+    } else {
+      // Legacy fallback: look up by user_id
+      const { data } = await getSupabase()
+        .from('integrations')
+        .select('access_token')
+        .eq('user_id', userId)
+        .eq('provider', 'stripe')
+        .eq('status', 'connected')
+        .limit(1)
+      integration = data?.[0] || null
+    }
 
     if (!integration) {
       return {
@@ -263,17 +327,27 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
    */
   private getEventsForTrigger(triggerType: string): string[] {
     const eventMap: Record<string, string[]> = {
+      // Payment triggers
+      'stripe_trigger_new_payment': ['payment_intent.succeeded', 'charge.succeeded'],
       'stripe_trigger_payment_failed': ['payment_intent.payment_failed'],
       'stripe_trigger_charge_succeeded': ['charge.succeeded'],
       'stripe_trigger_charge_failed': ['charge.failed'],
+      'stripe_trigger_refunded_charge': ['charge.refunded'],
+      // Subscription triggers
       'stripe_trigger_subscription_created': ['customer.subscription.created'],
       'stripe_trigger_subscription_updated': ['customer.subscription.updated'],
       'stripe_trigger_subscription_deleted': ['customer.subscription.deleted'],
+      // Invoice triggers
       'stripe_trigger_invoice_created': ['invoice.created'],
       'stripe_trigger_invoice_paid': ['invoice.paid'],
       'stripe_trigger_invoice_payment_failed': ['invoice.payment_failed'],
+      // Customer triggers
       'stripe_trigger_customer_created': ['customer.created'],
-      'stripe_trigger_customer_updated': ['customer.updated']
+      'stripe_trigger_customer_updated': ['customer.updated'],
+      // Dispute triggers
+      'stripe_trigger_new_dispute': ['charge.dispute.created'],
+      // Checkout triggers
+      'stripe_trigger_checkout_session_completed': ['checkout.session.completed']
     }
 
     const events = eventMap[triggerType]

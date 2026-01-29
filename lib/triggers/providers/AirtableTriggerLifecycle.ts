@@ -38,16 +38,50 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       tableName: config.tableName
     })
 
-    // Get user's Airtable integration
-    const { data: integration } = await getSupabase()
-      .from('integrations')
-      .select('access_token')
-      .eq('user_id', userId)
-      .eq('provider', 'airtable')
-      .single()
+    // Parse baseId - supports compound format "integrationId:baseId" or legacy "baseId"
+    const baseIdValue = config?.baseId
+    if (!baseIdValue) {
+      throw new Error('Base ID is required for Airtable trigger')
+    }
 
-    if (!integration) {
-      throw new Error('Airtable integration not found for user')
+    let integrationId: string | null = null
+    let baseId: string
+    let integration: any
+
+    if (baseIdValue.includes(':')) {
+      // New compound format: "integrationId:baseId"
+      [integrationId, baseId] = baseIdValue.split(':')
+
+      // Look up by integration ID
+      const { data: foundIntegration } = await getSupabase()
+        .from('integrations')
+        .select('id, access_token')
+        .eq('id', integrationId)
+        .eq('provider', 'airtable')
+        .single()
+
+      integration = foundIntegration
+
+      if (!integration) {
+        throw new Error(`Airtable integration not found (ID: ${integrationId})`)
+      }
+    } else {
+      // Legacy format: just baseId - use user_id lookup
+      baseId = baseIdValue
+
+      const { data: foundIntegration } = await getSupabase()
+        .from('integrations')
+        .select('id, access_token')
+        .eq('user_id', userId)
+        .eq('provider', 'airtable')
+        .single()
+
+      integration = foundIntegration
+      integrationId = integration?.id
+
+      if (!integration) {
+        throw new Error('Airtable integration not found for user')
+      }
     }
 
     // Decrypt access token
@@ -59,11 +93,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       throw new Error('Failed to decrypt Airtable access token')
     }
 
-    const { baseId, tableName } = config
-
-    if (!baseId) {
-      throw new Error('Base ID is required for Airtable trigger')
-    }
+    const { tableName } = config
 
     // Get webhook callback URL
     const webhookUrl = this.getWebhookUrl()
@@ -119,6 +149,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       resource_id: webhook.id,
       external_id: webhook.id,
       config: {
+        integrationId, // Store integration ID for deactivation
         baseId,
         tableName,
         webhookUrl: webhook.notificationUrl,
@@ -148,7 +179,7 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
    * Deletes the webhook
    */
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
-    const { workflowId, userId } = context
+    const { workflowId } = context
 
     logger.debug(`🛑 Deactivating Airtable triggers for workflow ${workflowId}`)
 
@@ -165,48 +196,63 @@ export class AirtableTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Get user's access token
-    const { data: integration } = await getSupabase()
-      .from('integrations')
-      .select('access_token')
-      .eq('user_id', userId)
-      .eq('provider', 'airtable')
-      .single()
-
-    if (!integration) {
-      logger.warn(`⚠️ Airtable integration not found, marking webhooks as deleted`)
-      // Mark as deleted even if we can't clean up in Airtable
-      await getSupabase()
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .eq('provider_id', 'airtable')
-      return
-    }
-
-    // Decrypt access token
-    const accessToken = typeof integration.access_token === 'string'
-      ? safeDecrypt(integration.access_token)
-      : null
-
-    if (!accessToken) {
-      logger.warn(`⚠️ Failed to decrypt Airtable access token, marking webhooks as deleted`)
-      await getSupabase()
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .eq('provider_id', 'airtable')
-      return
-    }
-
-    // Delete each webhook
+    // Delete each webhook using the stored integrationId and baseId from config
     for (const resource of resources) {
-      if (!resource.external_id || !resource.config?.baseId) continue
+      if (!resource.external_id || !resource.config?.baseId) {
+        // No external ID or baseId, just delete the record
+        await getSupabase()
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+        continue
+      }
+
+      // Get integration ID from stored config
+      const integrationId = resource.config?.integrationId
+      const baseId = resource.config.baseId
+      const webhookId = resource.external_id
+
+      if (!integrationId) {
+        logger.warn(`⚠️ Missing integrationId in resource config, deleting record`)
+        await getSupabase()
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+        continue
+      }
+
+      // Get access token for this specific integration
+      const { data: integration } = await getSupabase()
+        .from('integrations')
+        .select('access_token')
+        .eq('id', integrationId)
+        .eq('provider', 'airtable')
+        .single()
+
+      if (!integration) {
+        logger.warn(`⚠️ Airtable integration ${integrationId} not found, deleting record`)
+        await getSupabase()
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+        continue
+      }
+
+      // Decrypt access token
+      const accessToken = typeof integration.access_token === 'string'
+        ? safeDecrypt(integration.access_token)
+        : null
+
+      if (!accessToken) {
+        logger.warn(`⚠️ Failed to decrypt access token for integration ${integrationId}, deleting record`)
+        await getSupabase()
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+        continue
+      }
 
       try {
-        const baseId = resource.config.baseId
-        const webhookId = resource.external_id
-
         const response = await fetch(
           `https://api.airtable.com/v0/bases/${baseId}/webhooks/${webhookId}`,
           {

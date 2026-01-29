@@ -36,17 +36,33 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       config
     })
 
-    // Get user's Shopify integration
-    const { data: integration } = await getSupabase()
+    // Get selected shop from config (set by shopify_store field)
+    const selectedShop = config?.shopify_store
+    if (!selectedShop) {
+      throw new Error('No Shopify store selected. Please configure the trigger with a store.')
+    }
+
+    // Find integration that has this shop in metadata.stores or shop_domain
+    const { data: integrations } = await getSupabase()
       .from('integrations')
-      .select('access_token, metadata')
-      .eq('user_id', userId)
+      .select('id, access_token, metadata, shop_domain')
       .eq('provider', 'shopify')
-      .single()
+
+    // Find the integration containing this shop
+    const integration = integrations?.find(i => {
+      const metadata = i.metadata as any
+      const stores = metadata?.stores || []
+      return stores.some((s: any) => s.shop === selectedShop) ||
+             metadata?.shop === selectedShop ||
+             metadata?.active_store === selectedShop ||
+             i.shop_domain === selectedShop
+    })
 
     if (!integration) {
-      throw new Error('Shopify integration not found for user')
+      throw new Error(`Shopify integration not found for store: ${selectedShop}`)
     }
+
+    logger.debug(`🔍 Found Shopify integration ${integration.id} for shop ${selectedShop}`)
 
     // Decrypt access token
     const accessToken = typeof integration.access_token === 'string'
@@ -57,10 +73,8 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       throw new Error('Failed to decrypt Shopify access token')
     }
 
-    const shopDomain = integration.metadata?.shop_domain
-    if (!shopDomain) {
-      throw new Error('Shopify shop domain not found in integration metadata')
-    }
+    // Use the selected shop as the domain
+    const shopDomain = selectedShop
 
     // Get webhook callback URL
     const webhookUrl = this.getWebhookUrl()
@@ -111,6 +125,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       external_id: webhook.id.toString(),
       config: {
         ...config,
+        integrationId: integration.id, // Store integration ID for deactivation
         shopDomain,
         topic,
         webhookUrl: webhook.address
@@ -138,7 +153,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
    * Deletes the webhook subscription
    */
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
-    const { workflowId, userId } = context
+    const { workflowId } = context
 
     logger.debug(`🛑 Deactivating Shopify triggers for workflow ${workflowId}`)
 
@@ -155,53 +170,60 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Get user's access token
-    const { data: integration } = await getSupabase()
-      .from('integrations')
-      .select('access_token, metadata')
-      .eq('user_id', userId)
-      .eq('provider', 'shopify')
-      .single()
-
-    if (!integration) {
-      logger.warn(`⚠️ Shopify integration not found, marking webhooks as deleted`)
-      await getSupabase()
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .eq('provider_id', 'shopify')
-      return
-    }
-
-    // Decrypt access token
-    const accessToken = typeof integration.access_token === 'string'
-      ? safeDecrypt(integration.access_token)
-      : null
-
-    if (!accessToken) {
-      logger.warn(`⚠️ Failed to decrypt Shopify access token, marking webhooks as deleted`)
-      await getSupabase()
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .eq('provider_id', 'shopify')
-      return
-    }
-
-    const shopDomain = integration.metadata?.shop_domain
-    if (!shopDomain) {
-      logger.warn(`⚠️ Shop domain not found, marking webhooks as deleted`)
-      await getSupabase()
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .eq('provider_id', 'shopify')
-      return
-    }
-
-    // Delete each webhook
+    // Delete each webhook using the stored integrationId and shopDomain from config
     for (const resource of resources) {
-      if (!resource.external_id) continue
+      if (!resource.external_id) {
+        // No external ID, just delete the record
+        await getSupabase()
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+        continue
+      }
+
+      // Get integration ID and shop domain from stored config
+      const integrationId = resource.config?.integrationId
+      const shopDomain = resource.config?.shopDomain
+
+      if (!integrationId || !shopDomain) {
+        logger.warn(`⚠️ Missing integrationId or shopDomain in resource config, deleting record`)
+        await getSupabase()
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+        continue
+      }
+
+      // Get access token for this specific integration
+      const { data: integration } = await getSupabase()
+        .from('integrations')
+        .select('access_token')
+        .eq('id', integrationId)
+        .eq('provider', 'shopify')
+        .single()
+
+      if (!integration) {
+        logger.warn(`⚠️ Shopify integration ${integrationId} not found, deleting record`)
+        await getSupabase()
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+        continue
+      }
+
+      // Decrypt access token
+      const accessToken = typeof integration.access_token === 'string'
+        ? safeDecrypt(integration.access_token)
+        : null
+
+      if (!accessToken) {
+        logger.warn(`⚠️ Failed to decrypt access token for integration ${integrationId}, deleting record`)
+        await getSupabase()
+          .from('trigger_resources')
+          .delete()
+          .eq('id', resource.id)
+        continue
+      }
 
       try {
         const response = await fetch(
