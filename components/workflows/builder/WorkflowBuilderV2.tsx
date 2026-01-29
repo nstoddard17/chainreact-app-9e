@@ -2213,7 +2213,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       prompt = decodeURIComponent(promptParam)
     }
 
-    if (!prompt || prompt.trim().length === 0) return
+    if (!prompt || prompt.trim().length === 0) {
+      // No prompt to process - mark as processed to prevent infinite re-runs
+      // This is safe because:
+      // 1. sessionStorage prompt is consumed/removed when read
+      // 2. URL prompt param won't appear after initial mount without navigation
+      // 3. If user navigates here again with a prompt, component remounts fresh
+      promptProcessedRef.current = true
+      return
+    }
 
     promptProcessedRef.current = true
     setAgentInput(prompt)

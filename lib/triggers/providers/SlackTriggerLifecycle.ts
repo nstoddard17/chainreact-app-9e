@@ -41,34 +41,22 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       config
     })
 
-    // Verify Slack integration exists
-    // First, check what integrations exist for this user and provider
-    const { data: allSlackIntegrations, error: listError } = await getSupabase()
-      .from('integrations')
-      .select('id, user_id, provider, status, workspace_type, connected_by')
-      .eq('provider', 'slack')
+    // The workspace field contains the integration ID (set by slack_workspaces dynamic options)
+    const integrationId = config?.workspace
 
-    logger.debug(`🔍 All Slack integrations in database:`, {
-      count: allSlackIntegrations?.length || 0,
-      integrations: allSlackIntegrations?.map(i => ({
-        id: i.id,
-        user_id: i.user_id,
-        status: i.status,
-        workspace_type: i.workspace_type,
-        connected_by: i.connected_by
-      })),
-      listError: listError?.message
-    })
+    if (!integrationId) {
+      throw new Error('No Slack workspace selected. Please configure the trigger with a workspace.')
+    }
 
-    // Now try to find the specific integration for this user
+    // Look up the integration by ID (not by user_id, since multi-account is supported)
     const { data: integration, error: fetchError } = await getSupabase()
       .from('integrations')
-      .select('id, status')
-      .eq('user_id', userId)
+      .select('id, status, user_id')
+      .eq('id', integrationId)
       .eq('provider', 'slack')
       .single()
 
-    logger.debug(`🔍 Slack integration lookup for user ${userId}:`, {
+    logger.debug(`🔍 Slack integration lookup by ID ${integrationId}:`, {
       found: !!integration,
       integration,
       error: fetchError?.message,
@@ -76,20 +64,26 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
     })
 
     if (!integration) {
-      // Provide more context in the error
-      const hasAnySlack = allSlackIntegrations && allSlackIntegrations.length > 0
-      const hasTeamSlack = allSlackIntegrations?.some(i => i.workspace_type !== 'personal' && i.connected_by === userId)
+      throw new Error(`Slack integration not found (ID: ${integrationId}). Please reconnect Slack.`)
+    }
 
-      if (hasTeamSlack) {
-        throw new Error('Slack integration found but connected as team/org integration. Personal integration required.')
-      } else if (hasAnySlack) {
-        throw new Error(`Slack integration exists but not for user ${userId}. Found ${allSlackIntegrations.length} integration(s) for other users.`)
-      } else {
-        throw new Error('Slack integration not found for user. Please connect Slack in the Integrations page.')
+    // Verify the user has access to this integration
+    // Either they own it (user_id matches) or they have permission via integration_permissions
+    if (integration.user_id !== userId) {
+      // Check if user has permission to use this integration
+      const { data: permission } = await getSupabase()
+        .from('integration_permissions')
+        .select('id')
+        .eq('integration_id', integrationId)
+        .eq('user_id', userId)
+        .single()
+
+      if (!permission) {
+        throw new Error('You do not have permission to use this Slack integration.')
       }
     }
 
-    // Also check if the integration is connected
+    // Check if the integration is connected
     if (integration.status !== 'connected') {
       throw new Error(`Slack integration is not connected (status: ${integration.status}). Please reconnect Slack.`)
     }
@@ -107,6 +101,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       resource_id: `${workflowId}-${nodeId}`, // Generated ID for routing
       config: {
         ...config,
+        integrationId, // Store integration ID explicitly for event routing
         eventType: this.getEventTypeForTrigger(triggerType)
       },
       status: 'active'
@@ -172,18 +167,32 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
-    // Verify Slack integration still exists
-    const { data: integration } = await getSupabase()
-      .from('integrations')
-      .select('id, status')
-      .eq('user_id', userId)
-      .eq('provider', 'slack')
-      .single()
+    // Check health for each trigger resource's integration
+    const unhealthyIntegrations: string[] = []
 
-    if (!integration || integration.status !== 'connected') {
+    for (const resource of resources) {
+      const integrationId = resource.config?.workspace
+      if (!integrationId) {
+        unhealthyIntegrations.push('Missing workspace configuration')
+        continue
+      }
+
+      const { data: integration } = await getSupabase()
+        .from('integrations')
+        .select('id, status')
+        .eq('id', integrationId)
+        .eq('provider', 'slack')
+        .single()
+
+      if (!integration || integration.status !== 'connected') {
+        unhealthyIntegrations.push(`Integration ${integrationId} disconnected`)
+      }
+    }
+
+    if (unhealthyIntegrations.length > 0) {
       return {
         healthy: false,
-        details: 'Slack integration disconnected',
+        details: `Slack integration issues: ${unhealthyIntegrations.join(', ')}`,
         lastChecked: new Date().toISOString()
       }
     }
