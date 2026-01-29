@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { getRouteClient, getFlowRepository, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
+import { getRouteClient, getFlowRepository, getServiceClient, checkWorkflowAccess } from "@/src/lib/workflows/builder/api/helpers"
 
 export async function GET(_: Request, context: { params: Promise<{ flowId: string }> }) {
   const { flowId } = await context.params
@@ -15,23 +15,18 @@ export async function GET(_: Request, context: { params: Promise<{ flowId: strin
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
+  // Check workflow access using service client (bypasses RLS) with explicit authorization
+  // Requires 'viewer' role for viewing revisions
+  const accessCheck = await checkWorkflowAccess(flowId, user.id, 'viewer')
+
+  if (!accessCheck.hasAccess) {
+    const status = accessCheck.error === "Flow not found" ? 404 : 403
+    return NextResponse.json({ ok: false, error: accessCheck.error }, { status })
+  }
+
   // Use service client to bypass RLS on workflows_revisions table
   const serviceClient = await getServiceClient()
   const repository = await getFlowRepository(serviceClient)
-
-  const definition = await supabase
-    .from("workflows")
-    .select("id")
-    .eq("id", flowId)
-    .maybeSingle()
-
-  if (definition.error) {
-    return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })
-  }
-
-  if (!definition.data) {
-    return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
-  }
 
   const revisions = await repository.listRevisions(flowId)
   return NextResponse.json({ ok: true, revisions })

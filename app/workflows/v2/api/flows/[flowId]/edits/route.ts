@@ -3,7 +3,7 @@ import { z } from "zod"
 
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
 import { planEdits } from "@/src/lib/workflows/builder/agent/planner"
-import { getRouteClient } from "@/src/lib/workflows/builder/api/helpers"
+import { getRouteClient, checkWorkflowAccess } from "@/src/lib/workflows/builder/api/helpers"
 import { logger } from "@/lib/utils/logger"
 
 /**
@@ -54,18 +54,13 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, errors: ["Unauthorized"] }, { status: 401 })
   }
 
-  const definition = await supabase
-    .from("workflows")
-    .select("id")
-    .eq("id", flowId)
-    .maybeSingle()
+  // Check workflow access using service client (bypasses RLS) with explicit authorization
+  // Requires 'editor' role for planning edits
+  const accessCheck = await checkWorkflowAccess(flowId, user.id, 'editor')
 
-  if (definition.error) {
-    return NextResponse.json({ ok: false, errors: [definition.error.message] }, { status: 500 })
-  }
-
-  if (!definition.data) {
-    return NextResponse.json({ ok: false, errors: ["Flow not found"] }, { status: 404 })
+  if (!accessCheck.hasAccess) {
+    const status = accessCheck.error === "Flow not found" ? 404 : 403
+    return NextResponse.json({ ok: false, errors: [accessCheck.error || "Forbidden"] }, { status })
   }
 
   const raw = await request.json().catch(() => null)

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { getRouteClient, uuid } from "@/src/lib/workflows/builder/api/helpers"
-import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
+import { getRouteClient, getServiceClient, uuid, checkWorkflowAccess } from "@/src/lib/workflows/builder/api/helpers"
 
 const BodySchema = z.object({
   status: z.enum(["success", "error"]),
@@ -38,29 +37,19 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const definition = await supabase
-    .from("workflows")
-    .select("workspace_id")
-    .eq("id", flowId)
-    .maybeSingle()
+  // Check workflow access using service client (bypasses RLS) with explicit authorization
+  // Requires 'editor' role for testing nodes
+  const accessCheck = await checkWorkflowAccess(flowId, user.id, 'editor')
 
-  if (definition.error) {
-    return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })
+  if (!accessCheck.hasAccess) {
+    const status = accessCheck.error === "Flow not found" ? 404 : 403
+    return NextResponse.json({ ok: false, error: accessCheck.error }, { status })
   }
 
-  if (!definition.data) {
-    return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
-  }
+  // Use service client for database operations since we've already verified access
+  const serviceClient = await getServiceClient()
 
-  try {
-    await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "editor")
-  } catch (error: any) {
-    const status = error?.status === 403 ? 403 : 500
-    const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to persist test result"
-    return NextResponse.json({ ok: false, error: message }, { status })
-  }
-
-  const revision = await supabase
+  const revision = await serviceClient
     .from("workflows_revisions")
     .select("id")
     .eq("workflow_id", flowId)
@@ -79,7 +68,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
 
   // Note: workflow_executions is a view over 'executions' table
   // Valid status values are: 'pending', 'running', 'completed', 'failed', 'paused'
-  const runInsert = await supabase.from("workflow_executions").insert({
+  const runInsert = await serviceClient.from("workflow_executions").insert({
     id: runId,
     workflow_id: flowId,
     user_id: user.id,
@@ -110,7 +99,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     ;(combinedOutput as any).__message = parsed.data.message
   }
 
-  const nodeInsert = await supabase.from("workflow_node_executions").insert({
+  const nodeInsert = await serviceClient.from("workflow_node_executions").insert({
     id: uuid(),
     execution_id: runId,
     node_id: nodeId,

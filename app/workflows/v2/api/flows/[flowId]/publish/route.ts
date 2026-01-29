@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-import { getFlowRepository, getRouteClient, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
+import { getFlowRepository, getRouteClient, getServiceClient, checkWorkflowAccess } from "@/src/lib/workflows/builder/api/helpers"
 import { publishRevision } from "@/src/lib/workflows/builder/publish"
-import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
 
 const PublishSchema = z.object({
   revisionId: z.string().uuid().optional(),
@@ -23,26 +22,13 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const definition = await supabase
-    .from("workflows")
-    .select("workspace_id")
-    .eq("id", flowId)
-    .maybeSingle()
+  // Check workflow access using service client (bypasses RLS) with explicit authorization
+  // Requires 'editor' role for publishing
+  const accessCheck = await checkWorkflowAccess(flowId, user.id, 'editor')
 
-  if (definition.error) {
-    return NextResponse.json({ ok: false, error: definition.error.message }, { status: 500 })
-  }
-
-  if (!definition.data) {
-    return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
-  }
-
-  try {
-    await ensureWorkspaceRole(supabase, definition.data.workspace_id, user.id, "editor")
-  } catch (error: any) {
-    const status = error?.status === 403 ? 403 : 500
-    const message = status === 403 ? "Forbidden" : error?.message ?? "Unable to publish"
-    return NextResponse.json({ ok: false, error: message }, { status })
+  if (!accessCheck.hasAccess) {
+    const status = accessCheck.error === "Flow not found" ? 404 : 403
+    return NextResponse.json({ ok: false, error: accessCheck.error }, { status })
   }
 
   const body = await request.json().catch(() => ({}))
@@ -63,12 +49,13 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: "Revision not found" }, { status: 404 })
   }
 
+  // Use service client since we've already verified access
   await publishRevision({
     flowId,
     revisionId: revision.id,
     notes: parsed.data.notes,
     publishedBy: user.id,
-    client: supabase,
+    client: serviceClient,
   })
 
   return NextResponse.json({ ok: true, revisionId: revision.id })

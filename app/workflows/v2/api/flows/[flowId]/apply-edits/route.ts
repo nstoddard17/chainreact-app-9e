@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
-import { getRouteClient, getFlowRepository, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
+import { getRouteClient, getFlowRepository, getServiceClient, checkWorkflowAccess } from "@/src/lib/workflows/builder/api/helpers"
 import { triggerLifecycleManager } from "@/lib/triggers/TriggerLifecycleManager"
 import { logger } from "@/lib/utils/logger"
 
@@ -94,25 +94,23 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const existingDefinition = await supabase
-    .from("workflows")
-    .select("id, status")
-    .eq("id", flowId)
-    .maybeSingle()
+  // Check workflow access using service client (bypasses RLS) with explicit authorization
+  // Requires 'editor' role for modifying workflows
+  const accessCheck = await checkWorkflowAccess(flowId, user.id, 'editor')
 
-  if (existingDefinition.error) {
-    return NextResponse.json({ ok: false, error: existingDefinition.error.message }, { status: 500 })
+  if (!accessCheck.hasAccess) {
+    const status = accessCheck.error === "Flow not found" ? 404 : 403
+    return NextResponse.json({ ok: false, error: accessCheck.error }, { status })
   }
 
-  if (!existingDefinition.data) {
-    return NextResponse.json({ ok: false, error: "Flow not found" }, { status: 404 })
-  }
+  const existingWorkflow = accessCheck.workflow!
 
-  // Use service client to bypass RLS on workflows_revisions table
+  // Use service client to bypass RLS on workflows and workflows_revisions tables
   const serviceClient = await getServiceClient()
   const repository = await getFlowRepository(serviceClient)
 
-  const { error: definitionError } = await supabase
+  // Use service client for update since we've already verified access
+  const { error: definitionError } = await serviceClient
     .from("workflows")
     .update({ name: flow.name, updated_at: new Date().toISOString() })
     .eq("id", flowId)
@@ -151,7 +149,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     // This handles the case where a trigger node is REPLACED (old node removed, new node added)
     // The cleanup above removes old trigger resources, but we need to create new ones
     const triggerNodes = (flow.nodes || []).filter((n: any) => n.metadata?.isTrigger)
-    if (existingDefinition.data?.status === 'active' && triggerNodes.length > 0) {
+    if (existingWorkflow.status === 'active' && triggerNodes.length > 0) {
       try {
         // Get existing trigger resources (after cleanup)
         const { data: existingResources } = await serviceClient
@@ -199,7 +197,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     // Auto-deactivate workflow if it's active but no longer has any triggers
     // A workflow without triggers can't run, so it should be deactivated
     // Note: triggerNodes is already defined above
-    if (existingDefinition.data?.status === 'active' && triggerNodes.length === 0) {
+    if (existingWorkflow.status === 'active' && triggerNodes.length === 0) {
       try {
         logger.info(`[apply-edits] Auto-deactivating workflow ${flowId} - no triggers remaining`)
 
@@ -227,7 +225,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
 
     // Handle trigger TYPE changes in active workflows
     // When trigger type changes, do full deactivate + reactivate to ensure clean state
-    if (existingDefinition.data?.status === 'active') {
+    if (existingWorkflow.status === 'active') {
       try {
         // Get existing trigger resources
         const { data: existingResources } = await serviceClient
@@ -291,7 +289,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       flow: revision.graph,
       revisionId: revision.id,
       version: revision.version,
-      workflowStatus: updatedWorkflow?.status || existingDefinition.data?.status,
+      workflowStatus: updatedWorkflow?.status || existingWorkflow.status,
     })
   } catch (error: any) {
     console.error('[apply-edits] Failed to create revision:', error)
