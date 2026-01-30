@@ -212,7 +212,7 @@ function ConfigurationForm({
   const integration = React.useMemo(() => {
     if (skipConnectionCheck || !providerToCheck) return null;
     return getIntegrationByProvider(providerToCheck);
-  }, [skipConnectionCheck, providerToCheck, getIntegrationByProvider]);
+  }, [skipConnectionCheck, providerToCheck, getIntegrationByProvider, integrations]);
 
   // NEW: Multi-account support - get all accounts for this provider
   const allIntegrations = !skipConnectionCheck && providerToCheck
@@ -230,6 +230,15 @@ function ConfigurationForm({
     // Default to first connected integration
     return connectedIntegrations[0]?.id;
   });
+
+  // Update selectedIntegrationId when integrations load (handles async loading)
+  useEffect(() => {
+    // Only auto-select if we don't have a selection yet and there are connected integrations
+    if (!selectedIntegrationId && connectedIntegrations.length > 0) {
+      const firstConnected = connectedIntegrations[0];
+      setSelectedIntegrationId(firstConnected.id);
+    }
+  }, [connectedIntegrations, selectedIntegrationId]);
 
   // Get the selected integration object
   const selectedIntegration = selectedIntegrationId
@@ -260,8 +269,8 @@ function ConfigurationForm({
   const needsConnection =
     !skipConnectionCheck &&
     (
-      !integration ||
-      !isConnectedStatus(integration?.status)
+      !selectedIntegration ||
+      !isConnectedStatus(selectedIntegration?.status)
     );
 
 
