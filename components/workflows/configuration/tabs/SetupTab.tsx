@@ -406,6 +406,27 @@ export function SetupTab(props: SetupTabProps) {
     ? BeehiivGuide
     : null
 
+  // Show loading state when integrations are being fetched and we need a connection
+  // This prevents flash of "Not connected" during workspace switches
+  if (requiresConnection && isLoadingIntegrations && integrations.length === 0) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="px-6 pt-6 pb-4 border-b border-border">
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+            <span className="text-sm text-muted-foreground">Loading {providerName} connections...</span>
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-10 bg-muted rounded"></div>
+            <div className="h-10 bg-muted rounded"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="flex flex-col h-full">

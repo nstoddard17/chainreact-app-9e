@@ -198,12 +198,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
       // Clear the ongoing fetch promise to prevent returning stale promises
       ongoingFetchPromise = null
 
-      // CRITICAL: Update EVERYTHING in a SINGLE set() call
-      // Multiple set() calls get batched, so get() might read stale state between them
+      // Update workspace context but DON'T clear integrations immediately
+      // This prevents flash of empty state - old integrations stay visible until new fetch completes
+      // The fetchIntegrations call will replace them with correct data
       set({
         workspaceType,
         workspaceId: workspaceId || null,
-        integrations: [], // Clear existing integrations immediately
+        // Don't clear integrations here - keep showing old ones until fetch completes
+        // This fixes the race condition where SetupTab shows empty [] before fetch finishes
         lastFetchTime: null, // Clear cache timestamp
         lastWorkspaceKey: null // Clear workspace key to force new fetch
       })
