@@ -6,6 +6,7 @@
 import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
 import { logger } from '@/lib/utils/logger';
 import { useConfigCacheStore } from '@/stores/configCacheStore';
+import { useIntegrationStore } from '@/stores/integrationStore';
 import { buildCacheKey, getFieldTTL } from '@/lib/workflows/configuration/cache-utils';
 import { parseErrorAndHandleReconnection } from '@/lib/utils/integration-reconnection';
 
@@ -26,11 +27,66 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
     return providerId === 'slack' && this.supportedFields.includes(fieldName);
   }
 
+  /**
+   * Validate that the integration is connected before making API calls
+   * Returns a valid integration ID (potentially an alternative connected one)
+   * or null if no connected integrations exist
+   */
+  private validateIntegration(integrationId: string | undefined): { valid: boolean; validIntegrationId?: string; error?: string } {
+    if (!integrationId) {
+      return { valid: false, error: 'No integration ID provided' };
+    }
+
+    const { getIntegrationById, getAllIntegrationsByProvider } = useIntegrationStore.getState();
+    const integration = getIntegrationById(integrationId);
+
+    if (!integration) {
+      return { valid: false, error: 'Integration not found' };
+    }
+
+    const validStatuses = ['connected', 'active', 'authorized', 'valid'];
+    if (validStatuses.includes(integration.status?.toLowerCase() || '')) {
+      return { valid: true, validIntegrationId: integrationId };
+    }
+
+    // Integration is not connected - try to find an alternative
+    logger.warn(`[Slack] Integration ${integrationId} has invalid status: ${integration.status}, looking for alternative`);
+
+    const allSlackIntegrations = getAllIntegrationsByProvider('slack');
+    const connectedAlternative = allSlackIntegrations.find(
+      i => validStatuses.includes(i.status?.toLowerCase() || '')
+    );
+
+    if (connectedAlternative) {
+      logger.debug(`[Slack] Found connected alternative: ${connectedAlternative.id}`);
+      return { valid: true, validIntegrationId: connectedAlternative.id };
+    }
+
+    return {
+      valid: false,
+      error: `Slack account is ${integration.status}. Please reconnect your account.`
+    };
+  }
+
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, forceRefresh } = params;
 
-    // Create a unique key for this request
-    const requestKey = `${fieldName}:${integrationId}:${forceRefresh}`;
+    // Validate integration before making any API calls
+    const validation = this.validateIntegration(integrationId);
+    if (!validation.valid) {
+      logger.warn(`[Slack] Skipping ${fieldName} load: ${validation.error}`);
+      return [];
+    }
+
+    // Use the validated (potentially alternative) integration ID
+    const validatedParams = {
+      ...params,
+      integrationId: validation.validIntegrationId
+    };
+    const validatedIntegrationId = validation.validIntegrationId;
+
+    // Create a unique key for this request (use validated ID for proper caching)
+    const requestKey = `${fieldName}:${validatedIntegrationId}:${forceRefresh}`;
 
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
@@ -58,16 +114,16 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
           switch (fieldName) {
             case 'channel':
             case 'channels': // Plural form used in some actions like upload_file
-              result = await this.loadChannels(params);
+              result = await this.loadChannels(validatedParams);
               break;
 
             case 'user':
             case 'addPeople':
-              result = await this.loadUsers(params);
+              result = await this.loadUsers(validatedParams);
               break;
 
             case 'workspace':
-              result = await this.loadWorkspaces(params);
+              result = await this.loadWorkspaces(validatedParams);
               break;
 
             default:

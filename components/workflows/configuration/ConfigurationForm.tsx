@@ -226,19 +226,60 @@ function ConfigurationForm({
   const [selectedIntegrationId, setSelectedIntegrationId] = useState<string | undefined>(() => {
     // Check if node config has a saved integration_id
     const savedIntegrationId = initialData?.integration_id || values?.integration_id;
-    if (savedIntegrationId) return savedIntegrationId;
+
+    // Validate that saved integration ID points to a connected integration
+    // connectedIntegrations is filtered to only status === 'connected' at line 221
+    if (savedIntegrationId) {
+      const isValidConnectedIntegration = connectedIntegrations.some(
+        (i) => i.id === savedIntegrationId
+      );
+      if (isValidConnectedIntegration) {
+        return savedIntegrationId;
+      }
+      // Saved integration is expired/disconnected - log and fallback
+      if (connectedIntegrations.length > 0) {
+        logger.warn('[ConfigForm] Saved integration_id is not connected, falling back to first connected:', {
+          savedIntegrationId,
+          fallbackId: connectedIntegrations[0]?.id,
+          connectedCount: connectedIntegrations.length
+        });
+      }
+    }
+
     // Default to first connected integration
     return connectedIntegrations[0]?.id;
   });
 
-  // Update selectedIntegrationId when integrations load (handles async loading)
+  // Update selectedIntegrationId when integrations load or when saved ID becomes invalid
   useEffect(() => {
-    // Only auto-select if we don't have a selection yet and there are connected integrations
+    // Case 1: No selection yet but connected integrations exist
     if (!selectedIntegrationId && connectedIntegrations.length > 0) {
       const firstConnected = connectedIntegrations[0];
       setSelectedIntegrationId(firstConnected.id);
+      logger.debug('[ConfigForm] Auto-selected first connected integration:', { integrationId: firstConnected.id });
+      return;
     }
-  }, [connectedIntegrations, selectedIntegrationId]);
+
+    // Case 2: Current selection is no longer valid (integration expired/disconnected)
+    if (selectedIntegrationId && connectedIntegrations.length > 0) {
+      const isStillValid = connectedIntegrations.some(
+        (i) => i.id === selectedIntegrationId
+      );
+      if (!isStillValid) {
+        const firstConnected = connectedIntegrations[0];
+        logger.warn('[ConfigForm] Selected integration is no longer connected, switching:', {
+          oldId: selectedIntegrationId,
+          newId: firstConnected.id
+        });
+        setSelectedIntegrationId(firstConnected.id);
+        // Also update form values so it persists with node config
+        setValues(prev => ({
+          ...prev,
+          integration_id: firstConnected.id
+        }));
+      }
+    }
+  }, [connectedIntegrations, selectedIntegrationId, setValues]);
 
   // Get the selected integration object
   const selectedIntegration = selectedIntegrationId
@@ -273,6 +314,10 @@ function ConfigurationForm({
       !isConnectedStatus(selectedIntegration?.status)
     );
 
+  // Detect when provider has integrations but all are expired/disconnected
+  const hasExpiredIntegrations = !skipConnectionCheck &&
+    allIntegrations.length > 0 &&
+    connectedIntegrations.length === 0;
 
   const integrationName = integrationNameProp || nodeInfo?.label?.split(' ')[0] || provider;
 
@@ -1393,6 +1438,7 @@ function ConfigurationForm({
     integrationName,
     integrationId: selectedIntegrationId || selectedIntegration?.id || integration?.id,
     needsConnection,
+    hasExpiredIntegrations,
     // Multi-account support
     showAccountSelector,
     selectedIntegrationId,
