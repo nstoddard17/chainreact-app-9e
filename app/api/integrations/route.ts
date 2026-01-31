@@ -2,6 +2,7 @@ import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
 import { NextRequest } from 'next/server'
+import { after } from 'next/server'
 import { queryWithTimeout } from '@/lib/utils/fetch-with-timeout'
 
 export const dynamic = 'force-dynamic'
@@ -134,32 +135,34 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Check for expired integrations and update their status
+    // Check for expired integrations and schedule background update
     const now = new Date()
-    const expiredIntegrationIds: string[] = []
+    const expiredIntegrationIds = (integrations || [])
+      .filter((i: any) =>
+        i.status === "connected" &&
+        i.expires_at &&
+        new Date(i.expires_at) <= now
+      )
+      .map((i: any) => i.id)
 
-    // First, identify all expired integrations
-    for (const integration of integrations || []) {
-      if (
-        integration.status === "connected" &&
-        integration.expires_at &&
-        new Date(integration.expires_at) <= now
-      ) {
-        expiredIntegrationIds.push(integration.id)
-      }
-    }
-
-    // Batch update all expired integrations at once
+    // Move update to background using Next.js 15's after() - non-blocking
+    // Response is sent immediately, update happens after
     if (expiredIntegrationIds.length > 0) {
-      await supabaseService
-        .from("integrations")
-        .update({
-          status: "expired",
-          updated_at: now.toISOString(),
-        })
-        .in("id", expiredIntegrationIds)
-
-      logger.debug(`⏰ [API /api/integrations] Updated ${expiredIntegrationIds.length} expired integrations`)
+      after(async () => {
+        try {
+          const supabaseServiceBg = await createSupabaseServiceClient()
+          await supabaseServiceBg
+            .from("integrations")
+            .update({
+              status: "expired",
+              updated_at: now.toISOString(),
+            })
+            .in("id", expiredIntegrationIds)
+          logger.debug(`⏰ [API /api/integrations] Background: Updated ${expiredIntegrationIds.length} expired integrations`)
+        } catch (err) {
+          logger.error('❌ [API /api/integrations] Background update failed:', err)
+        }
+      })
     }
 
     // Build a permission lookup map for O(1) access

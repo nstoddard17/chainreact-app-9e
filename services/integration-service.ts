@@ -55,12 +55,42 @@ export interface ApiResponse<T = any> {
  * Extracted from integrationStore.ts for better separation of concerns
  */
 export class IntegrationService {
-  
+  // Session cache to prevent redundant auth calls during page load
+  private static sessionCache: { session: { user: any; session: any }; timestamp: number } | null = null
+  private static SESSION_CACHE_TTL = 5000 // 5 seconds
+
+  /**
+   * Get session with caching to avoid redundant auth calls
+   * Multiple service methods calling this within the TTL will reuse the same session
+   */
+  private static async getSessionWithCache(): Promise<{ user: any; session: any }> {
+    const now = Date.now()
+    if (
+      IntegrationService.sessionCache &&
+      now - IntegrationService.sessionCache.timestamp < IntegrationService.SESSION_CACHE_TTL
+    ) {
+      logger.debug('[IntegrationService] Using cached session')
+      return IntegrationService.sessionCache.session
+    }
+
+    logger.debug('[IntegrationService] Fetching fresh session')
+    const sessionData = await SessionManager.getSecureUserAndSession()
+    IntegrationService.sessionCache = { session: sessionData, timestamp: now }
+    return sessionData
+  }
+
+  /**
+   * Clear the session cache (useful after logout or token refresh)
+   */
+  static clearSessionCache(): void {
+    IntegrationService.sessionCache = null
+  }
+
   /**
    * Fetch all available integration providers
    */
   static async fetchProviders(): Promise<Provider[]> {
-    const { session } = await SessionManager.getSecureUserAndSession()
+    const { session } = await IntegrationService.getSessionWithCache()
 
     const response = await fetch("/api/integrations/available", {
       headers: {
@@ -88,7 +118,7 @@ export class IntegrationService {
     workspaceType: 'personal' | 'team' | 'organization' = 'personal',
     workspaceId?: string
   ): Promise<Integration[]> {
-    const { user, session } = await SessionManager.getSecureUserAndSession()
+    const { user, session } = await IntegrationService.getSessionWithCache()
 
     // Build query parameters
     const params = new URLSearchParams({

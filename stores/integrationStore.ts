@@ -246,9 +246,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
     initializeProviders: async () => {
         const { setLoading } = get()
 
-        // Timeout for production - 5 seconds
+        // Timeout for production - 15 seconds (increased from 5s due to slow API calls)
         const isProduction = process.env.NODE_ENV === 'production'
-        const timeoutDuration = isProduction ? 5000 : 60000
+        const timeoutDuration = isProduction ? 15000 : 60000
 
         // Set a timeout to prevent stuck loading state
         const loadingTimeout = setTimeout(() => {

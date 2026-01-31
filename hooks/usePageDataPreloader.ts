@@ -48,7 +48,7 @@ export function usePageDataPreloader(
 
   const { fetchWorkflows } = useWorkflowStore()
   const { user, initialized: authInitialized } = useAuthStore()
-  const { fetchIntegrations } = useIntegrationStore()
+  const { fetchIntegrations, initializeProviders } = useIntegrationStore()
   const { fetchOrganizations } = useOrganizationStore()
 
   // Check if we have cached data IMMEDIATELY to avoid flash of loading screen
@@ -182,6 +182,18 @@ export function usePageDataPreloader(
             loader: async () => {
               setLoadingMessage("Loading workspaces...")
               await fetchOrganizations()
+            }
+          })
+        }
+
+        // Load providers (available apps) for apps page
+        // This runs in parallel with integrations for faster loading
+        if (pageType === "apps") {
+          loaders.push({
+            name: "providers",
+            loader: async () => {
+              setLoadingMessage("Loading available apps...")
+              await initializeProviders()
             }
           })
         }
