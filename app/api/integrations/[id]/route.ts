@@ -19,7 +19,7 @@ export async function DELETE(
   // Create service role client inside handler to avoid build-time initialization
   // Service role bypasses RLS for admin operations like delete
   const supabase = createClient(
-    process.env.SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SECRET_KEY!,
     {
       auth: {
