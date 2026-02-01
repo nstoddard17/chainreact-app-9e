@@ -404,7 +404,7 @@ export interface DetectedApp {
  * // ]
  */
 export function detectSpecificApps(prompt: string): DetectedApp[] {
-  const detectedApps: DetectedApp[] = []
+  const detectedApps: Array<DetectedApp & { position: number }> = []
   const seenProviders = new Set<string>()
 
   for (const appPattern of SPECIFIC_APP_PATTERNS) {
@@ -412,19 +412,25 @@ export function detectSpecificApps(prompt: string): DetectedApp[] {
     if (seenProviders.has(appPattern.provider)) continue
 
     for (const pattern of appPattern.patterns) {
-      if (pattern.test(prompt)) {
+      const match = pattern.exec(prompt)
+      if (match) {
         seenProviders.add(appPattern.provider)
         detectedApps.push({
           provider: appPattern.provider,
           category: appPattern.category,
           displayName: getProviderDisplayName(appPattern.provider),
+          position: match.index, // Track position in prompt
         })
         break // Found a match for this app, move to next
       }
     }
   }
 
-  return detectedApps
+  // Sort by position in prompt (trigger apps typically appear before action apps)
+  detectedApps.sort((a, b) => a.position - b.position)
+
+  // Remove position field before returning
+  return detectedApps.map(({ position, ...app }) => app)
 }
 
 /**

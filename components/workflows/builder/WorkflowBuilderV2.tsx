@@ -706,6 +706,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const viewportX = screenCenterX - (centerX * zoom)
     const viewportY = screenCenterY - (centerY * zoom)
 
+    // Guard against NaN values before setting viewport
+    if (!isFinite(viewportX) || !isFinite(viewportY) || !isFinite(zoom)) {
+      console.warn('[fitWorkflowToViewport] Skipping - invalid viewport values:', { viewportX, viewportY, zoom, bounds })
+      return
+    }
+
     instance.setViewport({ x: viewportX, y: viewportY, zoom }, { duration: 500 })
   }, [getViewportMetrics, isViewLocked])
 
@@ -838,12 +844,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // ALWAYS restore build machine state - this tracks guided setup progress
     // Even for saved workflows, we need to resume from where the user left off
     if (restoredDraft.buildMachine) {
-      setBuildMachine(restoredDraft.buildMachine)
-      console.log('[DraftRestore] Restored build machine state:', {
+      console.log('[DraftRestore] Restoring build machine state:', {
         state: restoredDraft.buildMachine.state,
         planLength: restoredDraft.buildMachine.plan?.length,
         progress: restoredDraft.buildMachine.progress,
+        editsCount: restoredDraft.buildMachine.edits?.length,
       })
+      setBuildMachine(restoredDraft.buildMachine)
+    } else {
+      console.log('[DraftRestore] No buildMachine in draft to restore')
     }
 
     // ALWAYS restore node configs - user's configuration choices
@@ -947,7 +956,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   // Don't clear just because workflow is saved - user may still be configuring
   useEffect(() => {
     // Only clear draft when build is complete (IDLE state with no pending work)
-    const isSetupComplete = buildMachine.state === 'idle' &&
+    const isSetupComplete = buildMachine.state === BuildState.IDLE &&
       buildMachine.plan.length > 0 &&
       buildMachine.progress.done === buildMachine.progress.total
 
@@ -1109,6 +1118,73 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     hasRestoredFromChatHistoryRef.current = true
   }, [chatPersistenceEnabled, agentMessages])
+
+  // Restore buildMachine state from chat message metadata when loaded from DB
+  // This handles the case where the draft wasn't saved but the messages were persisted
+  const hasRestoredBuildStateRef = useRef(false)
+  useEffect(() => {
+    // Only restore when chat persistence is enabled and we haven't already restored
+    if (!chatPersistenceEnabled || hasRestoredBuildStateRef.current || agentMessages.length === 0) {
+      return
+    }
+
+    // Only restore if current state is IDLE (meaning draft wasn't loaded)
+    if (buildMachine.state !== BuildState.IDLE) {
+      hasRestoredBuildStateRef.current = true
+      return
+    }
+
+    // Find the last assistant message with plan metadata
+    const assistantMessages = agentMessages.filter(m => m && m.role === 'assistant')
+    const lastAssistantMsg = assistantMessages[assistantMessages.length - 1]
+    const meta = (lastAssistantMsg as any)?.meta
+
+    console.log('[BuildStateRestore] Checking for plan metadata:', {
+      hasLastAssistantMsg: !!lastAssistantMsg,
+      hasMeta: !!meta,
+      hasPlan: !!meta?.plan,
+      hasAllSelectedProviders: !!meta?.allSelectedProviders,
+      allSelectedProvidersLength: meta?.allSelectedProviders?.length,
+      currentState: buildMachine.state,
+    })
+
+    // If the message has plan metadata, restore to PLAN_READY state
+    if (meta?.plan && (meta?.allSelectedProviders?.length > 0 || meta?.autoSelectedProvider)) {
+      console.log('[BuildStateRestore] ✅ Restoring to PLAN_READY from chat message metadata')
+
+      // Reconstruct the plan from the edits
+      const plan: PlanNode[] = (meta.plan.edits || [])
+        .filter((edit: any) => edit.op === 'addNode')
+        .map((edit: any, index: number) => {
+          const nodeType = edit.node?.type || 'unknown'
+          const nodeComponent = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
+          return {
+            id: `node-${index}`,
+            title: nodeComponent?.title || nodeType,
+            description: nodeComponent?.description || `${nodeComponent?.title || nodeType} node`,
+            nodeType,
+            providerId: nodeComponent?.providerId,
+            icon: nodeComponent?.icon,
+            requires: { secretNames: [], params: [] },
+          }
+        })
+
+      console.log('[BuildStateRestore] Reconstructed plan:', plan.map(p => p.title))
+
+      setBuildMachine(prev => ({
+        ...prev,
+        state: BuildState.PLAN_READY,
+        plan,
+        edits: meta.plan.edits,
+        progress: { currentIndex: -1, done: 0, total: plan.length },
+      }))
+
+      // Open the agent panel
+      setAgentOpen(true)
+    }
+
+    hasRestoredBuildStateRef.current = true
+  }, [chatPersistenceEnabled, agentMessages, buildMachine.state])
 
   // Show recovery notification for incomplete requests
   // GRACE_PERIOD_MS: Only show "interrupted" notification if request has been pending
@@ -4178,10 +4254,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // Calculate center position based on viewport and agent panel
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
     const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
-    const panelWidth = agentOpen ? agentPanelWidth : 0
+    const panelWidthRaw = agentOpen ? agentPanelWidth : 0
+    const panelWidth = isFinite(panelWidthRaw) ? panelWidthRaw : 0
     const availableWidth = viewportWidth - panelWidth
-    const centerX = panelWidth + (availableWidth / 2) - 180 // 180 = half of 360px node width
-    const centerY = (viewportHeight / 2) - 150
+    const centerXRaw = panelWidth + (availableWidth / 2) - 180 // 180 = half of 360px node width
+    const centerYRaw = (viewportHeight / 2) - 150
+    // Guard against NaN values
+    const centerX = isFinite(centerXRaw) ? centerXRaw : 600
+    const centerY = isFinite(centerYRaw) ? centerYRaw : 200
 
     if (shouldResetToPlaceholders) {
       console.log('🔄 [WorkflowBuilder] All nodes deleted, resetting to placeholder state')
@@ -6002,16 +6082,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         // Calculate centerX and centerY same as placeholder nodes do
         const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
         const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
-        const panelWidth = agentPanelWidth
+        // Guard against NaN panel width
+        const panelWidth = isFinite(agentPanelWidth) ? agentPanelWidth : 420
         const availableWidth = viewportWidth - panelWidth
         const centerX = panelWidth + (availableWidth / 2) - 180 // 180 = half of 360px node width
         const centerY = (viewportHeight / 2) - 150
         const V_SPACING = 180 // Vertical spacing between nodes (same as placeholders)
 
+        // Validate calculated positions - use fallback if NaN
+        const safeCenterX = isFinite(centerX) ? centerX : 600
+        const safeCenterY = isFinite(centerY) ? centerY : 200
+
         console.log('[handleBuild] Node positioning (vertical layout like placeholders):', {
           agentPanelWidth,
-          centerX,
-          centerY,
+          panelWidth,
+          centerX: safeCenterX,
+          centerY: safeCenterY,
           V_SPACING
         })
 
@@ -6023,8 +6109,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
           // Vertical layout: same X, increasing Y with 180px spacing
           const nodePosition = {
-            x: centerX,
-            y: centerY + (i * V_SPACING),
+            x: safeCenterX,
+            y: safeCenterY + (i * V_SPACING),
           }
 
           // Use catalog node's human-readable title, not the type with underscores
@@ -6229,7 +6315,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
         // STEP 7: Fit view to show ALL nodes, accounting for agent panel
         console.log('[handleBuild] Starting fitView animation to show all nodes')
-        if (reactFlowInstanceRef.current) {
+        if (reactFlowInstanceRef.current && allNodes.length > 0) {
           const instance = reactFlowInstanceRef.current
 
           // Calculate the bounding box of all nodes
@@ -6240,26 +6326,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           const centerX = (minX + maxX) / 2
           const centerY = (minY + maxY) / 2
 
-          console.log('[handleBuild] Fitting view to show all nodes:', {
-            nodeCount: allNodes.length,
-            nodePositions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
-            boundingBox: { minX, maxX, minY, maxY },
-            center: { x: centerX, y: centerY }
-          })
+          // Guard against NaN values
+          if (!isFinite(centerX) || !isFinite(centerY)) {
+            console.warn('[handleBuild] Skipping fitView - invalid center values:', { centerX, centerY, minX, maxX, minY, maxY })
+          } else {
+            console.log('[handleBuild] Fitting view to show all nodes:', {
+              nodeCount: allNodes.length,
+              nodePositions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
+              boundingBox: { minX, maxX, minY, maxY },
+              center: { x: centerX, y: centerY }
+            })
 
-          // Calculate zoom to fit all nodes with padding
-          // Account for agent panel by shifting center to the right
-          const panelOffset = agentPanelWidth / 2 // Offset to account for panel
-          const adjustedCenterX = centerX - panelOffset // Shift left in flow coords = shift right in view
+            // Calculate zoom to fit all nodes with padding
+            // Account for agent panel by shifting center to the right
+            const panelWidthSafe = isFinite(agentPanelWidth) ? agentPanelWidth : 420
+            const panelOffset = panelWidthSafe / 2 // Offset to account for panel
+            const adjustedCenterX = centerX - panelOffset // Shift left in flow coords = shift right in view
 
-          // Use setCenter to position view, accounting for panel
-          instance.setCenter(adjustedCenterX, centerY, {
-            zoom: 0.85, // Zoom out slightly to ensure both nodes are visible
-            duration: 1200, // 1.2 second animation (smooth)
-          })
+            // Use setCenter to position view, accounting for panel
+            instance.setCenter(adjustedCenterX, centerY, {
+              zoom: 0.85, // Zoom out slightly to ensure both nodes are visible
+              duration: 1200, // 1.2 second animation (smooth)
+            })
 
-          // Wait for zoom animation to complete
-          await wait(1400)
+            // Wait for zoom animation to complete
+            await wait(1400)
+          }
         }
 
         // STEP 8: Update status and transition to WAITING_USER
@@ -7227,13 +7319,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   const nodesCenterX = (minX + maxX) / 2
                   const nodesCenterY = (minY + maxY) / 2
 
+                  // Guard against NaN values - skip viewport adjustment if calculations are invalid
+                  if (!isFinite(nodesCenterX) || !isFinite(nodesCenterY) || !isFinite(minX) || !isFinite(maxX)) {
+                    console.warn('[Viewport Init] Skipping viewport adjustment - invalid node bounds:', { minX, maxX, minY, maxY, nodesCenterX, nodesCenterY })
+                    return
+                  }
+
                   // Calculate available viewport (excluding agent panel)
                   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
                   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 1080
-                  const availableWidth = viewportWidth - agentPanelWidth
+                  const panelWidthSafe = isFinite(agentPanelWidth) ? agentPanelWidth : 420
+                  const availableWidth = viewportWidth - panelWidthSafe
 
                   // Calculate the center of the available canvas area (right of agent panel)
-                  const availableCenterX = agentPanelWidth + (availableWidth / 2)
+                  const availableCenterX = panelWidthSafe + (availableWidth / 2)
                   const availableCenterY = viewportHeight / 2
 
                   // Calculate viewport position to center nodes in available space
@@ -7241,6 +7340,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   const zoom = 1
                   const viewportX = availableCenterX - (nodesCenterX * zoom)
                   const viewportY = availableCenterY - (nodesCenterY * zoom)
+
+                  // Final NaN guard before setting viewport
+                  if (!isFinite(viewportX) || !isFinite(viewportY)) {
+                    console.warn('[Viewport Init] Skipping viewport adjustment - invalid viewport position:', { viewportX, viewportY })
+                    return
+                  }
 
                   // Set viewport directly - no animation, instant positioning
                   instance.setViewport({ x: viewportX, y: viewportY, zoom }, { duration: 0 })

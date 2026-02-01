@@ -1547,6 +1547,17 @@ export function FlowV2AgentPanel({
                                   )
                                 }
 
+                                // Debug: Log what we have for provider badges decision
+                                console.log('[FlowV2AgentPanel] Provider badges check:', {
+                                  buildState: buildMachine.state,
+                                  isPlanReady: buildMachine.state === BuildState.PLAN_READY,
+                                  hasAllSelectedProviders: !!meta.allSelectedProviders,
+                                  allSelectedProvidersLength: meta.allSelectedProviders?.length,
+                                  hasAutoSelectedProvider: !!meta.autoSelectedProvider,
+                                  hasOnProviderChange: !!onProviderChange,
+                                  hasOnProviderConnect: !!onProviderConnect,
+                                })
+
                                 // Show provider badges for ALL selected providers - ONLY during PLAN_READY state
                                 // After user clicks Build, the badges are hidden to simplify the UI
                                 if (buildMachine.state === BuildState.PLAN_READY && meta.allSelectedProviders && meta.allSelectedProviders.length > 0 && onProviderChange && onProviderConnect) {
