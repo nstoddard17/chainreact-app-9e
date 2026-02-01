@@ -63,16 +63,20 @@ export function SetupTab(props: SetupTabProps) {
 
     if (nodeInfo?.providerId && !hasRequestedIntegrationsRef.current) {
       hasRequestedIntegrationsRef.current = true
-      const providerIntegrations = integrations.filter(
+      // Read current integrations from store directly to avoid dependency loop
+      // Using getState() instead of the reactive 'integrations' variable prevents
+      // this effect from re-running every time integrations update
+      const currentIntegrations = useIntegrationStore.getState().integrations
+      const providerIntegrations = currentIntegrations.filter(
         int => int.provider === nodeInfo.providerId
       )
-      const shouldForce = integrations.length === 0 || providerIntegrations.length === 0
+      const shouldForce = currentIntegrations.length === 0 || providerIntegrations.length === 0
       // Force refresh if the store is empty to avoid stale "Not connected" state
       fetchIntegrations(shouldForce).catch(() => {
         // Silently ignore errors - the UI will show "Not connected" which is acceptable
       })
     }
-  }, [nodeInfo?.providerId, nodeInfo?.type, currentNodeId, fetchIntegrations, integrations])
+  }, [nodeInfo?.providerId, nodeInfo?.type, currentNodeId, fetchIntegrations])
 
   // Listen for reconnection events to refresh integration store
   React.useEffect(() => {
@@ -406,9 +410,9 @@ export function SetupTab(props: SetupTabProps) {
     ? BeehiivGuide
     : null
 
-  // Show loading state when integrations are being fetched and we need a connection
-  // This prevents flash of "Not connected" during workspace switches
-  if (requiresConnection && isLoadingIntegrations && integrations.length === 0) {
+  // Show loading state when integrations are being fetched for a provider with no cached connections
+  // This prevents flash of "Not connected" during workspace switches AND when changing providers
+  if (requiresConnection && isLoadingIntegrations && connections.length === 0) {
     return (
       <div className="flex flex-col h-full">
         <div className="px-6 pt-6 pb-4 border-b border-border">
