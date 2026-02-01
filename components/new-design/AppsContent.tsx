@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
@@ -47,7 +47,8 @@ import {
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
 export function AppsContent() {
-  const { providers, integrations, initializeProviders, fetchAllIntegrations, connectIntegration, setLoading, loading: storeLoading } = useIntegrationStore()
+  // Note: initializeProviders is now handled by PagePreloader for parallel loading
+  const { providers, integrations, fetchAllIntegrations, connectIntegration, setLoading, loading: storeLoading } = useIntegrationStore()
   const { user } = useAuthStore()
   const { theme } = useTheme()
   const { teams: allTeams, organizations: allOrganizations } = useWorkspaces()
@@ -56,7 +57,6 @@ export function AppsContent() {
   const [selectedWorkspaceType, setSelectedWorkspaceType] = useState<'personal' | 'team' | 'organization'>('personal')
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null)
   const [loading, setLocalLoading] = useState<Record<string, boolean>>({})
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [integrationToShare, setIntegrationToShare] = useState<{ id: string; provider: string; email?: string; displayName?: string } | null>(null)
   const { toast } = useToast()
@@ -69,30 +69,13 @@ export function AppsContent() {
     org.user_role === 'owner' || org.user_role === 'admin'
   )
 
-  // Always fetch all integrations for grouped view
+  // Fetch all integrations for grouped view
+  // Note: providers (initializeProviders) is now handled by PagePreloader for parallel loading
   useEffect(() => {
     if (user) {
       fetchAllIntegrations()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAllIntegrations is store method, user is the actual trigger
-  }, [user])
-
-  // Prevent React 18 Strict Mode double-fetch
-  const hasInitializedRef = useRef(false)
-
-  // PagePreloader already fetches user integrations
-  // We just need to initialize providers (available apps) once when component mounts
-  useEffect(() => {
-    if (user && !hasInitializedRef.current) {
-      hasInitializedRef.current = true
-      const loadProviders = async () => {
-        await initializeProviders()
-        setInitialLoadComplete(true)
-      }
-      loadProviders()
-    }
-    // Only run once on mount when user is available
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
 
@@ -259,8 +242,9 @@ export function AppsContent() {
     available: availableApps.length,
   }
 
-  // Show loading state until initial data is loaded
-  if (!initialLoadComplete || (providers.length === 0 && storeLoading)) {
+  // Show loading state while providers are being fetched
+  // PagePreloader handles initializeProviders, so we just check the store state
+  if (providers.length === 0 && storeLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">

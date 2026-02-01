@@ -1121,6 +1121,47 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         }
       }
 
+      // CRITICAL: Validate integration is actually connected before making API calls
+      // This prevents using expired/disconnected integrations that will return 401
+      const validStatuses = ['connected', 'active', 'authorized', 'valid'];
+      if (integration && !validStatuses.includes(integration.status?.toLowerCase() || '')) {
+        logger.warn(`⚠️ [useDynamicOptions] Integration ${integration.id} is not connected (status: ${integration.status}), looking for alternative`);
+
+        // Try to find an alternative connected integration for this provider
+        const { getAllIntegrationsByProvider } = useIntegrationStore.getState();
+        const allProviderIntegrations = getAllIntegrationsByProvider(providerId);
+        const connectedAlternative = allProviderIntegrations.find(
+          i => validStatuses.includes(i.status?.toLowerCase() || '')
+        );
+
+        if (connectedAlternative) {
+          logger.debug(`🔄 [useDynamicOptions] Found connected alternative integration:`, {
+            originalId: integration.id,
+            originalStatus: integration.status,
+            alternativeId: connectedAlternative.id,
+            alternativeStatus: connectedAlternative.status
+          });
+          integration = connectedAlternative;
+        } else {
+          // No connected integrations - clear field and return
+          logger.warn(`❌ [useDynamicOptions] No connected integrations for ${providerId}, skipping API call for ${fieldName}`);
+          setDynamicOptions(prev => ({
+            ...prev,
+            [fieldName]: []
+          }));
+
+          if (activeRequestIds.current.get(requestKey) === requestId) {
+            loadingFields.current.delete(requestKey);
+            setLoading(false);
+            activeRequestIds.current.delete(requestKey);
+            if (!silent) {
+              onLoadingChangeRef.current?.(fieldName, false);
+            }
+          }
+          return;
+        }
+      }
+
       // Special handling for dynamic Airtable fields (linked records)
       if (fieldName.startsWith('airtable_field_') && providerId === 'airtable') {
 

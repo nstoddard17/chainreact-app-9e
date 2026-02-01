@@ -16,8 +16,18 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Create client inside handler to avoid build-time initialization
-  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+  // Create service role client inside handler to avoid build-time initialization
+  // Service role bypasses RLS for admin operations like delete
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
 
   try {
     const { id: integrationId } = await params
@@ -103,15 +113,60 @@ export async function DELETE(
       )
     }
 
-    // Delete the integration (cascade will delete permissions)
+    // Manually delete dependent records first to avoid RLS issues during CASCADE
+    // The integration_permissions table has RLS policies that may block cascade deletes
+    // with service role if auth.uid() is NULL
+    const { error: permDeleteError } = await supabase
+      .from("integration_permissions")
+      .delete()
+      .eq("integration_id", integrationId)
+
+    if (permDeleteError) {
+      logger.warn("Error deleting integration permissions (continuing anyway):", {
+        error: permDeleteError,
+        code: permDeleteError.code,
+        message: permDeleteError.message,
+        integrationId
+      })
+      // Continue - the cascade should handle it, this is just a belt-and-suspenders approach
+    }
+
+    // Also delete any integration shares
+    const { error: shareDeleteError } = await supabase
+      .from("integration_shares")
+      .delete()
+      .eq("integration_id", integrationId)
+
+    if (shareDeleteError) {
+      logger.warn("Error deleting integration shares (continuing anyway):", {
+        error: shareDeleteError,
+        code: shareDeleteError.code,
+        message: shareDeleteError.message,
+        integrationId
+      })
+      // Continue - the cascade should handle it
+    }
+
+    // Delete the integration (cascade will also delete any remaining dependent records)
     const { error: deleteError } = await supabase
       .from("integrations")
       .delete()
       .eq("id", integrationId)
 
     if (deleteError) {
-      logger.error("Error deleting integration:", deleteError)
-      return jsonResponse({ success: false, error: "Failed to delete integration" }, { status: 500 })
+      logger.error("Error deleting integration:", {
+        error: deleteError,
+        code: deleteError.code,
+        message: deleteError.message,
+        details: deleteError.details,
+        hint: deleteError.hint,
+        integrationId,
+        provider: integration.provider
+      })
+      return jsonResponse({
+        success: false,
+        error: deleteError.message || "Failed to delete integration"
+      }, { status: 500 })
     }
 
     logger.info(`✅ [DELETE /api/integrations/${integrationId}] Integration ${integration.provider} disconnected by user ${user.id}`)
