@@ -3,7 +3,7 @@ import { z } from "zod"
 
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
 import { getRouteClient, getFlowRepository, getServiceClient, checkWorkflowAccess } from "@/src/lib/workflows/builder/api/helpers"
-import { triggerLifecycleManager } from "@/lib/triggers/TriggerLifecycleManager"
+import { triggerLifecycleManager } from "@/lib/triggers"
 import { logger } from "@/lib/utils/logger"
 
 /**
