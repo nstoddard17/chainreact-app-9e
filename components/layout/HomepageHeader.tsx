@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button'
 import { ChainReactLogo } from '@/components/homepage/ChainReactLogo'
 import { Moon, Sun, Menu, X } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { useAuthStore } from '@/stores/authStore'
 
 export function HomepageHeader() {
   const { theme, resolvedTheme, setTheme } = useTheme()
+  const { user } = useAuthStore()
   const [mounted, setMounted] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
 
@@ -81,9 +83,9 @@ export function HomepageHeader() {
             </Button>
           )}
 
-          <Link href="/auth/login">
+          <Link href={user ? "/workflows" : "/auth/login"}>
             <Button variant="outline" className="border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10">
-              Sign In
+              {user ? "Go to Workflows" : "Sign In"}
             </Button>
           </Link>
         </nav>
@@ -131,10 +133,10 @@ export function HomepageHeader() {
             </button>
           ))}
           <Link
-            href="/auth/login"
+            href={user ? "/workflows" : "/auth/login"}
             className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 dark:border-white/20 text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-white/10 font-semibold transition-colors"
           >
-            Sign In
+            {user ? "Go to Workflows" : "Sign In"}
           </Link>
         </div>
       </div>

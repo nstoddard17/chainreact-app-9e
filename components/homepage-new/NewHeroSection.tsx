@@ -5,9 +5,11 @@ import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, Workflow, FileText, Eye, Code } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useAuthStore } from '@/stores/authStore'
 
 export function NewHeroSection() {
   const router = useRouter()
+  const { user } = useAuthStore()
 
   return (
     <section className="relative px-4 sm:px-6 lg:px-8 pt-32 pb-24 lg:pt-40 lg:pb-32">
@@ -47,10 +49,10 @@ export function NewHeroSection() {
           >
             <Button
               size="lg"
-              onClick={() => router.push('/auth/login')}
+              onClick={() => router.push(user ? '/workflows' : '/auth/login')}
               className="bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white border-0 px-6 py-3 rounded-lg font-medium transition-colors shadow-lg shadow-orange-500/20"
             >
-              Sign In
+              {user ? "Go to Workflows" : "Sign In"}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
             <Button
