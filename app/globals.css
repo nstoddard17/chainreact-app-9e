@@ -823,6 +823,16 @@ body {
     background: #9ca3af;
   }
 
+  /* Hide scrollbar but allow scrolling */
+  .scrollbar-none {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
   /* Select dropdown base styling - let the component handle theming */
   [data-radix-select-content] {
     max-height: min(200px, calc(100vh - 100px)) !important;

@@ -51,6 +51,8 @@ interface Template {
     email: string
   }
   is_predefined?: boolean
+  is_ai_generated?: boolean
+  original_prompt?: string
   difficulty?: string
   estimatedTime?: string
   integrations?: string[]
@@ -192,6 +194,7 @@ export function TemplateGallery() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
   const [showPredefined, setShowPredefined] = useState(true)
+  const [showAIGenerated, setShowAIGenerated] = useState(true)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [creatingTemplate, setCreatingTemplate] = useState(false)
@@ -407,7 +410,10 @@ export function TemplateGallery() {
 
     const matchesCategory = selectedCategory === "all" || template.category === selectedCategory
 
-    return matchesSearch && matchesCategory
+    // Filter by AI-generated status
+    const matchesAIFilter = showAIGenerated || !template.is_ai_generated
+
+    return matchesSearch && matchesCategory && matchesAIFilter
   })
 
   // Deduplicate templates by ID to avoid duplicate key errors
@@ -422,9 +428,17 @@ export function TemplateGallery() {
     })
   }
 
-  const allTemplates = deduplicateTemplates(
-    showPredefined ? [...predefinedTemplates, ...filteredTemplates] : filteredTemplates
+  // Filter predefined templates by AI status too
+  const filteredPredefined = predefinedTemplates.filter(template =>
+    showAIGenerated || !template.is_ai_generated
   )
+
+  const allTemplates = deduplicateTemplates(
+    showPredefined ? [...filteredPredefined, ...filteredTemplates] : filteredTemplates
+  )
+
+  // Count AI-generated templates
+  const aiGeneratedCount = [...predefinedTemplates, ...templates].filter(t => t.is_ai_generated).length
 
   return (
     <div className="space-y-6">
@@ -466,6 +480,19 @@ export function TemplateGallery() {
         </Select>
       </div>
 
+      {/* Filter Badges */}
+      {aiGeneratedCount > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            variant={showAIGenerated ? "default" : "outline"}
+            className="cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => setShowAIGenerated(!showAIGenerated)}
+          >
+            {showAIGenerated ? "✓ " : ""}AI Generated ({aiGeneratedCount})
+          </Badge>
+        </div>
+      )}
+
       {/* Templates Grid */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
@@ -482,11 +509,16 @@ export function TemplateGallery() {
               <CardHeader className="flex-shrink-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start gap-2 mb-2">
+                    <div className="flex items-start gap-2 mb-2 flex-wrap">
                       <CardTitle className="text-lg leading-tight">{template.name}</CardTitle>
                       {template.is_predefined && (
                         <Badge className="bg-gradient-to-r from-orange-500 to-rose-600 text-white border-0 flex-shrink-0">
                           Official
+                        </Badge>
+                      )}
+                      {template.is_ai_generated && (
+                        <Badge variant="outline" className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-500/40 flex-shrink-0">
+                          AI Generated
                         </Badge>
                       )}
                     </div>
@@ -546,7 +578,7 @@ export function TemplateGallery() {
               <CardContent className="mt-auto pt-0">
                 <div className="flex flex-col gap-3 pt-4 border-t">
                   <div className="text-sm text-gray-500">
-                    by ChainReact
+                    {template.is_ai_generated ? 'AI Generated' : 'by ChainReact'}
                   </div>
 
                   <div className="flex gap-2">

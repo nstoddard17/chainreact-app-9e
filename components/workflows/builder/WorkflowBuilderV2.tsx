@@ -268,28 +268,40 @@ async function planWorkflowWithTemplates(
 
   if (match) {
     // Template match! Create fake "result" object that looks like askAgent response
+    console.log('[planWorkflowWithTemplates] 🎯 Template matched! Generating plan...')
     logTemplateMatch(match.template.id, prompt)
 
-    // Log prompt analytics
-    const promptId = await logPrompt({
-      userId: userId || '',
-      workflowId,
-      prompt,
-      templateId: match.template.id,
-      usedTemplate: true,
-      templateSource: match.template.id.startsWith('dynamic-') ? 'dynamic' : 'built_in',
-      usedLlm: false,
-      llmCost: 0.0,
-      detectedProvider: providerId,
-      planNodes: match.plan.length,
-      planGenerated: true,
-    })
+    // Log prompt analytics (non-blocking - don't wait)
+    console.log('[planWorkflowWithTemplates] Logging prompt analytics...')
+    let promptId: string | null = null
+    try {
+      promptId = await logPrompt({
+        userId: userId || '',
+        workflowId,
+        prompt,
+        templateId: match.template.id,
+        usedTemplate: true,
+        templateSource: match.template.id.startsWith('dynamic-') ? 'dynamic' : 'built_in',
+        usedLlm: false,
+        llmCost: 0.0,
+        detectedProvider: providerId,
+        planNodes: match.plan.length,
+        planGenerated: true,
+      })
+      console.log('[planWorkflowWithTemplates] Prompt logged:', promptId)
+    } catch (logError) {
+      console.warn('[planWorkflowWithTemplates] ⚠️ Failed to log prompt (continuing anyway):', logError)
+    }
 
     // Convert template plan to edits format
     // IMPORTANT: Generate UUIDs for node IDs instead of using template IDs like "action-1"
     // The database expects UUID format for workflow_nodes.id and workflow_edges.source_node_id/target_node_id
     // Also ensure node structure matches what handleBuild expects (providerId in metadata)
-    const edits = match.plan.map((node) => {
+    console.log('[planWorkflowWithTemplates] Creating edits from template plan...', { planLength: match.plan.length })
+    const plan = match.plan
+    console.log('[planWorkflowWithTemplates] Plan nodes:', plan.map(n => n.nodeType))
+
+    const edits = plan.map((node) => {
       // Look up the node in the catalog to get isTrigger and other metadata
       const catalogNode = ALL_NODE_COMPONENTS.find(c => c.type === node.nodeType)
       const isTrigger = catalogNode?.isTrigger ?? node.nodeType.includes('_trigger_')
@@ -308,6 +320,7 @@ async function planWorkflowWithTemplates(
       }
     })
 
+    console.log('[planWorkflowWithTemplates] ✅ Returning template result with', edits.length, 'edits')
     return {
       result: {
         workflowName: match.template.description,
@@ -337,8 +350,14 @@ async function planWorkflowWithTemplates(
   })
   console.log('[planWorkflowWithTemplates] Prompt logged, calling askAgent...')
 
-  const result = await actions.askAgent(prompt)
-  console.log('[planWorkflowWithTemplates] ✅ askAgent returned:', { hasEdits: !!result?.edits })
+  let result
+  try {
+    result = await actions.askAgent(prompt)
+    console.log('[planWorkflowWithTemplates] ✅ askAgent returned:', { hasEdits: !!result?.edits })
+  } catch (askError: any) {
+    console.error('[planWorkflowWithTemplates] ❌ askAgent FAILED:', askError?.message || askError)
+    throw askError // Re-throw to be caught by the caller
+  }
 
   // Update prompt with plan details
   if (promptId && result.edits) {
@@ -372,6 +391,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const router = useRouter()
   const pathname = usePathname()
   const promptParam = searchParams?.get("prompt") ?? searchParams?.get("initialPrompt") ?? null
+  const openPanelParam = searchParams?.get("openPanel") === "true"
 
   // Store router and searchParams in refs to avoid useEffect dependency loops
   // These hooks return new object instances every render, causing infinite loops
@@ -502,10 +522,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       choreographerRef.current = new BuildChoreographer(preferReducedMotion)
       costTrackerRef.current = new CostTracker()
 
-      // Restore agent panel state from localStorage
-      const stored = window.localStorage.getItem("reactAgentPanelOpen")
-      if (stored) {
-        setAgentOpen(stored === "true")
+      // Restore agent panel state from localStorage (unless openPanel param is set)
+      if (openPanelParam) {
+        // URL explicitly requests panel to be open (new workflow creation)
+        setAgentOpen(true)
+      } else {
+        const stored = window.localStorage.getItem("reactAgentPanelOpen")
+        if (stored) {
+          setAgentOpen(stored === "true")
+        }
       }
     }
 
@@ -1086,6 +1111,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [chatPersistenceEnabled, agentMessages])
 
   // Show recovery notification for incomplete requests
+  // GRACE_PERIOD_MS: Only show "interrupted" notification if request has been pending
+  // for more than this duration. This prevents false positives during normal operation
+  // when requests are actively being processed.
+  const GRACE_PERIOD_MS = 30 * 1000 // 30 seconds
   const hasShownRecoveryRef = useRef(false)
   useEffect(() => {
     if (
@@ -1096,10 +1125,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       return
     }
 
-    hasShownRecoveryRef.current = true
     const pendingRequests = getPendingRequests()
     const failedRequests = pendingRequests.filter(r => r.status === 'failed')
-    const processingRequests = pendingRequests.filter(r => r.status === 'processing' || r.status === 'pending')
+
+    // Only consider requests as "interrupted" if they've been pending/processing
+    // for longer than the grace period. This prevents showing the notification
+    // for requests that are actively in progress.
+    const now = Date.now()
+    const interruptedRequests = pendingRequests.filter(r => {
+      if (r.status !== 'processing' && r.status !== 'pending') return false
+      const sentAt = new Date(r.sentAt).getTime()
+      const elapsed = now - sentAt
+      return elapsed > GRACE_PERIOD_MS
+    })
+
+    // Only show recovery notification if there's actually something to recover
+    if (failedRequests.length === 0 && interruptedRequests.length === 0) {
+      // No recovery needed - requests are either still in progress (within grace period)
+      // or have already completed successfully
+      return
+    }
+
+    hasShownRecoveryRef.current = true
 
     if (failedRequests.length > 0) {
       // Show toast for failed requests
@@ -1121,20 +1168,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           </Button>
         ),
       })
-    } else if (processingRequests.length > 0) {
-      // Show toast for interrupted requests
+    } else if (interruptedRequests.length > 0) {
+      // Show toast for interrupted requests (pending for more than grace period)
       toast({
         title: "Message was interrupted",
-        description: `Your message "${processingRequests[0].userMessage.substring(0, 50)}..." was interrupted. Would you like to resend it?`,
+        description: `Your message "${interruptedRequests[0].userMessage.substring(0, 50)}..." was interrupted. Would you like to resend it?`,
         action: (
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
               // Re-submit the interrupted request
-              setAgentInput(processingRequests[0].userMessage)
+              setAgentInput(interruptedRequests[0].userMessage)
               // Clear the interrupted request
-              completePendingRequest(processingRequests[0].id)
+              completePendingRequest(interruptedRequests[0].id)
             }}
           >
             Resend
@@ -1339,7 +1386,40 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       hasProviderMeta: !!providerMeta,
       chatPersistenceEnabled,
       hasFlowState: !!flowState?.flow,
+      hasUnsupportedFeatures: !!result?.unsupportedFeatures?.hasUnsupported,
     })
+
+    // Handle unsupported features warning
+    if (result?.unsupportedFeatures?.hasUnsupported) {
+      console.log('[continueWithPlanGeneration] Detected unsupported features:', result.unsupportedFeatures.features)
+
+      // Show warning message in chat
+      const warningMessage: ChatMessage = {
+        id: generateLocalId(),
+        flowId,
+        role: 'assistant',
+        text: result.unsupportedFeatures.message,
+        meta: {
+          isWarning: true,
+          unsupportedFeatures: result.unsupportedFeatures.features,
+        },
+        createdAt: new Date().toISOString(),
+      }
+      setAgentMessages(prev => [...prev, warningMessage])
+
+      // Save warning message to chat history
+      if (chatPersistenceEnabled && flowState?.flow) {
+        void ChatService.addMessage(flowId, {
+          role: 'assistant',
+          text: result.unsupportedFeatures.message,
+          meta: {
+            isWarning: true,
+            unsupportedFeatures: result.unsupportedFeatures.features,
+          },
+        })
+      }
+    }
+
     // Generate plan from edits
     const plan: PlanNode[] = (result.edits || [])
       .filter((edit: any) => edit.op === 'addNode')
@@ -1366,26 +1446,64 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     // Generate plan summary text for chat persistence
     const planSummary = plan.map(p => p.title).join(' → ')
-    const assistantText = plan.length > 0
+    let assistantText = plan.length > 0
       ? `Here's your workflow: ${planSummary}`
       : 'I created a workflow based on your request.'
+
+    // Add task cost info if present
+    if (result.taskCost && result.taskCost.tasksUsed > 0) {
+      assistantText += `\n\n_Used ${result.taskCost.tasksUsed} task${result.taskCost.tasksUsed > 1 ? 's' : ''} • ${result.taskCost.remainingBalance ?? 'N/A'} remaining_`
+    } else if (result.fromCache) {
+      assistantText += '\n\n_Template reused - no tasks used_'
+    }
+
+    // Reorder providerMeta to match plan order (trigger first, then actions)
+    // This ensures the provider dropdowns display in workflow sequence
+    let orderedProviderMeta = providerMeta
+    if (Array.isArray(providerMeta) && providerMeta.length > 1 && plan.length > 0) {
+      // Get unique provider IDs from plan in order
+      const planProviderOrder: string[] = []
+      for (const planNode of plan) {
+        if (planNode.providerId && !planProviderOrder.includes(planNode.providerId)) {
+          planProviderOrder.push(planNode.providerId)
+        }
+      }
+
+      // Sort providerMeta based on the plan order
+      orderedProviderMeta = [...providerMeta].sort((a, b) => {
+        const aIndex = planProviderOrder.indexOf(a.provider?.id)
+        const bIndex = planProviderOrder.indexOf(b.provider?.id)
+        // If provider not found in plan, keep at end
+        if (aIndex === -1) return 1
+        if (bIndex === -1) return -1
+        return aIndex - bIndex
+      })
+
+      console.log('[Provider Order] Reordered providers:', {
+        original: providerMeta.map(p => p.provider?.id),
+        planOrder: planProviderOrder,
+        reordered: orderedProviderMeta.map((p: any) => p.provider?.id)
+      })
+    }
+
     const assistantMeta: Record<string, any> = {
-      plan: { edits: result.edits, nodeCount: plan.length }
+      plan: { edits: result.edits, nodeCount: plan.length },
+      taskCost: result.taskCost
     }
 
     // Include provider metadata if selected
     // Support both single object (backward compat) and array (multi-provider)
-    if (providerMeta) {
-      if (Array.isArray(providerMeta)) {
-        // Multiple providers selected
-        assistantMeta.allSelectedProviders = providerMeta
+    if (orderedProviderMeta) {
+      if (Array.isArray(orderedProviderMeta)) {
+        // Multiple providers selected - now in workflow order
+        assistantMeta.allSelectedProviders = orderedProviderMeta
         // Keep first one as autoSelectedProvider for backward compatibility
-        if (providerMeta.length > 0) {
-          assistantMeta.autoSelectedProvider = providerMeta[0]
+        if (orderedProviderMeta.length > 0) {
+          assistantMeta.autoSelectedProvider = orderedProviderMeta[0]
         }
       } else {
         // Single provider (backward compatibility)
-        assistantMeta.autoSelectedProvider = providerMeta
+        assistantMeta.autoSelectedProvider = orderedProviderMeta
       }
     }
 
@@ -2227,16 +2345,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     setAgentInput(prompt)
     setAgentOpen(true)
 
-    // Clear the prompt from URL to prevent duplicate processing on refresh
+    // Clear the prompt and openPanel params from URL to prevent duplicate processing on refresh
     // This ensures the prompt is only processed once, and subsequent refreshes
     // will load chat history from the database instead of re-creating messages
-    if (promptParam && pathname) {
+    if ((promptParam || openPanelParam) && pathname) {
       const newParams = new URLSearchParams(searchParamsRef.current?.toString() || '')
       newParams.delete('prompt')
       newParams.delete('initialPrompt')
+      newParams.delete('openPanel')
       const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
       routerRef.current.replace(newUrl, { scroll: false })
-      console.log('[URL Prompt Handler] Cleared prompt from URL to prevent duplicate processing on refresh')
+      console.log('[URL Prompt Handler] Cleared prompt/openPanel from URL to prevent duplicate processing on refresh')
     }
 
     // Auto-submit the prompt after a short delay to ensure UI is ready
@@ -2296,7 +2415,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             console.log('[URL Prompt Handler] Detected all vague terms:', allVagueTerms.map(t => t.category?.vagueTerm))
 
             let finalPrompt = prompt
-            let providerMetadata: { category: any; provider: any; allProviders: any[] } | undefined
+            // Collect ALL explicitly mentioned providers (not just the first one)
+            const allProviderMetadata: Array<{ category: any; provider: any; allProviders: any[] }> = []
 
             // Filter out vague terms where user already specified a specific app
             const vagueTermsNeedingSelection: VagueTermDetection[] = []
@@ -2324,20 +2444,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   matchingSpecificApp.provider
                 )
 
-                // Store metadata for first matched category
-                if (!providerMetadata) {
-                  const freshIntegrations = useIntegrationStore.getState().integrations
-                  const providerOptions = getProviderOptions(
-                    vagueTermResult.category,
-                    freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
-                  )
-                  const selectedProvider = providerOptions.find(p => p.id === matchingSpecificApp.provider)
+                // Store metadata for ALL explicitly mentioned providers
+                const freshIntegrations = useIntegrationStore.getState().integrations
+                const providerOptions = getProviderOptions(
+                  vagueTermResult.category,
+                  freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+                )
+                const selectedProvider = providerOptions.find(p => p.id === matchingSpecificApp.provider)
 
-                  providerMetadata = selectedProvider ? {
+                if (selectedProvider) {
+                  allProviderMetadata.push({
                     category: vagueTermResult.category,
                     provider: selectedProvider,
                     allProviders: providerOptions
-                  } : undefined
+                  })
                 }
               } else {
                 // This term needs user selection
@@ -2345,21 +2465,35 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               }
             }
 
-            console.log('[URL Prompt Handler] Terms needing selection:', vagueTermsNeedingSelection.map(t => t.category?.vagueTerm))
-
-            // If user specified an email provider directly (e.g., "Gmail"), extract it for template matching
-            // This handles the case where no vague terms exist because user was specific
-            if (!providerMetadata) {
-              const emailApp = specificApps.find(app => app.category === 'email')
-              if (emailApp) {
-                console.log('[URL Prompt Handler] Using specific email app as provider:', emailApp.provider)
-                providerMetadata = {
-                  category: { vagueTerm: 'email', providers: [emailApp.provider] },
-                  provider: { id: emailApp.provider, displayName: emailApp.displayName, isConnected: true },
-                  allProviders: [{ id: emailApp.provider, displayName: emailApp.displayName, isConnected: true }]
+            // Also collect metadata for specific apps that were mentioned but didn't match any vague term
+            // (e.g., "post to Slack" has no vague term like "notification" but Slack should still show with CHANGE option)
+            const freshIntegrations = useIntegrationStore.getState().integrations
+            for (const app of specificApps) {
+              // Check if we already have metadata for this provider
+              const alreadyHasMetadata = allProviderMetadata.some(m => m.provider?.id === app.provider)
+              if (!alreadyHasMetadata) {
+                // Find the category for this provider
+                const category = PROVIDER_CATEGORIES.find(c => c.providers.includes(app.provider))
+                if (category) {
+                  const providerOptions = getProviderOptions(
+                    category,
+                    freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+                  )
+                  const selectedProvider = providerOptions.find(p => p.id === app.provider)
+                  if (selectedProvider) {
+                    console.log('[URL Prompt Handler] Adding metadata for explicit app:', app.displayName)
+                    allProviderMetadata.push({
+                      category,
+                      provider: selectedProvider,
+                      allProviders: providerOptions
+                    })
+                  }
                 }
               }
             }
+
+            console.log('[URL Prompt Handler] All provider metadata:', allProviderMetadata.map(m => ({ category: m.category?.vagueTerm || m.category?.displayName, provider: m.provider?.id })))
+            console.log('[URL Prompt Handler] Terms needing selection:', vagueTermsNeedingSelection.map(t => t.category?.vagueTerm))
 
             // If there are vague terms that need selection, show provider dropdown
             if (vagueTermsNeedingSelection.length > 0) {
@@ -2446,10 +2580,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             transitionTo(BuildState.PURPOSE)
 
             // For template matching, we need the EMAIL provider specifically (templates like email-to-slack require it)
-            // Extract email provider from specificApps (not providerMetadata which might be notification/slack)
+            // Extract email provider from specificApps (not allProviderMetadata which might be notification/slack)
             const emailApp = specificApps.find(app => app.category === 'email')
-            const emailProviderId = emailApp?.provider || providerMetadata?.provider?.id
-            console.log('[URL Prompt Handler] Email provider for template:', { emailApp: emailApp?.provider, emailProviderId, providerMetadataId: providerMetadata?.provider?.id })
+            const emailProviderMeta = allProviderMetadata.find(m => m.category?.vagueTerm === 'email')
+            const emailProviderId = emailApp?.provider || emailProviderMeta?.provider?.id
+            console.log('[URL Prompt Handler] Email provider for template:', { emailApp: emailApp?.provider, emailProviderId, emailProviderMetaId: emailProviderMeta?.provider?.id })
 
             console.log('[URL Prompt Handler] 📡 Calling planWorkflowWithTemplates...')
             const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
@@ -2465,9 +2600,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               promptId
             })
 
-            // Use helper function to generate plan and update UI (with provider metadata if auto-selected)
+            // Use helper function to generate plan and update UI (with ALL provider metadata if auto-selected)
             console.log('[URL Prompt Handler] 🏗️ Calling continueWithPlanGeneration...')
-            await continueWithPlanGeneration(result, finalPrompt, providerMetadata)
+            await continueWithPlanGeneration(result, finalPrompt, allProviderMetadata.length > 0 ? allProviderMetadata : undefined)
             console.log('[URL Prompt Handler] ✅ continueWithPlanGeneration completed - should now be in PLAN_READY state')
           } catch (error: any) {
             console.error('[URL Prompt Handler] ❌ ERROR in async block:', error)
@@ -5586,23 +5721,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // STEP 0: Check if user mentioned specific apps (e.g., "Gmail", "Outlook", "Slack")
     // If they did, we should NOT ask which provider to use for that category
     const specificApps = detectSpecificApps(userPrompt)
-    console.log('[Provider Disambiguation] Detected specific apps:', specificApps.map(a => a.displayName))
+    console.log('[Provider Disambiguation] Detected specific apps:', specificApps.map(a => ({ displayName: a.displayName, category: a.category, provider: a.provider })))
 
     // STEP 1: Check for ALL vague provider terms
     const allVagueTerms = detectAllVagueTerms(userPrompt)
-    console.log('[Provider Disambiguation] Detected all vague terms:', allVagueTerms.map(t => t.category?.vagueTerm))
+    console.log('[Provider Disambiguation] Detected all vague terms:', allVagueTerms.map(t => ({ vagueTerm: t.category?.vagueTerm, position: t.position })))
+    console.log('[Provider Disambiguation] User prompt:', userPrompt)
 
     let finalPrompt = userPrompt
-    let providerMetadata: { category: any; provider: any; allProviders: any[] } | undefined
+    // Collect ALL explicitly mentioned providers (not just the first one)
+    const allProviderMetadata: Array<{ category: any; provider: any; allProviders: any[] }> = []
 
     // Filter out vague terms where user already specified a specific app
     const vagueTermsNeedingSelection: VagueTermDetection[] = []
     for (const vagueTermResult of allVagueTerms) {
       if (!vagueTermResult.category) continue
 
+      console.log('[Provider Disambiguation] Checking vague term:', vagueTermResult.category.vagueTerm)
+
       // Check if user already specified an app for this category
       const matchingSpecificApp = specificApps.find(app => {
         const categoryMatch = app.category === vagueTermResult.category!.vagueTerm
+        console.log('[Provider Disambiguation] Comparing:', { appCategory: app.category, vagueTerm: vagueTermResult.category!.vagueTerm, categoryMatch })
         // Also check notification/chat categories which share providers
         const notificationCategories = ['notification', 'message', 'alert', 'chat']
         const isNotificationCategory = notificationCategories.includes(vagueTermResult.category!.vagueTerm)
@@ -5620,20 +5760,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           matchingSpecificApp.provider
         )
 
-        // Store metadata for first matched category
-        if (!providerMetadata) {
-          const freshIntegrations = useIntegrationStore.getState().integrations
-          const providerOptions = getProviderOptions(
-            vagueTermResult.category,
-            freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
-          )
-          const selectedProvider = providerOptions.find(p => p.id === matchingSpecificApp.provider)
+        // Store metadata for ALL explicitly mentioned providers
+        const freshIntegrations = useIntegrationStore.getState().integrations
+        const providerOptions = getProviderOptions(
+          vagueTermResult.category,
+          freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+        )
+        const selectedProvider = providerOptions.find(p => p.id === matchingSpecificApp.provider)
 
-          providerMetadata = selectedProvider ? {
+        if (selectedProvider) {
+          allProviderMetadata.push({
             category: vagueTermResult.category,
             provider: selectedProvider,
             allProviders: providerOptions
-          } : undefined
+          })
         }
       } else {
         // This term needs user selection
@@ -5641,6 +5781,34 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       }
     }
 
+    // Also collect metadata for specific apps that were mentioned but didn't match any vague term
+    // (e.g., "post to Slack" has no vague term like "notification" but Slack should still show with CHANGE option)
+    const freshIntegrations = useIntegrationStore.getState().integrations
+    for (const app of specificApps) {
+      // Check if we already have metadata for this provider
+      const alreadyHasMetadata = allProviderMetadata.some(m => m.provider?.id === app.provider)
+      if (!alreadyHasMetadata) {
+        // Find the category for this provider
+        const category = PROVIDER_CATEGORIES.find(c => c.providers.includes(app.provider))
+        if (category) {
+          const providerOptions = getProviderOptions(
+            category,
+            freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+          )
+          const selectedProvider = providerOptions.find(p => p.id === app.provider)
+          if (selectedProvider) {
+            console.log('[Provider Disambiguation] Adding metadata for explicit app:', app.displayName)
+            allProviderMetadata.push({
+              category,
+              provider: selectedProvider,
+              allProviders: providerOptions
+            })
+          }
+        }
+      }
+    }
+
+    console.log('[Provider Disambiguation] All provider metadata:', allProviderMetadata.map(m => ({ category: m.category?.vagueTerm || m.category?.displayName, provider: m.provider?.id })))
     console.log('[Provider Disambiguation] Terms needing selection:', vagueTermsNeedingSelection.map(t => t.category?.vagueTerm))
 
     // If there are vague terms that need selection, show provider dropdown
@@ -5724,16 +5892,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       updatePendingRequest(requestId, { status: 'processing' })
 
       // For template matching, we need the EMAIL provider specifically (templates like email-to-slack require it)
-      // Extract email provider from specificApps (not providerMetadata which might be notification/slack)
+      // Extract email provider from specificApps (not allProviderMetadata which might be notification/slack)
       const emailApp = specificApps.find(app => app.category === 'email')
-      const emailProviderId = emailApp?.provider || providerMetadata?.provider?.id
+      const emailProviderMeta = allProviderMetadata.find(m => m.category?.vagueTerm === 'email')
+      const emailProviderId = emailApp?.provider || emailProviderMeta?.provider?.id
 
       // Call actual askAgent API (template matching first)
       // Use finalPrompt which may have auto-resolved terms (e.g., "Gmail" replacing "email")
+      console.log('[WorkflowBuilderV2] 📞 Calling planWorkflowWithTemplates...', { finalPrompt, emailProviderId })
       const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
         actions, finalPrompt, emailProviderId, user?.id, flowId
       )
-      console.log('[WorkflowBuilderV2] Received result from askAgent:', {
+      console.log('[WorkflowBuilderV2] ✅ Received result from planWorkflowWithTemplates:', {
         workflowName: result.workflowName,
         editsCount: result.edits?.length,
         rationale: result.rationale,
@@ -5746,9 +5916,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       completePendingRequest(requestId)
 
       // Use helper function to generate plan and update UI
-      await continueWithPlanGeneration(result, finalPrompt, providerMetadata)
+      // Pass ALL explicitly mentioned providers so user can see/change them
+      await continueWithPlanGeneration(result, finalPrompt, allProviderMetadata.length > 0 ? allProviderMetadata : undefined)
 
     } catch (error: any) {
+      console.error('[WorkflowBuilderV2] ❌ Error in handleSubmitUserMessage:', error)
       // Mark request as failed for potential retry
       updatePendingRequest(requestId, { status: 'failed' })
 

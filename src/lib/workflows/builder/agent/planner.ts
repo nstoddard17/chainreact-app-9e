@@ -53,6 +53,12 @@ export interface PlannerResult {
   planVersion?: number
   /** Method used for planning */
   planningMethod?: 'llm' | 'pattern'
+  /** Unsupported features detected in the prompt */
+  unsupportedFeatures?: {
+    hasUnsupported: boolean
+    features: Array<{ feature: string; alternative?: string }>
+    message: string
+  }
 }
 
 // Lazy-initialize OpenAI client for workflow name generation
@@ -297,13 +303,202 @@ const INTENT_TO_PLAN: Record<string, PlanTemplate> = {
     },
   },
 
+  // ============================================
+  // SPECIALIZED AI NODES (like Zapier/Make.com)
+  // ============================================
+
+  // Summarize patterns
+  "summarize": {
+    nodeTypes: ["http.trigger", "ai_summarize", "slack_action_send_message"],
+    description: "HTTP trigger → Summarize Text → Slack",
+    configHints: {
+      "ai_summarize": {
+        text: "{{trigger.body}}",
+        format: "bullets",
+      },
+      "slack_action_send_message": {
+        message: "Summary:\n{{ai_summarize.summary}}",
+      },
+    },
+  },
+
+  "email summarize": {
+    nodeTypes: ["gmail_trigger_new_email", "ai_summarize", "slack_action_send_message"],
+    description: "Gmail → Summarize → Slack",
+    configHints: {
+      "ai_summarize": {
+        text: "{{trigger.body}}",
+        format: "bullets",
+      },
+      "slack_action_send_message": {
+        message: "Email Summary from {{trigger.from}}:\n{{ai_summarize.summary}}",
+      },
+    },
+  },
+
+  // Extract data patterns
+  "extract": {
+    nodeTypes: ["http.trigger", "ai_extract", "google_sheets_action_append_row"],
+    description: "HTTP trigger → Extract Data → Google Sheets",
+    configHints: {
+      "ai_extract": {
+        text: "{{trigger.body}}",
+        fieldsToExtract: "name\nemail\nphone\ncompany",
+      },
+    },
+  },
+
+  "extract from email": {
+    nodeTypes: ["gmail_trigger_new_email", "ai_extract", "google_sheets_action_append_row"],
+    description: "Gmail → Extract Data → Google Sheets",
+    configHints: {
+      "ai_extract": {
+        text: "{{trigger.body}}",
+        fieldsToExtract: "name\nemail\nphone\norder_number",
+      },
+    },
+  },
+
+  // Classify patterns
+  "classify": {
+    nodeTypes: ["http.trigger", "ai_classify"],
+    description: "HTTP trigger → Classify Text",
+    configHints: {
+      "ai_classify": {
+        text: "{{trigger.body}}",
+        categories: "bug_report\nfeature_request\nquestion\nfeedback",
+      },
+    },
+  },
+
+  "classify email": {
+    nodeTypes: ["gmail_trigger_new_email", "ai_classify", "slack_action_send_message"],
+    description: "Gmail → Classify → Slack",
+    configHints: {
+      "ai_classify": {
+        text: "{{trigger.subject}} {{trigger.body}}",
+        categories: "urgent\nnormal\nlow_priority",
+      },
+      "slack_action_send_message": {
+        message: "New {{ai_classify.category}} email from {{trigger.from}}: {{trigger.subject}}",
+      },
+    },
+  },
+
+  // Sentiment patterns
+  "sentiment": {
+    nodeTypes: ["http.trigger", "ai_sentiment"],
+    description: "HTTP trigger → Sentiment Analysis",
+    configHints: {
+      "ai_sentiment": {
+        text: "{{trigger.body}}",
+      },
+    },
+  },
+
+  "analyze sentiment": {
+    nodeTypes: ["gmail_trigger_new_email", "ai_sentiment", "slack_action_send_message"],
+    description: "Gmail → Sentiment Analysis → Slack",
+    configHints: {
+      "ai_sentiment": {
+        text: "{{trigger.body}}",
+      },
+      "slack_action_send_message": {
+        message: "Email from {{trigger.from}} - Sentiment: {{ai_sentiment.sentiment}} ({{ai_sentiment.score}})",
+      },
+    },
+  },
+
+  // Translate patterns
+  "translate": {
+    nodeTypes: ["http.trigger", "ai_translate"],
+    description: "HTTP trigger → Translate Text",
+    configHints: {
+      "ai_translate": {
+        text: "{{trigger.body}}",
+        targetLanguage: "spanish",
+      },
+    },
+  },
+
+  "translate email": {
+    nodeTypes: ["gmail_trigger_new_email", "ai_translate", "gmail_action_send_email"],
+    description: "Gmail → Translate → Reply",
+    configHints: {
+      "ai_translate": {
+        text: "{{trigger.body}}",
+        targetLanguage: "english",
+      },
+      "gmail_action_send_email": {
+        to: "{{trigger.from}}",
+        subject: "Re: {{trigger.subject}} (Translated)",
+        body: "{{ai_translate.translatedText}}",
+      },
+    },
+  },
+
+  // Generate content patterns
+  "generate": {
+    nodeTypes: ["http.trigger", "ai_generate"],
+    description: "HTTP trigger → Generate Content",
+    configHints: {
+      "ai_generate": {
+        contentType: "email",
+        instructions: "Write a professional response based on: {{trigger.body}}",
+      },
+    },
+  },
+
+  "generate email": {
+    nodeTypes: ["http.trigger", "ai_generate", "gmail_action_send_email"],
+    description: "HTTP trigger → Generate Email → Send",
+    configHints: {
+      "ai_generate": {
+        contentType: "email",
+        instructions: "Write a professional email about: {{trigger.body}}",
+      },
+      "gmail_action_send_email": {
+        subject: "{{ai_generate.subject}}",
+        body: "{{ai_generate.content}}",
+      },
+    },
+  },
+
+  // AI Prompt (custom) patterns
+  "ai prompt": {
+    nodeTypes: ["http.trigger", "ai_prompt"],
+    description: "HTTP trigger → Custom AI Prompt",
+    configHints: {
+      "ai_prompt": {
+        prompt: "{{trigger.body}}",
+      },
+    },
+  },
+
+  "custom ai": {
+    nodeTypes: ["http.trigger", "ai_prompt", "slack_action_send_message"],
+    description: "HTTP trigger → Custom AI → Slack",
+    configHints: {
+      "ai_prompt": {
+        prompt: "Analyze and respond to: {{trigger.body}}",
+      },
+      "slack_action_send_message": {
+        message: "{{ai_prompt.response}}",
+      },
+    },
+  },
+
+  // ============================================
+  // END SPECIALIZED AI NODES
+  // ============================================
+
   // Transform + AI patterns
   "transform and summarize": {
-    nodeTypes: ["http.trigger", "transformer", "ai_agent", "slack_action_send_message"],
-    description: "HTTP trigger → Transform → AI Summarize → Slack",
+    nodeTypes: ["http.trigger", "transformer", "ai_summarize", "slack_action_send_message"],
+    description: "HTTP trigger → Transform → Summarize → Slack",
     configHints: {
       "slack_action_send_message": {
-        message: "{{ai_agent.result}}",
+        message: "{{ai_summarize.summary}}",
       },
     },
   },
@@ -421,9 +616,195 @@ function normalizePrompt(prompt: string): string {
     .trim()
 }
 
+// ==========================================
+// UNSUPPORTED FEATURE DETECTION
+// ==========================================
+
+// Supported providers for reference
+const SUPPORTED_PROVIDERS = new Set([
+  'gmail', 'slack', 'discord', 'notion', 'airtable', 'github',
+  'google-sheets', 'google-docs', 'google-drive', 'google-calendar',
+  'dropbox', 'onedrive', 'microsoft-outlook', 'microsoft-excel', 'microsoft-onenote',
+  'hubspot', 'mailchimp', 'stripe', 'shopify', 'gumroad',
+  'trello', 'monday', 'teams', 'twitter', 'facebook', 'manychat',
+  'webhook', 'http'
+])
+
+// Unsupported features with helpful alternatives
+interface UnsupportedFeature {
+  patterns: RegExp[]
+  feature: string
+  alternative?: string
+}
+
+const UNSUPPORTED_FEATURES: UnsupportedFeature[] = [
+  // Unsupported integrations
+  {
+    patterns: [/\b(linkedin)\b/i],
+    feature: 'LinkedIn integration',
+    alternative: 'Consider using our HTTP Request node to call LinkedIn API directly if you have API access, or post to Twitter instead.',
+  },
+  {
+    patterns: [/\b(salesforce|sfdc)\b/i],
+    feature: 'Salesforce integration',
+    alternative: 'Consider using HubSpot for CRM functionality, or use our HTTP Request node to call Salesforce API directly.',
+  },
+  {
+    patterns: [/\b(jira|atlassian)\b/i],
+    feature: 'Jira integration',
+    alternative: 'Consider using Trello or Monday for project management, or use our HTTP Request node to call Jira API directly.',
+  },
+  {
+    patterns: [/\b(asana)\b/i],
+    feature: 'Asana integration',
+    alternative: 'Consider using Trello or Monday for project management, or use our HTTP Request node to call Asana API directly.',
+  },
+  {
+    patterns: [/\b(zendesk)\b/i],
+    feature: 'Zendesk integration',
+    alternative: 'Consider using our HTTP Request node to call Zendesk API directly, or use Slack for support notifications.',
+  },
+  {
+    patterns: [/\b(zoom)\b/i],
+    feature: 'Zoom integration',
+    alternative: 'Consider using Google Calendar for meeting scheduling, or use our HTTP Request node to call Zoom API directly.',
+  },
+  {
+    patterns: [/\b(calendly)\b/i],
+    feature: 'Calendly integration',
+    alternative: 'Consider using Google Calendar for scheduling, or use our HTTP Request node with a Calendly webhook.',
+  },
+  {
+    patterns: [/\b(twilio|sms|text message)\b/i],
+    feature: 'SMS/Twilio integration',
+    alternative: 'Consider sending notifications via Slack, Discord, or email instead.',
+  },
+  {
+    patterns: [/\b(whatsapp)\b/i],
+    feature: 'WhatsApp integration',
+    alternative: 'Consider sending notifications via Slack, Discord, or email instead.',
+  },
+  {
+    patterns: [/\b(telegram)\b/i],
+    feature: 'Telegram integration',
+    alternative: 'Consider using Discord or Slack for chat notifications instead.',
+  },
+  {
+    patterns: [/\b(quickbooks|xero|freshbooks)\b/i],
+    feature: 'Accounting software integration',
+    alternative: 'Consider using our HTTP Request node to call their APIs directly, or use Google Sheets for financial tracking.',
+  },
+  {
+    patterns: [/\b(intercom)\b/i],
+    feature: 'Intercom integration',
+    alternative: 'Consider using Slack for customer notifications, or use our HTTP Request node to call Intercom API directly.',
+  },
+  {
+    patterns: [/\b(pipedrive)\b/i],
+    feature: 'Pipedrive integration',
+    alternative: 'Consider using HubSpot for CRM functionality instead.',
+  },
+  {
+    patterns: [/\b(clickup)\b/i],
+    feature: 'ClickUp integration',
+    alternative: 'Consider using Trello, Monday, or Notion for project management instead.',
+  },
+
+  // Unsupported features
+  {
+    patterns: [/\b(rss|rss feed|atom feed|feed reader)\b/i],
+    feature: 'RSS feed triggers',
+    alternative: 'Use our HTTP Request node to fetch RSS/Atom feeds periodically with an external cron trigger, then parse with our Format Transformer.',
+  },
+  {
+    patterns: [/\b(cron|schedule|scheduled trigger|every hour|every day|daily at|hourly at|weekly at)\b/i],
+    feature: 'Built-in scheduled triggers',
+    alternative: 'Use an external cron service (like cron-job.org) to call your workflow\'s HTTP trigger at scheduled intervals. We\'ll set up an HTTP trigger for you to receive these calls.',
+  },
+  {
+    patterns: [/\b(ftp|sftp|file transfer)\b/i],
+    feature: 'FTP/SFTP file transfers',
+    alternative: 'Consider using Dropbox, Google Drive, or OneDrive for file storage and transfers.',
+  },
+  {
+    patterns: [/\b(database|mysql|postgres|mongodb|sql server)\b/i],
+    feature: 'Direct database connections',
+    alternative: 'Consider using Airtable or Google Sheets as a database alternative, or use HTTP Request to call your own API that handles database operations.',
+  },
+  {
+    patterns: [/\b(scrape|web scraping|crawl|crawler)\b/i],
+    feature: 'Web scraping',
+    alternative: 'Use our "Extract Website Data" utility node for basic data extraction, or use Tavily Search for research.',
+  },
+]
+
+/**
+ * Check if the prompt requests unsupported features
+ * Returns an object with detection results and helpful messaging
+ */
+function detectUnsupportedFeatures(prompt: string): {
+  hasUnsupported: boolean
+  unsupportedList: Array<{ feature: string; alternative?: string }>
+  message: string
+} {
+  const normalized = normalizePrompt(prompt)
+  const detected: Array<{ feature: string; alternative?: string }> = []
+
+  for (const unsupported of UNSUPPORTED_FEATURES) {
+    for (const pattern of unsupported.patterns) {
+      if (pattern.test(normalized) || pattern.test(prompt)) {
+        detected.push({
+          feature: unsupported.feature,
+          alternative: unsupported.alternative,
+        })
+        break // Don't add the same feature multiple times
+      }
+    }
+  }
+
+  if (detected.length === 0) {
+    return {
+      hasUnsupported: false,
+      unsupportedList: [],
+      message: '',
+    }
+  }
+
+  // Build helpful message
+  const featureNames = detected.map(d => d.feature).join(', ')
+  let message = `I noticed your request includes ${featureNames}, which we don't currently support directly.\n\n`
+
+  for (const item of detected) {
+    if (item.alternative) {
+      message += `**${item.feature}:** ${item.alternative}\n\n`
+    }
+  }
+
+  message += 'Would you like me to suggest an alternative workflow using our available integrations?'
+
+  return {
+    hasUnsupported: true,
+    unsupportedList: detected,
+    message,
+  }
+}
+
 // Find matching plan template
 function matchIntentToPlan(prompt: string): PlanTemplate | null {
   const normalized = normalizePrompt(prompt)
+
+  // ============================================
+  // EXPLICIT APP DETECTION (highest priority)
+  // These detect when user explicitly names an app
+  // ============================================
+  const mentionsGoogleSheets = /\b(google sheets?|gsheets?|spreadsheet)\b/.test(normalized)
+  const mentionsDiscord = /\b(discord)\b/.test(normalized)
+  const mentionsSlackExplicit = /\b(slack)\b/.test(normalized)
+  const mentionsAirtableExplicit = /\b(airtable)\b/.test(normalized)
+  const mentionsTeams = /\b(teams|microsoft teams|ms teams)\b/.test(normalized)
+  const mentionsTrello = /\b(trello)\b/.test(normalized)
+  const mentionsGitHub = /\b(github)\b/.test(normalized)
+  const mentionsStripe = /\b(stripe)\b/.test(normalized)
 
   // Check heuristics FIRST for more specific patterns (schedule + fetch is more specific than just fetch)
   const wantsSchedule = /\b(schedule|cron|every hour|every day|daily|hourly|weekly|every week|every two weeks)\b/.test(normalized)
@@ -432,13 +813,25 @@ function matchIntentToPlan(prompt: string): PlanTemplate | null {
   const wantsFetch = /\b(fetch|get|request)\b/.test(normalized)
   const hasUrl = /\b(https?|url|example\.com)\b/.test(normalized)
   const wantsAi = /\b(ai|summarize|summary|generate|gpt|llm|json|report|analyze)\b/.test(normalized)
-  const wantsSlack = /\b(slack|notify|post|send)\b/.test(normalized)
+  // Only match Slack if explicitly mentioned OR generic terms WITHOUT explicit Discord/Teams mention
+  const wantsSlack = mentionsSlackExplicit || (
+    /\b(notify|post|send message)\b/.test(normalized) &&
+    !mentionsDiscord && !mentionsTeams
+  )
   const wantsTransform = /\b(transform|format|convert|parse)\b/.test(normalized)
   const wantsSendEmail = /\b(send email|email to|mail to|email me)\b/.test(normalized)
-  // New heuristics for Airtable, Notion, and search
-  const wantsAirtable = /\b(airtable|new row|row added|record added|new record)\b/.test(normalized)
+  // Only match Airtable if explicitly mentioned - don't match generic "new row" terms
+  const wantsAirtable = mentionsAirtableExplicit
   const wantsNotion = /\b(notion|notion page|notion database)\b/.test(normalized)
   const wantsSearch = /\b(search|research|look up|find information|web search|internet)\b/.test(normalized)
+
+  // Specialized AI node heuristics
+  const wantsSummarize = /\b(summarize|summarise|summary|tldr|tl dr|key points|digest|brief)\b/.test(normalized)
+  const wantsExtract = /\b(extract|pull out|get data|parse data|scrape|find the|get the)\b/.test(normalized)
+  const wantsClassify = /\b(classify|categorize|categorise|sort into|label|tag|triage)\b/.test(normalized)
+  const wantsSentiment = /\b(sentiment|emotion|feeling|mood|positive|negative|tone)\b/.test(normalized)
+  const wantsTranslate = /\b(translate|translation|convert to|in spanish|in french|in german|to english|in chinese|in japanese)\b/.test(normalized)
+  const wantsGenerateContent = /\b(generate|write|draft|create|compose)\b/.test(normalized) && /\b(email|message|post|content|response|reply)\b/.test(normalized)
 
   // Priority 1: Schedule patterns
   if (wantsSchedule && (wantsFetch || hasUrl) && wantsAi && wantsSlack) {
@@ -449,6 +842,66 @@ function matchIntentToPlan(prompt: string): PlanTemplate | null {
   if (wantsAi && wantsSendEmail) {
     return INTENT_TO_PLAN["summarize and email"]
   }
+
+  // ============================================
+  // Priority 2.5: SPECIALIZED AI NODE PATTERNS
+  // These must be checked BEFORE generic email/slack patterns
+  // ============================================
+
+  // Summarize patterns (email → summarize → destination)
+  if (wantsEmail && wantsSummarize && wantsSlack) {
+    return INTENT_TO_PLAN["email summarize"]
+  }
+  if (wantsEmail && wantsSummarize) {
+    return INTENT_TO_PLAN["email summarize"]
+  }
+  if (wantsSummarize && wantsSlack) {
+    return INTENT_TO_PLAN["summarize"]
+  }
+
+  // Extract patterns (email → extract → sheets)
+  if (wantsEmail && wantsExtract) {
+    return INTENT_TO_PLAN["extract from email"]
+  }
+  if (wantsExtract) {
+    return INTENT_TO_PLAN["extract"]
+  }
+
+  // Classify patterns
+  if (wantsEmail && wantsClassify) {
+    return INTENT_TO_PLAN["classify email"]
+  }
+  if (wantsClassify) {
+    return INTENT_TO_PLAN["classify"]
+  }
+
+  // Sentiment patterns
+  if (wantsEmail && wantsSentiment) {
+    return INTENT_TO_PLAN["analyze sentiment"]
+  }
+  if (wantsSentiment) {
+    return INTENT_TO_PLAN["sentiment"]
+  }
+
+  // Translate patterns
+  if (wantsEmail && wantsTranslate) {
+    return INTENT_TO_PLAN["translate email"]
+  }
+  if (wantsTranslate) {
+    return INTENT_TO_PLAN["translate"]
+  }
+
+  // Generate content patterns
+  if (wantsGenerateContent && wantsSendEmail) {
+    return INTENT_TO_PLAN["generate email"]
+  }
+  if (wantsGenerateContent) {
+    return INTENT_TO_PLAN["generate"]
+  }
+
+  // ============================================
+  // END SPECIALIZED AI NODE PATTERNS
+  // ============================================
 
   // Priority 3: Email patterns (Gmail → Slack with formatting)
   if (wantsEmail && wantsSlack && wantsTransform) {
@@ -581,6 +1034,17 @@ export async function planEdits({
 }: PlannerInput): Promise<PlannerResult> {
   const existingNodeIds = new Set(flow.nodes.map((node) => node.id))
 
+  // Check for unsupported features first
+  const unsupportedCheck = detectUnsupportedFeatures(prompt)
+  if (unsupportedCheck.hasUnsupported) {
+    logger.debug('[Planner] Detected unsupported features', {
+      features: unsupportedCheck.unsupportedList.map(f => f.feature),
+    })
+
+    // Still try to create a workflow with available integrations, but include the warning
+    // The unsupported info will be passed through to let the UI decide how to handle it
+  }
+
   // Check if this is a refinement request
   if (looksLikeRefinement(prompt) && flow.nodes.length > 0) {
     logger.debug('[Planner] Detected refinement request', { prompt })
@@ -600,6 +1064,13 @@ export async function planEdits({
           reasoning: result.reasoning,
           planVersion: result.newPlanVersion,
           planningMethod: 'llm',
+          ...(unsupportedCheck.hasUnsupported && {
+            unsupportedFeatures: {
+              hasUnsupported: true,
+              features: unsupportedCheck.unsupportedList,
+              message: unsupportedCheck.message,
+            },
+          }),
         }
       }
     }
@@ -632,6 +1103,13 @@ export async function planEdits({
           ...plannerResult,
           planningMethod: 'llm',
           planVersion: llmResult.planVersion,
+          ...(unsupportedCheck.hasUnsupported && {
+            unsupportedFeatures: {
+              hasUnsupported: true,
+              features: unsupportedCheck.unsupportedList,
+              message: unsupportedCheck.message,
+            },
+          }),
         }
       }
 
@@ -646,7 +1124,21 @@ export async function planEdits({
 
   // Fall back to pattern matching
   logger.debug('[Planner] Using pattern-based planning', { prompt })
-  return planEditsWithPatterns({ prompt, flow })
+  const patternResult = await planEditsWithPatterns({ prompt, flow })
+
+  // Add unsupported features info if detected
+  if (unsupportedCheck.hasUnsupported) {
+    return {
+      ...patternResult,
+      unsupportedFeatures: {
+        hasUnsupported: true,
+        features: unsupportedCheck.unsupportedList,
+        message: unsupportedCheck.message,
+      },
+    }
+  }
+
+  return patternResult
 }
 
 /**

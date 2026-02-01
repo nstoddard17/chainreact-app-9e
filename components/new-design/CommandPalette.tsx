@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { useCreateAndOpenWorkflow } from "@/hooks/useCreateAndOpenWorkflow"
 import {
   Home,
   Layout,
@@ -44,6 +45,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [loadingText, setLoadingText] = useState("")
   const { workflows, fetchWorkflows } = useWorkflowStore()
   const { providers, integrations, fetchIntegrations } = useIntegrationStore()
+  const { createAndOpen } = useCreateAndOpenWorkflow()
 
   // Fetch data when palette opens
   useEffect(() => {
@@ -162,7 +164,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             {!search && (
               <Command.Group heading="Quick Actions">
                 <Command.Item
-                  onSelect={() => handleSelect(() => router.push("/workflows/ai-agent"))}
+                  onSelect={() => handleSelect(() => createAndOpen(), "Creating workflow...")}
                   className="flex items-center gap-2 px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
                 >
                   <Plus className="h-4 w-4" />

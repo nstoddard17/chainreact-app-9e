@@ -185,6 +185,29 @@ export function AIAgentCoralContent() {
     }
   }, [messages])
 
+  // Auto-resize textarea when input changes (handles paste, programmatic changes, etc.)
+  useEffect(() => {
+    if (inputRef.current) {
+      const textarea = inputRef.current
+      const container = textarea.parentElement
+
+      // Reset height to measure true scrollHeight
+      textarea.style.height = 'auto'
+
+      // Get the max height from the container (60vh)
+      const maxHeight = container ? parseFloat(getComputedStyle(container).maxHeight) || window.innerHeight * 0.6 : window.innerHeight * 0.6
+
+      // Set height to content or max, whichever is smaller
+      const newHeight = Math.min(textarea.scrollHeight, maxHeight)
+      textarea.style.height = newHeight + 'px'
+
+      // Update container height to match
+      if (container) {
+        container.style.height = newHeight + 'px'
+      }
+    }
+  }, [input])
+
   const handleSendMessage = async () => {
     if (!input.trim() || isLoading) return
 
@@ -432,38 +455,42 @@ export function AIAgentCoralContent() {
                   {/* Glow */}
                   <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/20 via-rose-500/20 to-pink-500/20 rounded-2xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 blur-xl transition-all duration-500" />
 
-                  <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-orange-500/30 group-focus-within:border-orange-500/50">
-                    {!input && (
-                      <div className="absolute left-5 top-5 pointer-events-none text-white/30 flex">
-                        <span>{placeholderText}</span>
-                        <span
-                          className={cn(
-                            "w-0.5 bg-orange-400 ml-0.5",
-                            showCursor ? "opacity-100" : "opacity-0"
-                          )}
-                          style={{ height: '1.25rem' }}
-                        />
-                      </div>
-                    )}
+                  <div className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-orange-500/30 group-focus-within:border-orange-500/50 flex flex-col">
+                    {/* Textarea container */}
+                    <div className="relative flex-1 min-h-[64px]" style={{ maxHeight: '60vh' }}>
+                      {!input && (
+                        <div className="absolute left-5 top-5 pointer-events-none text-white/30 flex">
+                          <span>{placeholderText}</span>
+                          <span
+                            className={cn(
+                              "w-0.5 bg-orange-400 ml-0.5",
+                              showCursor ? "opacity-100" : "opacity-0"
+                            )}
+                            style={{ height: '1.25rem' }}
+                          />
+                        </div>
+                      )}
 
-                    <textarea
-                      ref={inputRef}
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSendMessage()
-                        }
-                      }}
-                      placeholder=""
-                      rows={3}
-                      className="w-full text-base text-white pl-5 pr-28 py-5 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none placeholder-transparent"
-                      disabled={isLoading}
-                    />
+                      <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            handleSendMessage()
+                          }
+                        }}
+                        placeholder=""
+                        rows={1}
+                        className="w-full h-full text-base text-white pl-5 pr-5 py-5 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none overflow-y-auto placeholder-transparent scrollbar-none"
+                        style={{ minHeight: '64px' }}
+                        disabled={isLoading}
+                      />
+                    </div>
 
-                    {/* Bottom toolbar inside textarea */}
-                    <div className="absolute right-3 bottom-3 flex items-center gap-2">
+                    {/* Bottom toolbar - separate from textarea */}
+                    <div className="flex-shrink-0 px-4 py-3 flex items-center justify-end gap-2 bg-[#0F1D32]/80 border-t border-white/5">
                       <PromptEnhancer
                         prompt={input}
                         connectedIntegrations={connectedProviders}

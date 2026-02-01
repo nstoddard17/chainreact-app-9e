@@ -141,7 +141,7 @@ export function NotificationsDropdown() {
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+          <Bell className="h-5 w-5 text-gray-700 dark:text-gray-300" strokeWidth={2} />
           {unreadCount > 0 && (
             <Badge
               className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
@@ -160,7 +160,7 @@ export function NotificationsDropdown() {
               variant="ghost"
               size="sm"
               onClick={handleMarkAllAsRead}
-              className="h-7 text-xs gap-1"
+              className="h-7 text-xs gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
             >
               <CheckCheck className="h-3 w-3" />
               Mark all read
@@ -182,25 +182,30 @@ export function NotificationsDropdown() {
             {notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${
-                  !notification.is_read ? 'bg-orange-50/50' : ''
+                className={`flex flex-col items-start gap-1 p-3 cursor-pointer focus:bg-gray-100 dark:focus:bg-gray-800 ${
+                  !notification.is_read ? 'bg-orange-50/50 dark:bg-orange-950/30' : ''
                 }`}
                 onClick={() => handleNotificationClick(notification)}
               >
                 <div className="flex items-start justify-between w-full gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium truncate">
+                      <p className="text-sm font-medium truncate text-gray-900 dark:text-gray-100">
                         {notification.title}
                       </p>
                       {!notification.is_read && (
                         <div className="h-2 w-2 rounded-full bg-orange-500 flex-shrink-0" />
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
                       {notification.message}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    {notification.action_label && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
+                        {notification.action_label}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                       {formatTimeAgo(notification.created_at)}
                     </p>
                   </div>
@@ -209,7 +214,7 @@ export function NotificationsDropdown() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
+                        className="h-6 w-6 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleMarkAsRead(notification.id)
@@ -221,7 +226,7 @@ export function NotificationsDropdown() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                      className="h-6 w-6 text-gray-500 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
                       onClick={(e) => handleDeleteNotification(notification.id, e)}
                     >
                       <X className="h-3 w-3" />

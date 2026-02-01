@@ -159,30 +159,30 @@ export function NotificationDropdown() {
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'team_invitation':
-        return <Users className="w-4 h-4 text-blue-600" />
+        return <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
       case 'workflow_shared':
-        return <Mail className="w-4 h-4 text-green-600" />
+        return <Mail className="w-4 h-4 text-green-600 dark:text-green-400" />
       case 'execution_failed':
-        return <AlertCircle className="w-4 h-4 text-red-600" />
+        return <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
       case 'integration_disconnected':
-        return <AlertCircle className="w-4 h-4 text-yellow-600" />
+        return <AlertCircle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
       default:
-        return <Bell className="w-4 h-4 text-gray-600" />
+        return <Bell className="w-4 h-4 text-gray-600 dark:text-gray-400" />
     }
   }
 
   const getNotificationBgColor = (type: string) => {
     switch (type) {
       case 'team_invitation':
-        return 'bg-blue-100'
+        return 'bg-blue-100 dark:bg-blue-900/50'
       case 'workflow_shared':
-        return 'bg-green-100'
+        return 'bg-green-100 dark:bg-green-900/50'
       case 'execution_failed':
-        return 'bg-red-100'
+        return 'bg-red-100 dark:bg-red-900/50'
       case 'integration_disconnected':
-        return 'bg-yellow-100'
+        return 'bg-yellow-100 dark:bg-yellow-900/50'
       default:
-        return 'bg-gray-100'
+        return 'bg-gray-100 dark:bg-gray-800'
     }
   }
 
@@ -193,7 +193,10 @@ export function NotificationDropdown() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className={`h-4 w-4 ${hasNotifications ? 'text-yellow-500 animate-pulse' : 'text-gray-400'}`} />
+          <Bell
+            className={`h-5 w-5 ${hasNotifications ? 'text-orange-500' : 'text-gray-600 dark:text-gray-300'}`}
+            strokeWidth={2}
+          />
           {hasNotifications && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold">
               {totalCount > 9 ? '9+' : totalCount}
@@ -202,22 +205,14 @@ export function NotificationDropdown() {
           <span className="sr-only">Notifications</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" className="w-96 bg-gray-900/95 backdrop-blur-sm border border-gray-700 max-h-[32rem]">
-        <div className="px-3 py-2">
-          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Bell className="h-4 w-4 text-yellow-500" />
-            Notifications ({totalCount})
-          </h3>
-        </div>
-        <DropdownMenuSeparator className="bg-gray-700" />
-
+      <DropdownMenuContent align="center" className="w-96 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 max-h-[32rem] p-0">
         <div className="max-h-96 overflow-y-auto">
           {/* Empty State */}
           {totalCount === 0 && !loading && (
             <div className="px-6 py-8 text-center">
-              <Bell className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-sm text-gray-400">No notifications</p>
-              <p className="text-xs text-gray-500 mt-1">You're all caught up!</p>
+              <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">No notifications</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">You're all caught up!</p>
             </div>
           )}
 
@@ -225,7 +220,7 @@ export function NotificationDropdown() {
           {loading && (
             <div className="px-6 py-8 text-center">
               <Loader2 className="w-8 h-8 text-gray-400 mx-auto mb-3 animate-spin" />
-              <p className="text-sm text-gray-400">Loading notifications...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Loading notifications...</p>
             </div>
           )}
 
@@ -233,20 +228,20 @@ export function NotificationDropdown() {
           {notifications.filter(n => n.type === 'team_invitation').map((notification) => (
             <div
               key={notification.id}
-              className="px-3 py-3 border-b border-gray-700 last:border-b-0 hover:bg-gray-800 transition-colors"
+              className="px-3 py-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
             >
               <div className="flex items-start gap-2">
                 <div className={`w-8 h-8 rounded-full ${getNotificationBgColor(notification.type)} flex items-center justify-center flex-shrink-0 mt-1`}>
                   {getNotificationIcon(notification.type)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">{notification.title}</p>
-                  <p className="text-xs text-gray-300 mt-1">{notification.message}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{notification.title}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{notification.message}</p>
                   <div className="flex items-center gap-2 mt-3">
                     <Button
                       size="sm"
                       variant="default"
-                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700"
+                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white"
                       onClick={(e) => handleAcceptInvitation(notification, e)}
                       disabled={processingNotification === notification.id}
                     >
@@ -262,7 +257,7 @@ export function NotificationDropdown() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 text-xs border-gray-600 hover:bg-gray-700"
+                      className="h-7 text-xs border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={(e) => handleDeclineInvitation(notification, e)}
                       disabled={processingNotification === notification.id}
                     >
@@ -272,7 +267,7 @@ export function NotificationDropdown() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 text-xs text-gray-400 hover:text-white hover:bg-gray-700"
+                      className="h-7 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
                       onClick={(e) => handleLater(notification, e)}
                     >
                       <Clock className="w-3 h-3 mr-1" />
@@ -288,31 +283,27 @@ export function NotificationDropdown() {
           {notifications.filter(n => n.type !== 'team_invitation').map((notification) => (
             <div
               key={notification.id}
-              className="border-b border-gray-700 last:border-b-0"
+              className="px-3 py-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+              onClick={() => {
+                if (notification.action_url) {
+                  handleMarkAsRead(notification.id)
+                  router.push(notification.action_url)
+                }
+              }}
             >
-              <div
-                className="px-3 py-3 hover:bg-gray-800 transition-colors cursor-pointer"
-                onClick={() => {
-                  if (notification.action_url) {
-                    handleMarkAsRead(notification.id)
-                    router.push(notification.action_url)
-                  }
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <div className={`w-8 h-8 rounded-full ${getNotificationBgColor(notification.type)} flex items-center justify-center flex-shrink-0 mt-1`}>
-                    {getNotificationIcon(notification.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">{notification.title}</p>
-                    <p className="text-xs text-gray-300 mt-1">{notification.message}</p>
-                    {notification.action_label && (
-                      <p className="text-xs text-blue-400 mt-2">{notification.action_label}</p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(notification.created_at).toLocaleString()}
-                    </p>
-                  </div>
+              <div className="flex items-start gap-2">
+                <div className={`w-8 h-8 rounded-full ${getNotificationBgColor(notification.type)} flex items-center justify-center flex-shrink-0 mt-1`}>
+                  {getNotificationIcon(notification.type)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{notification.title}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{notification.message}</p>
+                  {notification.action_label && (
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">{notification.action_label}</p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(notification.created_at).toLocaleString()}
+                  </p>
                 </div>
               </div>
             </div>
@@ -321,12 +312,12 @@ export function NotificationDropdown() {
 
         {hasNotifications && (
           <>
-            <DropdownMenuSeparator className="bg-gray-700" />
+            <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
             <div className="px-3 py-2 flex gap-2">
               <Button
                 size="sm"
                 variant="ghost"
-                className="flex-1 text-gray-300 hover:text-white hover:bg-gray-700"
+                className="flex-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-gray-700"
                 onClick={async () => {
                   try {
                     await fetch('/api/notifications', {

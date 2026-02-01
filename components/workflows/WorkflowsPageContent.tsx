@@ -12,6 +12,7 @@ import { UpgradePlanModal } from '@/components/plan-restrictions'
 import ShareWorkflowDialog from '@/components/workflows/ShareWorkflowDialog'
 import { WorkspaceGroupView } from '@/components/workflows/WorkspaceGroupView'
 import { useWorkflowCreation } from '@/hooks/useWorkflowCreation'
+import { useCreateAndOpenWorkflow } from '@/hooks/useCreateAndOpenWorkflow'
 import { WorkspaceSelectionModal } from '@/components/workflows/WorkspaceSelectionModal'
 import { ConnectedNodesDisplay } from '@/components/workflows/ConnectedNodesDisplay'
 import { Button } from '@/components/ui/button'
@@ -186,6 +187,7 @@ function WorkflowsContent() {
     handleWorkspaceSelected,
     handleCancelWorkspaceSelection
   } = useWorkflowCreation()
+  const { createAndOpen, isCreating: isCreatingWorkflow } = useCreateAndOpenWorkflow()
 
   // Version update: No dropdowns, tabs properly aligned - v4
   const statsLastFetchRef = useRef<number>(0)
@@ -218,7 +220,7 @@ function WorkflowsContent() {
   })
   const [loading, setLoading] = useState<Record<string, boolean>>({})
   const [executionStats, setExecutionStats] = useState<Record<string, { total: number; today: number; success: number; failed: number }>>({})
-  // Create workflow dialog removed - now navigates directly to /workflows/ai-agent
+  // Create workflow - now opens builder directly with AI panel visible
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const [requiredPlan, setRequiredPlan] = useState<'free' | 'starter' | 'professional' | 'team' | 'enterprise' | undefined>()
   const [emptyTrashDialog, setEmptyTrashDialog] = useState(false)
@@ -981,16 +983,19 @@ function WorkflowsContent() {
   }
 
   const handleDelete = async () => {
-    if (deleteDialog.workflowIds.length === 0) {
+    // Capture workflowIds immediately before any state changes
+    const workflowIds = [...deleteDialog.workflowIds]
+
+    if (workflowIds.length === 0) {
       logger.warn('handleDelete called with no workflow IDs')
       return
     }
 
-    const workflowIds = deleteDialog.workflowIds
     const loadingKey = workflowIds.length > 1 ? 'delete-multi' : `delete-${workflowIds[0]}`
 
     logger.info('Starting delete operation for workflows:', workflowIds)
 
+    // Clear dialog state after capturing IDs
     setDeleteDialog({ open: false, workflowIds: [], contextLabel: '' })
     setSelectedIds(prev => prev.filter(id => !workflowIds.includes(id)))
     updateLoadingState(loadingKey, true)
@@ -1061,11 +1066,14 @@ function WorkflowsContent() {
         }
       }
 
-      // Invalidate cache for next fresh load and refresh folders
-      // Don't re-fetch workflows - the optimistic update already removed them from state
-      // (re-fetching before backend delete completes would add them back due to race condition)
+      // Refresh workflows to show updated state
+      // For batch operations, we need to refetch since there's no optimistic update
+      // For single operations, deleteWorkflow has optimistic update but moveWorkflowToTrash doesn't
       invalidateCache()
-      await fetchFolders()
+      await Promise.all([
+        fetchFolders(),
+        fetchWorkflows(true)
+      ])
     } catch (error: any) {
       logger.error('Delete operation failed:', error)
       toast({
@@ -1084,7 +1092,7 @@ function WorkflowsContent() {
     }
   }
 
-  // handleCreateWorkflow removed - now navigates directly to /workflows/ai-agent
+  // handleCreateWorkflow removed - now opens builder directly with AI panel visible
 
   const handleEmptyTrash = async () => {
     if (trashedWorkflows.length === 0) return
@@ -1630,16 +1638,19 @@ function WorkflowsContent() {
               <Button
                 size="sm"
                 className="h-9 gap-2 whitespace-nowrap"
+                disabled={activeTab === 'workflows' && isCreatingWorkflow}
                 onClick={() => {
                   if (activeTab === 'workflows') {
-                    initiateWorkflowCreation(() => router.push('/workflows/ai-agent'))
+                    initiateWorkflowCreation(() => createAndOpen())
                   } else {
                     setCreateFolderDialog(true)
                   }
                 }}
               >
                 <Plus className="w-4 h-4" />
-                {activeTab === 'workflows' ? 'Create workflow' : 'Create folder'}
+                {activeTab === 'workflows'
+                  ? (isCreatingWorkflow ? 'Creating...' : 'Create workflow')
+                  : 'Create folder'}
               </Button>
             )}
             </div>
@@ -2883,9 +2894,13 @@ function WorkflowsContent() {
                     : 'Create your first workflow to get started'}
                 </p>
                 {!searchQuery && (
-                  <Button className="mt-4" onClick={() => initiateWorkflowCreation(() => router.push('/workflows/ai-agent'))}>
+                  <Button
+                    className="mt-4"
+                    disabled={isCreatingWorkflow}
+                    onClick={() => initiateWorkflowCreation(() => createAndOpen())}
+                  >
                     <Plus className="w-4 h-4 mr-2" />
-                    Create Workflow
+                    {isCreatingWorkflow ? 'Creating...' : 'Create Workflow'}
                   </Button>
                 )}
               </div>
@@ -2894,7 +2909,7 @@ function WorkflowsContent() {
         </div>
       </NewAppLayout>
 
-      {/* Create Workflow Dialog removed - now navigates directly to /workflows/ai-agent */}
+      {/* Create Workflow - now opens builder directly with AI panel */}
 
       {/* Rename Workflow Dialog */}
       <Dialog
@@ -3165,7 +3180,11 @@ function WorkflowsContent() {
       <AlertDialog
         open={deleteDialog.open}
         onOpenChange={(open) => {
-          setDeleteDialog({ open, workflowIds: [], contextLabel: '' })
+          // Only clear workflowIds when canceling (closing without action)
+          // handleDelete will clear them after capturing the IDs
+          if (!open) {
+            setDeleteDialog(prev => ({ ...prev, open: false }))
+          }
         }}
       >
         <AlertDialogContent>
@@ -3179,7 +3198,9 @@ function WorkflowsContent() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDeleteDialog({ open: false, workflowIds: [], contextLabel: '' })}>
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

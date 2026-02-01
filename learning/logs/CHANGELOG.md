@@ -1,3 +1,68 @@
+## 2026-01-29 – Unsupported Feature Detection
+
+Added intelligent detection for unsupported integrations and features in the AI planner. When users request features we don't support (like LinkedIn, Jira, Salesforce, RSS feeds, scheduled triggers, etc.), the system now provides helpful messages explaining what's not supported and suggesting alternatives.
+
+### New Features
+- **Pattern Detection**: Regex-based detection for 15+ unsupported integrations and features
+- **Helpful Alternatives**: Each unsupported feature includes guidance on alternatives
+- **UI Warning Display**: Warning messages appear in chat with amber styling
+- **Non-Blocking**: Planner still attempts to create a workflow with available integrations
+
+### Modified Files
+- **`/src/lib/workflows/builder/agent/planner.ts`** - Added `UNSUPPORTED_FEATURES` array and `detectUnsupportedFeatures()` function
+- **`/src/lib/workflows/builder/useFlowV2Builder.ts`** - Added `unsupportedFeatures` to AgentResult interface
+- **`/components/workflows/builder/WorkflowBuilderV2.tsx`** - Added handling to display warning messages
+- **`/components/workflows/builder/FlowV2AgentPanel.tsx`** - Added amber styling for warning messages
+- **`/learning/docs/ai-template-caching-guide.md`** - Added documentation section
+
+### Detected Unsupported Integrations
+LinkedIn, Salesforce, Jira, Asana, Zendesk, Zoom, Calendly, Twilio/SMS, WhatsApp, Telegram, QuickBooks, Xero, Intercom, Pipedrive, ClickUp
+
+### Detected Unsupported Features
+RSS feeds, built-in scheduled triggers, FTP/SFTP, direct database connections, web scraping
+
+---
+
+## 2026-01-29 – AI Template Caching System
+
+Implemented automatic template caching for AI-generated workflows. The system now saves successful workflow plans as reusable templates, enabling faster responses and reduced LLM costs for repeated similar requests.
+
+### New Files Created
+- **`/lib/workflows/ai-agent/planToTemplate.ts`** - Core conversion logic from PlannerResult to template format
+- **`/app/api/templates/ai-generated/route.ts`** - Dedicated API for AI-generated templates
+- **`/supabase/migrations/20260129000000_add_ai_template_columns.sql`** - Database schema updates
+- **`/learning/docs/ai-template-caching-guide.md`** - Complete documentation
+
+### Modified Files
+- **`/app/workflows/v2/api/flows/[flowId]/edits/route.ts`** - Added template-first lookup and auto-save
+- **`/components/templates/TemplateGallery.tsx`** - Added AI-generated badge and filter
+
+### How It Works
+1. **Template-First**: Before calling the LLM planner, the system checks for existing templates with matching prompt hash
+2. **Prompt Normalization**: Prompts are normalized (lowercase, no punctuation) before hashing for better cache hits
+3. **Auto-Save**: Successful plans are automatically saved as draft templates
+4. **Config Stripping**: User-specific values (IDs, connections) are stripped; AI-generated content (messages, prompts) is preserved
+
+### API Changes
+- `POST /api/workflows/v2/flows/[flowId]/edits` now accepts:
+  - `useTemplateCache: boolean` (default: true) - Check cache first
+  - `saveAsTemplate: boolean` (default: true) - Save successful plans
+- Response includes `fromCache: boolean` and `cachedTemplateId: string | undefined`
+
+### Database Schema
+New columns on `templates` table:
+- `prompt_hash` - SHA-256 hash of normalized prompt
+- `is_ai_generated` - Boolean flag
+- `original_prompt` - Original user request
+- `integrations` - Array of required providers
+
+### UI Updates
+- AI-generated templates show purple "AI Generated" badge
+- Filter toggle to show/hide AI templates
+- Author shows "AI Generated" instead of "by ChainReact"
+
+---
+
 ## 2026-01-25 – Add Task Balance Widget to Workflow Builder
 
 Added a comprehensive task balance widget to the workflow builder header that shows users their remaining tasks and estimated workflow cost.

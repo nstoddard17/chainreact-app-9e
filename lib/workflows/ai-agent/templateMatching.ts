@@ -31,8 +31,187 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 /**
  * Common workflow templates
  * Add more as you discover popular patterns
+ *
+ * IMPORTANT: More specific templates (with AI nodes) should be listed FIRST
+ * so they match before generic patterns like "email-to-slack"
  */
 const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
+  // ============================================
+  // AI NODE TEMPLATES (must be first - more specific)
+  // ============================================
+
+  {
+    id: 'email-summarize-slack',
+    patterns: [
+      /email.*summarize.*slack/i,
+      /gmail.*summarize.*slack/i,
+      /summarize.*email.*slack/i,
+      /email.*summary.*slack/i,
+      /email.*tldr.*slack/i,
+      /email.*digest.*slack/i,
+    ],
+    description: 'Summarize emails and send to Slack',
+    requiresProvider: ['email'],
+    plan: (emailProvider: string) => [
+      {
+        id: 'trigger-1',
+        title: 'New Email',
+        nodeType: `${emailProvider}_trigger_new_email`,
+        providerId: emailProvider,
+      },
+      {
+        id: 'action-1',
+        title: 'Summarize Text',
+        nodeType: 'ai_summarize',
+        providerId: 'ai',
+      },
+      {
+        id: 'action-2',
+        title: 'Send Message to Channel',
+        nodeType: 'slack_action_send_message',
+        providerId: 'slack',
+      },
+    ],
+  },
+
+  {
+    id: 'email-extract-sheets',
+    patterns: [
+      /email.*extract.*sheet/i,
+      /gmail.*extract.*sheet/i,
+      /extract.*email.*sheet/i,
+      /pull.*data.*email.*sheet/i,
+      /email.*data.*sheet/i,
+    ],
+    description: 'Extract data from emails to Google Sheets',
+    requiresProvider: ['email'],
+    plan: (emailProvider: string) => [
+      {
+        id: 'trigger-1',
+        title: 'New Email',
+        nodeType: `${emailProvider}_trigger_new_email`,
+        providerId: emailProvider,
+      },
+      {
+        id: 'action-1',
+        title: 'Extract Data',
+        nodeType: 'ai_extract',
+        providerId: 'ai',
+      },
+      {
+        id: 'action-2',
+        title: 'Append Row',
+        nodeType: 'google_sheets_action_append_row',
+        providerId: 'google-sheets',
+      },
+    ],
+  },
+
+  {
+    id: 'email-classify-slack',
+    patterns: [
+      /email.*classify.*slack/i,
+      /gmail.*classify.*slack/i,
+      /classify.*email.*slack/i,
+      /categorize.*email.*slack/i,
+      /triage.*email.*slack/i,
+      /sort.*email.*slack/i,
+    ],
+    description: 'Classify emails and notify Slack',
+    requiresProvider: ['email'],
+    plan: (emailProvider: string) => [
+      {
+        id: 'trigger-1',
+        title: 'New Email',
+        nodeType: `${emailProvider}_trigger_new_email`,
+        providerId: emailProvider,
+      },
+      {
+        id: 'action-1',
+        title: 'Classify Text',
+        nodeType: 'ai_classify',
+        providerId: 'ai',
+      },
+      {
+        id: 'action-2',
+        title: 'Send Message to Channel',
+        nodeType: 'slack_action_send_message',
+        providerId: 'slack',
+      },
+    ],
+  },
+
+  {
+    id: 'email-sentiment-slack',
+    patterns: [
+      /email.*sentiment.*slack/i,
+      /gmail.*sentiment.*slack/i,
+      /sentiment.*email.*slack/i,
+      /analyze.*tone.*email/i,
+      /email.*mood.*slack/i,
+    ],
+    description: 'Analyze email sentiment and notify Slack',
+    requiresProvider: ['email'],
+    plan: (emailProvider: string) => [
+      {
+        id: 'trigger-1',
+        title: 'New Email',
+        nodeType: `${emailProvider}_trigger_new_email`,
+        providerId: emailProvider,
+      },
+      {
+        id: 'action-1',
+        title: 'Analyze Sentiment',
+        nodeType: 'ai_sentiment',
+        providerId: 'ai',
+      },
+      {
+        id: 'action-2',
+        title: 'Send Message to Channel',
+        nodeType: 'slack_action_send_message',
+        providerId: 'slack',
+      },
+    ],
+  },
+
+  {
+    id: 'email-translate-reply',
+    patterns: [
+      /email.*translate/i,
+      /gmail.*translate/i,
+      /translate.*email/i,
+      /email.*spanish/i,
+      /email.*french/i,
+      /email.*german/i,
+    ],
+    description: 'Translate emails',
+    requiresProvider: ['email'],
+    plan: (emailProvider: string) => [
+      {
+        id: 'trigger-1',
+        title: 'New Email',
+        nodeType: `${emailProvider}_trigger_new_email`,
+        providerId: emailProvider,
+      },
+      {
+        id: 'action-1',
+        title: 'Translate Text',
+        nodeType: 'ai_translate',
+        providerId: 'ai',
+      },
+      {
+        id: 'action-2',
+        title: 'Send Email',
+        nodeType: `${emailProvider}_action_send_email`,
+        providerId: emailProvider,
+      },
+    ],
+  },
+
+  // ============================================
+  // BASIC TEMPLATES (less specific - checked after AI templates)
+  // ============================================
+
   {
     id: 'email-to-slack',
     patterns: [

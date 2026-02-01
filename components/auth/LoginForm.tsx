@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuthStore } from "@/stores/authStore"
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { Mail, Lock, Eye, EyeOff } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
+import { supabase } from "@/utils/supabaseClient"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -25,6 +26,45 @@ function LoginFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = searchParams.get('returnUrl')
+  const hasCleanedSession = useRef(false)
+
+  // Clear any stale session data when visiting login page to prevent
+  // "Invalid Refresh Token: Already Used" errors from race conditions
+  useEffect(() => {
+    if (hasCleanedSession.current) return
+    hasCleanedSession.current = true
+
+    const clearStaleSession = async () => {
+      try {
+        // Check if there's an existing session that might cause refresh token issues
+        const { data: { session } } = await supabase.auth.getSession()
+
+        // If there's a session but user is on the login page, they likely want to log in fresh
+        // Sign out to clear any stale tokens and prevent refresh token race conditions
+        if (session) {
+          logger.debug('[LoginForm] Clearing existing session on login page visit')
+          await supabase.auth.signOut({ scope: 'local' })
+
+          // Clear localStorage auth data
+          localStorage.removeItem('chainreact-auth')
+
+          // Reset auth store state
+          useAuthStore.setState({
+            user: null,
+            profile: null,
+            initialized: true,
+            loading: false,
+            error: null
+          })
+        }
+      } catch (error) {
+        // Ignore errors - this is just cleanup
+        logger.debug('[LoginForm] Error clearing stale session:', error)
+      }
+    }
+
+    clearStaleSession()
+  }, [])
 
   const getRedirectUrl = () => {
     if (returnUrl) {

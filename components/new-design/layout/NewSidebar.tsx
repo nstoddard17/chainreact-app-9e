@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl"
 import { useWorkspaceContext } from "@/hooks/useWorkspaceContext"
 import { useWorkflowCreation } from "@/hooks/useWorkflowCreation"
+import { useCreateAndOpenWorkflow } from "@/hooks/useCreateAndOpenWorkflow"
 import { WorkspaceSelectionModal } from "@/components/workflows/WorkspaceSelectionModal"
 import { useRoutePrefetch, useSmartPrefetch } from "@/hooks/useRoutePrefetch"
 import {
@@ -75,6 +76,7 @@ export function NewSidebar() {
     handleWorkspaceSelected,
     handleCancelWorkspaceSelection
   } = useWorkflowCreation()
+  const { createAndOpen, isCreating: isCreatingWorkflow } = useCreateAndOpenWorkflow()
   const [creditsModalOpen, setCreditsModalOpen] = useState(false)
   const [upgradePlanModalOpen, setUpgradePlanModalOpen] = useState(false)
   const [freeCreditsModalOpen, setFreeCreditsModalOpen] = useState(false)
@@ -168,12 +170,13 @@ export function NewSidebar() {
       {/* New Workflow Button */}
       <div className="px-3 pt-2 pb-2">
         <Button
-          onClick={() => initiateWorkflowCreation(() => router.push('/workflows/ai-agent'))}
+          onClick={() => initiateWorkflowCreation(() => createAndOpen())}
+          disabled={isCreatingWorkflow}
           className="w-full justify-center gap-2 h-10"
           size="default"
         >
           <Plus className="w-4 h-4" />
-          Create New Workflow
+          {isCreatingWorkflow ? 'Creating...' : 'Create New Workflow'}
         </Button>
       </div>
 

@@ -455,7 +455,7 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
   const [placeholderText, setPlaceholderText] = useState('')
   const [showCursor, setShowCursor] = useState(true)
   const [preferenceModalOpen, setPreferenceModalOpen] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   const connectedProviders = getConnectedProviders()
@@ -589,6 +589,10 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
 
     setMessages(prev => [...prev, userMessage])
     setInput('')
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto'
+    }
     setIsLoading(true)
 
     try {
@@ -808,9 +812,14 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
                     </div>
                   )}
                   <textarea
-                    ref={inputRef as any}
+                    ref={inputRef}
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={(e) => {
+                      setInput(e.target.value)
+                      // Auto-resize textarea
+                      e.target.style.height = 'auto'
+                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault()
@@ -818,9 +827,9 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
                       }
                     }}
                     placeholder=""
-                    rows={4}
-                    className="w-full text-base pl-4 pr-14 py-4 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-2xl transition-all duration-200 outline-none focus:outline-none focus:ring-0 focus:border-gray-200 dark:focus:border-zinc-700 shadow-md hover:shadow-lg focus:shadow-xl resize-none"
-                    style={{ lineHeight: '1.5rem' }}
+                    rows={2}
+                    className="w-full text-base pl-4 pr-14 py-4 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-2xl transition-all duration-200 outline-none focus:outline-none focus:ring-0 focus:border-gray-200 dark:focus:border-zinc-700 shadow-md hover:shadow-lg focus:shadow-xl resize-none overflow-y-auto"
+                    style={{ lineHeight: '1.5rem', minHeight: '56px', maxHeight: '200px' }}
                     disabled={isLoading}
                   />
                   <button
@@ -983,10 +992,15 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
               <div className="container mx-auto px-6 py-4">
                 <div className="max-w-3xl mx-auto">
                   <div className="relative">
-                    <Input
+                    <textarea
                       ref={inputRef}
                       value={input}
-                      onChange={(e) => setInput(e.target.value)}
+                      onChange={(e) => {
+                        setInput(e.target.value)
+                        // Auto-resize textarea
+                        e.target.style.height = 'auto'
+                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault()
@@ -994,14 +1008,16 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
                         }
                       }}
                       placeholder="Describe your next step..."
-                      className="h-12 pr-14"
+                      rows={1}
+                      className="w-full text-sm pl-4 pr-14 py-3 bg-background border border-input rounded-xl transition-all duration-200 outline-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none overflow-y-auto"
+                      style={{ minHeight: '48px', maxHeight: '200px' }}
                       disabled={isLoading}
                     />
                     <Button
                       onClick={handleSendMessage}
                       disabled={!input.trim() || isLoading}
                       size="icon"
-                      className="absolute right-2 top-2 h-8 w-8"
+                      className="absolute right-2 bottom-2 h-8 w-8"
                     >
                       {isLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />

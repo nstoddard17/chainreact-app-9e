@@ -1262,9 +1262,23 @@ export function FlowV2AgentPanel({
 
                 return (
                   <div key={`assistant-${index}`} className="flex w-full flex-col gap-2">
-                    {/* Text bubble */}
+                    {/* Text bubble - with special styling for warnings */}
                     {text.trim().length > 0 && (
-                      <div className="max-w-[80%] rounded-lg px-4 py-3 bg-orange-50 text-gray-900 dark:bg-orange-900/20 dark:text-gray-100">
+                      <div className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                        meta.isWarning
+                          ? 'bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-100'
+                          : 'bg-orange-50 text-gray-900 dark:bg-orange-900/20 dark:text-gray-100'
+                      }`}>
+                        {meta.isWarning && (
+                          <div className="flex items-center gap-2 mb-2 text-amber-700 dark:text-amber-300">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>
+                              <path d="M12 9v4"/>
+                              <path d="M12 17h.01"/>
+                            </svg>
+                            <span className="text-xs font-medium uppercase tracking-wide">Feature Notice</span>
+                          </div>
+                        )}
                         <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
                           {text}
                         </p>

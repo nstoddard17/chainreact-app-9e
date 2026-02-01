@@ -7,6 +7,7 @@ import { useWorkflowStore } from "@/stores/workflowStore"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { usePlanRestrictions } from "@/hooks/use-plan-restrictions"
+import { useCreateAndOpenWorkflow } from "@/hooks/useCreateAndOpenWorkflow"
 import { LockedFeature, UpgradePlanModal } from "@/components/plan-restrictions"
 import { Button } from "@/components/ui/button"
 import { ProfessionalSearch } from "@/components/ui/professional-search"
@@ -117,6 +118,7 @@ export function HomeContent() {
   const { user, profile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const { checkFeatureAccess, checkActionLimit } = usePlanRestrictions()
+  const { createAndOpen, isCreating: isCreatingWorkflow } = useCreateAndOpenWorkflow()
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState<'all' | 'active' | 'drafts' | 'incomplete'>('all')
   const [connectAppsDialog, setConnectAppsDialog] = useState(false)
@@ -566,7 +568,7 @@ export function HomeContent() {
     )
   }
 
-  // Handle New Workflow button click - routes based on AI agent preference
+  // Handle New Workflow button click - creates workflow and opens builder directly
   const handleNewWorkflowClick = () => {
     const aiPref = profile?.ai_agent_preference || 'always_show'
 
@@ -574,8 +576,8 @@ export function HomeContent() {
       // User prefers to skip AI - show create dialog directly
       setCreateDialog(true)
     } else {
-      // User prefers AI or wants to be asked - go to AI agent page
-      router.push('/workflows/ai-agent')
+      // Create workflow and open builder (AI panel will be visible by default)
+      createAndOpen()
     }
   }
 

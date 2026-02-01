@@ -55,6 +55,21 @@ interface AgentResult {
   prerequisites: string[]
   rationale?: string
   workflowName?: string
+  /** Unsupported features detected in the prompt */
+  unsupportedFeatures?: {
+    hasUnsupported: boolean
+    features: Array<{ feature: string; alternative?: string }>
+    message: string
+  }
+  /** Task cost for AI workflow creation */
+  taskCost?: {
+    tasksUsed: number
+    breakdown: { base: number; complexity: number; total: number }
+    remainingBalance?: number | null
+    message?: string
+  }
+  /** Whether this result came from template cache */
+  fromCache?: boolean
 }
 
 interface RunNodeSnapshot {
@@ -1554,10 +1569,27 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     async (prompt: string): Promise<AgentResult> => {
       const flow = await ensureFlow()
       const payload = await fetchJson<{
+        ok?: boolean
         edits?: PlannerEdit[]
         prerequisites?: string[]
         rationale?: string
         workflowName?: string
+        unsupportedFeatures?: {
+          hasUnsupported: boolean
+          features: Array<{ feature: string; alternative?: string }>
+          message: string
+        }
+        taskCost?: {
+          tasksUsed: number
+          breakdown: { base: number; complexity: number; total: number }
+          remainingBalance?: number | null
+          message?: string
+        }
+        taskLimitExceeded?: boolean
+        tasksUsed?: number
+        tasksLimit?: number
+        fromCache?: boolean
+        errors?: string[]
       }>(flowApiUrl(flowId, '/edits'), {
         method: "POST",
         headers: JSON_HEADERS,
@@ -1565,13 +1597,24 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           prompt,
           flow,
         }),
-      })
+      }, 60000) // 60 second timeout for LLM planning
+
+      // Handle task limit exceeded
+      if (payload.taskLimitExceeded) {
+        throw new Error(
+          `Task limit exceeded. You have used ${payload.tasksUsed ?? 0} of ${payload.tasksLimit ?? 100} tasks this month. ` +
+          `Please upgrade your plan or wait for the monthly reset.`
+        )
+      }
 
       const result: AgentResult = {
         edits: payload.edits ?? [],
         prerequisites: payload.prerequisites ?? [],
         rationale: payload.rationale,
         workflowName: payload.workflowName,
+        unsupportedFeatures: payload.unsupportedFeatures,
+        taskCost: payload.taskCost,
+        fromCache: payload.fromCache,
       }
 
       setFlowState((prev) => ({
