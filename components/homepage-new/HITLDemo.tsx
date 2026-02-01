@@ -3,16 +3,13 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Mail,
   Brain,
   FileText,
   MessageSquare,
-  ArrowRight,
   PlayCircle,
   RefreshCw,
-  Sparkles,
   Search,
   CheckCircle,
   Database
@@ -120,10 +117,6 @@ export function HITLDemo() {
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <Badge className="bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/20 mb-4">
-            <Sparkles className="w-3 h-3 mr-1" />
-            Interactive Demo
-          </Badge>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
             AI That Reads Your Documents
           </h2>

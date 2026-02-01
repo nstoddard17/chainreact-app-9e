@@ -4,7 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ChainReactLogo } from '@/components/homepage/ChainReactLogo'
-import { Moon, Sun, Menu, X, ArrowRight } from 'lucide-react'
+import { Moon, Sun, Menu, X } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 export function HomepageHeader() {
@@ -81,10 +81,9 @@ export function HomepageHeader() {
             </Button>
           )}
 
-          <Link href="/waitlist">
-            <Button className="bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white shadow-lg shadow-orange-500/20">
-              Get Started
-              <ArrowRight className="w-4 h-4 ml-2" />
+          <Link href="/auth/login">
+            <Button variant="outline" className="border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10">
+              Sign In
             </Button>
           </Link>
         </nav>
@@ -132,11 +131,10 @@ export function HomepageHeader() {
             </button>
           ))}
           <Link
-            href="/waitlist"
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-semibold shadow-lg shadow-orange-500/20 transition-colors"
+            href="/auth/login"
+            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 dark:border-white/20 text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-white/10 font-semibold transition-colors"
           >
-            Get Started
-            <ArrowRight className="w-4 h-4" />
+            Sign In
           </Link>
         </div>
       </div>

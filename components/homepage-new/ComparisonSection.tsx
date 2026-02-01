@@ -3,15 +3,13 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
   Brain,
   Zap,
   TrendingUp,
   CheckCircle,
   XCircle,
-  MessageSquare,
-  Lightbulb
+  MessageSquare
 } from 'lucide-react'
 
 export function ComparisonSection() {
@@ -20,10 +18,6 @@ export function ComparisonSection() {
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-12">
-          <Badge variant="secondary" className="bg-orange-600/20 text-orange-300 dark:text-orange-300 border border-orange-500/30 mb-4">
-            <Lightbulb className="w-3 h-3 mr-1" />
-            What Makes Us Different
-          </Badge>
           <h2 className="text-3xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
             Not Another Zapier Clone
           </h2>

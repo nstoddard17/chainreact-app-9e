@@ -3,7 +3,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
-import { ArrowRight, Brain, Workflow, Zap, FileText, Eye, Code } from 'lucide-react'
+import { ArrowRight, Workflow, FileText, Eye, Code } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export function NewHeroSection() {
@@ -13,19 +13,6 @@ export function NewHeroSection() {
     <section className="relative px-4 sm:px-6 lg:px-8 pt-32 pb-24 lg:pt-40 lg:pb-32">
       <div className="max-w-7xl mx-auto">
         <div className="text-center">
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 mb-6"
-          >
-            <Brain className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
-            <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
-              Intelligent Workflow Automation
-            </span>
-          </motion.div>
-
           {/* Main Headline */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -60,10 +47,10 @@ export function NewHeroSection() {
           >
             <Button
               size="lg"
-              onClick={() => router.push('/waitlist')}
+              onClick={() => router.push('/auth/login')}
               className="bg-orange-500 hover:bg-orange-600 dark:bg-orange-500 dark:hover:bg-orange-600 text-white border-0 px-6 py-3 rounded-lg font-medium transition-colors shadow-lg shadow-orange-500/20"
             >
-              Start Building
+              Sign In
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
             <Button
