@@ -45,6 +45,20 @@ export function SetupTab(props: SetupTabProps) {
   const hasRequestedIntegrationsRef = useRef(false)
   const lastProviderKeyRef = useRef<string | null>(null)
 
+  // CRITICAL FIX: Store last known good integrations to use as fallback
+  // This prevents "not connected" flash when store temporarily becomes empty during node switching
+  const lastKnownIntegrationsRef = useRef<typeof integrations>([])
+
+  // CRITICAL FIX: Initialize the ref with current store state on mount
+  // This ensures we have fallback data even during race conditions when
+  // switching between nodes of the same provider
+  useEffect(() => {
+    const storeIntegrations = useIntegrationStore.getState().integrations
+    if (storeIntegrations.length > 0 && lastKnownIntegrationsRef.current.length === 0) {
+      lastKnownIntegrationsRef.current = storeIntegrations
+    }
+  }, [])
+
   // Check if integrations are still loading from the store
   const isLoadingIntegrations = loadingStates?.['integrations'] ?? false
 
@@ -52,9 +66,11 @@ export function SetupTab(props: SetupTabProps) {
   // This prevents the "Not connected" flicker when clicking on a node
   // if the integration store hasn't been populated yet
   useEffect(() => {
-    const providerKey = nodeInfo?.providerId
-      ? `${nodeInfo.providerId}|${currentNodeId || ''}|${nodeInfo.type || ''}`
-      : null
+    // CRITICAL FIX: Only use providerId for the key - switching between same-provider nodes
+    // (e.g., Slack trigger A → Slack trigger B) doesn't require re-fetching integrations
+    // since integrations are per-provider, not per-node. Including currentNodeId or nodeType
+    // caused unnecessary re-fetches that triggered a race condition with modal lifecycle.
+    const providerKey = nodeInfo?.providerId || null
 
     if (providerKey && lastProviderKeyRef.current !== providerKey) {
       hasRequestedIntegrationsRef.current = false
@@ -76,7 +92,7 @@ export function SetupTab(props: SetupTabProps) {
         // Silently ignore errors - the UI will show "Not connected" which is acceptable
       })
     }
-  }, [nodeInfo?.providerId, nodeInfo?.type, currentNodeId, fetchIntegrations])
+  }, [nodeInfo?.providerId, fetchIntegrations])
 
   // Listen for reconnection events to refresh integration store
   React.useEffect(() => {
@@ -108,16 +124,28 @@ export function SetupTab(props: SetupTabProps) {
   const connections = useMemo(() => {
     if (!requiresConnection || !nodeInfo?.providerId) return []
 
-    // CRITICAL FIX: Use getState() to get current store value synchronously
-    // This handles Zustand subscription timing issue on first render after node switch
-    // The reactive 'integrations' variable may be stale/empty during initial render
-    // before the Zustand subscription propagates the current store state
+    // CRITICAL FIX: Multi-level fallback for integration data
+    // Level 1: Reactive integrations from Zustand hook
+    // Level 2: Synchronous getState() from Zustand store
+    // Level 3: Last known good integrations from ref (survives store clearing)
     const storeState = useIntegrationStore.getState()
-    const effectiveIntegrations = integrations.length > 0
+    let effectiveIntegrations = integrations.length > 0
       ? integrations
-      : storeState.integrations
+      : storeState.integrations.length > 0
+        ? storeState.integrations
+        : lastKnownIntegrationsRef.current
+
+    // Update the ref with the latest valid integrations
+    // This ensures we always have a fallback even if the store gets cleared
+    if (integrations.length > 0) {
+      lastKnownIntegrationsRef.current = integrations
+    } else if (storeState.integrations.length > 0) {
+      lastKnownIntegrationsRef.current = storeState.integrations
+    }
 
     // DEBUG: Log all integrations to help trace connection status issues
+    const fallbackSource = integrations.length > 0 ? 'reactive' :
+      storeState.integrations.length > 0 ? 'getState' : 'lastKnownRef'
     console.log('🔍 [SetupTab] Debug - All integrations:', effectiveIntegrations.map(int => ({
       id: int.id,
       provider: int.provider,
@@ -125,7 +153,11 @@ export function SetupTab(props: SetupTabProps) {
       workspace_type: int.workspace_type
     })))
     console.log('🔍 [SetupTab] Debug - Looking for provider:', nodeInfo.providerId)
-    console.log('🔍 [SetupTab] Debug - Using fallback:', integrations.length === 0 && storeState.integrations.length > 0)
+    console.log('🔍 [SetupTab] Debug - Using source:', fallbackSource, '| counts:', {
+      reactive: integrations.length,
+      getState: storeState.integrations.length,
+      lastKnownRef: lastKnownIntegrationsRef.current.length
+    })
 
     // Get all integrations that match this provider
     const providerIntegrations = effectiveIntegrations.filter(
