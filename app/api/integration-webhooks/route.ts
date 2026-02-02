@@ -84,7 +84,7 @@ export async function GET() {
           'google-sheets': ['google_sheets_trigger_new_row', 'google_sheets_trigger_new_worksheet', 'google_sheets_trigger_updated_row'],
           'google-drive': ['google_drive_trigger_new_file', 'google_drive_trigger_file_modified'],
           'google-docs': ['google_docs_trigger_document_modified'],
-          slack: ['slack_trigger_new_message', 'slack_trigger_new_reaction', 'slack_trigger_slash_command'],
+          slack: ['slack_trigger_new_message', 'slack_trigger_new_reaction'],
           discord: ['discord_trigger_new_message', 'discord_trigger_slash_command'],
           twitter: ['twitter_trigger_new_mention', 'twitter_trigger_new_follower', 'twitter_trigger_new_direct_message', 'twitter_trigger_search_match', 'twitter_trigger_user_tweet'],
           facebook: ['facebook_trigger_new_post', 'facebook_trigger_new_comment'],

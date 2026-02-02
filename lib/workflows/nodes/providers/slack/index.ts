@@ -1,4 +1,4 @@
-import { MessageSquare, Hash, Heart, HeartOff, UserPlus, UserMinus, MessageCircle, Layout, Terminal, User, Edit, Trash2, Bell, FileText, Target, Pin, PinOff, Upload, Smile, Frown, Archive, ArchiveRestore, LogOut, LogIn, PencilLine, Info, Search, SearchCode, UserSearch, UserCircle, Activity, List, Users, Clock, XCircle, CalendarClock, Download, FileSearch } from "lucide-react"
+import { MessageSquare, Hash, Heart, HeartOff, UserPlus, UserMinus, MessageCircle, Layout, User, Edit, Trash2, Bell, FileText, Target, Pin, PinOff, Upload, Smile, Frown, Archive, ArchiveRestore, LogOut, LogIn, PencilLine, Info, Search, SearchCode, UserSearch, UserCircle, Activity, List, Users, Clock, XCircle, CalendarClock, Download, FileSearch } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 // Import action schemas
@@ -46,7 +46,6 @@ import { reactionRemovedTriggerSchema } from "./triggers/reactionRemoved.schema"
 import { channelCreatedTriggerSchema } from "./triggers/channelCreated.schema"
 import { memberJoinedChannelTriggerSchema } from "./triggers/memberJoinedChannel.schema"
 import { memberLeftChannelTriggerSchema } from "./triggers/memberLeftChannel.schema"
-import { slashCommandTriggerSchema } from "./triggers/slashCommand.schema"
 import { fileUploadedTriggerSchema } from "./triggers/fileUploaded.schema"
 import { userJoinedWorkspaceTriggerSchema } from "./triggers/userJoinedWorkspace.schema"
 
@@ -262,11 +261,6 @@ const memberLeftChannel: NodeComponent = {
   icon: UserMinus
 }
 
-const slashCommand: NodeComponent = {
-  ...slashCommandTriggerSchema,
-  icon: Terminal
-}
-
 const fileUploaded: NodeComponent = {
   ...fileUploadedTriggerSchema,
   icon: Upload
@@ -324,7 +318,6 @@ export const slackNodes: NodeComponent[] = [
   channelCreated,
   memberJoinedChannel,
   memberLeftChannel,
-  slashCommand,
   fileUploaded,
   userJoinedWorkspace,
 ]
@@ -376,7 +369,6 @@ export {
   channelCreated,
   memberJoinedChannel,
   memberLeftChannel,
-  slashCommand,
   fileUploaded,
   userJoinedWorkspace,
 }

@@ -63,7 +63,6 @@ AVAILABLE TRIGGERS:
 - google_sheets_trigger_updated_row: Triggers when a row is updated in Google Sheets
 - slack_trigger_new_message: Triggers when a new message is sent in Slack
 - slack_trigger_new_reaction: Triggers when a reaction is added to a Slack message
-- slack_trigger_slash_command: Triggers when a slash command is used in Slack
 - discord_trigger_new_message: Triggers when a new message is sent in Discord
 - discord_trigger_slash_command: Triggers when a slash command is used in Discord
 - notion_trigger_new_page: Triggers when a new page is created in Notion

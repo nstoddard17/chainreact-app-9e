@@ -221,7 +221,6 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       'slack_trigger_channel_created': 'channel_created',
       'slack_trigger_member_joined_channel': 'member_joined_channel',
       'slack_trigger_member_left_channel': 'member_left_channel',
-      'slack_trigger_slash_command': 'slash_command',
       'slack_trigger_file_uploaded': 'file_shared',
       'slack_trigger_user_joined_workspace': 'team_join'
     }
