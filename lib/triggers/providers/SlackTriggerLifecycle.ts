@@ -210,15 +210,15 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
   private getEventTypeForTrigger(triggerType: string): string {
     const eventMap: Record<string, string> = {
       'slack_trigger_message_channels': 'message',
-      'slack_trigger_direct_message': 'message',
-      'slack_trigger_group_direct_message': 'message',
+      'slack_trigger_message_im': 'message',
+      'slack_trigger_message_mpim': 'message',
       'slack_trigger_reaction_added': 'reaction_added',
       'slack_trigger_reaction_removed': 'reaction_removed',
       'slack_trigger_channel_created': 'channel_created',
-      'slack_trigger_member_joined': 'member_joined_channel',
-      'slack_trigger_member_left': 'member_left_channel',
+      'slack_trigger_member_joined_channel': 'member_joined_channel',
+      'slack_trigger_member_left_channel': 'member_left_channel',
       'slack_trigger_slash_command': 'slash_command',
-      'slack_trigger_file_shared': 'file_shared',
+      'slack_trigger_file_uploaded': 'file_shared',
       'slack_trigger_user_joined_workspace': 'team_join'
     }
 
