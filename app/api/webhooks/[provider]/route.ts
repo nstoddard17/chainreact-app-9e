@@ -94,6 +94,11 @@ export async function POST(
     // Process the event based on provider
     const { eventType, normalizedData, eventId, ignore } = normalizeWebhookEvent(provider, eventData, requestId)
 
+    // INFO-level logging to trace webhook processing
+    if (provider === 'slack') {
+      logger.info(`[${requestId}] 🔵 SLACK WEBHOOK: eventType=${eventType}, channel=${normalizedData?.message?.channel}, channelType=${normalizedData?.message?.channelType}, team=${normalizedData?.message?.team}`)
+    }
+
     if (ignore) {
       logger.debug(`[${requestId}] Ignoring ${provider} event based on normalization rules`, {
         provider,

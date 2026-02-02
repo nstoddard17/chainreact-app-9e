@@ -77,7 +77,10 @@ export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
 
     // 2. Find matching workflows instantly
     const matchingWorkflows = await findMatchingWorkflows(event)
-    
+
+    // INFO-level logging to trace workflow matching
+    logger.info(`🔵 WEBHOOK PROCESSOR: Found ${matchingWorkflows.length} matching workflows for eventType=${event.eventType}, provider=${event.provider}`)
+
     // 3. Execute workflows in parallel for maximum speed
     const executionPromises = matchingWorkflows.map(workflow => 
       executeWorkflowInstantly(workflow, event)
