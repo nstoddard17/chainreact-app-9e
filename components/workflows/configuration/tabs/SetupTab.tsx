@@ -108,17 +108,27 @@ export function SetupTab(props: SetupTabProps) {
   const connections = useMemo(() => {
     if (!requiresConnection || !nodeInfo?.providerId) return []
 
+    // CRITICAL FIX: Use getState() to get current store value synchronously
+    // This handles Zustand subscription timing issue on first render after node switch
+    // The reactive 'integrations' variable may be stale/empty during initial render
+    // before the Zustand subscription propagates the current store state
+    const storeState = useIntegrationStore.getState()
+    const effectiveIntegrations = integrations.length > 0
+      ? integrations
+      : storeState.integrations
+
     // DEBUG: Log all integrations to help trace connection status issues
-    console.log('🔍 [SetupTab] Debug - All integrations:', integrations.map(int => ({
+    console.log('🔍 [SetupTab] Debug - All integrations:', effectiveIntegrations.map(int => ({
       id: int.id,
       provider: int.provider,
       status: int.status,
       workspace_type: int.workspace_type
     })))
     console.log('🔍 [SetupTab] Debug - Looking for provider:', nodeInfo.providerId)
+    console.log('🔍 [SetupTab] Debug - Using fallback:', integrations.length === 0 && storeState.integrations.length > 0)
 
     // Get all integrations that match this provider
-    const providerIntegrations = integrations.filter(
+    const providerIntegrations = effectiveIntegrations.filter(
       int => int.provider === nodeInfo.providerId
     )
 
