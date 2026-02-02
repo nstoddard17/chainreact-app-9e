@@ -12,6 +12,12 @@ import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { ManyChatGuide } from '@/components/integrations/guides/ManyChatGuide'
 import { BeehiivGuide } from '@/components/integrations/guides/BeehiivGuide'
 
+// MODULE-LEVEL CACHE: This survives component remounts during node switching
+// When switching between same-provider nodes (e.g., Slack trigger A → B),
+// the old SetupTab unmounts and a new one mounts. A component-level ref
+// would reset to [], but this module-level cache persists the integrations.
+let lastKnownIntegrationsCache: any[] = []
+
 interface SetupTabProps {
   nodeInfo: any
   initialData?: Record<string, any>
@@ -45,17 +51,12 @@ export function SetupTab(props: SetupTabProps) {
   const hasRequestedIntegrationsRef = useRef(false)
   const lastProviderKeyRef = useRef<string | null>(null)
 
-  // CRITICAL FIX: Store last known good integrations to use as fallback
-  // This prevents "not connected" flash when store temporarily becomes empty during node switching
-  const lastKnownIntegrationsRef = useRef<typeof integrations>([])
-
-  // CRITICAL FIX: Initialize the ref with current store state on mount
-  // This ensures we have fallback data even during race conditions when
-  // switching between nodes of the same provider
+  // CRITICAL FIX: Initialize the module-level cache on mount if it's empty
+  // This ensures we populate the cache from the store on first render
   useEffect(() => {
     const storeIntegrations = useIntegrationStore.getState().integrations
-    if (storeIntegrations.length > 0 && lastKnownIntegrationsRef.current.length === 0) {
-      lastKnownIntegrationsRef.current = storeIntegrations
+    if (storeIntegrations.length > 0 && lastKnownIntegrationsCache.length === 0) {
+      lastKnownIntegrationsCache = storeIntegrations
     }
   }, [])
 
@@ -127,25 +128,25 @@ export function SetupTab(props: SetupTabProps) {
     // CRITICAL FIX: Multi-level fallback for integration data
     // Level 1: Reactive integrations from Zustand hook
     // Level 2: Synchronous getState() from Zustand store
-    // Level 3: Last known good integrations from ref (survives store clearing)
+    // Level 3: Module-level cache (survives component remounts during node switching)
     const storeState = useIntegrationStore.getState()
     let effectiveIntegrations = integrations.length > 0
       ? integrations
       : storeState.integrations.length > 0
         ? storeState.integrations
-        : lastKnownIntegrationsRef.current
+        : lastKnownIntegrationsCache
 
-    // Update the ref with the latest valid integrations
+    // Update the module-level cache with the latest valid integrations
     // This ensures we always have a fallback even if the store gets cleared
     if (integrations.length > 0) {
-      lastKnownIntegrationsRef.current = integrations
+      lastKnownIntegrationsCache = integrations
     } else if (storeState.integrations.length > 0) {
-      lastKnownIntegrationsRef.current = storeState.integrations
+      lastKnownIntegrationsCache = storeState.integrations
     }
 
     // DEBUG: Log all integrations to help trace connection status issues
     const fallbackSource = integrations.length > 0 ? 'reactive' :
-      storeState.integrations.length > 0 ? 'getState' : 'lastKnownRef'
+      storeState.integrations.length > 0 ? 'getState' : 'moduleCache'
     console.log('🔍 [SetupTab] Debug - All integrations:', effectiveIntegrations.map(int => ({
       id: int.id,
       provider: int.provider,
@@ -156,7 +157,7 @@ export function SetupTab(props: SetupTabProps) {
     console.log('🔍 [SetupTab] Debug - Using source:', fallbackSource, '| counts:', {
       reactive: integrations.length,
       getState: storeState.integrations.length,
-      lastKnownRef: lastKnownIntegrationsRef.current.length
+      moduleCache: lastKnownIntegrationsCache.length
     })
 
     // Get all integrations that match this provider
