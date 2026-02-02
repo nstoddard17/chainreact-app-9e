@@ -27,6 +27,7 @@ export interface WorkflowTemplate {
 let dynamicTemplatesCache: WorkflowTemplate[] = []
 let lastDynamicTemplateLoad = 0
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+const DYNAMIC_TEMPLATE_TIMEOUT = 3000 // 3 seconds - fail fast on cold start
 
 /**
  * Common workflow templates
@@ -353,13 +354,11 @@ async function getAllTemplates(): Promise<WorkflowTemplate[]> {
   if (now - lastDynamicTemplateLoad > CACHE_DURATION) {
     try {
       // Add timeout to prevent hanging on database issues
-      // Use 10 seconds to give slow connections a chance
+      // Use short timeout (3s) to fail fast on cold start - built-in templates work fine
       const timeoutPromise = new Promise<WorkflowTemplate[]>((_, reject) => {
-        const timeoutId = setTimeout(() => {
+        setTimeout(() => {
           reject(new Error('Dynamic templates load timeout'))
-        }, 10000)
-        // Allow the timeout to be cleared if we don't need it
-        return () => clearTimeout(timeoutId)
+        }, DYNAMIC_TEMPLATE_TIMEOUT)
       })
 
       dynamicTemplatesCache = await Promise.race([

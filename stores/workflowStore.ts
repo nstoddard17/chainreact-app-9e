@@ -325,7 +325,8 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         }
 
         // Fetch ALL workflows (unified view) - pass null/undefined to get everything
-        const workflows = await WorkflowService.fetchWorkflows(force, filterContext || null, workspaceId)
+        // Include trashed workflows so the UI can display them in the trash folder
+        const workflows = await WorkflowService.fetchWorkflows(force, filterContext || null, workspaceId, true)
 
         logger.debug('[WorkflowStore] Successfully fetched workflows (unified view)', {
           count: workflows.length,

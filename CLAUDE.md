@@ -637,6 +637,14 @@ setTimeout(() => {
 - Update providerMappings in isIntegrationConnected
 - See `/learning/walkthroughs/integration-connection-status-fix.md`
 
+**AI Agent Stuck on "Outline the flow to achieve the task":**
+- **Root Cause:** On cold dev restart, `chatHistoryLoaded` waits for `authInitialized` which can be slow
+- **Files:** `hooks/workflows/builder/useChatPersistence.ts`, `lib/workflows/ai-agent/templateMatching.ts`
+- **Fix Applied:**
+  - Added 3-second timeout in useChatPersistence to unblock URL Prompt Handler
+  - Reduced dynamic template loading timeout from 10s to 3s for fast fallback
+- **Console Logs:** Check for `[URL Prompt Handler] ⏳ WAITING` or `[ChatPersistence] ⏱️ Timeout`
+
 ---
 
 ## 🎯 AI AGENT FLOW - STATUS

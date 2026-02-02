@@ -24,11 +24,13 @@ export class WorkflowService {
    * @param filterContext - OPTIONAL filter by workspace type ('personal' | 'team' | 'organization' | null)
    *                        If null/undefined, fetches ALL workflows user has access to (unified view)
    * @param workspaceId - Workspace ID (required if filterContext is team/organization)
+   * @param includeTrash - If true, include soft-deleted (trashed) workflows in the response
    */
   static async fetchWorkflows(
     force = false,
     filterContext?: 'personal' | 'team' | 'organization' | null,
-    workspaceId?: string
+    workspaceId?: string,
+    includeTrash = false
   ): Promise<Workflow[]> {
     const { user, session } = await SessionManager.getSecureUserAndSession()
 
@@ -36,6 +38,7 @@ export class WorkflowService {
       force,
       filterContext: filterContext || 'ALL (unified)',
       workspaceId,
+      includeTrash,
       timestamp: new Date().toISOString()
     });
 
@@ -46,6 +49,9 @@ export class WorkflowService {
     }
     if (workspaceId) {
       params.append('workspace_id', workspaceId)
+    }
+    if (includeTrash) {
+      params.append('include_trash', 'true')
     }
 
     const url = `/api/workflows${params.toString() ? '?' + params.toString() : ''}`

@@ -799,9 +799,24 @@ export function FlowV2AgentPanel({
     if (!schema?.configSchema) return
 
     // Find all fields with dynamic options
-    const dynamicFields = schema.configSchema.filter(field =>
-      field.dynamic && field.name !== 'connection'
-    )
+    // IMPORTANT: Only load fields that don't have unmet dependencies
+    // Fields with dependsOn (like sheetName depends on spreadsheetId) should NOT be loaded
+    // until their parent field is selected - they will be loaded via cascading logic
+    const currentConfig = nodeConfigs[nodeId] || {}
+    const dynamicFields = schema.configSchema.filter(field => {
+      if (!field.dynamic || field.name === 'connection') return false
+
+      // If field has a dependency, check if the dependency is satisfied
+      if (field.dependsOn) {
+        const parentValue = currentConfig[field.dependsOn]
+        if (!parentValue) {
+          console.log(`[FlowV2AgentPanel] Skipping ${field.name} - depends on ${field.dependsOn} which is not set`)
+          return false
+        }
+      }
+
+      return true
+    })
 
     if (dynamicFields.length === 0) return
 
@@ -947,7 +962,7 @@ export function FlowV2AgentPanel({
     loadingNodesRef.current.delete(nodeId)
 
     console.log('[FlowV2AgentPanel] ✅ Finished loading dynamic options for node:', nodeId, newOptions)
-  }, [getNodeSchema, onNodeConfigChange, refreshIntegrations])
+  }, [getNodeSchema, nodeConfigs, onNodeConfigChange, refreshIntegrations])
 
   // Auto-save default connections to nodeConfigs when they're auto-selected
   useEffect(() => {
@@ -1927,11 +1942,13 @@ export function FlowV2AgentPanel({
                                                       />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                      {optionsToDisplay.map(opt => {
-                                                        const optValue = typeof opt === 'string' ? opt : opt.value
-                                                        const optLabel = typeof opt === 'string' ? opt : (opt.label || (opt as any).name)
+                                                      {optionsToDisplay.map((opt, idx) => {
+                                                        const optValue = typeof opt === 'string' ? opt : (opt.value || opt.id || `option-${idx}`)
+                                                        const optLabel = typeof opt === 'string' ? opt : (opt.label || (opt as any).name || optValue)
+                                                        // Skip options with no valid value
+                                                        if (!optValue) return null
                                                         return (
-                                                          <SelectItem key={optValue} value={optValue}>
+                                                          <SelectItem key={`${optValue}-${idx}`} value={optValue}>
                                                             {optLabel}
                                                           </SelectItem>
                                                         )

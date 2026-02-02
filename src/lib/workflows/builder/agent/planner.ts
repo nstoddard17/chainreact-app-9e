@@ -263,6 +263,48 @@ const INTENT_TO_PLAN: Record<string, PlanTemplate> = {
     },
   },
 
+  // Google Sheets → Discord
+  "google sheets discord": {
+    nodeTypes: ["google_sheets_trigger_new_row", "discord_action_send_message"],
+    description: "Google Sheets new row → Discord",
+    configHints: {
+      "discord_action_send_message": {
+        content: "New row added to Google Sheets:\n{{trigger.values}}",
+      },
+    },
+  },
+
+  "sheets to discord": {
+    nodeTypes: ["google_sheets_trigger_new_row", "discord_action_send_message"],
+    description: "Google Sheets new row → Discord",
+    configHints: {
+      "discord_action_send_message": {
+        content: "New row added to Google Sheets:\n{{trigger.values}}",
+      },
+    },
+  },
+
+  // Google Sheets → Slack
+  "google sheets slack": {
+    nodeTypes: ["google_sheets_trigger_new_row", "slack_action_send_message"],
+    description: "Google Sheets new row → Slack",
+    configHints: {
+      "slack_action_send_message": {
+        message: "New row added to Google Sheets:\n{{trigger.values}}",
+      },
+    },
+  },
+
+  "sheets to slack": {
+    nodeTypes: ["google_sheets_trigger_new_row", "slack_action_send_message"],
+    description: "Google Sheets new row → Slack",
+    configHints: {
+      "slack_action_send_message": {
+        message: "New row added to Google Sheets:\n{{trigger.values}}",
+      },
+    },
+  },
+
   // Notion patterns
   "create notion page": {
     nodeTypes: ["http.trigger", "notion_action_create_page"],
@@ -968,9 +1010,28 @@ function matchIntentToPlan(prompt: string): PlanTemplate | null {
     return INTENT_TO_PLAN["ai to slack"]
   }
 
-  // Priority 10: Single app triggers without specific action
+  // Priority 10: Google Sheets patterns
+  if (mentionsGoogleSheets && mentionsDiscord) {
+    return INTENT_TO_PLAN["google sheets discord"]
+  }
+
+  if (mentionsGoogleSheets && wantsSlack) {
+    return INTENT_TO_PLAN["google sheets slack"]
+  }
+
+  // Priority 11: Single app triggers without specific action
   if (wantsAirtable) {
     return INTENT_TO_PLAN["airtable new record"]
+  }
+
+  if (mentionsGoogleSheets) {
+    // Default Google Sheets to Slack
+    return INTENT_TO_PLAN["google sheets slack"]
+  }
+
+  // Priority 12: Discord output patterns (when no specific trigger)
+  if (mentionsDiscord) {
+    return INTENT_TO_PLAN["send to discord"]
   }
 
   // Default fallback: webhook → slack

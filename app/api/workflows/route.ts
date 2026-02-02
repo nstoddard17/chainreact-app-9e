@@ -54,10 +54,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const filterContext = searchParams.get('filter_context') // OPTIONAL
     const workspaceId = searchParams.get('workspace_id')
+    const includeTrash = searchParams.get('include_trash') === 'true'
 
     logger.debug('[API /api/workflows] GET request', {
       filterContext: filterContext || 'ALL (unified view)',
       workspaceId,
+      includeTrash,
       userId: user.id
     })
 
@@ -71,7 +73,13 @@ export async function GET(request: NextRequest) {
       let query = supabaseService
         .from("workflows")
         .select('*')
-        .is('deleted_at', null) // Exclude soft-deleted workflows
+
+      // Include or exclude trashed workflows based on parameter
+      // When includeTrash is true, return ALL workflows (active + deleted)
+      // When includeTrash is false (default), only return active workflows
+      if (!includeTrash) {
+        query = query.is('deleted_at', null)
+      }
 
       if (filterContext === 'personal') {
         query = query
@@ -103,17 +111,19 @@ export async function GET(request: NextRequest) {
       const queries = []
 
       // 1. Personal workflows (with timeout protection)
-      queries.push(
-        queryWithTimeout(
-          supabaseService
-            .from("workflows")
-            .select('*')
-            .eq('workspace_type', 'personal')
-            .eq('user_id', user.id)
-            .is('deleted_at', null), // Exclude soft-deleted workflows
-          8000
-        )
-      )
+      let personalQuery = supabaseService
+        .from("workflows")
+        .select('*')
+        .eq('workspace_type', 'personal')
+        .eq('user_id', user.id)
+
+      // Include or exclude trashed workflows based on parameter
+      // When includeTrash is true, return ALL workflows (active + deleted)
+      if (!includeTrash) {
+        personalQuery = personalQuery.is('deleted_at', null)
+      }
+
+      queries.push(queryWithTimeout(personalQuery, 8000))
 
       // 2. Fetch team and org memberships in parallel with timeout protection
       const [teamMembershipsResult, orgMembershipsResult] = await Promise.all([
@@ -138,32 +148,34 @@ export async function GET(request: NextRequest) {
 
       // 3. Add team workflows query if user is a member of any teams
       if (teamIds.length > 0) {
-        queries.push(
-          queryWithTimeout(
-            supabaseService
-              .from("workflows")
-              .select('*')
-              .eq('workspace_type', 'team')
-              .in('workspace_id', teamIds)
-              .is('deleted_at', null), // Exclude soft-deleted workflows
-            8000
-          )
-        )
+        let teamQuery = supabaseService
+          .from("workflows")
+          .select('*')
+          .eq('workspace_type', 'team')
+          .in('workspace_id', teamIds)
+
+        // Include or exclude trashed workflows based on parameter
+        if (!includeTrash) {
+          teamQuery = teamQuery.is('deleted_at', null)
+        }
+
+        queries.push(queryWithTimeout(teamQuery, 8000))
       }
 
       // 4. Add organization workflows query if user is a member of any orgs
       if (orgIds.length > 0) {
-        queries.push(
-          queryWithTimeout(
-            supabaseService
-              .from("workflows")
-              .select('*')
-              .eq('workspace_type', 'organization')
-              .in('workspace_id', orgIds)
-              .is('deleted_at', null), // Exclude soft-deleted workflows
-            8000
-          )
-        )
+        let orgQuery = supabaseService
+          .from("workflows")
+          .select('*')
+          .eq('workspace_type', 'organization')
+          .in('workspace_id', orgIds)
+
+        // Include or exclude trashed workflows based on parameter
+        if (!includeTrash) {
+          orgQuery = orgQuery.is('deleted_at', null)
+        }
+
+        queries.push(queryWithTimeout(orgQuery, 8000))
       }
 
       // Execute all queries in parallel

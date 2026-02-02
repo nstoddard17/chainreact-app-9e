@@ -162,6 +162,19 @@ export const LLMPlannerOutputSchema = z.object({
 // NODE SELECTION RESPONSE (Stage 1)
 // ============================================================================
 
+// Flexible reasoning that accepts both string arrays and object arrays
+// LLMs sometimes return strings instead of structured objects
+const FlexibleReasoningSchema = z.union([
+  z.array(ReasoningStepSchema),
+  z.array(z.string()).transform((strings) =>
+    strings.map((s, i) => ({
+      step: i + 1,
+      phase: 'understanding' as const,
+      thought: s,
+    }))
+  ),
+])
+
 export const NodeSelectionResponseSchema = z.object({
   selectedNodes: z.array(z.object({
     type: z.string(),
@@ -169,7 +182,7 @@ export const NodeSelectionResponseSchema = z.object({
     reasoning: z.string(),
     confidence: ConfigConfidenceSchema,
   })),
-  reasoning: z.array(ReasoningStepSchema),
+  reasoning: FlexibleReasoningSchema,
   hasBranching: z.boolean(),
   branchPoints: z.array(z.object({
     afterPosition: z.number().int().positive(),

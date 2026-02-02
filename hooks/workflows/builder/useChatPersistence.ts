@@ -107,6 +107,29 @@ export function useChatPersistence({
   const pendingChatMessagesRef = useRef<PendingChatMessage[]>([])
   const initialRevisionCountRef = useRef<number | null>(null)
   const lastHasUnsavedChangesRef = useRef<boolean | null>(null)
+  const chatHistoryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Timeout for chat history loading - if auth is slow, don't block forever
+  // This is critical for new workflows from AI agent page on dev restart
+  useEffect(() => {
+    // Only set timeout if we haven't loaded chat history yet
+    if (chatHistoryLoaded) return
+
+    // Set a 3 second timeout - if we haven't loaded by then, proceed anyway
+    // This prevents the UI from getting stuck when auth is slow on dev restart
+    chatHistoryTimeoutRef.current = setTimeout(() => {
+      if (!chatHistoryLoaded) {
+        console.log('[ChatPersistence] ⏱️ Timeout reached, marking chat history as loaded to unblock UI')
+        setChatHistoryLoaded(true)
+      }
+    }, 3000)
+
+    return () => {
+      if (chatHistoryTimeoutRef.current) {
+        clearTimeout(chatHistoryTimeoutRef.current)
+      }
+    }
+  }, [chatHistoryLoaded])
 
   // Generate unique local ID for messages
   const generateLocalId = useCallback(() => {
