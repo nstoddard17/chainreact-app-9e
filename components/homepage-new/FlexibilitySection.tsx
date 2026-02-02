@@ -2,7 +2,6 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { Badge } from '@/components/ui/badge'
 import {
   Workflow,
   Eye,
@@ -69,10 +68,6 @@ export function FlexibilitySection() {
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <Badge className="bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/20 mb-4">
-            <Boxes className="w-3 h-3 mr-1" />
-            Platform Features
-          </Badge>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
             Everything You Need
           </h2>

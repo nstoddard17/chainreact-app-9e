@@ -12,6 +12,12 @@ import { INTEGRATION_CONFIGS } from '@/lib/integrations/availableIntegrations'
 import { ManyChatGuide } from '@/components/integrations/guides/ManyChatGuide'
 import { BeehiivGuide } from '@/components/integrations/guides/BeehiivGuide'
 
+// MODULE-LEVEL CACHE: This survives component remounts during node switching
+// When switching between same-provider nodes (e.g., Slack trigger A → B),
+// the old SetupTab unmounts and a new one mounts. A component-level ref
+// would reset to [], but this module-level cache persists the integrations.
+let lastKnownIntegrationsCache: any[] = []
+
 interface SetupTabProps {
   nodeInfo: any
   initialData?: Record<string, any>
@@ -45,6 +51,15 @@ export function SetupTab(props: SetupTabProps) {
   const hasRequestedIntegrationsRef = useRef(false)
   const lastProviderKeyRef = useRef<string | null>(null)
 
+  // CRITICAL FIX: Initialize the module-level cache on mount if it's empty
+  // This ensures we populate the cache from the store on first render
+  useEffect(() => {
+    const storeIntegrations = useIntegrationStore.getState().integrations
+    if (storeIntegrations.length > 0 && lastKnownIntegrationsCache.length === 0) {
+      lastKnownIntegrationsCache = storeIntegrations
+    }
+  }, [])
+
   // Check if integrations are still loading from the store
   const isLoadingIntegrations = loadingStates?.['integrations'] ?? false
 
@@ -52,9 +67,11 @@ export function SetupTab(props: SetupTabProps) {
   // This prevents the "Not connected" flicker when clicking on a node
   // if the integration store hasn't been populated yet
   useEffect(() => {
-    const providerKey = nodeInfo?.providerId
-      ? `${nodeInfo.providerId}|${currentNodeId || ''}|${nodeInfo.type || ''}`
-      : null
+    // CRITICAL FIX: Only use providerId for the key - switching between same-provider nodes
+    // (e.g., Slack trigger A → Slack trigger B) doesn't require re-fetching integrations
+    // since integrations are per-provider, not per-node. Including currentNodeId or nodeType
+    // caused unnecessary re-fetches that triggered a race condition with modal lifecycle.
+    const providerKey = nodeInfo?.providerId || null
 
     if (providerKey && lastProviderKeyRef.current !== providerKey) {
       hasRequestedIntegrationsRef.current = false
@@ -63,16 +80,20 @@ export function SetupTab(props: SetupTabProps) {
 
     if (nodeInfo?.providerId && !hasRequestedIntegrationsRef.current) {
       hasRequestedIntegrationsRef.current = true
-      const providerIntegrations = integrations.filter(
+      // Read current integrations from store directly to avoid dependency loop
+      // Using getState() instead of the reactive 'integrations' variable prevents
+      // this effect from re-running every time integrations update
+      const currentIntegrations = useIntegrationStore.getState().integrations
+      const providerIntegrations = currentIntegrations.filter(
         int => int.provider === nodeInfo.providerId
       )
-      const shouldForce = integrations.length === 0 || providerIntegrations.length === 0
+      const shouldForce = currentIntegrations.length === 0 || providerIntegrations.length === 0
       // Force refresh if the store is empty to avoid stale "Not connected" state
       fetchIntegrations(shouldForce).catch(() => {
         // Silently ignore errors - the UI will show "Not connected" which is acceptable
       })
     }
-  }, [nodeInfo?.providerId, nodeInfo?.type, currentNodeId, fetchIntegrations, integrations])
+  }, [nodeInfo?.providerId, fetchIntegrations])
 
   // Listen for reconnection events to refresh integration store
   React.useEffect(() => {
@@ -104,17 +125,43 @@ export function SetupTab(props: SetupTabProps) {
   const connections = useMemo(() => {
     if (!requiresConnection || !nodeInfo?.providerId) return []
 
+    // CRITICAL FIX: Multi-level fallback for integration data
+    // Level 1: Reactive integrations from Zustand hook
+    // Level 2: Synchronous getState() from Zustand store
+    // Level 3: Module-level cache (survives component remounts during node switching)
+    const storeState = useIntegrationStore.getState()
+    let effectiveIntegrations = integrations.length > 0
+      ? integrations
+      : storeState.integrations.length > 0
+        ? storeState.integrations
+        : lastKnownIntegrationsCache
+
+    // Update the module-level cache with the latest valid integrations
+    // This ensures we always have a fallback even if the store gets cleared
+    if (integrations.length > 0) {
+      lastKnownIntegrationsCache = integrations
+    } else if (storeState.integrations.length > 0) {
+      lastKnownIntegrationsCache = storeState.integrations
+    }
+
     // DEBUG: Log all integrations to help trace connection status issues
-    console.log('🔍 [SetupTab] Debug - All integrations:', integrations.map(int => ({
+    const fallbackSource = integrations.length > 0 ? 'reactive' :
+      storeState.integrations.length > 0 ? 'getState' : 'moduleCache'
+    console.log('🔍 [SetupTab] Debug - All integrations:', effectiveIntegrations.map(int => ({
       id: int.id,
       provider: int.provider,
       status: int.status,
       workspace_type: int.workspace_type
     })))
     console.log('🔍 [SetupTab] Debug - Looking for provider:', nodeInfo.providerId)
+    console.log('🔍 [SetupTab] Debug - Using source:', fallbackSource, '| counts:', {
+      reactive: integrations.length,
+      getState: storeState.integrations.length,
+      moduleCache: lastKnownIntegrationsCache.length
+    })
 
     // Get all integrations that match this provider
-    const providerIntegrations = integrations.filter(
+    const providerIntegrations = effectiveIntegrations.filter(
       int => int.provider === nodeInfo.providerId
     )
 
@@ -406,9 +453,9 @@ export function SetupTab(props: SetupTabProps) {
     ? BeehiivGuide
     : null
 
-  // Show loading state when integrations are being fetched and we need a connection
-  // This prevents flash of "Not connected" during workspace switches
-  if (requiresConnection && isLoadingIntegrations && integrations.length === 0) {
+  // Show loading state when integrations are being fetched for a provider with no cached connections
+  // This prevents flash of "Not connected" during workspace switches AND when changing providers
+  if (requiresConnection && isLoadingIntegrations && connections.length === 0) {
     return (
       <div className="flex flex-col h-full">
         <div className="px-6 pt-6 pb-4 border-b border-border">

@@ -11,11 +11,26 @@ export const newGroupDirectMessageTriggerSchema: NodeComponent = {
   producesOutput: true,
   configSchema: [
     {
+      name: "workspace",
+      label: "Workspace",
+      type: "select",
+      dynamic: "slack_workspaces",
+      required: true,
+      loadOnMount: true,
+      placeholder: "Select Slack workspace",
+      description: "Your Slack workspace (used for authentication)"
+    },
+    {
       name: "groupId",
       label: "Group DM (Optional)",
       type: "select",
       required: false,
       dynamic: "slack_group_dms",
+      dependsOn: "workspace",
+      hidden: {
+        $deps: ["workspace"],
+        $condition: { workspace: { $exists: false } }
+      },
       description: "Optional: Filter to a specific group DM. Leave empty to receive messages from all group DMs."
     },
   ],

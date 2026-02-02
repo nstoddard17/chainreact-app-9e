@@ -90,7 +90,9 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
 
     // Store trigger metadata for event routing
     // Slack events are configured at app level, we just need to route them to the right workflow
-    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
+    // Use upsert to handle re-activation (when trigger resource already exists)
+    const resourceId = `${workflowId}-${nodeId}`
+    const { error: upsertError } = await getSupabase().from('trigger_resources').upsert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'slack',
@@ -98,24 +100,26 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       trigger_type: triggerType,
       node_id: nodeId,
       resource_type: 'other', // Not a webhook or subscription, just routing metadata
-      resource_id: `${workflowId}-${nodeId}`, // Generated ID for routing
+      resource_id: resourceId,
       config: {
         ...config,
         integrationId, // Store integration ID explicitly for event routing
         eventType: this.getEventTypeForTrigger(triggerType)
       },
       status: 'active'
+    }, {
+      onConflict: 'provider,resource_type,resource_id'
     })
 
-    if (insertError) {
+    if (upsertError) {
       // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
-      if (insertError.code === '23503') {
-        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+      if (upsertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${upsertError.message}`)
         logger.debug(`✅ Slack trigger activated (without local record): ${triggerType}`)
         return
       }
-      logger.error(`❌ Failed to store trigger resource:`, insertError)
-      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+      logger.error(`❌ Failed to store trigger resource:`, upsertError)
+      throw new Error(`Failed to store trigger resource: ${upsertError.message}`)
     }
 
     logger.debug(`✅ Slack trigger activated: ${triggerType}`)
@@ -209,11 +213,16 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
    */
   private getEventTypeForTrigger(triggerType: string): string {
     const eventMap: Record<string, string> = {
-      'slack_trigger_message_posted': 'message',
+      'slack_trigger_message_channels': 'message',
+      'slack_trigger_message_im': 'message',
+      'slack_trigger_message_mpim': 'message',
       'slack_trigger_reaction_added': 'reaction_added',
+      'slack_trigger_reaction_removed': 'reaction_removed',
       'slack_trigger_channel_created': 'channel_created',
-      'slack_trigger_member_joined': 'member_joined_channel',
-      'slack_trigger_file_shared': 'file_shared'
+      'slack_trigger_member_joined_channel': 'member_joined_channel',
+      'slack_trigger_member_left_channel': 'member_left_channel',
+      'slack_trigger_file_uploaded': 'file_shared',
+      'slack_trigger_user_joined_workspace': 'team_join'
     }
 
     return eventMap[triggerType] || 'message'

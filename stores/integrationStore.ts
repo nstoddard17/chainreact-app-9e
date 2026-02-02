@@ -16,6 +16,12 @@ import { logger } from '@/lib/utils/logger'
 let currentAbortController: AbortController | null = null
 let ongoingFetchPromise: Promise<void> | null = null
 
+// MODULE-LEVEL CACHE: Survives store updates during race conditions
+// When switching between nodes of the same provider, the store can temporarily
+// become empty due to fetch abort/restart. This cache ensures methods like
+// getIntegrationByProvider still return valid data during these brief windows.
+let integrationsCache: Integration[] = []
+
 
 // This represents the structure of a connected integration
 export interface Integration {
@@ -425,6 +431,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const previousIntegrations = get().integrations
           handleIntegrationStatusChanges(previousIntegrations, integrations)
 
+          // Update the module-level cache with the freshly fetched integrations
+          // This ensures methods like getIntegrationByProvider have fallback data
+          // during race conditions when the store temporarily becomes empty
+          if (integrations.length > 0) {
+            integrationsCache = integrations
+          }
+
           set({
             integrations,
             lastFetchTime: Date.now(),
@@ -512,6 +525,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
         setLoading('integrations', false)
         const previousIntegrations = get().integrations
         handleIntegrationStatusChanges(previousIntegrations, integrations)
+
+        // Update the module-level cache
+        if (integrations.length > 0) {
+          integrationsCache = integrations
+        }
 
         set({
           integrations,
@@ -699,6 +717,10 @@ export const useIntegrationStore = create<IntegrationStore>()(
                   // Force fetch fresh data from database
                   const freshIntegrations = await IntegrationService.fetchIntegrations(true)
                   handleIntegrationStatusChanges(get().integrations, freshIntegrations)
+                  // Update the module-level cache
+                  if (freshIntegrations.length > 0) {
+                    integrationsCache = freshIntegrations
+                  }
                   set({ integrations: freshIntegrations })
                   const hubspotIntegration = freshIntegrations.find(i => i.provider === 'hubspot')
                   if (hubspotIntegration && hubspotIntegration.status === 'connected') {
@@ -932,7 +954,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
     },
 
     getIntegrationByProvider: (providerId: string) => {
-      const { integrations } = get()
+      const { integrations: storeIntegrations } = get()
+
+      // Use module-level cache as fallback when store is temporarily empty
+      // This handles race conditions during node switching
+      const integrations = storeIntegrations.length > 0 ? storeIntegrations : integrationsCache
 
       // Provider mapping: Maps node providerId to stored integration provider
       // Only needed when multiple services share the same OAuth token
@@ -994,7 +1020,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     // NEW: Get ALL integrations for a provider (multi-account support)
     getAllIntegrationsByProvider: (providerId: string) => {
-      const { integrations } = get()
+      const { integrations: storeIntegrations } = get()
+
+      // Use module-level cache as fallback when store is temporarily empty
+      // This handles race conditions during node switching
+      const integrations = storeIntegrations.length > 0 ? storeIntegrations : integrationsCache
 
       // Provider mapping: Maps node providerId to stored integration provider
       // Only needed when multiple services share the same OAuth token
@@ -1049,7 +1079,9 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
     // NEW: Get a specific integration by ID (multi-account support)
     getIntegrationById: (integrationId: string) => {
-      const { integrations } = get()
+      const { integrations: storeIntegrations } = get()
+      // Use module-level cache as fallback when store is temporarily empty
+      const integrations = storeIntegrations.length > 0 ? storeIntegrations : integrationsCache
       return integrations.find((i) => i.id === integrationId) || null
     },
 

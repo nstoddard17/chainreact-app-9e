@@ -1341,12 +1341,19 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const { borderClass, shadowClass, backgroundClass, ringClass } = aiOutline
 
   // Override styling when node is being actively configured
+  // Use distinct blue color with ring/glow to make it obvious which node is being edited
   const finalBackgroundClass = isBeingConfigured
-    ? 'bg-orange-50 dark:bg-orange-950/30'
+    ? 'bg-blue-50 dark:bg-blue-950/30'
     : backgroundClass
   const finalBorderClass = isBeingConfigured
-    ? 'border-orange-300 dark:border-orange-700'
+    ? 'border-blue-500 dark:border-blue-400'
     : borderClass
+  const finalRingClass = isBeingConfigured
+    ? 'ring-2 ring-blue-500/50 dark:ring-blue-400/50'
+    : ringClass
+  const finalShadowClass = isBeingConfigured
+    ? 'shadow-[0_0_0_3px_rgba(59,130,246,0.25)]'
+    : shadowClass
 
   const idleStatus = React.useMemo(() => {
     // Never show status badges for skeleton nodes
@@ -1741,7 +1748,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       {/* Wrapper div to contain both node and plus button */}
       <div className="relative" style={{ width: '360px' }}>
         <div
-          className={`workflow-node-card relative w-[360px] ${finalBackgroundClass} rounded-lg shadow-sm border-2 group ${finalBorderClass} ${shadowClass} ${ringClass} ${
+          className={`workflow-node-card relative w-[360px] ${finalBackgroundClass} rounded-lg shadow-sm border-2 group ${finalBorderClass} ${finalShadowClass} ${finalRingClass} ${
             nodeHasConfiguration() ? "cursor-pointer" : ""
           } ${getExecutionStatusStyle()} ${
             visualNodeState === 'listening' ? 'node-listening' :

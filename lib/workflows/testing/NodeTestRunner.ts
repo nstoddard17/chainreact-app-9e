@@ -16,7 +16,7 @@ import { logger } from '@/lib/utils/logger'
 import { actionHandlerRegistry } from '../actions/registry'
 import { buildTestConfig, TEST_USER_ID, shouldSkipTest } from './testData'
 import { createClient } from '@supabase/supabase-js'
-import { TriggerLifecycleManager } from '@/lib/triggers/TriggerLifecycleManager'
+import { triggerLifecycleManager } from '@/lib/triggers'
 
 // Helper to create supabase client inside handlers
 const getSupabase = () => createClient(
@@ -67,11 +67,11 @@ export class NodeTestRunner {
   private results: NodeTestResult[] = []
   private startTime: number = 0
   private userId: string = ''
-  private lifecycleManager: TriggerLifecycleManager
+  private lifecycleManager: typeof triggerLifecycleManager
 
   constructor() {
     this.nodes = ALL_NODE_COMPONENTS
-    this.lifecycleManager = new TriggerLifecycleManager()
+    this.lifecycleManager = triggerLifecycleManager
   }
 
   /**

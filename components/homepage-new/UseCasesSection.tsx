@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Mail,
@@ -11,8 +10,6 @@ import {
   FileText,
   TrendingUp,
   ArrowRight,
-  Brain,
-  Sparkles,
   Zap,
   Clock
 } from 'lucide-react'
@@ -103,10 +100,6 @@ export function UseCasesSection() {
       <div className="max-w-7xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16">
-          <Badge className="bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-300 border-green-200 dark:border-green-500/20 mb-4">
-            <Sparkles className="w-3 h-3 mr-1" />
-            Use Cases
-          </Badge>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4">
             See What You Can Build
           </h2>
@@ -163,13 +156,8 @@ export function UseCasesSection() {
           >
             {/* Header */}
             <div className="text-center mb-12">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-lg bg-orange-100 dark:bg-orange-500/10 mb-2">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-lg bg-orange-100 dark:bg-orange-500/10 mb-4">
                 {React.createElement(selectedCase.icon, { className: "w-7 h-7 text-orange-600 dark:text-orange-400" })}
-              </div>
-              <div className="mb-3">
-                <Badge className="bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-500/20">
-                  {selectedCase.category}
-                </Badge>
               </div>
               <h3 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-3">
                 {selectedCase.title}

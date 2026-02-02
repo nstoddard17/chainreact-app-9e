@@ -106,7 +106,7 @@ export default function IntegrationWebhookManager() {
       user_id: 'sample',
       provider_id: 'slack',
       webhook_url: 'https://hooks.slack.com/services',
-      trigger_types: ['slack_trigger_new_message', 'slack_trigger_new_reaction', 'slack_trigger_slash_command'],
+      trigger_types: ['slack_trigger_new_message', 'slack_trigger_new_reaction'],
       integration_config: {},
       external_config: {
         type: 'slack',

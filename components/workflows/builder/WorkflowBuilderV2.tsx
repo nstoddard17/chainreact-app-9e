@@ -4643,6 +4643,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
   // Handle node configuration (click or manual trigger)
   const handleNodeConfigure = useCallback(async (nodeId: string) => {
+    // Toggle behavior: if clicking the same node that's already being configured, close it
+    if (configuringNode?.id === nodeId) {
+      setConfiguringNode(null)
+      return
+    }
+
     const node = reactFlowProps?.nodes?.find((n: any) => n.id === nodeId)
     if (node) {
       console.log('🔧 [WorkflowBuilder] Opening configuration for node:', nodeId, node)
@@ -4701,7 +4707,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     } else {
       console.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
     }
-  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId])
+  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId, configuringNode])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {

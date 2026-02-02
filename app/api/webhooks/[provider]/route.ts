@@ -94,6 +94,11 @@ export async function POST(
     // Process the event based on provider
     const { eventType, normalizedData, eventId, ignore } = normalizeWebhookEvent(provider, eventData, requestId)
 
+    // INFO-level logging to trace webhook processing
+    if (provider === 'slack') {
+      logger.info(`[${requestId}] 🔵 SLACK WEBHOOK: eventType=${eventType}, channel=${normalizedData?.message?.channel}, channelType=${normalizedData?.message?.channelType}, team=${normalizedData?.message?.team}`)
+    }
+
     if (ignore) {
       logger.debug(`[${requestId}] Ignoring ${provider} event based on normalization rules`, {
         provider,
@@ -332,7 +337,58 @@ function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: strin
         }
 
         return {
-          eventType: 'slack_trigger_user_joined',
+          eventType: 'slack_trigger_member_joined_channel',
+          normalizedData,
+          eventId: slackEvent.event_ts || envelope.event_id || requestId
+        }
+      }
+
+      // Handle member left events
+      if (eventTypeFromSlack === 'member_left_channel') {
+        const normalizedData = {
+          user: slackEvent.user || slackEvent.user_id,
+          channel: slackEvent.channel || slackEvent.channel_id,
+          eventTs: slackEvent.event_ts || envelope.event_ts,
+          team: slackEvent.team || envelope.team_id || slackEvent.team_id,
+          raw: slackEvent
+        }
+
+        return {
+          eventType: 'slack_trigger_member_left_channel',
+          normalizedData,
+          eventId: slackEvent.event_ts || envelope.event_id || requestId
+        }
+      }
+
+      // Handle file shared events
+      if (eventTypeFromSlack === 'file_shared') {
+        const normalizedData = {
+          file: slackEvent.file || slackEvent.file_id,
+          user: slackEvent.user_id || slackEvent.user,
+          channel: slackEvent.channel_id || slackEvent.channel,
+          eventTs: slackEvent.event_ts || envelope.event_ts,
+          team: slackEvent.team || envelope.team_id || slackEvent.team_id,
+          raw: slackEvent
+        }
+
+        return {
+          eventType: 'slack_trigger_file_uploaded',
+          normalizedData,
+          eventId: slackEvent.event_ts || envelope.event_id || requestId
+        }
+      }
+
+      // Handle user joined workspace (team_join) events
+      if (eventTypeFromSlack === 'team_join') {
+        const normalizedData = {
+          user: slackEvent.user || {},
+          eventTs: slackEvent.event_ts || envelope.event_ts,
+          team: slackEvent.team || envelope.team_id || slackEvent.team_id,
+          raw: slackEvent
+        }
+
+        return {
+          eventType: 'slack_trigger_user_joined_workspace',
           normalizedData,
           eventId: slackEvent.event_ts || envelope.event_id || requestId
         }
@@ -342,10 +398,32 @@ function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: strin
       let eventType = 'slack_trigger_new_message'
       const channel = slackEvent.channel || slackEvent.channel_id
       const channelType = slackEvent.channel_type
-      const isPublicChannel = channelType === 'channel' || (typeof channel === 'string' && channel.startsWith('C'))
 
-      if (slackEvent.type === 'message' && isPublicChannel) {
-        eventType = 'slack_trigger_message_channels'
+      // Prioritize channelType when available (authoritative), fall back to channel ID prefix
+      let isPublicChannel = false
+      let isDirectMessage = false
+      let isGroupDM = false
+
+      if (channelType) {
+        // channelType is authoritative when present - don't use channel prefix fallback
+        isPublicChannel = channelType === 'channel'
+        isDirectMessage = channelType === 'im'
+        isGroupDM = channelType === 'mpim'
+      } else {
+        // Fallback to channel ID prefix when channelType is not available
+        isPublicChannel = typeof channel === 'string' && channel.startsWith('C')
+        isDirectMessage = typeof channel === 'string' && channel.startsWith('D')
+        isGroupDM = typeof channel === 'string' && channel.startsWith('G')
+      }
+
+      if (slackEvent.type === 'message') {
+        if (isPublicChannel) {
+          eventType = 'slack_trigger_message_channels'
+        } else if (isDirectMessage) {
+          eventType = 'slack_trigger_message_im'
+        } else if (isGroupDM) {
+          eventType = 'slack_trigger_message_mpim'
+        }
       }
 
       const normalizedData = {
