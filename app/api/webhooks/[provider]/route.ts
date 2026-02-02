@@ -398,9 +398,23 @@ function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: strin
       let eventType = 'slack_trigger_new_message'
       const channel = slackEvent.channel || slackEvent.channel_id
       const channelType = slackEvent.channel_type
-      const isPublicChannel = channelType === 'channel' || (typeof channel === 'string' && channel.startsWith('C'))
-      const isDirectMessage = channelType === 'im' || (typeof channel === 'string' && channel.startsWith('D'))
-      const isGroupDM = channelType === 'mpim' || (typeof channel === 'string' && channel.startsWith('G'))
+
+      // Prioritize channelType when available (authoritative), fall back to channel ID prefix
+      let isPublicChannel = false
+      let isDirectMessage = false
+      let isGroupDM = false
+
+      if (channelType) {
+        // channelType is authoritative when present - don't use channel prefix fallback
+        isPublicChannel = channelType === 'channel'
+        isDirectMessage = channelType === 'im'
+        isGroupDM = channelType === 'mpim'
+      } else {
+        // Fallback to channel ID prefix when channelType is not available
+        isPublicChannel = typeof channel === 'string' && channel.startsWith('C')
+        isDirectMessage = typeof channel === 'string' && channel.startsWith('D')
+        isGroupDM = typeof channel === 'string' && channel.startsWith('G')
+      }
 
       if (slackEvent.type === 'message') {
         if (isPublicChannel) {
