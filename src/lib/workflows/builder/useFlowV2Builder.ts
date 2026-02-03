@@ -1953,7 +1953,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
     return payload
   }, [flowId])
 
-  const activateWorkflow = useCallback(async (): Promise<{ success: boolean; message?: string }> => {
+  const activateWorkflow = useCallback(async (): Promise<{ success: boolean; message?: string; pendingSetup?: any[] }> => {
     if (!flowId) return { success: false, message: 'No workflow ID' }
 
     setFlowState((prev) => ({ ...prev, isUpdatingStatus: true }))
@@ -1967,7 +1967,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       if (!res.ok) throw new Error(data.error || 'Activation failed')
 
       setFlowState((prev) => ({ ...prev, workflowStatus: 'active' }))
-      return { success: true, message: data.activation?.message }
+      return { success: true, message: data.activation?.message, pendingSetup: data.pendingSetup }
     } catch (e: any) {
       return { success: false, message: e.message }
     } finally {

@@ -105,6 +105,7 @@ import {
   type WorkflowDraftState,
 } from "@/hooks/workflows/builder/useWorkflowDraftAutoSave"
 import { optionsPrefetchService } from "@/lib/workflows/configuration/optionsPrefetchService"
+import { NotionWebhookSetupModal } from "@/components/workflows/NotionWebhookSetupModal"
 
 type PendingChatMessage = {
   localId: string
@@ -449,6 +450,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const [isTestModeDialogOpen, setIsTestModeDialogOpen] = useState(false) // Test/Live mode dialog
   const [isDisconnectedDialogOpen, setIsDisconnectedDialogOpen] = useState(false) // Disconnected integrations dialog
   const [disconnectedIntegrations, setDisconnectedIntegrations] = useState<any[]>([]) // List of disconnected integrations
+  const [showNotionWebhookModal, setShowNotionWebhookModal] = useState(false) // Notion webhook setup modal
+  const [notionWebhookSetupData, setNotionWebhookSetupData] = useState<{
+    webhookUrl: string
+    recommendedEvents: string[]
+    targetResource?: string
+    targetType?: 'database' | 'data_source'
+    workflowId: string
+    nodeId: string
+  } | null>(null)
 
   // Ref to track if test is in progress and abort controller for cleanup
   const testAbortControllerRef = useRef<AbortController | null>(null)
@@ -4800,6 +4810,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           : "Please try again."),
         variant: result?.success ? "default" : "destructive",
       })
+
+      // Check if there are pending Notion webhook setups
+      if (result?.success && result.pendingSetup && result.pendingSetup.length > 0) {
+        const notionResource = result.pendingSetup.find((r: any) => r.provider === 'notion')
+        if (notionResource) {
+          setNotionWebhookSetupData({
+            webhookUrl: notionResource.metadata?.webhookUrl || '',
+            recommendedEvents: notionResource.metadata?.recommendedEvents || notionResource.metadata?.eventTypes || [],
+            targetResource: notionResource.metadata?.targetResource,
+            targetType: notionResource.metadata?.targetType,
+            workflowId: notionResource.workflow_id,
+            nodeId: notionResource.node_id
+          })
+          setShowNotionWebhookModal(true)
+        }
+      }
     }
   }, [hasPlaceholders, flowState?.workflowStatus, actions, toast])
 
@@ -7499,6 +7525,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           setIsTestModeDialogOpen(true)
         }}
       />
+
+      {/* Notion Webhook Setup Modal */}
+      {notionWebhookSetupData && (
+        <NotionWebhookSetupModal
+          open={showNotionWebhookModal}
+          onOpenChange={setShowNotionWebhookModal}
+          webhookUrl={notionWebhookSetupData.webhookUrl}
+          recommendedEvents={notionWebhookSetupData.recommendedEvents}
+          targetResource={notionWebhookSetupData.targetResource}
+          targetType={notionWebhookSetupData.targetType}
+          workflowId={notionWebhookSetupData.workflowId}
+          nodeId={notionWebhookSetupData.nodeId}
+          onComplete={() => {
+            setShowNotionWebhookModal(false)
+            setNotionWebhookSetupData(null)
+            toast({
+              title: "Webhook Verified",
+              description: "Your Notion webhook is now active and ready to receive events.",
+            })
+          }}
+        />
+      )}
 
       {configuringNode && (() => {
         const nodeType = configuringNode?.data?.type || configuringNode?.type

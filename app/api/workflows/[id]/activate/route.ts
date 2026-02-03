@@ -147,6 +147,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
 
       logger.debug('✅ All trigger resources activated successfully')
+
+      // Fetch any pending webhook setups (e.g., Notion requires manual setup)
+      const { data: pendingSetup } = await serviceClient
+        .from('trigger_resources')
+        .select('*')
+        .eq('workflow_id', workflow.id)
+        .eq('status', 'pending_webhook_setup')
+
+      if (pendingSetup && pendingSetup.length > 0) {
+        logger.info(`📋 Workflow has ${pendingSetup.length} trigger(s) requiring manual webhook setup`)
+      }
+
+      logger.info(`✅ Workflow activated: ${workflow.name} (${workflow.id})`)
+
+      return jsonResponse({
+        ...activatedWorkflow,
+        activation: {
+          success: true,
+          message: 'Workflow activated successfully'
+        },
+        pendingSetup: pendingSetup || []
+      })
     } catch (triggerError: any) {
       logger.error('❌ Failed to activate triggers:', triggerError)
 
@@ -167,16 +189,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         { workflow: rolledBackWorkflow }
       )
     }
-
-    logger.info(`✅ Workflow activated: ${workflow.name} (${workflow.id})`)
-
-    return jsonResponse({
-      ...activatedWorkflow,
-      activation: {
-        success: true,
-        message: 'Workflow activated successfully'
-      }
-    })
 
   } catch (error: any) {
     logger.error('❌ Unexpected error during activation:', error)

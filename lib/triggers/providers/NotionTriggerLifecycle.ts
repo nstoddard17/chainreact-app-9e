@@ -268,12 +268,33 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
    */
   private getNotionEventTypes(triggerType: string): string[] {
     switch (triggerType) {
+      // Page triggers
       case 'notion_trigger_new_page':
         return ['page.created']
       case 'notion_trigger_page_updated':
         return ['page.content_updated', 'page.property_values_updated']
+
+      // Comment triggers
       case 'notion_trigger_comment_added':
+      case 'notion_trigger_new_comment':
         return ['comment.created']
+
+      // Database item triggers
+      case 'notion_trigger_database_item_created':
+        return ['page.created']
+      case 'notion_trigger_database_item_updated':
+        return ['page.updated', 'page.content_updated', 'page.property_values_updated']
+
+      // Granular page triggers
+      case 'notion_trigger_page_content_updated':
+        return ['page.content_updated', 'block.created', 'block.updated', 'block.deleted']
+      case 'notion_trigger_page_properties_updated':
+        return ['page.property_values_updated']
+
+      // Database schema trigger
+      case 'notion_trigger_database_schema_updated':
+        return ['database.updated']
+
       default:
         return []
     }
