@@ -221,9 +221,21 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
         // Map Notion event types to trigger types
         if (event.provider === 'notion') {
           const notionEventMap: Record<string, string[]> = {
+            // Core triggers
             'notion_trigger_new_page': ['page.created'],
-            'notion_trigger_page_updated': ['page.content_updated', 'page.property_values_updated'],
-            'notion_trigger_comment_added': ['comment.created']
+            'notion_trigger_page_updated': ['page.content_updated', 'page.property_values_updated', 'page.updated'],
+            'notion_trigger_new_comment': ['comment.created'],
+
+            // Database item triggers
+            'notion_trigger_database_item_created': ['page.created'],
+            'notion_trigger_database_item_updated': ['page.updated', 'page.content_updated', 'page.property_values_updated'],
+
+            // Granular page triggers
+            'notion_trigger_page_content_updated': ['page.content_updated', 'block.created', 'block.updated', 'block.deleted'],
+            'notion_trigger_page_properties_updated': ['page.property_values_updated'],
+
+            // Database schema trigger
+            'notion_trigger_database_schema_updated': ['database.updated']
           }
           const allowedEvents = notionEventMap[nodeEventType] || []
           matchesEventType = allowedEvents.includes(event.eventType)
