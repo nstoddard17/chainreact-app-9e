@@ -5758,9 +5758,24 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   )
 
   const handleAgentSubmit = useCallback(async () => {
-    if (!agentInput.trim() || !actions) return
+    console.log('[handleAgentSubmit] Called with:', {
+      agentInput,
+      hasActions: !!actions,
+      trimmedInput: agentInput?.trim(),
+      inputLength: agentInput?.length
+    })
+
+    if (!agentInput.trim()) {
+      console.log('[handleAgentSubmit] ❌ Early return: agentInput is empty')
+      return
+    }
+    if (!actions) {
+      console.log('[handleAgentSubmit] ❌ Early return: actions is null/undefined')
+      return
+    }
 
     const userPrompt = agentInput.trim()
+    console.log('[handleAgentSubmit] ✅ Passed guards, proceeding with prompt:', userPrompt)
     setAgentInput("")
     setIsAgentLoading(true)
 
@@ -6035,6 +6050,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     toast,
     transitionTo,
     updatePendingRequest,
+    user,
   ])
 
   const handleBuild = useCallback(async () => {

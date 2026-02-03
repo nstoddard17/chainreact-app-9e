@@ -17,6 +17,10 @@ ADD COLUMN IF NOT EXISTS original_prompt TEXT;
 ALTER TABLE templates
 ADD COLUMN IF NOT EXISTS integrations TEXT[] DEFAULT '{}';
 
+-- Add tags array for categorization and search
+ALTER TABLE templates
+ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+
 -- Add nodes and connections columns if they don't exist
 -- (Some templates use workflow_json, others use separate nodes/connections)
 ALTER TABLE templates
@@ -58,8 +62,13 @@ WHERE is_ai_generated = TRUE;
 CREATE INDEX IF NOT EXISTS idx_templates_integrations
 ON templates USING GIN(integrations);
 
+-- Create index on tags for search
+CREATE INDEX IF NOT EXISTS idx_templates_tags
+ON templates USING GIN(tags);
+
 -- Add comment explaining the AI template system
 COMMENT ON COLUMN templates.prompt_hash IS 'SHA-256 hash (first 16 chars) of normalized prompt for deduplication';
 COMMENT ON COLUMN templates.is_ai_generated IS 'True if template was automatically created by AI planner';
 COMMENT ON COLUMN templates.original_prompt IS 'Original user prompt that generated this template';
 COMMENT ON COLUMN templates.integrations IS 'Array of required integration provider IDs (e.g., gmail, slack)';
+COMMENT ON COLUMN templates.tags IS 'Array of tags for categorization and search';

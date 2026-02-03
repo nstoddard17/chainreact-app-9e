@@ -5,12 +5,12 @@ import { resolve } from 'path'
 // Load environment variables
 dotenv.config({ path: resolve(process.cwd(), '.env.local') })
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  console.error('❌ STRIPE_SECRET_KEY not found in environment variables')
+if (!process.env.STRIPE_CLIENT_SECRET) {
+  console.error('❌ STRIPE_CLIENT_SECRET not found in environment variables')
   process.exit(1)
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET, {
   apiVersion: '2024-12-18.acacia' as any,
 })
 

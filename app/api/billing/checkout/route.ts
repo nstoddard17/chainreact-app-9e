@@ -105,16 +105,16 @@ export async function POST(request: NextRequest) {
 
     // Check if Stripe is configured
     logger.debug("[Checkout API] Checking Stripe configuration...")
-    if (!process.env.STRIPE_SECRET_KEY) {
+    if (!process.env.STRIPE_CLIENT_SECRET) {
       logger.debug("[Checkout API] Stripe not configured")
       return errorResponse("STRIPE_NOT_CONFIGURED" , 503)
     }
     logger.debug("[Checkout API] Stripe configured, initializing client...")
-    
+
     // Initialize Stripe with error handling
     let stripe: Stripe
     try {
-      stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET, {
         apiVersion: "2024-12-18.acacia",
       })
       logger.debug("[Checkout API] Stripe client initialized")

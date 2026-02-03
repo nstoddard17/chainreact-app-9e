@@ -6,11 +6,11 @@ import Stripe from "stripe"
 
 import { logger } from '@/lib/utils/logger'
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  logger.warn("STRIPE_SECRET_KEY environment variable is not set.")
+if (!process.env.STRIPE_CLIENT_SECRET) {
+  logger.warn("STRIPE_CLIENT_SECRET environment variable is not set.")
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
+const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET ?? "", {
   apiVersion: "2025-05-28.basil",
   typescript: true,
 })

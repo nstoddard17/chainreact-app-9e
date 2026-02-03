@@ -213,21 +213,9 @@ const slackTriggerNewMessage: NodeConfigDefinition = {
 const discordActionSendMessage: NodeConfigDefinition = {
   nodeType: 'discord_action_send_message',
   displayName: 'Discord - Send Message',
+  // NOTE: server (guildId) and channel (channelId) are already required fields in the node schema
+  // so they're handled by the standard field dropdowns. Only include ADDITIONAL UX questions here.
   questions: [
-    {
-      id: 'server',
-      question: 'Which Discord server?',
-      type: 'dropdown',
-      dynamicOptions: 'discord_servers',
-      required: true,
-    },
-    {
-      id: 'channel',
-      question: 'Which channel should receive the message?',
-      type: 'dropdown',
-      dynamicOptions: 'discord_channels',
-      required: true,
-    },
     {
       id: 'message_format',
       question: 'How should the message be formatted?',

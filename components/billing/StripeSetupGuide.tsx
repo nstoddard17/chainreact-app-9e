@@ -89,7 +89,7 @@ export default function StripeSetupGuide() {
             <h4 className="font-semibold mb-2">Step 3: Environment Variables</h4>
             <p className="text-sm text-gray-600 mb-3">Ensure these environment variables are set:</p>
             <ul className="text-sm space-y-1">
-              <li>✅ STRIPE_SECRET_KEY</li>
+              <li>✅ STRIPE_CLIENT_SECRET</li>
               <li>✅ STRIPE_WEBHOOK_SECRET</li>
               <li>✅ NEXT_PUBLIC_APP_URL</li>
             </ul>
