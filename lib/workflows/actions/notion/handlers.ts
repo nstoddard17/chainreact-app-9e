@@ -1514,6 +1514,160 @@ export async function notionFindOrCreateDatabaseItem(
 }
 
 /**
+ * Update a database item's properties
+ * Allows updating checkboxes, text, status, and other properties on database items
+ */
+export async function notionUpdateDatabaseItem(
+  config: any,
+  context: ExecutionContext
+): Promise<ActionResult> {
+  try {
+    const accessToken = await getDecryptedAccessToken(context.userId, "notion")
+
+    // Get the item ID (this is actually a page ID since database items are pages)
+    const rawItemId = context.dataFlowManager.resolveVariable(config.item || config.itemToUpdate)
+    const itemId = normalizeNotionId(rawItemId)
+
+    // Get the database ID to fetch schema for property types
+    const rawDatabaseId = context.dataFlowManager.resolveVariable(config.database)
+    const databaseId = normalizeNotionId(rawDatabaseId)
+
+    // Get properties to update
+    let properties = context.dataFlowManager.resolveVariable(config.properties) || {}
+
+    if (!itemId) {
+      throw new Error('Item to update is required')
+    }
+
+    logger.debug("[Notion Update Database Item] Starting update", {
+      itemId,
+      databaseId,
+      propertiesKeys: Object.keys(properties)
+    })
+
+    // Fetch database schema to get property types
+    let propertySchema: Record<string, { type: string; name: string }> = {}
+    if (databaseId) {
+      try {
+        const dbData = await notionApiRequest(`/databases/${databaseId}`, "GET", accessToken)
+        if (dbData.properties) {
+          for (const [propName, propConfig] of Object.entries(dbData.properties) as any) {
+            propertySchema[propName] = { type: propConfig.type, name: propName }
+            // Also map by ID for encoded property names
+            if (propConfig.id) {
+              propertySchema[propConfig.id] = { type: propConfig.type, name: propName }
+            }
+          }
+          logger.debug('[Notion Update Database Item] Property schema loaded:', Object.keys(propertySchema))
+        }
+      } catch (error) {
+        logger.warn('[Notion Update Database Item] Could not fetch database schema, will use heuristics:', error)
+      }
+    }
+
+    // Process properties to ensure proper Notion API format
+    const processedProperties: any = {}
+
+    for (const [key, value] of Object.entries(properties)) {
+      // Skip undefined/null values (these mean "don't update this property")
+      // Allow empty strings through - they mean "clear this property"
+      // Also allow false for checkboxes and 0 for numbers
+      if (value === undefined || value === null) {
+        continue
+      }
+
+      // Check if this property is already in Notion API format
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        const valueObj = value as any
+        const notionPropertyKeys = ['title', 'rich_text', 'number', 'select', 'multi_select', 'date',
+                                     'people', 'files', 'checkbox', 'url', 'email', 'phone_number',
+                                     'status', 'relation']
+        const hasNotionKey = notionPropertyKeys.some(nk => nk in valueObj)
+
+        if (hasNotionKey) {
+          // Already formatted, use as-is
+          processedProperties[key] = value
+          continue
+        }
+      }
+
+      // Look up property type from schema
+      const propInfo = propertySchema[key]
+      if (propInfo?.type) {
+        logger.debug(`[Notion Update Database Item] Formatting property ${key} as type ${propInfo.type}`)
+        processedProperties[propInfo.name || key] = formatNotionPropertyValue(propInfo.type, value)
+        continue
+      }
+
+      // Fallback: Use heuristics to determine property type
+      let inferredType = 'rich_text'
+
+      if (typeof value === 'boolean') {
+        inferredType = 'checkbox'
+      } else if (typeof value === 'number') {
+        inferredType = 'number'
+      } else if (Array.isArray(value)) {
+        inferredType = 'multi_select'
+      } else if (typeof value === 'string') {
+        // Check for common patterns
+        if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+          inferredType = 'date'
+        } else if (value.includes('@') && value.includes('.')) {
+          inferredType = 'email'
+        } else if (/^https?:\/\//.test(value)) {
+          inferredType = 'url'
+        } else if (value === 'true' || value === 'false') {
+          inferredType = 'checkbox'
+        }
+      }
+
+      logger.debug(`[Notion Update Database Item] Inferred property ${key} as type ${inferredType}`)
+      processedProperties[key] = formatNotionPropertyValue(inferredType, value)
+    }
+
+    // Check if we have anything to update
+    if (Object.keys(processedProperties).length === 0) {
+      logger.debug('[Notion Update Database Item] No properties to update')
+      return {
+        success: true,
+        output: {
+          page_id: itemId,
+          message: 'No properties to update'
+        }
+      }
+    }
+
+    logger.debug('[Notion Update Database Item] Final payload:', JSON.stringify(processedProperties, null, 2))
+
+    // Make the update request
+    const result = await notionApiRequest(`/pages/${itemId}`, "PATCH", accessToken, {
+      properties: processedProperties
+    })
+
+    logger.info("[Notion Update Database Item] Item updated successfully:", { itemId })
+
+    return {
+      success: true,
+      output: {
+        page_id: result.id,
+        url: result.url,
+        properties: result.properties,
+        last_edited_time: result.last_edited_time
+      },
+      message: "Database item updated successfully"
+    }
+
+  } catch (error: any) {
+    logger.error("[Notion Update Database Item] Error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to update database item"
+    }
+  }
+}
+
+/**
  * Archive a database item
  * Sets the archived property to true on a page
  */

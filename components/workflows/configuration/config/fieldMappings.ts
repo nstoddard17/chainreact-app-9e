@@ -1520,6 +1520,12 @@ const notionMappings: Record<string, FieldMapping> = {
     searchProperty: "notion_database_properties",
     createProperties: "notion_database_properties",
   },
+  notion_action_update_database_item: {
+    workspace: "notion_workspaces",
+    database: "notion_databases",
+    item: "notion_database_items",
+    properties: "notion_database_properties",
+  },
   notion_action_archive_database_item: {
     workspace: "notion_workspaces",
     database: "notion_databases",

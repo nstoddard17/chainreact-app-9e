@@ -262,6 +262,7 @@ import {
   notionGetBlockChildren,
   notionGetPageWithChildren,
   notionFindOrCreateDatabaseItem,
+  notionUpdateDatabaseItem,
   notionArchiveDatabaseItem,
   notionRestoreDatabaseItem,
   notionGetPageProperty,
@@ -1168,6 +1169,13 @@ export const actionHandlerRegistry: Record<string, Function> = {
       search_value: config.searchValue || config.search_value,
       create_if_not_found: config.createIfNotFound || config.create_if_not_found,
       create_properties: config.createProperties || config.create_properties,
+    }, context)),
+  "notion_action_update_database_item": createExecutionContextWrapper((config: any, context: any) =>
+    notionUpdateDatabaseItem({
+      ...config,
+      item: config.item || config.itemToUpdate,
+      database: config.database,
+      properties: config.properties,
     }, context)),
   "notion_action_archive_database_item": createExecutionContextWrapper((config: any, context: any) =>
     notionArchiveDatabaseItem({

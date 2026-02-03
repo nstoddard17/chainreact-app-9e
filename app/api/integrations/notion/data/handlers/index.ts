@@ -17,6 +17,7 @@ import { getNotionDatabaseFields } from './databaseFields'
 import { getNotionDatabaseMetadata } from './databaseMetadata'
 import { getNotionDatabaseRows } from './databaseRows'
 import { getNotionDatabaseItems, getNotionArchivedItems } from './databaseItems'
+import { getNotionPageDetails } from './pageDetails'
 
 export const notionHandlers: Record<string, NotionDataHandler> = {
   // Direct mappings for cleaner API
@@ -42,6 +43,7 @@ export const notionHandlers: Record<string, NotionDataHandler> = {
   database_items: getNotionDatabaseItems,
   archived_items: getNotionArchivedItems,
   archived_pages: getNotionArchivedPages,
+  page_details: getNotionPageDetails,
   blocks: getNotionPageBlocks,
   page_blocks: getNotionPageBlocks,
   page_blocks_deletable: getNotionPageBlocksDeletable,
@@ -105,4 +107,5 @@ export {
   getNotionPageBlocks,
   getNotionPageBlocksDeletable,
   getNotionPageBlocksSelectable,
+  getNotionPageDetails,
 }

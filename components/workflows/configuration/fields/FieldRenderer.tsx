@@ -100,6 +100,7 @@ import { KeyValueField } from "./shared/KeyValueField";
 import { NotionBlockFields } from "./notion/NotionBlockFields";
 import { NotionDatabaseRowsField } from "./notion/NotionDatabaseRowsField";
 import { NotionDeletableBlocksField } from "./notion/NotionDeletableBlocksField";
+import { NotionDatabaseItemPropertiesField } from "./notion/NotionDatabaseItemPropertiesField";
 
 // Microsoft Excel field components
 import { MicrosoftExcelColumnMapper } from "./microsoft-excel/MicrosoftExcelColumnMapper";
@@ -1081,6 +1082,21 @@ export function FieldRenderer({
         if (integrationProvider === 'notion' && field.dynamic === 'notion_database_rows') {
           return (
             <NotionDatabaseRowsField
+              value={value}
+              onChange={onChange}
+              field={field}
+              values={parentValues}
+              loadOptions={onDynamicLoad}
+              dynamicOptions={dynamicOptions}
+              loadingDynamic={fieldIsLoading}
+            />
+          );
+        }
+
+        // Dynamic fields for Notion database item properties (update item)
+        if (integrationProvider === 'notion' && field.dynamic === 'notion_database_properties') {
+          return (
+            <NotionDatabaseItemPropertiesField
               value={value}
               onChange={onChange}
               field={field}

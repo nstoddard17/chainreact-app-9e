@@ -1,4 +1,4 @@
-import { Database, Plus, Trash2, RotateCcw, FilePlus } from "lucide-react"
+import { Database, Plus, Trash2, RotateCcw, FilePlus, FileEdit } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 /**
@@ -338,6 +338,97 @@ export const notionDatabaseActions: NodeComponent[] = [
         label: "Full Item",
         type: "object",
         description: "Complete item object"
+      }
+    ]
+  },
+
+  // ============= UPDATE DATABASE ITEM =============
+  {
+    type: "notion_action_update_database_item",
+    title: "Update Database Item",
+    description: "Update properties of an existing database item (checkboxes, text, status, etc.)",
+    icon: FileEdit,
+    providerId: "notion",
+    requiredScopes: ["content.read", "content.write"],
+    category: "Productivity",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "workspace",
+        label: "Workspace",
+        type: "select",
+        dynamic: "notion_workspaces",
+        required: true,
+        loadOnMount: true,
+        placeholder: "Select Notion workspace"
+      },
+      {
+        name: "database",
+        label: "Database",
+        type: "select",
+        dynamic: "notion_databases",
+        required: true,
+        placeholder: "Select database",
+        description: "Don't see your database? In Notion, open it → click '...' → Connections → add your integration",
+        dependsOn: "workspace",
+        hidden: {
+          $deps: ["workspace"],
+          $condition: { workspace: { $exists: false } }
+        }
+      },
+      {
+        name: "item",
+        label: "Item to Update",
+        type: "select",
+        dynamic: "notion_database_items",
+        required: true,
+        placeholder: "Select item to update",
+        description: "Select the row/item to update from your database",
+        dependsOn: "database",
+        hidden: {
+          $deps: ["database"],
+          $condition: { database: { $exists: false } }
+        }
+      },
+      {
+        name: "properties",
+        label: "Properties to Update",
+        type: "dynamic_fields",
+        dynamic: "notion_database_properties",
+        dependsOn: "database",
+        required: false,
+        placeholder: "Loading database properties...",
+        description: "Select properties to update. Checkbox properties accept true/false values.",
+        hidden: {
+          $deps: ["item"],
+          $condition: { item: { $exists: false } }
+        }
+      }
+    ],
+    outputSchema: [
+      {
+        name: "page_id",
+        label: "Page ID",
+        type: "string",
+        description: "The ID of the updated page"
+      },
+      {
+        name: "url",
+        label: "Page URL",
+        type: "string",
+        description: "The URL of the updated page"
+      },
+      {
+        name: "properties",
+        label: "Updated Properties",
+        type: "object",
+        description: "The current properties of the item after update"
+      },
+      {
+        name: "last_edited_time",
+        label: "Last Edited Time",
+        type: "string",
+        description: "When the item was last edited"
       }
     ]
   },

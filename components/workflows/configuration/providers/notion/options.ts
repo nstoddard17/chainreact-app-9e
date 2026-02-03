@@ -54,6 +54,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         // New database action fields
         'searchProperty': 'properties',
         'createProperties': 'properties',
+        'item': 'database_items',
         'itemToArchive': 'database_items',
         'itemToRestore': 'archived_items',
         'sortProperty': 'properties',
@@ -82,9 +83,11 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         'databaseRows',
         'searchProperty',
         'createProperties',
+        'item',
         'itemToArchive',
         'itemToRestore',
-        'sortProperty'
+        'sortProperty',
+        'properties'
       ])
 
       if (databaseBoundFields.has(fieldName)) {
@@ -238,10 +241,10 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
           })) || []
           
         case 'properties':
-          return (Array.isArray(data) ? data : data.properties)?.map((prop: any) => ({
-            value: prop.id,
-            label: prop.name
-          })) || []
+          // Properties are used by both selects (searchProperty, sortProperty) and dynamic_fields (properties)
+          // The handler returns full schema with value/label included, so pass through all data
+          // This preserves type/property info needed by NotionDatabaseItemPropertiesField
+          return Array.isArray(data) ? data : (data.properties || [])
 
         case 'database_fields':
           // Database fields returns the actual field definitions with current values
@@ -261,6 +264,16 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         case 'database_rows':
           // Database rows returns all pages/entries in the database with their properties
           // This is used for the databaseRows dynamic_fields type
+          return Array.isArray(data) ? data : []
+
+        case 'database_items':
+          // Database items returns active pages in the database for selection
+          // Already formatted with value/label by the handler
+          return Array.isArray(data) ? data : []
+
+        case 'archived_items':
+          // Archived items returns archived pages in the database for restoration
+          // Already formatted with value/label by the handler
           return Array.isArray(data) ? data : []
 
         case 'blocks':
@@ -342,6 +355,8 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       'sortProperty': ['database'],
       'searchProperty': ['database'],
       'createProperties': ['database'],
+      'item': ['database'],
+      'properties': ['database'],
     }
 
     return dependencies[fieldName] || []
