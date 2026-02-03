@@ -372,23 +372,168 @@ export const MOCK_TRIGGER_DATA: Record<string, MockTriggerData> = {
   },
 
   // Notion triggers
-  'notion_trigger_page_created': {
-    type: 'notion_trigger_page_created',
-    description: 'New page created in Notion',
+  'notion_trigger_new_page': {
+    type: 'notion_trigger_new_page',
+    description: 'New page added to a Notion database',
     data: {
-      page: {
-        id: 'test_page_123',
-        created_time: new Date().toISOString(),
-        last_edited_time: new Date().toISOString(),
-        properties: {
-          Name: {
-            title: [{ text: { content: 'Test Page' } }]
-          },
-          Status: {
-            select: { name: 'In Progress' }
-          }
-        },
-        url: 'https://notion.so/test_page_123'
+      pageId: 'page_abc123def456',
+      databaseId: 'db_789xyz',
+      title: 'New Project Task',
+      url: 'https://notion.so/New-Project-Task-abc123def456',
+      createdAt: new Date().toISOString(),
+      properties: {
+        Name: { title: [{ text: { content: 'New Project Task' } }] },
+        Status: { select: { name: 'Not Started' } },
+        Priority: { select: { name: 'High' } }
+      }
+    }
+  },
+
+  'notion_trigger_page_updated': {
+    type: 'notion_trigger_page_updated',
+    description: 'Page properties or content updated in Notion',
+    data: {
+      pageId: 'page_abc123def456',
+      title: 'Updated Task Title',
+      url: 'https://notion.so/Updated-Task-abc123def456',
+      changedProperties: {
+        Status: { old: 'Not Started', new: 'In Progress' },
+        Priority: { old: 'High', new: 'Medium' }
+      },
+      updatedAt: new Date().toISOString()
+    }
+  },
+
+  'notion_trigger_new_comment': {
+    type: 'notion_trigger_new_comment',
+    description: 'New comment created on a Notion page or discussion',
+    data: {
+      commentId: 'comment_xyz789',
+      parentId: 'page_abc123def456',
+      parentType: 'page',
+      text: 'This looks great! Can we add more details to the requirements section?',
+      createdBy: {
+        id: 'user_123',
+        name: 'Jane Smith',
+        email: 'jane@example.com',
+        avatarUrl: 'https://notion.so/avatars/jane.png'
+      },
+      createdAt: new Date().toISOString(),
+      discussionId: 'discussion_456'
+    }
+  },
+
+  'notion_trigger_database_item_created': {
+    type: 'notion_trigger_database_item_created',
+    description: 'New item (page) created in a Notion database',
+    data: {
+      pageId: 'page_new789',
+      databaseId: 'db_tasks123',
+      title: 'Implement User Authentication',
+      url: 'https://notion.so/Implement-User-Auth-new789',
+      properties: {
+        Name: { title: [{ text: { content: 'Implement User Authentication' } }] },
+        Status: { select: { name: 'To Do' } },
+        Assignee: { people: [{ id: 'user_456', name: 'John Doe' }] },
+        'Due Date': { date: { start: '2025-02-15' } },
+        Tags: { multi_select: [{ name: 'Backend' }, { name: 'Security' }] }
+      },
+      createdAt: new Date().toISOString(),
+      createdBy: {
+        id: 'user_123',
+        name: 'Jane Smith'
+      }
+    }
+  },
+
+  'notion_trigger_database_item_updated': {
+    type: 'notion_trigger_database_item_updated',
+    description: 'Database item properties or content updated',
+    data: {
+      pageId: 'page_task456',
+      databaseId: 'db_tasks123',
+      title: 'Implement User Authentication',
+      url: 'https://notion.so/Implement-User-Auth-task456',
+      properties: {
+        Name: { title: [{ text: { content: 'Implement User Authentication' } }] },
+        Status: { select: { name: 'In Progress' } },
+        Assignee: { people: [{ id: 'user_456', name: 'John Doe' }] }
+      },
+      changedProperties: ['Status', 'Assignee'],
+      contentUpdated: false,
+      updatedAt: new Date().toISOString(),
+      updatedBy: {
+        id: 'user_789',
+        name: 'Project Manager'
+      }
+    }
+  },
+
+  'notion_trigger_page_content_updated': {
+    type: 'notion_trigger_page_content_updated',
+    description: 'Page content (blocks) updated in Notion',
+    data: {
+      pageId: 'page_doc123',
+      title: 'Technical Specification',
+      url: 'https://notion.so/Technical-Spec-doc123',
+      updatedBlocks: [
+        { id: 'block_1', type: 'paragraph', action: 'updated' },
+        { id: 'block_2', type: 'heading_2', action: 'created' },
+        { id: 'block_3', type: 'bulleted_list_item', action: 'created' }
+      ],
+      updatedAt: new Date().toISOString(),
+      updatedBy: {
+        id: 'user_456',
+        name: 'John Doe'
+      }
+    }
+  },
+
+  'notion_trigger_page_properties_updated': {
+    type: 'notion_trigger_page_properties_updated',
+    description: 'Page properties updated (excluding content)',
+    data: {
+      pageId: 'page_task789',
+      title: 'Q1 Planning Document',
+      url: 'https://notion.so/Q1-Planning-task789',
+      properties: {
+        Status: { select: { name: 'Complete' } },
+        'Review Date': { date: { start: '2025-02-01' } },
+        Reviewers: { people: [{ id: 'user_111', name: 'Alice' }, { id: 'user_222', name: 'Bob' }] }
+      },
+      changedProperties: {
+        Status: { old: { select: { name: 'In Review' } }, new: { select: { name: 'Complete' } } },
+        'Review Date': { old: null, new: { date: { start: '2025-02-01' } } }
+      },
+      propertyNames: ['Status', 'Review Date'],
+      updatedAt: new Date().toISOString(),
+      updatedBy: {
+        id: 'user_333',
+        name: 'Team Lead'
+      }
+    }
+  },
+
+  'notion_trigger_database_schema_updated': {
+    type: 'notion_trigger_database_schema_updated',
+    description: 'Database schema (properties) updated',
+    data: {
+      databaseId: 'db_projects456',
+      title: 'Project Tracker',
+      url: 'https://notion.so/db/Project-Tracker-projects456',
+      properties: {
+        Name: { type: 'title' },
+        Status: { type: 'select', options: ['Not Started', 'In Progress', 'Complete'] },
+        Priority: { type: 'select', options: ['Low', 'Medium', 'High', 'Critical'] },
+        'Sprint': { type: 'select', options: ['Sprint 1', 'Sprint 2', 'Sprint 3'] }
+      },
+      addedProperties: [{ name: 'Sprint', type: 'select' }],
+      removedProperties: [],
+      modifiedProperties: [{ name: 'Priority', change: 'Added "Critical" option' }],
+      updatedAt: new Date().toISOString(),
+      updatedBy: {
+        id: 'user_admin',
+        name: 'Database Admin'
       }
     }
   },
