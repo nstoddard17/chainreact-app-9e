@@ -104,6 +104,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
     const triggerId = `${workflowId}-${nodeId}`
 
     // Store trigger configuration for webhook processing
+    // Note: Notion webhook is configured once at the integration level, not per-user
     const { data: resource, error } = await supabase
       .from('trigger_resources')
       .insert({
@@ -115,32 +116,16 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
         trigger_type: triggerType,
         resource_type: 'webhook',
         resource_id: triggerId,
-        external_id: triggerId, // Use internal ID since we can't get Notion's webhook ID
-        status: 'pending_webhook_setup', // Pending until user completes manual setup in Notion
+        external_id: triggerId,
+        status: 'active', // Webhook is configured at integration level, so trigger is immediately active
         config: {
           workspace: workspaceId,
           database: databaseId,
           dataSourceId: dataSourceId // Store data source ID for filtering (matches processor expectations)
         },
         metadata: {
-          webhookUrl: webhookUrl,
           apiVersion: '2022-06-28',
           eventTypes: eventTypes,
-          webhookVerified: false, // Will be set to true when first webhook event is received
-          setupInstructions: {
-            step1: `Visit https://www.notion.so/my-integrations`,
-            step2: `Select your ChainReact integration`,
-            step3: `Go to the "Webhooks" tab`,
-            step4: `Click "+ Create a subscription"`,
-            step5: `Enter webhook URL: ${webhookUrl}`,
-            step6: `Select events: ${eventTypes.join(', ')}`,
-            step7: dataSourceId
-              ? `Subscribe to data source: ${dataSourceId}`
-              : `Subscribe to database: ${databaseId}`,
-            step8: `Click "Create subscription"`,
-            step9: `Notion will send a verification request automatically`
-          },
-          recommendedEvents: eventTypes,
           targetResource: dataSourceId || databaseId,
           targetType: dataSourceId ? 'data_source' : 'database'
         }
@@ -152,14 +137,14 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
       if (error.code === '23503') {
         logger.warn(`[Notion Trigger] Could not store trigger resource (workflow may be unsaved): ${error.message}`)
-        logger.info('[Notion Trigger] Trigger configured (without local record) - manual webhook setup required')
+        logger.info('[Notion Trigger] Trigger configured (without local record)')
         return
       }
       logger.error('[Notion Trigger] Failed to store trigger resource')
       throw new Error(`Failed to activate Notion trigger: ${error.message}`)
     }
 
-    logger.info('[Notion Trigger] Trigger configured - manual webhook setup required')
+    logger.info('[Notion Trigger] Trigger activated successfully')
   }
 
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
@@ -169,10 +154,8 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
 
     const supabase = await createSupabaseServerClient()
 
-    // Note: Notion webhooks must be deleted manually through the integration UI
-    // We only clean up our internal tracking here
-
     // Delete trigger resources from database
+    // Note: Webhook subscription remains at the integration level and continues to work for other workflows
     const { error } = await supabase
       .from('trigger_resources')
       .delete()
@@ -184,7 +167,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       throw new Error(`Failed to deactivate Notion triggers: ${error.message}`)
     }
 
-    logger.info('[Notion Trigger] Triggers deactivated - remember to delete webhook subscription in Notion integration UI')
+    logger.info('[Notion Trigger] Triggers deactivated')
   }
 
   async onDelete(context: TriggerDeactivationContext): Promise<void> {
@@ -234,30 +217,21 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
-    // Check webhook setup and verification status
+    // Check trigger status
     const resource = resources[0]
-    const webhookVerified = resource.metadata?.webhookVerified || false
     const status = resource.status
 
-    if (status === 'pending_webhook_setup') {
+    if (status !== 'active') {
       return {
         healthy: false,
-        details: 'Webhook setup pending - please configure webhook in Notion integration settings',
-        lastChecked: new Date().toISOString()
-      }
-    }
-
-    if (!webhookVerified) {
-      return {
-        healthy: false,
-        details: 'Webhook not yet verified - waiting for first event from Notion',
+        details: `Trigger is not active (status: ${status})`,
         lastChecked: new Date().toISOString()
       }
     }
 
     return {
       healthy: true,
-      details: 'Notion webhook is active and verified',
+      details: 'Notion trigger is active',
       lastChecked: new Date().toISOString()
     }
   }
