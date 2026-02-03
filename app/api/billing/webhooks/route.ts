@@ -6,7 +6,7 @@ import { headers } from "next/headers"
 
 import { logger } from '@/lib/utils/logger'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET || "", {
   apiVersion: "2024-12-18.acacia",
 })
 

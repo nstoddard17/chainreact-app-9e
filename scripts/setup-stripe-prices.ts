@@ -11,7 +11,7 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET!, {
   apiVersion: '2024-12-18.acacia' as any,
 })
 

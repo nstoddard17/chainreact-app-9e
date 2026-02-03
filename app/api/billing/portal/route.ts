@@ -6,7 +6,7 @@ import Stripe from "stripe"
 
 import { logger } from '@/lib/utils/logger'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET!)
 
 // Helper function to get base URL from request
 function getBaseUrlFromRequest(request: NextRequest): string {

@@ -12,9 +12,8 @@ export async function GET() {
   const results = {
     timestamp: new Date().toISOString(),
     environment: {
-      hasStripeKey: !!process.env.STRIPE_SECRET_KEY,
-      hasBillingWebhookSecret: !!process.env.STRIPE_BILLING_WEBHOOK_SECRET,
-      hasLegacyWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+      hasStripeClientSecret: !!process.env.STRIPE_CLIENT_SECRET,
+      hasStripeWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
       hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
       hasSupabaseKey: !!process.env.SUPABASE_SECRET_KEY,
     },

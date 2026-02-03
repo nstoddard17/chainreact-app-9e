@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export default async function BillingPage() {
   // Validate required environment variables
   const requiredEnvVars = {
-    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_CLIENT_SECRET: process.env.STRIPE_CLIENT_SECRET,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
   }

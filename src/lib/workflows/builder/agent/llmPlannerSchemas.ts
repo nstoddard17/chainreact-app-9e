@@ -197,21 +197,69 @@ export const NodeSelectionResponseSchema = z.object({
 // NODE CONFIGURATION RESPONSE (Stage 2)
 // ============================================================================
 
+// Helper to convert numeric confidence to string
+// LLMs sometimes return 0.8 instead of 'high'
+const numericToStringConfidence = (val: unknown): 'high' | 'medium' | 'low' => {
+  if (typeof val === 'string' && ['high', 'medium', 'low'].includes(val)) {
+    return val as 'high' | 'medium' | 'low'
+  }
+  if (typeof val === 'number') {
+    if (val >= 0.7) return 'high'
+    if (val >= 0.4) return 'medium'
+    return 'low'
+  }
+  return 'medium' // default
+}
+
+// Flexible confidence that accepts both string enum and numbers
+const FlexibleConfidenceSchema = z.union([
+  ConfigConfidenceSchema,
+  z.number().transform(numericToStringConfidence),
+]).catch('medium')
+
+// Flexible fieldConfidence that accepts:
+// - { confidence: 'high', reason: '...' } (expected)
+// - { confidence: 0.8, reason: '...' } (number confidence)
+// - 0.8 (just a number)
+// - 'high' (just a string)
+const FlexibleFieldConfidenceSchema = z.union([
+  z.object({
+    confidence: FlexibleConfidenceSchema,
+    reason: z.string(),
+  }),
+  z.number().transform((n) => ({
+    confidence: numericToStringConfidence(n),
+    reason: 'AI configured',
+  })),
+  z.string().transform((s) => ({
+    confidence: numericToStringConfidence(s),
+    reason: 'AI configured',
+  })),
+])
+
+// Flexible userRequiredFields that accepts:
+// - { field: 'name', reason: '...' } (expected)
+// - 'fieldName' (just a string)
+const FlexibleUserRequiredFieldSchema = z.union([
+  z.object({
+    field: z.string(),
+    reason: z.string(),
+  }),
+  z.string().transform((s) => ({
+    field: s,
+    reason: 'User input required',
+  })),
+])
+
 export const NodeConfigurationResponseSchema = z.object({
   configurations: z.record(z.object({
     config: z.record(z.any()),
-    confidence: ConfigConfidenceSchema,
-    fieldConfidence: z.record(z.object({
-      confidence: ConfigConfidenceSchema,
-      reason: z.string(),
-    })),
-    userRequiredFields: z.array(z.object({
-      field: z.string(),
-      reason: z.string(),
-    })),
+    confidence: FlexibleConfidenceSchema,
+    fieldConfidence: z.record(FlexibleFieldConfidenceSchema),
+    userRequiredFields: z.array(FlexibleUserRequiredFieldSchema),
     dynamicFields: z.array(z.string()),
   })),
-  variableMappings: z.record(z.string()), // nodeField -> sourceVariable
+  variableMappings: z.record(z.string()).optional().default({}), // nodeField -> sourceVariable
 })
 
 // ============================================================================

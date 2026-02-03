@@ -23,11 +23,10 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     const signature = request.headers.get('stripe-signature')
     
-    // Use separate webhook secret for integration webhooks
-    const webhookSecret = process.env.STRIPE_INTEGRATION_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET
-    
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+
     if (!webhookSecret) {
-      logger.error('❌ Missing STRIPE_INTEGRATION_WEBHOOK_SECRET environment variable')
+      logger.error('❌ Missing STRIPE_WEBHOOK_SECRET environment variable')
       return errorResponse('Webhook secret not configured' , 500)
     }
 

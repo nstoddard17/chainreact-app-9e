@@ -6,13 +6,13 @@ import Stripe from "stripe"
 
 import { logger } from '@/lib/utils/logger'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET!, {
   apiVersion: "2025-05-28.basil",
 })
 
 // This webhook handles billing events for ChainReact subscriptions
 // Use /api/webhooks/stripe-integration for workflow triggers
-const webhookSecret = process.env.STRIPE_BILLING_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET!
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
 export async function POST(request: Request) {
   logger.debug("[Stripe Billing Webhook] Received billing webhook request")

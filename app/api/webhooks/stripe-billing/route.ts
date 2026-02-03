@@ -5,12 +5,12 @@ import Stripe from "stripe"
 
 import { logger } from '@/lib/utils/logger'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET!, {
   apiVersion: "2025-05-28.basil",
 })
 
 // This webhook handles your business billing (subscriptions for ChainReact)
-const webhookSecret = process.env.STRIPE_BILLING_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET!
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
 // Helper function to safely convert timestamps to ISO strings
 function safeTimestampToISO(timestamp: number | null | undefined): string | null {

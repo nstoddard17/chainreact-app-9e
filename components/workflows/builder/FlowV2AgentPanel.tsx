@@ -417,6 +417,120 @@ export function FlowV2AgentPanel({
     return false
   }
 
+  // Helper: Load dependent fields when parent field changes
+  const loadDependentFields = useCallback(async (
+    nodeId: string,
+    nodeType: string,
+    providerId: string,
+    connectionId: string,
+    parentFieldName: string,
+    parentValue: string
+  ) => {
+    const schema = getNodeSchema(nodeType)
+    if (!schema?.configSchema) return
+
+    // Find fields that depend on the changed field
+    const dependentFields = schema.configSchema.filter(field =>
+      field.dynamic && field.dependsOn === parentFieldName
+    )
+
+    if (dependentFields.length === 0) return
+
+    console.log(`[FlowV2AgentPanel] Loading dependent fields for ${parentFieldName}:`, dependentFields.map(f => f.name))
+
+    // Mark dependent fields as loading
+    setLoadingFieldsByNode(prev => ({
+      ...prev,
+      [nodeId]: new Set([...(prev[nodeId] || []), ...dependentFields.map(f => f.name)])
+    }))
+
+    // Load options for each dependent field
+    const loadPromises = dependentFields.map(async (field) => {
+      try {
+        let dataType = typeof field.dynamic === 'string' ? field.dynamic : String(field.dynamic || '')
+
+        console.log(`[FlowV2AgentPanel] Loading dependent field ${field.name}, dataType: ${dataType}, parentValue: ${parentValue}`)
+
+        // Build options object with the parent value AND any other config values
+        // This is important for deeply nested dependencies (e.g., columns need both spreadsheetId AND sheetName)
+        const currentConfig = nodeConfigs[nodeId] || {}
+        const apiOptions: Record<string, any> = {
+          ...currentConfig, // Include all current config values
+          [parentFieldName]: parentValue // Override with the new parent value
+        }
+        // Remove non-API fields
+        delete apiOptions.connection
+        delete apiOptions.__savedDynamicOptions__
+
+        const response = await fetch(`/api/integrations/${providerId}/data`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            integrationId: connectionId,
+            dataType: dataType,
+            options: apiOptions
+          })
+        })
+
+        if (!response.ok) {
+          console.error(`Failed to load dependent field ${field.name}:`, response.status)
+          return { fieldName: field.name, options: [] }
+        }
+
+        const result = await response.json()
+        const rawOptions = Array.isArray(result.data) ? result.data : result.data || []
+
+        // Transform options to { value, label } format
+        // Different APIs return different formats, so we handle common cases
+        const options = rawOptions.map((opt: any) => {
+          if (typeof opt === 'string') {
+            return { value: opt, label: opt }
+          }
+          // If already has value/label, use as-is
+          if (opt.value !== undefined) {
+            return { value: opt.value, label: opt.label || opt.name || opt.value }
+          }
+          // Google Sheets sheets handler returns { id, name } - use name as both value and label
+          // since the field is "sheetName" and expects the sheet title, not the numeric ID
+          if (opt.name !== undefined) {
+            return { value: opt.name, label: opt.name }
+          }
+          // Fallback: use id as value
+          if (opt.id !== undefined) {
+            return { value: String(opt.id), label: opt.title || opt.name || String(opt.id) }
+          }
+          return opt
+        })
+
+        return { fieldName: field.name, options }
+      } catch (error) {
+        console.error(`Error loading dependent field ${field.name}:`, error)
+        return { fieldName: field.name, options: [] }
+      }
+    })
+
+    const results = await Promise.all(loadPromises)
+
+    // Update options for dependent fields
+    const newOptions: Record<string, any[]> = {}
+    results.forEach(({ fieldName, options }) => {
+      newOptions[fieldName] = options
+    })
+
+    setNodesDynamicOptions(prev => ({
+      ...prev,
+      [nodeId]: { ...prev[nodeId], ...newOptions }
+    }))
+
+    // Clear loading state for dependent fields
+    setLoadingFieldsByNode(prev => ({
+      ...prev,
+      [nodeId]: new Set([...(prev[nodeId] || [])].filter(f => !dependentFields.some(df => df.name === f)))
+    }))
+
+    console.log(`[FlowV2AgentPanel] Loaded dependent fields:`, Object.keys(newOptions))
+  }, [getNodeSchema, nodeConfigs])
+
   // Helper: Update field configuration for a node
   const handleFieldChange = (nodeId: string, fieldName: string, value: any) => {
     onNodeConfigChange(nodeId, fieldName, value)
@@ -429,6 +543,23 @@ export function FlowV2AgentPanel({
           const { [oldConnection]: _, ...rest } = prev
           return rest
         })
+      }
+    }
+
+    // Trigger loading of dependent fields when a parent field changes
+    // (e.g., when spreadsheetId changes, load sheetName options)
+    const planNode = buildMachine.plan?.find(n => n.id === nodeId)
+    if (planNode?.providerId && value) {
+      const connectionId = nodeConfigs[nodeId]?.connection
+      if (connectionId) {
+        loadDependentFields(
+          nodeId,
+          planNode.nodeType,
+          planNode.providerId,
+          connectionId,
+          fieldName,
+          value
+        )
       }
     }
 
@@ -879,6 +1010,25 @@ export function FlowV2AgentPanel({
               // Refresh integrations to get updated status from database
               refreshIntegrations().catch(err => console.error('Failed to refresh integrations:', err))
               return { fieldName: field.name, options: [], expired: true }
+            }
+
+            // Check if this is a "dependency not met" error (like missing spreadsheetId for sheetName)
+            // These are expected when loading dependent fields before their parent is selected
+            const errorMsg = (errorData.message || errorData.error || '').toLowerCase()
+            const isDependencyError = errorMsg.includes('required') ||
+              errorMsg.includes('missing') ||
+              response.status === 400
+
+            if (isDependencyError && field.dependsOn) {
+              // Silently return empty options - this is expected
+              console.log(`[FlowV2AgentPanel] ${field.name} dependency not met (needs ${field.dependsOn}) - returning empty options`)
+              return { fieldName: field.name, options: [] }
+            }
+
+            // Also silently handle 500 errors for dependent fields - the API throws when dependencies are missing
+            if (response.status === 500 && field.dependsOn) {
+              console.log(`[FlowV2AgentPanel] ${field.name} failed (likely missing ${field.dependsOn}) - returning empty options`)
+              return { fieldName: field.name, options: [] }
             }
 
             // Other errors - log them
@@ -2230,34 +2380,58 @@ export function FlowV2AgentPanel({
                 )}
               </div>
 
-              <div className="relative">
-                {agentInput === '' && (
-                  <div className="absolute left-0 top-0 pointer-events-none px-3 py-2 text-sm text-muted-foreground leading-normal">
-                    {buildMachine.plan.length > 0
-                      ? "Refine your workflow (e.g., 'add a filter before step 2')..."
-                      : "How can ChainReact help you today?"
-                    }
-                  </div>
-                )}
-                {/* Refinement indicator when user is typing a refinement command */}
-                {agentInput.trim() && buildMachine.plan.length > 0 && looksLikeRefinement(agentInput) && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-primary font-medium">
-                    Refining...
-                  </div>
-                )}
-                <input
-                  type="text"
-                  value={agentInput}
-                  onChange={(e) => onInputChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && agentInput.trim()) {
+              <div className="relative flex items-center gap-2">
+                <div className="relative flex-1">
+                  {agentInput === '' && (
+                    <div className="absolute left-0 top-0 pointer-events-none px-3 py-2 text-sm text-muted-foreground leading-normal">
+                      {buildMachine.plan.length > 0
+                        ? "Refine your workflow (e.g., 'add a filter before step 2')..."
+                        : "How can ChainReact help you today?"
+                      }
+                    </div>
+                  )}
+                  {/* Refinement indicator when user is typing a refinement command */}
+                  {agentInput.trim() && buildMachine.plan.length > 0 && looksLikeRefinement(agentInput) && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-primary font-medium">
+                      Refining...
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    value={agentInput}
+                    onChange={(e) => onInputChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        console.log('[FlowV2AgentPanel] Enter pressed, agentInput:', JSON.stringify(agentInput), 'isAgentLoading:', isAgentLoading)
+                        if (agentInput.trim()) {
+                          console.log('[FlowV2AgentPanel] Calling onSubmit...')
+                          onSubmit()
+                        } else {
+                          console.log('[FlowV2AgentPanel] ❌ Not submitting: agentInput is empty')
+                        }
+                      }
+                    }}
+                    disabled={isAgentLoading}
+                    className="w-full border-0 shadow-none focus:outline-none focus:ring-0 text-sm text-foreground px-3 py-2 bg-transparent leading-normal"
+                    style={{ caretColor: 'currentColor' }}
+                  />
+                </div>
+                {/* Submit button as fallback */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    console.log('[FlowV2AgentPanel] Submit button clicked, agentInput:', JSON.stringify(agentInput))
+                    if (agentInput.trim()) {
                       onSubmit()
                     }
                   }}
-                  disabled={isAgentLoading}
-                  className="w-full border-0 shadow-none focus:outline-none focus:ring-0 text-sm text-foreground px-3 py-2 bg-transparent leading-normal"
-                  style={{ caretColor: 'currentColor' }}
-                />
+                  disabled={isAgentLoading || !agentInput.trim()}
+                  className="h-8 px-3 text-xs"
+                >
+                  {isAgentLoading ? 'Working...' : 'Send'}
+                </Button>
               </div>
             </div>
           </div>
