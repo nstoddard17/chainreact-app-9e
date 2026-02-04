@@ -56,8 +56,13 @@ export async function POST(request: NextRequest) {
     })
 
     if (createError) {
-      logger.error('Error creating user:', createError)
-      return errorResponse(createError.message , 400)
+      logger.error('Error creating user:', {
+        message: createError.message,
+        status: createError.status,
+        code: (createError as any).code,
+        name: createError.name
+      })
+      return errorResponse(createError.message || 'Failed to create user in auth system', 400)
     }
 
     if (!newUser.user) {
