@@ -181,7 +181,8 @@ export default function WaitingConfirmationPage() {
                   </div>
 
                   <p className="text-orange-200 mb-6 text-sm leading-relaxed">
-                    Click the link in your email to verify your account. This page will automatically
+                    Click the link in your email to verify your account. Be sure to check your spam
+                    or junk folder if you don't see it in your inbox. This page will automatically
                     update when your email is confirmed.
                   </p>
 
