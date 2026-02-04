@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { sendWelcomeEmail } from '@/lib/services/resend'
 import { type UserRole, ROLES } from '@/lib/utils/roles'
 
@@ -41,8 +41,11 @@ export async function POST(request: NextRequest) {
       return errorResponse('Invalid role specified' , 400)
     }
 
-    // Create user with Supabase Admin API
-    const adminSupabase = await createSupabaseServiceClient()
+    // Create user with Supabase Admin API (using direct client for full admin access)
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!
+    )
     
     const { data: newUser, error: createError } = await adminSupabase.auth.admin.createUser({
       email,

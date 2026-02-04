@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -39,7 +39,10 @@ export async function POST(request: NextRequest) {
       return errorResponse('Cannot delete your own account' , 400)
     }
 
-    const adminSupabase = await createSupabaseServiceClient()
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!
+    )
 
     // Check if user exists
     const { data: existingUser } = await adminSupabase.auth.admin.getUserById(userId)
