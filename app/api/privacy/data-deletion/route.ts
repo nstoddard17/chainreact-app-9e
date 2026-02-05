@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { cookies } from "next/headers"
 import { GDPRService } from "@/lib/compliance/gdprService"
 import { ComplianceLogger } from "@/lib/security/complianceLogger"
+import { UserDeletionService } from "@/lib/services/userDeletionService"
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 import { logger } from '@/lib/utils/logger'
@@ -215,87 +216,28 @@ async function processDeletion(userId: string, deletionType: string, integration
 }
 
 async function performFullDeletion(userId: string) {
-  cookies()
-  const supabase = await createSupabaseRouteHandlerClient()
+  const deletionService = new UserDeletionService()
+  const result = await deletionService.deleteUser(userId, 'full')
 
-  // Delete all user data
-  const tablesToDelete = [
-    "integrations",
-    "workflows", 
-    "workflow_executions",
-    "execution_retries",
-    "dead_letter_queue",
-    "pkce_flow",
-    "token_refresh_logs"
-  ]
-
-  for (const table of tablesToDelete) {
-    const { error } = await supabase
-      .from(table)
-      .delete()
-      .eq("user_id", userId)
-
-    if (error) {
-      logger.error(`Error deleting from ${table}:`, error)
-      // Continue with other tables even if one fails
-    }
+  if (result.errors.length > 0) {
+    logger.warn(`[GDPR Full Delete] Completed with ${result.errors.length} errors:`, result.errors)
   }
 
-  // Anonymize audit logs (keep for compliance)
-  await supabase
-    .from("compliance_audit_logs")
-    .update({
-      user_id: null,
-      ip_address: null,
-      user_agent: "Anonymized per deletion request",
-      old_values: null,
-      new_values: null
-    })
-    .eq("user_id", userId)
-
-  // Delete user account (this will cascade to other tables)
-  const { error: userDeleteError } = await supabase.auth.admin.deleteUser(userId)
-  
-  if (userDeleteError) {
-    logger.error("Error deleting user account:", userDeleteError)
-    throw new Error("Failed to delete user account")
+  if (!result.success) {
+    const authError = result.errors.find(e => e.table === 'auth.users')
+    if (authError) {
+      throw new Error("Failed to delete user account")
+    }
   }
 }
 
 async function performPartialDeletion(userId: string) {
-  cookies()
-  const supabase = await createSupabaseRouteHandlerClient()
+  const deletionService = new UserDeletionService()
+  const result = await deletionService.deleteUser(userId, 'partial')
 
-  // Delete sensitive data but keep account
-  const sensitiveTables = [
-    "integrations",
-    "workflow_executions",
-    "execution_retries",
-    "dead_letter_queue",
-    "pkce_flow",
-    "token_refresh_logs"
-  ]
-
-  for (const table of sensitiveTables) {
-    const { error } = await supabase
-      .from(table)
-      .delete()
-      .eq("user_id", userId)
-
-    if (error) {
-      logger.error(`Error deleting from ${table}:`, error)
-    }
+  if (result.errors.length > 0) {
+    logger.warn(`[GDPR Partial Delete] Completed with ${result.errors.length} errors:`, result.errors)
   }
-
-  // Anonymize workflows (keep structure but remove personal data)
-  await supabase
-    .from("workflows")
-    .update({
-      name: "Anonymized Workflow",
-      description: "Data anonymized per deletion request",
-      config: null
-    })
-    .eq("user_id", userId)
 }
 
 async function performIntegrationSpecificDeletion(userId: string, provider: string) {

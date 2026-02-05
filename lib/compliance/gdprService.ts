@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import { ComplianceLogger } from "../security/complianceLogger"
+import { UserDeletionService } from "../services/userDeletionService"
 
 export interface DataSubjectRequest {
   id: string
@@ -221,28 +222,20 @@ export class GDPRService {
   }
 
   private async anonymizeUserData(userId: string, organizationId: string): Promise<void> {
-    // Anonymize workflows
-    await this.supabase
-      .from("workflows")
-      .update({
-        name: "Anonymized Workflow",
-        description: "Data anonymized per GDPR request",
-      })
-      .eq("user_id", userId)
-      .eq("organization_id", organizationId)
+    const deletionService = new UserDeletionService(this.supabase)
+    const result = await deletionService.deleteUser(userId, 'anonymize')
 
-    // Delete integrations
-    await this.supabase.from("integrations").delete().eq("user_id", userId)
-
-    // Keep audit logs but anonymize personal data
-    await this.supabase
-      .from("compliance_audit_logs")
-      .update({
-        user_id: null,
-        ip_address: null,
-        user_agent: "Anonymized per GDPR request",
-      })
-      .eq("user_id", userId)
-      .eq("organization_id", organizationId)
+    if (!result.success) {
+      // Log errors but don't throw - anonymization should be best-effort
+      for (const error of result.errors) {
+        await this.complianceLogger.logAction({
+          organization_id: organizationId,
+          user_id: userId,
+          action: "gdpr_anonymization_partial_failure",
+          resource_type: error.table,
+          compliance_tags: ["gdpr", "anonymization_error"],
+        })
+      }
+    }
   }
 }

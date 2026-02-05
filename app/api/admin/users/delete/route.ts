@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { createClient } from '@supabase/supabase-js'
+import { UserDeletionService } from '@/lib/services/userDeletionService'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -102,58 +103,21 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Hard delete: Remove user data first, then delete auth user
+    // Hard delete: Remove all user data and auth user
     try {
-      // Delete related data in proper order (foreign key constraints)
-      
-      // Delete workflow executions
-      await adminSupabase
-        .from('workflow_executions')
-        .delete()
-        .eq('user_id', userId)
+      const deletionService = new UserDeletionService(adminSupabase)
+      const result = await deletionService.deleteUser(userId, 'full')
 
-      // Delete workflows
-      await adminSupabase
-        .from('workflows')
-        .delete()
-        .eq('user_id', userId)
-
-      // Delete integrations
-      await adminSupabase
-        .from('integrations')
-        .delete()
-        .eq('user_id', userId)
-
-      // Delete organization memberships
-      await adminSupabase
-        .from('organization_members')
-        .delete()
-        .eq('user_id', userId)
-
-      // Delete organizations owned by user
-      await adminSupabase
-        .from('organizations')
-        .delete()
-        .eq('owner_id', userId)
-
-      // Delete user profile
-      await adminSupabase
-        .from('user_profiles')
-        .delete()
-        .eq('id', userId)
-
-      // Finally, delete the auth user
-      const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(userId)
-
-      if (deleteError) {
-        logger.error('Error deleting auth user:', deleteError)
-        return errorResponse(deleteError.message , 400)
+      if (result.errors.length > 0) {
+        logger.warn(`[Admin Delete] Completed with ${result.errors.length} errors:`, result.errors)
       }
 
       return jsonResponse({
         success: true,
         message: 'User and all associated data deleted successfully',
-        action: 'deleted'
+        action: 'deleted',
+        tablesProcessed: result.tablesProcessed,
+        errors: result.errors.length > 0 ? result.errors : undefined
       })
 
     } catch (dataDeleteError) {
