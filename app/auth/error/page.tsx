@@ -16,15 +16,15 @@ function ErrorPageContent() {
       case 'expired-link':
         return {
           title: 'Link Expired',
-          description: message || 'Your confirmation link has expired. Confirmation links are valid for 15 minutes for security reasons.',
+          description: message || 'Your confirmation link has expired or is invalid. Please request a new one.',
           icon: <AlertCircle className="h-12 w-12 text-yellow-400" />,
           bgColor: 'bg-yellow-500/20',
           actions: (
             <>
-              <Link href="/auth/register">
+              <Link href="/auth/waiting-confirmation?expired=true">
                 <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                   <Mail className="mr-2 h-4 w-4" />
-                  Sign Up Again
+                  Resend Confirmation Email
                 </Button>
               </Link>
               <Link href="/auth/login">
