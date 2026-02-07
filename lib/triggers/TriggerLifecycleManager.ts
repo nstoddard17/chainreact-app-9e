@@ -38,7 +38,8 @@ export class TriggerLifecycleManager {
    *
    * Provider IDs can be:
    * - Base name: "microsoft-outlook", "gmail", "slack"
-   * - Full trigger type: "microsoft-outlook_trigger_new_email", "gmail_trigger_new_email"
+   * - Full trigger type with underscore: "microsoft-outlook_trigger_new_email", "gmail_trigger_new_email"
+   * - Full trigger type with colon: "google-drive:new_file_in_folder"
    *
    * This method extracts the base provider name by:
    * 1. Trying exact match first
@@ -55,9 +56,10 @@ export class TriggerLifecycleManager {
     const registeredProviders = Array.from(this.providers.keys()).sort((a, b) => b.length - a.length)
 
     for (const registered of registeredProviders) {
-      // Check if providerId starts with the registered provider followed by underscore
+      // Check if providerId starts with the registered provider followed by underscore or colon
       // e.g., "microsoft-outlook_trigger_new_email" starts with "microsoft-outlook_"
-      if (providerId.startsWith(registered + '_')) {
+      // e.g., "google-drive:new_file_in_folder" starts with "google-drive:"
+      if (providerId.startsWith(registered + '_') || providerId.startsWith(registered + ':')) {
         return registered
       }
     }

@@ -271,11 +271,10 @@ async function planWorkflowWithTemplates(
     console.log('[planWorkflowWithTemplates] 🎯 Template matched! Generating plan...')
     logTemplateMatch(match.template.id, prompt)
 
-    // Log prompt analytics (non-blocking - don't wait)
-    console.log('[planWorkflowWithTemplates] Logging prompt analytics...')
-    let promptId: string | null = null
-    try {
-      promptId = await logPrompt({
+    // Log prompt analytics (non-blocking with timeout - don't let it block workflow creation)
+    console.log('[planWorkflowWithTemplates] Logging prompt analytics (non-blocking)...')
+    Promise.race([
+      logPrompt({
         userId: userId || '',
         workflowId,
         prompt,
@@ -287,11 +286,16 @@ async function planWorkflowWithTemplates(
         detectedProvider: providerId,
         planNodes: match.plan.length,
         planGenerated: true,
-      })
-      console.log('[planWorkflowWithTemplates] Prompt logged:', promptId)
-    } catch (logError) {
+      }),
+      new Promise<null>((resolve) => setTimeout(() => {
+        console.warn('[planWorkflowWithTemplates] Template analytics logging timed out after 3s')
+        resolve(null)
+      }, 3000))
+    ]).then(promptId => {
+      if (promptId) console.log('[planWorkflowWithTemplates] Prompt logged:', promptId)
+    }).catch(logError => {
       console.warn('[planWorkflowWithTemplates] ⚠️ Failed to log prompt (continuing anyway):', logError)
-    }
+    })
 
     // Convert template plan to edits format
     // IMPORTANT: Generate UUIDs for node IDs instead of using template IDs like "action-1"
@@ -336,19 +340,34 @@ async function planWorkflowWithTemplates(
   console.log('[planWorkflowWithTemplates] No template match, falling back to LLM...')
   logTemplateMiss(prompt)
 
-  // Log prompt analytics (LLM usage)
-  console.log('[planWorkflowWithTemplates] Logging prompt analytics...')
-  const promptId = await logPrompt({
-    userId: userId || '',
-    workflowId,
-    prompt,
-    usedTemplate: false,
-    usedLlm: true,
-    llmCost: 0.03,
-    detectedProvider: providerId,
-    planGenerated: false, // Will be updated after LLM responds
+  // Log prompt analytics (LLM usage) - non-blocking with timeout
+  // Don't let analytics block the workflow creation
+  console.log('[planWorkflowWithTemplates] Logging prompt analytics (non-blocking)...')
+  let promptId: string | null = null
+  const analyticsPromise = Promise.race([
+    logPrompt({
+      userId: userId || '',
+      workflowId,
+      prompt,
+      usedTemplate: false,
+      usedLlm: true,
+      llmCost: 0.03,
+      detectedProvider: providerId,
+      planGenerated: false,
+    }),
+    new Promise<null>((resolve) => setTimeout(() => {
+      console.warn('[planWorkflowWithTemplates] Analytics logging timed out after 3s')
+      resolve(null)
+    }, 3000))
+  ]).then(id => {
+    promptId = id
+    if (id) console.log('[planWorkflowWithTemplates] Prompt logged:', id)
+  }).catch(err => {
+    console.warn('[planWorkflowWithTemplates] Analytics logging failed:', err?.message)
   })
-  console.log('[planWorkflowWithTemplates] Prompt logged, calling askAgent...')
+
+  // Don't wait for analytics - proceed with askAgent immediately
+  console.log('[planWorkflowWithTemplates] Calling askAgent...')
 
   let result
   try {
@@ -359,19 +378,18 @@ async function planWorkflowWithTemplates(
     throw askError // Re-throw to be caught by the caller
   }
 
-  // Update prompt with plan details
-  if (promptId && result.edits) {
-    await updatePrompt({
-      promptId,
-      planBuilt: false, // Not built yet, just planned
-    })
-
-    // Analyze for clustering (async, don't wait)
-    // TODO: Re-enable when analyzePromptForClustering is implemented
-    // analyzePromptForClustering(promptId, prompt).catch(error => {
-    //   console.warn('[PromptAnalytics] Clustering analysis failed:', error)
-    // })
-  }
+  // Update prompt with plan details (non-blocking)
+  // Wait for analytics promise to complete first, then update
+  analyticsPromise.then(() => {
+    if (promptId && result.edits) {
+      updatePrompt({
+        promptId,
+        planBuilt: false, // Not built yet, just planned
+      }).catch(err => {
+        console.warn('[planWorkflowWithTemplates] Failed to update prompt analytics:', err?.message)
+      })
+    }
+  })
 
   return {
     result,
@@ -2324,8 +2342,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [toast])
 
   const handlePreferencesSkip = useCallback(() => {
-    console.log('[Preferences Skip]')
-
     // Clear collected preferences without saving
     setCollectedPreferences([])
 
@@ -2344,25 +2360,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
   // Handle prompt parameter from URL (e.g., from AI agent page)
   useEffect(() => {
-    // Comprehensive logging for debugging stuck animation after dev restart
-    console.log('[URL Prompt Handler] Effect triggered', {
-      hasActions: !!actions,
-      promptProcessed: promptProcessedRef.current,
-      isChatLoading,
-      chatHistoryLoaded,
-      agentMessagesCount: agentMessages.length,
-      promptParam: promptParam ? promptParam.substring(0, 30) + '...' : null,
-      hasSessionStoragePrompt: typeof window !== 'undefined' ? !!window.sessionStorage.getItem("flowv2:pendingPrompt") : 'N/A',
-      flowId,
-      timestamp: new Date().toISOString(),
-    })
-
     if (!actions) {
-      console.log('[URL Prompt Handler] ❌ BLOCKED: actions not available yet - adapter may not be initialized')
       return
     }
     if (promptProcessedRef.current) {
-      console.log('[URL Prompt Handler] ⏭️ SKIPPED: prompt already processed')
       return
     }
 
@@ -2371,13 +2372,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // chatHistoryLoaded is set AFTER setAgentMessages completes, avoiding the race condition
     // where isChatLoading is false but agentMessages hasn't been updated yet
     if (isChatLoading || !chatHistoryLoaded) {
-      console.log('[URL Prompt Handler] ⏳ WAITING: chat history not loaded yet', { isChatLoading, chatHistoryLoaded })
       return
     }
 
     // Skip if there's already chat history (workflow was previously used)
     if (agentMessages.length > 0) {
-      console.log('[URL Prompt Handler] Skipping - chat history already exists:', agentMessages.length, 'messages')
       promptProcessedRef.current = true
 
       // Clear the URL prompt parameter to prevent any future reprocessing
@@ -2389,7 +2388,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         newParams.delete('initialPrompt')
         const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
         routerRef.current.replace(newUrl, { scroll: false })
-        console.log('[URL Prompt Handler] Cleared URL prompt (chat history exists, preventing duplicate processing)')
       }
       return
     }
@@ -2431,7 +2429,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       newParams.delete('openPanel')
       const newUrl = newParams.toString() ? `${pathname}?${newParams.toString()}` : pathname
       routerRef.current.replace(newUrl, { scroll: false })
-      console.log('[URL Prompt Handler] Cleared prompt/openPanel from URL to prevent duplicate processing on refresh')
     }
 
     // Auto-submit the prompt after a short delay to ensure UI is ready
@@ -2447,15 +2444,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           createdAt: createdAtIso,
         }
 
-        console.log('💬 [Chat Debug] Adding user message to state (from URL prompt)')
-        console.log('  Message:', { id: initialLocalId, role: 'user', text: prompt.substring(0, 50) })
-        setAgentMessages(prev => {
-          console.log('  Previous messages:', prev.length)
-          return [...prev, initialMessage]
-        })
+        setAgentMessages(prev => [...prev, initialMessage])
 
         if (!chatPersistenceEnabled || !flowState?.flow) {
-          console.log('  → Chat persistence disabled, enqueueing as pending')
           enqueuePendingMessage({
             localId: initialLocalId,
             role: 'user',
@@ -2463,11 +2454,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             createdAt: createdAtIso,
           })
         } else {
-          console.log('  → Saving to database...')
           ChatService.addUserPrompt(flowId, prompt)
             .then((saved) => {
               if (saved) {
-                console.log('  ✓ Saved to DB, replacing local ID with DB ID:', saved.id)
                 replaceMessageByLocalId(initialLocalId, saved)
               }
             })
@@ -2484,11 +2473,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           try {
             // STEP 0: Check if user mentioned specific apps (e.g., "Gmail", "Outlook", "Slack")
             const specificApps = detectSpecificApps(prompt)
-            console.log('[URL Prompt Handler] Detected specific apps:', specificApps.map(a => a.displayName))
 
             // Check for ALL vague provider terms (not just the first one)
             const allVagueTerms = detectAllVagueTerms(prompt)
-            console.log('[URL Prompt Handler] Detected all vague terms:', allVagueTerms.map(t => t.category?.vagueTerm))
 
             let finalPrompt = prompt
             // Collect ALL explicitly mentioned providers (not just the first one)
@@ -2511,15 +2498,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               })
 
               if (matchingSpecificApp) {
-                // User mentioned a specific app - use it directly
-                console.log('[URL Prompt Handler] User specified:', matchingSpecificApp.displayName, 'for', vagueTermResult.category.vagueTerm)
-
-                finalPrompt = replaceVagueTermWithProvider(
-                  finalPrompt,
-                  vagueTermResult.category.vagueTerm,
-                  matchingSpecificApp.provider
-                )
-
+                // User mentioned a specific app - DON'T replace the vague term
+                // The prompt is already correct (e.g., "send a message to Discord" should stay as-is)
                 // Store metadata for ALL explicitly mentioned providers
                 const freshIntegrations = useIntegrationStore.getState().integrations
                 const providerOptions = getProviderOptions(
@@ -2557,7 +2537,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   )
                   const selectedProvider = providerOptions.find(p => p.id === app.provider)
                   if (selectedProvider) {
-                    console.log('[URL Prompt Handler] Adding metadata for explicit app:', app.displayName)
                     allProviderMetadata.push({
                       category,
                       provider: selectedProvider,
@@ -2568,14 +2547,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               }
             }
 
-            console.log('[URL Prompt Handler] All provider metadata:', allProviderMetadata.map(m => ({ category: m.category?.vagueTerm || m.category?.displayName, provider: m.provider?.id })))
-            console.log('[URL Prompt Handler] Terms needing selection:', vagueTermsNeedingSelection.map(t => t.category?.vagueTerm))
-
             // If there are vague terms that need selection, show provider dropdown
             if (vagueTermsNeedingSelection.length > 0) {
               const [firstTerm, ...remainingTerms] = vagueTermsNeedingSelection
-              console.log('[URL Prompt Handler] Showing dropdown for:', firstTerm.category?.vagueTerm)
-              console.log('[URL Prompt Handler] Remaining terms to ask:', remainingTerms.length)
 
               const freshIntegrations = useIntegrationStore.getState().integrations
               const providerOptions = getProviderOptions(
@@ -2606,11 +2580,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                 pendingPrompt: finalPrompt,
                 remainingTerms: remainingTerms,
               }
-              console.log('[URL Prompt Handler] Created dropdownMeta:', {
-                hasPendingPrompt: !!dropdownMeta.pendingPrompt,
-                pendingPromptLength: dropdownMeta.pendingPrompt?.length,
-                category: dropdownMeta.providerDropdown?.category?.vagueTerm,
-              })
               const dropdownMessage: ChatMessage = {
                 id: localId,
                 flowId,
@@ -2621,7 +2590,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                 ephemeral: true,  // UI state only - should NOT be persisted to database
               }
               setAgentMessages(prev => [...prev, dropdownMessage])
-              console.log('[URL Prompt Handler] Added ephemeral dropdown message to state (will not be persisted)')
 
               // Queue the ephemeral message - it will be skipped during persistence flush
               enqueuePendingMessage({
@@ -2636,23 +2604,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             }
 
             // Start the animated build process
-            console.log('[URL Prompt Handler] 🎬 Starting animation sequence...')
             transitionTo(BuildState.THINKING)
 
             await new Promise(resolve => setTimeout(resolve, 1000))
-            console.log('[URL Prompt Handler] → SUBTASKS')
             transitionTo(BuildState.SUBTASKS)
 
             await new Promise(resolve => setTimeout(resolve, 800))
-            console.log('[URL Prompt Handler] → COLLECT_NODES')
             transitionTo(BuildState.COLLECT_NODES)
 
             await new Promise(resolve => setTimeout(resolve, 800))
-            console.log('[URL Prompt Handler] → OUTLINE')
             transitionTo(BuildState.OUTLINE)
 
             await new Promise(resolve => setTimeout(resolve, 800))
-            console.log('[URL Prompt Handler] → PURPOSE (calling planWorkflowWithTemplates next...)')
             transitionTo(BuildState.PURPOSE)
 
             // For template matching, we need the EMAIL provider specifically (templates like email-to-slack require it)
@@ -2660,28 +2623,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             const emailApp = specificApps.find(app => app.category === 'email')
             const emailProviderMeta = allProviderMetadata.find(m => m.category?.vagueTerm === 'email')
             const emailProviderId = emailApp?.provider || emailProviderMeta?.provider?.id
-            console.log('[URL Prompt Handler] Email provider for template:', { emailApp: emailApp?.provider, emailProviderId, emailProviderMetaId: emailProviderMeta?.provider?.id })
 
-            console.log('[URL Prompt Handler] 📡 Calling planWorkflowWithTemplates...')
             const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
               actions, finalPrompt, emailProviderId, user?.id, flowId
             )
-            console.log('[URL Prompt Handler] ✅ planWorkflowWithTemplates returned')
-            console.log('[URL Prompt Handler] Received result from askAgent:', {
-              workflowName: result.workflowName,
-              editsCount: result.edits?.length,
-              rationale: result.rationale,
-              usedTemplate,
-              cost: usedTemplate ? '$0.00 (template)' : '~$0.03 (LLM)',
-              promptId
-            })
 
             // Use helper function to generate plan and update UI (with ALL provider metadata if auto-selected)
-            console.log('[URL Prompt Handler] 🏗️ Calling continueWithPlanGeneration...')
             await continueWithPlanGeneration(result, finalPrompt, allProviderMetadata.length > 0 ? allProviderMetadata : undefined)
-            console.log('[URL Prompt Handler] ✅ continueWithPlanGeneration completed - should now be in PLAN_READY state')
           } catch (error: any) {
-            console.error('[URL Prompt Handler] ❌ ERROR in async block:', error)
+            console.error('[URL Prompt Handler] Error:', error)
             toast({
               title: "Failed to create plan",
               description: error?.message || "Unable to generate workflow plan",
@@ -2704,7 +2654,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     flowId,
     flowState?.flow,
     generateLocalId,
-    integrations,
+    // NOTE: integrations removed from deps - it changes on every fetch/refresh causing
+    // excessive re-runs. The effect uses useIntegrationStore.getState() internally instead.
     isChatLoading, // Wait for chat loading to complete
     pathname,
     promptParam,
@@ -5758,24 +5709,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   )
 
   const handleAgentSubmit = useCallback(async () => {
-    console.log('[handleAgentSubmit] Called with:', {
-      agentInput,
-      hasActions: !!actions,
-      trimmedInput: agentInput?.trim(),
-      inputLength: agentInput?.length
-    })
-
-    if (!agentInput.trim()) {
-      console.log('[handleAgentSubmit] ❌ Early return: agentInput is empty')
-      return
-    }
-    if (!actions) {
-      console.log('[handleAgentSubmit] ❌ Early return: actions is null/undefined')
-      return
-    }
+    if (!agentInput.trim()) return
+    if (!actions) return
 
     const userPrompt = agentInput.trim()
-    console.log('[handleAgentSubmit] ✅ Passed guards, proceeding with prompt:', userPrompt)
     setAgentInput("")
     setIsAgentLoading(true)
 
@@ -5822,12 +5759,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // STEP 0: Check if user mentioned specific apps (e.g., "Gmail", "Outlook", "Slack")
     // If they did, we should NOT ask which provider to use for that category
     const specificApps = detectSpecificApps(userPrompt)
-    console.log('[Provider Disambiguation] Detected specific apps:', specificApps.map(a => ({ displayName: a.displayName, category: a.category, provider: a.provider })))
 
     // STEP 1: Check for ALL vague provider terms
     const allVagueTerms = detectAllVagueTerms(userPrompt)
-    console.log('[Provider Disambiguation] Detected all vague terms:', allVagueTerms.map(t => ({ vagueTerm: t.category?.vagueTerm, position: t.position })))
-    console.log('[Provider Disambiguation] User prompt:', userPrompt)
 
     let finalPrompt = userPrompt
     // Collect ALL explicitly mentioned providers (not just the first one)
@@ -5838,12 +5772,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     for (const vagueTermResult of allVagueTerms) {
       if (!vagueTermResult.category) continue
 
-      console.log('[Provider Disambiguation] Checking vague term:', vagueTermResult.category.vagueTerm)
-
       // Check if user already specified an app for this category
       const matchingSpecificApp = specificApps.find(app => {
         const categoryMatch = app.category === vagueTermResult.category!.vagueTerm
-        console.log('[Provider Disambiguation] Comparing:', { appCategory: app.category, vagueTerm: vagueTermResult.category!.vagueTerm, categoryMatch })
         // Also check notification/chat categories which share providers
         const notificationCategories = ['notification', 'message', 'alert', 'chat']
         const isNotificationCategory = notificationCategories.includes(vagueTermResult.category!.vagueTerm)
@@ -5852,15 +5783,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       })
 
       if (matchingSpecificApp) {
-        // User mentioned a specific app - use it directly
-        console.log('[Provider Disambiguation] User specified:', matchingSpecificApp.displayName, 'for', vagueTermResult.category.vagueTerm)
-
-        finalPrompt = replaceVagueTermWithProvider(
-          finalPrompt,
-          vagueTermResult.category.vagueTerm,
-          matchingSpecificApp.provider
-        )
-
+        // User mentioned a specific app - DON'T replace the vague term
+        // The prompt is already correct (e.g., "send a message to Discord" should stay as-is)
+        // We only need to collect metadata, not modify the prompt
         // Store metadata for ALL explicitly mentioned providers
         const freshIntegrations = useIntegrationStore.getState().integrations
         const providerOptions = getProviderOptions(
@@ -5898,7 +5823,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           )
           const selectedProvider = providerOptions.find(p => p.id === app.provider)
           if (selectedProvider) {
-            console.log('[Provider Disambiguation] Adding metadata for explicit app:', app.displayName)
             allProviderMetadata.push({
               category,
               provider: selectedProvider,
@@ -5909,14 +5833,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       }
     }
 
-    console.log('[Provider Disambiguation] All provider metadata:', allProviderMetadata.map(m => ({ category: m.category?.vagueTerm || m.category?.displayName, provider: m.provider?.id })))
-    console.log('[Provider Disambiguation] Terms needing selection:', vagueTermsNeedingSelection.map(t => t.category?.vagueTerm))
-
     // If there are vague terms that need selection, show provider dropdown
     if (vagueTermsNeedingSelection.length > 0) {
       const [firstTerm, ...remainingTerms] = vagueTermsNeedingSelection
-      console.log('[Provider Disambiguation] Showing dropdown for:', firstTerm.category?.vagueTerm)
-      console.log('[Provider Disambiguation] Remaining terms to ask:', remainingTerms.length)
 
       const freshIntegrations = useIntegrationStore.getState().integrations
       const providerOptions = getProviderOptions(
@@ -5959,7 +5878,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       setAgentMessages(prev => [...prev, dropdownMessage])
 
       // Queue the ephemeral message - it will be skipped during persistence flush
-      console.log('[Provider Disambiguation] Adding ephemeral dropdown message (will not be persisted)')
       enqueuePendingMessage({
         localId,
         role: 'assistant',
@@ -6000,18 +5918,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       // Call actual askAgent API (template matching first)
       // Use finalPrompt which may have auto-resolved terms (e.g., "Gmail" replacing "email")
-      console.log('[WorkflowBuilderV2] 📞 Calling planWorkflowWithTemplates...', { finalPrompt, emailProviderId })
       const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
         actions, finalPrompt, emailProviderId, user?.id, flowId
       )
-      console.log('[WorkflowBuilderV2] ✅ Received result from planWorkflowWithTemplates:', {
-        workflowName: result.workflowName,
-        editsCount: result.edits?.length,
-        rationale: result.rationale,
-        usedTemplate,
-        cost: usedTemplate ? '$0.00 (template)' : '~$0.03 (LLM)',
-        promptId
-      })
 
       // Request completed successfully - remove from pending
       completePendingRequest(requestId)
@@ -6021,7 +5930,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       await continueWithPlanGeneration(result, finalPrompt, allProviderMetadata.length > 0 ? allProviderMetadata : undefined)
 
     } catch (error: any) {
-      console.error('[WorkflowBuilderV2] ❌ Error in handleSubmitUserMessage:', error)
+      console.error('[WorkflowBuilderV2] Error in handleSubmitUserMessage:', error)
       // Mark request as failed for potential retry
       updatePendingRequest(requestId, { status: 'failed' })
 
@@ -6150,7 +6059,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               label: nodeTitle,
               title: nodeTitle,
               type: plannerNode.type,
-              config: plannerNode.config ?? {},
+              config: { ...(plannerNode.config ?? {}), ...(nodeConfigs[plannerNode.id] ?? {}) },
               description: plannerNode.description ?? catalogNode?.description,
               providerId: metadata.providerId ?? catalogNode?.providerId,
               icon: catalogNode?.icon,

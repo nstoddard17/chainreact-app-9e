@@ -124,8 +124,14 @@ export class ActionTestService {
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to send test message')
+      // Handle non-JSON responses (e.g., 404 HTML pages)
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to send test message')
+      } else {
+        throw new Error(`Slack test failed: HTTP ${response.status}`)
+      }
     }
 
     const data = await response.json()
@@ -163,6 +169,10 @@ export class ActionTestService {
       throw new Error('No subject specified')
     }
 
+    // Replace variables with realistic placeholder values for testing
+    const testSubject = ActionTestService.replaceVariablesWithPlaceholders(config.subject || '')
+    const testBody = ActionTestService.replaceVariablesWithPlaceholders(config.body || '')
+
     // Call test API endpoint
     const response = await fetch('/api/workflows/test/gmail/send-email', {
       method: 'POST',
@@ -170,8 +180,8 @@ export class ActionTestService {
       body: JSON.stringify({
         integrationId,
         to: config.to,
-        subject: config.subject,
-        body: config.body,
+        subject: testSubject,
+        body: testBody,
         isTest: true
       })
     })
@@ -215,6 +225,9 @@ export class ActionTestService {
       throw new Error('No message content specified')
     }
 
+    // Replace variables with realistic placeholder values for testing
+    const testContent = ActionTestService.replaceVariablesWithPlaceholders(config.content || config.message)
+
     const response = await fetch('/api/workflows/test/discord/send-message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -222,14 +235,20 @@ export class ActionTestService {
         integrationId,
         channelId: config.channelId,
         webhookUrl: config.webhookUrl,
-        content: config.content || config.message,
+        content: testContent,
         isTest: true
       })
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to send test message')
+      // Handle non-JSON responses (e.g., 404 HTML pages)
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to send test message')
+      } else {
+        throw new Error(`Discord test failed: HTTP ${response.status}`)
+      }
     }
 
     const data = await response.json()
@@ -378,6 +397,24 @@ export class ActionTestService {
       // Title-related
       if (lowerVariable.includes('title')) {
         return 'Sample Title'
+      }
+
+      // AI/summary-related (e.g., {{ai_summarize.summary}}, {{ai_agent.output}})
+      if (lowerVariable.includes('summary') || lowerVariable.includes('summarize')) {
+        return 'This is a sample summary of the processed data. The original content has been condensed into key points for readability.'
+      }
+      if (lowerVariable.includes('ai_') || lowerVariable.includes('ai.') || lowerVariable.includes('_agent')) {
+        return 'This is sample AI-generated output that would appear during workflow execution.'
+      }
+
+      // Output/result-related (e.g., {{get_cell.value}}, {{node.output}})
+      if (lowerVariable.includes('output') || lowerVariable.includes('result') || lowerVariable.includes('value')) {
+        return 'Sample output value'
+      }
+
+      // Row/cell/data-related (e.g., {{get_cell.cell}}, {{new_row.data}})
+      if (lowerVariable.includes('row') || lowerVariable.includes('cell') || lowerVariable.includes('data')) {
+        return 'Sample data from spreadsheet'
       }
 
       // Fallback: show the variable name in a friendly format

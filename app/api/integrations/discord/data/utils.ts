@@ -161,7 +161,7 @@ export async function fetchDiscordWithRateLimit<T>(
       
       if (response.ok) {
         const data = await response.json()
-        logger.debug(`✅ Discord API success on attempt ${attempt}`)
+        if (attempt > 1) logger.debug(`✅ Discord API success on attempt ${attempt}`)
         return data
       }
       
@@ -280,22 +280,16 @@ export async function makeDiscordApiRequest<T = any>(
     const cached = discordCache.get(cacheKey)
 
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      logger.debug(`📦 Using cached Discord data for ${url} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
       return cached.data
     }
 
     // Check if there's already a pending request for this exact same data
     const pendingRequest = pendingRequests.get(requestKey)
-    if (pendingRequest) {
-      logger.debug(`🔄 Reusing pending Discord request for ${url}`)
-      return pendingRequest
-    }
+    if (pendingRequest) return pendingRequest
   }
 
   // Determine if this is a bot token or user token
   const authHeader = accessToken.startsWith('Bot ') ? accessToken : `Bearer ${accessToken}`
-
-  logger.debug(`🔍 Making Discord API request to: ${url}`)
 
   // Create the request promise with proper atomic deduplication
   // Store the promise IMMEDIATELY to prevent race conditions
@@ -315,7 +309,6 @@ export async function makeDiscordApiRequest<T = any>(
       // Cache successful GET requests
       if (useCache && (!options.method || options.method === 'GET')) {
         discordCache.set(cacheKey, { data, timestamp: Date.now() })
-        logger.debug(`📦 Cached Discord response for ${url}`)
       }
 
       return data

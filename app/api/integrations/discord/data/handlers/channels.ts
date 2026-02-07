@@ -20,19 +20,10 @@ const Permissions = {
  */
 function botCanAccessChannel(channel: any, botMember: any, guildRoles: any[]): boolean {
   // If we don't have bot member info, allow all channels (fallback)
-  if (!botMember) {
-    logger.debug(`[Channel Permission] No bot member info for channel ${channel.name}, allowing by default`)
-    return true
-  }
+  if (!botMember) return true
 
   const botRoles = botMember.roles || []
   const botUserId = botMember.user?.id
-
-  logger.debug(`[Channel Permission] Checking permissions for channel: ${channel.name} (${channel.id})`, {
-    channelType: channel.type,
-    botRoles: botRoles.length,
-    guildRolesAvailable: guildRoles?.length || 0
-  })
 
   // Calculate base permissions from bot's roles
   let basePermissions = 0n
@@ -41,9 +32,6 @@ function botCanAccessChannel(channel: any, botMember: any, guildRoles: any[]): b
   const everyoneRole = guildRoles?.find(r => r.id === channel.guild_id)
   if (everyoneRole) {
     basePermissions = BigInt(everyoneRole.permissions || 0)
-    logger.debug(`[Channel Permission] @everyone base permissions: ${basePermissions.toString(2).padStart(64, '0')}`)
-  } else {
-    logger.warn(`[Channel Permission] Could not find @everyone role for guild ${channel.guild_id}`)
   }
 
   // Apply bot's role permissions on top of @everyone
@@ -54,20 +42,15 @@ function botCanAccessChannel(channel: any, botMember: any, guildRoles: any[]): b
       basePermissions |= rolePerms // Add role permissions
 
       // Check if this role has ADMINISTRATOR (grants all permissions)
-      if (rolePerms & Permissions.ADMINISTRATOR) {
-        logger.debug(`[Channel Permission] Bot has ADMINISTRATOR permission via role ${role.name}, allowing access`)
-        return true
-      }
+      if (rolePerms & Permissions.ADMINISTRATOR) return true
     }
   }
 
   // Check if base permissions grant VIEW_CHANNEL
   let canView = !!(basePermissions & Permissions.VIEW_CHANNEL)
-  logger.debug(`[Channel Permission] Base VIEW_CHANNEL permission: ${canView}`)
 
   // Now apply channel-specific permission overwrites
   const overwrites = channel.permission_overwrites || []
-  logger.debug(`[Channel Permission] Found ${overwrites.length} permission overwrites`)
 
   // Apply @everyone overwrites first
   const everyoneOverwrite = overwrites.find((o: any) =>
@@ -78,18 +61,9 @@ function botCanAccessChannel(channel: any, botMember: any, guildRoles: any[]): b
     const deny = BigInt(everyoneOverwrite.deny || 0)
     const allow = BigInt(everyoneOverwrite.allow || 0)
 
-    logger.debug(`[Channel Permission] @everyone overwrite - Allow: ${allow.toString(2)}, Deny: ${deny.toString(2)}`)
-
-    // Deny is applied first
-    if (deny & Permissions.VIEW_CHANNEL) {
-      canView = false
-      logger.debug(`[Channel Permission] @everyone overwrite DENIES VIEW_CHANNEL`)
-    }
-    // Then allow is applied
-    if (allow & Permissions.VIEW_CHANNEL) {
-      canView = true
-      logger.debug(`[Channel Permission] @everyone overwrite ALLOWS VIEW_CHANNEL`)
-    }
+    // Deny is applied first, then allow
+    if (deny & Permissions.VIEW_CHANNEL) canView = false
+    if (allow & Permissions.VIEW_CHANNEL) canView = true
   }
 
   // Apply role overwrites (these override @everyone)
@@ -101,18 +75,8 @@ function botCanAccessChannel(channel: any, botMember: any, guildRoles: any[]): b
     const deny = BigInt(roleOverwrite.deny || 0)
     const allow = BigInt(roleOverwrite.allow || 0)
 
-    logger.debug(`[Channel Permission] Role overwrite ${roleOverwrite.id} - Allow: ${allow.toString(2)}, Deny: ${deny.toString(2)}`)
-
-    // Deny first
-    if (deny & Permissions.VIEW_CHANNEL) {
-      canView = false
-      logger.debug(`[Channel Permission] Role overwrite DENIES VIEW_CHANNEL`)
-    }
-    // Then allow
-    if (allow & Permissions.VIEW_CHANNEL) {
-      canView = true
-      logger.debug(`[Channel Permission] Role overwrite ALLOWS VIEW_CHANNEL`)
-    }
+    if (deny & Permissions.VIEW_CHANNEL) canView = false
+    if (allow & Permissions.VIEW_CHANNEL) canView = true
   }
 
   // Apply bot user overwrites (these override everything)
@@ -122,21 +86,10 @@ function botCanAccessChannel(channel: any, botMember: any, guildRoles: any[]): b
     const deny = BigInt(botUserOverwrite.deny || 0)
     const allow = BigInt(botUserOverwrite.allow || 0)
 
-    logger.debug(`[Channel Permission] Bot user overwrite - Allow: ${allow.toString(2)}, Deny: ${deny.toString(2)}`)
-
-    // Deny first
-    if (deny & Permissions.VIEW_CHANNEL) {
-      logger.debug(`[Channel Permission] Bot user overwrite DENIES VIEW_CHANNEL - FINAL: false`)
-      return false
-    }
-    // Then allow
-    if (allow & Permissions.VIEW_CHANNEL) {
-      logger.debug(`[Channel Permission] Bot user overwrite ALLOWS VIEW_CHANNEL - FINAL: true`)
-      return true
-    }
+    if (deny & Permissions.VIEW_CHANNEL) return false
+    if (allow & Permissions.VIEW_CHANNEL) return true
   }
 
-  logger.debug(`[Channel Permission] Final permission for ${channel.name}: ${canView}`)
   return canView
 }
 
@@ -170,8 +123,6 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
     try {
       // First, get the bot's member object and guild roles to check permissions
       try {
-        logger.debug(`[Discord Channels] Fetching bot user and member info for guild ${guildId}`)
-
         // Get bot's user ID from the token (with caching)
         const botUser = await makeDiscordApiRequest<any>(
           `https://discord.com/api/v10/users/@me`,
@@ -179,8 +130,6 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
           {},
           true // Enable caching
         )
-
-        logger.debug(`[Discord Channels] Bot user fetched: ${botUser?.username} (${botUser?.id})`)
 
         if (botUser && botUser.id) {
           // Get bot's member object in the guild (with caching)
@@ -190,8 +139,6 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
             {},
             true // Enable caching
           )
-
-          logger.debug(`[Discord Channels] Bot member fetched with ${botMember?.roles?.length || 0} roles`)
         }
 
         // Fetch guild roles to calculate base permissions
@@ -202,8 +149,6 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
             {},
             true // Enable caching
           )
-
-          logger.debug(`[Discord Channels] Fetched ${guildRoles?.length || 0} guild roles`)
         } catch (rolesError) {
           logger.warn(`[Discord Channels] Could not fetch guild roles:`, rolesError)
         }
@@ -247,21 +192,15 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
       let permissionDeniedChannels = 0
       let typeFilteredChannels = 0
 
-      logger.debug(`[Discord Channels] Starting to filter ${totalChannels} channels`)
-
       let filteredData = (data || [])
         .filter((channel: any) => {
-          logger.debug(`[Discord Channels] Processing channel: ${channel.name} (Type: ${channel.type})`)
-
           // First, check if bot can access the channel
           const canAccess = botCanAccessChannel(channel, botMember, guildRoles)
           if (!canAccess) {
             permissionDeniedChannels++
-            logger.debug(`[Discord Channels] ❌ Bot CANNOT access channel: ${channel.name} (${channel.id}) - Permission denied`)
             return false
           }
 
-          logger.debug(`[Discord Channels] ✅ Bot CAN access channel: ${channel.name} (${channel.id})`)
           accessibleChannels++
 
           // For parentId selection, include categories (type 4) and text channels (type 0)
@@ -269,7 +208,6 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
           const isParentIdRequest = options?.context === 'parentId'
           if (isParentIdRequest) {
             const include = channel.type === 0 || channel.type === 4
-            logger.debug(`[Discord Channels] Parent ID context - ${include ? 'Including' : 'Excluding'} ${channel.name}`)
             if (!include) typeFilteredChannels++
             return include // Text channels and categories
           }
@@ -277,12 +215,8 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
           // Include text channels (0), voice channels with text (2), and forum channels (15)
           // Exclude categories (4), voice channels without text capability
           const textCapableTypes = [0, 2, 5, 10, 11, 12, 15]; // All channel types that can have text messages
-          if (textCapableTypes.includes(channel.type)) {
-            logger.debug(`[Discord Channels] ✅ Including text-capable channel: ${channel.name} (${channel.id}) - Type: ${channel.type}`)
-            return true
-          }
+          if (textCapableTypes.includes(channel.type)) return true
 
-          logger.debug(`[Discord Channels] ❌ Excluding non-text channel: ${channel.name} (Type: ${channel.type})`)
           typeFilteredChannels++
           return false
         })

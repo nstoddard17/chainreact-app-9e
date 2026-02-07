@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, Check, ArrowRight, AlertCircle, Loader2 } from 'lucide-react'
 import type { ProviderOption } from '@/lib/workflows/ai-agent/providerDisambiguation'
@@ -123,7 +122,7 @@ export function ProviderBadge({
     return (
       <div className="relative inline-block w-full" ref={dropdownRef}>
         <div className="w-full flex items-center gap-3 px-4 py-3 bg-muted/50 border-2 border-border rounded-lg shadow-sm">
-          <Image
+          <img
             src={getProviderIconPath(selectedProvider.id)}
             alt={selectedProvider.displayName}
             width={28}
@@ -162,7 +161,7 @@ export function ProviderBadge({
               }
             }}
           >
-            <Image
+            <img
               src={getProviderIconPath(selectedProvider.id)}
               alt={selectedProvider.displayName}
               width={24}
@@ -206,7 +205,7 @@ export function ProviderBadge({
             }
           }}
         >
-          <Image
+          <img
             src={getProviderIconPath(selectedProvider.id)}
             alt={selectedProvider.displayName}
             width={28}
@@ -237,7 +236,7 @@ export function ProviderBadge({
                   className="w-full group relative px-3 py-2.5 bg-primary/10 hover:bg-primary/15 rounded-lg flex items-center gap-3 text-left border border-primary/20 transition-colors"
                   onClick={() => setShowDropdown(false)}
                 >
-                  <Image
+                  <img
                     src={getProviderIconPath(selectedProvider.id)}
                     alt={selectedProvider.displayName}
                     width={22}
@@ -258,7 +257,7 @@ export function ProviderBadge({
                       setShowDropdown(false)
                     }}
                   >
-                    <Image
+                    <img
                       src={getProviderIconPath(provider.id)}
                       alt={provider.displayName}
                       width={22}
@@ -291,7 +290,7 @@ export function ProviderBadge({
                       setShowDropdown(false)
                     }}
                   >
-                    <Image
+                    <img
                       src={getProviderIconPath(provider.id)}
                       alt={provider.displayName}
                       width={22}

@@ -23,11 +23,13 @@ import {
   Sparkles,
   HelpCircle,
   ArrowLeft,
+  ArrowUp,
   AtSign,
   Pause,
   ChevronDown,
   Check,
   Plus,
+  Loader2,
 } from "lucide-react"
 import {
   Popover,
@@ -231,7 +233,6 @@ export function FlowV2AgentPanel({
   // Listen for integration events (connection, reconnection) and refresh integrations
   useEffect(() => {
     const handleIntegrationEvent = async () => {
-      console.log('[FlowV2AgentPanel] 🔄 Integration event received, refreshing integrations')
       // Clear ALL expired-related state when user reconnects
       // This is necessary because:
       // 1. The new connection might have a different integrationId
@@ -258,17 +259,10 @@ export function FlowV2AgentPanel({
     const prevState = prevBuildStateRef.current
     const currentState = buildMachine.state
 
-    console.log('[FlowV2AgentPanel] 🔄 Build state changed:', { prevState, currentState })
-
     // If transitioning to COMPLETE, prevent any scrolling
     if (currentState === BuildState.COMPLETE && prevState !== BuildState.COMPLETE) {
       const container = chatMessagesRef.current
-      if (!container) {
-        console.log('[FlowV2AgentPanel] ⚠️ No container ref found for scroll lock')
-        return
-      }
-
-      console.log('[FlowV2AgentPanel] 🔒 Locking scroll at position:', container.scrollTop)
+      if (!container) return
 
       // Save current scroll position
       const savedScrollTop = container.scrollTop
@@ -282,7 +276,6 @@ export function FlowV2AgentPanel({
 
       // Create a scroll lock function as backup
       const lockScroll = (e: Event) => {
-        console.log('[FlowV2AgentPanel] 📍 Scroll detected, preventing! Current:', container.scrollTop, 'Saved:', savedScrollTop)
         e.preventDefault()
         e.stopPropagation()
         container.scrollTop = savedScrollTop
@@ -305,7 +298,6 @@ export function FlowV2AgentPanel({
 
       // Clean up after 1 second (enough time for React to finish rendering)
       const cleanupId = setTimeout(() => {
-        console.log('[FlowV2AgentPanel] 🔓 Releasing scroll lock')
         container.removeEventListener('scroll', lockScroll, { capture: true } as any)
         container.style.overflow = originalOverflow
         container.style.scrollBehavior = ''
@@ -647,51 +639,31 @@ export function FlowV2AgentPanel({
     )
 
     // Check if any of this provider's connections are expired
-    const result = providerIntegrations.some(conn => {
+    return providerIntegrations.some(conn => {
       const connectionId = conn.integrationId || conn.id
       // Check 1: Expired via validation API call (stored in expiredConnections state)
       if (expiredConnections[connectionId] === true) {
-        console.log(`[isProviderExpired] ${providerId} expired via validation (connectionId: ${connectionId})`)
         return true
       }
       // Check 2: Already expired in database (status field from useIntegrations)
-      // This handles tokens that were already expired before the page loaded
-      // Check for various expired status values (case-insensitive)
       const status = (conn.status || '').toLowerCase()
       if (status === 'expired' || status === 'needs_reauthorization' || status === 'unauthorized' || status === 'invalid') {
-        console.log(`[isProviderExpired] ${providerId} expired via status: ${conn.status}`)
         return true
       }
       // Check 3: Has integrationId but isConnected is false (indicates expired/disconnected)
       if (conn.integrationId && !conn.isConnected) {
-        console.log(`[isProviderExpired] ${providerId} has integrationId but isConnected=false, status: ${conn.status}`)
         return true
       }
       return false
     })
-
-    console.log(`[isProviderExpired] ${providerId} result: ${result}, integrations found: ${providerIntegrations.length}`)
-    return result
   }
 
   // Helper: Get account-specific display name for a connection
   const getConnectionDisplayName = (connection: any, providerId: string): string => {
-    // DEBUG: Log the full connection object to see what fields we have
-    console.log('[getConnectionDisplayName] providerId:', providerId)
-    console.log('[getConnectionDisplayName] connection:', connection)
-    console.log('[getConnectionDisplayName] connection keys:', Object.keys(connection))
-    console.log('[getConnectionDisplayName] has metadata?:', !!connection.metadata)
-    console.log('[getConnectionDisplayName] has email?:', !!connection.email)
-    console.log('[getConnectionDisplayName] metadata:', connection.metadata)
-
     // Account info is stored in metadata (new) or top-level (old, backward compat)
     const email = connection.metadata?.email || connection.email
     const accountName = connection.metadata?.account_name || connection.account_name
     const teamName = connection.team_name // Slack stores this at top level
-
-    console.log('[getConnectionDisplayName] extracted email:', email)
-    console.log('[getConnectionDisplayName] extracted accountName:', accountName)
-    console.log('[getConnectionDisplayName] extracted teamName:', teamName)
 
     // For Slack: show email if available, with team name for context
     if (providerId === 'slack') {
@@ -708,7 +680,6 @@ export function FlowV2AgentPanel({
 
     // For Gmail/Google: show email
     if ((providerId === 'gmail' || providerId === 'google-drive') && email) {
-      console.log('[getConnectionDisplayName] returning email for Gmail:', email)
       return email
     }
 
@@ -726,9 +697,7 @@ export function FlowV2AgentPanel({
     }
 
     // Fallback to connection name or provider name
-    const fallback = connection.name || `${getProviderDisplayName(providerId)} Account`
-    console.log('[getConnectionDisplayName] using fallback:', fallback)
-    return fallback
+    return connection.name || `${getProviderDisplayName(providerId)} Account`
   }
 
   // Helper: Handle OAuth popup for connecting integration
@@ -1221,8 +1190,21 @@ export function FlowV2AgentPanel({
 
       try {
         // Make a lightweight API call to validate the token
-        // Use a simple data type that all providers should support
-        const dataType = `${providerId}_channels` // Most providers have a channels/lists endpoint
+        // Use the correct data type per provider since they have different endpoints
+        const validationDataTypes: Record<string, string> = {
+          'slack': 'slack_channels',
+          'discord': 'discord_channels',
+          'gmail': 'gmail_labels',
+          'google-sheets': 'google-sheets_spreadsheets',
+          'google-drive': 'google-drive_files',
+          'notion': 'notion_databases',
+          'trello': 'trello_boards',
+          'hubspot': 'hubspot_contacts',
+          'airtable': 'airtable_bases',
+          'microsoft-teams': 'microsoft-teams_teams',
+          'microsoft-outlook': 'microsoft-outlook_folders',
+        }
+        const dataType = validationDataTypes[providerId] || `${providerId}_channels`
         const response = await fetch(`/api/integrations/${providerId}/data`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1712,17 +1694,6 @@ export function FlowV2AgentPanel({
                                   )
                                 }
 
-                                // Debug: Log what we have for provider badges decision
-                                console.log('[FlowV2AgentPanel] Provider badges check:', {
-                                  buildState: buildMachine.state,
-                                  isPlanReady: buildMachine.state === BuildState.PLAN_READY,
-                                  hasAllSelectedProviders: !!meta.allSelectedProviders,
-                                  allSelectedProvidersLength: meta.allSelectedProviders?.length,
-                                  hasAutoSelectedProvider: !!meta.autoSelectedProvider,
-                                  hasOnProviderChange: !!onProviderChange,
-                                  hasOnProviderConnect: !!onProviderConnect,
-                                })
-
                                 // Show provider badges for ALL selected providers - ONLY during PLAN_READY state
                                 // After user clicks Build, the badges are hidden to simplify the UI
                                 if (buildMachine.state === BuildState.PLAN_READY && meta.allSelectedProviders && meta.allSelectedProviders.length > 0 && onProviderChange && onProviderConnect) {
@@ -2036,16 +2007,8 @@ export function FlowV2AgentPanel({
 
                                             {/* Required field dropdowns */}
                                             {(() => {
-                                              // Debug: Log which fields are visible vs hidden
                                               const fieldsExcludingConnection = requiredFields.filter(f => f.name !== 'connection')
-                                              const visibleFields = fieldsExcludingConnection.filter(f => !isFieldHidden(f, nodeConfigs[planNode.id] || {}))
-                                              const hiddenFields = fieldsExcludingConnection.filter(f => isFieldHidden(f, nodeConfigs[planNode.id] || {}))
-                                              console.log(`[FlowV2AgentPanel] Field visibility for ${planNode.id}:`, {
-                                                visible: visibleFields.map(f => f.name),
-                                                hidden: hiddenFields.map(f => f.name),
-                                                nodeConfig: nodeConfigs[planNode.id] || {}
-                                              })
-                                              return visibleFields
+                                              return fieldsExcludingConnection.filter(f => !isFieldHidden(f, nodeConfigs[planNode.id] || {}))
                                             })().map((field) => {
                                               const FieldIcon = getFieldTypeIcon(field.type)
                                               const isLoading = loadingFieldsByNode[planNode.id]?.has(field.name) || false
@@ -2055,15 +2018,6 @@ export function FlowV2AgentPanel({
                                               const optionsToDisplay = dynamicOptionsForField.length > 0
                                                 ? dynamicOptionsForField
                                                 : (field.defaultOptions || [])
-
-                                              // DEBUG: Log what options are available for this field
-                                              console.log(`[FlowV2AgentPanel RENDER] Field: ${field.name}, NodeId: ${planNode.id}`, {
-                                                nodesDynamicOptionsKeys: Object.keys(nodesDynamicOptions),
-                                                nodeOptionsKeys: nodesDynamicOptions[planNode.id] ? Object.keys(nodesDynamicOptions[planNode.id]) : 'undefined',
-                                                dynamicOptionsForField: dynamicOptionsForField.length,
-                                                optionsToDisplay: optionsToDisplay.length,
-                                                isLoading
-                                              })
 
                                               return (
                                                 <div key={field.name} className="space-y-2">
@@ -2165,8 +2119,6 @@ export function FlowV2AgentPanel({
                                                   onClick={() => {
                                                     // Check if connection is expired first
                                                     if (defaultConnectionValue && expiredConnections[defaultConnectionValue]) {
-                                                      // Don't continue if connection is expired
-                                                      console.log('[Continue] Blocked - connection is expired')
                                                       return
                                                     }
 
@@ -2206,7 +2158,6 @@ export function FlowV2AgentPanel({
                                                     // Ensure auto-selected connection is saved before continuing
                                                     // (the useEffect might not have run yet due to React batching)
                                                     if (defaultConnectionValue && !nodeConfigs[planNode.id]?.connection) {
-                                                      console.log('[Continue] Saving auto-selected connection:', defaultConnectionValue)
                                                       onNodeConfigChange(planNode.id, 'connection', defaultConnectionValue)
                                                     }
 
@@ -2401,14 +2352,8 @@ export function FlowV2AgentPanel({
                     value={agentInput}
                     onChange={(e) => onInputChange(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        console.log('[FlowV2AgentPanel] Enter pressed, agentInput:', JSON.stringify(agentInput), 'isAgentLoading:', isAgentLoading)
-                        if (agentInput.trim()) {
-                          console.log('[FlowV2AgentPanel] Calling onSubmit...')
-                          onSubmit()
-                        } else {
-                          console.log('[FlowV2AgentPanel] ❌ Not submitting: agentInput is empty')
-                        }
+                      if (e.key === 'Enter' && agentInput.trim()) {
+                        onSubmit()
                       }
                     }}
                     disabled={isAgentLoading}
@@ -2416,22 +2361,27 @@ export function FlowV2AgentPanel({
                     style={{ caretColor: 'currentColor' }}
                   />
                 </div>
-                {/* Submit button as fallback */}
-                <Button
+                {/* Submit button */}
+                <button
                   type="button"
-                  size="sm"
-                  variant="ghost"
                   onClick={() => {
-                    console.log('[FlowV2AgentPanel] Submit button clicked, agentInput:', JSON.stringify(agentInput))
                     if (agentInput.trim()) {
                       onSubmit()
                     }
                   }}
                   disabled={isAgentLoading || !agentInput.trim()}
-                  className="h-8 px-3 text-xs"
+                  className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all duration-300 ${
+                    agentInput.trim() && !isAgentLoading
+                      ? "bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/30 hover:shadow-orange-500/50 hover:scale-105 cursor-pointer"
+                      : "bg-muted text-muted-foreground/40 cursor-not-allowed"
+                  }`}
                 >
-                  {isAgentLoading ? 'Working...' : 'Send'}
-                </Button>
+                  {isAgentLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="w-4 h-4" />
+                  )}
+                </button>
               </div>
             </div>
           </div>

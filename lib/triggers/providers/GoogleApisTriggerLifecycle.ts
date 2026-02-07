@@ -52,15 +52,39 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     })
 
     // Get user's Google integration
-    const { data: integration } = await getSupabase()
+    // Try to find integration for this specific provider first, then fall back to any Google integration
+    // All Google services share OAuth tokens, so we can use any Google integration
+    let integration = null
+
+    // First try exact provider match
+    const { data: exactMatch } = await getSupabase()
       .from('integrations')
       .select('id, access_token, refresh_token')
       .eq('user_id', userId)
-      .or(`provider.eq.${providerId},provider.eq.google`)
+      .eq('provider', providerId)
+      .eq('status', 'connected')
       .single()
 
+    if (exactMatch) {
+      integration = exactMatch
+    } else {
+      // Fall back to any connected Google integration
+      // Google services share OAuth, so gmail tokens work for drive, calendar, etc.
+      const googleProviders = ['gmail', 'google', 'google-drive', 'google-calendar', 'google-sheets', 'google-docs']
+      const { data: anyGoogleMatch } = await getSupabase()
+        .from('integrations')
+        .select('id, access_token, refresh_token')
+        .eq('user_id', userId)
+        .in('provider', googleProviders)
+        .eq('status', 'connected')
+        .limit(1)
+        .single()
+
+      integration = anyGoogleMatch
+    }
+
     if (!integration) {
-      throw new Error(`Google integration not found for user (provider: ${providerId})`)
+      throw new Error(`Google integration not found for user. Please connect ${providerId} or any Google service.`)
     }
 
     // Decrypt tokens
@@ -398,12 +422,15 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Get user's access token
+    // Get user's access token from any connected Google integration
+    const googleProviders = ['gmail', 'google', 'google-drive', 'google-calendar', 'google-sheets', 'google-docs']
     const { data: integration } = await getSupabase()
       .from('integrations')
       .select('access_token, refresh_token')
       .eq('user_id', userId)
-      .or('provider.eq.google,provider.like.google%')
+      .in('provider', googleProviders)
+      .eq('status', 'connected')
+      .limit(1)
       .single()
 
     if (!integration) {
@@ -585,18 +612,32 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     events: string[]
   } {
     const resourceMap: Record<string, any> = {
-      // Gmail
+      // Gmail - all email triggers use the same Pub/Sub watch
       'gmail_trigger_new_email': { api: 'gmail', resourceId: null, events: ['message'] },
       'gmail_trigger_email_received': { api: 'gmail', resourceId: null, events: ['message'] },
+      'gmail_trigger_new_attachment': { api: 'gmail', resourceId: null, events: ['message'] },
+      'gmail_trigger_new_labeled_email': { api: 'gmail', resourceId: null, events: ['message'] },
+      'gmail_trigger_new_starred_email': { api: 'gmail', resourceId: null, events: ['message'] },
+      'gmail_trigger_new_label': { api: 'gmail', resourceId: null, events: ['message'] },
 
-      // Calendar
+      // Calendar - actual trigger type names from google-calendar provider
+      'google_calendar_trigger_new_event': { api: 'calendar', resourceId: config.calendarId || 'primary', events: ['created'] },
       'google_calendar_trigger_event_created': { api: 'calendar', resourceId: config.calendarId || 'primary', events: ['created'] },
       'google_calendar_trigger_event_updated': { api: 'calendar', resourceId: config.calendarId || 'primary', events: ['updated'] },
+      'google_calendar_trigger_event_canceled': { api: 'calendar', resourceId: config.calendarId || 'primary', events: ['deleted'] },
 
-      // Drive
+      // Drive - actual trigger type names from google-drive provider (uses colon separator)
+      'google-drive:new_file_in_folder': { api: 'drive', resourceId: config.folderId || 'root', events: ['created'] },
+      'google-drive:new_folder_in_folder': { api: 'drive', resourceId: config.folderId || 'root', events: ['created'] },
+      'google-drive:file_updated': { api: 'drive', resourceId: config.fileId || 'root', events: ['updated'] },
+      // Legacy names for backward compatibility
       'google_drive_trigger_file_created': { api: 'drive', resourceId: config.fileId || 'root', events: ['created'] },
       'google_drive_trigger_file_modified': { api: 'drive', resourceId: config.fileId || 'root', events: ['updated'] },
-      'google_drive_trigger_file_shared': { api: 'drive', resourceId: config.fileId || 'root', events: ['shared'] }
+      'google_drive_trigger_file_shared': { api: 'drive', resourceId: config.fileId || 'root', events: ['shared'] },
+
+      // Docs - actual trigger type names from google-docs provider
+      'google_docs_trigger_new_document': { api: 'drive', resourceId: config.folderId || 'root', events: ['created'] },
+      'google_docs_trigger_document_updated': { api: 'drive', resourceId: config.documentId || 'root', events: ['updated'] }
     }
 
     const info = resourceMap[triggerType]

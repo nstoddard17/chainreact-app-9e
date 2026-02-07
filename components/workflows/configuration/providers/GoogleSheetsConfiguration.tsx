@@ -43,6 +43,7 @@ interface GoogleSheetsConfigurationProps {
   currentNodeId?: string;
   dynamicOptions: Record<string, any[]>;
   loadingDynamic: boolean;
+  loadingFields?: Set<string>;
   loadOptions: (fieldName: string, parentField?: string, parentValue?: any, forceReload?: boolean) => Promise<void>;
   integrationName?: string;
   needsConnection?: boolean;
@@ -64,6 +65,7 @@ export function GoogleSheetsConfiguration({
   currentNodeId,
   dynamicOptions,
   loadingDynamic,
+  loadingFields: loadingFieldsFromProps,
   loadOptions,
   integrationName,
   needsConnection,
@@ -72,7 +74,9 @@ export function GoogleSheetsConfiguration({
   setAiFields = () => {},
 }: GoogleSheetsConfigurationProps) {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [loadingFields, setLoadingFields] = useState<Set<string>>(new Set());
+  // Use loadingFields from props (managed by ConfigurationForm via useDynamicOptions.onLoadingChange)
+  // Fallback to empty Set if not provided
+  const loadingFields = loadingFieldsFromProps || new Set<string>();
   const [showPreviewData, setShowPreviewData] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
@@ -155,6 +159,8 @@ export function GoogleSheetsConfiguration({
   }, [values.action, previousAction, setValue]);
 
   // Handle dynamic field loading
+  // Note: Loading state is managed by useDynamicOptions via onLoadingChange callback
+  // which updates ConfigurationForm's loadingFields that gets passed as props
   const handleDynamicLoad = useCallback(async (
     fieldName: string,
     dependsOn?: string,
@@ -174,13 +180,6 @@ export function GoogleSheetsConfiguration({
       return;
     }
 
-    // Add field to loading set
-    setLoadingFields(prev => {
-      const newSet = new Set(prev);
-      newSet.add(fieldName);
-      return newSet;
-    });
-
     try {
       // If explicit dependencies are provided, use them
       if (dependsOn && dependsOnValue !== undefined) {
@@ -196,13 +195,6 @@ export function GoogleSheetsConfiguration({
       }
     } catch (error) {
       logger.error('Error loading dynamic options:', error);
-    } finally {
-      // Remove field from loading set
-      setLoadingFields(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(fieldName);
-        return newSet;
-      });
     }
   }, [nodeInfo, values, loadOptions]);
 
