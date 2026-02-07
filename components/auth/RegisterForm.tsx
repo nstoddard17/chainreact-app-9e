@@ -313,7 +313,7 @@ function RegisterFormContent() {
                   required
                   minLength={3}
                   maxLength={20}
-                  pattern="^[a-zA-Z0-9_-]{3,20}$"
+                  pattern="^[a-zA-Z0-9_\-]{3,20}$"
                   disabled={usernameChecking}
                   autoComplete="username"
                 />
@@ -374,6 +374,7 @@ function RegisterFormContent() {
                   minLength={8}
                   maxLength={15}
                   pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,15}$"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"

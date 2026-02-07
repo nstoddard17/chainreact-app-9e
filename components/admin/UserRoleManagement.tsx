@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
+import { useToast } from "@/hooks/use-toast"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -39,6 +40,7 @@ interface User {
 
 export default function UserRoleManagement() {
   const { profile } = useAuthStore()
+  const { toast } = useToast()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -138,7 +140,7 @@ export default function UserRoleManagement() {
 
     try {
       setUpdating(true)
-      
+
       const response = await fetch('/api/admin/update-user-role', {
         method: 'POST',
         headers: {
@@ -153,21 +155,31 @@ export default function UserRoleManagement() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update user role')
+        const errorMessage = data.error || 'Failed to update user role'
+        toast({
+          title: "Error updating role",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        throw new Error(errorMessage)
       }
 
       // Update local state
-      setUsers(users.map(user => 
-        user.id === selectedUser.id 
+      setUsers(users.map(user =>
+        user.id === selectedUser.id
           ? { ...user, role: newRole }
           : user
       ))
 
+      toast({
+        title: "Role updated",
+        description: `Successfully updated role for ${selectedUser.email}`,
+      })
+
       setShowUpdateDialog(false)
       setSelectedUser(null)
-    } catch (error) {
-      logger.error('Error updating user role:', error)
-      // You might want to show a toast notification here
+    } catch (error: any) {
+      logger.error('Error updating user role:', error?.message || error)
     } finally {
       setUpdating(false)
     }
@@ -176,7 +188,7 @@ export default function UserRoleManagement() {
   const handleCreateUser = async () => {
     try {
       setCreating(true)
-      
+
       const response = await fetch('/api/admin/users/create', {
         method: 'POST',
         headers: {
@@ -188,12 +200,18 @@ export default function UserRoleManagement() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to create user')
+        const errorMessage = data.error || 'Failed to create user'
+        toast({
+          title: "Error creating user",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        throw new Error(errorMessage)
       }
 
       // Add new user to local state
       setUsers([...users, data.user])
-      
+
       // Reset form
       setNewUserForm({
         email: '',
@@ -203,11 +221,15 @@ export default function UserRoleManagement() {
         role: 'free',
         send_welcome_email: true
       })
-      
+
+      toast({
+        title: "User created",
+        description: `Successfully created user ${data.user.email}`,
+      })
+
       setShowCreateDialog(false)
-    } catch (error) {
-      logger.error('Error creating user:', error)
-      // You might want to show a toast notification here
+    } catch (error: any) {
+      logger.error('Error creating user:', error?.message || error)
     } finally {
       setCreating(false)
     }
@@ -218,7 +240,7 @@ export default function UserRoleManagement() {
 
     try {
       setEditing(true)
-      
+
       const response = await fetch('/api/admin/users/update', {
         method: 'POST',
         headers: {
@@ -233,21 +255,31 @@ export default function UserRoleManagement() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update user')
+        const errorMessage = data.error || 'Failed to update user'
+        toast({
+          title: "Error updating user",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        throw new Error(errorMessage)
       }
 
       // Update local state
-      setUsers(users.map(user => 
-        user.id === selectedUser.id 
+      setUsers(users.map(user =>
+        user.id === selectedUser.id
           ? { ...user, ...data.user }
           : user
       ))
 
+      toast({
+        title: "User updated",
+        description: `Successfully updated ${selectedUser.email}`,
+      })
+
       setShowEditDialog(false)
       setSelectedUser(null)
-    } catch (error) {
-      logger.error('Error updating user:', error)
-      // You might want to show a toast notification here
+    } catch (error: any) {
+      logger.error('Error updating user:', error?.message || error)
     } finally {
       setEditing(false)
     }
@@ -258,7 +290,7 @@ export default function UserRoleManagement() {
 
     try {
       setDeleting(true)
-      
+
       const response = await fetch('/api/admin/users/delete', {
         method: 'POST',
         headers: {
@@ -273,18 +305,28 @@ export default function UserRoleManagement() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete user')
+        const errorMessage = data.error || 'Failed to delete user'
+        toast({
+          title: "Error deleting user",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        throw new Error(errorMessage)
       }
 
       // Remove user from local state
       setUsers(users.filter(user => user.id !== selectedUser.id))
 
+      toast({
+        title: "User deleted",
+        description: `Successfully deleted ${selectedUser.email}`,
+      })
+
       setShowDeleteDialog(false)
       setSelectedUser(null)
       setDeleteOptions({ deleteData: false })
-    } catch (error) {
-      logger.error('Error deleting user:', error)
-      // You might want to show a toast notification here
+    } catch (error: any) {
+      logger.error('Error deleting user:', error?.message || error)
     } finally {
       setDeleting(false)
     }

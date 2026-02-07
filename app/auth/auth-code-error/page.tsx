@@ -74,7 +74,7 @@ export default function AuthCodeErrorPage() {
               </div>
 
               <div className="space-y-4">
-                <Link href="/auth/register">
+                <Link href="/auth/waiting-confirmation?expired=true">
                   <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 transition-all duration-300 transform hover:scale-105">
                     <Mail className="mr-2 h-4 w-4" />
                     Resend Confirmation Email

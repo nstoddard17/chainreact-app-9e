@@ -33,14 +33,20 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
-      logger.error('Auth callback error:', error)
-      
-      // Check for specific error types
-      if (error.message.includes('expired') || error.message.includes('invalid')) {
-        // Token expired or invalid
-        return NextResponse.redirect(`${origin}/auth/error?type=expired-link&message=${encodeURIComponent('Your confirmation link has expired or is invalid. Please request a new one.')}`)
+      logger.error('Auth callback error:', {
+        message: error.message,
+        status: error.status,
+        name: error.name,
+        type_param: type,
+      })
+
+      // For expired/invalid confirmation links, redirect to waiting-confirmation
+      // so the user can easily resend instead of hitting a dead-end error page
+      if (error.message.includes('expired') || error.message.includes('invalid') || error.message.includes('code verifier')) {
+        // Try to get email from pendingSignup (will be read client-side)
+        return NextResponse.redirect(`${origin}/auth/waiting-confirmation?expired=true`)
       }
-      
+
       // Generic error
       return NextResponse.redirect(`${origin}/auth/auth-code-error?error=${encodeURIComponent(error.message)}`)
     }

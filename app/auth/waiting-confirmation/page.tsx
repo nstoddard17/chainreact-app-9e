@@ -2,21 +2,32 @@
 
 import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
-import { Mail, RefreshCw, CheckCircle, ArrowRight } from "lucide-react"
+import { Mail, RefreshCw, CheckCircle, ArrowRight, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { supabase } from "@/utils/supabaseClient"
+import { Suspense } from 'react'
 
 import { logger } from '@/lib/utils/logger'
 
-export default function WaitingConfirmationPage() {
+function WaitingConfirmationContent() {
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState<string>("")
   const [userId, setUserId] = useState<string>("")
   const [isPolling, setIsPolling] = useState(true)
   const [hasResent, setHasResent] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [isConfirmed, setIsConfirmed] = useState(false)
+  const [linkExpired, setLinkExpired] = useState(false)
   const { user, initialize } = useAuthStore()
+
+  useEffect(() => {
+    // Check if redirected here due to expired confirmation link
+    if (searchParams.get('expired') === 'true') {
+      setLinkExpired(true)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     // Get email and userId from pending signup or current user
@@ -172,6 +183,18 @@ export default function WaitingConfirmationPage() {
               
               {!isConfirmed ? (
                 <>
+                  {linkExpired && (
+                    <div className="bg-yellow-500/20 border border-yellow-500/40 rounded-lg p-4 mb-6">
+                      <div className="flex items-center gap-2 text-yellow-300 mb-1">
+                        <AlertCircle className="h-4 w-4" />
+                        <span className="font-medium text-sm">Your confirmation link has expired</span>
+                      </div>
+                      <p className="text-yellow-200/80 text-xs">
+                        Click "Resend Email" below to get a new confirmation link.
+                      </p>
+                    </div>
+                  )}
+
                   <p className="text-orange-200 mb-6 leading-relaxed">
                     We've sent a confirmation link to:
                   </p>
@@ -181,7 +204,8 @@ export default function WaitingConfirmationPage() {
                   </div>
 
                   <p className="text-orange-200 mb-6 text-sm leading-relaxed">
-                    Click the link in your email to verify your account. This page will automatically
+                    Click the link in your email to verify your account. Be sure to check your spam
+                    or junk folder if you don't see it in your inbox. This page will automatically
                     update when your email is confirmed.
                   </p>
 
@@ -271,5 +295,13 @@ export default function WaitingConfirmationPage() {
         }
       `}</style>
     </div>
+  )
+}
+
+export default function WaitingConfirmationPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <WaitingConfirmationContent />
+    </Suspense>
   )
 }
