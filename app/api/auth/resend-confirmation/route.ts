@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+import { sendWelcomeEmail } from '@/lib/services/resend'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -144,20 +145,43 @@ export async function POST(request: NextRequest) {
       return errorResponse('Signup link has expired. Please register again.' , 400)
     }
 
-    // Resend confirmation email
+    // Generate confirmation link using admin API
     const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL
-    
-    const { error: resendError } = await supabase.auth.resend({
+
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'signup',
       email: email,
       options: {
-        emailRedirectTo: `${baseUrl}/api/auth/callback?type=email-confirmation`
+        redirectTo: `${baseUrl}/api/auth/callback?type=email-confirmation`
       }
     })
 
-    if (resendError) {
-      logger.error('Error resending confirmation:', resendError)
-      return errorResponse('Failed to resend confirmation email. Please try again.' , 500)
+    if (linkError) {
+      logger.error('Error generating confirmation link:', linkError)
+      return errorResponse('Failed to generate confirmation link.', 500)
+    }
+
+    const confirmationUrl = linkData.properties?.action_link
+    if (!confirmationUrl) {
+      logger.error('No action_link in generateLink response')
+      return errorResponse('Failed to generate confirmation link.', 500)
+    }
+
+    // Send email via Resend using existing WelcomeEmail template
+    const emailResult = await sendWelcomeEmail(
+      {
+        to: email,
+        subject: 'Confirm your ChainReact email',
+      },
+      {
+        username: userData.user.user_metadata?.full_name || userData.user.user_metadata?.username,
+        confirmationUrl,
+      }
+    )
+
+    if (!emailResult.success) {
+      logger.error('Error sending confirmation email:', emailResult.error)
+      return errorResponse('Failed to send confirmation email.', 500)
     }
 
     // Log the resend attempt for monitoring (PII masked)
