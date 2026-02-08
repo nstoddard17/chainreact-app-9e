@@ -68,6 +68,8 @@ import { getProviderBrandName } from "@/lib/integrations/brandNames"
 import { StaticIntegrationLogo } from "@/components/ui/static-integration-logo"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AIAgentConfigContent } from "./AIAgentConfigContent"
+import { analyzeTestDataRequirements, TestDataAnalysis } from "@/lib/workflows/testing/testDataUtils"
+import { TestDataConfirmationDialog } from "@/components/workflows/testing/TestDataConfirmationDialog"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -399,9 +401,12 @@ export function ConfigurationModal({
 
   // State for test node functionality
   const [isTestingNode, setIsTestingNode] = useState(false)
+  const [showTestConfirmation, setShowTestConfirmation] = useState(false)
+  const [testDataAnalysis, setTestDataAnalysis] = useState<TestDataAnalysis | null>(null)
+  const [lastTestDataSource, setLastTestDataSource] = useState<'live' | 'previous_execution' | 'sample' | null>(null)
 
-  // Handler for testing the node
-  const handleTestNode = useCallback(async () => {
+  // Handler for testing the node (actual execution)
+  const executeTest = useCallback(async (dataSource: 'live' | 'previous_execution' | 'sample') => {
     if (!nodeInfo?.type) {
       toast({
         title: "Cannot test node",
@@ -412,6 +417,7 @@ export function ConfigurationModal({
     }
 
     setIsTestingNode(true)
+    setLastTestDataSource(dataSource)
     setActiveTab('results') // Switch to results tab to show progress
 
     try {
@@ -458,6 +464,11 @@ export function ConfigurationModal({
         throw new Error(errorMessage)
       }
 
+      // Determine actual data source used based on API response
+      const actualDataSource = result.cachedData?.loaded && result.cachedData.nodeCount > 0
+        ? 'previous_execution'
+        : dataSource
+
       // Update the config with test results
       const updatedConfig = {
         ...effectiveInitialData,
@@ -470,10 +481,13 @@ export function ConfigurationModal({
           message: result.testResult?.message,
           rawResponse: result.testResult?.output,
           cachedDataUsed: result.cachedData?.loaded ? result.cachedData.nodeCount : 0,
-          outputCached: result.outputCached
+          outputCached: result.outputCached,
+          dataSource: actualDataSource,
+          dependencyCount: testDataAnalysis?.dependencies?.length || 0
         }
       }
 
+      setLastTestDataSource(actualDataSource)
       setInitialOverride(updatedConfig)
       setFormSeedVersion((prev) => prev + 1)
 
@@ -522,7 +536,60 @@ export function ConfigurationModal({
     } finally {
       setIsTestingNode(false)
     }
-  }, [nodeInfo, effectiveInitialData, toast, workflowData?.id, currentNodeId])
+  }, [nodeInfo, effectiveInitialData, toast, workflowData?.id, currentNodeId, testDataAnalysis])
+
+  // Handler that checks for confirmation before testing
+  const handleTestNode = useCallback(async () => {
+    if (!nodeInfo?.type) {
+      toast({
+        title: "Cannot test node",
+        description: "Node type is not defined",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Strip out test metadata before analysis
+    const cleanConfig = Object.keys(effectiveInitialData).reduce((acc, key) => {
+      if (!key.startsWith('__test') && !key.startsWith('__validation')) {
+        acc[key] = effectiveInitialData[key]
+      }
+      return acc
+    }, {} as Record<string, any>)
+
+    // Analyze test data requirements
+    const analysis = analyzeTestDataRequirements(
+      nodeInfo.type,
+      cleanConfig,
+      undefined, // TODO: Pass previous execution data if available
+      workflowData?.nodes
+    )
+
+    setTestDataAnalysis(analysis)
+
+    // If confirmation is required, show the dialog
+    if (analysis.requiresConfirmation) {
+      setShowTestConfirmation(true)
+      return
+    }
+
+    // Otherwise, proceed with the test
+    await executeTest(analysis.dataSource)
+  }, [nodeInfo, effectiveInitialData, workflowData?.nodes, executeTest, toast])
+
+  // Handle confirmation dialog confirm
+  const handleConfirmTest = useCallback(async () => {
+    setShowTestConfirmation(false)
+    if (testDataAnalysis) {
+      await executeTest(testDataAnalysis.dataSource)
+    }
+  }, [testDataAnalysis, executeTest])
+
+  // Handle confirmation dialog cancel
+  const handleCancelTest = useCallback(() => {
+    setShowTestConfirmation(false)
+    setTestDataAnalysis(null)
+  }, [])
 
   const getRouterChainHints = useCallback(() => {
     if (!workflowData || !currentNodeId) return [] as string[];
@@ -899,6 +966,8 @@ export function ConfigurationModal({
                     onRunTest={handleTestNode}
                     isTestingNode={isTestingNode}
                     workflowId={workflowData?.id}
+                    lastTestDataSource={lastTestDataSource}
+                    testDataAnalysis={testDataAnalysis}
                   />
                 </TabsContent>
               </Tabs>
@@ -906,6 +975,17 @@ export function ConfigurationModal({
           </div>
 
         </div>
+
+        {/* Test Data Confirmation Dialog */}
+        {testDataAnalysis && (
+          <TestDataConfirmationDialog
+            open={showTestConfirmation}
+            onOpenChange={setShowTestConfirmation}
+            analysis={testDataAnalysis}
+            onConfirm={handleConfirmTest}
+            onCancel={handleCancelTest}
+          />
+        )}
       </div>
       </VariableDragProvider>
     </TooltipProvider>

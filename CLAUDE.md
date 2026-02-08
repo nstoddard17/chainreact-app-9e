@@ -443,6 +443,43 @@ interface TriggerLifecycle {
 
 **Reference:** `GoogleApisTriggerLifecycle.ts:120-135`
 
+### Proactive OAuth Token Management - "Never Reconnect" Pattern
+
+**Goal:** Match Zapier/Make.com/n8n experience where users never need to manually reconnect.
+
+**Architecture:**
+1. **Proactive Health Checks** (`/api/cron/proactive-health-check`) - Every 15 min
+   - Validates token health independent of expiration time
+   - Uses provider-specific health endpoints (Google tokeninfo, Slack auth.test, etc.)
+   - Triggers immediate refresh if unhealthy
+
+2. **Distributed Locking** (`/lib/integrations/refreshLockService.ts`)
+   - Prevents race conditions when multiple cron instances run
+   - Uses database-based locks (compatible with Vercel serverless)
+
+3. **Enhanced Error Classification** (`/lib/integrations/errorClassificationService.ts`)
+   - Distinguishes recoverable (rate_limited, network_error) from permanent errors
+   - Sets `requires_user_action` only when truly needed
+
+4. **Webhook Subscription Renewal** (`/api/cron/renew-webhook-subscriptions`) - Every 10 min
+   - Auto-renews Microsoft Graph subscriptions before 3-day expiry
+   - Integrates with Google watch renewal
+
+5. **User Action Notifications** (`/api/cron/notify-user-actions`) - Hourly
+   - Progressive escalation: Day 0 → Day 2 → Day 5 → Day 7 (pause)
+   - Only pauses workflows after 7-day deadline passes
+
+**Database Columns on `integrations`:**
+- `last_health_check_at`, `next_health_check_at`, `health_check_status`
+- `requires_user_action`, `user_action_type`, `user_action_deadline`
+- `last_error_code`, `last_error_details`
+- `refresh_lock_at`, `refresh_lock_id`
+
+**Health Check Intervals:**
+- Google/Microsoft: 6 hours (have tokeninfo endpoints)
+- Slack/Discord/GitHub/Notion: 4 hours (auth test endpoints)
+- Others: 12 hours (use refresh as validation)
+
 ---
 
 ## 🔧 DEVELOPMENT SETUP

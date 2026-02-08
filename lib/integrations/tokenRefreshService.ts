@@ -14,6 +14,8 @@ import { decrypt } from "@/lib/security/encryption"
 import { getSecret } from "@/lib/secrets"
 import { encryptTokens } from "./tokenUtils"
 import { getAllScopes } from "./integrationScopes"
+import { acquireRefreshLock, releaseRefreshLock, cleanupStaleLocks } from "./refreshLockService"
+import { classifyOAuthError, calculateUserActionDeadline, type ClassifiedError } from "./errorClassificationService"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -31,6 +33,7 @@ export interface RefreshResult {
   needsReauthorization?: boolean
   scope?: string
   isTransientFailure?: boolean // True for rate limits, network errors, 5xx errors
+  classifiedError?: ClassifiedError // Enhanced error classification
 }
 
 /**
@@ -47,6 +50,8 @@ export interface RefreshTokensOptions {
   retryFailedInLast?: number // Only retry tokens that failed in the last X minutes
   includeInactive?: boolean // Include inactive integrations
   verbose?: boolean
+  useLocking?: boolean // Use distributed locks to prevent race conditions (default: true)
+  cleanupStaleLocks?: boolean // Clean up stale locks before processing (default: true)
 }
 
 /**
@@ -80,6 +85,48 @@ const DEFAULT_REFRESH_OPTIONS: RefreshTokensOptions = {
   batchSize: 50,
   accessTokenExpiryThreshold: 30, // 30 minutes
   refreshTokenExpiryThreshold: 30, // 30 minutes
+  useLocking: true, // Enable distributed locking by default
+  cleanupStaleLocks: true, // Clean up stale locks by default
+}
+
+/**
+ * Health check intervals by provider category (in hours)
+ */
+export const HEALTH_CHECK_INTERVALS: Record<string, number> = {
+  // Providers with tokeninfo endpoints
+  google: 6,
+  gmail: 6,
+  "google-calendar": 6,
+  "google-drive": 6,
+  "google-sheets": 6,
+  "google-docs": 6,
+  microsoft: 6,
+  outlook: 6,
+  onedrive: 6,
+  "microsoft-teams": 6,
+  teams: 6,
+  // Providers with auth test endpoints
+  slack: 4,
+  discord: 4,
+  github: 4,
+  notion: 4,
+  // Default for other providers
+  default: 12,
+}
+
+/**
+ * Get the health check interval for a provider (in hours)
+ */
+export function getHealthCheckInterval(provider: string): number {
+  return HEALTH_CHECK_INTERVALS[provider] || HEALTH_CHECK_INTERVALS.default
+}
+
+/**
+ * Calculate the next health check time for a provider
+ */
+export function calculateNextHealthCheck(provider: string): Date {
+  const intervalHours = getHealthCheckInterval(provider)
+  return new Date(Date.now() + intervalHours * 60 * 60 * 1000)
 }
 
 /**
@@ -107,6 +154,14 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
   }
 
   try {
+    // Clean up stale locks before processing
+    if (config.cleanupStaleLocks) {
+      const staleLocksCleared = await cleanupStaleLocks()
+      if (staleLocksCleared > 0) {
+        logger.info(`[TokenRefresh] Cleaned up ${staleLocksCleared} stale locks before processing`)
+      }
+    }
+
     // Build the query to get integrations with refresh tokens
     let query = db.from("integrations").select("*").not("refresh_token", "is", null)
 
@@ -177,6 +232,18 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
 
         stats.providerStats[integration.provider].processed++
 
+        // Acquire distributed lock if enabled
+        let lockId: string | null = null
+        if (config.useLocking) {
+          const lock = await acquireRefreshLock(integration.id)
+          if (!lock.acquired) {
+            if (verbose) logger.debug(`[TokenRefresh] Skipping ${integration.provider} (ID: ${integration.id}): Lock held by another process`)
+            stats.skipped++
+            return
+          }
+          lockId = lock.lockId
+        }
+
         try {
           // Check if refresh is needed
           const needsRefresh = shouldRefreshToken(integration, {
@@ -212,7 +279,7 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
             stats.providerStats[integration.provider].successful++
 
             if (!config.dryRun) {
-              // Update the token in the database
+              // Update the token in the database with health check tracking
               await updateIntegrationWithRefreshResult(integration.id, refreshResult, verbose)
             }
           } else {
@@ -221,16 +288,26 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
             stats.errors[refreshResult.error || "unknown"] = (stats.errors[refreshResult.error || "unknown"] || 0) + 1
 
             if (!config.dryRun) {
+              // Use enhanced error classification
+              const classifiedError = refreshResult.classifiedError || classifyOAuthError(
+                integration.provider,
+                refreshResult.statusCode || 0,
+                refreshResult.providerResponse || { error: refreshResult.error }
+              )
+
               let status: "expired" | "needs_reauthorization" = "expired"
-              if (refreshResult.invalidRefreshToken || refreshResult.needsReauthorization) {
+              if (classifiedError.requiresUserAction || refreshResult.invalidRefreshToken || refreshResult.needsReauthorization) {
                 status = "needs_reauthorization"
               }
 
-              // Update integration with error details
+              // Update integration with error details and user action tracking
               await updateIntegrationWithError(
                 integration.id,
                 refreshResult.error || "Unknown error during token refresh",
-                { status },
+                {
+                  status,
+                  classifiedError,
+                },
                 verbose
               )
             }
@@ -244,6 +321,11 @@ export async function refreshTokens(options: RefreshTokensOptions = {}): Promise
           if (!config.dryRun) {
             // Update integration with error details
             await updateIntegrationWithError(integration.id, `Unexpected error: ${error.message}`, {}, verbose)
+          }
+        } finally {
+          // Always release the lock
+          if (config.useLocking && lockId) {
+            await releaseRefreshLock(integration.id, lockId)
           }
         }
       })
@@ -384,7 +466,7 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
       delete updatedMetadata.requires_reauth
     }
 
-    // Prepare the update data
+    // Prepare the update data with health check tracking
     const updateData: Record<string, any> = {
       access_token: encryptedAccessToken,
       updated_at: now.toISOString(),
@@ -393,7 +475,18 @@ async function updateIntegrationWithRefreshResult(integrationId: string, refresh
       consecutive_failures: 0,
       status: "connected",
       disconnect_reason: null,
-      metadata: updatedMetadata
+      metadata: updatedMetadata,
+      // Health check tracking - successful refresh means token is healthy
+      last_health_check_at: now.toISOString(),
+      next_health_check_at: calculateNextHealthCheck(provider).toISOString(),
+      health_check_status: "healthy",
+      // Clear any user action requirements
+      requires_user_action: false,
+      user_action_type: null,
+      user_action_deadline: null,
+      // Clear error tracking
+      last_error_code: null,
+      last_error_details: null,
     }
 
     if (expiresAt) {
@@ -483,18 +576,45 @@ async function updateIntegrationWithError(
       requires_reauth: consecutiveFailures >= 3 || additionalData.status === "needs_reauthorization"
     }
 
+    // Extract classified error if provided
+    const classifiedError = additionalData.classifiedError as ClassifiedError | undefined
+    delete additionalData.classifiedError // Don't store in spread
+
     // Prepare the update data
     const updateData: Record<string, any> = {
       consecutive_failures: consecutiveFailures,
       disconnect_reason: errorMessage,
       updated_at: new Date().toISOString(),
       metadata: updatedMetadata,
+      // Update health check status
+      last_health_check_at: new Date().toISOString(),
+      health_check_status: classifiedError?.code === "revoked" ? "revoked" :
+                           classifiedError?.code === "invalid_grant" ? "expired" :
+                           classifiedError?.isRecoverable ? "degraded" : "expired",
       ...additionalData,
+    }
+
+    // Set user action requirements based on classified error
+    if (classifiedError?.requiresUserAction) {
+      updateData.requires_user_action = true
+      updateData.user_action_type = classifiedError.userActionType
+      updateData.user_action_deadline = calculateUserActionDeadline(classifiedError).toISOString()
+      updateData.last_error_code = classifiedError.code
+      updateData.last_error_details = JSON.stringify(classifiedError.details || {})
+    } else if (classifiedError) {
+      // Recoverable error - just track it
+      updateData.last_error_code = classifiedError.code
+      updateData.last_error_details = JSON.stringify(classifiedError.details || {})
     }
 
     // If there are too many consecutive failures, mark as needing reauthorization
     if (consecutiveFailures >= 3 && !additionalData.status) {
       updateData.status = "needs_reauthorization"
+      updateData.requires_user_action = true
+      updateData.user_action_type = "reconnect"
+      if (!updateData.user_action_deadline) {
+        updateData.user_action_deadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      }
     }
 
     // Update the database
@@ -875,13 +995,8 @@ export async function refreshTokenForProvider(
         }
       }
 
-      // Classify failure as transient or permanent
-      // Transient: Rate limits (429), server errors (5xx), network timeouts
-      // Permanent: Auth errors (401, 403), invalid_grant, expired tokens
-      const isRateLimit = response.status === 429
-      const isServerError = response.status >= 500 && response.status < 600
-      const isNetworkError = response.status === 0 || response.status === 408 // Timeout
-      const isTransient = isRateLimit || isServerError || isNetworkError
+      // Use enhanced error classification
+      const classifiedError = classifyOAuthError(provider, response.status, responseData)
 
       return {
         success: false,
@@ -889,8 +1004,9 @@ export async function refreshTokenForProvider(
         statusCode: response.status,
         providerResponse: responseData,
         invalidRefreshToken: needsReauth,
-        needsReauthorization: needsReauth,
-        isTransientFailure: isTransient,
+        needsReauthorization: needsReauth || classifiedError.requiresUserAction,
+        isTransientFailure: classifiedError.isRecoverable,
+        classifiedError,
       }
     }
 
@@ -1026,6 +1142,9 @@ export const TokenRefreshService = {
   refreshTokenForProvider,
   getTokensNeedingRefresh,
   getTokensWithRefreshErrors,
+  getHealthCheckInterval,
+  calculateNextHealthCheck,
+  HEALTH_CHECK_INTERVALS,
 }
 
 export default TokenRefreshService

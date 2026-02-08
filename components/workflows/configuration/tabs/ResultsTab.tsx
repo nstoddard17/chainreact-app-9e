@@ -9,6 +9,8 @@ import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { ConfigurationSectionHeader } from '../components/ConfigurationSectionHeader'
 import { useFlowV2Builder } from '@/src/lib/workflows/builder/useFlowV2Builder'
 import { logger } from '@/lib/utils/logger'
+import { TestDataSourceBanner } from '@/components/workflows/testing/TestDataConfirmationDialog'
+import type { TestDataAnalysis } from '@/lib/workflows/testing/testDataUtils'
 
 interface ResultsTabProps {
   nodeInfo: any
@@ -20,9 +22,14 @@ interface ResultsTabProps {
     timestamp?: string
     error?: string
     rawResponse?: any
+    dataSource?: 'live' | 'previous_execution' | 'sample'
+    dependencyCount?: number
   }
   onRunTest?: () => void
   isTestingNode?: boolean
+  workflowId?: string
+  lastTestDataSource?: 'live' | 'previous_execution' | 'sample' | null
+  testDataAnalysis?: TestDataAnalysis | null
 }
 
 /**
@@ -42,6 +49,9 @@ export function ResultsTab({
   testResult,
   onRunTest,
   isTestingNode = false,
+  workflowId,
+  lastTestDataSource,
+  testDataAnalysis,
 }: ResultsTabProps) {
   const [showRawResponse, setShowRawResponse] = useState(false)
   const [expandedFields, setExpandedFields] = useState<Record<string, boolean>>({})
@@ -735,6 +745,15 @@ export function ResultsTab({
                 </Alert>
               )}
             </div>
+          )}
+
+          {/* Test Data Source Banner - Shows when sample/cached data was used */}
+          {hasTestResult && (lastTestDataSource || testResult?.dataSource) && (
+            <TestDataSourceBanner
+              dataSource={lastTestDataSource || testResult?.dataSource || 'live'}
+              dependencyCount={testDataAnalysis?.dependencies?.length || testResult?.dependencyCount || 0}
+              timestamp={testResult?.timestamp}
+            />
           )}
 
           {/* Output Data */}
