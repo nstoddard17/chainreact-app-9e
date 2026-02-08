@@ -1,8 +1,21 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
 import { logger } from '@/lib/utils/logger'
+
+// Service role client for admin operations (bypasses RLS)
+const getServiceClient = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+)
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -98,7 +111,9 @@ export async function GET(request: NextRequest) {
         // Create profile if it doesn't exist
         if (isNewUser) {
           const metadata = data.user.user_metadata
-          const { error: insertError } = await supabase
+          // Use service role client to bypass RLS for profile creation
+          const serviceClient = getServiceClient()
+          const { error: insertError } = await serviceClient
             .from('user_profiles')
             .insert({
               id: data.user.id,
@@ -112,7 +127,7 @@ export async function GET(request: NextRequest) {
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             })
-          
+
           if (insertError) {
             logger.error('Error creating profile during email confirmation:', insertError)
           }
@@ -168,9 +183,11 @@ export async function GET(request: NextRequest) {
             lastName,
             fullName
           })
-          
+
+          // Use service role client to bypass RLS for profile creation
+          const serviceClient = getServiceClient()
           // Create the profile WITHOUT a username
-          const { error: createError } = await supabase
+          const { error: createError } = await serviceClient
             .from('user_profiles')
             .insert({
               id: data.user.id,
@@ -186,7 +203,7 @@ export async function GET(request: NextRequest) {
               // Explicitly set username to null for Google users
               username: null
             })
-          
+
           if (createError) {
             logger.error('Error creating Google user profile:', createError)
           }
