@@ -20,8 +20,11 @@ const getServiceClient = () => createClient(
  * instead of Supabase's default confirmation email.
  */
 export async function POST(request: NextRequest) {
+  logger.debug('[signup] ===== CUSTOM SIGNUP API CALLED =====')
+
   try {
     const { email, password, metadata } = await request.json()
+    logger.debug('[signup] Processing signup for email:', email?.substring(0, 3) + '***')
 
     if (!email || !password) {
       return NextResponse.json(
@@ -136,6 +139,9 @@ export async function POST(request: NextRequest) {
     // Send our branded confirmation email via Resend
     const username = metadata?.full_name || metadata?.first_name || metadata?.username || email.split('@')[0]
 
+    logger.debug('[signup] Sending branded email via Resend to:', email?.substring(0, 3) + '***')
+    logger.debug('[signup] Using confirmation URL:', confirmationUrl?.substring(0, 50) + '...')
+
     const emailResult = await sendWelcomeEmail(
       {
         to: email,
@@ -150,6 +156,8 @@ export async function POST(request: NextRequest) {
     if (!emailResult.success) {
       logger.error('[signup] Error sending confirmation email:', emailResult.error)
       // Don't fail the signup - user can resend from waiting page
+    } else {
+      logger.debug('[signup] ===== BRANDED EMAIL SENT SUCCESSFULLY via Resend =====')
     }
 
     logger.debug('[signup] User created and confirmation email sent:', {
