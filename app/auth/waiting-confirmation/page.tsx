@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Button } from "@/components/ui/button"
-import { Mail, RefreshCw, CheckCircle, ArrowRight, AlertCircle } from "lucide-react"
+import { Mail, RefreshCw, CheckCircle, ArrowRight, AlertCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { supabase } from "@/utils/supabaseClient"
 import { Suspense } from 'react'
@@ -12,6 +12,7 @@ import { Suspense } from 'react'
 import { logger } from '@/lib/utils/logger'
 
 function WaitingConfirmationContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState<string>("")
   const [userId, setUserId] = useState<string>("")
@@ -19,7 +20,9 @@ function WaitingConfirmationContent() {
   const [hasResent, setHasResent] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [isConfirmed, setIsConfirmed] = useState(false)
+  const [isSigningIn, setIsSigningIn] = useState(false)
   const [linkExpired, setLinkExpired] = useState(false)
+  const autoSignInAttempted = useRef(false)
   const { user, initialize } = useAuthStore()
 
   useEffect(() => {
@@ -42,45 +45,117 @@ function WaitingConfirmationContent() {
     }
   }, [user])
 
-  useEffect(() => {
-    if (!userId || !isPolling || isConfirmed) return
+  /**
+   * Attempt to auto-sign-in when email is confirmed on another device.
+   * This creates a seamless experience where the original device
+   * automatically gets signed in and redirected.
+   */
+  const attemptAutoSignIn = async (confirmedUserId: string, confirmedEmail: string) => {
+    // Prevent multiple attempts
+    if (autoSignInAttempted.current) return
+    autoSignInAttempted.current = true
 
-    // Poll every 3 seconds to check if email has been confirmed
-    const pollInterval = setInterval(async () => {
-      try {
-        logger.debug('Polling for email confirmation...')
-        
-        // Try to get the current session first
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
-        if (session?.user?.email_confirmed_at) {
-          logger.debug('Email confirmed! Session detected.')
-          setIsConfirmed(true)
-          setIsPolling(false)
-          clearInterval(pollInterval)
-          
-          // Clean up
-          localStorage.removeItem('pendingSignup')
-          
-          // Initialize auth store to get the user data
-          await initialize()
+    setIsSigningIn(true)
+    logger.debug('Attempting auto sign-in for cross-device confirmation...')
+
+    try {
+      // Request a magic link token for this user
+      const response = await fetch('/api/auth/generate-signin-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: confirmedUserId, email: confirmedEmail })
+      })
+
+      if (!response.ok) {
+        logger.warn('Failed to generate sign-in token, falling back to manual flow')
+        setIsSigningIn(false)
+        return
+      }
+
+      const data = await response.json()
+
+      if (data.token_hash) {
+        // Use verifyOtp with the token hash to establish a session
+        const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: data.token_hash,
+          type: 'magiclink'
+        })
+
+        if (verifyError) {
+          logger.error('Failed to verify OTP for auto sign-in:', verifyError)
+          setIsSigningIn(false)
           return
         }
 
-        // Alternative: Check the user directly
-        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
-        
-        if (currentUser?.email_confirmed_at) {
-          logger.debug('Email confirmed! User check succeeded.')
+        if (verifyData.session) {
+          logger.debug('Auto sign-in successful! Redirecting to workflows...')
+          localStorage.removeItem('pendingSignup')
+          await initialize()
+
+          // Small delay to show the success state before redirect
+          setTimeout(() => {
+            router.push('/workflows')
+          }, 500)
+          return
+        }
+      }
+
+      // If we get here, auto sign-in didn't work
+      logger.warn('Auto sign-in response missing expected data')
+      setIsSigningIn(false)
+    } catch (error) {
+      logger.error('Auto sign-in error:', error)
+      setIsSigningIn(false)
+    }
+  }
+
+  useEffect(() => {
+    if ((!userId && !email) || !isPolling || isConfirmed) return
+
+    // Poll every 3 seconds to check if email has been confirmed
+    // Uses server-side API to check confirmation status across devices
+    const pollInterval = setInterval(async () => {
+      try {
+        logger.debug('Polling for email confirmation...')
+
+        // First, check if we have a local session (same device confirmation)
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (session?.user?.email_confirmed_at) {
+          logger.debug('Email confirmed! Session detected on this device.')
           setIsConfirmed(true)
           setIsPolling(false)
           clearInterval(pollInterval)
-          
-          // Clean up
           localStorage.removeItem('pendingSignup')
-          
-          // Initialize auth store to get the user data
           await initialize()
+
+          // Auto-redirect since we already have a session
+          setTimeout(() => {
+            router.push('/workflows')
+          }, 1000)
+          return
+        }
+
+        // If no local session, check server-side for cross-device confirmation
+        // This allows detection when user confirms on mobile but signed up on desktop
+        const response = await fetch('/api/auth/check-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, email })
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+
+          if (data.confirmed) {
+            logger.debug('Email confirmed on another device! Initiating auto sign-in...')
+            setIsConfirmed(true)
+            setIsPolling(false)
+            clearInterval(pollInterval)
+
+            // Attempt seamless auto sign-in
+            await attemptAutoSignIn(userId, email)
+          }
         }
       } catch (error) {
         logger.error('Error polling for confirmation:', error)
@@ -89,21 +164,21 @@ function WaitingConfirmationContent() {
 
     // Clean up interval on unmount or when polling stops
     return () => clearInterval(pollInterval)
-  }, [userId, isPolling, isConfirmed, initialize])
+  }, [userId, email, isPolling, isConfirmed, initialize, router])
 
   const handleResendEmail = async () => {
     if (resendCooldown > 0) return
 
     try {
       setHasResent(false) // Reset status
-      
+
       // Send confirmation email using the new endpoint
       const response = await fetch('/api/auth/resend-confirmation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: email
         }),
       })
@@ -113,7 +188,7 @@ function WaitingConfirmationContent() {
       if (response.ok) {
         setHasResent(true)
         setResendCooldown(60) // 60 second cooldown
-        
+
         const cooldownInterval = setInterval(() => {
           setResendCooldown((prev) => {
             if (prev <= 1) {
@@ -127,7 +202,7 @@ function WaitingConfirmationContent() {
         // Rate limited
         const retryAfter = data.retryAfter || 3600
         setResendCooldown(Math.min(retryAfter, 3600)) // Cap at 1 hour for display
-        
+
         const cooldownInterval = setInterval(() => {
           setResendCooldown((prev) => {
             if (prev <= 1) {
@@ -137,7 +212,7 @@ function WaitingConfirmationContent() {
             return prev - 1
           })
         }, 1000)
-        
+
         // Show error message
         alert(data.error || 'Too many requests. Please try again later.')
       } else {
@@ -173,15 +248,24 @@ function WaitingConfirmationContent() {
           {/* Waiting Card */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-8">
             <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-orange-500/20 mb-6">
-                <Mail className="h-8 w-8 text-orange-400" />
+              {/* Icon changes based on state */}
+              <div className={`mx-auto flex items-center justify-center h-16 w-16 rounded-full mb-6 ${
+                isSigningIn ? 'bg-blue-500/20' : isConfirmed ? 'bg-green-500/20' : 'bg-orange-500/20'
+              }`}>
+                {isSigningIn ? (
+                  <Loader2 className="h-8 w-8 text-blue-400 animate-spin" />
+                ) : isConfirmed ? (
+                  <CheckCircle className="h-8 w-8 text-green-400" />
+                ) : (
+                  <Mail className="h-8 w-8 text-orange-400" />
+                )}
               </div>
-              
+
               <h2 className="text-2xl font-bold text-white mb-4">
-                {isConfirmed ? 'Email Confirmed!' : 'Check Your Email'}
+                {isSigningIn ? 'Signing you in...' : isConfirmed ? 'Email Confirmed!' : 'Check Your Email'}
               </h2>
-              
-              {!isConfirmed ? (
+
+              {!isConfirmed && !isSigningIn ? (
                 <>
                   {linkExpired && (
                     <div className="bg-yellow-500/20 border border-yellow-500/40 rounded-lg p-4 mb-6">
@@ -204,9 +288,8 @@ function WaitingConfirmationContent() {
                   </div>
 
                   <p className="text-orange-200 mb-6 text-sm leading-relaxed">
-                    Click the link in your email to verify your account. Be sure to check your spam
-                    or junk folder if you don't see it in your inbox. This page will automatically
-                    update when your email is confirmed.
+                    Click the link in your email to verify your account. You can open it on any device -
+                    this page will automatically sign you in once confirmed.
                   </p>
 
                   {/* Status indicator */}
@@ -215,19 +298,27 @@ function WaitingConfirmationContent() {
                     <span className="text-sm">Waiting for email confirmation...</span>
                   </div>
                 </>
+              ) : isSigningIn ? (
+                <>
+                  <p className="text-blue-200 mb-6 leading-relaxed">
+                    Your email was confirmed! Setting up your session...
+                  </p>
+
+                  <div className="bg-blue-600/20 rounded-lg p-3 mb-6">
+                    <p className="text-blue-200 text-sm">
+                      You'll be redirected to your dashboard momentarily.
+                    </p>
+                  </div>
+                </>
               ) : (
                 <>
-                  <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-500/20 mb-6 animate-bounce">
-                    <CheckCircle className="h-8 w-8 text-green-400" />
-                  </div>
-                  
                   <p className="text-orange-200 mb-6 leading-relaxed">
                     Your email has been verified successfully!
                   </p>
 
                   <div className="bg-green-600/20 rounded-lg p-3 mb-6">
                     <p className="text-green-200 text-sm">
-                      Great! Your account is now active and ready to use.
+                      Redirecting to your dashboard...
                     </p>
                   </div>
 
@@ -240,7 +331,7 @@ function WaitingConfirmationContent() {
                 </>
               )}
 
-              {!isConfirmed && (
+              {!isConfirmed && !isSigningIn && (
                 <div className="space-y-4">
                   <Button
                     onClick={handleResendEmail}
@@ -265,12 +356,14 @@ function WaitingConfirmationContent() {
                 </div>
               )}
 
-              <div className="mt-6 text-xs text-orange-300/60">
-                Didn't receive the email? Check your spam folder or{" "}
-                <Link href="/contact" className="text-orange-300 hover:text-orange-200 underline">
-                  contact support
-                </Link>
-              </div>
+              {!isSigningIn && (
+                <div className="mt-6 text-xs text-orange-300/60">
+                  Didn't receive the email? Check your spam folder or{" "}
+                  <Link href="/contact" className="text-orange-300 hover:text-orange-200 underline">
+                    contact support
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>

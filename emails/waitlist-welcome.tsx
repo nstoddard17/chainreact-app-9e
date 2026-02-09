@@ -3,9 +3,7 @@ import {
   Container,
   Head,
   Heading,
-  Hr,
   Html,
-  Link,
   Preview,
   Section,
   Text,
@@ -15,82 +13,94 @@ interface WaitlistWelcomeEmailProps {
   name: string
 }
 
+const colors = {
+  blue: '#3b82f6',
+  purple: '#a855f7',
+  rose: '#f43f5e',
+  dark: '#0f172a',
+  gray: '#64748b',
+  lightGray: '#f8fafc',
+  white: '#ffffff',
+}
+
 export const WaitlistWelcomeEmail = ({
   name,
 }: WaitlistWelcomeEmailProps) => (
   <Html>
-    <Head />
-    <Preview>Welcome to the ChainReact Waitlist - You're on the list!</Preview>
+    <Head>
+      <meta name="color-scheme" content="light" />
+      <meta name="supported-color-schemes" content="light" />
+    </Head>
+    <Preview>Welcome to the ChainReact waitlist</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Section style={header}>
-          <Heading style={h1}>ChainReact</Heading>
+        {/* Gradient top accent */}
+        <table cellPadding="0" cellSpacing="0" width="100%">
+          <tr>
+            <td style={gradientBar}></td>
+          </tr>
+        </table>
+
+        {/* Logo */}
+        <Section style={logoSection}>
+          <table cellPadding="0" cellSpacing="0" width="100%">
+            <tr>
+              <td align="center">
+                <img
+                  src="https://chainreact.app/logo_transparent.png"
+                  alt="ChainReact"
+                  width="48"
+                  height="48"
+                  style={{ display: 'block', margin: '0 auto' }}
+                />
+              </td>
+            </tr>
+          </table>
         </Section>
 
-        <Section style={content}>
-          <Heading style={h2}>You're on the waitlist! 🎉</Heading>
+        {/* Main Content */}
+        <Section style={contentSection}>
+          <Heading style={heading}>
+            You're on the list
+          </Heading>
 
-          <Text style={text}>Hi {name},</Text>
-
-          <Text style={text}>
-            Thank you for joining the ChainReact early access waitlist! We're thrilled to have you
-            as part of our community and can't wait to show you what we're building.
+          <Text style={paragraph}>
+            Hi {name}, thanks for joining the ChainReact waitlist. We're building workflow automation that thinks for itself, and you'll be among the first to try it.
           </Text>
 
-          <Text style={text}>
-            <strong>What happens next?</strong>
+          <Text style={paragraphSpaced}>
+            We'll reach out as soon as your spot is ready. In the meantime, keep an eye on your inbox for updates and early access opportunities.
           </Text>
-
-          <ul style={list}>
-            <li style={listItem}>We'll review your preferences and integration needs</li>
-            <li style={listItem}>You'll receive priority access when we launch</li>
-            <li style={listItem}>We'll send you exclusive updates and behind-the-scenes insights</li>
-            <li style={listItem}>You'll get special early adopter benefits and discounts</li>
-          </ul>
-
-          <Text style={text}>
-            We're working hard to create the most powerful and intuitive workflow automation
-            platform. Your interest and feedback will help shape the future of ChainReact.
-          </Text>
-
-          <Text style={highlightText}>
-            Want to move up the waitlist? Share ChainReact with colleagues who might benefit
-            from workflow automation!
-          </Text>
-
-          <Text style={text}>
-            In the meantime, if you have any questions or specific use cases you'd like to
-            discuss, feel free to reach out. We love hearing from our early supporters.
-          </Text>
-
-          <Text style={text}>See you soon!</Text>
-          <Text style={signature}><strong>The ChainReact Team</strong></Text>
         </Section>
 
-        <Hr style={hr} />
+        {/* Divider */}
+        <table cellPadding="0" cellSpacing="0" width="100%">
+          <tr>
+            <td style={{ padding: '0 48px' }}>
+              <table cellPadding="0" cellSpacing="0" width="100%">
+                <tr>
+                  <td style={{ height: '1px', backgroundColor: '#e2e8f0' }}></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
 
-        <Section style={footer}>
-          <Text style={footerText}>
-            Questions? Contact us at{' '}
-            <Link href="mailto:support@chainreact.app" style={link}>
-              support@chainreact.app
-            </Link>
-          </Text>
-
-          <Text style={footerText}>
-            Follow our journey:{' '}
-            <Link href="https://twitter.com/chainreact" style={link}>
-              Twitter
-            </Link>{' '}
-            |{' '}
-            <Link href="https://linkedin.com/company/chainreact" style={link}>
-              LinkedIn
-            </Link>
-          </Text>
-
-          <Text style={copyright}>
-            © 2024 ChainReact. All rights reserved.
-          </Text>
+        {/* Footer */}
+        <Section style={footerSection}>
+          <table cellPadding="0" cellSpacing="0" width="100%">
+            <tr>
+              <td align="center">
+                <Text style={footerBrand}>
+                  <span style={{ color: colors.dark, fontWeight: 600 }}>Chain</span>
+                  <span style={{ color: colors.blue, fontWeight: 600 }}>React</span>
+                </Text>
+                <Text style={copyright}>
+                  Workflow automation that thinks for itself
+                </Text>
+              </td>
+            </tr>
+          </table>
         </Section>
       </Container>
     </Body>
@@ -99,105 +109,66 @@ export const WaitlistWelcomeEmail = ({
 
 export default WaitlistWelcomeEmail
 
-// Styles
 const main = {
-  backgroundColor: '#0f172a',
-  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+  backgroundColor: colors.lightGray,
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  padding: '40px 20px',
 }
 
 const container = {
-  margin: '40px auto',
-  width: '600px',
-  backgroundColor: '#ffffff',
+  backgroundColor: colors.white,
   borderRadius: '12px',
-  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+  maxWidth: '480px',
+  margin: '0 auto',
   overflow: 'hidden',
 }
 
-const header = {
-  background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-  padding: '40px 30px',
-  textAlign: 'center' as const,
+const gradientBar = {
+  height: '3px',
+  background: `linear-gradient(90deg, ${colors.blue} 0%, ${colors.purple} 50%, ${colors.rose} 100%)`,
 }
 
-const h1 = {
-  color: '#ffffff',
-  fontSize: '28px',
-  fontWeight: '700',
-  margin: '0',
+const logoSection = {
+  padding: '40px 48px 0 48px',
 }
 
-const content = {
-  padding: '40px 30px',
+const contentSection = {
+  padding: '32px 48px 40px 48px',
 }
 
-const h2 = {
-  color: '#1e293b',
+const heading = {
   fontSize: '24px',
-  margin: '0 0 20px 0',
+  fontWeight: '600' as const,
+  color: colors.dark,
+  margin: '0 0 16px 0',
+  lineHeight: '1.3',
 }
 
-const text = {
-  color: '#64748b',
-  fontSize: '16px',
-  lineHeight: '1.6',
-  margin: '0 0 20px 0',
-}
-
-const highlightText = {
-  color: '#3b82f6',
-  fontSize: '16px',
-  lineHeight: '1.6',
-  margin: '0 0 20px 0',
-  padding: '16px',
-  backgroundColor: '#eff6ff',
-  borderRadius: '8px',
-  borderLeft: '4px solid #3b82f6',
-}
-
-const signature = {
-  color: '#64748b',
-  fontSize: '16px',
-  lineHeight: '1.6',
-  margin: '20px 0 0 0',
-}
-
-const list = {
-  color: '#64748b',
-  fontSize: '16px',
-  lineHeight: '1.6',
-  margin: '0 0 20px 0',
-  paddingLeft: '20px',
-}
-
-const listItem = {
-  margin: '8px 0',
-}
-
-const hr = {
-  borderColor: '#e2e8f0',
+const paragraph = {
+  fontSize: '15px',
+  color: colors.gray,
   margin: '0',
+  lineHeight: '1.6',
 }
 
-const footer = {
-  backgroundColor: '#f8fafc',
-  padding: '30px',
-  textAlign: 'center' as const,
+const paragraphSpaced = {
+  fontSize: '15px',
+  color: colors.gray,
+  margin: '16px 0 0 0',
+  lineHeight: '1.6',
 }
 
-const footerText = {
-  color: '#64748b',
-  fontSize: '14px',
-  margin: '0 0 10px 0',
+const footerSection = {
+  padding: '32px 48px 40px 48px',
 }
 
-const link = {
-  color: '#3b82f6',
-  textDecoration: 'underline',
+const footerBrand = {
+  fontSize: '16px',
+  margin: '0 0 4px 0',
 }
 
 const copyright = {
-  color: '#64748b',
   fontSize: '12px',
-  margin: '20px 0 0 0',
+  color: '#94a3b8',
+  margin: '0',
 }

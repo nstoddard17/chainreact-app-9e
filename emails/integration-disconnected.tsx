@@ -1,111 +1,137 @@
 import {
   Body,
-  Button,
   Container,
   Head,
   Heading,
-  Hr,
   Html,
   Preview,
   Section,
   Text,
 } from '@react-email/components'
-import * as React from 'react'
 
 interface IntegrationDisconnectedEmailProps {
   userName: string
   providerName: string
   reconnectUrl: string
-  disconnectReason?: string
-  consecutiveFailures?: number
+}
+
+const colors = {
+  blue: '#3b82f6',
+  purple: '#a855f7',
+  rose: '#f43f5e',
+  dark: '#0f172a',
+  gray: '#64748b',
+  lightGray: '#f8fafc',
+  white: '#ffffff',
 }
 
 export const IntegrationDisconnectedEmail = ({
   userName,
   providerName,
   reconnectUrl,
-  disconnectReason,
-  consecutiveFailures = 3,
 }: IntegrationDisconnectedEmailProps) => {
-  const previewText = `Action Required: ${providerName} integration disconnected`
+  const previewText = `Action required: Reconnect ${providerName}`
 
   return (
     <Html>
-      <Head />
+      <Head>
+        <meta name="color-scheme" content="light" />
+        <meta name="supported-color-schemes" content="light" />
+      </Head>
       <Preview>{previewText}</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Section style={header}>
-            <Heading style={h1}>🔴 Integration Disconnected</Heading>
+          {/* Gradient top accent */}
+          <table cellPadding="0" cellSpacing="0" width="100%">
+            <tr>
+              <td style={gradientBar}></td>
+            </tr>
+          </table>
+
+          {/* Logo */}
+          <Section style={logoSection}>
+            <table cellPadding="0" cellSpacing="0" width="100%">
+              <tr>
+                <td align="center">
+                  <img
+                    src="https://chainreact.app/logo_transparent.png"
+                    alt="ChainReact"
+                    width="48"
+                    height="48"
+                    style={{ display: 'block', margin: '0 auto' }}
+                  />
+                </td>
+              </tr>
+            </table>
           </Section>
 
-          <Section style={content}>
-            <Heading as="h2" style={h2}>
-              {providerName} Connection Lost
+          {/* Main Content */}
+          <Section style={contentSection}>
+            <Heading style={heading}>
+              {providerName} disconnected
             </Heading>
 
-            <Text style={paragraph}>Hi {userName},</Text>
-
             <Text style={paragraph}>
-              Your <strong>{providerName}</strong> integration has been disconnected and your workflows using this integration are now paused.
+              Hi {userName}, your {providerName} connection was lost and workflows using it have been paused. Reconnect to resume automation.
             </Text>
 
-            <Section style={alertBox}>
-              <Text style={alertTitle}>⚠️ What Happened?</Text>
-              <Text style={alertDescription}>
-                {disconnectReason || `We were unable to refresh your ${providerName} access token after ${consecutiveFailures} attempts. This typically happens when:`}
-              </Text>
-              <Text style={listItem}>• Your password was changed on {providerName}</Text>
-              <Text style={listItem}>• Access was revoked in {providerName} settings</Text>
-              <Text style={listItem}>• The app authorization expired or was removed</Text>
-            </Section>
+            {/* CTA Button */}
+            <table cellPadding="0" cellSpacing="0" width="100%">
+              <tr>
+                <td align="center" style={{ padding: '32px 0' }}>
+                  <table cellPadding="0" cellSpacing="0">
+                    <tr>
+                      <td style={buttonStyle}>
+                        <a href={reconnectUrl} style={buttonLinkStyle}>
+                          Reconnect {providerName}
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
 
-            <Section style={impactBox}>
-              <Text style={impactTitle}>📊 Impact</Text>
-              <Text style={impactDescription}>
-                All workflows using {providerName} have been automatically paused to prevent errors. They will resume once you reconnect.
-              </Text>
-            </Section>
-
-            <Section style={buttonContainer}>
-              <Button style={button} href={reconnectUrl}>
-                Reconnect {providerName} Now
-              </Button>
-            </Section>
-
-            <Text style={urgentText}>
-              This requires immediate action to resume your automated workflows.
-            </Text>
-
-            <Hr style={hr} />
-
-            <Text style={helpText}>
-              <strong>How to fix this:</strong>
-            </Text>
-            <Text style={paragraph}>
-              1. Click the "Reconnect {providerName} Now" button above<br />
-              2. Sign in to your {providerName} account<br />
-              3. Authorize ChainReact to access your account<br />
-              4. Your workflows will automatically resume
-            </Text>
-
-            <Text style={paragraph}>
-              If you continue experiencing issues, please check your {providerName} account settings or contact our support team.
+            <Text style={smallText}>
+              If you no longer use this integration, you can safely ignore this email.
             </Text>
           </Section>
 
-          <Hr style={hr} />
+          {/* Divider */}
+          <table cellPadding="0" cellSpacing="0" width="100%">
+            <tr>
+              <td style={{ padding: '0 48px' }}>
+                <table cellPadding="0" cellSpacing="0" width="100%">
+                  <tr>
+                    <td style={{ height: '1px', backgroundColor: '#e2e8f0' }}></td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
 
-          <Section style={footer}>
+          {/* Footer */}
+          <Section style={footerSection}>
             <Text style={footerText}>
-              This is an automated notification from ChainReact
+              If the button above doesn't work, paste this link into your browser:
             </Text>
-            <Text style={footerText}>
-              If you no longer use this integration, you can safely ignore this email.
+            <Text style={linkText}>
+              {reconnectUrl}
             </Text>
-            <Text style={footerText}>
-              © {new Date().getFullYear()} ChainReact. All rights reserved.
-            </Text>
+
+            <table cellPadding="0" cellSpacing="0" width="100%" style={{ marginTop: '32px' }}>
+              <tr>
+                <td align="center">
+                  <Text style={footerBrand}>
+                    <span style={{ color: colors.dark, fontWeight: 600 }}>Chain</span>
+                    <span style={{ color: colors.blue, fontWeight: 600 }}>React</span>
+                  </Text>
+                  <Text style={copyright}>
+                    Workflow automation that thinks for itself
+                  </Text>
+                </td>
+              </tr>
+            </table>
           </Section>
         </Container>
       </Body>
@@ -113,156 +139,97 @@ export const IntegrationDisconnectedEmail = ({
   )
 }
 
+export default IntegrationDisconnectedEmail
+
 const main = {
-  backgroundColor: '#f6f9fc',
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+  backgroundColor: colors.lightGray,
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  padding: '40px 20px',
 }
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: colors.white,
+  borderRadius: '12px',
+  maxWidth: '480px',
   margin: '0 auto',
-  padding: '20px 0 48px',
-  marginBottom: '64px',
-  borderRadius: '8px',
   overflow: 'hidden',
-  maxWidth: '600px',
-  width: '100%',
 }
 
-const header = {
-  background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
-  padding: '30px',
-  textAlign: 'center' as const,
+const gradientBar = {
+  height: '3px',
+  background: `linear-gradient(90deg, ${colors.blue} 0%, ${colors.purple} 50%, ${colors.rose} 100%)`,
 }
 
-const h1 = {
-  color: '#ffffff',
-  fontSize: '28px',
-  fontWeight: 'bold',
-  margin: '0',
-  letterSpacing: '-0.5px',
+const logoSection = {
+  padding: '40px 48px 0 48px',
 }
 
-const content = {
-  padding: '0 40px',
+const contentSection = {
+  padding: '32px 48px 40px 48px',
 }
 
-const h2 = {
-  color: '#333',
+const heading = {
   fontSize: '24px',
-  fontWeight: 'bold',
-  margin: '30px 0 20px',
-  textAlign: 'center' as const,
+  fontWeight: '600' as const,
+  color: colors.dark,
+  margin: '0 0 16px 0',
+  lineHeight: '1.3',
 }
 
 const paragraph = {
-  color: '#525252',
-  fontSize: '16px',
-  lineHeight: '26px',
-  margin: '16px 0',
+  fontSize: '15px',
+  color: colors.gray,
+  margin: '0',
+  lineHeight: '1.6',
 }
 
-const alertBox = {
-  backgroundColor: '#fef2f2',
-  borderLeft: '4px solid #dc2626',
-  borderRadius: '6px',
-  padding: '20px',
-  margin: '24px 0',
-}
-
-const alertTitle = {
-  color: '#991b1b',
-  fontSize: '16px',
-  fontWeight: 'bold',
-  margin: '0 0 12px',
-}
-
-const alertDescription = {
-  color: '#525252',
-  fontSize: '14px',
-  lineHeight: '22px',
-  margin: '0 0 12px',
-}
-
-const listItem = {
-  color: '#525252',
-  fontSize: '14px',
-  lineHeight: '24px',
-  margin: '4px 0 4px 16px',
-}
-
-const impactBox = {
-  backgroundColor: '#fef3c7',
-  borderLeft: '4px solid #f59e0b',
-  borderRadius: '6px',
-  padding: '20px',
-  margin: '24px 0',
-}
-
-const impactTitle = {
-  color: '#92400e',
-  fontSize: '16px',
-  fontWeight: 'bold',
-  margin: '0 0 8px',
-}
-
-const impactDescription = {
-  color: '#525252',
-  fontSize: '14px',
-  lineHeight: '22px',
-  margin: '8px 0 0',
-}
-
-const buttonContainer = {
-  textAlign: 'center' as const,
-  margin: '32px 0',
-}
-
-const button = {
-  backgroundColor: '#dc2626',
+const buttonStyle = {
+  backgroundColor: colors.dark,
   borderRadius: '8px',
-  color: '#fff',
-  fontSize: '16px',
-  fontWeight: 'bold',
-  textDecoration: 'none',
-  textAlign: 'center' as const,
+}
+
+const buttonLinkStyle = {
   display: 'inline-block',
-  padding: '14px 40px',
-  margin: '0 auto',
-  boxShadow: '0 4px 14px 0 rgba(220, 38, 38, 0.3)',
-}
-
-const urgentText = {
-  color: '#dc2626',
+  padding: '14px 28px',
   fontSize: '14px',
-  fontWeight: 'bold',
+  fontWeight: '500' as const,
+  color: colors.white,
+  textDecoration: 'none',
+}
+
+const smallText = {
+  fontSize: '13px',
+  color: '#94a3b8',
+  margin: '0',
+  lineHeight: '1.5',
   textAlign: 'center' as const,
-  margin: '20px 0',
 }
 
-const helpText = {
-  color: '#333',
-  fontSize: '16px',
-  fontWeight: 'bold',
-  margin: '24px 0 12px',
-}
-
-const hr = {
-  borderColor: '#e6ebf1',
-  margin: '32px 0',
-}
-
-const footer = {
-  padding: '0 40px',
+const footerSection = {
+  padding: '32px 48px 40px 48px',
 }
 
 const footerText = {
-  color: '#8898aa',
-  fontSize: '13px',
-  lineHeight: '20px',
-  textAlign: 'center' as const,
-  margin: '8px 0',
+  fontSize: '12px',
+  color: '#94a3b8',
+  margin: '0 0 8px 0',
+  lineHeight: '1.5',
 }
 
-export default IntegrationDisconnectedEmail
+const linkText = {
+  fontSize: '12px',
+  color: colors.blue,
+  margin: '0',
+  wordBreak: 'break-all' as const,
+}
+
+const footerBrand = {
+  fontSize: '16px',
+  margin: '0 0 4px 0',
+}
+
+const copyright = {
+  fontSize: '12px',
+  color: '#94a3b8',
+  margin: '0',
+}

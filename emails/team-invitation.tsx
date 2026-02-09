@@ -1,16 +1,13 @@
 import {
   Body,
-  Button,
   Container,
   Head,
   Heading,
-  Hr,
   Html,
   Preview,
   Section,
   Text,
 } from '@react-email/components'
-import * as React from 'react'
 
 interface TeamInvitationEmailProps {
   inviteeName: string
@@ -20,6 +17,16 @@ interface TeamInvitationEmailProps {
   role: string
   acceptUrl: string
   expiresAt: string
+}
+
+const colors = {
+  blue: '#3b82f6',
+  purple: '#a855f7',
+  rose: '#f43f5e',
+  dark: '#0f172a',
+  gray: '#64748b',
+  lightGray: '#f8fafc',
+  white: '#ffffff',
 }
 
 export const TeamInvitationEmail = ({
@@ -32,91 +39,113 @@ export const TeamInvitationEmail = ({
   expiresAt,
 }: TeamInvitationEmailProps) => {
   const previewText = `${inviterName} invited you to join ${teamName} on ChainReact`
-
-  const roleDescriptions: Record<string, string> = {
-    member: 'You\'ll be able to view and work with team workflows.',
-    manager: 'You\'ll be able to manage workflows and invite other members.',
-    admin: 'You\'ll have full administrative access to the team.',
-  }
+  const formattedRole = role.charAt(0).toUpperCase() + role.slice(1)
+  const formattedDate = new Date(expiresAt).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  })
 
   return (
     <Html>
-      <Head />
+      <Head>
+        <meta name="color-scheme" content="light" />
+        <meta name="supported-color-schemes" content="light" />
+      </Head>
       <Preview>{previewText}</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Section style={header}>
-            <Heading style={h1}>Team Invitation</Heading>
+          {/* Gradient top accent */}
+          <table cellPadding="0" cellSpacing="0" width="100%">
+            <tr>
+              <td style={gradientBar}></td>
+            </tr>
+          </table>
+
+          {/* Logo */}
+          <Section style={logoSection}>
+            <table cellPadding="0" cellSpacing="0" width="100%">
+              <tr>
+                <td align="center">
+                  <img
+                    src="https://chainreact.app/logo_transparent.png"
+                    alt="ChainReact"
+                    width="48"
+                    height="48"
+                    style={{ display: 'block', margin: '0 auto' }}
+                  />
+                </td>
+              </tr>
+            </table>
           </Section>
 
-          <Section style={content}>
-            <Heading as="h2" style={h2}>
-              You've been invited to join {teamName}
+          {/* Main Content */}
+          <Section style={contentSection}>
+            <Heading style={heading}>
+              Join {teamName}
             </Heading>
 
-            <Text style={paragraph}>Hi {inviteeName},</Text>
-
             <Text style={paragraph}>
-              <strong>{inviterName}</strong> ({inviterEmail}) has invited you to join their team <strong>{teamName}</strong> on ChainReact.
+              Hi {inviteeName}, <strong>{inviterName}</strong> has invited you to join <strong>{teamName}</strong> on ChainReact as a {formattedRole}.
             </Text>
 
-            <Text style={importantNote}>
-              <strong>Note:</strong> To accept this invitation and join the team, you'll need to have at least a Pro plan subscription. You can view the invitation now, but you'll be prompted to upgrade if needed when you try to accept.
-            </Text>
+            {/* CTA Button */}
+            <table cellPadding="0" cellSpacing="0" width="100%">
+              <tr>
+                <td align="center" style={{ padding: '32px 0' }}>
+                  <table cellPadding="0" cellSpacing="0">
+                    <tr>
+                      <td style={buttonStyle}>
+                        <a href={acceptUrl} style={buttonLinkStyle}>
+                          Accept invitation
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
 
-            <Section style={roleBox}>
-              <Text style={roleTitle}>Your Role: <span style={roleBadge}>{role.charAt(0).toUpperCase() + role.slice(1)}</span></Text>
-              <Text style={roleDescription}>
-                {roleDescriptions[role] || 'You\'ll be able to collaborate with the team.'}
-              </Text>
-            </Section>
-
-            <Text style={paragraph}>
-              ChainReact is a powerful workflow automation platform that helps teams automate their processes and collaborate efficiently. Join {teamName} to start building workflows together.
-            </Text>
-
-            <Section style={buttonContainer}>
-              <Button style={button} href={acceptUrl}>
-                Accept Invitation
-              </Button>
-            </Section>
-
-            <Text style={expiryText}>
-              This invitation expires on <strong>{new Date(expiresAt).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric'
-              })}</strong>
-            </Text>
-
-            <Hr style={hr} />
-
-            <Text style={helpText}>
-              <strong>What happens next?</strong>
-            </Text>
-            <Text style={paragraph}>
-              1. Click the "Accept Invitation" button above<br />
-              2. You'll be redirected to ChainReact<br />
-              3. Once accepted, you'll have immediate access to {teamName}
-            </Text>
-
-            <Text style={paragraph}>
-              If you have any questions, you can reply to this email or contact {inviterName} directly.
+            <Text style={smallText}>
+              This invitation expires on {formattedDate}. If you weren't expecting this, you can safely ignore it.
             </Text>
           </Section>
 
-          <Hr style={hr} />
+          {/* Divider */}
+          <table cellPadding="0" cellSpacing="0" width="100%">
+            <tr>
+              <td style={{ padding: '0 48px' }}>
+                <table cellPadding="0" cellSpacing="0" width="100%">
+                  <tr>
+                    <td style={{ height: '1px', backgroundColor: '#e2e8f0' }}></td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
 
-          <Section style={footer}>
+          {/* Footer */}
+          <Section style={footerSection}>
             <Text style={footerText}>
-              This invitation was sent by {inviterEmail} via ChainReact
+              If the button above doesn't work, paste this link into your browser:
             </Text>
-            <Text style={footerText}>
-              If you didn't expect this invitation, you can safely ignore this email.
+            <Text style={linkText}>
+              {acceptUrl}
             </Text>
-            <Text style={footerText}>
-              © {new Date().getFullYear()} ChainReact. All rights reserved.
-            </Text>
+
+            <table cellPadding="0" cellSpacing="0" width="100%" style={{ marginTop: '32px' }}>
+              <tr>
+                <td align="center">
+                  <Text style={footerBrand}>
+                    <span style={{ color: colors.dark, fontWeight: 600 }}>Chain</span>
+                    <span style={{ color: colors.blue, fontWeight: 600 }}>React</span>
+                  </Text>
+                  <Text style={copyright}>
+                    Workflow automation that thinks for itself
+                  </Text>
+                </td>
+              </tr>
+            </table>
           </Section>
         </Container>
       </Body>
@@ -124,147 +153,97 @@ export const TeamInvitationEmail = ({
   )
 }
 
+export default TeamInvitationEmail
+
 const main = {
-  backgroundColor: '#f6f9fc',
-  fontFamily:
-    '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif',
+  backgroundColor: colors.lightGray,
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  padding: '40px 20px',
 }
 
 const container = {
-  backgroundColor: '#ffffff',
+  backgroundColor: colors.white,
+  borderRadius: '12px',
+  maxWidth: '480px',
   margin: '0 auto',
-  padding: '20px 0 48px',
-  marginBottom: '64px',
-  borderRadius: '8px',
   overflow: 'hidden',
-  maxWidth: '600px',
-  width: '100%',
 }
 
-const header = {
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  padding: '30px',
-  textAlign: 'center' as const,
+const gradientBar = {
+  height: '3px',
+  background: `linear-gradient(90deg, ${colors.blue} 0%, ${colors.purple} 50%, ${colors.rose} 100%)`,
 }
 
-const h1 = {
-  color: '#ffffff',
-  fontSize: '28px',
-  fontWeight: 'bold',
-  margin: '0',
-  letterSpacing: '-0.5px',
+const logoSection = {
+  padding: '40px 48px 0 48px',
 }
 
-const content = {
-  padding: '0 40px',
+const contentSection = {
+  padding: '32px 48px 40px 48px',
 }
 
-const h2 = {
-  color: '#333',
+const heading = {
   fontSize: '24px',
-  fontWeight: 'bold',
-  margin: '30px 0 20px',
-  textAlign: 'center' as const,
+  fontWeight: '600' as const,
+  color: colors.dark,
+  margin: '0 0 16px 0',
+  lineHeight: '1.3',
 }
 
 const paragraph = {
-  color: '#525252',
-  fontSize: '16px',
-  lineHeight: '26px',
-  margin: '16px 0',
+  fontSize: '15px',
+  color: colors.gray,
+  margin: '0',
+  lineHeight: '1.6',
 }
 
-const roleBox = {
-  backgroundColor: '#f0f7ff',
-  borderLeft: '4px solid #7c3aed',
-  borderRadius: '6px',
-  padding: '20px',
-  margin: '24px 0',
-}
-
-const roleTitle = {
-  color: '#333',
-  fontSize: '16px',
-  fontWeight: 'bold',
-  margin: '0 0 8px',
-}
-
-const roleBadge = {
-  backgroundColor: '#7c3aed',
-  color: '#ffffff',
-  padding: '4px 12px',
-  borderRadius: '4px',
-  fontSize: '14px',
-  fontWeight: 'bold',
-  marginLeft: '8px',
-}
-
-const roleDescription = {
-  color: '#525252',
-  fontSize: '14px',
-  lineHeight: '22px',
-  margin: '8px 0 0',
-}
-
-const buttonContainer = {
-  textAlign: 'center' as const,
-  margin: '32px 0',
-}
-
-const button = {
-  backgroundColor: '#7c3aed',
+const buttonStyle = {
+  backgroundColor: colors.dark,
   borderRadius: '8px',
-  color: '#fff',
-  fontSize: '16px',
-  fontWeight: 'bold',
-  textDecoration: 'none',
-  textAlign: 'center' as const,
+}
+
+const buttonLinkStyle = {
   display: 'inline-block',
-  padding: '14px 40px',
-  margin: '0 auto',
-  boxShadow: '0 4px 14px 0 rgba(124, 58, 237, 0.3)',
+  padding: '14px 28px',
+  fontSize: '14px',
+  fontWeight: '500' as const,
+  color: colors.white,
+  textDecoration: 'none',
 }
 
-const expiryText = {
-  color: '#dc2626',
-  fontSize: '14px',
+const smallText = {
+  fontSize: '13px',
+  color: '#94a3b8',
+  margin: '0',
+  lineHeight: '1.5',
   textAlign: 'center' as const,
-  margin: '20px 0',
 }
 
-const helpText = {
-  color: '#333',
-  fontSize: '16px',
-  fontWeight: 'bold',
-  margin: '24px 0 12px',
-}
-
-const importantNote = {
-  color: '#525252',
-  fontSize: '14px',
-  lineHeight: '22px',
-  margin: '16px 0',
-  padding: '12px 16px',
-  backgroundColor: '#fef3c7',
-  borderLeft: '4px solid #f59e0b',
-  borderRadius: '4px',
-}
-
-const hr = {
-  borderColor: '#e6ebf1',
-  margin: '32px 0',
-}
-
-const footer = {
-  padding: '0 40px',
+const footerSection = {
+  padding: '32px 48px 40px 48px',
 }
 
 const footerText = {
-  color: '#8898aa',
-  fontSize: '13px',
-  lineHeight: '20px',
-  textAlign: 'center' as const,
-  margin: '8px 0',
+  fontSize: '12px',
+  color: '#94a3b8',
+  margin: '0 0 8px 0',
+  lineHeight: '1.5',
 }
 
-export default TeamInvitationEmail
+const linkText = {
+  fontSize: '12px',
+  color: colors.blue,
+  margin: '0',
+  wordBreak: 'break-all' as const,
+}
+
+const footerBrand = {
+  fontSize: '16px',
+  margin: '0 0 4px 0',
+}
+
+const copyright = {
+  fontSize: '12px',
+  color: '#94a3b8',
+  margin: '0',
+}

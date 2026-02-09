@@ -1,12 +1,9 @@
 import {
   Body,
-  Button,
   Container,
   Head,
   Heading,
-  Hr,
   Html,
-  Link,
   Preview,
   Section,
   Text,
@@ -17,70 +14,119 @@ interface PasswordResetEmailProps {
   resetUrl: string
 }
 
+const colors = {
+  blue: '#3b82f6',
+  purple: '#a855f7',
+  rose: '#f43f5e',
+  dark: '#0f172a',
+  gray: '#64748b',
+  lightGray: '#f8fafc',
+  white: '#ffffff',
+}
+
 export const PasswordResetEmail = ({
   username = 'there',
   resetUrl,
 }: PasswordResetEmailProps) => (
   <Html>
-    <Head />
+    <Head>
+      <meta name="color-scheme" content="light" />
+      <meta name="supported-color-schemes" content="light" />
+    </Head>
     <Preview>Reset your ChainReact password</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Section style={header}>
-          <Heading style={h1}>ChainReact</Heading>
+        {/* Gradient top accent */}
+        <table cellPadding="0" cellSpacing="0" width="100%">
+          <tr>
+            <td style={gradientBar}></td>
+          </tr>
+        </table>
+
+        {/* Logo */}
+        <Section style={logoSection}>
+          <table cellPadding="0" cellSpacing="0" width="100%">
+            <tr>
+              <td align="center">
+                <img
+                  src="https://chainreact.app/logo_transparent.png"
+                  alt="ChainReact"
+                  width="48"
+                  height="48"
+                  style={{ display: 'block', margin: '0 auto' }}
+                />
+              </td>
+            </tr>
+          </table>
         </Section>
-        
-        <Section style={content}>
-          <Heading style={h2}>Reset Your Password</Heading>
-          
-          <Text style={text}>Hi {username},</Text>
-          
-          <Text style={text}>
-            We received a request to reset your password for your ChainReact account. 
-            If you didn't make this request, you can safely ignore this email.
+
+        {/* Main Content */}
+        <Section style={contentSection}>
+          <Heading style={heading}>
+            Reset your password
+          </Heading>
+
+          <Text style={paragraph}>
+            Hi {username}, we received a request to reset your password. Click the button below to choose a new one.
           </Text>
-          
-          <Text style={text}>
-            To reset your password, click the button below:
+
+          {/* CTA Button */}
+          <table cellPadding="0" cellSpacing="0" width="100%">
+            <tr>
+              <td align="center" style={{ padding: '32px 0' }}>
+                <table cellPadding="0" cellSpacing="0">
+                  <tr>
+                    <td style={buttonStyle}>
+                      <a href={resetUrl} style={buttonLinkStyle}>
+                        Reset password
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <Text style={smallText}>
+            This link will expire in 1 hour. If you didn't request this, you can safely ignore this email.
           </Text>
-          
-          <Section style={buttonContainer}>
-            <Button style={button} href={resetUrl}>
-              Reset Password
-            </Button>
-          </Section>
-          
-          <Text style={text}>
-            This link will expire in 24 hours for your security.
-          </Text>
-          
-          <Text style={text}>
-            If you continue to have problems, please contact our support team.
-          </Text>
-          
-          <Text style={signature}><strong>The ChainReact Team</strong></Text>
         </Section>
-        
-        <Hr style={hr} />
-        
-        <Section style={footer}>
+
+        {/* Divider */}
+        <table cellPadding="0" cellSpacing="0" width="100%">
+          <tr>
+            <td style={{ padding: '0 48px' }}>
+              <table cellPadding="0" cellSpacing="0" width="100%">
+                <tr>
+                  <td style={{ height: '1px', backgroundColor: '#e2e8f0' }}></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        {/* Footer */}
+        <Section style={footerSection}>
           <Text style={footerText}>
-            If the button doesn't work, copy and paste this link into your browser:
+            If the button above doesn't work, paste this link into your browser:
           </Text>
-          <Link href={resetUrl} style={link}>
+          <Text style={linkText}>
             {resetUrl}
-          </Link>
-          
-          <Text style={footerText}>
-            Questions? Contact us at{' '}
-            <Link href="mailto:support@chainreact.app" style={link}>
-              support@chainreact.app
-            </Link>
           </Text>
-          
-          <Text style={copyright}>
-            © 2024 ChainReact. All rights reserved.
-          </Text>
+
+          <table cellPadding="0" cellSpacing="0" width="100%" style={{ marginTop: '32px' }}>
+            <tr>
+              <td align="center">
+                <Text style={footerBrand}>
+                  <span style={{ color: colors.dark, fontWeight: 600 }}>Chain</span>
+                  <span style={{ color: colors.blue, fontWeight: 600 }}>React</span>
+                </Text>
+                <Text style={copyright}>
+                  Workflow automation that thinks for itself
+                </Text>
+              </td>
+            </tr>
+          </table>
         </Section>
       </Container>
     </Body>
@@ -89,100 +135,95 @@ export const PasswordResetEmail = ({
 
 export default PasswordResetEmail
 
-// Styles (reusing from welcome email)
 const main = {
-  backgroundColor: '#f8fafc',
-  fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+  backgroundColor: colors.lightGray,
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  padding: '40px 20px',
 }
 
 const container = {
-  margin: '40px auto',
-  width: '600px',
-  backgroundColor: '#ffffff',
+  backgroundColor: colors.white,
   borderRadius: '12px',
-  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+  maxWidth: '480px',
+  margin: '0 auto',
   overflow: 'hidden',
 }
 
-const header = {
-  background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-  padding: '40px 30px',
-  textAlign: 'center' as const,
+const gradientBar = {
+  height: '3px',
+  background: `linear-gradient(90deg, ${colors.blue} 0%, ${colors.purple} 50%, ${colors.rose} 100%)`,
 }
 
-const h1 = {
-  color: '#ffffff',
-  fontSize: '28px',
-  fontWeight: '700',
-  margin: '0',
+const logoSection = {
+  padding: '40px 48px 0 48px',
 }
 
-const content = {
-  padding: '40px 30px',
+const contentSection = {
+  padding: '32px 48px 40px 48px',
 }
 
-const h2 = {
-  color: '#1e293b',
+const heading = {
   fontSize: '24px',
-  margin: '0 0 20px 0',
+  fontWeight: '600' as const,
+  color: colors.dark,
+  margin: '0 0 16px 0',
+  lineHeight: '1.3',
 }
 
-const text = {
-  color: '#64748b',
-  fontSize: '16px',
+const paragraph = {
+  fontSize: '15px',
+  color: colors.gray,
+  margin: '0',
   lineHeight: '1.6',
-  margin: '0 0 20px 0',
 }
 
-const signature = {
-  color: '#64748b',
-  fontSize: '16px',
-  lineHeight: '1.6',
-  margin: '20px 0 0 0',
-}
-
-const buttonContainer = {
-  textAlign: 'center' as const,
-  margin: '20px 0',
-}
-
-const button = {
-  backgroundColor: '#3b82f6',
+const buttonStyle = {
+  backgroundColor: colors.dark,
   borderRadius: '8px',
-  color: '#ffffff',
-  fontSize: '16px',
-  fontWeight: '600',
-  textDecoration: 'none',
-  textAlign: 'center' as const,
+}
+
+const buttonLinkStyle = {
   display: 'inline-block',
   padding: '14px 28px',
-  background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+  fontSize: '14px',
+  fontWeight: '500' as const,
+  color: colors.white,
+  textDecoration: 'none',
 }
 
-const hr = {
-  borderColor: '#e2e8f0',
+const smallText = {
+  fontSize: '13px',
+  color: '#94a3b8',
   margin: '0',
+  lineHeight: '1.5',
+  textAlign: 'center' as const,
 }
 
-const footer = {
-  backgroundColor: '#f8fafc',
-  padding: '30px',
-  textAlign: 'center' as const,
+const footerSection = {
+  padding: '32px 48px 40px 48px',
 }
 
 const footerText = {
-  color: '#64748b',
-  fontSize: '14px',
-  margin: '0 0 10px 0',
+  fontSize: '12px',
+  color: '#94a3b8',
+  margin: '0 0 8px 0',
+  lineHeight: '1.5',
 }
 
-const link = {
-  color: '#3b82f6',
-  textDecoration: 'underline',
+const linkText = {
+  fontSize: '12px',
+  color: colors.blue,
+  margin: '0',
+  wordBreak: 'break-all' as const,
+}
+
+const footerBrand = {
+  fontSize: '16px',
+  margin: '0 0 4px 0',
 }
 
 const copyright = {
-  color: '#64748b',
   fontSize: '12px',
-  margin: '20px 0 0 0',
+  color: '#94a3b8',
+  margin: '0',
 }
