@@ -125,106 +125,100 @@ export const WelcomeEmail = ({
                 </table>
               </Section>
 
-              {/* Divider with icon */}
-              <Section style={dividerSection}>
-                <table cellPadding="0" cellSpacing="0" style={{ width: '100%' }}>
-                  <tr>
-                    <td style={dividerLine}></td>
-                    <td style={dividerIcon}>
-                      <span style={{ fontSize: '20px' }}>⚡</span>
-                    </td>
-                    <td style={dividerLine}></td>
-                  </tr>
-                </table>
-              </Section>
-
               {/* Features Grid */}
               <Section style={featuresSection}>
                 <Text style={sectionTitle}>What you can build with ChainReact</Text>
 
-                {/* Feature cards as a table */}
-                <table cellPadding="0" cellSpacing="0" style={featureGrid}>
+                {/* Feature cards - using cellspacing for gaps */}
+                <table cellPadding="0" cellSpacing="12" style={featureGrid}>
                   <tr>
+                    {/* Card 1: Integrations */}
                     <td style={featureCard}>
-                      <table cellPadding="0" cellSpacing="0" style={{ width: '100%' }}>
+                      <table cellPadding="0" cellSpacing="0" align="center" style={{ width: '100%' }}>
                         <tr>
-                          <td style={featureIconCell}>
-                            <div style={featureIconWrapperOrange}>
-                              <span style={{ fontSize: '18px' }}>🔗</span>
-                            </div>
+                          <td align="center" style={{ paddingBottom: '10px' }}>
+                            <table cellPadding="0" cellSpacing="0">
+                              <tr>
+                                <td style={{ width: '44px', height: '44px', backgroundColor: '#fff7ed', borderRadius: '10px', textAlign: 'center', fontSize: '20px', lineHeight: '44px' }}>
+                                  🔗
+                                </td>
+                              </tr>
+                            </table>
                           </td>
                         </tr>
                         <tr>
-                          <td style={featureTitle}>20+ Integrations</td>
+                          <td align="center" style={featureTitle}>20+ Integrations</td>
                         </tr>
                         <tr>
-                          <td style={featureDesc}>
-                            Gmail, Slack, HubSpot, Notion, and more
-                          </td>
+                          <td align="center" style={featureDesc}>Gmail, Slack, HubSpot, Notion, and more</td>
                         </tr>
                       </table>
                     </td>
-                    <td style={{ width: '16px' }}></td>
+                    {/* Card 2: AI-Powered */}
                     <td style={featureCard}>
-                      <table cellPadding="0" cellSpacing="0" style={{ width: '100%' }}>
+                      <table cellPadding="0" cellSpacing="0" align="center" style={{ width: '100%' }}>
                         <tr>
-                          <td style={featureIconCell}>
-                            <div style={featureIconWrapperRose}>
-                              <span style={{ fontSize: '18px' }}>🤖</span>
-                            </div>
+                          <td align="center" style={{ paddingBottom: '10px' }}>
+                            <table cellPadding="0" cellSpacing="0">
+                              <tr>
+                                <td style={{ width: '44px', height: '44px', backgroundColor: '#fff1f2', borderRadius: '10px', textAlign: 'center', fontSize: '20px', lineHeight: '44px' }}>
+                                  🤖
+                                </td>
+                              </tr>
+                            </table>
                           </td>
                         </tr>
                         <tr>
-                          <td style={featureTitle}>AI-Powered</td>
+                          <td align="center" style={featureTitle}>AI-Powered</td>
                         </tr>
                         <tr>
-                          <td style={featureDesc}>
-                            AI that reads docs and remembers context
-                          </td>
+                          <td align="center" style={featureDesc}>AI that reads docs and remembers context</td>
                         </tr>
                       </table>
                     </td>
                   </tr>
                   <tr>
-                    <td colSpan={3} style={{ height: '16px' }}></td>
-                  </tr>
-                  <tr>
+                    {/* Card 3: No Code */}
                     <td style={featureCard}>
-                      <table cellPadding="0" cellSpacing="0" style={{ width: '100%' }}>
+                      <table cellPadding="0" cellSpacing="0" align="center" style={{ width: '100%' }}>
                         <tr>
-                          <td style={featureIconCell}>
-                            <div style={featureIconWrapperPurple}>
-                              <span style={{ fontSize: '18px' }}>✨</span>
-                            </div>
+                          <td align="center" style={{ paddingBottom: '10px' }}>
+                            <table cellPadding="0" cellSpacing="0">
+                              <tr>
+                                <td style={{ width: '44px', height: '44px', backgroundColor: '#faf5ff', borderRadius: '10px', textAlign: 'center', fontSize: '20px', lineHeight: '44px' }}>
+                                  ✨
+                                </td>
+                              </tr>
+                            </table>
                           </td>
                         </tr>
                         <tr>
-                          <td style={featureTitle}>No Code</td>
+                          <td align="center" style={featureTitle}>No Code</td>
                         </tr>
                         <tr>
-                          <td style={featureDesc}>
-                            Visual drag-and-drop workflow builder
-                          </td>
+                          <td align="center" style={featureDesc}>Visual drag-and-drop workflow builder</td>
                         </tr>
                       </table>
                     </td>
-                    <td style={{ width: '16px' }}></td>
+                    {/* Card 4: Team Ready */}
                     <td style={featureCard}>
-                      <table cellPadding="0" cellSpacing="0" style={{ width: '100%' }}>
+                      <table cellPadding="0" cellSpacing="0" align="center" style={{ width: '100%' }}>
                         <tr>
-                          <td style={featureIconCell}>
-                            <div style={featureIconWrapperBlue}>
-                              <span style={{ fontSize: '18px' }}>👥</span>
-                            </div>
+                          <td align="center" style={{ paddingBottom: '10px' }}>
+                            <table cellPadding="0" cellSpacing="0">
+                              <tr>
+                                <td style={{ width: '44px', height: '44px', backgroundColor: '#eff6ff', borderRadius: '10px', textAlign: 'center', fontSize: '20px', lineHeight: '44px' }}>
+                                  👥
+                                </td>
+                              </tr>
+                            </table>
                           </td>
                         </tr>
                         <tr>
-                          <td style={featureTitle}>Team Ready</td>
+                          <td align="center" style={featureTitle}>Team Ready</td>
                         </tr>
                         <tr>
-                          <td style={featureDesc}>
-                            Collaborate and share workflows
-                          </td>
+                          <td align="center" style={featureDesc}>Collaborate and share workflows</td>
                         </tr>
                       </table>
                     </td>
@@ -410,22 +404,6 @@ const ctaSubtext = {
   margin: '16px 0 0 0',
 }
 
-const dividerSection = {
-  padding: '0 40px',
-}
-
-const dividerLine = {
-  height: '1px',
-  backgroundColor: '#e2e8f0',
-  width: '45%',
-}
-
-const dividerIcon = {
-  width: '10%',
-  textAlign: 'center' as const,
-  verticalAlign: 'middle' as const,
-}
-
 const featuresSection = {
   padding: '32px 40px',
   backgroundColor: colors.lightGray,
@@ -450,51 +428,6 @@ const featureCard = {
   width: '50%',
   verticalAlign: 'top' as const,
   boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-}
-
-const featureIconCell = {
-  textAlign: 'center' as const,
-  paddingBottom: '12px',
-}
-
-const featureIconWrapperOrange = {
-  display: 'inline-block',
-  width: '40px',
-  height: '40px',
-  borderRadius: '10px',
-  backgroundColor: '#fff7ed',
-  lineHeight: '40px',
-  textAlign: 'center' as const,
-}
-
-const featureIconWrapperRose = {
-  display: 'inline-block',
-  width: '40px',
-  height: '40px',
-  borderRadius: '10px',
-  backgroundColor: '#fff1f2',
-  lineHeight: '40px',
-  textAlign: 'center' as const,
-}
-
-const featureIconWrapperPurple = {
-  display: 'inline-block',
-  width: '40px',
-  height: '40px',
-  borderRadius: '10px',
-  backgroundColor: '#faf5ff',
-  lineHeight: '40px',
-  textAlign: 'center' as const,
-}
-
-const featureIconWrapperBlue = {
-  display: 'inline-block',
-  width: '40px',
-  height: '40px',
-  borderRadius: '10px',
-  backgroundColor: '#eff6ff',
-  lineHeight: '40px',
-  textAlign: 'center' as const,
 }
 
 const featureTitle = {
