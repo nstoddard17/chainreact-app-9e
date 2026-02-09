@@ -53,9 +53,22 @@ export async function GET(request: NextRequest) {
         type_param: type,
       })
 
+      // Check if this is a PKCE code verifier error (cross-device confirmation)
+      // This happens when user confirms email on a different device/browser
+      const isCodeVerifierError = error.message.includes('code verifier') ||
+                                   error.message.includes('both auth code and code verifier')
+
+      if (isCodeVerifierError && type === 'email-confirmation') {
+        // This is likely a cross-device email confirmation
+        // The email IS confirmed on Supabase's side, but we can't establish a session here
+        // Redirect to success page that tells user to go back to original device
+        logger.debug('Cross-device email confirmation detected, redirecting to success page')
+        return NextResponse.redirect(`${origin}/auth/email-confirmed?cross_device=true`)
+      }
+
       // For expired/invalid confirmation links, redirect to waiting-confirmation
       // so the user can easily resend instead of hitting a dead-end error page
-      if (error.message.includes('expired') || error.message.includes('invalid') || error.message.includes('code verifier')) {
+      if (error.message.includes('expired') || error.message.includes('invalid')) {
         // Try to get email from pendingSignup (will be read client-side)
         return NextResponse.redirect(`${origin}/auth/waiting-confirmation?expired=true`)
       }
@@ -134,9 +147,9 @@ export async function GET(request: NextRequest) {
         }
 
         // User is already signed in via exchangeCodeForSession
-        // Redirect directly to workflows
-        logger.debug('Email confirmation successful, redirecting to workflows')
-        return NextResponse.redirect(`${origin}/workflows`)
+        // Redirect to success page (which will auto-redirect to workflows)
+        logger.debug('Email confirmation successful, redirecting to success page')
+        return NextResponse.redirect(`${origin}/auth/email-confirmed`)
       }
 
       // For regular OAuth login (Google, etc)

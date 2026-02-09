@@ -1355,59 +1355,26 @@ export const useAuthStore = create<AuthState>()(
         try {
           set({ loading: true, error: null })
 
-          // Set up email confirmation URL with explicit type parameter
-          // In development, use localhost; in production, use the actual domain
-          let baseUrl: string
-          if (typeof window !== 'undefined') {
-            baseUrl = window.location.origin
-          } else if (process.env.NODE_ENV === 'development') {
-            baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-          } else {
-            baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://chainreact.app'
-          }
-          
-          logger.debug('Signing up with email redirect to:', `${baseUrl}/api/auth/callback?type=email-confirmation`)
-          
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: metadata || {},
-              emailRedirectTo: `${baseUrl}/api/auth/callback?type=email-confirmation`
-            },
+          logger.debug('Signing up via custom API endpoint for branded email')
+
+          // Use our custom signup API that sends branded emails via Resend
+          const response = await fetch('/api/auth/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, metadata })
           })
 
-          if (error) throw error
+          const result = await response.json()
+
+          if (!response.ok) {
+            throw new Error(result.error || 'Failed to create account')
+          }
 
           // Store signup data temporarily for the waiting page
-          if (data.user) {
-            // Create the user profile immediately with username and email
-            const profileData = {
-              id: data.user.id,
-              username: metadata?.username,
-              first_name: metadata?.first_name,
-              last_name: metadata?.last_name,
-              full_name: metadata?.full_name,
-              email: email,  // Store the primary email
-              provider: 'email',
-              role: 'free',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }
-
-            // Try to create the profile
-            const { error: profileError } = await supabase
-              .from('user_profiles')
-              .insert(profileData)
-
-            if (profileError) {
-              logger.error('Error creating profile during signup:', profileError)
-              // Don't throw - profile can be created later if needed
-            }
-
+          if (result.userId) {
             localStorage.setItem('pendingSignup', JSON.stringify({
-              userId: data.user.id,
-              email: data.user.email,
+              userId: result.userId,
+              email: email,
               metadata: metadata,
               timestamp: Date.now()
             }))
