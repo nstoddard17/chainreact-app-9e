@@ -56,6 +56,13 @@ export interface PasswordResetEmailData {
 
 /**
  * Send welcome/confirmation email
+ *
+ * Deliverability best practices applied:
+ * - Proper From name and email (matches domain)
+ * - Reply-To for engagement
+ * - No spam trigger words in subject
+ * - Plain text alternative
+ * - Proper unsubscribe header
  */
 export async function sendWelcomeEmail(
   options: EmailOptions,
@@ -68,18 +75,63 @@ export async function sendWelcomeEmail(
       return emailServiceDisabledResult()
     }
 
+    // Generate plain text version for deliverability
+    const plainText = `
+╔══════════════════════════════════════════════════════════════╗
+║                      CHAINREACT                              ║
+╚══════════════════════════════════════════════════════════════╝
+
+Welcome aboard, ${data.username || 'there'}!
+
+You're one step away from building workflows that think for themselves.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+→ CONFIRM YOUR EMAIL
+${data.confirmationUrl}
+
+This link expires in 24 hours.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHAT YOU CAN BUILD WITH CHAINREACT:
+
+  🔗 20+ Integrations
+     Gmail, Slack, HubSpot, Notion, and more
+
+  🤖 AI-Powered Automation
+     AI that reads docs and remembers context
+
+  ✨ No Code Required
+     Visual drag-and-drop workflow builder
+
+  👥 Team Ready
+     Collaborate and share workflows
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔒 Didn't sign up? Just ignore this email — your account won't be created.
+
+Questions? Reply to this email or reach us at support@chainreact.app
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+© ${new Date().getFullYear()} ChainReact, Inc. All rights reserved.
+`.trim()
+
     const result = await client.emails.send({
       from: options.from || 'ChainReact <noreply@chainreact.app>',
       to: options.to,
-      subject: options.subject,
+      subject: options.subject || 'Confirm your ChainReact account',
+      replyTo: 'support@chainreact.app',
       html: emailHtml,
+      text: plainText,
       headers: {
-        'X-Priority': '1',
-        'X-MSMail-Priority': 'High', 
-        'Importance': 'high',
+        // Standard email headers for deliverability
         'X-Mailer': 'ChainReact',
         'X-Auto-Response-Suppress': 'OOF, DR, RN, NRN',
-        'List-Unsubscribe': '<mailto:unsubscribe@chainreact.app>',
+        // List-Unsubscribe for compliance (required by Gmail/Yahoo 2024 requirements)
+        'List-Unsubscribe': '<mailto:unsubscribe@chainreact.app?subject=unsubscribe>',
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
       },
     })
 

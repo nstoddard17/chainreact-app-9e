@@ -2,17 +2,39 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ChainReactLogo } from '@/components/homepage/ChainReactLogo'
-import { Moon, Sun, Menu, X } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Moon, Sun, Menu, X, ChevronDown, User, Settings, HelpCircle, LogOut, Zap, Crown } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useAuthStore } from '@/stores/authStore'
+import { useSignedAvatarUrl } from '@/hooks/useSignedAvatarUrl'
 
 export function HomepageHeader() {
+  const router = useRouter()
   const { theme, resolvedTheme, setTheme } = useTheme()
-  const { user } = useAuthStore()
+  const { user, profile, signOut } = useAuthStore()
   const [mounted, setMounted] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
+
+  const avatarUrl = profile?.avatar_url || null
+  const { signedUrl: avatarSignedUrl } = useSignedAvatarUrl(avatarUrl || undefined)
+  const displayName = profile?.username || profile?.full_name || user?.email?.split('@')[0] || "User"
+  const isAdmin = profile?.admin === true
+
+  const handleSignOut = async () => {
+    setMenuOpen(false)
+    router.push("/")
+    await signOut()
+  }
 
   React.useEffect(() => {
     setMounted(true)
@@ -83,11 +105,71 @@ export function HomepageHeader() {
             </Button>
           )}
 
-          <Link href={user ? "/workflows" : "/auth/login"}>
-            <Button variant="outline" className="border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10">
-              {user ? "Go to Workflows" : "Sign In"}
-            </Button>
-          </Link>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2 border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 h-10 px-3"
+                >
+                  <Avatar className="w-6 h-6">
+                    {avatarSignedUrl && (
+                      <AvatarImage
+                        src={avatarSignedUrl}
+                        alt={`${displayName} avatar`}
+                        className="object-cover"
+                      />
+                    )}
+                    <AvatarFallback className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs">
+                      <User className="w-3 h-3" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium">{displayName}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5 text-sm">
+                  <div className="font-medium">{displayName}</div>
+                  <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
+                  <div className="text-xs text-muted-foreground capitalize mt-0.5">{profile?.plan || 'free'} plan</div>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push('/workflows')}>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Go to Workflows
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/settings')}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/support')}>
+                  <HelpCircle className="w-4 h-4 mr-2" />
+                  Help & Support
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => router.push('/admin')}>
+                      <Crown className="w-4 h-4 mr-2 text-yellow-500" />
+                      Admin Panel
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Link href="/auth/login">
+              <Button variant="outline" className="border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10">
+                Sign In
+              </Button>
+            </Link>
+          )}
         </nav>
 
         <div className="md:hidden flex items-center gap-2">
@@ -132,12 +214,81 @@ export function HomepageHeader() {
               {item.label}
             </button>
           ))}
-          <Link
-            href={user ? "/workflows" : "/auth/login"}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 dark:border-white/20 text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-white/10 font-semibold transition-colors"
-          >
-            {user ? "Go to Workflows" : "Sign In"}
-          </Link>
+          {user ? (
+            <>
+              {/* User Info Section */}
+              <div className="px-4 py-3 rounded-xl bg-gray-100/60 dark:bg-white/5 mb-2">
+                <div className="flex items-center gap-3">
+                  <Avatar className="w-10 h-10">
+                    {avatarSignedUrl && (
+                      <AvatarImage
+                        src={avatarSignedUrl}
+                        alt={`${displayName} avatar`}
+                        className="object-cover"
+                      />
+                    )}
+                    <AvatarFallback className="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                      <User className="w-5 h-5" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-900 dark:text-white truncate">{displayName}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">{profile?.plan || 'free'} plan</div>
+                  </div>
+                </div>
+              </div>
+              {/* Mobile Menu Links */}
+              <Link
+                href="/workflows"
+                onClick={() => setMenuOpen(false)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-100 bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 transition-colors"
+              >
+                <Zap className="w-5 h-5" />
+                Go to Workflows
+              </Link>
+              <Link
+                href="/settings"
+                onClick={() => setMenuOpen(false)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-100 bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 transition-colors"
+              >
+                <Settings className="w-5 h-5" />
+                Settings
+              </Link>
+              <Link
+                href="/support"
+                onClick={() => setMenuOpen(false)}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-100 bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 transition-colors"
+              >
+                <HelpCircle className="w-5 h-5" />
+                Help & Support
+              </Link>
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMenuOpen(false)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-yellow-600 dark:text-yellow-400 bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 transition-colors"
+                >
+                  <Crown className="w-5 h-5" />
+                  Admin Panel
+                </Link>
+              )}
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 dark:text-red-400 bg-gray-100/60 dark:bg-white/5 hover:bg-gray-200/80 dark:hover:bg-white/10 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/auth/login"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 dark:border-white/20 text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-white/10 font-semibold transition-colors"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
       </div>
     </header>
