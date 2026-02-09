@@ -2,20 +2,21 @@
 
 import { useEffect, useState } from 'react'
 import { Button } from "@/components/ui/button"
-import { CheckCircle, Monitor, Smartphone, ArrowRight } from "lucide-react"
+import { CheckCircle, ArrowRight } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { Suspense } from 'react'
 
 function EmailConfirmedContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [hasSession, setHasSession] = useState(false)
   const { user, initialize } = useAuthStore()
 
-  // Check if opened on same device (has session) or different device
+  // Check if this is a cross-device confirmation (PKCE error case)
   const crossDevice = searchParams.get('cross_device') === 'true'
+  // Check if this is a successful confirmation (session established)
+  const confirmed = searchParams.get('confirmed') === 'true'
 
   useEffect(() => {
     // Check if we have a session on this device
@@ -23,14 +24,11 @@ function EmailConfirmedContent() {
       await initialize()
       if (user) {
         setHasSession(true)
-        // If we have a session, auto-redirect after a short delay
-        setTimeout(() => {
-          router.push('/workflows')
-        }, 2000)
+        // DO NOT auto-redirect - let user choose to continue
       }
     }
     checkSession()
-  }, [initialize, user, router])
+  }, [initialize, user])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 relative overflow-hidden">
@@ -64,57 +62,40 @@ function EmailConfirmedContent() {
                 Email Confirmed!
               </h2>
 
-              {crossDevice && !hasSession ? (
-                // Cross-device flow - user confirmed on different device
+              <p className="text-green-200 mb-6 leading-relaxed">
+                Your email has been verified successfully.
+              </p>
+
+              {crossDevice ? (
+                // Cross-device flow - PKCE error, couldn't establish session
                 <>
-                  <p className="text-green-200 mb-6 leading-relaxed">
-                    Your email has been verified successfully.
-                  </p>
-
                   <div className="bg-white/5 rounded-xl p-6 mb-6">
-                    <div className="flex items-center justify-center gap-4 mb-4">
-                      <div className="flex flex-col items-center">
-                        <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center mb-2">
-                          <Smartphone className="h-6 w-6 text-orange-400" />
-                        </div>
-                        <span className="text-xs text-orange-300">This device</span>
-                      </div>
-                      <div className="text-orange-400">→</div>
-                      <div className="flex flex-col items-center">
-                        <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center mb-2">
-                          <Monitor className="h-6 w-6 text-green-400" />
-                        </div>
-                        <span className="text-xs text-green-300">Original device</span>
-                      </div>
-                    </div>
-
                     <p className="text-orange-200 text-sm">
-                      You can now close this tab and return to the browser where you signed up.
+                      You can close this tab and return to the browser where you signed up.
                       You'll be automatically signed in there.
                     </p>
                   </div>
 
-                  <p className="text-orange-300/70 text-xs mb-6">
-                    Or continue on this device:
+                  <p className="text-orange-300/70 text-xs mb-4">
+                    Or sign in on this device:
                   </p>
 
                   <Link href="/auth/login">
                     <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300">
                       <ArrowRight className="mr-2 h-4 w-4" />
-                      Sign in on this device
+                      Sign in
                     </Button>
                   </Link>
                 </>
               ) : (
-                // Same device flow - user is signed in
+                // Same device or confirmed flow - has session, can continue
                 <>
-                  <p className="text-green-200 mb-6 leading-relaxed">
-                    Your account is ready. Redirecting you to your dashboard...
-                  </p>
-
                   <div className="bg-green-600/20 rounded-lg p-4 mb-6">
                     <p className="text-green-200 text-sm">
-                      You're all set! Taking you to your workflows.
+                      {hasSession
+                        ? "You're signed in and ready to go!"
+                        : "Your account is ready to use."
+                      }
                     </p>
                   </div>
 
@@ -124,6 +105,10 @@ function EmailConfirmedContent() {
                       Go to Dashboard
                     </Button>
                   </Link>
+
+                  <p className="text-orange-300/50 text-xs mt-4">
+                    If you signed up on another device, you can close this tab and return there.
+                  </p>
                 </>
               )}
             </div>

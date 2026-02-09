@@ -130,7 +130,9 @@ export async function GET(request: NextRequest) {
       const emailJustConfirmed = data.user.email_confirmed_at &&
         (new Date().getTime() - new Date(data.user.email_confirmed_at).getTime() < 60000) // 1 minute
       
-      const isEmailConfirmation = type === 'email-confirmation' || 
+      // Determine if this is an email confirmation flow
+      // Priority: explicit type param > recent confirmation > new user detection
+      const isEmailConfirmation = type === 'email-confirmation' ||
         (data.user.email_confirmed_at && (isNewUser || userCreatedRecently || emailJustConfirmed))
 
       logger.debug('Auth callback - Email confirmation check:', {
@@ -138,9 +140,13 @@ export async function GET(request: NextRequest) {
         userCreatedRecently,
         emailJustConfirmed,
         isEmailConfirmation,
+        type_param: type,
+        email_confirmed_at: data.user.email_confirmed_at,
       })
 
-      if (isEmailConfirmation) {
+      // If this looks like an email confirmation (has type param OR email was recently confirmed)
+      // Always send to success page - don't send directly to workflows
+      if (isEmailConfirmation || type === 'email-confirmation') {
         // Email confirmation successful - user is now automatically signed in
         // Create profile if it doesn't exist
         if (isNewUser) {
@@ -168,9 +174,10 @@ export async function GET(request: NextRequest) {
         }
 
         // User is already signed in via exchangeCodeForSession
-        // Redirect to success page (which will auto-redirect to workflows)
+        // Always redirect to the email-confirmed success page
+        // The page will detect if user wants to continue on this device or return to original
         logger.debug('Email confirmation successful, redirecting to success page')
-        return NextResponse.redirect(`${origin}/auth/email-confirmed`)
+        return NextResponse.redirect(`${origin}/auth/email-confirmed?confirmed=true`)
       }
 
       // For regular OAuth login (Google, etc)
