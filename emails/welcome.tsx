@@ -4,7 +4,6 @@ import {
   Head,
   Heading,
   Html,
-  Img,
   Link,
   Preview,
   Section,
@@ -16,18 +15,6 @@ interface WelcomeEmailProps {
   confirmationUrl: string
 }
 
-// Brand colors
-const colors = {
-  orange: '#f97316',
-  rose: '#f43f5e',
-  blue: '#3b82f6',
-  purple: '#a855f7',
-  dark: '#0f172a',
-  gray: '#64748b',
-  lightGray: '#f8fafc',
-  white: '#ffffff',
-}
-
 export const WelcomeEmail = ({
   username = 'there',
   confirmationUrl,
@@ -37,15 +24,11 @@ export const WelcomeEmail = ({
       <meta name="color-scheme" content="light" />
       <meta name="supported-color-schemes" content="light" />
     </Head>
-    <Preview>Confirm your email to start building workflows that think for themselves</Preview>
+    <Preview>Confirm your email to start building workflows</Preview>
     <Body style={main}>
       <Container style={container}>
         {/* Gradient top accent */}
-        <table cellPadding="0" cellSpacing="0" width="100%">
-          <tr>
-            <td style={gradientBar}></td>
-          </tr>
-        </table>
+        <Section style={gradientBar} />
 
         {/* Logo */}
         <Section style={logoSection}>
@@ -55,9 +38,9 @@ export const WelcomeEmail = ({
                 <img
                   src="https://chainreact.app/logo_transparent.png"
                   alt="ChainReact"
-                  width="48"
-                  height="48"
-                  style={{ display: 'block', margin: '0 auto' }}
+                  width="44"
+                  height="44"
+                  style={{ display: 'block' }}
                 />
               </td>
             </tr>
@@ -71,68 +54,43 @@ export const WelcomeEmail = ({
           </Heading>
 
           <Text style={paragraph}>
-            Thanks for signing up for ChainReact. To get started building
-            workflows that think for themselves, please confirm your email address.
+            Thanks for signing up for ChainReact. Click the button below to confirm your email address and get started.
           </Text>
 
           {/* CTA Button */}
-          <table cellPadding="0" cellSpacing="0" width="100%">
-            <tr>
-              <td align="center" style={{ padding: '32px 0' }}>
-                <table cellPadding="0" cellSpacing="0">
-                  <tr>
-                    <td style={buttonStyle}>
-                      <a href={confirmationUrl} style={buttonLinkStyle}>
-                        Confirm email address
-                      </a>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
+          <Section style={buttonSection}>
+            <Link href={confirmationUrl} style={button}>
+              Confirm email address
+            </Link>
+          </Section>
 
           <Text style={smallText}>
-            This link will expire in 24 hours. If you didn't create an account,
-            you can safely ignore this email.
+            This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
           </Text>
         </Section>
 
         {/* Divider */}
-        <table cellPadding="0" cellSpacing="0" width="100%">
-          <tr>
-            <td style={{ padding: '0 48px' }}>
-              <table cellPadding="0" cellSpacing="0" width="100%">
-                <tr>
-                  <td style={{ height: '1px', backgroundColor: '#e2e8f0' }}></td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
+        <Section style={dividerSection}>
+          <div style={divider} />
+        </Section>
 
         {/* Footer */}
         <Section style={footerSection}>
           <Text style={footerText}>
-            If the button above doesn't work, paste this link into your browser:
+            If the button doesn't work, copy and paste this link:
           </Text>
           <Text style={linkText}>
-            {confirmationUrl}
+            <Link href={confirmationUrl} style={linkStyle}>
+              {confirmationUrl}
+            </Link>
           </Text>
 
-          <table cellPadding="0" cellSpacing="0" width="100%" style={{ marginTop: '32px' }}>
-            <tr>
-              <td align="center">
-                <Text style={footerBrand}>
-                  <span style={{ color: colors.dark, fontWeight: 600 }}>Chain</span>
-                  <span style={{ color: colors.blue, fontWeight: 600 }}>React</span>
-                </Text>
-                <Text style={copyright}>
-                  Workflow automation that thinks for itself
-                </Text>
-              </td>
-            </tr>
-          </table>
+          <Text style={footerBrand}>
+            ChainReact
+          </Text>
+          <Text style={copyright}>
+            Workflow automation that thinks for itself
+          </Text>
         </Section>
       </Container>
     </Body>
@@ -142,98 +100,123 @@ export const WelcomeEmail = ({
 export default WelcomeEmail
 
 // ============================================
-// STYLES - Minimal & Premium
+// STYLES - Clean, Light, Professional
 // ============================================
 
 const main = {
-  backgroundColor: colors.lightGray,
+  backgroundColor: '#f6f9fc',
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   padding: '40px 20px',
 }
 
 const container = {
-  backgroundColor: colors.white,
-  borderRadius: '12px',
+  backgroundColor: '#ffffff',
+  borderRadius: '8px',
   maxWidth: '480px',
   margin: '0 auto',
-  overflow: 'hidden',
+  border: '1px solid #e6ebf1',
 }
 
 const gradientBar = {
-  height: '3px',
-  background: `linear-gradient(90deg, ${colors.blue} 0%, ${colors.purple} 50%, ${colors.rose} 100%)`,
+  height: '4px',
+  borderRadius: '8px 8px 0 0',
+  background: 'linear-gradient(90deg, #f97316 0%, #ec4899 100%)',
 }
 
 const logoSection = {
-  padding: '40px 48px 0 48px',
+  padding: '32px 40px 0 40px',
 }
 
 const contentSection = {
-  padding: '32px 48px 40px 48px',
+  padding: '24px 40px 32px 40px',
 }
 
 const heading = {
   fontSize: '24px',
   fontWeight: '600' as const,
-  color: colors.dark,
+  color: '#1a1a1a',
   margin: '0 0 16px 0',
   lineHeight: '1.3',
+  textAlign: 'left' as const,
 }
 
 const paragraph = {
   fontSize: '15px',
-  color: colors.gray,
-  margin: '0',
+  color: '#525f7f',
+  margin: '0 0 24px 0',
   lineHeight: '1.6',
+  textAlign: 'left' as const,
 }
 
-const buttonStyle = {
-  backgroundColor: colors.dark,
-  borderRadius: '8px',
+const buttonSection = {
+  textAlign: 'center' as const,
+  margin: '32px 0',
 }
 
-const buttonLinkStyle = {
+const button = {
   display: 'inline-block',
-  padding: '14px 28px',
+  backgroundColor: '#0f172a',
+  color: '#ffffff',
   fontSize: '14px',
-  fontWeight: '500' as const,
-  color: colors.white,
+  fontWeight: '600' as const,
   textDecoration: 'none',
+  padding: '12px 32px',
+  borderRadius: '6px',
 }
 
 const smallText = {
   fontSize: '13px',
-  color: '#94a3b8',
+  color: '#8898aa',
   margin: '0',
   lineHeight: '1.5',
   textAlign: 'center' as const,
 }
 
+const dividerSection = {
+  padding: '0 40px',
+}
+
+const divider = {
+  height: '1px',
+  backgroundColor: '#e6ebf1',
+  width: '100%',
+}
+
 const footerSection = {
-  padding: '32px 48px 40px 48px',
+  padding: '24px 40px 32px 40px',
 }
 
 const footerText = {
   fontSize: '12px',
-  color: '#94a3b8',
+  color: '#8898aa',
   margin: '0 0 8px 0',
   lineHeight: '1.5',
+  textAlign: 'center' as const,
 }
 
 const linkText = {
   fontSize: '12px',
-  color: colors.blue,
-  margin: '0',
+  margin: '0 0 24px 0',
+  textAlign: 'center' as const,
   wordBreak: 'break-all' as const,
 }
 
+const linkStyle = {
+  color: '#f97316',
+  textDecoration: 'none',
+}
+
 const footerBrand = {
-  fontSize: '16px',
+  fontSize: '14px',
+  fontWeight: '600' as const,
+  color: '#1a1a1a',
   margin: '0 0 4px 0',
+  textAlign: 'center' as const,
 }
 
 const copyright = {
   fontSize: '12px',
-  color: '#94a3b8',
+  color: '#8898aa',
   margin: '0',
+  textAlign: 'center' as const,
 }

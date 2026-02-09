@@ -23,6 +23,13 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/workflows'
   const type = searchParams.get('type') // Check if this is an email confirmation
 
+  logger.debug('[auth/callback] Request received:', {
+    hasCode: !!code,
+    type,
+    next,
+    fullUrl: request.url.substring(0, 100) + '...'
+  })
+
   if (code) {
     const cookieStore = await cookies()
     const supabase = createServerClient(
@@ -55,20 +62,34 @@ export async function GET(request: NextRequest) {
 
       // Check if this is a PKCE code verifier error (cross-device confirmation)
       // This happens when user confirms email on a different device/browser
-      const isCodeVerifierError = error.message.includes('code verifier') ||
-                                   error.message.includes('both auth code and code verifier')
+      const errorLower = error.message.toLowerCase()
+      const isCodeVerifierError = errorLower.includes('code verifier') ||
+                                   errorLower.includes('code_verifier') ||
+                                   errorLower.includes('pkce') ||
+                                   errorLower.includes('both auth code and code verifier')
 
-      if (isCodeVerifierError && type === 'email-confirmation') {
-        // This is likely a cross-device email confirmation
+      // If this is an email confirmation link (has type param or token in URL)
+      const isEmailConfirmationAttempt = type === 'email-confirmation'
+
+      if (isCodeVerifierError && isEmailConfirmationAttempt) {
+        // This is a cross-device email confirmation
         // The email IS confirmed on Supabase's side, but we can't establish a session here
         // Redirect to success page that tells user to go back to original device
         logger.debug('Cross-device email confirmation detected, redirecting to success page')
         return NextResponse.redirect(`${origin}/auth/email-confirmed?cross_device=true`)
       }
 
+      // Even if it's a code verifier error without the type param,
+      // check if this might be a cross-device confirmation by looking at the URL structure
+      if (isCodeVerifierError) {
+        // Likely a cross-device confirmation - show success page
+        logger.debug('Code verifier error detected (likely cross-device), redirecting to success page')
+        return NextResponse.redirect(`${origin}/auth/email-confirmed?cross_device=true`)
+      }
+
       // For expired/invalid confirmation links, redirect to waiting-confirmation
       // so the user can easily resend instead of hitting a dead-end error page
-      if (error.message.includes('expired') || error.message.includes('invalid')) {
+      if (errorLower.includes('expired') || errorLower.includes('invalid')) {
         // Try to get email from pendingSignup (will be read client-side)
         return NextResponse.redirect(`${origin}/auth/waiting-confirmation?expired=true`)
       }
