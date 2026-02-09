@@ -76,46 +76,21 @@ export async function sendWelcomeEmail(
     }
 
     // Generate plain text version for deliverability
-    const plainText = `
-╔══════════════════════════════════════════════════════════════╗
-║                      CHAINREACT                              ║
-╚══════════════════════════════════════════════════════════════╝
+    const plainText = `Welcome, ${data.username || 'there'}
 
-Welcome aboard, ${data.username || 'there'}!
+Thanks for signing up for ChainReact. To get started building workflows that think for themselves, please confirm your email address.
 
-You're one step away from building workflows that think for themselves.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-→ CONFIRM YOUR EMAIL
+Confirm your email:
 ${data.confirmationUrl}
 
-This link expires in 24 hours.
+This link will expire in 24 hours. If you didn't create an account, you can safely ignore this email.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+---
 
-WHAT YOU CAN BUILD WITH CHAINREACT:
+ChainReact
+Workflow automation that thinks for itself
 
-  🔗 20+ Integrations
-     Gmail, Slack, HubSpot, Notion, and more
-
-  🤖 AI-Powered Automation
-     AI that reads docs and remembers context
-
-  ✨ No Code Required
-     Visual drag-and-drop workflow builder
-
-  👥 Team Ready
-     Collaborate and share workflows
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔒 Didn't sign up? Just ignore this email — your account won't be created.
-
-Questions? Reply to this email or reach us at support@chainreact.app
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-© ${new Date().getFullYear()} ChainReact, Inc. All rights reserved.
+© ${new Date().getFullYear()} ChainReact, Inc.
 `.trim()
 
     const result = await client.emails.send({
