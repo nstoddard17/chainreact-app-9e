@@ -27,6 +27,8 @@ export const extractDataNode: NodeComponent = {
   isTrigger: false,
   testable: true,
   producesOutput: true,
+  billableTest: true, // AI calls cost money - deduct from user's task quota when testing
+  testCost: 1,
 
   configSchema: [
     {

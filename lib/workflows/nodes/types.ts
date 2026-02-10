@@ -108,4 +108,8 @@ export interface NodeComponent {
   comingSoon?: boolean
   supportsChains?: boolean
   recommendedTimeoutMs?: number
+  /** If true, testing this node will deduct from the user's task quota (for nodes that cost money like AI) */
+  billableTest?: boolean
+  /** Cost in tasks for testing this node (defaults to 1 if billableTest is true) */
+  testCost?: number
 }

@@ -265,20 +265,44 @@ export function ActionTester({ userId }: ActionTesterProps) {
       const result = await response.json()
       logApiResponse(requestId, response.status, result, Date.now())
 
+      // Handle quota exceeded error (402 Payment Required)
+      if (result.quotaExceeded) {
+        setTestResult({
+          success: false,
+          error: result.error,
+          quotaExceeded: true,
+          tasksRemaining: result.tasksRemaining,
+          testCost: result.testCost,
+          executionTime: 0,
+          timestamp: new Date().toISOString()
+        })
+        setActiveTab('results')
+        setIsResultsExpanded(true)
+        logEvent('error', 'ActionTester', `Quota exceeded: ${result.error}`, {
+          tasksRemaining: result.tasksRemaining,
+          testCost: result.testCost
+        })
+        return
+      }
+
       const errorDetails = result?.testResult?.output?.errorDetails || result?.responseDetails?.data?.errorDetails
       if (errorDetails) {
         logEvent('error', 'Monday', 'Monday.com API error details', { errors: errorDetails })
       }
 
       if (result.success) {
-        setTestResult(result.testResult)
+        setTestResult({
+          ...result.testResult,
+          billing: result.billing // Include billing info in result
+        })
         setRequestDetails(result.requestDetails)
         setResponseDetails(result.responseDetails)
         setActiveTab('results') // Start on results tab
         setIsResultsExpanded(true) // Auto-expand results after execution
 
         logEvent('info', 'ActionTester', `Test completed successfully`, {
-          executionTime: result.testResult.executionTime
+          executionTime: result.testResult.executionTime,
+          tasksDeducted: result.billing?.tasksDeducted
         })
       } else {
         setTestResult(result.testResult)
@@ -480,6 +504,31 @@ export function ActionTester({ userId }: ActionTesterProps) {
                   {/* Results Tab */}
                   {activeTab === 'results' && (
                     <div className="space-y-4">
+                      {/* Quota Exceeded Error */}
+                      {testResult?.quotaExceeded && (
+                        <div className="border border-amber-500 rounded-md p-4 bg-amber-500/10">
+                          <div className="flex items-center gap-2 mb-3">
+                            <AlertCircle className="h-5 w-5 text-amber-500" />
+                            <h4 className="text-base font-semibold text-amber-700 dark:text-amber-300">Insufficient Task Quota</h4>
+                          </div>
+                          <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                            This test requires {testResult.testCost} task(s), but you only have {testResult.tasksRemaining} remaining.
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Upgrade your plan or wait for your quota to reset to test AI actions.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Tasks Deducted Notice */}
+                      {testResult?.billing?.tasksDeducted > 0 && (
+                        <div className="border border-blue-500/50 rounded-md p-3 bg-blue-500/10">
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            {testResult.billing.tasksDeducted} task{testResult.billing.tasksDeducted > 1 ? 's' : ''} deducted from your quota.
+                          </p>
+                        </div>
+                      )}
+
                       {testResult?.output && (
                         <div className="border rounded-md p-4 bg-muted/50">
                           <div className="flex items-center justify-between mb-3">
@@ -500,7 +549,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
                           </pre>
                         </div>
                       )}
-                      {testResult?.error && (
+                      {testResult?.error && !testResult?.quotaExceeded && (
                         <div className="border border-red-500 rounded-md p-4 bg-red-500/10">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="text-base font-semibold text-red-600 dark:text-red-400">Error Details</h4>
@@ -762,6 +811,16 @@ ${validation.missingFields.map(field => {
                   <p className="text-xs text-red-600 dark:text-red-400 mt-1">{testDataError}</p>
                 )}
 
+                {/* Billable Test Warning */}
+                {selectedNode?.billableTest && (
+                  <Alert className="mt-3 border-amber-500/50 bg-amber-500/10">
+                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                    <AlertDescription className="text-xs text-amber-700 dark:text-amber-300">
+                      This test uses {selectedNode.testCost || 1} task{(selectedNode.testCost || 1) > 1 ? 's' : ''} from your quota (AI API costs apply).
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 {/* Execute Button */}
                 <Button
                   onClick={executeTest}
@@ -777,7 +836,7 @@ ${validation.missingFields.map(field => {
                   ) : (
                     <>
                       <Play className="w-4 h-4 mr-2" />
-                      Execute Test
+                      {selectedNode?.billableTest ? `Execute Test (${selectedNode.testCost || 1} task)` : 'Execute Test'}
                     </>
                   )}
                 </Button>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
@@ -78,24 +78,30 @@ export default function SetupUsernamePage() {
     }
   }
 
+  // Use a ref for debouncing
+  const usernameTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '')
     setUsername(value)
-    
+
+    // Clear any pending timeout
+    if (usernameTimeoutRef.current) {
+      clearTimeout(usernameTimeoutRef.current)
+    }
+
+    // Clear error state while typing
+    setUsernameError("")
+    setIsAvailable(null)
+
     // Debounce the availability check
     if (value.length >= 3) {
-      const timer = setTimeout(() => {
+      usernameTimeoutRef.current = setTimeout(() => {
         checkUsernameAvailability(value)
       }, 500)
-      return () => clearTimeout(timer)
-    } 
-      setIsAvailable(null)
-      if (value.length > 0) {
-        setUsernameError("Username must be at least 3 characters")
-      } else {
-        setUsernameError("")
-      }
-    
+    } else if (value.length > 0) {
+      setUsernameError("Username must be at least 3 characters")
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

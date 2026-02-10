@@ -214,40 +214,52 @@ function RegisterFormContent() {
     }
   }
 
+  // Use a ref to track the latest email for debouncing
+  const emailTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleEmailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const newEmail = e.target.value;
     setEmail(newEmail);
-    
+
     // Clear previous error when user starts typing
     if (providerError) {
       setProviderError('');
     }
-    
+
+    // Clear any pending timeout
+    if (emailTimeoutRef.current) {
+      clearTimeout(emailTimeoutRef.current);
+    }
+
     // Check provider when user finishes typing (debounced)
     if (newEmail && newEmail.includes('@')) {
-      setTimeout(() => {
-        if (email === newEmail) { // Only check if email hasn't changed
-          checkProvider(newEmail);
-        }
+      emailTimeoutRef.current = setTimeout(() => {
+        checkProvider(newEmail);
       }, 500);
     }
   }
 
+  // Use a ref to track the latest username for debouncing
+  const usernameTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleUsernameChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const newUsername = e.target.value;
     setUsername(newUsername);
-    
+
     // Clear previous error when user starts typing
     if (usernameError) {
       setUsernameError('');
     }
-    
+
+    // Clear any pending timeout
+    if (usernameTimeoutRef.current) {
+      clearTimeout(usernameTimeoutRef.current);
+    }
+
     // Check username when user finishes typing (debounced)
     if (newUsername && newUsername.length >= 3) {
-      setTimeout(() => {
-        if (username === newUsername) { // Only check if username hasn't changed
-          checkUsername(newUsername);
-        }
+      usernameTimeoutRef.current = setTimeout(() => {
+        checkUsername(newUsername);
       }, 500);
     }
   }

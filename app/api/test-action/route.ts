@@ -40,6 +40,56 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if this is a billable test (AI nodes cost money to test)
+    const isBillableTest = nodeDefinition.billableTest === true
+    const testCost = nodeDefinition.testCost || 1
+
+    if (isBillableTest) {
+      // Fetch user's current task quota
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('tasks_used, tasks_limit')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError) {
+        logger.error('[Test Action] Failed to fetch user profile', { error: profileError.message })
+        return NextResponse.json(
+          { success: false, error: 'Failed to verify task quota' },
+          { status: 500 }
+        )
+      }
+
+      const tasksUsed = profile?.tasks_used || 0
+      const tasksLimit = profile?.tasks_limit || 100
+      const tasksRemaining = tasksLimit - tasksUsed
+
+      // Check if user has enough tasks
+      if (tasksRemaining < testCost) {
+        logger.debug('[Test Action] Insufficient task quota', {
+          tasksUsed,
+          tasksLimit,
+          tasksRemaining,
+          testCost
+        })
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Insufficient task quota. This test requires ${testCost} task(s), but you only have ${tasksRemaining} remaining.`,
+            quotaExceeded: true,
+            tasksRemaining,
+            testCost
+          },
+          { status: 402 } // Payment Required
+        )
+      }
+
+      logger.debug('[Test Action] Billable test - will deduct tasks after execution', {
+        testCost,
+        tasksRemaining
+      })
+    }
+
     // Verify integration exists and user has access
     if (integrationId) {
       logger.debug('[Test Action] Fetching integration', {
@@ -158,6 +208,37 @@ export async function POST(request: NextRequest) {
 
       const totalTime = Date.now() - startTime
 
+      // Deduct tasks for billable tests after successful execution
+      let tasksDeducted = 0
+      if (isBillableTest && result.success) {
+        // Fetch current tasks_used and increment
+        const { data: currentProfile } = await supabase
+          .from('user_profiles')
+          .select('tasks_used')
+          .eq('id', user.id)
+          .single()
+
+        const newTasksUsed = (currentProfile?.tasks_used || 0) + testCost
+
+        const { error: updateError } = await supabase
+          .from('user_profiles')
+          .update({ tasks_used: newTasksUsed })
+          .eq('id', user.id)
+
+        if (updateError) {
+          logger.error('[Test Action] Failed to deduct tasks', { error: updateError.message })
+          // Don't fail the request - the test already executed
+        } else {
+          tasksDeducted = testCost
+          logger.debug('[Test Action] Deducted tasks for billable test', {
+            userId: user.id,
+            testCost,
+            newTasksUsed,
+            nodeType
+          })
+        }
+      }
+
       return NextResponse.json({
         success: true,
         testResult: {
@@ -175,8 +256,14 @@ export async function POST(request: NextRequest) {
           title: nodeDefinition.title,
           description: nodeDefinition.description,
           provider: nodeDefinition.providerId,
-          outputSchema: nodeDefinition.outputSchema || []
-        }
+          outputSchema: nodeDefinition.outputSchema || [],
+          billableTest: isBillableTest,
+          testCost: isBillableTest ? testCost : 0
+        },
+        billing: isBillableTest ? {
+          tasksDeducted,
+          testCost
+        } : undefined
       })
 
     } catch (executionError: any) {

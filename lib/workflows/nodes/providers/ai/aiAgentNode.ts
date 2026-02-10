@@ -40,6 +40,8 @@ export const aiAgentNode: NodeComponent = {
   hasMultipleOutputs: true,
   producesOutput: true,
   requiresInput: true,
+  billableTest: true, // AI calls cost money - deduct from user's task quota when testing
+  testCost: 1,
 
   configSchema: [
     // ========================================
