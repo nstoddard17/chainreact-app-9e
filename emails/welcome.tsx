@@ -18,7 +18,7 @@ interface WelcomeEmailProps {
 
 export const WelcomeEmail = ({
   username = 'there',
-  confirmationUrl = 'https://chainreact.app/auth/confirm?token=preview-token-123',
+  confirmationUrl = 'https://chainreact.app/auth/email-confirmed?token=preview-token-123&userId=preview-user-id',
 }: WelcomeEmailProps) => (
   <Html>
     <Head />

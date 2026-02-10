@@ -145,27 +145,17 @@ export async function POST(request: NextRequest) {
       return errorResponse('Signup link has expired. Please register again.' , 400)
     }
 
-    // Generate confirmation link using admin API
+    // Generate custom confirmation token (not using Supabase's link to avoid auto-sign-in)
     const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL
+    const userId = userData.user.id
+    const timestamp = Date.now()
+    const tokenData = `${userId}:${timestamp}`
+    const confirmationToken = Buffer.from(tokenData).toString('base64')
 
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'signup',
-      email: email,
-      options: {
-        redirectTo: `${baseUrl}/api/auth/callback?type=email-confirmation`
-      }
-    })
+    // Build confirmation URL that goes directly to our email-confirmed page
+    const confirmationUrl = `${baseUrl}/auth/email-confirmed?token=${encodeURIComponent(confirmationToken)}&userId=${userId}`
 
-    if (linkError) {
-      logger.error('Error generating confirmation link:', linkError)
-      return errorResponse('Failed to generate confirmation link.', 500)
-    }
-
-    const confirmationUrl = linkData.properties?.action_link
-    if (!confirmationUrl) {
-      logger.error('No action_link in generateLink response')
-      return errorResponse('Failed to generate confirmation link.', 500)
-    }
+    logger.debug('[resend-confirmation] Generated custom confirmation URL')
 
     // Send email via Resend using existing WelcomeEmail template
     const emailResult = await sendWelcomeEmail(

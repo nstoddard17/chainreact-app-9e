@@ -109,32 +109,15 @@ export async function POST(request: NextRequest) {
       userId = existing!.id
     }
 
-    // Generate confirmation link using admin API
-    const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
-      type: 'signup',
-      email: email,
-      password: password, // Required for signup type
-      options: {
-        redirectTo: `${baseUrl}/api/auth/callback?type=email-confirmation`
-      }
-    })
+    // Generate custom confirmation token (not using Supabase's link to avoid auto-sign-in)
+    const timestamp = Date.now()
+    const tokenData = `${userId}:${timestamp}`
+    const confirmationToken = Buffer.from(tokenData).toString('base64')
 
-    if (linkError) {
-      logger.error('[signup] Error generating confirmation link:', linkError)
-      return NextResponse.json(
-        { error: 'Failed to generate confirmation link' },
-        { status: 500 }
-      )
-    }
+    // Build confirmation URL that goes directly to our email-confirmed page
+    const confirmationUrl = `${baseUrl}/auth/email-confirmed?token=${encodeURIComponent(confirmationToken)}&userId=${userId}`
 
-    const confirmationUrl = linkData.properties?.action_link
-    if (!confirmationUrl) {
-      logger.error('[signup] No action_link in generateLink response')
-      return NextResponse.json(
-        { error: 'Failed to generate confirmation link' },
-        { status: 500 }
-      )
-    }
+    logger.debug('[signup] Generated custom confirmation URL (not using Supabase link)')
 
     // Send our branded confirmation email via Resend
     const username = metadata?.full_name || metadata?.first_name || metadata?.username || email.split('@')[0]
