@@ -27,7 +27,10 @@ export function HomepageHeader() {
 
   const avatarUrl = profile?.avatar_url || null
   const { signedUrl: avatarSignedUrl } = useSignedAvatarUrl(avatarUrl || undefined)
-  const displayName = profile?.username || profile?.full_name || user?.email?.split('@')[0] || "User"
+
+  // Wait for profile to load before showing username - don't flash email first
+  const profileLoaded = !!profile
+  const displayName = profile?.username || profile?.full_name || (profileLoaded ? user?.email?.split('@')[0] : null) || "User"
   const isAdmin = profile?.admin === true
 
   const handleSignOut = async () => {
@@ -105,7 +108,7 @@ export function HomepageHeader() {
             </Button>
           )}
 
-          {user ? (
+          {user && profileLoaded ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -164,9 +167,9 @@ export function HomepageHeader() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link href="/auth/login">
+            <Link href={user ? "/workflows" : "/auth/login"}>
               <Button variant="outline" className="border-gray-300 dark:border-white/20 text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10">
-                Sign In
+                {user ? "Go to Workflows" : "Sign In"}
               </Button>
             </Link>
           )}
@@ -214,7 +217,7 @@ export function HomepageHeader() {
               {item.label}
             </button>
           ))}
-          {user ? (
+          {user && profileLoaded ? (
             <>
               {/* User Info Section */}
               <div className="px-4 py-3 rounded-xl bg-gray-100/60 dark:bg-white/5 mb-2">
@@ -283,10 +286,10 @@ export function HomepageHeader() {
             </>
           ) : (
             <Link
-              href="/auth/login"
+              href={user ? "/workflows" : "/auth/login"}
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-gray-300 dark:border-white/20 text-gray-700 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-white/10 font-semibold transition-colors"
             >
-              Sign In
+              {user ? "Go to Workflows" : "Sign In"}
             </Link>
           )}
         </div>

@@ -170,6 +170,7 @@ const hr = {
 
 const footer = {
   padding: '24px 40px 32px 40px',
+  overflow: 'hidden',
 }
 
 const footerText = {
@@ -185,6 +186,9 @@ const link = {
   lineHeight: '1.5',
   textDecoration: 'none',
   wordBreak: 'break-all' as const,
+  overflowWrap: 'break-word' as const,
+  maxWidth: '100%',
+  display: 'inline-block',
 }
 
 const brand = {
