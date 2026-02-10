@@ -1,35 +1,7 @@
-"use client"
-
-import { useEffect, useState } from 'react'
-import { Button } from "@/components/ui/button"
-import { CheckCircle, ArrowRight } from "lucide-react"
+import { CheckCircle } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
-import { useAuthStore } from "@/stores/authStore"
-import { Suspense } from 'react'
 
-function EmailConfirmedContent() {
-  const searchParams = useSearchParams()
-  const [hasSession, setHasSession] = useState(false)
-  const { user, initialize } = useAuthStore()
-
-  // Check if this is a cross-device confirmation (PKCE error case)
-  const crossDevice = searchParams.get('cross_device') === 'true'
-  // Check if this is a successful confirmation (session established)
-  const confirmed = searchParams.get('confirmed') === 'true'
-
-  useEffect(() => {
-    // Check if we have a session on this device
-    const checkSession = async () => {
-      await initialize()
-      if (user) {
-        setHasSession(true)
-        // DO NOT auto-redirect - let user choose to continue
-      }
-    }
-    checkSession()
-  }, [initialize, user])
-
+export default function EmailConfirmedPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 relative overflow-hidden">
       {/* Background Animation */}
@@ -66,51 +38,11 @@ function EmailConfirmedContent() {
                 Your email has been verified successfully.
               </p>
 
-              {crossDevice ? (
-                // Cross-device flow - PKCE error, couldn't establish session
-                <>
-                  <div className="bg-white/5 rounded-xl p-6 mb-6">
-                    <p className="text-orange-200 text-sm">
-                      You can close this tab and return to the browser where you signed up.
-                      You'll be automatically signed in there.
-                    </p>
-                  </div>
-
-                  <p className="text-orange-300/70 text-xs mb-4">
-                    Or sign in on this device:
-                  </p>
-
-                  <Link href="/auth/login">
-                    <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300">
-                      <ArrowRight className="mr-2 h-4 w-4" />
-                      Sign in
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                // Same device or confirmed flow - has session, can continue
-                <>
-                  <div className="bg-green-600/20 rounded-lg p-4 mb-6">
-                    <p className="text-green-200 text-sm">
-                      {hasSession
-                        ? "You're signed in and ready to go!"
-                        : "Your account is ready to use."
-                      }
-                    </p>
-                  </div>
-
-                  <Link href="/workflows">
-                    <Button className="w-full bg-gradient-to-r from-orange-500 to-rose-600 hover:from-orange-600 hover:to-rose-700 text-white rounded-lg py-3 transition-all duration-300">
-                      <ArrowRight className="mr-2 h-4 w-4" />
-                      Go to Dashboard
-                    </Button>
-                  </Link>
-
-                  <p className="text-orange-300/50 text-xs mt-4">
-                    If you signed up on another device, you can close this tab and return there.
-                  </p>
-                </>
-              )}
+              <div className="bg-green-600/20 rounded-lg p-4">
+                <p className="text-green-200 text-sm">
+                  You may now close this tab.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -135,13 +67,5 @@ function EmailConfirmedContent() {
         }
       `}</style>
     </div>
-  )
-}
-
-export default function EmailConfirmedPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <EmailConfirmedContent />
-    </Suspense>
   )
 }
