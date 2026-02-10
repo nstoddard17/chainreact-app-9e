@@ -122,4 +122,23 @@ export function FullScreenLoadingScreen({
       />
     </div>
   )
+}
+
+// Content area loading screen - doesn't cover sidebar/header
+export function ContentLoadingScreen({
+  title = "Loading",
+  description = "Preparing your content...",
+}: {
+  title?: string
+  description?: string
+}) {
+  return (
+    <div className="flex-1 flex items-center justify-center min-h-[400px] bg-background">
+      <LoadingScreen
+        title={title}
+        description={description}
+        size="md"
+      />
+    </div>
+  )
 } 

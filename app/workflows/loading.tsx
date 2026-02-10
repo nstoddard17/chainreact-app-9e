@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+    <div className="h-full">
       <div className="p-8 max-w-7xl mx-auto">
         {/* Header skeleton */}
         <div className="mb-8">
