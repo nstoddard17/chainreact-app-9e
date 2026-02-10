@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown, Zap, CheckCircle2, XCircle, Clock } from "lucide-react"
+import { LockedPage } from "@/components/plan-restrictions/LockedPage"
 
 export function AnalyticsContent() {
   const stats = [
@@ -45,6 +46,11 @@ export function AnalyticsContent() {
   ]
 
   return (
+    <LockedPage
+      feature="advancedAnalytics"
+      title="Advanced Analytics"
+      description="Unlock detailed performance insights, workflow trends, and usage reports"
+    >
     <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -121,5 +127,6 @@ export function AnalyticsContent() {
         </CardContent>
       </Card>
     </div>
+    </LockedPage>
   )
 }
