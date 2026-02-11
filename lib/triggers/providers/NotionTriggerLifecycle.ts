@@ -257,13 +257,13 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       case 'notion_trigger_database_item_created':
         return ['page.created']
       case 'notion_trigger_database_item_updated':
-        return ['page.updated', 'page.content_updated', 'page.property_values_updated']
+        return ['page.updated', 'page.content_updated', 'page.property_values_updated', 'page.properties_updated']
 
       // Granular page triggers
       case 'notion_trigger_page_content_updated':
         return ['page.content_updated', 'block.created', 'block.updated', 'block.deleted']
       case 'notion_trigger_page_properties_updated':
-        return ['page.property_values_updated']
+        return ['page.property_values_updated', 'page.properties_updated']
 
       // Database schema trigger
       case 'notion_trigger_database_schema_updated':
