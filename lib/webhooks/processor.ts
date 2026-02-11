@@ -243,7 +243,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
             'notion_trigger_page_properties_updated': ['page.property_values_updated', 'page.properties_updated'],
 
             // Database schema trigger
-            'notion_trigger_database_schema_updated': ['database.updated']
+            'notion_trigger_database_schema_updated': ['database.updated', 'data_source.schema_updated']
           }
           const allowedEvents = notionEventMap[nodeEventType] || []
           matchesEventType = allowedEvents.includes(event.eventType)

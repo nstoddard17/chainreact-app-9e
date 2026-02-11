@@ -246,7 +246,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
       case 'notion_trigger_new_page':
         return ['page.created']
       case 'notion_trigger_page_updated':
-        return ['page.content_updated', 'page.property_values_updated']
+        return ['page.content_updated', 'page.property_values_updated', 'page.properties_updated', 'page.updated']
 
       // Comment triggers
       case 'notion_trigger_comment_added':
@@ -267,7 +267,7 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
 
       // Database schema trigger
       case 'notion_trigger_database_schema_updated':
-        return ['database.updated']
+        return ['database.updated', 'data_source.schema_updated']
 
       default:
         return []
