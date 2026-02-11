@@ -146,7 +146,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
     return []
   }
 
-  logger.debug(`🔍 Found ${workflows?.length || 0} active workflows`)
+  logger.info(`🔍 Found ${workflows?.length || 0} active/draft workflows to check`)
 
   if (!workflows || workflows.length === 0) return []
 
@@ -181,12 +181,20 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
   const potentialWorkflows: Array<{ workflow: any; triggerNode: any }> = []
 
   for (const workflow of workflowsWithNodes) {
-    logger.debug(`🔍 Checking workflow: "${workflow.name}"`)
+    logger.info(`🔍 Checking workflow: "${workflow.name}" (${workflow.id})`)
 
     if (!workflow.nodes || workflow.nodes.length === 0) {
-      logger.debug(`   ❌ No nodes found`)
+      logger.info(`   ❌ No nodes found for workflow ${workflow.id}`)
       continue
     }
+
+    // Log trigger nodes for debugging
+    const triggerNodes = workflow.nodes.filter((n: any) => n.data?.isTrigger || n.isTrigger)
+    logger.info(`   📋 Found ${triggerNodes.length} trigger nodes:`, triggerNodes.map((n: any) => ({
+      type: n.data?.type || n.type,
+      provider: n.data?.providerId,
+      isTrigger: n.data?.isTrigger
+    })))
 
     const triggerNode = workflow.nodes?.find((node: any) => {
       const nodeData = node?.data || {}
@@ -239,6 +247,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
           }
           const allowedEvents = notionEventMap[nodeEventType] || []
           matchesEventType = allowedEvents.includes(event.eventType)
+          logger.info(`   🔎 Notion trigger check: nodeEventType=${nodeEventType}, allowedEvents=${JSON.stringify(allowedEvents)}, webhookEvent=${event.eventType}, matches=${matchesEventType}`)
         } else {
           matchesEventType = nodeEventType === event.eventType ||
             (nodeEventType === 'slack_trigger_new_message' && event.eventType?.startsWith('slack_trigger_message'))
@@ -258,11 +267,11 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
     })
 
     if (!triggerNode) {
-      logger.debug(`   ❌ No matching trigger found`)
+      logger.info(`   ❌ No matching trigger found for workflow ${workflow.id}`)
       continue
     }
 
-    logger.debug(`   ✅ Found matching trigger!`)
+    logger.info(`   ✅ Found matching trigger for workflow ${workflow.id}!`)
     potentialWorkflows.push({ workflow, triggerNode })
   }
 
