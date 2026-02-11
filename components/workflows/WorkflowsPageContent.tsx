@@ -120,51 +120,6 @@ interface WorkflowFolder {
   workflow_count?: number
 }
 
-// Workflow validation function
-const validateWorkflow = (workflow: any) => {
-  const issues: string[] = []
-
-  let nodes = []
-  try {
-    const workflowData = typeof workflow.workflow_json === 'string'
-      ? JSON.parse(workflow.workflow_json)
-      : workflow.workflow_json
-    nodes = workflowData?.nodes || []
-  } catch (e) {
-    issues.push('Invalid workflow configuration')
-    return { isValid: false, issues }
-  }
-
-  // Helper to check isTrigger from either Flow or ReactFlow format
-  const isNodeTrigger = (node: any) => node.data?.isTrigger ?? node.metadata?.isTrigger ?? node.type?.includes('_trigger_')
-  // Helper to get config from either format
-  const getNodeConfig = (node: any) => node.data?.config || node.config || {}
-  // Helper to check if node is a valid workflow node (not a placeholder)
-  const isWorkflowNode = (node: any) => node.type === 'custom' || (node.type && !node.type.startsWith('add-'))
-
-  const hasTrigger = nodes.some((node: any) => isNodeTrigger(node))
-  if (!hasTrigger) {
-    issues.push('No trigger node configured')
-  }
-
-  const hasAction = nodes.some((node: any) => !isNodeTrigger(node) && isWorkflowNode(node))
-  if (!hasAction) {
-    issues.push('No action nodes configured')
-  }
-
-  const unconfiguredNodes = nodes.filter((node: any) => {
-    if (!isWorkflowNode(node)) return false
-    const config = getNodeConfig(node)
-    const configKeys = Object.keys(config)
-    return configKeys.length === 0 || configKeys.every(key => !config[key])
-  })
-  if (unconfiguredNodes.length > 0) {
-    issues.push(`${unconfiguredNodes.length} unconfigured node${unconfiguredNodes.length > 1 ? 's' : ''}`)
-  }
-
-  return { isValid: issues.length === 0, issues }
-}
-
 // Helper component for avatar with signed URL support
 function WorkflowAvatar({ avatarUrl, name, initials, className }: { avatarUrl: string | null, name: string, initials: string, className?: string }) {
   const { signedUrl } = useSignedAvatarUrl(avatarUrl || undefined)

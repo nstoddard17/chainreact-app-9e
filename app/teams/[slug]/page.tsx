@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { createSupabaseServerClient } from "@/utils/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import TeamDetailContent from "@/components/teams/TeamDetailContent"
+import { PageAccessGuard } from "@/components/common/PageAccessGuard"
 
 // Force dynamic rendering since teams uses auth and real-time data
 export const dynamic = 'force-dynamic'
@@ -58,8 +59,10 @@ export default async function TeamDetailPage({ params }: Props) {
   }
 
   return (
-    <Suspense fallback={null}>
-      <TeamDetailContent team={teamWithMembership} />
-    </Suspense>
+    <PageAccessGuard page="teams">
+      <Suspense fallback={null}>
+        <TeamDetailContent team={teamWithMembership} />
+      </Suspense>
+    </PageAccessGuard>
   )
 }

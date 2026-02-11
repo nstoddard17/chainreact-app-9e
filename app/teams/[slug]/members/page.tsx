@@ -2,6 +2,7 @@ import { Suspense } from "react"
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { redirect, notFound } from "next/navigation"
 import { TeamMembersContent } from "@/components/teams/TeamMembersContent"
+import { PageAccessGuard } from "@/components/common/PageAccessGuard"
 import { Loader2 } from "lucide-react"
 
 // Force dynamic rendering
@@ -52,12 +53,14 @@ export default async function TeamMembersPage({ params }: Props) {
   }
 
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    }>
-      <TeamMembersContent team={team} userRole={membership.role} />
-    </Suspense>
+    <PageAccessGuard page="teams">
+      <Suspense fallback={
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      }>
+        <TeamMembersContent team={team} userRole={membership.role} />
+      </Suspense>
+    </PageAccessGuard>
   )
 }

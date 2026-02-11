@@ -9,6 +9,61 @@
 
 export type PlanTier = 'free' | 'pro' | 'team' | 'business' | 'enterprise'
 
+// Page access control - which plan is required for each page
+export type ProtectedPage =
+  | 'ai-assistant'
+  | 'analytics'
+  | 'teams'
+  | 'organization'
+
+export const PAGE_ACCESS_REQUIREMENTS: Record<ProtectedPage, PlanTier> = {
+  'ai-assistant': 'pro',
+  'analytics': 'pro',
+  'teams': 'business',
+  'organization': 'enterprise',
+}
+
+// Plan tier hierarchy for comparison
+const PLAN_HIERARCHY: Record<PlanTier, number> = {
+  'free': 0,
+  'pro': 1,
+  'team': 2,
+  'business': 3,
+  'enterprise': 4,
+}
+
+/**
+ * Check if a plan tier meets or exceeds the required tier
+ */
+export function hasPlanAccess(userPlan: PlanTier, requiredPlan: PlanTier): boolean {
+  return PLAN_HIERARCHY[userPlan] >= PLAN_HIERARCHY[requiredPlan]
+}
+
+/**
+ * Check if user has access to a protected page
+ * Admins always have access to all pages
+ */
+export function hasPageAccess(
+  userPlan: PlanTier,
+  page: ProtectedPage,
+  isAdmin: boolean = false
+): boolean {
+  // Admins have access to everything
+  if (isAdmin) {
+    return true
+  }
+
+  const requiredPlan = PAGE_ACCESS_REQUIREMENTS[page]
+  return hasPlanAccess(userPlan, requiredPlan)
+}
+
+/**
+ * Get the required plan for a page (for upgrade prompts)
+ */
+export function getRequiredPlanForPage(page: ProtectedPage): PlanTier {
+  return PAGE_ACCESS_REQUIREMENTS[page]
+}
+
 export interface PlanLimits {
   // Tasks
   tasksPerMonth: number
@@ -282,7 +337,7 @@ export const PLAN_ECONOMICS = {
  * Check if a plan has access to a feature
  */
 export function hasFeatureAccess(plan: PlanTier, feature: keyof PlanLimits): boolean {
-  const limits = PLAN_LIMITS[plan]
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS['free']
   const value = limits[feature]
 
   // For boolean features
@@ -327,7 +382,7 @@ export function canPerformAction(
   currentCount: number,
   required?: number
 ): { allowed: boolean; reason?: string; upgradeTo?: PlanTier } {
-  const limits = PLAN_LIMITS[plan]
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS['free']
 
   switch (action) {
     case 'createWorkflow':
