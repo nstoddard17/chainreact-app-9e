@@ -66,13 +66,10 @@ export default function PageProtection({ children, requiredRole }: PageProtectio
     }
   }, [user, userRole, pathname, router, requiredRole, profile, loading, initialized])
 
-  // Show loading while checking permissions or loading profile
+  // Render children immediately - no loading screen
+  // Auth redirects are handled by the useEffect above
   if (!user || loading || !initialized) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    )
+    return <>{children}</>
   }
 
   // Show access denied if user doesn't have permission

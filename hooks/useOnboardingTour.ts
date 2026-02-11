@@ -126,9 +126,9 @@ export const useOnboardingTour = create<OnboardingTourState>()(
 
       // Actions
       startTour: (tourId = 'main') => {
-        const { completedTours, skippedTours } = get()
-        // Don't restart if already completed or skipped
-        if (completedTours.includes(tourId) || skippedTours.includes(tourId)) {
+        const { completedTours, skippedTours, isActive } = get()
+        // Don't restart if already active, completed, or skipped
+        if (isActive || completedTours.includes(tourId) || skippedTours.includes(tourId)) {
           return
         }
         set({ isActive: true, currentStep: 0 })

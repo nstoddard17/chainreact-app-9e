@@ -9,15 +9,15 @@ export default async function AppsPage() {
   await requireUsername()
 
   return (
-    <PagePreloader
-      pageType="apps"
-      loadingTitle="Loading Apps"
-      loadingDescription="Loading available integrations and your connections..."
-      skipWorkflows={true}
-    >
-      <NewAppLayout title="Apps & Integrations" subtitle="Connect your favorite tools">
+    <NewAppLayout title="Apps & Integrations" subtitle="Connect your favorite tools">
+      <PagePreloader
+        pageType="apps"
+        loadingTitle="Loading Apps"
+        loadingDescription="Loading available integrations and your connections..."
+        skipWorkflows={true}
+      >
         <AppsContent />
-      </NewAppLayout>
-    </PagePreloader>
+      </PagePreloader>
+    </NewAppLayout>
   )
 }

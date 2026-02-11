@@ -1,12 +1,9 @@
 "use client"
 
 import React from "react"
-import { ContentLoadingScreen } from "@/components/ui/loading-screen"
+import { Loader2 } from "lucide-react"
 import { usePageDataPreloader, PageType } from "@/hooks/usePageDataPreloader"
 import { ErrorBoundary } from "@/components/common/ErrorBoundary"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 interface PagePreloaderProps {
   pageType: PageType
@@ -22,7 +19,7 @@ interface PagePreloaderProps {
 
 /**
  * Wrapper component that preloads all necessary data before showing page content
- * Shows a content-area loading state until all data is ready (keeps sidebar visible)
+ * Shows a simple spinner in the content area until all data is ready (keeps sidebar visible)
  */
 export function PagePreloader({
   pageType,
@@ -46,13 +43,12 @@ export function PagePreloader({
     }
   )
 
-  // Show loading screen while data is being fetched
+  // Show simple spinner while data is being fetched
   if (isLoading || !isReady) {
     return (
-      <ContentLoadingScreen
-        title={loadingTitle || `Loading ${pageType}`}
-        description={loadingDescription || loadingMessage}
-      />
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
     )
   }
 

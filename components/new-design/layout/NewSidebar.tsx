@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useTransition } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import Link from "next/link"
 import Image from "next/image"
 import { useAuthStore } from "@/stores/authStore"
 import { useDebugStore } from "@/stores/debugStore"
@@ -48,7 +49,8 @@ import {
   Building,
   Plus,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  Loader2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSidebarState } from "@/hooks/useSidebarState"
@@ -93,6 +95,10 @@ export function NewSidebar() {
   const [socialPostUrl, setSocialPostUrl] = useState("")
   const { toast } = useToast()
   const [isMounted, setIsMounted] = useState(false)
+
+  // Navigation transition state - shows loading indicator when navigating
+  const [isPending, startTransition] = useTransition()
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null)
 
   // Collapsible sidebar state
   const { isCollapsed, toggleSidebar } = useSidebarState()
@@ -151,6 +157,23 @@ export function NewSidebar() {
     }
     return pathname?.startsWith(href)
   }
+
+  // Check if currently navigating to a specific route
+  const isNavigatingTo = (href: string) => isPending && navigatingTo === href
+
+  // Handle navigation with transition for loading state
+  const handleNavigation = (href: string) => {
+    if (pathname === href) return // Already on this page
+    setNavigatingTo(href)
+    startTransition(() => {
+      router.push(href)
+    })
+  }
+
+  // Clear navigating state when pathname changes
+  useEffect(() => {
+    setNavigatingTo(null)
+  }, [pathname])
 
   const handleSignOut = async () => {
     await signOut()
@@ -255,27 +278,34 @@ export function NewSidebar() {
           {mainNav.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
+            const isLoading = isNavigatingTo(item.href)
 
             const navButton = (
               <button
                 key={item.href}
                 data-tour={item.tourId}
-                onClick={() => router.push(item.href)}
+                onClick={() => handleNavigation(item.href)}
                 onMouseEnter={() => prefetchRoute(item.href)}
                 onFocus={() => prefetchRoute(item.href)}
+                disabled={isLoading}
                 className={cn(
                   "w-full flex items-center rounded-lg text-sm font-medium transition-colors",
                   isCollapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                   active
                     ? "bg-gray-100 dark:bg-gray-800 text-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-900 hover:text-foreground"
+                    : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-900 hover:text-foreground",
+                  isLoading && "opacity-70"
                 )}
               >
-                <Icon className="w-4 h-4 flex-shrink-0" />
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                ) : (
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                )}
                 {!isCollapsed && (
                   <>
                     <span>{item.label}</span>
-                    {item.badge && (
+                    {item.badge && !isLoading && (
                       <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                         {item.badge}
                       </span>
@@ -303,22 +333,29 @@ export function NewSidebar() {
           {secondaryNav.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
+            const isLoading = isNavigatingTo(item.href)
 
             const navButton = (
               <button
                 key={item.href}
-                onClick={() => router.push(item.href)}
+                onClick={() => handleNavigation(item.href)}
                 onMouseEnter={() => prefetchRoute(item.href)}
                 onFocus={() => prefetchRoute(item.href)}
+                disabled={isLoading}
                 className={cn(
                   "w-full flex items-center rounded-lg text-sm font-medium transition-colors",
                   isCollapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                   active
                     ? "bg-gray-100 dark:bg-gray-800 text-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-900 hover:text-foreground"
+                    : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-900 hover:text-foreground",
+                  isLoading && "opacity-70"
                 )}
               >
-                <Icon className="w-4 h-4 flex-shrink-0" />
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 flex-shrink-0 animate-spin" />
+                ) : (
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                )}
                 {!isCollapsed && <span>{item.label}</span>}
               </button>
             )

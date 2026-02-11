@@ -11,17 +11,17 @@ export default async function AnalyticsPage() {
 
   return (
     <PageAccessGuard page="analytics">
-      <PagePreloader
-        pageType="analytics"
-        loadingTitle="Loading Analytics"
-        loadingDescription="Loading your workflow performance data..."
-        skipWorkflows={true}
-        skipIntegrations={true}
-      >
-        <NewAppLayout title="Analytics" subtitle="Monitor your workflow performance">
+      <NewAppLayout title="Analytics" subtitle="Monitor your workflow performance">
+        <PagePreloader
+          pageType="analytics"
+          loadingTitle="Loading Analytics"
+          loadingDescription="Loading your workflow performance data..."
+          skipWorkflows={true}
+          skipIntegrations={true}
+        >
           <AnalyticsContent />
-        </NewAppLayout>
-      </PagePreloader>
+        </PagePreloader>
+      </NewAppLayout>
     </PageAccessGuard>
   )
 }

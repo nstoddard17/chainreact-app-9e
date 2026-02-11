@@ -136,7 +136,7 @@ function WorkflowAvatar({ avatarUrl, name, initials, className }: { avatarUrl: s
   )
 }
 
-function WorkflowsContent() {
+function WorkflowsContentInner() {
   const router = useRouter()
   const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache } = useWorkflowStore()
   const { user, profile } = useAuthStore()
@@ -1556,8 +1556,7 @@ function WorkflowsContent() {
 
   return (
     <>
-      <NewAppLayout title="Workflows" subtitle="Build and manage your automations">
-        <div className="h-full flex flex-col">
+      <div className="h-full flex flex-col">
           {/* Command Bar */}
           <div className="h-14 border-b border-slate-200 flex items-center px-6">
             <div className="flex items-center gap-3 w-full">
@@ -2977,7 +2976,6 @@ function WorkflowsContent() {
             )}
           </div>
         </div>
-      </NewAppLayout>
 
       {/* Create Workflow - now opens builder directly with AI panel */}
 
@@ -3610,13 +3608,15 @@ function WorkflowsContent() {
 
 export function WorkflowsPageContent() {
   return (
-    <PagePreloader
-      pageType="workflows"
-      loadingTitle="Loading Workflows"
-      loadingDescription="Fetching your workflows and execution stats..."
-      skipIntegrations={true}
-    >
-      <WorkflowsContent />
-    </PagePreloader>
+    <NewAppLayout title="Workflows" subtitle="Build and manage your automations">
+      <PagePreloader
+        pageType="workflows"
+        loadingTitle="Loading Workflows"
+        loadingDescription="Fetching your workflows and execution stats..."
+        skipIntegrations={true}
+      >
+        <WorkflowsContentInner />
+      </PagePreloader>
+    </NewAppLayout>
   )
 }

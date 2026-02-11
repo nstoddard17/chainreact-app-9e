@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { useAuthStore } from "@/stores/authStore"
 import {
   hasPageAccess,
@@ -9,7 +9,6 @@ import {
   PlanTier,
   PLAN_INFO
 } from "@/lib/utils/plan-restrictions"
-import { ContentLoadingScreen } from "@/components/ui/loading-screen"
 import { Button } from "@/components/ui/button"
 import { Lock, Sparkles, ArrowRight } from "lucide-react"
 import Link from "next/link"
@@ -22,28 +21,44 @@ interface PageAccessGuardProps {
 /**
  * Guards access to pages based on user plan and admin status.
  * Shows an upgrade prompt if user doesn't have access.
+ * Renders children optimistically until we can confirm access status.
  */
 export function PageAccessGuard({ page, children }: PageAccessGuardProps) {
-  const { profile, initialized, loading } = useAuthStore()
+  const { profile, hydrated, initialized } = useAuthStore()
+  const [shouldCheckAccess, setShouldCheckAccess] = useState(false)
 
-  // Show loading while auth initializes
-  if (!initialized || loading) {
-    return (
-      <ContentLoadingScreen
-        title="Checking access..."
-        description="Verifying your permissions..."
-      />
-    )
-  }
+  // Wait a tick after hydration to ensure profile is loaded from localStorage
+  useEffect(() => {
+    if (hydrated && initialized) {
+      // Small delay to ensure store is fully populated
+      const timer = setTimeout(() => {
+        setShouldCheckAccess(true)
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [hydrated, initialized])
 
   // Get user's plan and admin status
   const userPlan: PlanTier = (profile?.plan as PlanTier) || 'free'
   const isAdmin = profile?.admin === true
 
-  // Check if user has access
-  if (hasPageAccess(userPlan, page, isAdmin)) {
+  // If we have a profile with admin access, always allow
+  if (profile && isAdmin) {
     return <>{children}</>
   }
+
+  // If we have a profile, check access
+  if (profile && hasPageAccess(userPlan, page, isAdmin)) {
+    return <>{children}</>
+  }
+
+  // Don't show lock screen until we've confirmed the user doesn't have access
+  // This prevents flash of lock screen before profile loads
+  if (!shouldCheckAccess) {
+    return <>{children}</>
+  }
+
+  // At this point, we've waited for hydration and the user doesn't have access
 
   // User doesn't have access - show upgrade prompt
   const requiredPlan = getRequiredPlanForPage(page)

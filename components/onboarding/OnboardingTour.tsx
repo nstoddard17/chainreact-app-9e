@@ -63,6 +63,9 @@ export function OnboardingTour({ className }: OnboardingTourProps) {
 
   // Auto-start tour for new users
   useEffect(() => {
+    // Don't auto-start if tour is already active (prevents restart on navigation)
+    if (isActive) return
+
     if (
       isMounted &&
       user &&
@@ -77,7 +80,7 @@ export function OnboardingTour({ className }: OnboardingTourProps) {
       }, 1000)
       return () => clearTimeout(timer)
     }
-  }, [isMounted, user, autoStartTour, hasSeenWelcome, completedTours, pathname, startTour])
+  }, [isMounted, user, autoStartTour, hasSeenWelcome, completedTours, pathname, startTour, isActive])
 
   // Update target element position
   const updateTargetPosition = useCallback(() => {
