@@ -366,28 +366,40 @@ export async function notionUpdatePage(
     // Process properties to ensure proper format
     const processedProperties: any = {}
 
+    // Find the actual title property name from the database schema
+    // For database pages, the title property can have any name (e.g., "Title", "Name", etc.)
+    let titlePropertyName = 'title' // Default for regular pages
+    for (const [propName, propConfig] of Object.entries(propertySchema)) {
+      if ((propConfig as any).type === 'title') {
+        titlePropertyName = propName
+        logger.debug(`Found title property name in schema: "${titlePropertyName}"`)
+        break
+      }
+    }
+
     // Handle title property - it might come from config.title or be in properties
     let titleHandled = false
 
     // Check if title is provided as a separate config field
     if (title && title !== '') {
-      processedProperties.title = formatNotionPropertyValue('title', title)
+      processedProperties[titlePropertyName] = formatNotionPropertyValue('title', title)
       titleHandled = true
+      logger.debug(`Set title using property name: "${titlePropertyName}"`)
     }
 
     for (const [key, value] of Object.entries(properties)) {
-      // Handle title property specially
-      if (key === 'title') {
+      // Handle title property specially - check both 'title' key and the actual property name
+      if (key === 'title' || key === titlePropertyName || key.toLowerCase() === 'title') {
         if (titleHandled) {
           // Skip if we already handled title from config
           continue
         }
         // Check if title needs formatting
         if (typeof value === 'string' && value !== '') {
-          processedProperties.title = formatNotionPropertyValue('title', value)
+          processedProperties[titlePropertyName] = formatNotionPropertyValue('title', value)
         } else if (typeof value === 'object' && value !== null && (value as any).title) {
           // Already formatted, use as-is
-          processedProperties.title = value
+          processedProperties[titlePropertyName] = value
         }
         // Skip if empty or invalid
         continue
@@ -414,8 +426,15 @@ export async function notionUpdatePage(
         continue
       }
 
-      // Skip empty values (but allow false for checkboxes)
-      if (value === undefined || value === null || value === '') {
+      // Skip undefined values (not set), but allow null/empty to clear properties
+      if (value === undefined) {
+        continue
+      }
+
+      // For explicitly cleared values (null or empty string), send null to clear the property
+      if (value === null || value === '') {
+        processedProperties[key] = null
+        logger.debug(`Clearing property ${key} (sending null to Notion API)`)
         continue
       }
 

@@ -810,7 +810,6 @@ export function useWorkflowExecution() {
       'github_trigger_pr_updated',
       'slack_trigger_new_message',
       'discord_trigger_new_message',
-      'notion_trigger_page_updated',
       'trello_trigger_card_moved',
     ]
 
@@ -1041,14 +1040,6 @@ export function useWorkflowExecution() {
           user: {
             login: 'testuser'
           }
-        }
-
-      case 'notion_trigger_page_updated':
-        return {
-          pageId: `test-page-${Date.now()}`,
-          title: 'Test Page',
-          lastEditedTime: new Date().toISOString(),
-          properties: {}
         }
 
       case 'trello_trigger_card_moved':

@@ -62,7 +62,7 @@ AVAILABLE TRIGGERS (use these exact types):
 - webhook: HTTP webhook trigger
 - schedule: Scheduled trigger
 - manual: Manual trigger
-- notion_trigger_new_page: New Notion page created
+- notion_trigger_database_item_created: New Notion database item created
 - airtable_trigger_new_record: New Airtable record
 - github_trigger_new_commit: New GitHub commit
 - stripe_trigger_new_payment: New Stripe payment

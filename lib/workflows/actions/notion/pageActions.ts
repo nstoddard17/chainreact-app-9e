@@ -368,6 +368,13 @@ export async function executeNotionUpdatePage(
     if (updateResult.success) {
       const blockUpdates: any[] = [];
       const blocksToAdd: any[] = [];
+      const blocksToDelete: string[] = [];
+
+      // Read explicit block deletions from config (from NotionDeletableBlocksField)
+      if (config.blocksToDelete?.selectedBlockIds && Array.isArray(config.blocksToDelete.selectedBlockIds)) {
+        blocksToDelete.push(...config.blocksToDelete.selectedBlockIds);
+        logger.debug(`🗑️ Explicit block deletions from config: ${blocksToDelete.length} blocks`);
+      }
 
       // Process todo items
       if (pageFieldsData['todo-items'] && pageFieldsData['todo-items'].items) {
@@ -404,6 +411,29 @@ export async function executeNotionUpdatePage(
                 checked: item.checked || false
               }
             });
+          }
+        }
+
+        // Track deleted items by comparing with originalItems (if provided)
+        if (pageFieldsData['todo-items'].originalItems && Array.isArray(pageFieldsData['todo-items'].originalItems)) {
+          const originalItems = pageFieldsData['todo-items'].originalItems;
+          const originalIds = new Set(
+            originalItems
+              .map((item: any) => item.blockId || item.id)
+              .filter((id: string) => id && !id.startsWith('new-'))
+          );
+          const currentIds = new Set(
+            todoItems
+              .map((item: any) => item.blockId || item.id)
+              .filter((id: string) => id && !id.startsWith('new-'))
+          );
+
+          // Find items that existed originally but are now missing
+          for (const originalId of originalIds) {
+            if (!currentIds.has(originalId)) {
+              blocksToDelete.push(originalId);
+              logger.debug(`🗑️ Marking todo block for deletion: ${originalId}`);
+            }
           }
         }
       }
@@ -447,12 +477,25 @@ export async function executeNotionUpdatePage(
         await notionAppendBlocks({ page_id: config.page, blocks: blocksToAdd }, context);
       }
 
+      // Delete removed blocks if any
+      if (blocksToDelete.length > 0) {
+        logger.debug(`🗑️ Deleting ${blocksToDelete.length} blocks`);
+        for (const blockId of blocksToDelete) {
+          try {
+            await notionDeleteBlock({ block_id: blockId }, context);
+          } catch (error) {
+            logger.warn(`⚠️ Failed to delete block ${blockId}:`, error);
+          }
+        }
+      }
+
       return {
         success: true,
         output: {
           ...updateResult.output,
           blocks_updated: updatedCount,
-          blocks_added: blocksToAdd.length
+          blocks_added: blocksToAdd.length,
+          blocks_deleted: blocksToDelete.length
         }
       };
     }

@@ -207,9 +207,9 @@ Notion sends webhook events with their own event type names (e.g., `page.created
 ```typescript
 // In lib/webhooks/processor.ts
 const notionEventMap: Record<string, string[]> = {
-  'notion_trigger_new_page': ['page.created'],
-  'notion_trigger_page_updated': ['page.content_updated', 'page.property_values_updated'],
-  'notion_trigger_comment_added': ['comment.created']
+  'notion_trigger_database_item_created': ['page.created'],
+  'notion_trigger_database_item_updated': ['page.updated', 'page.content_updated', 'page.property_values_updated', 'page.properties_updated'],
+  'notion_trigger_new_comment': ['comment.created']
 }
 ```
 

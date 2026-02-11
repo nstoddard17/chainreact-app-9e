@@ -65,7 +65,7 @@ AVAILABLE TRIGGERS:
 - slack_trigger_new_reaction: Triggers when a reaction is added to a Slack message
 - discord_trigger_new_message: Triggers when a new message is sent in Discord
 - discord_trigger_slash_command: Triggers when a slash command is used in Discord
-- notion_trigger_new_page: Triggers when a new page is created in Notion
+- notion_trigger_database_item_created: Triggers when a new item is created in a Notion database
 - airtable_trigger_new_record: Triggers when a new record is created in Airtable
 - github_trigger_new_commit: Triggers when a new commit is pushed to GitHub
 - gitlab_trigger_new_issue: Triggers when a new issue is created in GitLab

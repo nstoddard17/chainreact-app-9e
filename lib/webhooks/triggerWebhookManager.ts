@@ -107,8 +107,8 @@ export class TriggerWebhookManager {
       'github_trigger_issue_updated',
       'github_trigger_new_pr',
       'github_trigger_pr_updated',
-      'notion_trigger_new_page',
-      'notion_trigger_page_updated',
+      'notion_trigger_database_item_created',
+      'notion_trigger_database_item_updated',
       'hubspot_trigger_new_contact',
       'hubspot_trigger_contact_updated',
       'airtable_trigger_new_record',
@@ -375,7 +375,7 @@ export class TriggerWebhookManager {
       case 'github_trigger_new_issue':
         return this.transformGithubIssuePayload(payload)
       
-      case 'notion_trigger_new_page':
+      case 'notion_trigger_database_item_created':
         return this.transformNotionPagePayload(payload)
       
       case 'hubspot_trigger_new_contact':

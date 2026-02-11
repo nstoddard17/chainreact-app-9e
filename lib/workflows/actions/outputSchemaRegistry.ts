@@ -377,20 +377,12 @@ const OUTPUT_SCHEMA_REGISTRY: Record<string, OutputField[]> = {
   ],
 
   // Notion Triggers
-  'notion_trigger_new_page': [
+  'notion_trigger_database_item_created': [
     { name: 'pageId', label: 'Page ID', type: 'string' },
     { name: 'databaseId', label: 'Database ID', type: 'string' },
     { name: 'title', label: 'Title', type: 'string' },
     { name: 'url', label: 'URL', type: 'string' },
     { name: 'createdAt', label: 'Created At', type: 'string' }
-  ],
-  'notion_trigger_page_updated': [
-    { name: 'pageId', label: 'Page ID', type: 'string' },
-    { name: 'databaseId', label: 'Database ID', type: 'string' },
-    { name: 'title', label: 'Title', type: 'string' },
-    { name: 'changedProperties', label: 'Changed Properties', type: 'object' },
-    { name: 'updatedAt', label: 'Updated At', type: 'string' },
-    { name: 'url', label: 'URL', type: 'string' }
   ],
   'notion_trigger_comment_added': [
     { name: 'pageId', label: 'Page ID', type: 'string' },

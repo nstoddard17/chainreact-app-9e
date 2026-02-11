@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, FileTemplate, Globe, Lock, Users, Building } from "lucide-react"
+import { Loader2, FileText, Globe, Lock, Users, Building } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -180,7 +180,7 @@ export function SaveAsTemplateDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileTemplate className="w-5 h-5 text-primary" />
+            <FileText className="w-5 h-5 text-primary" />
             Save as Template
           </DialogTitle>
           <DialogDescription>
@@ -370,7 +370,7 @@ export function SaveAsTemplateDialog({
               </>
             ) : (
               <>
-                <FileTemplate className="w-4 h-4 mr-2" />
+                <FileText className="w-4 h-4 mr-2" />
                 Save Template
               </>
             )}

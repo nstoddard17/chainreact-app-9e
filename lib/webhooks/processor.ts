@@ -146,7 +146,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
     return []
   }
 
-  logger.debug(`🔍 Found ${workflows?.length || 0} active workflows`)
+  logger.info(`🔍 Found ${workflows?.length || 0} active/draft workflows to check`)
 
   if (!workflows || workflows.length === 0) return []
 
@@ -181,12 +181,20 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
   const potentialWorkflows: Array<{ workflow: any; triggerNode: any }> = []
 
   for (const workflow of workflowsWithNodes) {
-    logger.debug(`🔍 Checking workflow: "${workflow.name}"`)
+    logger.info(`🔍 Checking workflow: "${workflow.name}" (${workflow.id})`)
 
     if (!workflow.nodes || workflow.nodes.length === 0) {
-      logger.debug(`   ❌ No nodes found`)
+      logger.info(`   ❌ No nodes found for workflow ${workflow.id}`)
       continue
     }
+
+    // Log trigger nodes for debugging
+    const triggerNodes = workflow.nodes.filter((n: any) => n.data?.isTrigger || n.isTrigger)
+    logger.info(`   📋 Found ${triggerNodes.length} trigger nodes:`, triggerNodes.map((n: any) => ({
+      type: n.data?.type || n.type,
+      provider: n.data?.providerId,
+      isTrigger: n.data?.isTrigger
+    })))
 
     const triggerNode = workflow.nodes?.find((node: any) => {
       const nodeData = node?.data || {}
@@ -219,26 +227,50 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
       let matchesEventType = true
       if (nodeEventType) {
         // Map Notion event types to trigger types
+        // Supports both legacy event names and new data source API (2025-09-03) event names
         if (event.provider === 'notion') {
           const notionEventMap: Record<string, string[]> = {
             // Core triggers
-            'notion_trigger_new_page': ['page.created'],
-            'notion_trigger_page_updated': ['page.content_updated', 'page.property_values_updated', 'page.updated'],
             'notion_trigger_new_comment': ['comment.created'],
 
-            // Database item triggers
-            'notion_trigger_database_item_created': ['page.created'],
-            'notion_trigger_database_item_updated': ['page.updated', 'page.content_updated', 'page.property_values_updated'],
+            // Database item triggers - includes new data_source.row events
+            'notion_trigger_database_item_created': [
+              'page.created',
+              'data_source.row_created'  // New API event
+            ],
+            'notion_trigger_database_item_updated': [
+              'page.updated',
+              'page.content_updated',
+              'page.property_values_updated',
+              'page.properties_updated',
+              'data_source.row_updated'  // New API event
+            ],
 
-            // Granular page triggers
-            'notion_trigger_page_content_updated': ['page.content_updated', 'block.created', 'block.updated', 'block.deleted'],
-            'notion_trigger_page_properties_updated': ['page.property_values_updated'],
+            // Granular page triggers - includes new data_source events
+            'notion_trigger_page_content_updated': [
+              'page.content_updated',
+              'block.created',
+              'block.updated',
+              'block.deleted',
+              'data_source.row_content_updated'  // New API event (if exists)
+            ],
+            'notion_trigger_page_properties_updated': [
+              'page.property_values_updated',
+              'page.properties_updated',
+              'data_source.row_updated',  // New API - property value changes
+              'data_source.row_property_updated',  // New API - specific property change
+              'data_source.schema_updated'  // When properties are added/removed/modified
+            ],
 
             // Database schema trigger
-            'notion_trigger_database_schema_updated': ['database.updated']
+            'notion_trigger_database_schema_updated': [
+              'database.updated',
+              'data_source.schema_updated'
+            ]
           }
           const allowedEvents = notionEventMap[nodeEventType] || []
           matchesEventType = allowedEvents.includes(event.eventType)
+          logger.info(`   🔎 Notion trigger check: nodeEventType=${nodeEventType}, allowedEvents=${JSON.stringify(allowedEvents)}, webhookEvent=${event.eventType}, matches=${matchesEventType}`)
         } else {
           matchesEventType = nodeEventType === event.eventType ||
             (nodeEventType === 'slack_trigger_new_message' && event.eventType?.startsWith('slack_trigger_message'))
@@ -258,11 +290,11 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
     })
 
     if (!triggerNode) {
-      logger.debug(`   ❌ No matching trigger found`)
+      logger.info(`   ❌ No matching trigger found for workflow ${workflow.id}`)
       continue
     }
 
-    logger.debug(`   ✅ Found matching trigger!`)
+    logger.info(`   ✅ Found matching trigger for workflow ${workflow.id}!`)
     potentialWorkflows.push({ workflow, triggerNode })
   }
 
