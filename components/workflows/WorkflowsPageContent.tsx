@@ -541,6 +541,20 @@ function WorkflowsContent() {
       })
   }, [isViewingTrash, trashedWorkflows, activeWorkflows, searchQuery, ownershipFilter, advancedFilters, user?.id, selectedFolderFilter, trashFolder?.id, sortField, sortOrder])
 
+  // Memoize validation results to avoid re-computing on every render
+  const workflowValidations = useMemo(() => {
+    const validations = new Map<string, ReturnType<typeof validateWorkflow>>()
+    for (const workflow of filteredAndSortedWorkflows) {
+      validations.set(workflow.id, validateWorkflow(workflow))
+    }
+    return validations
+  }, [filteredAndSortedWorkflows])
+
+  // Helper to get cached validation result
+  const getValidation = useCallback((workflowId: string) => {
+    return workflowValidations.get(workflowId) || { isValid: false, issues: [] }
+  }, [workflowValidations])
+
   // Filter folders based on search query
   const filteredFolders = visibleFolders.filter((folder) => {
     if (!searchQuery) return true
@@ -2051,7 +2065,7 @@ function WorkflowsContent() {
                           <div className="flex items-center gap-2">
                             <WorkflowStatusBadge
                               status={workflow.status || 'draft'}
-                              validation={validateWorkflow(workflow)}
+                              validation={getValidation(workflow.id)}
                               size="sm"
                             />
                             <TooltipProvider>
@@ -2543,7 +2557,7 @@ function WorkflowsContent() {
                             <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                               <WorkflowStatusBadge
                                 status={workflow.status || 'draft'}
-                                validation={validateWorkflow(workflow)}
+                                validation={getValidation(workflow.id)}
                                 size="sm"
                                 showLabel={false}
                               />

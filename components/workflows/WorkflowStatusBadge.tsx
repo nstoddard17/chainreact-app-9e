@@ -37,15 +37,25 @@ interface WorkflowStatusBadgeProps {
 export function validateWorkflow(workflow: any): WorkflowValidation {
   const issues: string[] = []
 
+  // Get nodes from the workflow object
+  // Primary path: workflow.nodes (Workflow interface)
+  // Fallback: workflow.workflow_json.nodes (templates/legacy)
   let nodes: any[] = []
-  try {
-    const workflowData = typeof workflow.workflow_json === 'string'
-      ? JSON.parse(workflow.workflow_json)
-      : workflow.workflow_json
-    nodes = workflowData?.nodes || []
-  } catch (e) {
-    issues.push('Invalid workflow configuration')
-    return { isValid: false, issues }
+
+  if (Array.isArray(workflow?.nodes)) {
+    // Primary path: nodes directly on workflow object
+    nodes = workflow.nodes
+  } else if (workflow?.workflow_json) {
+    // Fallback: workflow_json (used in templates and some legacy contexts)
+    try {
+      const workflowData = typeof workflow.workflow_json === 'string'
+        ? JSON.parse(workflow.workflow_json)
+        : workflow.workflow_json
+      nodes = workflowData?.nodes || []
+    } catch (e) {
+      issues.push('Invalid workflow configuration')
+      return { isValid: false, issues }
+    }
   }
 
   // Helper to check isTrigger from either Flow or ReactFlow format
@@ -56,35 +66,20 @@ export function validateWorkflow(workflow: any): WorkflowValidation {
   const isWorkflowNode = (node: any) =>
     node.type === 'custom' || (node.type && !node.type.startsWith('add-'))
 
-  const hasTrigger = nodes.some((node: any) => isNodeTrigger(node))
+  const triggerNodes = nodes.filter((node: any) => isNodeTrigger(node))
+  const hasTrigger = triggerNodes.length > 0
   if (!hasTrigger) {
     issues.push('No trigger node configured')
   }
 
-  const hasAction = nodes.some((node: any) => !isNodeTrigger(node) && isWorkflowNode(node))
+  const actionNodes = nodes.filter((node: any) => !isNodeTrigger(node) && isWorkflowNode(node))
+  const hasAction = actionNodes.length > 0
   if (!hasAction) {
     issues.push('No action nodes configured')
   }
 
-  // Check for nodes that are NOT ready (using validationState if available)
-  const notReadyNodes = nodes.filter((node: any) => {
-    if (!isWorkflowNode(node)) return false
-
-    // If node has validationState, use it (most accurate - set by ConfigurationForm)
-    const validationState = node.data?.validationState
-    if (validationState) {
-      return validationState.isValid === false
-    }
-
-    // For backward compatibility with older workflows without validationState:
-    // Consider node "ready" if it has any config at all
-    const config = node.data?.config || node.config || {}
-    const configKeys = Object.keys(config)
-    return configKeys.length === 0
-  })
-  if (notReadyNodes.length > 0) {
-    issues.push(`${notReadyNodes.length} node${notReadyNodes.length > 1 ? 's need' : ' needs'} configuration`)
-  }
+  // NOTE: "unconfigured nodes" check removed - can't validate accurately without schemas
+  // Detailed node validation happens in the builder (where schemas are available) and activation API
 
   return { isValid: issues.length === 0, issues }
 }

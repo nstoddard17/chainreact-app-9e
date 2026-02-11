@@ -54,7 +54,7 @@ import {
   LocateFixed,
   Lock,
   Unlock,
-  FileTemplate,
+  FileText,
   MessageSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -708,7 +708,7 @@ const BuilderHeaderComponent = ({
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={() => setShowSaveAsTemplateDialog(true)}>
-                <FileTemplate className="w-4 h-4 mr-2" />
+                <FileText className="w-4 h-4 mr-2" />
                 Save as Template
               </DropdownMenuItem>
 
