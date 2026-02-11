@@ -288,7 +288,6 @@ Frontend Shows Final Status
 - `github_trigger_pr_updated`
 - `slack_trigger_new_message`
 - `discord_trigger_new_message`
-- `notion_trigger_page_updated`
 - `trello_trigger_card_moved`
 
 ## Testing Checklist

@@ -93,7 +93,7 @@ export async function GET() {
           linkedin: ['linkedin_trigger_new_post', 'linkedin_trigger_new_comment'],
           github: ['github_trigger_new_commit', 'github_trigger_new_issue', 'github_trigger_new_pull_request'],
           gitlab: ['gitlab_trigger_new_push', 'gitlab_trigger_new_issue', 'gitlab_trigger_new_merge_request'],
-          notion: ['notion_trigger_new_page', 'notion_trigger_page_updated'],
+          notion: ['notion_trigger_database_item_created', 'notion_trigger_database_item_updated'],
           trello: ['trello_trigger_new_card', 'trello_trigger_card_moved'],
           hubspot: ['hubspot_trigger_new_contact', 'hubspot_trigger_contact_updated'],
           airtable: ['airtable_trigger_new_record', 'airtable_trigger_record_updated'],

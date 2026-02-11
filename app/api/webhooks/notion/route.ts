@@ -282,17 +282,34 @@ export async function POST(req: NextRequest) {
     }
 
     // Log webhook type and event details
-    const eventType = body.type || body.event_type || 'unknown'
-    const eventData = body.data || body.payload || body
+    // Notion webhooks can have event type in different locations depending on API version
+    const eventType = body.type || body.event_type || body.event?.type || 'unknown'
+    const eventData = body.data || body.payload || body.event?.data || body
 
+    // Enhanced logging for debugging Notion webhook event types
     logSection('EVENT DETAILS', {
       type: eventType,
       hasData: !!body.data,
       hasPayload: !!body.payload,
+      hasEvent: !!body.event,
       dataKeys: body.data ? Object.keys(body.data) : [],
       payloadKeys: body.payload ? Object.keys(body.payload) : [],
+      eventKeys: body.event ? Object.keys(body.event) : [],
       topLevelKeys: Object.keys(body),
+      // Log entity info for data source events
+      entityType: body.data?.entity?.type || body.entity?.type || 'unknown',
+      entityId: body.data?.entity?.id || body.entity?.id || 'unknown',
+      parentType: body.data?.parent?.type || body.parent?.type || 'unknown',
     }, colors.magenta)
+
+    // Log helpful info about event type matching
+    logger.info(`[Notion Webhook] Event type received: "${eventType}"`)
+    logger.info(`[Notion Webhook] Known event types for triggers:
+      - Page properties: page.property_values_updated, page.properties_updated, data_source.row_updated, data_source.row_property_updated
+      - Page content: page.content_updated, block.created/updated/deleted
+      - Database item created: page.created, data_source.row_created
+      - Database schema: database.updated, data_source.schema_updated
+      - Comments: comment.created`)
 
     // Mark webhook as verified on first successful event
     if (workflowId && nodeId) {

@@ -45,9 +45,9 @@ These providers have webhook handlers implemented in `/lib/webhooks/providerWebh
    - hubspot_trigger_deal_deleted
 
 7. **Notion** - `NotionWebhookHandler`
-   - notion_trigger_new_page
-   - notion_trigger_page_updated
-   - notion_trigger_comment_added
+   - notion_trigger_database_item_created
+   - notion_trigger_database_item_updated
+   - notion_trigger_new_comment
 
 8. **Airtable** - `AirtableWebhookHandler`
    - airtable_trigger_new_record

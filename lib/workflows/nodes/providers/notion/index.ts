@@ -99,50 +99,6 @@ export const notionNodes: NodeComponent[] = [
 
   // === Triggers ===
   {
-    type: "notion_trigger_new_page",
-    title: "New Page in Database",
-    description: "Triggers when a page is added to a database",
-    icon: FileText,
-    providerId: "notion",
-    category: "Productivity",
-    isTrigger: true,
-    producesOutput: true,
-    configSchema: [
-      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
-      { name: "database", label: "Database", type: "select", dynamic: "notion_databases", required: true, dependsOn: "workspace" }
-    ],
-    outputSchema: [
-      { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
-      { name: "databaseId", label: "Database ID", type: "string", description: "The unique ID of the database" },
-      { name: "title", label: "Title", type: "string", description: "The title of the page" },
-      { name: "url", label: "URL", type: "string", description: "The URL of the page" },
-      { name: "createdAt", label: "Created At", type: "string", description: "When the page was created" }
-    ]
-  },
-  {
-    type: "notion_trigger_page_updated",
-    title: "Page Updated",
-    description: "Triggers when a page's properties or content are updated",
-    icon: FileText,
-    providerId: "notion",
-    category: "Productivity",
-    isTrigger: true,
-    producesOutput: true,
-    configSchema: [
-      { name: "workspace", label: "Workspace", type: "select", dynamic: "notion_workspaces", required: true, loadOnMount: true },
-      { name: "page", label: "Page", type: "select", dynamic: "notion_pages", required: true, dependsOn: "workspace" }
-    ],
-    outputSchema: [
-      { name: "pageId", label: "Page ID", type: "string", description: "The unique ID of the page" },
-      { name: "title", label: "Title", type: "string", description: "The title of the page" },
-      { name: "changedProperties", label: "Changed Properties", type: "object", description: "The properties that were changed" },
-      { name: "updatedAt", label: "Updated At", type: "string", description: "When the page was updated" },
-      { name: "url", label: "URL", type: "string", description: "The URL of the page" }
-    ]
-  },
-
-  // === Webhook-based Triggers ===
-  {
     type: "notion_trigger_new_comment",
     title: "New Comment",
     description: "Triggers when a new comment is created on a page or discussion",

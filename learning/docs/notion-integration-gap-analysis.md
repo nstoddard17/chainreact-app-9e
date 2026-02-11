@@ -140,9 +140,7 @@ Webhooks must be created manually through the Notion integration UI:
 
 | Trigger | Implementation | Type | Notes |
 |---------|---------------|------|-------|
-| New Page in Database | `notion_trigger_new_page` | Polling | Legacy polling-based trigger |
-| Page Updated | `notion_trigger_page_updated` | Polling | Legacy polling-based trigger |
-| **New Comment** | `notion_trigger_new_comment` | Webhook | ✅ NEW - comment.created event |
+| **New Comment** | `notion_trigger_new_comment` | Webhook | ✅ comment.created event |
 | **New Database Item** | `notion_trigger_database_item_created` | Webhook | ✅ NEW - page.created (filtered) |
 | **Database Item Updated** | `notion_trigger_database_item_updated` | Webhook | ✅ NEW - page.updated (filtered) |
 | **Page Content Updated** | `notion_trigger_page_content_updated` | Webhook | ✅ NEW - page.content_updated event |
@@ -256,11 +254,11 @@ Previously missing triggers are now **ALL IMPLEMENTED**:
 
 **Why:** Real-time notifications vs 1-15 minute polling delays
 
-#### 1.1 Convert Existing Triggers to Webhooks
+#### 1.1 Current Webhook-Based Triggers
 ```typescript
-// Update these triggers to use webhooks instead of polling
-- notion_trigger_new_page → Use webhook for page.created
-- notion_trigger_page_updated → Split into two webhook-based triggers
+// Notion triggers now use webhooks instead of polling
+- notion_trigger_database_item_created → page.created webhook event
+- notion_trigger_database_item_updated → page.updated/page.properties_updated webhook events
 ```
 
 #### 1.2 Add New Webhook Triggers

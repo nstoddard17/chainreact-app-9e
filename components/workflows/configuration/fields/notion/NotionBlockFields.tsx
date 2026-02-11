@@ -183,11 +183,15 @@ export function NotionBlockFields({
                 })
               }
             } else if (prop.type === 'todo_list_items' && prop.items) {
-              // For todo list items, store the items array properly
-              initialValues[prop.id] = { items: prop.items }
+              // For todo list items, store the items array with originalItems for deletion tracking
+              initialValues[prop.id] = {
+                items: prop.items,
+                originalItems: prop.items  // Track original items to detect deletions
+              }
               logger.debug('    📝 Initializing todo list from API:', {
                 fieldId: prop.id,
-                items: prop.items
+                items: prop.items,
+                originalItems: prop.items
               })
             } else if (prop.value !== undefined) {
               initialValues[prop.id] = prop.value
@@ -567,7 +571,9 @@ export function NotionBlockFields({
                       const updatedItems = currentTodoItems.map((todoItem: any, i: number) =>
                         i === index ? { ...todoItem, checked } : todoItem
                       )
-                      handleFieldChange(fieldKey, { items: updatedItems })
+                      // Preserve originalItems for deletion tracking
+                      const originalItems = fieldValues[fieldKey]?.originalItems
+                      handleFieldChange(fieldKey, { items: updatedItems, originalItems })
                     }}
                   />
                   <Input
@@ -578,7 +584,9 @@ export function NotionBlockFields({
                       const updatedItems = currentTodoItems.map((todoItem: any, i: number) =>
                         i === index ? { ...todoItem, content: e.target.value } : todoItem
                       )
-                      handleFieldChange(fieldKey, { items: updatedItems })
+                      // Preserve originalItems for deletion tracking
+                      const originalItems = fieldValues[fieldKey]?.originalItems
+                      handleFieldChange(fieldKey, { items: updatedItems, originalItems })
                     }}
                     placeholder="Enter to-do item..."
                     className="flex-1"
@@ -588,8 +596,9 @@ export function NotionBlockFields({
                     onClick={() => {
                       // Remove this to-do item
                       const newItems = currentTodoItems.filter((_: any, i: number) => i !== index)
-                      // Update with the new items structure
-                      handleFieldChange(fieldKey, { items: newItems })
+                      // Preserve originalItems for deletion tracking
+                      const originalItems = fieldValues[fieldKey]?.originalItems || currentTodoItems
+                      handleFieldChange(fieldKey, { items: newItems, originalItems })
                     }}
                     className="text-red-500 hover:text-red-700 p-1"
                   >
@@ -607,8 +616,9 @@ export function NotionBlockFields({
                     checked: false
                   }
                   const updatedItems = [...currentTodoItems, newItem]
-                  // Update with the new items structure
-                  handleFieldChange(fieldKey, { items: updatedItems })
+                  // Preserve originalItems for deletion tracking
+                  const originalItems = fieldValues[fieldKey]?.originalItems
+                  handleFieldChange(fieldKey, { items: updatedItems, originalItems })
                 }}
                 className="w-full p-2 border-2 border-dashed border-gray-300 hover:border-gray-400 rounded text-sm text-gray-600 hover:text-gray-800 transition-colors"
               >

@@ -83,7 +83,6 @@ export async function POST(
       'github_trigger_pr_updated',
       'slack_trigger_new_message',
       'discord_trigger_new_message',
-      'notion_trigger_page_updated',
       'trello_trigger_card_moved',
       // Microsoft Teams triggers
       'teams_trigger_new_message',

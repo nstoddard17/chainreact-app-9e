@@ -309,7 +309,7 @@ function determineTriggerType(provider: string, payload: any): string {
     'gmail': 'gmail_trigger_new_email',
     'slack': 'slack_trigger_new_message',
     'github': 'github_trigger_new_issue',
-    'notion': 'notion_trigger_new_page',
+    'notion': 'notion_trigger_database_item_created',
     'hubspot': 'hubspot_trigger_new_contact',
     'airtable': 'airtable_trigger_new_record',
     'discord': 'discord_trigger_new_message'

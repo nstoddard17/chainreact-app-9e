@@ -95,7 +95,7 @@ export class IntegrationWebhookService {
       // Development & Productivity
       'github': ['github_trigger_new_issue', 'github_trigger_issue_updated', 'github_trigger_new_pr', 'github_trigger_pr_updated'],
       'gitlab': ['gitlab_trigger_new_issue', 'gitlab_trigger_merge_request', 'gitlab_trigger_pipeline'],
-      'notion': ['notion_trigger_new_page', 'notion_trigger_page_updated', 'notion_trigger_database_update'],
+      'notion': ['notion_trigger_database_item_created', 'notion_trigger_database_item_updated'],
       'trello': ['trello_trigger_new_card', 'trello_trigger_card_updated', 'trello_trigger_card_moved', 'trello_trigger_comment_added', 'trello_trigger_member_changed'],
 
       // Business & CRM

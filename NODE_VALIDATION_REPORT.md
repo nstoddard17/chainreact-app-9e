@@ -867,15 +867,11 @@
 - **Issue**: No handler found for this node type
 - **Fix**: Create handler at lib/workflows/actions/misc/get_sales_analytics.ts
 
-#### notion (7)
+#### notion (6)
 
 **notion_trigger_new_page** (`notion_trigger_new_page`)
 - **Issue**: No handler found for this node type
 - **Fix**: Create handler at lib/workflows/actions/notion/new_page.ts
-
-**notion_trigger_page_updated** (`notion_trigger_page_updated`)
-- **Issue**: No handler found for this node type
-- **Fix**: Create handler at lib/workflows/actions/notion/page_updated.ts
 
 **notion_action_create_page** (`notion_action_create_page`)
 - **Issue**: No handler found for this node type

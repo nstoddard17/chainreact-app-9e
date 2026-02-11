@@ -372,38 +372,6 @@ export const MOCK_TRIGGER_DATA: Record<string, MockTriggerData> = {
   },
 
   // Notion triggers
-  'notion_trigger_new_page': {
-    type: 'notion_trigger_new_page',
-    description: 'New page added to a Notion database',
-    data: {
-      pageId: 'page_abc123def456',
-      databaseId: 'db_789xyz',
-      title: 'New Project Task',
-      url: 'https://notion.so/New-Project-Task-abc123def456',
-      createdAt: new Date().toISOString(),
-      properties: {
-        Name: { title: [{ text: { content: 'New Project Task' } }] },
-        Status: { select: { name: 'Not Started' } },
-        Priority: { select: { name: 'High' } }
-      }
-    }
-  },
-
-  'notion_trigger_page_updated': {
-    type: 'notion_trigger_page_updated',
-    description: 'Page properties or content updated in Notion',
-    data: {
-      pageId: 'page_abc123def456',
-      title: 'Updated Task Title',
-      url: 'https://notion.so/Updated-Task-abc123def456',
-      changedProperties: {
-        Status: { old: 'Not Started', new: 'In Progress' },
-        Priority: { old: 'High', new: 'Medium' }
-      },
-      updatedAt: new Date().toISOString()
-    }
-  },
-
   'notion_trigger_new_comment': {
     type: 'notion_trigger_new_comment',
     description: 'New comment created on a Notion page or discussion',

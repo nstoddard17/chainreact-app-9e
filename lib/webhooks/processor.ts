@@ -227,23 +227,46 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
       let matchesEventType = true
       if (nodeEventType) {
         // Map Notion event types to trigger types
+        // Supports both legacy event names and new data source API (2025-09-03) event names
         if (event.provider === 'notion') {
           const notionEventMap: Record<string, string[]> = {
             // Core triggers
-            'notion_trigger_new_page': ['page.created'],
-            'notion_trigger_page_updated': ['page.content_updated', 'page.property_values_updated', 'page.properties_updated', 'page.updated'],
             'notion_trigger_new_comment': ['comment.created'],
 
-            // Database item triggers
-            'notion_trigger_database_item_created': ['page.created'],
-            'notion_trigger_database_item_updated': ['page.updated', 'page.content_updated', 'page.property_values_updated', 'page.properties_updated'],
+            // Database item triggers - includes new data_source.row events
+            'notion_trigger_database_item_created': [
+              'page.created',
+              'data_source.row_created'  // New API event
+            ],
+            'notion_trigger_database_item_updated': [
+              'page.updated',
+              'page.content_updated',
+              'page.property_values_updated',
+              'page.properties_updated',
+              'data_source.row_updated'  // New API event
+            ],
 
-            // Granular page triggers
-            'notion_trigger_page_content_updated': ['page.content_updated', 'block.created', 'block.updated', 'block.deleted'],
-            'notion_trigger_page_properties_updated': ['page.property_values_updated', 'page.properties_updated'],
+            // Granular page triggers - includes new data_source events
+            'notion_trigger_page_content_updated': [
+              'page.content_updated',
+              'block.created',
+              'block.updated',
+              'block.deleted',
+              'data_source.row_content_updated'  // New API event (if exists)
+            ],
+            'notion_trigger_page_properties_updated': [
+              'page.property_values_updated',
+              'page.properties_updated',
+              'data_source.row_updated',  // New API - property value changes
+              'data_source.row_property_updated',  // New API - specific property change
+              'data_source.schema_updated'  // When properties are added/removed/modified
+            ],
 
             // Database schema trigger
-            'notion_trigger_database_schema_updated': ['database.updated', 'data_source.schema_updated']
+            'notion_trigger_database_schema_updated': [
+              'database.updated',
+              'data_source.schema_updated'
+            ]
           }
           const allowedEvents = notionEventMap[nodeEventType] || []
           matchesEventType = allowedEvents.includes(event.eventType)

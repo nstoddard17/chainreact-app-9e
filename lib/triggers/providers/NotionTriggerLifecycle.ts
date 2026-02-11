@@ -239,35 +239,54 @@ export class NotionTriggerLifecycle implements TriggerLifecycle {
   /**
    * Get Notion API event types for webhook subscription
    * These are the actual event types Notion API expects
+   * Supports both legacy event names and new data source API (2025-09-03) event names
    */
   private getNotionEventTypes(triggerType: string): string[] {
     switch (triggerType) {
-      // Page triggers
-      case 'notion_trigger_new_page':
-        return ['page.created']
-      case 'notion_trigger_page_updated':
-        return ['page.content_updated', 'page.property_values_updated', 'page.properties_updated', 'page.updated']
-
       // Comment triggers
       case 'notion_trigger_comment_added':
       case 'notion_trigger_new_comment':
         return ['comment.created']
 
-      // Database item triggers
+      // Database item triggers - includes new data_source.row events
       case 'notion_trigger_database_item_created':
-        return ['page.created']
+        return [
+          'page.created',
+          'data_source.row_created'  // New API event
+        ]
       case 'notion_trigger_database_item_updated':
-        return ['page.updated', 'page.content_updated', 'page.property_values_updated', 'page.properties_updated']
+        return [
+          'page.updated',
+          'page.content_updated',
+          'page.property_values_updated',
+          'page.properties_updated',
+          'data_source.row_updated'  // New API event
+        ]
 
-      // Granular page triggers
+      // Granular page triggers - includes new data_source events
       case 'notion_trigger_page_content_updated':
-        return ['page.content_updated', 'block.created', 'block.updated', 'block.deleted']
+        return [
+          'page.content_updated',
+          'block.created',
+          'block.updated',
+          'block.deleted',
+          'data_source.row_content_updated'  // New API event (if exists)
+        ]
       case 'notion_trigger_page_properties_updated':
-        return ['page.property_values_updated', 'page.properties_updated']
+        return [
+          'page.property_values_updated',
+          'page.properties_updated',
+          'data_source.row_updated',  // New API - property value changes
+          'data_source.row_property_updated',  // New API - specific property change
+          'data_source.schema_updated'  // When properties are added/removed/modified
+        ]
 
       // Database schema trigger
       case 'notion_trigger_database_schema_updated':
-        return ['database.updated', 'data_source.schema_updated']
+        return [
+          'database.updated',
+          'data_source.schema_updated'
+        ]
 
       default:
         return []

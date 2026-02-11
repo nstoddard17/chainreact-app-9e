@@ -414,8 +414,15 @@ export async function notionUpdatePage(
         continue
       }
 
-      // Skip empty values (but allow false for checkboxes)
-      if (value === undefined || value === null || value === '') {
+      // Skip undefined values (not set), but allow null/empty to clear properties
+      if (value === undefined) {
+        continue
+      }
+
+      // For explicitly cleared values (null or empty string), send null to clear the property
+      if (value === null || value === '') {
+        processedProperties[key] = null
+        logger.debug(`Clearing property ${key} (sending null to Notion API)`)
         continue
       }
 

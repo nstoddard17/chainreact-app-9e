@@ -611,8 +611,8 @@ const INTENT_TO_PLAN: Record<string, PlanTemplate> = {
 
   // Notion patterns
   "notion new page slack": {
-    nodeTypes: ["notion_trigger_new_page", "slack_action_send_message"],
-    description: "Notion new page → Slack",
+    nodeTypes: ["notion_trigger_database_item_created", "slack_action_send_message"],
+    description: "Notion new database item → Slack",
     configHints: {
       "slack_action_send_message": {
         message: "New Notion page created: {{trigger.title}}",
