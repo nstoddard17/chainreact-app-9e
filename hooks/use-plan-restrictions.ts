@@ -17,7 +17,9 @@ export interface PlanRestrictionCheck {
 
 export function usePlanRestrictions() {
   const profile = useAuthStore((state) => state.profile)
-  const currentPlan = (profile?.plan || 'free') as PlanTier
+  // Ensure we have a valid plan tier - fallback to 'free' if plan is invalid
+  const rawPlan = profile?.plan || 'free'
+  const currentPlan = (PLAN_LIMITS[rawPlan as PlanTier] ? rawPlan : 'free') as PlanTier
 
   /**
    * Check if the current user's plan has access to a specific feature

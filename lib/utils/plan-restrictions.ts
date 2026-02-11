@@ -282,7 +282,8 @@ export const PLAN_ECONOMICS = {
  * Check if a plan has access to a feature
  */
 export function hasFeatureAccess(plan: PlanTier, feature: keyof PlanLimits): boolean {
-  const limits = PLAN_LIMITS[plan]
+  // Defensive check: fallback to free plan if plan is invalid or undefined
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free
   const value = limits[feature]
 
   // For boolean features
@@ -327,7 +328,8 @@ export function canPerformAction(
   currentCount: number,
   required?: number
 ): { allowed: boolean; reason?: string; upgradeTo?: PlanTier } {
-  const limits = PLAN_LIMITS[plan]
+  // Defensive check: fallback to free plan if plan is invalid or undefined
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free
 
   switch (action) {
     case 'createWorkflow':
