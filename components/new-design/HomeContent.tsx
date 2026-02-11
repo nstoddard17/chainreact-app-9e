@@ -81,6 +81,11 @@ import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist"
+import { RecentFavorites } from "@/components/workflows/RecentFavorites"
+import { IntegrationHealthWidget } from "@/components/integrations/IntegrationHealthDashboard"
+import { useMilestoneTracker } from "@/hooks/useCelebrations"
+import { WelcomeBanner, StartTourButton } from "@/components/onboarding/OnboardingTour"
 
 interface Team {
   id: string
@@ -673,11 +678,21 @@ export function HomeContent() {
     return !validation.isValid && w.status !== 'active'
   }).length
 
+  // Track milestones and trigger celebrations
+  useMilestoneTracker(
+    stats.total,
+    stats.active,
+    connectedCount,
+    totalExecutions
+  )
+
   return (
     <>
     <div className="h-full w-full grid grid-cols-1 xl:grid-cols-4 gap-6">
       {/* Main Content Area - 3 columns */}
       <div className="xl:col-span-3 space-y-6">
+        {/* Welcome Banner for new users */}
+        <WelcomeBanner />
 
         {/* Dashboard Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1078,6 +1093,15 @@ export function HomeContent() {
 
       {/* Right Sidebar - Quick Actions & Activity */}
       <div className="xl:col-span-1 space-y-6">
+        {/* Onboarding Checklist */}
+        <OnboardingChecklist />
+
+        {/* Integration Health */}
+        <IntegrationHealthWidget />
+
+        {/* Recent & Favorites */}
+        <RecentFavorites maxItems={5} />
+
         {/* Quick Actions Card */}
         <div className="rounded-xl border bg-card p-6 shadow-sm">
           <h3 className="font-semibold mb-4 flex items-center gap-2">

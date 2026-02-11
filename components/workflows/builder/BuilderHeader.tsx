@@ -54,12 +54,16 @@ import {
   LocateFixed,
   Lock,
   Unlock,
+  FileTemplate,
+  MessageSquare,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useWorkflowActions } from "@/hooks/workflows/useWorkflowActions"
 import { useToast } from "@/hooks/use-toast"
 import { WorkflowVersionsDialog } from "./WorkflowVersionsDialog"
 import { WorkflowHistoryDialog } from "./WorkflowHistoryDialog"
+import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog"
+import { WorkflowCommentsDialog } from "../comments/WorkflowCommentsDialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface BuilderHeaderProps {
@@ -140,9 +144,11 @@ const BuilderHeaderComponent = ({
   const [isEditingName, setIsEditingName] = useState(false)
   const [showVersionsDialog, setShowVersionsDialog] = useState(false)
   const [showHistoryDialog, setShowHistoryDialog] = useState(false)
+  const [showCommentsDialog, setShowCommentsDialog] = useState(false)
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showSaveAsTemplateDialog, setShowSaveAsTemplateDialog] = useState(false)
   const [shareEmail, setShareEmail] = useState("")
   const [shareMode, setShareMode] = useState<"view" | "edit" | "duplicate">("view")
   const [shareUrl, setShareUrl] = useState("")
@@ -575,6 +581,20 @@ const BuilderHeaderComponent = ({
                 </TooltipTrigger>
                 <TooltipContent>Versions</TooltipContent>
               </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowCommentsDialog(true)}
+                    className="h-8 w-8 hidden md:inline-flex"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Comments</TooltipContent>
+              </Tooltip>
             </TooltipProvider>
           </div>
 
@@ -687,6 +707,11 @@ const BuilderHeaderComponent = ({
                 {isDuplicating ? "Duplicating…" : "Duplicate Workflow"}
               </DropdownMenuItem>
 
+              <DropdownMenuItem onClick={() => setShowSaveAsTemplateDialog(true)}>
+                <FileTemplate className="w-4 h-4 mr-2" />
+                Save as Template
+              </DropdownMenuItem>
+
               <DropdownMenuSeparator />
 
               {/* Mobile-only: API */}
@@ -701,6 +726,11 @@ const BuilderHeaderComponent = ({
               <DropdownMenuItem onClick={() => setShowVersionsDialog(true)} className="md:hidden">
                 <Layers className="w-4 h-4 mr-2" />
                 Versions
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setShowCommentsDialog(true)} className="md:hidden">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Comments
               </DropdownMenuItem>
 
               <DropdownMenuItem onClick={() => {
@@ -910,6 +940,24 @@ const BuilderHeaderComponent = ({
         workflowId={workflowId || ""}
         onSelectRun={onSelectHistoryRun}
         activeRunId={activeRunId}
+      />
+
+      <SaveAsTemplateDialog
+        open={showSaveAsTemplateDialog}
+        onOpenChange={setShowSaveAsTemplateDialog}
+        workflow={currentWorkflow ? {
+          id: currentWorkflow.id,
+          name: workflowName,
+          description: currentWorkflow.description,
+          nodes: currentWorkflow.nodes || [],
+          connections: currentWorkflow.connections || [],
+        } : null}
+      />
+
+      <WorkflowCommentsDialog
+        open={showCommentsDialog}
+        onOpenChange={setShowCommentsDialog}
+        workflowId={workflowId || ""}
       />
     </>
   )

@@ -11,9 +11,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { GitBranch, Clock, User, RotateCcw, Loader2, Eye } from "lucide-react"
+import { GitBranch, Clock, User, RotateCcw, Loader2, Eye, Save } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
-import { createClient } from "@/utils/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 
 interface WorkflowVersion {
@@ -24,6 +23,7 @@ interface WorkflowVersion {
   change_summary?: string
   is_published: boolean
   nodes_count: number
+  is_current?: boolean
   changes?: {
     added?: number
     modified?: number
@@ -47,8 +47,8 @@ export function WorkflowVersionsDialog({
   const [versions, setVersions] = useState<WorkflowVersion[]>([])
   const [loading, setLoading] = useState(true)
   const [restoringId, setRestoringId] = useState<string | null>(null)
+  const [savingSnapshot, setSavingSnapshot] = useState(false)
   const { toast } = useToast()
-  const supabase = createClient()
 
   useEffect(() => {
     if (open && workflowId) {
@@ -60,16 +60,11 @@ export function WorkflowVersionsDialog({
     try {
       setLoading(true)
 
-      // Fetch versions from workflow_versions table
-      const { data, error } = await supabase
-        .from('workflow_versions')
-        .select('*')
-        .eq('workflow_id', workflowId)
-        .order('created_at', { ascending: false })
+      const response = await fetch(`/api/workflows/${workflowId}/versions`)
+      if (!response.ok) throw new Error("Failed to load versions")
 
-      if (error) throw error
-
-      setVersions(data || [])
+      const data = await response.json()
+      setVersions(data.versions || [])
     } catch (error: any) {
       console.error('Error loading versions:', error)
       toast({
@@ -83,15 +78,30 @@ export function WorkflowVersionsDialog({
   }
 
   const handleRestore = async (versionId: string) => {
-    if (!onRestoreVersion) return
-
     setRestoringId(versionId)
     try {
-      await onRestoreVersion(versionId)
+      const response = await fetch(
+        `/api/workflows/${workflowId}/versions/${versionId}/restore`,
+        { method: "POST" }
+      )
+
+      if (!response.ok) throw new Error("Failed to restore version")
+
       toast({
         title: "Version Restored",
-        description: "Workflow has been restored to this version",
+        description: "Workflow has been restored to this version. Refreshing...",
       })
+
+      // Call the callback if provided
+      if (onRestoreVersion) {
+        await onRestoreVersion(versionId)
+      }
+
+      // Reload the page to reflect changes
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+
       onOpenChange(false)
     } catch (error: any) {
       toast({
@@ -101,6 +111,34 @@ export function WorkflowVersionsDialog({
       })
     } finally {
       setRestoringId(null)
+    }
+  }
+
+  const handleSaveSnapshot = async () => {
+    setSavingSnapshot(true)
+    try {
+      const response = await fetch(`/api/workflows/${workflowId}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ change_summary: "Manual snapshot" }),
+      })
+
+      if (!response.ok) throw new Error("Failed to save snapshot")
+
+      toast({
+        title: "Snapshot Saved",
+        description: "Current workflow state has been saved as a version",
+      })
+
+      loadVersions()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to save snapshot",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingSnapshot(false)
     }
   }
 
@@ -126,6 +164,19 @@ export function WorkflowVersionsDialog({
             <GitBranch className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>No version history yet</p>
             <p className="text-sm mt-2">Versions are saved automatically when you make changes</p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={handleSaveSnapshot}
+              disabled={savingSnapshot}
+            >
+              {savingSnapshot ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              Save Current Snapshot
+            </Button>
           </div>
         ) : (
           <ScrollArea className="h-[400px] pr-4">
@@ -139,10 +190,10 @@ export function WorkflowVersionsDialog({
                     <div className="flex-1 min-w-0">
                       {/* Version Header */}
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge variant={index === 0 ? "default" : "secondary"}>
+                        <Badge variant={version.is_current ? "default" : "secondary"}>
                           v{version.version_number}
                         </Badge>
-                        {index === 0 && (
+                        {version.is_current && (
                           <Badge variant="outline" className="text-xs">
                             Current
                           </Badge>
@@ -193,7 +244,7 @@ export function WorkflowVersionsDialog({
                     </div>
 
                     {/* Actions */}
-                    {index !== 0 && (
+                    {!version.is_current && (
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"

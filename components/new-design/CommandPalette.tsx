@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Command } from "cmdk"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -8,6 +8,7 @@ import { VisuallyHidden } from "@/components/ui/visually-hidden"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useCreateAndOpenWorkflow } from "@/hooks/useCreateAndOpenWorkflow"
+import { ShortcutBadge } from "@/components/common/GlobalKeyboardShortcuts"
 import {
   Home,
   Layout,
@@ -18,8 +19,6 @@ import {
   Plus,
   Search,
   Zap,
-  Play,
-  Eye,
   Loader2,
   Users,
   Building,
@@ -36,6 +35,10 @@ interface Template {
   description: string
   category: string
 }
+
+// Template cache with TTL (5 minutes)
+const TEMPLATE_CACHE_TTL = 5 * 60 * 1000
+let templateCache: { data: Template[]; timestamp: number } | null = null
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter()
@@ -56,17 +59,26 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     }
   }, [open, fetchWorkflows, fetchIntegrations])
 
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
+    // Check cache first
+    const now = Date.now()
+    if (templateCache && now - templateCache.timestamp < TEMPLATE_CACHE_TTL) {
+      setTemplates(templateCache.data)
+      return
+    }
+
     try {
       const response = await fetch("/api/templates/predefined")
       const data = await response.json()
       if (data.templates) {
+        // Update cache
+        templateCache = { data: data.templates, timestamp: now }
         setTemplates(data.templates)
       }
     } catch (error) {
       console.error("Error fetching templates:", error)
     }
-  }
+  }, [])
 
   // Reset loading state when dialog closes
   useEffect(() => {
@@ -165,24 +177,33 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               <Command.Group heading="Quick Actions">
                 <Command.Item
                   onSelect={() => handleSelect(() => createAndOpen(), "Creating workflow...")}
-                  className="flex items-center gap-2 px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
+                  className="flex items-center justify-between px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
                 >
-                  <Plus className="h-4 w-4" />
-                  <span>Create New Workflow</span>
+                  <div className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    <span>Create New Workflow</span>
+                  </div>
+                  <ShortcutBadge shortcut={{ key: "n", ctrl: true }} />
                 </Command.Item>
                 <Command.Item
                   onSelect={() => handleSelect(() => router.push("/apps"))}
-                  className="flex items-center gap-2 px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
+                  className="flex items-center justify-between px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
                 >
-                  <Zap className="h-4 w-4" />
-                  <span>Connect New App</span>
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    <span>Connect New App</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">g i</span>
                 </Command.Item>
                 <Command.Item
                   onSelect={() => handleSelect(() => router.push("/templates"))}
-                  className="flex items-center gap-2 px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
+                  className="flex items-center justify-between px-2 py-2 cursor-pointer rounded-sm hover:bg-accent"
                 >
-                  <Layers className="h-4 w-4" />
-                  <span>Browse Templates</span>
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    <span>Browse Templates</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">g t</span>
                 </Command.Item>
               </Command.Group>
             )}

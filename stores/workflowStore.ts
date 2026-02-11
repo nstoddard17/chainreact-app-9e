@@ -164,6 +164,7 @@ export interface Workflow {
     lastUpdatedAt?: string
     integrationPaused?: string
   }
+  tags?: string[]
 }
 
 interface WorkflowState {

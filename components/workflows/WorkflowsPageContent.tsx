@@ -15,6 +15,13 @@ import { useWorkflowCreation } from '@/hooks/useWorkflowCreation'
 import { useCreateAndOpenWorkflow } from '@/hooks/useCreateAndOpenWorkflow'
 import { WorkspaceSelectionModal } from '@/components/workflows/WorkspaceSelectionModal'
 import { ConnectedNodesDisplay } from '@/components/workflows/ConnectedNodesDisplay'
+import { WorkflowStatusBadge, validateWorkflow } from '@/components/workflows/WorkflowStatusBadge'
+import { useKeyboardShortcuts, getWorkflowShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useKeyboardShortcutsHelp } from '@/components/common/KeyboardShortcutsHelp'
+import { WorkflowFloatingActionBar } from '@/components/common/FloatingActionBar'
+import { AdvancedFilters, defaultFilters, matchesFilters, type WorkflowFilters, type SavedFilter } from '@/components/workflows/AdvancedFilters'
+import { FavoriteButton } from '@/components/workflows/RecentFavorites'
+import { useWorkflowFavorites } from '@/hooks/useWorkflowFavorites'
 import { Button } from '@/components/ui/button'
 import { ProfessionalSearch } from '@/components/ui/professional-search'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -188,6 +195,7 @@ function WorkflowsContent() {
     handleCancelWorkspaceSelection
   } = useWorkflowCreation()
   const { createAndOpen, isCreating: isCreatingWorkflow } = useCreateAndOpenWorkflow()
+  const { trackAccess } = useWorkflowFavorites()
 
   // Version update: No dropdowns, tabs properly aligned - v4
   const statsLastFetchRef = useRef<number>(0)
@@ -209,6 +217,45 @@ function WorkflowsContent() {
   const [searchQuery, setSearchQuery] = useState('')
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all')
   const [ownershipMenuOpen, setOwnershipMenuOpen] = useState(false)
+  const [advancedFilters, setAdvancedFilters] = useState<WorkflowFilters>(defaultFilters)
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([])
+
+  // Load saved filters from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('workflow_saved_filters')
+    if (saved) {
+      try {
+        setSavedFilters(JSON.parse(saved))
+      } catch (e) {
+        // Invalid JSON, ignore
+      }
+    }
+  }, [])
+
+  // Save filters to localStorage
+  const handleSaveFilter = useCallback((name: string, filters: WorkflowFilters) => {
+    const newFilter: SavedFilter = {
+      id: Date.now().toString(),
+      name,
+      filters,
+      createdAt: new Date().toISOString()
+    }
+    const updated = [...savedFilters, newFilter]
+    setSavedFilters(updated)
+    localStorage.setItem('workflow_saved_filters', JSON.stringify(updated))
+  }, [savedFilters])
+
+  const handleDeleteSavedFilter = useCallback((id: string) => {
+    const updated = savedFilters.filter(f => f.id !== id)
+    setSavedFilters(updated)
+    localStorage.setItem('workflow_saved_filters', JSON.stringify(updated))
+  }, [savedFilters])
+
+  const handleApplySavedFilter = useCallback((savedFilter: SavedFilter) => {
+    setAdvancedFilters(savedFilter.filters)
+    // Also sync ownership filter for backwards compatibility
+    setOwnershipFilter(savedFilter.filters.ownership)
+  }, [])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [selectedFolderFilter, setSelectedFolderFilter] = useState<string | null>(null)
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null) // For nested folder navigation
@@ -490,11 +537,21 @@ function WorkflowsContent() {
         const workflowName = (w.name ?? '').toLowerCase()
         const matchesSearch = workflowName.includes(searchLower)
 
-        let matchesOwnership = true
-        if (ownershipFilter === 'owned') {
-          matchesOwnership = w.user_id === user?.id
-        } else if (ownershipFilter === 'shared') {
-          matchesOwnership = w.user_id !== user?.id
+        // Use advanced filters if any are active, otherwise fall back to simple ownership
+        const hasAdvancedFilters = advancedFilters.status.length > 0 ||
+          advancedFilters.ownership !== 'all' ||
+          advancedFilters.dateRange !== 'all'
+
+        let matchesAdvanced = true
+        if (hasAdvancedFilters) {
+          matchesAdvanced = matchesFilters(w, advancedFilters, user?.id, validateWorkflow)
+        } else {
+          // Fall back to simple ownership filter for backwards compatibility
+          if (ownershipFilter === 'owned') {
+            matchesAdvanced = w.user_id === user?.id
+          } else if (ownershipFilter === 'shared') {
+            matchesAdvanced = w.user_id !== user?.id
+          }
         }
 
         let matchesFolder = true
@@ -504,7 +561,7 @@ function WorkflowsContent() {
           matchesFolder = !trashFolderId || w.folder_id !== trashFolderId
         }
 
-        return matchesSearch && matchesOwnership && matchesFolder
+        return matchesSearch && matchesAdvanced && matchesFolder
       })
       .sort((a, b) => {
         let comparison = 0
@@ -527,7 +584,7 @@ function WorkflowsContent() {
 
         return sortOrder === 'asc' ? comparison : -comparison
       })
-  }, [isViewingTrash, trashedWorkflows, activeWorkflows, searchQuery, ownershipFilter, user?.id, selectedFolderFilter, trashFolder?.id, sortField, sortOrder])
+  }, [isViewingTrash, trashedWorkflows, activeWorkflows, searchQuery, ownershipFilter, advancedFilters, user?.id, selectedFolderFilter, trashFolder?.id, sortField, sortOrder])
 
   // Filter folders based on search query
   const filteredFolders = visibleFolders.filter((folder) => {
@@ -1496,6 +1553,52 @@ function WorkflowsContent() {
     return ownershipOptions.find(option => option.value === ownershipFilter)?.label || 'All Workflows'
   }
 
+  // Search input ref for focus shortcut
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Keyboard shortcuts
+  const shortcuts = getWorkflowShortcuts({
+    onNew: () => {
+      if (!isCreatingWorkflow) {
+        createAndOpen()
+      }
+    },
+    onDuplicate: () => {
+      if (selectedIds.length === 1) {
+        const workflow = workflows.find(w => w.id === selectedIds[0])
+        if (workflow) {
+          handleDuplicate(workflow)
+        }
+      }
+    },
+    onDelete: () => {
+      if (selectedIds.length > 0) {
+        openDeleteDialogForWorkflows(selectedIds)
+      }
+    },
+    onEdit: () => {
+      if (selectedIds.length === 1) {
+        router.push(`/workflows/builder/${selectedIds[0]}`)
+      }
+    },
+    onSelectAll: handleSelectAll,
+    onDeselectAll: () => setSelectedIds([]),
+    onToggleStatus: () => {
+      if (selectedIds.length === 1) {
+        const workflow = workflows.find(w => w.id === selectedIds[0])
+        if (workflow) {
+          handleToggleStatus(workflow)
+        }
+      }
+    },
+    onSearch: () => {
+      searchInputRef.current?.focus()
+    }
+  })
+
+  useKeyboardShortcuts({ shortcuts })
+  const { HelpDialog, isOpen: helpOpen, setIsOpen: setHelpOpen } = useKeyboardShortcutsHelp(shortcuts)
+
   return (
     <>
       <NewAppLayout title="Workflows" subtitle="Build and manage your automations">
@@ -1532,6 +1635,7 @@ function WorkflowsContent() {
             {/* Search Bar - expandable */}
             <div className="flex-1 px-3">
               <ProfessionalSearch
+                ref={searchInputRef}
                 placeholder={activeTab === 'workflows' ? "Search workflows..." : "Search folders..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -1600,37 +1704,20 @@ function WorkflowsContent() {
               </Button>
             )}
 
-            {/* Ownership Filter */}
+            {/* Advanced Filters */}
             {activeTab === 'workflows' && (
-              <DropdownMenu open={ownershipMenuOpen} onOpenChange={setOwnershipMenuOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-9 px-3 justify-between border-2 bg-white text-slate-700",
-                      ownershipMenuOpen ? "border-orange-500" : "border-orange-400"
-                    )}
-                  >
-                    <span className="mr-2">{getCurrentFilterLabel()}</span>
-                    <span className="flex flex-col leading-none text-slate-600 text-[10px]">
-                      <ChevronUp className="w-3 h-3 -mb-[2px]" />
-                      <ChevronDown className="w-3 h-3 -mt-[2px]" />
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {ownershipOptions.map(option => (
-                    <DropdownMenuItem
-                      key={option.value}
-                      onClick={() => handleOwnershipFilterChange(option.value)}
-                      className={cn(!selectedFolderFilter && ownershipFilter === option.value && "bg-slate-100")}
-                    >
-                      {option.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <AdvancedFilters
+                filters={advancedFilters}
+                onFiltersChange={(filters) => {
+                  setAdvancedFilters(filters)
+                  // Sync ownership filter for backwards compatibility
+                  setOwnershipFilter(filters.ownership)
+                }}
+                savedFilters={savedFilters}
+                onSaveFilter={handleSaveFilter}
+                onDeleteSavedFilter={handleDeleteSavedFilter}
+                onApplySavedFilter={handleApplySavedFilter}
+              />
             )}
 
             {/* Create Button - hide "Create folder" when viewing trash */}
@@ -1896,11 +1983,15 @@ function WorkflowsContent() {
                         <td className="px-3 py-4">
                           <div className="flex items-center gap-2">
                             <span
-                              onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
+                              onClick={() => {
+                                trackAccess(workflow.id)
+                                router.push(`/workflows/builder/${workflow.id}`)
+                              }}
                               className="font-medium text-sm cursor-pointer hover:underline"
                             >
                               {workflow.name}
                             </span>
+                            <FavoriteButton workflowId={workflow.id} size="sm" />
                             <div className="flex items-center gap-1 flex-wrap">
                               {/* Permission Badge */}
                               {workflow.user_permission && (
@@ -2002,24 +2093,32 @@ function WorkflowsContent() {
                           </div>
                         </td>
                         <td className="px-3 py-4">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={workflow.status === 'active'}
-                                    onCheckedChange={() => handleToggleStatus(workflow)}
-                                    disabled={loading[`status-${workflow.id}`]}
-                                  />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                <p className="text-xs">
-                                  {workflow.status === 'active' ? 'Deactivate workflow' : 'Activate workflow'}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <div className="flex items-center gap-2">
+                            <WorkflowStatusBadge
+                              status={workflow.status || 'draft'}
+                              validation={validateWorkflow(workflow)}
+                              size="sm"
+                            />
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center">
+                                    <Switch
+                                      checked={workflow.status === 'active'}
+                                      onCheckedChange={() => handleToggleStatus(workflow)}
+                                      disabled={loading[`status-${workflow.id}`]}
+                                      className="scale-90"
+                                    />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-xs">
+                                    {workflow.status === 'active' ? 'Deactivate workflow' : 'Activate workflow'}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
                         </td>
                         <td className="px-3 py-4">
                           <TooltipProvider>
@@ -2165,7 +2264,10 @@ function WorkflowsContent() {
                             "group relative bg-white rounded-xl border-2 p-5 hover:shadow-lg hover:border-orange-300 transition-all cursor-pointer",
                             selectedIds.includes(workflow.id) ? "border-orange-400 bg-orange-50" : "border-slate-200"
                           )}
-                          onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
+                          onClick={() => {
+                            trackAccess(workflow.id)
+                            router.push(`/workflows/builder/${workflow.id}`)
+                          }}
                         >
                           {/* Checkbox */}
                           <div className="absolute top-3 left-3">
@@ -2174,6 +2276,11 @@ function WorkflowsContent() {
                               onCheckedChange={() => handleSelectOne(workflow.id)}
                               onClick={(e) => e.stopPropagation()}
                             />
+                          </div>
+
+                          {/* Favorite Button */}
+                          <div className="absolute top-3 left-10" onClick={(e) => e.stopPropagation()}>
+                            <FavoriteButton workflowId={workflow.id} size="sm" />
                           </div>
 
                           {/* Actions Dropdown */}
@@ -2477,26 +2584,34 @@ function WorkflowsContent() {
                               </Tooltip>
                             </TooltipProvider>
 
-                            {/* Status Toggle */}
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                    <Switch
-                                      checked={workflow.status === 'active'}
-                                      onCheckedChange={() => handleToggleStatus(workflow)}
-                                      disabled={loading[`status-${workflow.id}`]}
-                                      className="scale-75"
-                                    />
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  <p className="text-xs">
-                                    {workflow.status === 'active' ? 'Deactivate workflow' : 'Activate workflow'}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            {/* Status Badge + Toggle */}
+                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <WorkflowStatusBadge
+                                status={workflow.status || 'draft'}
+                                validation={validateWorkflow(workflow)}
+                                size="sm"
+                                showLabel={false}
+                              />
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center">
+                                      <Switch
+                                        checked={workflow.status === 'active'}
+                                        onCheckedChange={() => handleToggleStatus(workflow)}
+                                        disabled={loading[`status-${workflow.id}`]}
+                                        className="scale-75"
+                                      />
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p className="text-xs">
+                                      {workflow.status === 'active' ? 'Deactivate workflow' : 'Activate workflow'}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
 
                             <div className="text-xs text-slate-600">
                               {stats.total} runs
@@ -3512,6 +3627,28 @@ function WorkflowsContent() {
         onWorkspaceSelected={handleWorkspaceSelected}
         onCancel={handleCancelWorkspaceSelection}
       />
+
+      {/* Keyboard Shortcuts Help Dialog */}
+      <HelpDialog />
+
+      {/* Floating Action Bar - more discoverable than inline bar */}
+      {activeTab === 'workflows' && (
+        <WorkflowFloatingActionBar
+          selectedIds={selectedIds}
+          onDeselect={() => setSelectedIds([])}
+          onDuplicate={() => handleBulkDuplicate(selectedIds)}
+          onMove={() => handleBulkMove(selectedIds)}
+          onShare={() => handleBulkShare(selectedIds)}
+          onDelete={() => handleBulkDelete(selectedIds)}
+          onRestore={() => handleBulkRestore(selectedIds)}
+          onToggleStatus={selectedIds.length === 1 ? () => {
+            const workflow = workflows.find(w => w.id === selectedIds[0])
+            if (workflow) handleToggleStatus(workflow)
+          } : undefined}
+          isTrashView={isViewingTrash}
+          loading={loading}
+        />
+      )}
     </>
   )
 }

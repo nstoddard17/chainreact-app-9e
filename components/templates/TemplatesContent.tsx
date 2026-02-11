@@ -43,9 +43,18 @@ import {
   HelpCircle,
   AlertTriangle,
   Bug,
+  TrendingUp,
+  Flame,
+  Sparkles,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useAuthStore } from "@/stores/authStore"
+import {
+  TemplatePopularityBadge,
+  DifficultyBadge,
+  PopularityScore,
+} from "@/components/templates/TemplatePopularityBadge"
+import { getPopularityInfo, sortByPopularity } from "@/lib/templates/popularity"
 
 interface Template {
   id: string
@@ -271,6 +280,12 @@ const categories = [
   "Data Management",
 ]
 const difficulties = ["All", "Beginner", "Intermediate", "Advanced"]
+const sortOptions = [
+  { value: "popular", label: "Most Popular" },
+  { value: "downloads", label: "Most Downloads" },
+  { value: "rating", label: "Highest Rated" },
+  { value: "newest", label: "Newest First" },
+]
 
 export function TemplatesContent() {
   const { profile } = useAuthStore()
@@ -280,6 +295,7 @@ export function TemplatesContent() {
   const [selectedDifficulty, setSelectedDifficulty] = useState("All")
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("public")
+  const [sortBy, setSortBy] = useState("popular")
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
@@ -294,16 +310,34 @@ export function TemplatesContent() {
     is_public: false,
   })
 
-  const filteredTemplates = templates.filter((template) => {
-    const matchesCategory = selectedCategory === "All" || template.category === selectedCategory
-    const matchesDifficulty = selectedDifficulty === "All" || template.difficulty === selectedDifficulty
-    const matchesSearch =
-      template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      template.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      template.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredTemplates = (() => {
+    const filtered = templates.filter((template) => {
+      const matchesCategory = selectedCategory === "All" || template.category === selectedCategory
+      const matchesDifficulty = selectedDifficulty === "All" || template.difficulty === selectedDifficulty
+      const matchesSearch =
+        template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        template.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        template.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
 
-    return matchesCategory && matchesDifficulty && matchesSearch
-  })
+      return matchesCategory && matchesDifficulty && matchesSearch
+    })
+
+    // Apply sorting
+    switch (sortBy) {
+      case "popular":
+        return sortByPopularity(filtered)
+      case "downloads":
+        return [...filtered].sort((a, b) => b.downloads - a.downloads)
+      case "rating":
+        return [...filtered].sort((a, b) => b.rating - a.rating)
+      case "newest":
+        return [...filtered].sort((a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+      default:
+        return filtered
+    }
+  })()
 
   const filteredPersonalTemplates = personalTemplates.filter((template) => {
     const matchesCategory = selectedCategory === "All" || template.category === selectedCategory
@@ -384,7 +418,7 @@ export function TemplatesContent() {
     return (
       <Card
         key={template.id}
-        className="group hover:shadow-xl transition-all duration-300 border-gray-200 hover:border-orange-300 bg-white hover:scale-105"
+        className="group hover:shadow-xl transition-all duration-300 border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-600 bg-white dark:bg-gray-900 hover:scale-105"
       >
         <CardHeader className="pb-4">
           <div className="flex items-start justify-between mb-4">
@@ -396,32 +430,26 @@ export function TemplatesContent() {
               {template.rating}
             </div>
           </div>
-          <CardTitle className="text-xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors">
+          <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
             {template.title}
           </CardTitle>
-          <CardDescription className="text-gray-600 line-clamp-2">{template.description}</CardDescription>
+          <CardDescription className="text-gray-600 dark:text-gray-400 line-clamp-2">{template.description}</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Badges */}
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary" className="bg-orange-100 text-orange-700">
+          {/* Popularity & Difficulty Badges */}
+          <div className="flex flex-wrap items-center gap-2">
+            <TemplatePopularityBadge
+              template={template}
+              allTemplates={templates}
+              showDifficulty={true}
+              compact={false}
+            />
+            <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
               {template.category}
             </Badge>
-            <Badge
-              variant="outline"
-              className={`${
-                template.difficulty === "Beginner"
-                  ? "border-green-300 text-green-700"
-                  : template.difficulty === "Intermediate"
-                    ? "border-amber-300 text-amber-700"
-                    : "border-red-300 text-red-700"
-              }`}
-            >
-              {template.difficulty}
-            </Badge>
             {template.is_personal && (
-              <Badge variant="outline" className="border-orange-300 text-orange-700">
+              <Badge variant="outline" className="border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400">
                 Personal
               </Badge>
             )}
@@ -430,24 +458,30 @@ export function TemplatesContent() {
           {/* Tags */}
           <div className="flex flex-wrap gap-1">
             {template.tags.slice(0, 3).map((tag, index) => (
-              <span key={index} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+              <span key={index} className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">
                 #{tag}
               </span>
             ))}
             {template.tags.length > 3 && (
-              <span className="text-xs text-gray-500">+{template.tags.length - 3} more</span>
+              <span className="text-xs text-gray-500 dark:text-gray-500">+{template.tags.length - 3} more</span>
             )}
           </div>
 
           {/* Stats */}
-          <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
               {template.time} setup
             </div>
-            <div className="flex items-center gap-1">
-              <Download className="h-4 w-4" />
-              {template.downloads.toLocaleString()}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                {template.rating}
+              </div>
+              <div className="flex items-center gap-1">
+                <Download className="h-4 w-4" />
+                {template.downloads.toLocaleString()}
+              </div>
             </div>
           </div>
 
@@ -619,13 +653,13 @@ export function TemplatesContent() {
       </section>
 
       {/* Search and Filters */}
-      <section className="py-12 bg-gray-50">
+      <section className="py-12 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Search */}
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search Templates</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search Templates</label>
                 <ProfessionalSearch
                   placeholder="Search by name, description, or tags..."
                   value={searchQuery}
@@ -637,12 +671,12 @@ export function TemplatesContent() {
 
               {/* Category Filter */}
               <div className="lg:w-64">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
                 <div className="relative">
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-gray-50 hover:bg-white transition-colors appearance-none cursor-pointer"
+                    className="w-full px-4 py-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700 transition-colors appearance-none cursor-pointer"
                   >
                     {categories.map((category) => (
                       <option key={category} value={category}>
@@ -656,12 +690,12 @@ export function TemplatesContent() {
 
               {/* Difficulty Filter */}
               <div className="lg:w-48">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Difficulty</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Difficulty</label>
                 <div className="relative">
                   <select
                     value={selectedDifficulty}
                     onChange={(e) => setSelectedDifficulty(e.target.value)}
-                    className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 bg-gray-50 hover:bg-white transition-colors appearance-none cursor-pointer"
+                    className="w-full px-4 py-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700 transition-colors appearance-none cursor-pointer"
                   >
                     {difficulties.map((difficulty) => (
                       <option key={difficulty} value={difficulty}>
@@ -670,6 +704,25 @@ export function TemplatesContent() {
                     ))}
                   </select>
                   <BarChart3 className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Sort By */}
+              <div className="lg:w-48">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sort By</label>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="w-full px-4 py-4 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800 hover:bg-white dark:hover:bg-gray-700 transition-colors appearance-none cursor-pointer"
+                  >
+                    {sortOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <TrendingUp className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 pointer-events-none" />
                 </div>
               </div>
 
@@ -719,7 +772,7 @@ export function TemplatesContent() {
       </section>
 
       {/* Templates Tabs */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-16 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
             <TabsList className="grid w-full grid-cols-2">
@@ -729,8 +782,8 @@ export function TemplatesContent() {
 
             <TabsContent value="public" className="space-y-8">
               <div className="text-center mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">{filteredTemplates.length} Public Templates Found</h2>
-                <p className="text-lg text-gray-600">Choose a template to get started or customize it to fit your needs</p>
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">{filteredTemplates.length} Public Templates Found</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-400">Choose a template to get started or customize it to fit your needs</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -760,8 +813,8 @@ export function TemplatesContent() {
 
             <TabsContent value="personal" className="space-y-8">
               <div className="text-center mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">{filteredPersonalTemplates.length} Personal Templates</h2>
-                <p className="text-lg text-gray-600">Your saved and created templates</p>
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">{filteredPersonalTemplates.length} Personal Templates</h2>
+                <p className="text-lg text-gray-600 dark:text-gray-400">Your saved and created templates</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

@@ -46,9 +46,18 @@ import {
   Gift,
   Info,
   Building,
-  Plus
+  Plus,
+  PanelLeftClose,
+  PanelLeft
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useSidebarState } from "@/hooks/useSidebarState"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import dynamic from "next/dynamic"
 import { VisuallyHidden } from "@/components/ui/visually-hidden"
 
@@ -63,6 +72,7 @@ interface NavItem {
   href: string
   icon: React.ComponentType<{ className?: string }>
   badge?: string
+  tourId?: string
 }
 
 export function NewSidebar() {
@@ -83,6 +93,9 @@ export function NewSidebar() {
   const [socialPostUrl, setSocialPostUrl] = useState("")
   const { toast } = useToast()
   const [isMounted, setIsMounted] = useState(false)
+
+  // Collapsible sidebar state
+  const { isCollapsed, toggleSidebar } = useSidebarState()
 
   // Route prefetching for better navigation performance
   const { prefetchRoute } = useRoutePrefetch()
@@ -116,10 +129,10 @@ export function NewSidebar() {
   const mainNav: NavItem[] = [
     // Home icon only for personal workspace, Zap icon for team/org workspaces
     // Use Zap as default until mounted to prevent hydration mismatch
-    { label: "Workflows", href: "/workflows", icon: isMounted && isPersonalWorkspace ? Home : Zap },
-    { label: "Templates", href: "/templates", icon: Layers },
-    { label: "Apps", href: "/apps", icon: Layout },
-    { label: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
+    { label: "Workflows", href: "/workflows", icon: isMounted && isPersonalWorkspace ? Home : Zap, tourId: "workflows" },
+    { label: "Templates", href: "/templates", icon: Layers, tourId: "templates" },
+    { label: "Apps", href: "/apps", icon: Layout, tourId: "apps" },
+    { label: "AI Assistant", href: "/ai-assistant", icon: Sparkles, tourId: "ai-assistant" },
   ]
 
   const secondaryNav: NavItem[] = [
@@ -149,9 +162,16 @@ export function NewSidebar() {
   const displayName = profile?.username || profile?.email?.split('@')[0] || "User"
 
   return (
-    <div className="flex flex-col h-screen w-60 bg-white dark:bg-gray-950">
+    <TooltipProvider delayDuration={0}>
+    <div
+      data-tour="sidebar"
+      className={cn(
+        "flex flex-col h-screen bg-white dark:bg-gray-950 border-r transition-all duration-200",
+        isCollapsed ? "w-16" : "w-60"
+      )}
+    >
       {/* Logo */}
-      <div className="h-14 flex items-center px-4">
+      <div className="h-14 flex items-center justify-between px-3">
         <button
           onClick={() => router.push('/')}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -161,79 +181,157 @@ export function NewSidebar() {
             alt="ChainReact Logo"
             width={40}
             height={40}
-            className="w-10 h-10"
+            className={cn("w-10 h-10", isCollapsed && "mx-auto")}
           />
-          <span className="font-semibold text-lg">ChainReact</span>
+          {!isCollapsed && <span className="font-semibold text-lg">ChainReact</span>}
         </button>
+        {!isCollapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </Button>
+        )}
       </div>
 
+      {/* Expand button when collapsed */}
+      {isCollapsed && (
+        <div className="px-2 pb-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebar}
+                className="w-full h-10 text-muted-foreground hover:text-foreground"
+              >
+                <PanelLeft className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Expand sidebar</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
+
       {/* New Workflow Button */}
-      <div className="px-3 pt-2 pb-2">
-        <Button
-          onClick={() => initiateWorkflowCreation(() => createAndOpen())}
-          disabled={isCreatingWorkflow}
-          className="w-full justify-center gap-2 h-10"
-          size="default"
-        >
-          <Plus className="w-4 h-4" />
-          {isCreatingWorkflow ? 'Creating...' : 'Create New Workflow'}
-        </Button>
+      <div data-tour="create-workflow" className={cn("pt-2 pb-2", isCollapsed ? "px-2" : "px-3")}>
+        {isCollapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => initiateWorkflowCreation(() => createAndOpen())}
+                disabled={isCreatingWorkflow}
+                className="w-full h-10"
+                size="icon"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Create New Workflow</p>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <Button
+            onClick={() => initiateWorkflowCreation(() => createAndOpen())}
+            disabled={isCreatingWorkflow}
+            className="w-full justify-center gap-2 h-10"
+            size="default"
+          >
+            <Plus className="w-4 h-4" />
+            {isCreatingWorkflow ? 'Creating...' : 'Create New Workflow'}
+          </Button>
+        )}
       </div>
 
       {/* Main Navigation */}
       <div className="flex-1 overflow-y-auto pt-2 pb-4">
-        <nav className="px-3 space-y-1">
+        <nav className={cn("space-y-1", isCollapsed ? "px-2" : "px-3")}>
           {mainNav.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
 
-            return (
+            const navButton = (
               <button
                 key={item.href}
+                data-tour={item.tourId}
                 onClick={() => router.push(item.href)}
                 onMouseEnter={() => prefetchRoute(item.href)}
                 onFocus={() => prefetchRoute(item.href)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "w-full flex items-center rounded-lg text-sm font-medium transition-colors",
+                  isCollapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                   active
                     ? "bg-gray-100 dark:bg-gray-800 text-foreground font-semibold"
                     : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-900 hover:text-foreground"
                 )}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
-                <span>{item.label}</span>
-                {item.badge && (
-                  <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-                    {item.badge}
-                  </span>
+                {!isCollapsed && (
+                  <>
+                    <span>{item.label}</span>
+                    {item.badge && (
+                      <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
                 )}
               </button>
+            )
+
+            return isCollapsed ? (
+              <Tooltip key={item.href}>
+                <TooltipTrigger asChild>{navButton}</TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>{item.label}</p>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              navButton
             )
           })}
         </nav>
 
         {/* Secondary Navigation */}
-        <nav className="px-3 space-y-1 mt-2">
+        <nav className={cn("space-y-1 mt-2", isCollapsed ? "px-2" : "px-3")}>
           {secondaryNav.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href)
 
-            return (
+            const navButton = (
               <button
                 key={item.href}
                 onClick={() => router.push(item.href)}
                 onMouseEnter={() => prefetchRoute(item.href)}
                 onFocus={() => prefetchRoute(item.href)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "w-full flex items-center rounded-lg text-sm font-medium transition-colors",
+                  isCollapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                   active
                     ? "bg-gray-100 dark:bg-gray-800 text-foreground font-semibold"
                     : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-900 hover:text-foreground"
                 )}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
-                <span>{item.label}</span>
+                {!isCollapsed && <span>{item.label}</span>}
               </button>
+            )
+
+            return isCollapsed ? (
+              <Tooltip key={item.href}>
+                <TooltipTrigger asChild>{navButton}</TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>{item.label}</p>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              navButton
             )
           })}
         </nav>
@@ -241,25 +339,37 @@ export function NewSidebar() {
 
         {/* Admin Navigation - Only show for admins */}
         {isAdmin && adminNav.length > 0 && (
-          <nav className="px-3 space-y-1 mt-2 pt-2 border-t border-gray-200 dark:border-gray-800">
+          <nav className={cn("space-y-1 mt-2 pt-2 border-t border-gray-200 dark:border-gray-800", isCollapsed ? "px-2" : "px-3")}>
             {adminNav.map((item) => {
               const Icon = item.icon
               const active = isActive(item.href)
 
-              return (
+              const navButton = (
                 <button
                   key={item.href}
                   onClick={() => router.push(item.href)}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    "w-full flex items-center rounded-lg text-sm font-medium transition-colors",
+                    isCollapsed ? "justify-center px-2 py-2" : "gap-3 px-3 py-2",
                     active
                       ? "bg-red-100 dark:bg-red-900/30 text-red-900 dark:text-red-100 font-semibold"
                       : "text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                   )}
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span>{item.label}</span>
+                  {!isCollapsed && <span>{item.label}</span>}
                 </button>
+              )
+
+              return isCollapsed ? (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>{navButton}</TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>{item.label}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                navButton
               )
             })}
           </nav>
@@ -267,93 +377,148 @@ export function NewSidebar() {
       </div>
 
       {/* Tasks Widget - Personal Workspace */}
-      <div className="px-3 pb-3">
-        <div className="bg-white dark:bg-gray-900 rounded-lg border p-3 space-y-2">
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">Tasks This Month</span>
-              <button
-                onClick={() => setCreditsModalOpen(true)}
-                className="hover:bg-accent rounded-full p-0.5 transition-colors"
-              >
-                <Info className="w-3.5 h-3.5 text-muted-foreground cursor-pointer" />
-              </button>
-            </div>
-            {/* Workspace Label */}
-            <div className="flex items-center gap-1.5 px-1">
-              <User className="w-3 h-3 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Personal Workspace</span>
-            </div>
+      {!isCollapsed ? (
+        <div className="px-3 pb-3">
+          <div className="bg-white dark:bg-gray-900 rounded-lg border p-3 space-y-2">
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {tasksUsed} / {tasksLimit} used
-                  </span>
+              <div className="flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Tasks This Month</span>
+                <button
+                  onClick={() => setCreditsModalOpen(true)}
+                  className="hover:bg-accent rounded-full p-0.5 transition-colors"
+                >
+                  <Info className="w-3.5 h-3.5 text-muted-foreground cursor-pointer" />
+                </button>
+              </div>
+              {/* Workspace Label */}
+              <div className="flex items-center gap-1.5 px-1">
+                <User className="w-3 h-3 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Personal Workspace</span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
-                    {Math.round((tasksUsed / tasksLimit) * 100)}%
-                  </span>
+                    {tasksUsed} / {tasksLimit} used
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {Math.round((tasksUsed / tasksLimit) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-1.5">
+                    <div
+                      className="bg-primary rounded-full h-1.5 transition-all"
+                      style={{ width: `${Math.min((tasksUsed / tasksLimit) * 100, 100)}%` }}
+                    />
                 </div>
-                <div className="w-full bg-muted rounded-full h-1.5">
-                  <div
-                    className="bg-primary rounded-full h-1.5 transition-all"
-                    style={{ width: `${Math.min((tasksUsed / tasksLimit) * 100, 100)}%` }}
-                  />
               </div>
             </div>
+            <Button
+              size="sm"
+              className="w-full h-8"
+              onClick={() => setUpgradePlanModalOpen(true)}
+            >
+              <Crown className="w-3 h-3 mr-1" />
+              Upgrade Plan
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-8"
+              onClick={() => setFreeCreditsModalOpen(true)}
+            >
+              <Gift className="w-3 h-3 mr-1" />
+              Get Free Tasks
+            </Button>
           </div>
-          <Button
-            size="sm"
-            className="w-full h-8"
-            onClick={() => setUpgradePlanModalOpen(true)}
-          >
-            <Crown className="w-3 h-3 mr-1" />
-            Upgrade Plan
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full h-8"
-            onClick={() => setFreeCreditsModalOpen(true)}
-          >
-            <Gift className="w-3 h-3 mr-1" />
-            Get Free Tasks
-          </Button>
         </div>
-      </div>
+      ) : (
+        <div className="px-2 pb-3 space-y-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                className="w-full h-10"
+                onClick={() => setUpgradePlanModalOpen(true)}
+              >
+                <Crown className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Upgrade Plan</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="outline"
+                className="w-full h-10"
+                onClick={() => setFreeCreditsModalOpen(true)}
+              >
+                <Gift className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Get Free Tasks</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
 
       {/* User Profile */}
-      <div className="p-3">
+      <div className={cn("p-3", isCollapsed && "px-2")}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full flex items-center gap-3 px-2 py-2 h-auto justify-start hover:bg-accent"
-            >
-              <Avatar className="w-8 h-8 bg-muted">
-                {avatarSignedUrl && (
-                  <AvatarImage
-                    src={avatarSignedUrl}
-                    alt={`${displayName} avatar`}
-                    className="object-cover"
-                  />
-                )}
-                <AvatarFallback className="bg-muted text-muted-foreground">
-                  <User className="w-4 h-4" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 text-left min-w-0">
-                <div className="text-sm font-medium truncate">
-                  {displayName}
+            {isCollapsed ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-full h-10 hover:bg-accent"
+              >
+                <Avatar className="w-8 h-8 bg-muted">
+                  {avatarSignedUrl && (
+                    <AvatarImage
+                      src={avatarSignedUrl}
+                      alt={`${displayName} avatar`}
+                      className="object-cover"
+                    />
+                  )}
+                  <AvatarFallback className="bg-muted text-muted-foreground">
+                    <User className="w-4 h-4" />
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                className="w-full flex items-center gap-3 px-2 py-2 h-auto justify-start hover:bg-accent"
+              >
+                <Avatar className="w-8 h-8 bg-muted">
+                  {avatarSignedUrl && (
+                    <AvatarImage
+                      src={avatarSignedUrl}
+                      alt={`${displayName} avatar`}
+                      className="object-cover"
+                    />
+                  )}
+                  <AvatarFallback className="bg-muted text-muted-foreground">
+                    <User className="w-4 h-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 text-left min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {displayName}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate capitalize">
+                    {profile?.plan || 'free'} plan
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground truncate capitalize">
-                  {profile?.plan || 'free'} plan
-                </div>
-              </div>
-              <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            </Button>
+                <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              </Button>
+            )}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align={isCollapsed ? "start" : "end"} side={isCollapsed ? "right" : "top"} className="w-56">
             <DropdownMenuItem onClick={() => router.push('/settings')}>
               <Settings className="w-4 h-4 mr-2" />
               Settings
@@ -695,5 +860,6 @@ export function NewSidebar() {
         onCancel={handleCancelWorkspaceSelection}
       />
     </div>
+    </TooltipProvider>
   )
 }

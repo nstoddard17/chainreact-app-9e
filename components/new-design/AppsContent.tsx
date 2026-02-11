@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+import { AppCategoryFilter, CategoryBadge, APP_CATEGORIES } from "@/components/apps/AppCategoryFilter"
 
 export function AppsContent() {
   // Note: initializeProviders is now handled by PagePreloader for parallel loading
@@ -53,6 +54,7 @@ export function AppsContent() {
   const { theme } = useTheme()
   const { teams: allTeams, organizations: allOrganizations } = useWorkspaces()
   const [availableSearchQuery, setAvailableSearchQuery] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("all")
   const [showConnectDialog, setShowConnectDialog] = useState(false)
   const [selectedWorkspaceType, setSelectedWorkspaceType] = useState<'personal' | 'team' | 'organization'>('personal')
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null)
@@ -179,12 +181,23 @@ export function AppsContent() {
   // Popular apps to show first (most commonly used integrations)
   const POPULAR_APPS = ['gmail', 'slack', 'notion', 'drive', 'twitter', 'discord', 'airtable', 'hubspot']
 
-  // Show all apps (multi-account support)
+  // Compute category counts for filter chips
+  const categoryCounts = providers.reduce((acc, provider) => {
+    if (["ai", "logic", "control"].includes(provider.id)) return acc
+    const config = INTEGRATION_CONFIGS[provider.id]
+    const category = config?.category || 'other'
+    acc[category] = (acc[category] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  // Show all apps (multi-account support) with category filtering
   const allAvailableApps = providers.filter(provider => {
     if (["ai", "logic", "control"].includes(provider.id)) return false
     const matchesSearch = availableSearchQuery === "" ||
       provider.name.toLowerCase().includes(availableSearchQuery.toLowerCase())
-    return matchesSearch
+    const config = INTEGRATION_CONFIGS[provider.id]
+    const matchesCategory = selectedCategory === "all" || config?.category === selectedCategory
+    return matchesSearch && matchesCategory
   })
 
   // Split into popular and other apps
@@ -341,19 +354,41 @@ export function AppsContent() {
               onClear={() => setAvailableSearchQuery('')}
             />
 
+            {/* Category Filter */}
+            <AppCategoryFilter
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+              categoryCounts={categoryCounts}
+            />
+
             {/* Available apps grid */}
             <div className="overflow-y-auto max-h-[500px] pr-2">
               <div className="space-y-6">
                 {availableApps.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground">
-                      {availableSearchQuery ? "No apps found matching your search" : "No apps available"}
+                      {availableSearchQuery || selectedCategory !== "all"
+                        ? "No apps found matching your filters"
+                        : "No apps available"}
                     </p>
+                    {(availableSearchQuery || selectedCategory !== "all") && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => {
+                          setAvailableSearchQuery('')
+                          setSelectedCategory('all')
+                        }}
+                        className="mt-2"
+                      >
+                        Clear filters
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <>
-                    {/* Most Popular Section */}
-                    {!availableSearchQuery && popularApps.length > 0 && (
+                    {/* Most Popular Section - only show when viewing all categories */}
+                    {!availableSearchQuery && selectedCategory === "all" && popularApps.length > 0 && (
                       <div>
                         <div className="mb-4">
                           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Most Popular</h3>
@@ -398,13 +433,17 @@ export function AppsContent() {
                     )}
 
                     {/* All Apps Section */}
-                    {!availableSearchQuery && otherApps.length > 0 && (
+                    {!availableSearchQuery && (selectedCategory === "all" ? otherApps.length > 0 : allAvailableApps.length > 0) && (
                       <div>
                         <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">All Apps (A-Z)</h3>
+                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                            {selectedCategory === "all"
+                              ? "All Apps (A-Z)"
+                              : `${APP_CATEGORIES.find(c => c.id === selectedCategory)?.name || selectedCategory} Apps`}
+                          </h3>
                         </div>
                         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr items-stretch">
-                          {otherApps.map((provider) => (
+                          {(selectedCategory === "all" ? otherApps : allAvailableApps).map((provider) => (
                             <Card key={provider.id} className="h-full hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
                               <CardContent className="h-full py-5 px-4">
                                 <div className="flex items-center justify-between gap-3 h-full">
@@ -419,7 +458,12 @@ export function AppsContent() {
                                         }}
                                       />
                                     </div>
-                                    <h3 className="font-semibold text-sm whitespace-nowrap">{provider.name}</h3>
+                                    <div className="flex-1 min-w-0">
+                                      <h3 className="font-semibold text-sm whitespace-nowrap">{provider.name}</h3>
+                                      {selectedCategory !== "all" && (
+                                        <CategoryBadge category={INTEGRATION_CONFIGS[provider.id]?.category || 'other'} className="mt-1" />
+                                      )}
+                                    </div>
                                   </div>
                                   <Button
                                     size="icon"

@@ -20,6 +20,7 @@ import { useWorkspaces } from "@/hooks/useWorkspaces"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import BillingOverview from "@/components/billing/BillingOverview"
+import { SessionManagement } from "@/components/settings/SessionManagement"
 
 type SettingsSection = 'profile' | 'workspace' | 'billing' | 'notifications' | 'security' | 'appearance'
 
@@ -1206,17 +1207,7 @@ export function SettingsContent() {
                       Manage devices and sessions where you're logged in
                     </p>
                   </div>
-                  <div className="rounded-lg bg-muted/50 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">Current Session</p>
-                        <p className="text-xs text-muted-foreground">Active now</p>
-                      </div>
-                      <Button variant="ghost" size="sm" disabled>
-                        Current Device
-                      </Button>
-                    </div>
-                  </div>
+                  <SessionManagement />
                 </div>
               </CardContent>
             </Card>

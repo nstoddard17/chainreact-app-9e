@@ -17,6 +17,7 @@ import { ChunkErrorHandler } from "@/components/ChunkErrorHandler"
 import { GlobalAdminDebugPanel } from "@/components/debug/GlobalAdminDebugPanel"
 import { AppContextProvider } from "@/lib/contexts/AppContext"
 import { WebVitalsReporter } from "@/components/monitoring/WebVitalsReporter"
+import { OnboardingTour } from "@/components/onboarding/OnboardingTour"
 // Discord bot now initialized server-side via instrumentation.ts
 
 // Optimize font loading with display: swap for better LCP
@@ -161,6 +162,7 @@ export default function RootLayout({
                   <Toaster />
                   <SonnerToaster position="top-right" />
                   <GlobalAdminDebugPanel />
+                  <OnboardingTour />
                   {children}
                 </LightweightPresenceProvider>
               </AppContextProvider>
