@@ -66,15 +66,24 @@ export function validateWorkflow(workflow: any): WorkflowValidation {
     issues.push('No action nodes configured')
   }
 
-  // Check for unconfigured nodes
-  const unconfiguredNodes = nodes.filter((node: any) => {
+  // Check for nodes that are NOT ready (using validationState if available)
+  const notReadyNodes = nodes.filter((node: any) => {
     if (!isWorkflowNode(node)) return false
+
+    // If node has validationState, use it (most accurate - set by ConfigurationForm)
+    const validationState = node.data?.validationState
+    if (validationState) {
+      return validationState.isValid === false
+    }
+
+    // For backward compatibility with older workflows without validationState:
+    // Consider node "ready" if it has any config at all
     const config = node.data?.config || node.config || {}
     const configKeys = Object.keys(config)
-    return configKeys.length === 0 || configKeys.every(key => !config[key])
+    return configKeys.length === 0
   })
-  if (unconfiguredNodes.length > 0) {
-    issues.push(`${unconfiguredNodes.length} unconfigured node${unconfiguredNodes.length > 1 ? 's' : ''}`)
+  if (notReadyNodes.length > 0) {
+    issues.push(`${notReadyNodes.length} node${notReadyNodes.length > 1 ? 's need' : ' needs'} configuration`)
   }
 
   return { isValid: issues.length === 0, issues }
