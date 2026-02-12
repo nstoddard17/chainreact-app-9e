@@ -1,13 +1,8 @@
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { LibraryContent } from "@/components/new-design/LibraryContent"
-import { requireUsername } from "@/utils/checkUsername"
 import { PagePreloader } from "@/components/common/PagePreloader"
 
-export const dynamic = 'force-dynamic'
-
-export default async function LibraryPage() {
-  await requireUsername()
-
+export default function LibraryPage() {
   return (
     <NewAppLayout title="Template Library" subtitle="Pre-built workflows ready to use">
       <PagePreloader

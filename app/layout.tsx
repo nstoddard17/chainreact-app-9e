@@ -14,6 +14,7 @@ import { GlobalErrorHandler } from "@/components/GlobalErrorHandler"
 import { LoadingDetector } from "@/components/LoadingDetector"
 import { IconPrefetcher } from "@/components/integrations/IconPrefetcher"
 import { ChunkErrorHandler } from "@/components/ChunkErrorHandler"
+import { VersionChecker } from "@/components/VersionChecker"
 import { GlobalAdminDebugPanel } from "@/components/debug/GlobalAdminDebugPanel"
 import { AppContextProvider } from "@/lib/contexts/AppContext"
 import { WebVitalsReporter } from "@/components/monitoring/WebVitalsReporter"
@@ -157,6 +158,7 @@ export default function RootLayout({
               <AppContextProvider>
                 <LoadingDetector />
                 <ChunkErrorHandler />
+                <VersionChecker />
                 <IconPrefetcher />
                 <LightweightPresenceProvider>
                   <Toaster />

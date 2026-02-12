@@ -31,13 +31,19 @@ export function LockedPage({
   className = ''
 }: LockedPageProps) {
   const router = useRouter()
-  const { checkFeatureAccess } = usePlanRestrictions()
+  const { checkFeatureAccess, isProfileReady } = usePlanRestrictions()
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
 
   const access = checkFeatureAccess(feature)
 
   // If user has access, render children normally
   if (access.allowed) {
+    return <>{children}</>
+  }
+
+  // Don't show lock screen until profile is ready
+  // This prevents flash of lock screen before profile loads
+  if (!isProfileReady) {
     return <>{children}</>
   }
 

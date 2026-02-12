@@ -25,7 +25,7 @@ export function LockedFeature({
   className = '',
   fallbackMessage
 }: LockedFeatureProps) {
-  const { checkFeatureAccess } = usePlanRestrictions()
+  const { checkFeatureAccess, isProfileReady } = usePlanRestrictions()
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const [targetPlan, setTargetPlan] = useState<PlanTier | undefined>()
 
@@ -33,6 +33,12 @@ export function LockedFeature({
 
   // If user has access, render children normally
   if (access.allowed) {
+    return <>{children}</>
+  }
+
+  // Don't show locked state until profile is ready
+  // This prevents flash of locked state before profile loads
+  if (!isProfileReady) {
     return <>{children}</>
   }
 

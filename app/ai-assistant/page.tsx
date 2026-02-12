@@ -2,15 +2,10 @@ import { AIAssistantContentLazy } from "@/components/ai/AIAssistantContentLazy"
 import { NewSidebar } from "@/components/new-design/layout/NewSidebar"
 import { NewHeader } from "@/components/new-design/layout/NewHeader"
 import { NewFooter } from "@/components/new-design/layout/NewFooter"
-import { requireUsername } from "@/utils/checkUsername"
 import { PagePreloader } from "@/components/common/PagePreloader"
 import { PageAccessGuard } from "@/components/common/PageAccessGuard"
 
-export const dynamic = 'force-dynamic'
-
-export default async function AIAssistantPage() {
-  await requireUsername()
-
+export default function AIAssistantPage() {
   return (
     <PageAccessGuard page="ai-assistant">
       <div className="flex h-screen overflow-hidden bg-background">
