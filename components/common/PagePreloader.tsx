@@ -1,7 +1,6 @@
 "use client"
 
-import React from "react"
-import { Loader2 } from "lucide-react"
+import React, { useEffect } from "react"
 import { usePageDataPreloader, PageType } from "@/hooks/usePageDataPreloader"
 import { ErrorBoundary } from "@/components/common/ErrorBoundary"
 
@@ -18,8 +17,9 @@ interface PagePreloaderProps {
 }
 
 /**
- * Wrapper component that preloads all necessary data before showing page content
- * Shows a simple spinner in the content area until all data is ready (keeps sidebar visible)
+ * Wrapper component that triggers data preloading in the background
+ * Shows children immediately - individual components handle their own loading states
+ * This provides instant page transitions while data loads in background
  */
 export function PagePreloader({
   pageType,
@@ -32,7 +32,8 @@ export function PagePreloader({
   skipConversations,
   customLoaders
 }: PagePreloaderProps) {
-  const { isLoading, isReady, error, loadingMessage, preloadData } = usePageDataPreloader(
+  // Trigger data loading in background - don't block rendering
+  const { preloadData } = usePageDataPreloader(
     pageType,
     {
       skipWorkflows,
@@ -43,18 +44,12 @@ export function PagePreloader({
     }
   )
 
-  // Show simple spinner while data is being fetched
-  if (isLoading || !isReady) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
+  // Trigger preload on mount (non-blocking)
+  useEffect(() => {
+    preloadData()
+  }, [preloadData])
 
-  // All data loaded successfully or with non-critical errors, show the page
-  // If there's an error, it will be logged and the page components can handle missing data gracefully
-  // Wrap in ErrorBoundary to catch chunk loading errors and other runtime errors
+  // Always render children immediately - they handle their own loading states
   return (
     <ErrorBoundary>
       {children}

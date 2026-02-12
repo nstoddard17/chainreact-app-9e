@@ -9,15 +9,15 @@ export default async function LibraryPage() {
   await requireUsername()
 
   return (
-    <PagePreloader
-      pageType="templates"
-      loadingTitle="Loading Templates"
-      loadingDescription="Loading workflow templates and your connected apps..."
-      skipWorkflows={true}
-    >
-      <NewAppLayout title="Template Library" subtitle="Pre-built workflows ready to use">
+    <NewAppLayout title="Template Library" subtitle="Pre-built workflows ready to use">
+      <PagePreloader
+        pageType="templates"
+        loadingTitle="Loading Templates"
+        loadingDescription="Loading workflow templates and your connected apps..."
+        skipWorkflows={true}
+      >
         <LibraryContent />
-      </NewAppLayout>
-    </PagePreloader>
+      </PagePreloader>
+    </NewAppLayout>
   )
 }

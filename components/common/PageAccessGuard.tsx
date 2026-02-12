@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useRef } from "react"
 import { useAuthStore } from "@/stores/authStore"
 import {
   hasPageAccess,
@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Lock, Sparkles, ArrowRight } from "lucide-react"
 import Link from "next/link"
+import { logger } from "@/lib/utils/logger"
 
 interface PageAccessGuardProps {
   page: ProtectedPage
@@ -22,21 +23,81 @@ interface PageAccessGuardProps {
  * Guards access to pages based on user plan and admin status.
  * Shows an upgrade prompt if user doesn't have access.
  * Renders children optimistically until we can confirm access status.
+ *
+ * IMPORTANT: The profile may be stale from localStorage initially. We need to
+ * wait for the fresh profile to load from the API before making access decisions.
+ * The auth store sets initialized=true BEFORE the profile is fully fetched,
+ * so we track profile changes to detect when fresh data arrives.
  */
 export function PageAccessGuard({ page, children }: PageAccessGuardProps) {
-  const { profile, hydrated, initialized } = useAuthStore()
+  const { profile, hydrated, initialized, loading } = useAuthStore()
   const [shouldCheckAccess, setShouldCheckAccess] = useState(false)
+  const profileUpdateCountRef = useRef(0)
+  const initialProfileRef = useRef(profile)
 
-  // Wait a tick after hydration to ensure profile is loaded from localStorage
+  // Track profile updates to detect when fresh data arrives
   useEffect(() => {
-    if (hydrated && initialized) {
-      // Small delay to ensure store is fully populated
-      const timer = setTimeout(() => {
-        setShouldCheckAccess(true)
-      }, 50)
-      return () => clearTimeout(timer)
+    if (profile !== initialProfileRef.current) {
+      profileUpdateCountRef.current += 1
     }
-  }, [hydrated, initialized])
+  }, [profile])
+
+  // Wait for profile to be properly loaded before checking access
+  useEffect(() => {
+    logger.debug('[PageAccessGuard] State check', {
+      page,
+      hydrated,
+      initialized,
+      loading,
+      hasProfile: !!profile,
+      profileAdmin: profile?.admin,
+      profilePlan: profile?.plan,
+      profileUpdateCount: profileUpdateCountRef.current,
+      shouldCheckAccess
+    })
+
+    if (!hydrated || !initialized) {
+      return
+    }
+
+    // If we have a profile with explicit admin=true, allow immediately
+    // This handles the case where admin status is correctly in localStorage
+    if (profile?.admin === true) {
+      logger.debug('[PageAccessGuard] Admin detected, granting access', { page })
+      setShouldCheckAccess(true)
+      return
+    }
+
+    // If we have a profile and it has been updated (fresh from API), check access
+    if (profile && profileUpdateCountRef.current > 0) {
+      logger.debug('[PageAccessGuard] Profile updated from API, checking access', {
+        page,
+        admin: profile.admin,
+        plan: profile.plan
+      })
+      setShouldCheckAccess(true)
+      return
+    }
+
+    // If auth is still loading, wait
+    if (loading) {
+      return
+    }
+
+    // Wait for profile to potentially update with fresh data from API
+    // The auth store fetches profile asynchronously after setting initialized=true
+    const timer = setTimeout(() => {
+      logger.debug('[PageAccessGuard] Timeout reached, checking access', {
+        page,
+        hasProfile: !!profile,
+        admin: profile?.admin,
+        plan: profile?.plan
+      })
+      setShouldCheckAccess(true)
+    }, 800) // Give enough time for profile API call to complete
+
+    return () => clearTimeout(timer)
+  }, [hydrated, initialized, profile, loading, page, shouldCheckAccess])
 
   // Get user's plan and admin status
   const userPlan: PlanTier = (profile?.plan as PlanTier) || 'free'
