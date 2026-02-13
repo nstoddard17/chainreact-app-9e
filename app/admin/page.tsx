@@ -40,28 +40,32 @@ export default function AdminPage() {
   // Show loading while profile loads
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
-        <LightningLoader size="lg" color="primary" />
-      </div>
+      <NewAppLayout title="Admin Panel" subtitle="System administration and user management">
+        <div className="flex-1 flex items-center justify-center min-h-[400px]">
+          <LightningLoader size="lg" color="primary" />
+        </div>
+      </NewAppLayout>
     )
   }
 
   // After profile loads, check if admin
   if (profile.admin !== true) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="text-muted-foreground mb-4">You do not have admin privileges.</p>
-          <p className="text-sm text-muted-foreground">Admin status: {String(profile.admin)}</p>
-          <button
-            onClick={() => router.push('/workflows')}
-            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
-          >
-            Go to Workflows
-          </button>
+      <NewAppLayout title="Admin Panel" subtitle="System administration and user management">
+        <div className="flex-1 flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+            <p className="text-muted-foreground mb-4">You do not have admin privileges.</p>
+            <p className="text-sm text-muted-foreground">Admin status: {String(profile.admin)}</p>
+            <button
+              onClick={() => router.push('/workflows')}
+              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
+            >
+              Go to Workflows
+            </button>
+          </div>
         </div>
-      </div>
+      </NewAppLayout>
     )
   }
 

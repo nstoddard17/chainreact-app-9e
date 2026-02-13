@@ -285,11 +285,20 @@ export const useIntegrationStore = create<IntegrationStore>()(
           })
 
         } catch (error: any) {
-          logger.error("Failed to initialize providers:", error)
+          // Log the error message properly (Error objects don't serialize to JSON)
+          const errorMessage = error?.message || String(error) || "Unknown error"
+
+          // Don't log auth errors as errors - they're expected when user isn't logged in yet
+          if (errorMessage.includes('No authenticated user') || errorMessage.includes('Please log in')) {
+            logger.debug("[IntegrationStore] Skipping provider initialization - user not authenticated yet")
+          } else {
+            logger.error("Failed to initialize providers:", { message: errorMessage, stack: error?.stack })
+          }
+
           clearTimeout(loadingTimeout)
           setLoading('providers', false)
           set({
-            error: error.message || "Failed to load providers",
+            error: null, // Don't show auth-related errors to user
             providers: [],
           })
         }

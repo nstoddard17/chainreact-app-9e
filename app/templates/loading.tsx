@@ -3,8 +3,8 @@ import { PageLoadingSpinner } from "@/components/common/PageLoadingSpinner"
 
 export default function Loading() {
   return (
-    <NewAppLayout title="Profile">
-      <PageLoadingSpinner message="Loading profile..." />
+    <NewAppLayout title="Template Library" subtitle="Pre-built workflows ready to use">
+      <PageLoadingSpinner message="Loading templates..." />
     </NewAppLayout>
   )
 }

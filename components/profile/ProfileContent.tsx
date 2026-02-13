@@ -51,15 +51,25 @@ export default function ProfileContent() {
   // Handle error state
   if (error && !profile) {
     return (
-      <div className="p-8 text-red-500">
-        Error loading profile: {error}
-      </div>
+      <NewAppLayout title="Profile">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4 p-8 text-red-500">
+            Error loading profile: {error}
+          </div>
+        </div>
+      </NewAppLayout>
     )
   }
 
   // No profile available
   if (!profile) {
-    return <div className="p-8">No profile found</div>
+    return (
+      <NewAppLayout title="Profile">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="p-8">No profile found</div>
+        </div>
+      </NewAppLayout>
+    )
   }
 
   return (

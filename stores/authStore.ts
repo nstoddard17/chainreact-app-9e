@@ -126,7 +126,7 @@ export const useAuthStore = create<AuthState>()(
           }>((resolve) =>
             setTimeout(
               () => resolve({ data: { session: null }, error: new Error('Supabase getSession timeout') }),
-              4000
+              8000 // 8 seconds to handle slow connections
             )
           )
           return Promise.race([sessionPromise, timeoutPromise])
@@ -300,11 +300,19 @@ export const useAuthStore = create<AuthState>()(
           })
 
           if (sessionError) {
-            logger.error('??O [AUTH] Session error', {
-              error: sessionError,
+            // Timeouts are expected on slow connections - log as warning, not error
+            const isTimeout = sessionError.message?.includes('timeout')
+            const logMessage = `⚠️ [AUTH] Session ${isTimeout ? 'timeout' : 'error'}`
+            const logMeta = {
               errorMessage: sessionError.message,
-              errorName: sessionError.name
-            })
+              errorName: sessionError.name,
+              durationMs: sessionDurationMs
+            }
+            if (isTimeout) {
+              logger.warn(logMessage, logMeta)
+            } else {
+              logger.error(logMessage, logMeta)
+            }
             const profileFallback = await profilePromise
             if (profileFallback?.id) {
               const fallbackUser: User = {
