@@ -115,11 +115,23 @@ export async function GET(request: NextRequest) {
         ? `${userData.username}#${userData.discriminator}`
         : userData.username
 
+      // Construct full avatar URL from hash
+      // API VERIFICATION: Discord CDN avatar URL format
+      // Docs: https://discord.com/developers/docs/reference#image-formatting
+      // Format: https://cdn.discordapp.com/avatars/{user_id}/{avatar_hash}.png
+      // For animated avatars, the hash starts with "a_" and should use .gif extension
+      let avatarUrl: string | null = null
+      if (userData.avatar && userData.id) {
+        const extension = userData.avatar.startsWith('a_') ? 'gif' : 'png'
+        avatarUrl = `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.${extension}?size=256`
+      }
+
       return {
         email: userData.email,
         username: username,
         account_name: userData.global_name || username || userData.email,
         provider_user_id: userData.id,
+        avatar_url: avatarUrl,
         discord_username: userData.username,
         discord_discriminator: userData.discriminator,
         avatar: userData.avatar,

@@ -28,7 +28,10 @@ export async function GET(request: NextRequest) {
         : null,
     }),
     additionalIntegrationData: async (tokenData) => {
-      // Fetch user's email from Google userinfo endpoint
+      // Fetch user's email and profile picture from Google userinfo endpoint
+      // API VERIFICATION: Google OAuth2 userinfo endpoint
+      // Docs: https://developers.google.com/identity/protocols/oauth2/openid-connect#obtainuserinfo
+      // Returns: id, email, name, picture (URL to profile photo)
       try {
         const userinfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
           headers: {
@@ -38,11 +41,15 @@ export async function GET(request: NextRequest) {
 
         if (userinfoResponse.ok) {
           const userinfo = await userinfoResponse.json()
-          logger.debug('Gmail userinfo fetched:', { email: userinfo.email, id: userinfo.id })
+          logger.debug('Gmail userinfo fetched:', { email: userinfo.email, id: userinfo.id, hasPicture: !!userinfo.picture })
 
           return {
             email: userinfo.email,
             account_name: userinfo.name || userinfo.email,
+            provider_user_id: userinfo.id,
+            // Store avatar_url at top level for UI display
+            avatar_url: userinfo.picture || null,
+            // Keep in metadata for backward compatibility
             google_id: userinfo.id,
             picture: userinfo.picture,
           }

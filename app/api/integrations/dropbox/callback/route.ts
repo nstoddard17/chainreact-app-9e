@@ -100,8 +100,11 @@ export async function GET(request: NextRequest) {
     const expiresIn = tokenData.expires_in || 14400
     const expiresAt = new Date(Date.now() + expiresIn * 1000)
     
-    // Get user account information
-    let accountInfo = {}
+    // Get user account information including profile photo
+    // API VERIFICATION: Dropbox API endpoint for current account
+    // Docs: https://www.dropbox.com/developers/documentation/http/documentation#users-get_current_account
+    // Returns: account_id, email, name, profile_photo_url
+    let accountInfo: any = {}
     if (tokenData.access_token) {
       try {
         const accountResponse = await fetch('https://api.dropboxapi.com/2/users/get_current_account', {
@@ -112,9 +115,13 @@ export async function GET(request: NextRequest) {
           },
           body: JSON.stringify(null)
         })
-        
+
         if (accountResponse.ok) {
           accountInfo = await accountResponse.json()
+          logger.debug('Dropbox account info fetched:', {
+            email: accountInfo.email,
+            hasPhoto: !!accountInfo.profile_photo_url
+          })
         } else {
           logger.warn('Could not fetch Dropbox account information:', await accountResponse.text())
         }
@@ -131,9 +138,11 @@ export async function GET(request: NextRequest) {
 
     // Store the integration data
     const supabase = createAdminClient()
-    const dropboxEmail = (accountInfo as any)?.email || null
-    const dropboxName = (accountInfo as any)?.name?.display_name || (accountInfo as any)?.name?.given_name || null
-    const accountId = tokenData.account_id || (accountInfo as any)?.account_id || null
+    const dropboxEmail = accountInfo?.email || null
+    const dropboxName = accountInfo?.name?.display_name || accountInfo?.name?.given_name || null
+    const accountId = tokenData.account_id || accountInfo?.account_id || null
+    // Dropbox provides profile_photo_url directly in the account info
+    const avatarUrl = accountInfo?.profile_photo_url || null
 
     const integrationData = {
       user_id: userId,
@@ -156,6 +165,7 @@ export async function GET(request: NextRequest) {
       username: dropboxEmail?.split('@')[0] || null,
       account_name: dropboxName || dropboxEmail,
       provider_user_id: accountId,
+      avatar_url: avatarUrl,
       metadata: {
         account_id: accountId,
         account_info: accountInfo,
@@ -165,7 +175,8 @@ export async function GET(request: NextRequest) {
         team_id: tokenData.team_id,
         // Keep in metadata for backward compatibility
         email: dropboxEmail,
-        account_name: dropboxName
+        account_name: dropboxName,
+        profile_photo_url: avatarUrl
       }
     }
 

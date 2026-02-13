@@ -226,12 +226,16 @@ export async function GET(request: NextRequest) {
         expires_at: expiresAt.toISOString(),
         status: 'connected',
         updated_at: new Date().toISOString(),
+        // Top-level account identity fields
+        username: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
+        account_name: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
+        avatar_url: existingWorkspaces[primaryWorkspaceId].avatar_url || existingWorkspaces[primaryWorkspaceId].workspace_icon || null,
         metadata: {
           ...existingMetadata,
           workspaces: existingWorkspaces,
           primary_workspace_id: primaryWorkspaceId,
           workspace_count: Object.keys(existingWorkspaces).length,
-          // Account display fields
+          // Keep in metadata for backward compatibility
           username: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
           account_name: existingWorkspaces[primaryWorkspaceId].workspace_name || null,
           email: null // Notion doesn't provide user email
@@ -260,13 +264,17 @@ export async function GET(request: NextRequest) {
         expires_at: expiresAt.toISOString(),
         status: 'connected',
         updated_at: new Date().toISOString(),
+        // Top-level account identity fields
+        username: workspaceName || null,
+        account_name: workspaceName || null,
+        avatar_url: avatarUrl || workspaceIcon || null,
         metadata: {
           workspaces: {
             [workspaceId]: workspaceData
           },
           primary_workspace_id: workspaceId,
           workspace_count: 1,
-          // Account display fields
+          // Keep in metadata for backward compatibility
           username: workspaceName || null,
           account_name: workspaceName || null,
           email: null // Notion doesn't provide user email

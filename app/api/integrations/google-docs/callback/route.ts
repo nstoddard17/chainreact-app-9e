@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
             username: userInfo.email?.split('@')[0] || userInfo.name,
             account_name: userInfo.name || userInfo.email,
             provider_user_id: userInfo.id,
+            avatar_url: userInfo.picture || null,
             picture: userInfo.picture,
           }
         } else {

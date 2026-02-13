@@ -99,6 +99,9 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(Date.now() + expiresIn * 1000)
 
     // Fetch user profile to get additional data
+    // API VERIFICATION: LinkedIn API v2 /me endpoint
+    // Docs: https://learn.microsoft.com/en-us/linkedin/shared/integrations/people/profile-api
+    // Returns: id, localizedFirstName, localizedLastName
     const profileResponse = await fetch('https://api.linkedin.com/v2/me', {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
@@ -110,6 +113,36 @@ export async function GET(request: NextRequest) {
     }
 
     const profileData = profileResponse.ok ? await profileResponse.json() : {}
+
+    // Fetch profile picture
+    // API VERIFICATION: LinkedIn profile picture endpoint
+    // Docs: https://learn.microsoft.com/en-us/linkedin/shared/integrations/people/profile-api#retrieve-profile-picture
+    // Returns: profilePicture with displayImage~ containing elements array
+    let avatarUrl: string | null = null
+    try {
+      const pictureResponse = await fetch(
+        'https://api.linkedin.com/v2/me?projection=(profilePicture(displayImage~:playableStreams))',
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        }
+      )
+
+      if (pictureResponse.ok) {
+        const pictureData = await pictureResponse.json()
+        // Get the highest resolution image available
+        const displayImage = pictureData.profilePicture?.['displayImage~']
+        if (displayImage?.elements?.length > 0) {
+          // Elements are sorted by resolution, last one is highest
+          const highestRes = displayImage.elements[displayImage.elements.length - 1]
+          avatarUrl = highestRes?.identifiers?.[0]?.identifier || null
+        }
+        logger.debug('LinkedIn profile picture fetched:', { hasAvatar: !!avatarUrl })
+      }
+    } catch (pictureError) {
+      logger.warn('Failed to fetch LinkedIn profile picture:', pictureError)
+    }
 
     // Fetch email address
     let emailAddress = null
@@ -138,6 +171,10 @@ export async function GET(request: NextRequest) {
 
     // Store the integration data
     const supabase = createAdminClient()
+    const fullName = profileData.localizedFirstName && profileData.localizedLastName
+      ? `${profileData.localizedFirstName} ${profileData.localizedLastName}`
+      : null
+
     const { error: upsertError } = await supabase.from('integrations').upsert({
       user_id: userId,
       provider,
@@ -149,17 +186,14 @@ export async function GET(request: NextRequest) {
       scopes: tokenData.scope ? tokenData.scope.split(' ') : [],
       updated_at: new Date().toISOString(),
       email: emailAddress || null,
-      username: profileData.localizedFirstName && profileData.localizedLastName
-        ? `${profileData.localizedFirstName} ${profileData.localizedLastName}`
-        : null,
-      account_name: profileData.localizedFirstName && profileData.localizedLastName
-        ? `${profileData.localizedFirstName} ${profileData.localizedLastName}`
-        : null,
+      username: fullName,
+      account_name: fullName,
+      provider_user_id: profileData.id || null,
+      avatar_url: avatarUrl,
       metadata: {
         profile_id: profileData.id,
-        name: profileData.localizedFirstName && profileData.localizedLastName
-          ? `${profileData.localizedFirstName} ${profileData.localizedLastName}`
-          : undefined
+        name: fullName,
+        profile_picture_url: avatarUrl
       }
     }, {
       onConflict: 'user_id, provider',

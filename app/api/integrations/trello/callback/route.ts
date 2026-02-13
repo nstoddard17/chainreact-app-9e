@@ -31,10 +31,14 @@ export async function GET(req: NextRequest) {
 
   try {
     // Fetch user information from Trello
+    // API VERIFICATION: Trello API /members/me endpoint
+    // Docs: https://developer.atlassian.com/cloud/trello/rest/api-group-members/#api-members-id-get
+    // Returns: id, username, fullName, email, avatarUrl, etc.
     let userInfo = null
     let email = null
     let username = null
     let fullName = null
+    let avatarUrl = null
 
     try {
       const memberResponse = await fetch(`https://api.trello.com/1/members/me?key=${key}&token=${token}`)
@@ -43,6 +47,12 @@ export async function GET(req: NextRequest) {
         email = userInfo.email || null
         username = userInfo.username || null
         fullName = userInfo.fullName || null
+        // Trello provides avatarUrl directly, or we can construct from avatarHash
+        avatarUrl = userInfo.avatarUrl || null
+        if (!avatarUrl && userInfo.avatarHash) {
+          avatarUrl = `https://trello-members.s3.amazonaws.com/${userInfo.id}/${userInfo.avatarHash}/170.png`
+        }
+        logger.debug('Trello member info fetched:', { username, hasAvatar: !!avatarUrl })
       }
     } catch (memberError) {
       logger.warn('Failed to fetch Trello member info:', memberError)
@@ -54,17 +64,19 @@ export async function GET(req: NextRequest) {
       .upsert({
         user_id: userId,
         provider: 'trello',
-        provider_user_id: null,
+        provider_user_id: userInfo?.id || null,
         access_token: token,
         status: 'connected',
         updated_at: new Date().toISOString(),
         email: email || null,
         username: username || null,
         account_name: fullName || username || null,
+        avatar_url: avatarUrl,
         metadata: {
           client_key: key || null,
           connected_at: new Date().toISOString(),
-          user_info: userInfo
+          user_info: userInfo,
+          avatar_url: avatarUrl
         },
       }, { onConflict: 'user_id, provider' })
 

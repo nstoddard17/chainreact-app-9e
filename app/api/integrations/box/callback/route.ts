@@ -25,9 +25,12 @@ export async function GET(request: NextRequest) {
         : null,
     }),
     additionalIntegrationData: async (tokenData) => {
-      // Fetch Box user information
+      // Fetch Box user information including avatar
+      // API VERIFICATION: Box API /users/me endpoint
+      // Docs: https://developer.box.com/reference/get-users-id/
+      // Returns: id, login (email), name, avatar_url, etc.
       try {
-        const userResponse = await fetch('https://api.box.com/2.0/users/me', {
+        const userResponse = await fetch('https://api.box.com/2.0/users/me?fields=id,login,name,avatar_url', {
           headers: {
             'Authorization': `Bearer ${tokenData.access_token}`
           }
@@ -39,6 +42,8 @@ export async function GET(request: NextRequest) {
             email: userData.login || null,
             username: userData.name || null,
             account_name: userData.name || userData.login || null,
+            provider_user_id: userData.id,
+            avatar_url: userData.avatar_url || null,
             box_user_id: userData.id
           }
         }

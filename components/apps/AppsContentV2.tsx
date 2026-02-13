@@ -295,6 +295,11 @@ export function AppsContentV2() {
                       || account.metadata?.name
                       || `${provider.name} account`
                     const accountExpired = account.status === 'expired' || account.status === 'needs_reauthorization'
+                    // Get avatar from top-level field or metadata (different providers store it differently)
+                    const accountAvatar = account.avatar_url
+                      || account.metadata?.avatar_url
+                      || account.metadata?.picture
+                      || account.metadata?.profile_picture_url
 
                     return (
                       <div
@@ -304,14 +309,55 @@ export function AppsContentV2() {
                           accountExpired && "border-destructive/30 bg-destructive/5"
                         )}
                       >
-                        <div className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0",
-                          accountExpired ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
-                        )}>
+                        {/* Account Avatar - use profile picture if available */}
+                        {accountAvatar ? (
+                          <img
+                            src={accountAvatar}
+                            alt={accountIdentifier}
+                            className={cn(
+                              "w-8 h-8 rounded-full object-cover flex-shrink-0 border-2",
+                              accountExpired ? "border-destructive/30" : "border-primary/20"
+                            )}
+                            onError={(e) => {
+                              // Fallback to letter avatar on image load error
+                              e.currentTarget.style.display = 'none'
+                              const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                              if (fallback) fallback.style.display = 'flex'
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0",
+                            accountExpired ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary",
+                            accountAvatar && "hidden" // Hide when avatar is shown
+                          )}
+                        >
                           {accountIdentifier.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{accountIdentifier}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium truncate">{accountIdentifier}</p>
+                            {/* Workspace type indicator */}
+                            {account.workspace_type === 'team' && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" title="Team workspace">
+                                <Users className="w-2.5 h-2.5" />
+                                Team
+                              </span>
+                            )}
+                            {account.workspace_type === 'organization' && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300" title="Organization workspace">
+                                <Building className="w-2.5 h-2.5" />
+                                Org
+                              </span>
+                            )}
+                            {(!account.workspace_type || account.workspace_type === 'personal') && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" title="Personal workspace">
+                                <Home className="w-2.5 h-2.5" />
+                                Personal
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {accountExpired ? (
                               <span className="text-destructive">Needs reconnection</span>
