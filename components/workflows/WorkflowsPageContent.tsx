@@ -1722,7 +1722,7 @@ function WorkflowsContentInner() {
                 className="flex items-center gap-1.5 text-orange-600 hover:underline transition-all font-medium group"
               >
                 <Home className="w-4 h-4" />
-                {profile?.full_name || profile?.username || 'DaBoss'}'s {activeTab === 'workflows' ? 'Workflows' : 'Folders'}
+                {profile?.full_name || profile?.username || 'My'}'s {activeTab === 'workflows' ? 'Workflows' : 'Folders'}
               </button>
               {folderPath.map((folder, index) => (
                 <div key={folder.id} className="flex items-center gap-2">
