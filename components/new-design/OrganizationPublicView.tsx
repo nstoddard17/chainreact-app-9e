@@ -64,6 +64,11 @@ export function OrganizationPublicView() {
   // Listen for create organization event
   useEffect(() => {
     const handleCreateOrganization = () => {
+      // Admins can always create organizations
+      if (profile?.admin === true) {
+        setCreateDialogOpen(true)
+        return
+      }
       // Check if user has required plan before opening dialog
       if (!profile?.role || !['business', 'organization'].includes(profile.role)) {
         toast.error('You need to upgrade to a Business or Organization plan to create organizations')
