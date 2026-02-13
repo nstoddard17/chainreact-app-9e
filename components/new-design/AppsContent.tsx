@@ -22,7 +22,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle, Shield, Eye, Home, Users, Building, Share2 } from "lucide-react"
+import { CheckCircle2, Plus, ExternalLink, MoreVertical, Unplug, RefreshCw, Settings, AlertCircle, Shield, Eye, Home, Users, Building, Share2, Check, ChevronDown, Trash2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { IntegrationService } from "@/services/integration-service"
@@ -49,7 +50,7 @@ import { AppCategoryFilter, CategoryBadge, APP_CATEGORIES } from "@/components/a
 
 export function AppsContent() {
   // Note: initializeProviders is now handled by PagePreloader for parallel loading
-  const { providers, integrations, fetchAllIntegrations, connectIntegration, setLoading, loading: storeLoading } = useIntegrationStore()
+  const { providers, integrations, fetchAllIntegrations, connectIntegration, setLoading, loading: storeLoading, lastFetchTime } = useIntegrationStore()
   const { user } = useAuthStore()
   const { theme } = useTheme()
   const { teams: allTeams, organizations: allOrganizations } = useWorkspaces()
@@ -61,6 +62,7 @@ export function AppsContent() {
   const [loading, setLocalLoading] = useState<Record<string, boolean>>({})
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [integrationToShare, setIntegrationToShare] = useState<{ id: string; provider: string; email?: string; displayName?: string } | null>(null)
+  const [expandedApp, setExpandedApp] = useState<string | null>(null)
   const { toast } = useToast()
 
   // Filter to only show workspaces where user can manage apps (owner or admin)
@@ -103,6 +105,17 @@ export function AppsContent() {
     }
 
     return undefined
+  }
+
+  // Get all connected accounts for a provider (supports multi-account)
+  const getConnectedAccounts = (providerId: string) => {
+    return integrations.filter(i => i.provider === providerId && i.status === 'connected')
+  }
+
+  // Format date for display
+  const formatConnectedDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   const handleConnect = async (providerId: string) => {
@@ -255,9 +268,17 @@ export function AppsContent() {
     available: availableApps.length,
   }
 
-  // Show loading state while providers are being fetched
+  // Show loading state while providers or integrations are being fetched
   // PagePreloader handles initializeProviders, so we just check the store state
-  if (providers.length === 0 && storeLoading) {
+  // We need to show loading if:
+  // 1. Providers aren't loaded yet and we're loading
+  // 2. Providers are loaded but initial fetch hasn't completed yet (lastFetchTime is null)
+  // Using lastFetchTime ensures we don't show infinite loading for users with no integrations
+  const hasInitialFetchCompleted = lastFetchTime !== null
+  const isInitialLoading = (providers.length === 0 && storeLoading) ||
+    (providers.length > 0 && !hasInitialFetchCompleted && storeLoading)
+
+  if (isInitialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4">
@@ -283,251 +304,193 @@ export function AppsContent() {
               Connect New App
             </Button>
           </DialogTrigger>
-          <DialogContent className="w-full max-w-[1400px] lg:max-w-[1800px] xl:max-w-[2400px] max-h-[80vh] border-none shadow-2xl">
-            <DialogHeader>
-              <DialogTitle>Connect New App</DialogTitle>
-              <DialogDescription>
-                Select a workspace and choose an app to connect
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+            {/* Header - centered title, conditional workspace selector */}
+            <div className="px-4 py-3 border-b text-center">
+              <DialogTitle className="text-base font-semibold">Connect an App</DialogTitle>
+              {(teams.length > 0 || organizations.length > 0) && (
+                <div className="flex items-center justify-center gap-2 mt-2">
+                  <span className="text-xs text-muted-foreground">Add to:</span>
+                  <Select
+                    value={selectedWorkspaceType === 'personal' ? 'personal' : `${selectedWorkspaceType}-${selectedWorkspaceId}`}
+                    onValueChange={(value) => {
+                      if (value === 'personal') {
+                        setSelectedWorkspaceType('personal')
+                        setSelectedWorkspaceId(null)
+                      } else {
+                        const [type, id] = value.split('-')
+                        setSelectedWorkspaceType(type as 'team' | 'organization')
+                        setSelectedWorkspaceId(id)
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-7 text-xs w-auto gap-1 border-0 bg-muted/50 px-2">
+                      <SelectValue placeholder="Select workspace" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="personal">
+                        <div className="flex items-center gap-1.5">
+                          <Home className="w-3 h-3" />
+                          <span>Personal</span>
+                        </div>
+                      </SelectItem>
+                      {(teams || []).map(team => (
+                        <SelectItem key={team.id} value={`team-${team.id}`}>
+                          <div className="flex items-center gap-1.5">
+                            <Users className="w-3 h-3" />
+                            <span>{team.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      {(organizations || []).map(org => (
+                        <SelectItem key={org.id} value={`organization-${org.id}`}>
+                          <div className="flex items-center gap-1.5">
+                            <Building className="w-3 h-3" />
+                            <span>{org.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
 
-            {/* Workspace Selector */}
-            <div className="space-y-3 pb-4 border-b">
-              <div>
-                <label className="text-sm font-medium mb-2 block">
-                  Which workspace?
-                </label>
-                <Select
-                  value={selectedWorkspaceType === 'personal' ? 'personal' : `${selectedWorkspaceType}-${selectedWorkspaceId}`}
-                  onValueChange={(value) => {
-                    if (value === 'personal') {
-                      setSelectedWorkspaceType('personal')
-                      setSelectedWorkspaceId(null)
-                    } else {
-                      const [type, id] = value.split('-')
-                      setSelectedWorkspaceType(type as 'team' | 'organization')
-                      setSelectedWorkspaceId(id)
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select workspace" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="personal">
-                      <div className="flex items-center gap-2">
-                        <Home className="w-4 h-4" />
-                        <span>Personal Workspace</span>
-                      </div>
-                    </SelectItem>
-                    {(teams || []).map(team => (
-                      <SelectItem key={team.id} value={`team-${team.id}`}>
-                        <div className="flex items-center gap-2">
-                          <Users className="w-4 h-4" />
-                          <span>{team.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                    {(organizations || []).map(org => (
-                      <SelectItem key={org.id} value={`organization-${org.id}`}>
-                        <div className="flex items-center gap-2">
-                          <Building className="w-4 h-4" />
-                          <span>{org.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {teams.length === 0 && organizations.length === 0 && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    You can only connect apps to your personal workspace. To connect apps to a team or organization, you need to be an owner or admin.
-                  </p>
-                )}
+            {/* Search */}
+            <div className="px-4 py-2 border-b">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search apps..."
+                  value={availableSearchQuery}
+                  onChange={(e) => setAvailableSearchQuery(e.target.value)}
+                  className="w-full h-9 pl-8 pr-3 text-sm bg-muted/50 border-0 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
               </div>
             </div>
 
-            {/* Search for available apps */}
-            <ProfessionalSearch
-              placeholder="Search available apps..."
-              value={availableSearchQuery}
-              onChange={(e) => setAvailableSearchQuery(e.target.value)}
-              onClear={() => setAvailableSearchQuery('')}
-            />
+            {/* App List with expandable connected accounts */}
+            <div className="overflow-y-auto max-h-[60vh]">
+              {availableApps.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm text-muted-foreground">No apps found</p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {/* Sort all apps alphabetically */}
+                  {[...availableApps].sort((a, b) => a.name.localeCompare(b.name)).map((provider) => {
+                    const connectedAccounts = getConnectedAccounts(provider.id)
+                    const isExpanded = expandedApp === provider.id
+                    const hasConnections = connectedAccounts.length > 0
 
-            {/* Category Filter */}
-            <AppCategoryFilter
-              selectedCategory={selectedCategory}
-              onSelectCategory={setSelectedCategory}
-              categoryCounts={categoryCounts}
-            />
+                    return (
+                      <div key={provider.id}>
+                        {/* Main row - clickable */}
+                        <button
+                          onClick={() => {
+                            if (hasConnections) {
+                              setExpandedApp(isExpanded ? null : provider.id)
+                            } else {
+                              handleConnect(provider.id)
+                            }
+                          }}
+                          disabled={loading[provider.id]}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left disabled:opacity-50"
+                        >
+                          <div className="w-8 h-8 rounded-md border bg-white dark:bg-slate-900 flex items-center justify-center flex-shrink-0">
+                            <img
+                              src={getIntegrationLogoPath(provider.id, theme)}
+                              alt={provider.name}
+                              className={getIntegrationLogoClasses(provider.id, "w-5 h-5 object-contain")}
+                              onError={(e) => { e.currentTarget.style.display = 'none' }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium flex-1">{provider.name}</span>
 
-            {/* Available apps grid */}
-            <div className="overflow-y-auto max-h-[500px] pr-2">
-              <div className="space-y-6">
-                {availableApps.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">
-                      {availableSearchQuery || selectedCategory !== "all"
-                        ? "No apps found matching your filters"
-                        : "No apps available"}
-                    </p>
-                    {(availableSearchQuery || selectedCategory !== "all") && (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => {
-                          setAvailableSearchQuery('')
-                          setSelectedCategory('all')
-                        }}
-                        className="mt-2"
-                      >
-                        Clear filters
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    {/* Most Popular Section - only show when viewing all categories */}
-                    {!availableSearchQuery && selectedCategory === "all" && popularApps.length > 0 && (
-                      <div>
-                        <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Most Popular</h3>
-                        </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr items-stretch">
-                          {popularApps.map((provider) => (
-                            <Card key={provider.id} className="h-full hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
-                              <CardContent className="h-full py-5 px-4">
-                                <div className="flex items-center justify-between gap-3 h-full">
-                                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
-                                      <img
-                                        src={getIntegrationLogoPath(provider.id, theme)}
-                                        alt={provider.name}
-                                        className={getIntegrationLogoClasses(provider.id, "w-10 h-10 object-contain")}
-                                        onError={(e) => {
-                                          e.currentTarget.style.display = 'none'
-                                        }}
-                                      />
-                                    </div>
-                                    <h3 className="font-semibold text-sm whitespace-nowrap">{provider.name}</h3>
+                          {/* Connected badge */}
+                          {hasConnections && (
+                            <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                              <Check className="w-3 h-3" />
+                              {connectedAccounts.length === 1 ? 'Connected' : `${connectedAccounts.length} connected`}
+                            </span>
+                          )}
+
+                          {/* Expand chevron for connected apps */}
+                          {hasConnections && (
+                            <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", isExpanded && "rotate-180")} />
+                          )}
+
+                          {/* Loading spinner */}
+                          {loading[provider.id] && (
+                            <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
+                          )}
+                        </button>
+
+                        {/* Expanded accounts section */}
+                        {isExpanded && hasConnections && (
+                          <div className="px-4 py-2 bg-muted/30 space-y-2">
+                            {connectedAccounts.map(account => {
+                              // Try to get a meaningful identifier for the account
+                              const accountIdentifier = account.email
+                                || account.username
+                                || account.account_name
+                                || account.metadata?.email
+                                || account.metadata?.name
+                                || account.metadata?.user?.email
+                                || `${provider.name} account`
+
+                              return (
+                                <div key={account.id} className="flex items-center gap-3 py-1.5 px-2 rounded bg-background/50">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm truncate">
+                                      {accountIdentifier}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Connected {formatConnectedDate(account.created_at)}
+                                    </p>
                                   </div>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => handleConnect(provider.id)}
-                                    disabled={loading[provider.id]}
-                                    className="h-8 w-8 flex-shrink-0"
-                                  >
-                                    {loading[provider.id] ? (
-                                      <RefreshCw className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <Plus className="w-4 h-4" />
-                                    )}
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* All Apps Section */}
-                    {!availableSearchQuery && (selectedCategory === "all" ? otherApps.length > 0 : allAvailableApps.length > 0) && (
-                      <div>
-                        <div className="mb-4">
-                          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                            {selectedCategory === "all"
-                              ? "All Apps (A-Z)"
-                              : `${APP_CATEGORIES.find(c => c.id === selectedCategory)?.name || selectedCategory} Apps`}
-                          </h3>
-                        </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr items-stretch">
-                          {(selectedCategory === "all" ? otherApps : allAvailableApps).map((provider) => (
-                            <Card key={provider.id} className="h-full hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
-                              <CardContent className="h-full py-5 px-4">
-                                <div className="flex items-center justify-between gap-3 h-full">
-                                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
-                                      <img
-                                        src={getIntegrationLogoPath(provider.id, theme)}
-                                        alt={provider.name}
-                                        className={getIntegrationLogoClasses(provider.id, "w-10 h-10 object-contain")}
-                                        onError={(e) => {
-                                          e.currentTarget.style.display = 'none'
-                                        }}
-                                      />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <h3 className="font-semibold text-sm whitespace-nowrap">{provider.name}</h3>
-                                      {selectedCategory !== "all" && (
-                                        <CategoryBadge category={INTEGRATION_CONFIGS[provider.id]?.category || 'other'} className="mt-1" />
-                                      )}
-                                    </div>
-                                  </div>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    onClick={() => handleConnect(provider.id)}
-                                    disabled={loading[provider.id]}
-                                    className="h-8 w-8 flex-shrink-0"
-                                  >
-                                    {loading[provider.id] ? (
-                                      <RefreshCw className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <Plus className="w-4 h-4" />
-                                    )}
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Search Results - Show all apps in one grid */}
-                    {availableSearchQuery && (
-                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr items-stretch">
-                        {availableApps.map((provider) => (
-                          <Card key={provider.id} className="h-full hover:bg-accent transition-all duration-200 shadow-sm hover:shadow-md">
-                            <CardContent className="h-full py-5 px-4">
-                              <div className="flex items-center justify-between gap-3 h-full">
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <div className="w-10 h-10 flex items-center justify-center flex-shrink-0">
-                                    <img
-                                      src={getIntegrationLogoPath(provider.id, theme)}
-                                      alt={provider.name}
-                                      className={getIntegrationLogoClasses(provider.id, "w-10 h-10 object-contain")}
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none'
-                                      }}
-                                    />
-                                  </div>
-                                  <h3 className="font-semibold text-sm whitespace-nowrap">{provider.name}</h3>
-                                </div>
                                 <Button
-                                  size="icon"
                                   variant="ghost"
-                                  onClick={() => handleConnect(provider.id)}
-                                  disabled={loading[provider.id]}
-                                  className="h-8 w-8 flex-shrink-0"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDisconnect(account.id, provider.name)
+                                  }}
+                                  className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 >
-                                  {loading[provider.id] ? (
-                                    <RefreshCw className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <Plus className="w-4 h-4" />
-                                  )}
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              )
+                            })}
+
+                            {/* Add another account button */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full mt-2"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleConnect(provider.id)
+                              }}
+                              disabled={loading[provider.id]}
+                            >
+                              <Plus className="w-3.5 h-3.5 mr-1.5" />
+                              Add another account
+                              {loading[provider.id] && (
+                                <RefreshCw className="w-3.5 h-3.5 ml-1.5 animate-spin" />
+                              )}
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>

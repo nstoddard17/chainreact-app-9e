@@ -91,7 +91,7 @@ export function AppsWorkspaceGroupView({ integrations, renderAppCard }: AppsWork
         </button>
 
         {!isCollapsed && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pl-4 auto-rows-fr items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr items-stretch">
             {apps.map(integration => {
               const card = renderAppCard(integration)
               if (!card) return null
