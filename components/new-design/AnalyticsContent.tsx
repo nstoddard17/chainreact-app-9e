@@ -28,7 +28,6 @@ import {
   Calendar,
 } from "lucide-react"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
-import { LockedPage } from "@/components/plan-restrictions/LockedPage"
 import { formatDistanceToNow, format } from "date-fns"
 import Link from "next/link"
 
@@ -535,13 +534,9 @@ export function AnalyticsContent() {
     disconnected: 0,
   }
 
+  // Note: Page-level access control is handled by PageAccessGuard in the page component
   return (
-    <LockedPage
-      feature="advancedAnalytics"
-      title="Advanced Analytics"
-      description="Unlock detailed performance insights, workflow trends, and usage reports"
-    >
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header with period selector */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -638,6 +633,5 @@ export function AnalyticsContent() {
           <RecentExecutions executions={recentExecutions} loading={dashboardLoading} />
         </div>
       </div>
-    </LockedPage>
   )
 }

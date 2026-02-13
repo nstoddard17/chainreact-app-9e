@@ -527,6 +527,7 @@ export const useAuthStore = create<AuthState>()(
                     email: user.email,
                     provider: isGoogleUser ? 'google' : 'email',
                     role: derivedRole,
+                    plan: 'free', // New users start with free plan
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                     username: isGoogleUser ? null : undefined,

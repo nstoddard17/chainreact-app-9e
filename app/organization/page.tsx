@@ -4,10 +4,10 @@ import { PageAccessGuard } from "@/components/common/PageAccessGuard"
 
 export default function OrganizationPage() {
   return (
-    <PageAccessGuard page="organization">
-      <NewAppLayout title="Organization" subtitle="View your organization details">
+    <NewAppLayout title="Organization" subtitle="View your organization details">
+      <PageAccessGuard page="organization">
         <OrganizationPublicView />
-      </NewAppLayout>
-    </PageAccessGuard>
+      </PageAccessGuard>
+    </NewAppLayout>
   )
 }

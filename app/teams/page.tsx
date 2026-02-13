@@ -4,10 +4,10 @@ import { PageAccessGuard } from "@/components/common/PageAccessGuard"
 
 export default function TeamsPage() {
   return (
-    <PageAccessGuard page="teams">
-      <NewAppLayout title="Teams" subtitle="Browse Teams">
+    <NewAppLayout title="Teams" subtitle="Browse Teams">
+      <PageAccessGuard page="teams">
         <TeamsPublicView />
-      </NewAppLayout>
-    </PageAccessGuard>
+      </PageAccessGuard>
+    </NewAppLayout>
   )
 }

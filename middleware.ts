@@ -5,14 +5,18 @@ import { logger } from '@/lib/utils/logger'
 import type { NextRequest } from 'next/server'
 
 // Define page access rules
+// Note: Pages with PageAccessGuard (analytics, teams, organization, ai-assistant)
+// should allow all users so they can see the upgrade modal instead of being redirected.
+// The PageAccessGuard component handles showing the upgrade prompt for these pages.
 const pageAccessRules = {
   '/workflows': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
   '/integrations': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
   '/learn': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
   '/community': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
-  '/analytics': ['pro', 'beta-pro', 'business', 'enterprise', 'admin'],
-  '/teams': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
-  '/organization': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
+  '/analytics': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'], // PageAccessGuard handles access control
+  '/teams': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'], // PageAccessGuard handles access control
+  '/organization': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'], // PageAccessGuard handles access control
+  '/ai-assistant': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'], // PageAccessGuard handles access control
   '/enterprise': ['enterprise', 'admin'],
   '/admin': ['admin'],
   '/profile': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
@@ -258,6 +262,7 @@ export const config = {
     '/analytics/:path*',
     '/teams/:path*',
     '/organization/:path*',
+    '/ai-assistant/:path*',
     '/enterprise/:path*',
     '/admin/:path*',
     '/learn/:path*',

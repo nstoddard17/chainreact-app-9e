@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
 import {
   hasPageAccess,
@@ -34,6 +35,10 @@ export function PageAccessGuard({ page, children }: PageAccessGuardProps) {
   const [shouldCheckAccess, setShouldCheckAccess] = useState(false)
   const profileUpdateCountRef = useRef(0)
   const initialProfileRef = useRef(profile)
+  const searchParams = useSearchParams()
+
+  // Debug mode: force showing the upgrade modal for testing
+  const forceUpgradeModal = searchParams.get('forceUpgradeModal') === 'true'
 
   // Track profile updates to detect when fresh data arrives
   useEffect(() => {
@@ -100,16 +105,14 @@ export function PageAccessGuard({ page, children }: PageAccessGuardProps) {
   }, [hydrated, initialized, profile, loading, page, shouldCheckAccess])
 
   // Get user's plan and admin status
-  const userPlan: PlanTier = (profile?.plan as PlanTier) || 'free'
+  // Note: 'beta' and 'beta-pro' plans should be treated as 'pro' for access purposes
+  const rawPlan = profile?.plan || 'free'
+  const userPlan: PlanTier = (rawPlan === 'beta' || rawPlan === 'beta-pro') ? 'pro' : (rawPlan as PlanTier) || 'free'
   const isAdmin = profile?.admin === true
 
-  // If we have a profile with admin access, always allow
-  if (profile && isAdmin) {
-    return <>{children}</>
-  }
-
-  // If we have a profile, check access
-  if (profile && hasPageAccess(userPlan, page, isAdmin)) {
+  // If we have a profile with admin access, always allow (check this FIRST)
+  // Unless forceUpgradeModal is set for testing
+  if (profile && isAdmin && !forceUpgradeModal) {
     return <>{children}</>
   }
 
@@ -119,9 +122,14 @@ export function PageAccessGuard({ page, children }: PageAccessGuardProps) {
     return <>{children}</>
   }
 
+  // If we have a profile, check access (unless forceUpgradeModal is set for testing)
+  if (profile && hasPageAccess(userPlan, page, isAdmin) && !forceUpgradeModal) {
+    return <>{children}</>
+  }
+
   // At this point, we've waited for hydration and the user doesn't have access
 
-  // User doesn't have access - show upgrade prompt
+  // User doesn't have access - show upgrade prompt as modal overlay
   const requiredPlan = getRequiredPlanForPage(page)
   const planInfo = PLAN_INFO[requiredPlan]
 
@@ -139,52 +147,63 @@ export function PageAccessGuard({ page, children }: PageAccessGuardProps) {
     'organization': 'Manage your organization settings and permissions',
   }
 
+  // Render children with a blurred overlay modal on top (only blurs main content area)
   return (
-    <div className="flex-1 flex items-center justify-center min-h-[400px] bg-background p-8">
-      <div className="max-w-md w-full text-center space-y-6">
-        {/* Lock icon */}
-        <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-          <Lock className="w-8 h-8 text-muted-foreground" />
-        </div>
+    <div className="relative h-full w-full">
+      {/* Page content rendered but blurred */}
+      <div className="h-full w-full blur-sm pointer-events-none select-none">
+        {children}
+      </div>
 
-        {/* Title */}
-        <div className="space-y-2">
-          <h2 className="text-2xl font-semibold text-foreground">
-            {pageDisplayNames[page]} requires {planInfo.name}
-          </h2>
-          <p className="text-muted-foreground">
-            {pageDescriptions[page]}
-          </p>
-        </div>
-
-        {/* Plan info card */}
-        <div className="bg-muted/50 rounded-lg p-4 border border-border">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              <span className="font-medium text-foreground">{planInfo.name} Plan</span>
+      {/* Modal overlay - only covers the main content area */}
+      <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-[2px] z-10">
+        <div className="max-w-lg w-full mx-6 bg-white dark:bg-slate-900 rounded-xl border border-border shadow-lg p-8">
+          <div className="text-center space-y-5">
+            {/* Lock icon */}
+            <div className="mx-auto w-14 h-14 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
+              <Lock className="w-7 h-7 text-orange-500" />
             </div>
-            <span className="text-lg font-bold text-foreground">
-              ${planInfo.price}<span className="text-sm font-normal text-muted-foreground">/mo</span>
-            </span>
+
+            {/* Title */}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-foreground">
+                Upgrade to {planInfo.name} to access {pageDisplayNames[page]}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {pageDescriptions[page]}
+              </p>
+            </div>
+
+            {/* Plan info card */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-border">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-orange-500" />
+                  <span className="font-medium text-foreground">{planInfo.name} Plan</span>
+                </div>
+                <span className="text-lg font-bold text-foreground">
+                  ${planInfo.price}<span className="text-sm font-normal text-muted-foreground">/mo</span>
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground text-left">
+                {planInfo.description}
+              </p>
+            </div>
+
+            {/* CTA button */}
+            <Button asChild size="default" className="w-full bg-orange-500 hover:bg-orange-600">
+              <Link href="/settings/billing">
+                Upgrade to {planInfo.name}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </Button>
+
+            {/* Current plan info */}
+            <p className="text-xs text-muted-foreground">
+              You're currently on the <span className="font-medium">{PLAN_INFO[userPlan]?.name || 'Free'}</span> plan
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground text-left">
-            {planInfo.description}
-          </p>
         </div>
-
-        {/* CTA button */}
-        <Button asChild size="lg" className="w-full">
-          <Link href="/settings/billing">
-            Upgrade to {planInfo.name}
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Link>
-        </Button>
-
-        {/* Current plan info */}
-        <p className="text-xs text-muted-foreground">
-          You're currently on the <span className="font-medium">{PLAN_INFO[userPlan]?.name || 'Free'}</span> plan
-        </p>
       </div>
     </div>
   )

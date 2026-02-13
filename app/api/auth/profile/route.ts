@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
       first_name: firstName || null,
       last_name: lastName || null,
       role: derivedRole,
+      plan: 'free', // New users start with free plan
       provider,
       avatar_url: metadata.avatar_url || metadata.picture || null,
       company: metadata.company || null,
