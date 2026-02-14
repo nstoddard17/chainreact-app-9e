@@ -349,11 +349,16 @@ export async function notionUpdatePage(
         const dbData = await notionApiRequest(`/databases/${databaseId}`, "GET", accessToken)
         if (dbData.properties) {
           // Build a map of property ID/name to type (with name for ID-to-name conversion)
+          // Store both decoded and URL-encoded forms of IDs since pageFields uses encoded IDs
           for (const [propName, propConfig] of Object.entries(dbData.properties) as any) {
             propertySchema[propName] = { type: propConfig.type, name: propName }
-            // Also map by ID for encoded property names
             if (propConfig.id) {
               propertySchema[propConfig.id] = { type: propConfig.type, name: propName }
+              // Also store URL-encoded form (pageFields stores IDs like "%7BZs%40" but API returns "{Zs@")
+              const encodedId = encodeURIComponent(propConfig.id)
+              if (encodedId !== propConfig.id) {
+                propertySchema[encodedId] = { type: propConfig.type, name: propName }
+              }
             }
           }
           logger.debug('Property schema loaded:', Object.keys(propertySchema))
@@ -433,7 +438,14 @@ export async function notionUpdatePage(
 
       // For explicitly cleared values (null or empty string), use type-aware clearing
       if (value === null || value === '') {
-        const clearPropInfo = propertySchema[key]
+        let clearPropInfo = propertySchema[key]
+        // Try URL-decoding if direct lookup fails
+        if (!clearPropInfo?.type) {
+          try {
+            const decodedKey = decodeURIComponent(key)
+            if (decodedKey !== key) clearPropInfo = propertySchema[decodedKey]
+          } catch { /* ignore malformed sequences */ }
+        }
         if (clearPropInfo?.type) {
           const propertyKey = clearPropInfo.name || key
           processedProperties[propertyKey] = formatNotionPropertyValue(clearPropInfo.type, value)
@@ -456,8 +468,17 @@ export async function notionUpdatePage(
         const hasNotionKey = notionPropertyKeys.some(nk => nk in valueObj)
 
         if (hasNotionKey) {
-          // Already formatted, use as-is
-          processedProperties[key] = value
+          // Already formatted - resolve property name from schema before using as-is
+          let resolvedKey = propertySchema[key]?.name || key
+          if (resolvedKey === key) {
+            try {
+              const decoded = decodeURIComponent(key)
+              if (decoded !== key && propertySchema[decoded]?.name) {
+                resolvedKey = propertySchema[decoded].name
+              }
+            } catch { /* ignore */ }
+          }
+          processedProperties[resolvedKey] = value
           continue
         }
 
@@ -491,35 +512,27 @@ export async function notionUpdatePage(
         continue
       }
 
-      // Fallback: Use heuristics to determine property type
-      let inferredType = 'rich_text'
-
-      if (typeof value === 'boolean') {
-        inferredType = 'checkbox'
-      } else if (typeof value === 'number') {
-        inferredType = 'number'
-      } else if (Array.isArray(value)) {
-        // Check if array contains user objects (people) or plain strings (multi_select)
-        const hasUserObjects = value.some((v: any) => typeof v === 'object' && v.id && v.object === 'user')
-        if (hasUserObjects) {
-          inferredType = 'people'
-        } else {
-          // Arrays of strings are typically multi_select
-          inferredType = 'multi_select'
+      // Try URL-decoding the key and looking it up in the schema
+      // (pageFields stores URL-encoded IDs like "%7BZs%40" but schema has decoded IDs like "{Zs@")
+      let decodedPropInfo = null
+      try {
+        const decodedKey = decodeURIComponent(key)
+        if (decodedKey !== key) {
+          decodedPropInfo = propertySchema[decodedKey]
+          if (decodedPropInfo?.type) {
+            const propertyKey = decodedPropInfo.name || decodedKey
+            logger.debug(`Formatting property ${key} (URL-decoded to "${decodedKey}", resolved to "${propertyKey}") as type ${decodedPropInfo.type}`)
+            processedProperties[propertyKey] = formatNotionPropertyValue(decodedPropInfo.type, value)
+            continue
+          }
         }
-      } else if (typeof value === 'string') {
-        // Check if it looks like a date
-        if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-          inferredType = 'date'
-        } else if (value.includes('@') && value.includes('.')) {
-          inferredType = 'email'
-        } else if (/^https?:\/\//.test(value)) {
-          inferredType = 'url'
-        }
+      } catch {
+        // decodeURIComponent can throw on malformed sequences, ignore
       }
 
-      logger.debug(`Inferred property ${key} as type ${inferredType}`)
-      processedProperties[key] = formatNotionPropertyValue(inferredType, value)
+      // If property not found in schema even after URL-decoding, skip it
+      // Sending unknown property IDs to the Notion API will cause 400 errors
+      logger.warn(`Skipping property ${key} - not found in database schema, cannot determine property name`)
     }
 
     // Debug logging
