@@ -126,7 +126,7 @@ export const useAuthStore = create<AuthState>()(
           }>((resolve) =>
             setTimeout(
               () => resolve({ data: { session: null }, error: new Error('Supabase getSession timeout') }),
-              8000 // 8 seconds to handle slow connections
+              15000 // 15 seconds to handle slow connections
             )
           )
           return Promise.race([sessionPromise, timeoutPromise])
