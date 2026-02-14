@@ -69,10 +69,54 @@ export function AppsContentV2() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
+  // Debug: Log integrations when they change
+  useEffect(() => {
+    if (integrations.length > 0) {
+      logger.debug('[AppsContentV2] Integrations loaded:', {
+        count: integrations.length,
+        providers: integrations.map(i => ({ provider: i.provider, status: i.status }))
+      })
+    }
+  }, [integrations])
+
+  // Provider mapping for shared OAuth - maps UI provider IDs to stored integration providers
+  const providerMapping: Record<string, string> = {
+    // Google services - stored as 'google' in integrations table
+    'gmail': 'google',
+    'google-docs': 'google',
+    'google-drive': 'google',
+    'google-sheets': 'google',
+    'google-calendar': 'google',
+    'google-analytics': 'google',
+    // Microsoft services - stored as their OAuth provider
+    'outlook': 'microsoft-outlook',
+    'teams': 'microsoft-outlook',
+    'microsoft-teams': 'microsoft-outlook',
+    'microsoft-excel': 'microsoft-outlook',
+    'microsoft-onenote': 'microsoft-outlook',
+    'onedrive': 'microsoft-outlook',
+  }
+
   const getConnectionStatus = (providerId: string) => {
+    // First try exact match
     const directConnection = integrations.find(i => i.provider === providerId)
     if (directConnection) return directConnection
 
+    // Try mapped provider (e.g., gmail -> google)
+    const mappedProvider = providerMapping[providerId]
+    if (mappedProvider) {
+      const mappedConnection = integrations.find(i => i.provider === mappedProvider)
+      if (mappedConnection && mappedConnection.status === 'connected') {
+        return {
+          ...mappedConnection,
+          provider: providerId,
+          _isSharedAuth: true,
+          _sharedWith: mappedProvider,
+        }
+      }
+    }
+
+    // Fallback to config-based sharesAuthWith
     const config = INTEGRATION_CONFIGS[providerId]
     if (config?.sharesAuthWith) {
       const sharedConnection = integrations.find(i => i.provider === config.sharesAuthWith)
@@ -89,7 +133,18 @@ export function AppsContentV2() {
   }
 
   const getConnectedAccounts = (providerId: string) => {
-    return integrations.filter(i => i.provider === providerId && i.status === 'connected')
+    // Use the shared providerMapping defined above
+    const actualProvider = providerMapping[providerId] || providerId
+
+    // First try exact match
+    let accounts = integrations.filter(i => i.provider === providerId && i.status === 'connected')
+
+    // If no exact match and we have a mapping, try the mapped provider
+    if (accounts.length === 0 && actualProvider !== providerId) {
+      accounts = integrations.filter(i => i.provider === actualProvider && i.status === 'connected')
+    }
+
+    return accounts
   }
 
   const formatConnectedDate = (dateString: string) => {
@@ -98,6 +153,13 @@ export function AppsContentV2() {
   }
 
   const handleConnect = async (providerId: string) => {
+    logger.debug('[AppsContentV2] handleConnect called', {
+      providerId,
+      selectedWorkspaceType,
+      selectedWorkspaceId,
+      hasUser: !!user
+    })
+
     if (!user) {
       toast({ title: "Authentication Error", description: "You must be logged in to connect integrations.", variant: "destructive" })
       return
@@ -106,8 +168,11 @@ export function AppsContentV2() {
     setLocalLoading(prev => ({ ...prev, [providerId]: true }))
 
     try {
+      logger.debug('[AppsContentV2] Calling connectIntegration...')
       await connectIntegration(providerId, selectedWorkspaceType, selectedWorkspaceId)
+      logger.debug('[AppsContentV2] connectIntegration completed')
     } catch (error: any) {
+      logger.debug('[AppsContentV2] connectIntegration error:', error?.message)
       const isCancellation = error?.message?.toLowerCase().includes('cancel')
       if (!isCancellation) {
         logger.error("Connection error:", error)
@@ -264,11 +329,14 @@ export function AppsContentV2() {
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.preventDefault()
                 e.stopPropagation()
-                handleConnect(provider.id)
+                try {
+                  await handleConnect(provider.id)
+                } catch (err) {
+                  logger.error('[AppsContentV2] Unhandled error in connect button:', err)
+                }
               }}
               disabled={loading[provider.id]}
               className="flex-shrink-0"
@@ -474,7 +542,14 @@ export function AppsContentV2() {
               )}
               <Button
                 type="button"
-                onClick={() => handleConnect(provider.id)}
+                onClick={async (e) => {
+                  e.preventDefault()
+                  try {
+                    await handleConnect(provider.id)
+                  } catch (err) {
+                    logger.error('[AppsContentV2] Unhandled error in connect button:', err)
+                  }
+                }}
                 disabled={loading[provider.id]}
                 className="h-9"
               >
