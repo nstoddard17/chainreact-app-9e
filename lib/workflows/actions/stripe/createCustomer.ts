@@ -150,7 +150,10 @@ export async function stripeCreateCustomer(
       const customFields = context.dataFlowManager.resolveVariable(config.invoice_settings_custom_fields)
       let fieldsArray: any[] = []
 
-      if (Array.isArray(customFields)) {
+      if (typeof customFields === 'object' && !Array.isArray(customFields)) {
+        // KeyValue field format: {key: value} → [{name: key, value: val}]
+        fieldsArray = Object.entries(customFields).map(([name, value]) => ({ name, value }))
+      } else if (Array.isArray(customFields)) {
         fieldsArray = customFields
       } else if (typeof customFields === 'string') {
         try {
