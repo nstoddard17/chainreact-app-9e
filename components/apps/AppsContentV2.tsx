@@ -48,8 +48,10 @@ export function AppsContentV2() {
   const [expandedApp, setExpandedApp] = useState<string | null>(null)
   const { toast } = useToast()
 
-  const teams = allTeams.filter(team => team.user_role === 'owner' || team.user_role === 'admin')
-  const organizations = allOrganizations.filter(org => org.user_role === 'owner' || org.user_role === 'admin')
+  // Show all teams and organizations the user is a member of
+  // Members should be able to connect integrations for their workspaces
+  const teams = allTeams
+  const organizations = allOrganizations
 
   // Note: initializeProviders is handled by PagePreloader for parallel loading
   // We only need to call it if providers are empty (e.g., after a failed initial load)
@@ -198,10 +200,22 @@ export function AppsContentV2() {
         )}
       >
         {/* Row Header - Always visible */}
-        <button
-          onClick={() => setExpandedApp(isExpanded ? null : provider.id)}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={(e) => {
+            // Don't toggle expand if clicking on the connect button
+            if ((e.target as HTMLElement).closest('button')) return
+            setExpandedApp(isExpanded ? null : provider.id)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setExpandedApp(isExpanded ? null : provider.id)
+            }
+          }}
           className={cn(
-            "w-full flex items-center gap-4 p-4 text-left transition-colors",
+            "w-full flex items-center gap-4 p-4 text-left transition-colors cursor-pointer",
             "hover:bg-muted/30"
           )}
         >
@@ -248,9 +262,11 @@ export function AppsContentV2() {
           {/* Quick Connect Button (when not expanded and not connected) */}
           {!isExpanded && !isConnected && (
             <Button
+              type="button"
               size="sm"
               variant="outline"
               onClick={(e) => {
+                e.preventDefault()
                 e.stopPropagation()
                 handleConnect(provider.id)
               }}
@@ -278,7 +294,7 @@ export function AppsContentV2() {
               isExpanded && "rotate-180"
             )} />
           </div>
-        </button>
+        </div>
 
         {/* Expanded Content */}
         {isExpanded && (
@@ -372,6 +388,7 @@ export function AppsContentV2() {
                         <div className="flex items-center gap-1 flex-shrink-0">
                           {accountExpired && (
                             <Button
+                              type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => handleConnect(provider.id)}
@@ -389,6 +406,7 @@ export function AppsContentV2() {
                             </Button>
                           )}
                           <Button
+                            type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDisconnect(account.id, provider.name)}
@@ -455,6 +473,7 @@ export function AppsContentV2() {
                 </Select>
               )}
               <Button
+                type="button"
                 onClick={() => handleConnect(provider.id)}
                 disabled={loading[provider.id]}
                 className="h-9"
@@ -588,6 +607,7 @@ export function AppsContentV2() {
           </p>
           {activeTab === 'connected' && (
             <Button
+              type="button"
               variant="outline"
               size="sm"
               className="mt-4"
@@ -608,11 +628,11 @@ export function AppsContentV2() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button type="button" variant="outline" size="sm">
             <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
             Request
           </Button>
-          <Button variant="outline" size="sm">
+          <Button type="button" variant="outline" size="sm">
             <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
             API Docs
           </Button>

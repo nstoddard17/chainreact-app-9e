@@ -47,7 +47,8 @@ export function useWorkspaces() {
       const orgsData = await orgsResponse.json()
 
       const teams = teamsData.teams || []
-      const organizations = orgsData.data?.organizations || []
+      // Organizations API returns { organizations: [...] } directly, not wrapped in data
+      const organizations = orgsData.organizations || orgsData.data?.organizations || []
 
       // Build workspace options
       const options: WorkspaceOption[] = [
