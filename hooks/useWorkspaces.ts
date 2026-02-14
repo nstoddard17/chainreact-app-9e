@@ -48,7 +48,10 @@ export function useWorkspaces() {
 
       const teams = teamsData.teams || []
       // Organizations API returns { organizations: [...] } directly, not wrapped in data
-      const organizations = orgsData.organizations || orgsData.data?.organizations || []
+      // Filter out personal workspaces (is_workspace: true) and standalone teams (is_team: true)
+      // since we add personal workspace manually and teams come from /api/teams/my-teams
+      const allOrgs = orgsData.organizations || orgsData.data?.organizations || []
+      const organizations = allOrgs.filter((org: any) => !org.is_workspace && !org.is_team)
 
       // Build workspace options
       const options: WorkspaceOption[] = [
