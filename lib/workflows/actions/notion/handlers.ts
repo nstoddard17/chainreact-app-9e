@@ -337,7 +337,7 @@ export async function notionUpdatePage(
     const title = context.dataFlowManager.resolveVariable(config.title)
 
     // Fetch the page to determine if it's a database page and get property schema
-    let propertySchema: Record<string, { type: string }> = {}
+    let propertySchema: Record<string, { type: string; name: string }> = {}
     try {
       const pageData = await notionApiRequest(`/pages/${pageId}`, "GET", accessToken)
 
@@ -348,12 +348,12 @@ export async function notionUpdatePage(
 
         const dbData = await notionApiRequest(`/databases/${databaseId}`, "GET", accessToken)
         if (dbData.properties) {
-          // Build a map of property ID/name to type
+          // Build a map of property ID/name to type (with name for ID-to-name conversion)
           for (const [propName, propConfig] of Object.entries(dbData.properties) as any) {
-            propertySchema[propName] = { type: propConfig.type }
+            propertySchema[propName] = { type: propConfig.type, name: propName }
             // Also map by ID for encoded property names
             if (propConfig.id) {
-              propertySchema[propConfig.id] = { type: propConfig.type }
+              propertySchema[propConfig.id] = { type: propConfig.type, name: propName }
             }
           }
           logger.debug('Property schema loaded:', Object.keys(propertySchema))
@@ -431,10 +431,17 @@ export async function notionUpdatePage(
         continue
       }
 
-      // For explicitly cleared values (null or empty string), send null to clear the property
+      // For explicitly cleared values (null or empty string), use type-aware clearing
       if (value === null || value === '') {
-        processedProperties[key] = null
-        logger.debug(`Clearing property ${key} (sending null to Notion API)`)
+        const clearPropInfo = propertySchema[key]
+        if (clearPropInfo?.type) {
+          const propertyKey = clearPropInfo.name || key
+          processedProperties[propertyKey] = formatNotionPropertyValue(clearPropInfo.type, value)
+          logger.debug(`Clearing property ${key} (resolved to "${propertyKey}") as type ${clearPropInfo.type}`)
+        } else {
+          // Without schema type, skip the property entirely rather than sending raw null
+          logger.debug(`Skipping empty property ${key} - no schema type found, cannot safely clear`)
+        }
         continue
       }
 
@@ -464,7 +471,8 @@ export async function notionUpdatePage(
       // Look up property type from schema
       const propInfo = propertySchema[key]
       if (propInfo?.type) {
-        logger.debug(`Formatting property ${key} as type ${propInfo.type}`)
+        const propertyKey = propInfo.name || key
+        logger.debug(`Formatting property ${key} (resolved to "${propertyKey}") as type ${propInfo.type}`)
 
         // Special handling for people properties - skip if value can't be resolved to IDs
         if (propInfo.type === 'people') {
@@ -479,7 +487,7 @@ export async function notionUpdatePage(
           }
         }
 
-        processedProperties[key] = formatNotionPropertyValue(propInfo.type, value)
+        processedProperties[propertyKey] = formatNotionPropertyValue(propInfo.type, value)
         continue
       }
 
@@ -555,7 +563,11 @@ export async function notionUpdatePage(
       }
     }
 
-    logger.debug('Final payload for Notion update:', JSON.stringify(payload, null, 2))
+    logger.debug('Final payload for Notion update:', {
+      propertyKeys: Object.keys(payload.properties || {}),
+      propertyCount: Object.keys(payload.properties || {}).length,
+      payload: JSON.stringify(payload, null, 2)
+    })
 
     const result = await notionApiRequest(`/pages/${pageId}`, "PATCH", accessToken, payload)
 
