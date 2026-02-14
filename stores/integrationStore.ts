@@ -288,9 +288,14 @@ export const useIntegrationStore = create<IntegrationStore>()(
           // Log the error message properly (Error objects don't serialize to JSON)
           const errorMessage = error?.message || String(error) || "Unknown error"
 
-          // Don't log auth errors as errors - they're expected when user isn't logged in yet
-          if (errorMessage.includes('No authenticated user') || errorMessage.includes('Please log in')) {
+          // Don't log auth/timeout errors as errors - they're expected during initialization
+          const isAuthError = errorMessage.includes('No authenticated user') || errorMessage.includes('Please log in')
+          const isTimeoutError = errorMessage.includes('timeout') || errorMessage.includes('timed out')
+
+          if (isAuthError) {
             logger.debug("[IntegrationStore] Skipping provider initialization - user not authenticated yet")
+          } else if (isTimeoutError) {
+            logger.warn("[IntegrationStore] Provider initialization timed out - will retry when auth is ready")
           } else {
             logger.error("Failed to initialize providers:", { message: errorMessage, stack: error?.stack })
           }
@@ -298,7 +303,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           clearTimeout(loadingTimeout)
           setLoading('providers', false)
           set({
-            error: null, // Don't show auth-related errors to user
+            error: null, // Don't show auth-related or timeout errors to user
             providers: [],
           })
         }

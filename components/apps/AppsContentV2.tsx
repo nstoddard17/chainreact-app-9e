@@ -51,11 +51,14 @@ export function AppsContentV2() {
   const teams = allTeams.filter(team => team.user_role === 'owner' || team.user_role === 'admin')
   const organizations = allOrganizations.filter(org => org.user_role === 'owner' || org.user_role === 'admin')
 
-  // Initialize providers on mount
+  // Note: initializeProviders is handled by PagePreloader for parallel loading
+  // We only need to call it if providers are empty (e.g., after a failed initial load)
   useEffect(() => {
-    initializeProviders()
+    if (providers.length === 0 && !storeLoading) {
+      initializeProviders()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [providers.length, storeLoading])
 
   useEffect(() => {
     if (user) {
@@ -488,14 +491,6 @@ export function AppsContentV2() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Apps</h1>
-        <p className="text-muted-foreground">
-          Connect and manage your integrations
-        </p>
-      </div>
-
       {/* Tabs + Search Row */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         {/* Tab Pills */}

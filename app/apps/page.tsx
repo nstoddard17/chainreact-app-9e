@@ -1,5 +1,5 @@
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
-import { AppsContent } from "@/components/new-design/AppsContent"
+import { AppsContentV2 } from "@/components/apps/AppsContentV2"
 import { PagePreloader } from "@/components/common/PagePreloader"
 
 export default function AppsPage() {
@@ -11,7 +11,7 @@ export default function AppsPage() {
         loadingDescription="Loading available integrations and your connections..."
         skipWorkflows={true}
       >
-        <AppsContent />
+        <AppsContentV2 />
       </PagePreloader>
     </NewAppLayout>
   )

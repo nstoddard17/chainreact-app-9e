@@ -88,15 +88,11 @@ export class IntegrationService {
 
   /**
    * Fetch all available integration providers
+   * Note: This endpoint doesn't require authentication - it returns the list of
+   * available integrations that can be connected (not user-specific data)
    */
   static async fetchProviders(): Promise<Provider[]> {
-    const { session } = await IntegrationService.getSessionWithCache()
-
-    const response = await fetch("/api/integrations/available", {
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    })
+    const response = await fetch("/api/integrations/available")
 
     if (!response.ok) {
       throw new Error(`Failed to fetch providers: ${response.statusText}`)
