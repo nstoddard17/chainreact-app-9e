@@ -29,18 +29,18 @@ export async function stripeCreateRefund(
     // Build request body
     const body: any = {}
 
-    if (chargeId) {
-      body.charge = chargeId
-    }
+    // Stripe only accepts one of these - prefer payment_intent over charge
     if (paymentIntentId) {
       body.payment_intent = paymentIntentId
+    } else if (chargeId) {
+      body.charge = chargeId
     }
 
     // Amount is optional - if not provided, refunds full amount
     if (config.amount) {
       const amount = context.dataFlowManager.resolveVariable(config.amount)
       if (amount) {
-        body.amount = parseInt(amount.toString())
+        body.amount = Math.round(parseFloat(amount.toString()) * 100)
       }
     }
 

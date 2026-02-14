@@ -1266,7 +1266,7 @@ export const stripeNodes: NodeComponent[] = [
     isTrigger: false,
     producesOutput: true,
     configSchema: [
-      { name: "amount", label: "Amount (cents)", type: "number", required: true, placeholder: "1000" },
+      { name: "amount", label: "Amount ($)", type: "number", required: true, placeholder: "20.99", description: "Enter amount in dollars (e.g., 20.99 for $20.99). Will be converted to cents for Stripe." },
       { name: "currency", label: "Currency", type: "select", required: true, defaultValue: "usd", options: [
         { value: "usd", label: "USD" },
         { value: "eur", label: "EUR" },
@@ -1321,7 +1321,7 @@ export const stripeNodes: NodeComponent[] = [
         description: "Select the customer for this invoice"
       },
       { name: "description", label: "Description", type: "text", required: false, placeholder: "Invoice description" },
-      { name: "autoAdvance", label: "Auto Advance", type: "boolean", required: false, defaultValue: true }
+      { name: "autoAdvance", label: "Auto Advance", type: "boolean", required: false, defaultValue: true, description: "When enabled, Stripe automatically finalizes the invoice and attempts to collect payment. When disabled, the invoice stays in draft status for manual review before sending." }
     ],
     outputSchema: [
       { name: "invoiceId", label: "Invoice ID", type: "string", description: "The unique ID of the invoice (in_...)" },
@@ -1509,12 +1509,12 @@ export const stripeNodes: NodeComponent[] = [
       },
       {
         name: "amount",
-        label: "Amount (cents)",
+        label: "Amount ($)",
         type: "number",
         required: false,
-        placeholder: "1000",
-        description: "Amount to refund in cents. Leave empty to refund full amount.",
-        tooltip: "For partial refunds, specify the amount in cents. For full refunds, leave this empty."
+        placeholder: "20.99",
+        description: "Amount to refund in dollars (e.g., 10.50 for $10.50). Leave empty to refund full amount.",
+        tooltip: "For partial refunds, specify the amount in dollars. For full refunds, leave this empty."
       },
       {
         name: "reason",

@@ -25,7 +25,7 @@ export async function stripeCreatePaymentIntent(
 
     // Build request body
     const body: any = {
-      amount: parseInt(amount),
+      amount: Math.round(parseFloat(amount) * 100),
       currency: currency.toLowerCase()
     }
 
