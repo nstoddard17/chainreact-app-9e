@@ -54,8 +54,10 @@ export async function POST(request: NextRequest) {
   try {
     logger.info('[Stripe Integration Webhook] Incoming request', {
       url: request.nextUrl.pathname + request.nextUrl.search,
+      fullUrl: request.url,
       hasSignature: !!request.headers.get('stripe-signature'),
-      method: request.method
+      method: request.method,
+      contentLength: request.headers.get('content-length') || 'unknown',
     })
 
     // Read body and signature early (before DB queries) so fallback mode can use them
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     // Query trigger resources, optionally filtered by workflowId
     let resourceQuery = supabase
       .from('trigger_resources')
-      .select('id, workflow_id, trigger_type, config, status')
+      .select('id, workflow_id, trigger_type, config, status, external_id')
       .eq('provider_id', 'stripe')
       .eq('status', 'active')
 
@@ -96,11 +98,12 @@ export async function POST(request: NextRequest) {
       return jsonResponse({ received: true, skipped: true, reason: 'no_active_resources' })
     }
 
-    logger.debug('[Stripe Integration Webhook] Loaded trigger resources', {
+    logger.info('[Stripe Integration Webhook] Loaded trigger resources', {
       workflowIdParam: workflowIdParam || 'none',
       resourceCount: resources.length,
       triggerTypes: resources.map((r: any) => r.trigger_type),
-      resourcesWithSecrets: resources.filter((r: any) => r?.config?.webhookSecret).length
+      resourcesWithSecrets: resources.filter((r: any) => r?.config?.webhookSecret).length,
+      resourceEndpointIds: resources.map((r: any) => r.external_id || 'none'),
     })
 
     const stripe = getStripeClient()
@@ -121,11 +124,14 @@ export async function POST(request: NextRequest) {
         matchedResource = resource
         break
       } catch (verifyError: any) {
-        logger.debug('[Stripe Integration Webhook] Secret did not match', {
+        logger.warn('[Stripe Integration Webhook] Secret did not match for resource', {
           resourceId: resource.id,
           workflowId: resource.workflow_id,
           triggerType: resource.trigger_type,
-          errorMessage: verifyError?.message || 'Unknown verification error'
+          externalEndpointId: resource?.external_id || 'unknown',
+          storedSecretPrefix: candidateSecret ? candidateSecret.substring(0, 8) + '...' : 'empty',
+          errorMessage: verifyError?.message || 'Unknown verification error',
+          errorType: verifyError?.type || verifyError?.code || 'unknown',
         })
       }
     }
@@ -136,7 +142,16 @@ export async function POST(request: NextRequest) {
         mode: workflowIdParam ? 'targeted' : 'fallback',
         resourceCount: resources.length,
         resourcesWithSecrets: resources.filter((r: any) => r?.config?.webhookSecret).length,
-        triggerTypes: resources.map((r: any) => r.trigger_type)
+        triggerTypes: resources.map((r: any) => r.trigger_type),
+        resourceDetails: resources.map((r: any) => ({
+          id: r.id,
+          externalEndpointId: r.external_id || 'none',
+          storedSecretPrefix: r?.config?.webhookSecret
+            ? r.config.webhookSecret.substring(0, 8) + '...' : 'missing',
+        })),
+        signaturePrefix: signature ? signature.substring(0, 30) + '...' : 'missing',
+        bodyLength: body.length,
+        requestUrl: request.url,
       })
       return errorResponse('Invalid Stripe signature', 400)
     }

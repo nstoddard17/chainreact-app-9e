@@ -108,6 +108,10 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
     // Get events to listen for based on trigger type
     const enabledEvents = this.getEventsForTrigger(triggerType)
 
+    // Clean up orphaned Stripe webhook endpoints that point to our webhook path
+    // but are not tracked in trigger_resources (prevents duplicate endpoint issues)
+    await this.cleanupOrphanedEndpoints(stripe, webhookUrl)
+
     const fullWebhookUrl = `${webhookUrl}?workflowId=${workflowId}`
     logger.info('[Stripe] Creating Connect webhook endpoint', {
       webhookUrl: fullWebhookUrl,
@@ -225,6 +229,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
 
   /**
    * Check health of Stripe webhook endpoints
+   * Verifies each endpoint exists on Stripe and cleans up orphaned endpoints
    */
   async checkHealth(workflowId: string, _userId: string): Promise<TriggerHealthStatus> {
     const { data: resources } = await getSupabase()
@@ -242,14 +247,121 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
-    // Ensure platform credentials exist for managing Connect webhooks.
-    this.getPlatformStripeClient()
+    const stripe = this.getPlatformStripeClient()
+    const issues: string[] = []
 
-    // Stripe webhooks do not expire, so healthy if they exist
+    // Verify each tracked endpoint exists on Stripe
+    for (const resource of resources) {
+      if (!resource.external_id) {
+        issues.push(`Resource ${resource.id} missing external_id`)
+        continue
+      }
+
+      try {
+        const liveEndpoint = await stripe.webhookEndpoints.retrieve(resource.external_id)
+
+        if (liveEndpoint.status === 'disabled') {
+          issues.push(`Endpoint ${resource.external_id}: disabled in Stripe`)
+        }
+
+        if (resource.config?.webhookUrl && liveEndpoint.url !== resource.config.webhookUrl) {
+          logger.warn('[Stripe Health] URL mismatch detected', {
+            workflowId,
+            resourceId: resource.id,
+            endpointId: resource.external_id,
+            storedUrl: resource.config.webhookUrl,
+            liveUrl: liveEndpoint.url,
+          })
+          issues.push(`Endpoint ${resource.external_id}: URL mismatch`)
+        }
+      } catch (error: any) {
+        if (error?.statusCode === 404) {
+          logger.error('[Stripe Health] Webhook endpoint not found in Stripe', {
+            workflowId,
+            resourceId: resource.id,
+            endpointId: resource.external_id,
+          })
+          issues.push(`Endpoint ${resource.external_id}: not found in Stripe (404)`)
+        } else {
+          logger.error('[Stripe Health] Failed to check endpoint', {
+            workflowId,
+            endpointId: resource.external_id,
+            error: error?.message || 'Unknown',
+          })
+          issues.push(`Endpoint ${resource.external_id}: check failed`)
+        }
+      }
+    }
+
+    // Clean up orphaned endpoints pointing to our webhook path
+    const webhookUrl = this.getWebhookUrl()
+    await this.cleanupOrphanedEndpoints(stripe, webhookUrl)
+
+    const healthy = issues.length === 0
+    const details = healthy
+      ? `All Stripe webhooks healthy (${resources.length} active)`
+      : `Issues found: ${issues.join('; ')}`
+
     return {
-      healthy: true,
-      details: `All Stripe webhooks healthy (${resources.length} active)`,
+      healthy,
+      details,
       lastChecked: new Date().toISOString()
+    }
+  }
+
+  /**
+   * Clean up orphaned Stripe webhook endpoints that point to our webhook path
+   * but are not tracked in trigger_resources. This prevents duplicate endpoints
+   * from causing signature verification failures.
+   */
+  private async cleanupOrphanedEndpoints(stripe: Stripe, webhookBasePath: string): Promise<void> {
+    try {
+      const endpoints = await stripe.webhookEndpoints.list({ limit: 100 })
+
+      // Find endpoints that point to our webhook integration path
+      const ourEndpoints = endpoints.data.filter(
+        (ep) => ep.url.includes('/api/webhooks/stripe-integration')
+      )
+
+      if (ourEndpoints.length <= 1) return
+
+      // Get all tracked endpoint IDs from the database
+      const { data: trackedResources } = await getSupabase()
+        .from('trigger_resources')
+        .select('external_id')
+        .eq('provider_id', 'stripe')
+        .in('status', ['active', 'error'])
+
+      const trackedIds = new Set(
+        (trackedResources || []).map((r: any) => r.external_id).filter(Boolean)
+      )
+
+      // Delete endpoints not tracked in the database
+      for (const ep of ourEndpoints) {
+        if (!trackedIds.has(ep.id)) {
+          logger.warn('[Stripe] Deleting orphaned webhook endpoint', {
+            endpointId: ep.id,
+            url: ep.url,
+            description: ep.description || 'none',
+          })
+          try {
+            await stripe.webhookEndpoints.del(ep.id)
+            logger.info('[Stripe] Orphaned endpoint deleted successfully', {
+              endpointId: ep.id,
+            })
+          } catch (delError: any) {
+            logger.error('[Stripe] Failed to delete orphaned endpoint', {
+              endpointId: ep.id,
+              error: delError?.message || 'Unknown',
+            })
+          }
+        }
+      }
+    } catch (error: any) {
+      // Non-fatal: log and continue — orphan cleanup is best-effort
+      logger.warn('[Stripe] Orphan endpoint cleanup failed (non-fatal)', {
+        error: error?.message || 'Unknown',
+      })
     }
   }
 
