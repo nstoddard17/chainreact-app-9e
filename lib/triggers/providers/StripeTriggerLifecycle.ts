@@ -91,6 +91,16 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
 
     // Stripe Connect webhooks must be created on the platform account.
     const stripe = this.getPlatformStripeClient()
+    try {
+      const account = await stripe.accounts.retrieve()
+      logger.info('[Stripe] Platform account for webhook creation', {
+        accountId: account.id
+      })
+    } catch (error: any) {
+      logger.warn('[Stripe] Could not resolve platform account for webhook creation', {
+        error: error?.message || 'Unknown error'
+      })
+    }
 
     // Get webhook callback URL
     const webhookUrl = this.getWebhookUrl()
