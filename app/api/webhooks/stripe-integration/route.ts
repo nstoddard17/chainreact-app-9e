@@ -285,6 +285,14 @@ export async function POST(request: NextRequest) {
     executionEngine.executeWorkflowAdvanced(executionSession.id, {
       stripeEvent: event,
       triggerResourceIds: matchingResources.map((resource: any) => resource.id)
+    }).catch((execError: any) => {
+      logger.error('[Stripe Integration Webhook] Workflow execution failed', {
+        workflowId,
+        executionSessionId: executionSession.id,
+        eventType: event.type,
+        error: execError?.message || 'Unknown execution error',
+        stack: execError?.stack?.split('\n').slice(0, 5).join('\n') || 'no stack',
+      })
     })
 
     return jsonResponse({
