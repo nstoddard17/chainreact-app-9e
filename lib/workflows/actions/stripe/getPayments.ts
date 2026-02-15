@@ -29,9 +29,8 @@ export async function stripeGetPayments(
       params.customer = customerId
     }
 
-    if (status) {
-      params['status'] = status
-    }
+    // Note: Stripe's /v1/payment_intents does NOT support 'status' as a query param.
+    // Status filtering is done client-side after fetching.
 
     if (startingAfter) {
       params.starting_after = startingAfter
@@ -53,7 +52,12 @@ export async function stripeGetPayments(
     }
 
     const data = await response.json()
-    const payments = data.data || []
+    let payments = data.data || []
+
+    // Client-side status filtering (Stripe API doesn't support status param)
+    if (status) {
+      payments = payments.filter((pi: any) => pi.status === status)
+    }
 
     return {
       success: true,
