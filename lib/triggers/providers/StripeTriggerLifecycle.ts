@@ -15,6 +15,7 @@ import {
 } from '../types'
 
 import { logger } from '@/lib/utils/logger'
+import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 
 // Helper to create supabase client inside handlers
 const getSupabase = () => createClient(
@@ -97,16 +98,18 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
     // Get events to listen for based on trigger type
     const enabledEvents = this.getEventsForTrigger(triggerType)
 
-    logger.debug('Creating Stripe Connect webhook endpoint', {
-      webhookUrl,
+    const fullWebhookUrl = `${webhookUrl}?workflowId=${workflowId}`
+    logger.info('[Stripe] Creating Connect webhook endpoint', {
+      webhookUrl: fullWebhookUrl,
       enabledEvents,
-      connect: true
+      connect: true,
+      workflowId
     })
 
     // Create Connect webhook endpoint on the platform account
     // connect: true is required to receive events from connected accounts (users' Stripe accounts)
     const endpoint = await stripe.webhookEndpoints.create({
-      url: `${webhookUrl}?workflowId=${workflowId}`,
+      url: fullWebhookUrl,
       connect: true,
       enabled_events: enabledEvents,
       description: `ChainReact workflow ${workflowId}`
@@ -278,16 +281,10 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
 
   /**
    * Get webhook callback URL
+   * Uses getWebhookBaseUrl() which returns chainreact.app in production, ngrok in dev
    */
   private getWebhookUrl(): string {
-    const baseUrl = process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL ||
-                    process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL ||
-                    process.env.PUBLIC_WEBHOOK_BASE_URL
-
-    if (!baseUrl) {
-      throw new Error('Webhook base URL not configured')
-    }
-
-    return `${baseUrl.replace(/\/$/, '')}/api/webhooks/stripe-integration`
+    const baseUrl = getWebhookBaseUrl()
+    return `${baseUrl}/api/webhooks/stripe-integration`
   }
 }
