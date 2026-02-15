@@ -258,7 +258,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (workflow.status !== 'active') {
-      logger.debug('[Stripe Integration Webhook] Workflow not active; skipping execution', { workflowId, status: workflow.status })
+      logger.warn('[Stripe Integration Webhook] Workflow not active; skipping execution', { workflowId, status: workflow.status })
       return jsonResponse({ received: true, skipped: true, reason: 'workflow_not_active' })
     }
 
@@ -274,6 +274,13 @@ export async function POST(request: NextRequest) {
         }
       }
     )
+
+    logger.info('[Stripe Integration Webhook] Execution started', {
+      workflowId,
+      executionSessionId: executionSession.id,
+      eventType: event.type,
+      eventId: event.id,
+    })
 
     executionEngine.executeWorkflowAdvanced(executionSession.id, {
       stripeEvent: event,
