@@ -97,14 +97,17 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
     // Get events to listen for based on trigger type
     const enabledEvents = this.getEventsForTrigger(triggerType)
 
-    logger.debug('Creating Stripe webhook endpoint', {
+    logger.debug('Creating Stripe Connect webhook endpoint', {
       webhookUrl,
-      enabledEvents
+      enabledEvents,
+      connect: true
     })
 
-    // Create Account webhook endpoint for this workflow
+    // Create Connect webhook endpoint on the platform account
+    // connect: true is required to receive events from connected accounts (users' Stripe accounts)
     const endpoint = await stripe.webhookEndpoints.create({
       url: `${webhookUrl}?workflowId=${workflowId}`,
+      connect: true,
       enabled_events: enabledEvents,
       description: `ChainReact workflow ${workflowId}`
     })
@@ -125,7 +128,8 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
         integrationId: integration.id,
         webhookUrl: endpoint.url,
         webhookSecret: endpoint.secret,
-        enabledEvents
+        enabledEvents,
+        connectWebhook: true
       },
       status: 'active'
     })

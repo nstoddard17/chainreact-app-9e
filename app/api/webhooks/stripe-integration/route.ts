@@ -166,7 +166,24 @@ export async function POST(request: NextRequest) {
 
     const matchingResources = workflowResources.filter((resource: any) => {
       const allowedEvents = getEventsForTrigger(resource.trigger_type)
-      return allowedEvents.includes(event!.type)
+      if (!allowedEvents.includes(event!.type)) {
+        return false
+      }
+
+      // For Connect webhooks, match by connected account ID
+      const selectedIntegrationId = resource?.config?.stripe_account
+      if (!selectedIntegrationId) {
+        return true
+      }
+
+      const eventAccountId = typeof event?.account === 'string' ? event.account : null
+      const connectedAccountId = resource?.config?.account_id
+
+      if (connectedAccountId && eventAccountId) {
+        return connectedAccountId === eventAccountId
+      }
+
+      return true
     })
 
     if (matchingResources.length === 0) {
