@@ -166,24 +166,7 @@ export async function POST(request: NextRequest) {
 
     const matchingResources = workflowResources.filter((resource: any) => {
       const allowedEvents = getEventsForTrigger(resource.trigger_type)
-      if (!allowedEvents.includes(event!.type)) {
-        return false
-      }
-
-      const selectedIntegrationId = resource?.config?.stripe_account
-      if (!selectedIntegrationId) {
-        return true
-      }
-
-      const eventAccountId = typeof event?.account === 'string' ? event.account : null
-      const connectedAccountId = resource?.config?.account_id
-
-      // Prefer explicit account_id if available, otherwise allow integration-level matching.
-      if (connectedAccountId && eventAccountId) {
-        return connectedAccountId === eventAccountId
-      }
-
-      return true
+      return allowedEvents.includes(event!.type)
     })
 
     if (matchingResources.length === 0) {
