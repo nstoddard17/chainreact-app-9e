@@ -96,6 +96,13 @@ export async function POST(request: NextRequest) {
       return jsonResponse({ received: true, skipped: true, reason: 'no_active_resources' })
     }
 
+    logger.debug('[Stripe Integration Webhook] Loaded trigger resources', {
+      workflowIdParam: workflowIdParam || 'none',
+      resourceCount: resources.length,
+      triggerTypes: resources.map((r: any) => r.trigger_type),
+      resourcesWithSecrets: resources.filter((r: any) => r?.config?.webhookSecret).length
+    })
+
     const stripe = getStripeClient()
 
     let event: Stripe.Event | null = null
@@ -164,6 +171,13 @@ export async function POST(request: NextRequest) {
       ? resources
       : resources.filter((r: any) => r.workflow_id === workflowId)
 
+    logger.debug('[Stripe Integration Webhook] Resolved workflow resources', {
+      workflowId,
+      workflowResourcesCount: workflowResources.length,
+      workflowTriggerTypes: workflowResources.map((r: any) => r.trigger_type),
+      matchedResourceId: matchedResource.id
+    })
+
     const matchingResources = workflowResources.filter((resource: any) => {
       const allowedEvents = getEventsForTrigger(resource.trigger_type)
       if (!allowedEvents.includes(event!.type)) {
@@ -194,6 +208,14 @@ export async function POST(request: NextRequest) {
       })
       return jsonResponse({ received: true, skipped: true, reason: 'event_not_configured' })
     }
+
+    logger.debug('[Stripe Integration Webhook] Matching trigger resources', {
+      workflowId,
+      eventType: event.type,
+      matchingResourceIds: matchingResources.map((r: any) => r.id),
+      matchingTriggerTypes: matchingResources.map((r: any) => r.trigger_type),
+      connectedAccount: event.account || null
+    })
 
     const { error: eventLogError } = await supabase
       .from('webhook_events')

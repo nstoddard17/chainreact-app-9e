@@ -376,37 +376,6 @@ export function TriggerTester({ userId }: TriggerTesterProps) {
       }
     })
 
-    addLog('info', 'Config', 'Saving workflow updates before test', {
-      workflowId: selectedWorkflowId,
-      triggerNodeId: selectedWorkflowTriggerNodeId,
-      configKeys: Object.keys(updatedConfig)
-    })
-
-    try {
-      const saveResponse = await fetch(`/api/workflows/${selectedWorkflowId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nodes: updatedNodes,
-          connections: workflowConnections
-        })
-      })
-
-      const saveResult = await saveResponse.json().catch(() => ({}))
-      if (!saveResponse.ok) {
-        addLog('error', 'API', 'Failed to save workflow updates', {
-          status: saveResponse.status,
-          error: saveResult.error
-        })
-        return
-      }
-    } catch (err: any) {
-      addLog('error', 'API', 'Failed to save workflow updates', {
-        error: err.message
-      })
-      return
-    }
-
     addLog('info', 'Config', 'Starting trigger test', {
       nodeId: selectedWorkflowTriggerNodeId,
       workflowId: selectedWorkflowId,
