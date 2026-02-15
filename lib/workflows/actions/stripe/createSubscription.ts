@@ -30,6 +30,14 @@ export async function stripeCreateSubscription(
       items: [{ price: priceId }]
     }
 
+    // Optional default payment method
+    if (config.default_payment_method) {
+      const paymentMethod = context.dataFlowManager.resolveVariable(config.default_payment_method)
+      if (paymentMethod) {
+        body.default_payment_method = paymentMethod
+      }
+    }
+
     // Optional trial period
     if (config.trialPeriodDays) {
       const trialDays = context.dataFlowManager.resolveVariable(config.trialPeriodDays)

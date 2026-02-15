@@ -29,6 +29,7 @@ const FIELD_DATA_TYPE_MAP: Record<string, string> = {
   subscriptionId: 'stripe_subscriptions',
   paymentIntentId: 'stripe_payment_intents',
   payment_method: 'stripe_payment_methods',
+  default_payment_method: 'stripe_payment_methods',
   invoice_settings_default_payment_method: 'stripe_payment_methods',
 };
 
@@ -116,13 +117,22 @@ export class StripeOptionsLoader implements ProviderOptionsLoader {
     logger.debug(`[Stripe] Loading ${dataType} for integration ${integrationId}`);
 
     try {
+      // Build options - pass customer filter for payment methods
+      const requestOptions: Record<string, any> = {};
+      if (dataType === 'stripe_payment_methods') {
+        const customerId = params.dependsOnValue || params.formValues?.customerId;
+        if (customerId) {
+          requestOptions.customer = customerId;
+        }
+      }
+
       const response = await fetch('/api/integrations/stripe/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           integrationId,
           dataType,
-          options: {}
+          options: requestOptions
         }),
       });
 

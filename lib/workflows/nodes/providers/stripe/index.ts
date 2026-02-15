@@ -1370,6 +1370,18 @@ export const stripeNodes: NodeComponent[] = [
         description: "Select a price from the dropdown (shows product name and price)"
       },
       {
+        name: "default_payment_method",
+        label: "Payment Method",
+        type: "combobox",
+        dynamic: "stripe_payment_methods",
+        required: false,
+        searchable: true,
+        placeholder: "Select a payment method...",
+        description: "Payment method to use for this subscription. Required if the customer has no default payment method.",
+        dependsOn: "customerId",
+        hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
+      },
+      {
         name: "trialPeriodDays",
         label: "Trial Period (days)",
         type: "number",
