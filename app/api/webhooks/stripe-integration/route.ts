@@ -52,10 +52,18 @@ export async function POST(request: NextRequest) {
   const supabase = getSupabase()
 
   try {
-    logger.debug('[Stripe Integration Webhook] Received webhook for workflow triggers')
+    logger.info('[Stripe Integration Webhook] Incoming request', {
+      url: request.nextUrl.pathname + request.nextUrl.search,
+      hasSignature: !!request.headers.get('stripe-signature'),
+      method: request.method
+    })
 
     const workflowId = request.nextUrl.searchParams.get('workflowId')
     if (!workflowId) {
+      logger.error('[Stripe Integration Webhook] Missing workflowId query parameter', {
+        url: request.nextUrl.pathname + request.nextUrl.search,
+        hasSignature: !!request.headers.get('stripe-signature')
+      })
       return errorResponse('Missing workflowId query parameter', 400)
     }
 
@@ -80,7 +88,9 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('stripe-signature')
 
     if (!signature) {
-      logger.error('[Stripe Integration Webhook] Missing Stripe signature')
+      logger.error('[Stripe Integration Webhook] Missing Stripe signature', {
+        workflowId
+      })
       return errorResponse('Missing Stripe signature', 400)
     }
 
@@ -99,17 +109,27 @@ export async function POST(request: NextRequest) {
         event = stripe.webhooks.constructEvent(body, signature, candidateSecret)
         matchedSecret = candidateSecret
         break
-      } catch {
-        // Try next resource secret for this workflow.
+      } catch (verifyError: any) {
+        logger.debug('[Stripe Integration Webhook] Secret did not match', {
+          workflowId,
+          resourceId: resource.id,
+          triggerType: resource.trigger_type,
+          errorMessage: verifyError?.message || 'Unknown verification error'
+        })
       }
     }
 
     if (!event || !matchedSecret) {
-      logger.error('[Stripe Integration Webhook] Signature verification failed for all stored endpoint secrets')
+      logger.error('[Stripe Integration Webhook] Signature verification failed for all stored endpoint secrets', {
+        workflowId,
+        resourceCount: resources.length,
+        resourcesWithSecrets: resources.filter((r: any) => r?.config?.webhookSecret).length,
+        triggerTypes: resources.map((r: any) => r.trigger_type)
+      })
       return errorResponse('Invalid Stripe signature', 400)
     }
 
-    logger.debug('[Stripe Integration Webhook] Processing event', {
+    logger.info('[Stripe Integration Webhook] Processing event', {
       workflowId,
       eventType: event.type,
       eventId: event.id,
@@ -139,9 +159,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (matchingResources.length === 0) {
-      logger.debug('[Stripe Integration Webhook] Event does not match active Stripe trigger types for this workflow', {
+      logger.info('[Stripe Integration Webhook] Event does not match active Stripe trigger types for this workflow', {
         workflowId,
-        eventType: event.type
+        eventType: event.type,
+        configuredTriggers: resources.map((r: any) => r.trigger_type)
       })
       return jsonResponse({ received: true, skipped: true, reason: 'event_not_configured' })
     }
