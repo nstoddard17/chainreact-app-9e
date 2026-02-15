@@ -48,9 +48,26 @@ export async function stripeCreateCheckoutSession(
       throw new Error('At least one price must be selected')
     }
 
-    // Mode (required): payment, subscription, or setup
-    const mode = context.dataFlowManager.resolveVariable(config.mode) || 'payment'
-    body.mode = mode
+    // Mode: auto-detect from price types if not explicitly set to "setup"
+    const configuredMode = context.dataFlowManager.resolveVariable(config.mode) || 'payment'
+
+    if (configuredMode === 'setup') {
+      body.mode = 'setup'
+    } else if (body.line_items?.length > 0) {
+      // Fetch first price to check if recurring or one-time
+      const firstPriceId = body.line_items[0].price
+      const priceResponse = await fetch(`https://api.stripe.com/v1/prices/${firstPriceId}`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      })
+      if (priceResponse.ok) {
+        const priceData = await priceResponse.json()
+        body.mode = priceData.type === 'recurring' ? 'subscription' : 'payment'
+      } else {
+        body.mode = configuredMode
+      }
+    } else {
+      body.mode = configuredMode
+    }
 
     // Success URL (required)
     const successUrl = context.dataFlowManager.resolveVariable(config.success_url)
