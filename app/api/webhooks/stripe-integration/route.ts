@@ -58,21 +58,30 @@ export async function POST(request: NextRequest) {
       method: request.method
     })
 
-    const workflowId = request.nextUrl.searchParams.get('workflowId')
-    if (!workflowId) {
-      logger.error('[Stripe Integration Webhook] Missing workflowId query parameter', {
-        url: request.nextUrl.pathname + request.nextUrl.search,
-        hasSignature: !!request.headers.get('stripe-signature')
-      })
-      return errorResponse('Missing workflowId query parameter', 400)
+    // Read body and signature early (before DB queries) so fallback mode can use them
+    const body = await request.text()
+    const signature = request.headers.get('stripe-signature')
+
+    if (!signature) {
+      logger.error('[Stripe Integration Webhook] Missing Stripe signature')
+      return errorResponse('Missing Stripe signature', 400)
     }
 
-    const { data: resources, error: resourcesError } = await supabase
+    // workflowId is optional — when missing, we resolve it via signature matching
+    const workflowIdParam = request.nextUrl.searchParams.get('workflowId')
+
+    // Query trigger resources, optionally filtered by workflowId
+    let resourceQuery = supabase
       .from('trigger_resources')
-      .select('id, trigger_type, config, status')
-      .eq('workflow_id', workflowId)
+      .select('id, workflow_id, trigger_type, config, status')
       .eq('provider_id', 'stripe')
       .eq('status', 'active')
+
+    if (workflowIdParam) {
+      resourceQuery = resourceQuery.eq('workflow_id', workflowIdParam)
+    }
+
+    const { data: resources, error: resourcesError } = await resourceQuery
 
     if (resourcesError) {
       logger.error('[Stripe Integration Webhook] Failed to load trigger resources:', resourcesError)
@@ -80,24 +89,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (!resources || resources.length === 0) {
-      logger.warn(`[Stripe Integration Webhook] No active Stripe trigger resources for workflow ${workflowId}`)
-      return jsonResponse({ received: true, skipped: true, reason: 'no_active_resources' })
-    }
-
-    const body = await request.text()
-    const signature = request.headers.get('stripe-signature')
-
-    if (!signature) {
-      logger.error('[Stripe Integration Webhook] Missing Stripe signature', {
-        workflowId
+      logger.warn('[Stripe Integration Webhook] No active Stripe trigger resources found', {
+        workflowIdParam: workflowIdParam || 'none',
+        mode: workflowIdParam ? 'targeted' : 'fallback'
       })
-      return errorResponse('Missing Stripe signature', 400)
+      return jsonResponse({ received: true, skipped: true, reason: 'no_active_resources' })
     }
 
     const stripe = getStripeClient()
 
     let event: Stripe.Event | null = null
     let matchedSecret: string | null = null
+    let matchedResource: any = null
 
     for (const resource of resources) {
       const candidateSecret = resource?.config?.webhookSecret
@@ -108,25 +111,45 @@ export async function POST(request: NextRequest) {
       try {
         event = stripe.webhooks.constructEvent(body, signature, candidateSecret)
         matchedSecret = candidateSecret
+        matchedResource = resource
         break
       } catch (verifyError: any) {
         logger.debug('[Stripe Integration Webhook] Secret did not match', {
-          workflowId,
           resourceId: resource.id,
+          workflowId: resource.workflow_id,
           triggerType: resource.trigger_type,
           errorMessage: verifyError?.message || 'Unknown verification error'
         })
       }
     }
 
-    if (!event || !matchedSecret) {
+    if (!event || !matchedSecret || !matchedResource) {
       logger.error('[Stripe Integration Webhook] Signature verification failed for all stored endpoint secrets', {
-        workflowId,
+        workflowIdParam: workflowIdParam || 'none',
+        mode: workflowIdParam ? 'targeted' : 'fallback',
         resourceCount: resources.length,
         resourcesWithSecrets: resources.filter((r: any) => r?.config?.webhookSecret).length,
         triggerTypes: resources.map((r: any) => r.trigger_type)
       })
       return errorResponse('Invalid Stripe signature', 400)
+    }
+
+    // Resolve effective workflowId — from query param or matched resource
+    const workflowId = workflowIdParam || matchedResource.workflow_id
+
+    if (!workflowId) {
+      logger.error('[Stripe Integration Webhook] Could not resolve workflowId', {
+        matchedResourceId: matchedResource.id
+      })
+      return errorResponse('Could not determine workflow', 500)
+    }
+
+    if (!workflowIdParam) {
+      logger.warn('[Stripe Integration Webhook] Resolved workflowId via secret-matching fallback', {
+        workflowId,
+        matchedResourceId: matchedResource.id,
+        note: 'Webhook arrived without workflowId query parameter'
+      })
     }
 
     logger.info('[Stripe Integration Webhook] Processing event', {
@@ -136,7 +159,12 @@ export async function POST(request: NextRequest) {
       connectedAccount: event.account || null
     })
 
-    const matchingResources = resources.filter((resource: any) => {
+    // In fallback mode, narrow resources to the resolved workflow
+    const workflowResources = workflowIdParam
+      ? resources
+      : resources.filter((r: any) => r.workflow_id === workflowId)
+
+    const matchingResources = workflowResources.filter((resource: any) => {
       const allowedEvents = getEventsForTrigger(resource.trigger_type)
       if (!allowedEvents.includes(event!.type)) {
         return false
@@ -162,7 +190,7 @@ export async function POST(request: NextRequest) {
       logger.info('[Stripe Integration Webhook] Event does not match active Stripe trigger types for this workflow', {
         workflowId,
         eventType: event.type,
-        configuredTriggers: resources.map((r: any) => r.trigger_type)
+        configuredTriggers: workflowResources.map((r: any) => r.trigger_type)
       })
       return jsonResponse({ received: true, skipped: true, reason: 'event_not_configured' })
     }
