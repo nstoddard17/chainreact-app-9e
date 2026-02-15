@@ -38,6 +38,14 @@ export async function stripeCreateSubscription(
       }
     }
 
+    // Optional payment behavior (controls what happens when no payment method exists)
+    if (config.payment_behavior) {
+      const behavior = context.dataFlowManager.resolveVariable(config.payment_behavior)
+      if (behavior) {
+        body.payment_behavior = behavior
+      }
+    }
+
     // Optional trial period
     if (config.trialPeriodDays) {
       const trialDays = context.dataFlowManager.resolveVariable(config.trialPeriodDays)

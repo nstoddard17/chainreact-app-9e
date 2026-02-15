@@ -1382,6 +1382,20 @@ export const stripeNodes: NodeComponent[] = [
         hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
       },
       {
+        name: "payment_behavior",
+        label: "Payment Behavior",
+        type: "select",
+        required: false,
+        description: "How to handle payment collection. Use 'Allow Incomplete' if the customer has no payment method yet.",
+        options: [
+          { value: "default_incomplete", label: "Default Incomplete - Create subscription, wait for payment" },
+          { value: "allow_incomplete", label: "Allow Incomplete - Create even if payment fails" },
+          { value: "error_if_incomplete", label: "Error If Incomplete - Fail if no payment method (default)" }
+        ],
+        dependsOn: "priceId",
+        hidden: { $deps: ["priceId"], $condition: { priceId: { $exists: false } } }
+      },
+      {
         name: "trialPeriodDays",
         label: "Trial Period (days)",
         type: "number",
