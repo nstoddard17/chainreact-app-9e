@@ -2,6 +2,7 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
+import { flattenForStripe } from './utils'
 
 /**
  * Create a refund in Stripe
@@ -70,7 +71,7 @@ export async function stripeCreateRefund(
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams(body).toString()
+      body: new URLSearchParams(flattenForStripe(body)).toString()
     })
 
     if (!response.ok) {
