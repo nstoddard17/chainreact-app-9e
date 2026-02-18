@@ -120,7 +120,7 @@ function ExecutionChart({ dailyStats, loading }: { dailyStats: any[]; loading: b
     )
   }
 
-  const maxExecutions = Math.max(...dailyStats.map((d) => d.executions), 1)
+  const maxExecutions = Math.max(...dailyStats.map((d) => Number(d.executions) || 0), 1)
 
   // Take last 7 days for the chart
   const chartData = dailyStats.slice(-7)
@@ -148,30 +148,32 @@ function ExecutionChart({ dailyStats, loading }: { dailyStats: any[]; loading: b
         ) : (
           <div className="flex items-end gap-2 h-48">
             {chartData.map((day, i) => {
-              const height = maxExecutions > 0 ? (day.executions / maxExecutions) * 100 : 0
+              const executions = Number(day.executions) || 0
+              const successful = Number(day.successful) || 0
+              const failed = Number(day.failed) || 0
+              const height = maxExecutions > 0 ? (executions / maxExecutions) * 100 : 0
               const successHeight =
-                day.executions > 0 ? (day.successful / day.executions) * height : 0
+                executions > 0 ? (successful / executions) * height : 0
               const failedHeight = height - successHeight
 
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <div
-                    className="w-full flex flex-col justify-end rounded-t-sm overflow-hidden"
-                    style={{ height: "100%" }}
+                    className="w-full flex flex-col justify-end rounded-t-sm overflow-hidden h-32"
                   >
                     <div
                       className="w-full bg-red-500/80 dark:bg-red-600/80 transition-all"
                       style={{ height: `${failedHeight}%` }}
-                      title={`${day.failed} failed`}
+                      title={`${failed} failed`}
                     />
                     <div
                       className="w-full bg-green-500/80 dark:bg-green-600/80 transition-all"
                       style={{ height: `${successHeight}%` }}
-                      title={`${day.successful} successful`}
+                      title={`${successful} successful`}
                     />
                   </div>
                   <div className="text-xs text-muted-foreground">{day.dayName}</div>
-                  <div className="text-xs font-medium">{day.executions}</div>
+                  <div className="text-xs font-medium">{executions}</div>
                 </div>
               )
             })}
@@ -245,7 +247,7 @@ function TopWorkflows({
                   </div>
                   <div className="flex-1 min-w-0">
                     <Link
-                      href={`/workflows/${workflow.workflowId}`}
+                      href={`/workflows/builder/${workflow.workflowId}`}
                       className="font-medium truncate block hover:text-primary transition-colors"
                     >
                       {workflow.workflowName}
@@ -378,7 +380,7 @@ function RecentExecutions({
                   />
                   <div className="flex-1 min-w-0">
                     <Link
-                      href={`/workflows/${exec.workflowId}`}
+                      href={`/workflows/builder/${exec.workflowId}`}
                       className="font-medium truncate block hover:text-primary transition-colors"
                     >
                       {exec.workflowName}

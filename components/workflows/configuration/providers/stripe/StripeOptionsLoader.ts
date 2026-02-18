@@ -97,7 +97,26 @@ export class StripeOptionsLoader implements ProviderOptionsLoader {
     dataType: string
   ): Promise<FormattedOption[]> {
     const { integrationId, forceRefresh } = params;
-    const cacheKey = buildCacheKey('stripe', dataType, integrationId || '');
+
+    // Build request options BEFORE cache check so cache key includes filters
+    const requestOptions: Record<string, any> = {};
+    if (dataType === 'stripe_payment_methods') {
+      const customerId = params.dependsOnValue || params.formValues?.customerId;
+      if (customerId) {
+        requestOptions.customer = customerId;
+      }
+    }
+    if (dataType === 'stripe_prices') {
+      const subscriptionNodeTypes = [
+        'stripe_action_create_subscription',
+        'stripe_action_update_subscription',
+      ];
+      if (subscriptionNodeTypes.includes(params.nodeType)) {
+        requestOptions.type = 'recurring';
+      }
+    }
+
+    const cacheKey = buildCacheKey('stripe', dataType, integrationId || '', requestOptions);
     const cache = useConfigCacheStore.getState();
 
     // Check cache first
@@ -117,14 +136,6 @@ export class StripeOptionsLoader implements ProviderOptionsLoader {
     logger.debug(`[Stripe] Loading ${dataType} for integration ${integrationId}`);
 
     try {
-      // Build options - pass customer filter for payment methods
-      const requestOptions: Record<string, any> = {};
-      if (dataType === 'stripe_payment_methods') {
-        const customerId = params.dependsOnValue || params.formValues?.customerId;
-        if (customerId) {
-          requestOptions.customer = customerId;
-        }
-      }
 
       const response = await fetch('/api/integrations/stripe/data', {
         method: 'POST',

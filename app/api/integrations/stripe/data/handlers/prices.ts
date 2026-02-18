@@ -37,6 +37,11 @@ export const getStripePrices: StripeDataHandler<StripePrice> = async (
       'expand[]': 'data.product' // Expand product data to get product names
     })
 
+    // Filter by price type if provided (e.g., 'recurring' for subscription actions)
+    if (options.type) {
+      params.append('type', options.type)
+    }
+
     // Add search query if provided (searches price ID)
     if (options.search) {
       logger.info('[Stripe Prices] Adding search filter', { search: options.search })

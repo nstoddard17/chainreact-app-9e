@@ -1853,7 +1853,7 @@ function WorkflowsContentInner() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => router.push(`/workflows/${workflow.id}`)}
+                            onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
                           >
                             Open
                           </Button>
