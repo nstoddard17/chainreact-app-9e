@@ -365,7 +365,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   if (workflowId) {
     storeExecutionLog(workflowId, startLogEntry)
     const formattedLog = formatExecutionLogEntry(startLogEntry)
-    logger.debug('[Execution Started]', formattedLog)
+    logger.info('[Execution Started]', formattedLog)
     // Add to backend logger for debug modal
     if (input?.executionId) {
       logInfo(input.executionId, '[Execution Started]', formattedLog)
@@ -725,7 +725,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     if (workflowId) {
       storeExecutionLog(workflowId, successLogEntry)
       const formattedLog = formatExecutionLogEntry(successLogEntry)
-      logger.debug('[Execution Completed]', formattedLog)
+      logger.info('[Execution Completed]', formattedLog)
       // Add to backend logger for debug modal
       if (input?.executionId) {
         logSuccess(input.executionId, '[Execution Completed]', formattedLog)
@@ -756,7 +756,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     if (workflowId) {
       storeExecutionLog(workflowId, errorLogEntry)
       const formattedLog = formatExecutionLogEntry(errorLogEntry)
-      logger.debug('[Execution Error]', formattedLog)
+      logger.error('[Execution Error]', formattedLog)
       // Add to backend logger for debug modal
       if (input?.executionId) {
         logError(input.executionId, '[Execution Error]', formattedLog)

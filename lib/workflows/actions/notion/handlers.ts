@@ -219,22 +219,35 @@ async function notionApiRequest(
   accessToken: string,
   body?: any
 ) {
-  const response = await fetch(`https://api.notion.com/v1${endpoint}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Notion-Version": NOTION_API_VERSION,
-      "Content-Type": "application/json"
-    },
-    body: body ? JSON.stringify(body) : undefined
-  })
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+  try {
+    const response = await fetch(`https://api.notion.com/v1${endpoint}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Notion-Version": NOTION_API_VERSION,
+        "Content-Type": "application/json"
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    return response.json()
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Notion API timeout: ${method} ${endpoint} did not respond within 15 seconds`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
   }
-
-  return response.json()
 }
 
 /**
@@ -335,6 +348,23 @@ export async function notionUpdatePage(
     let properties = context.dataFlowManager.resolveVariable(config.properties) || {}
     const archived = context.dataFlowManager.resolveVariable(config.archived)
     const title = context.dataFlowManager.resolveVariable(config.title)
+
+    logger.info('[Notion Update] Resolved config', {
+      pageId: pageId || 'MISSING',
+      hasTitle: !!title,
+      propertyCount: Object.keys(properties).length,
+      propertyKeys: Object.keys(properties),
+      hasArchived: archived !== undefined,
+    })
+
+    if (!pageId) {
+      logger.error('[Notion Update] No page_id resolved from config', { rawPageId: config.page_id })
+      return {
+        success: false,
+        output: {},
+        message: 'No page ID provided for Notion update'
+      }
+    }
 
     // Fetch the page to determine if it's a database page and get property schema
     let propertySchema: Record<string, { type: string; name: string }> = {}
@@ -566,7 +596,12 @@ export async function notionUpdatePage(
 
     // Check if we have anything to update
     if (Object.keys(payload).length === 0) {
-      logger.debug('No fields to update for Notion page')
+      logger.info('[Notion Update] Empty payload — no fields to update', {
+        pageId,
+        processedPropertyCount: Object.keys(processedProperties).length,
+        rawPropertyCount: Object.keys(properties).length,
+        rawPropertyKeys: Object.keys(properties),
+      })
       return {
         success: true,
         output: {
@@ -576,13 +611,21 @@ export async function notionUpdatePage(
       }
     }
 
-    logger.debug('Final payload for Notion update:', {
+    logger.info('[Notion Update] Sending update to Notion API', {
+      pageId,
       propertyKeys: Object.keys(payload.properties || {}),
       propertyCount: Object.keys(payload.properties || {}).length,
-      payload: JSON.stringify(payload, null, 2)
+      hasIcon: !!payload.icon,
+      hasCover: !!payload.cover,
+      hasArchived: payload.archived !== undefined,
     })
 
     const result = await notionApiRequest(`/pages/${pageId}`, "PATCH", accessToken, payload)
+
+    logger.info('[Notion Update] Update successful', {
+      pageId: result.id,
+      url: result.url,
+    })
 
     return {
       success: true,
@@ -593,7 +636,11 @@ export async function notionUpdatePage(
       }
     }
   } catch (error: any) {
-    logger.error("Notion update page error:", error)
+    logger.error('[Notion Update] notionUpdatePage failed', {
+      error: error.message || String(error),
+      pageId: config.page_id || 'unknown',
+      stack: error.stack?.split('\n').slice(0, 3).join('\n'),
+    })
     return {
       success: false,
       output: {},
