@@ -22,45 +22,46 @@ type WidgetType =
 const DEFAULT_WIDGETS: Array<{
   type: WidgetType
   title: string
-  w: number
-  h: number
 }> = [
-  { type: "total_executions", title: "Total Executions", w: 3, h: 2 },
-  { type: "success_rate", title: "Success Rate", w: 3, h: 2 },
-  { type: "failed_executions", title: "Failed Executions", w: 3, h: 2 },
-  { type: "avg_execution_time", title: "Avg. Execution Time", w: 3, h: 2 },
-  { type: "execution_history", title: "Execution History", w: 8, h: 4 },
-  { type: "integration_health", title: "Integration Health", w: 4, h: 4 },
-  { type: "top_workflows", title: "Top Workflows", w: 6, h: 4 },
-  { type: "recent_executions", title: "Recent Executions", w: 6, h: 4 },
+  { type: "total_executions", title: "Total Executions" },
+  { type: "success_rate", title: "Success Rate" },
+  { type: "failed_executions", title: "Failed Executions" },
+  { type: "avg_execution_time", title: "Avg. Execution Time" },
+  { type: "execution_history", title: "Execution History" },
+  { type: "integration_health", title: "Integration Health" },
+  { type: "top_workflows", title: "Top Workflows" },
+  { type: "recent_executions", title: "Recent Executions" },
 ]
 
+
 function buildDefaultLayout(widgetIds: string[]) {
-  const layout = []
-  let x = 0
-  let y = 0
-  const maxCols = 12
+  const rows = [
+    {
+      id: "row_metrics",
+      slots: [
+        { slotId: "row_metrics:slot_1", widgetId: widgetIds[0] || null, size: "small" },
+        { slotId: "row_metrics:slot_2", widgetId: widgetIds[1] || null, size: "small" },
+        { slotId: "row_metrics:slot_3", widgetId: widgetIds[2] || null, size: "small" },
+        { slotId: "row_metrics:slot_4", widgetId: widgetIds[3] || null, size: "small" },
+      ],
+    },
+    {
+      id: "row_history",
+      slots: [
+        { slotId: "row_history:slot_1", widgetId: widgetIds[4] || null, size: "wide" },
+        { slotId: "row_history:slot_2", widgetId: widgetIds[5] || null, size: "medium" },
+      ],
+    },
+    {
+      id: "row_recent",
+      slots: [
+        { slotId: "row_recent:slot_1", widgetId: widgetIds[6] || null, size: "large" },
+        { slotId: "row_recent:slot_2", widgetId: widgetIds[7] || null, size: "large" },
+      ],
+    },
+  ]
 
-  widgetIds.forEach((id, index) => {
-    const preset = DEFAULT_WIDGETS[index]
-    if (!preset) return
-    if (x + preset.w > maxCols) {
-      x = 0
-      y += 2
-    }
-    layout.push({
-      i: id,
-      x,
-      y,
-      w: preset.w,
-      h: preset.h,
-      minW: 2,
-      minH: 2,
-    })
-    x += preset.w
-  })
-
-  return layout
+  return { rows }
 }
 
 export async function GET() {
