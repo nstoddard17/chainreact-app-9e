@@ -561,6 +561,7 @@ import { stripeConfirmPaymentIntent } from './stripe/confirmPaymentIntent'
 import { stripeCapturePaymentIntent } from './stripe/capturePaymentIntent'
 import { stripeFindCharge } from './stripe/findCharge'
 import { stripeFindInvoice } from './stripe/findInvoice'
+import { handleStripeTriggerEvent } from './stripe/handleTriggerEvent'
 
 // Import resolveValue for wrapper functions
 import { resolveValue as resolveValueCore } from './core/resolveValue'
@@ -1551,6 +1552,38 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "stripe_action_capture_payment_intent": createExecutionContextWrapper(stripeCapturePaymentIntent),
   "stripe_action_find_charge": createExecutionContextWrapper(stripeFindCharge),
   "stripe_action_find_invoice": createExecutionContextWrapper(stripeFindInvoice),
+
+  // Stripe trigger handlers - extract event data from webhook payload
+  "stripe_trigger_new_payment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_payment_failed": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_charge_succeeded": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_charge_failed": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_refunded_charge": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_subscription_created": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_subscription_updated": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_subscription_deleted": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_invoice_created": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_invoice_paid": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_invoice_payment_failed": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_customer_created": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_customer_updated": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_new_dispute": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
+  "stripe_trigger_checkout_session_completed": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    handleStripeTriggerEvent(params.config, params.userId, params.input),
 
   // Shopify actions - wrapped to handle new calling convention
   "shopify_action_create_order": (params: { config: any; userId: string; input: Record<string, any> }) =>

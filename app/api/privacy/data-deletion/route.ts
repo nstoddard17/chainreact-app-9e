@@ -258,8 +258,9 @@ async function performIntegrationSpecificDeletion(userId: string, provider: stri
 
   // Delete related workflow executions that used this integration
   await supabase
-    .from("workflow_executions")
+    .from("workflow_execution_sessions")
     .delete()
     .eq("user_id", userId)
     .contains("execution_data", { integration_provider: provider })
 }
+

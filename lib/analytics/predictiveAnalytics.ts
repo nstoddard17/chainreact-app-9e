@@ -46,7 +46,7 @@ export class PredictiveAnalytics {
     try {
       // Get workflow execution history
       const { data: executions } = await this.supabase
-        .from("workflow_executions")
+        .from("workflow_execution_sessions")
         .select("*")
         .eq("workflow_id", workflowId)
         .order("started_at", { ascending: false })
@@ -174,7 +174,7 @@ export class PredictiveAnalytics {
     try {
       // Get integration execution data
       const { data: executions } = await this.supabase
-        .from("workflow_executions")
+        .from("workflow_execution_sessions")
         .select(`
           *,
           workflows!inner(*)
@@ -206,7 +206,7 @@ export class PredictiveAnalytics {
 
       // Calculate metrics
       const totalExecutions = integrationExecutions.length
-      const successfulExecutions = integrationExecutions.filter((e) => e.status === "success").length
+      const successfulExecutions = integrationExecutions.filter((e) => e.status === "completed").length
       const failedExecutions = totalExecutions - successfulExecutions
       const errorRate = failedExecutions / totalExecutions
 
@@ -260,7 +260,7 @@ export class PredictiveAnalytics {
     try {
       // Get workflow execution data
       const { data: executions } = await this.supabase
-        .from("workflow_executions")
+        .from("workflow_execution_sessions")
         .select("*")
         .eq("workflow_id", workflowId)
         .gte("started_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()) // Last 30 days
@@ -284,7 +284,7 @@ export class PredictiveAnalytics {
       const costSavedAmount = timeSavedHours * 25
 
       // Estimate revenue generated (simplified - could be based on workflow type)
-      const revenueGenerated = executions.filter((e) => e.status === "success").length * 5 // $5 per successful execution
+      const revenueGenerated = executions.filter((e) => e.status === "completed").length * 5 // $5 per successful execution
 
       // Estimate implementation cost (simplified)
       const implementationCost = 500 // Base implementation cost
@@ -327,3 +327,4 @@ export class PredictiveAnalytics {
 }
 
 export const predictiveAnalytics = new PredictiveAnalytics()
+

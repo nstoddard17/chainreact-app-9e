@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
 
       // Get workflow execution to check its status
       const { data: execution, error: execError } = await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .select('*')
         .eq('id', conversation.execution_id)
         .single()
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
       if (execution.status === 'cancelled') {
         // Reactivate the workflow back to paused state
         await supabase
-          .from('workflow_executions')
+          .from('workflow_execution_sessions')
           .update({
             status: 'paused',
             paused_node_id: conversation.node_id,
@@ -255,7 +255,7 @@ export async function POST(request: NextRequest) {
 
     // Get the workflow execution to access resume_data
     const { data: execution, error: execError } = await supabase
-      .from('workflow_executions')
+      .from('workflow_execution_sessions')
       .select('*')
       .eq('id', conversation.execution_id)
       .single()
@@ -547,7 +547,7 @@ export async function POST(request: NextRequest) {
         if (nextNodes.length === 0) {
           // No more nodes - mark as completed
           await serviceSupabase
-            .from('workflow_executions')
+            .from('workflow_execution_sessions')
             .update({
               status: 'completed',
               completed_at: new Date().toISOString()
@@ -736,7 +736,7 @@ export async function POST(request: NextRequest) {
         await progressTracker.complete(true)
 
         await serviceSupabase
-          .from('workflow_executions')
+          .from('workflow_execution_sessions')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString()
@@ -790,3 +790,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

@@ -427,9 +427,8 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "metadata",
         label: "Custom Metadata (Optional)",
-        type: "object",
+        type: "keyvalue",
         required: false,
-        placeholder: '{"customer_type": "enterprise", "signup_source": "website"}',
         description: "Set of key-value pairs for storing additional information (max 50 keys, 500 chars per value)",
         supportsAI: true,
         advanced: true
@@ -448,10 +447,9 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "invoice_settings_custom_fields",
         label: "Invoice Custom Fields (Optional)",
-        type: "array",
+        type: "keyvalue",
         required: false,
-        placeholder: '[{"name": "PO Number", "value": "PO-12345"}]',
-        description: "Custom fields to display on invoices for this customer",
+        description: "Custom fields to display on invoices (field name → field value)",
         advanced: true
       },
       {
@@ -864,9 +862,8 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "metadata",
         label: "Custom Metadata",
-        type: "object",
+        type: "keyvalue",
         required: false,
-        placeholder: '{"customer_type": "enterprise"}',
         description: "Key-value pairs for storing additional information",
         supportsAI: true,
         advanced: true,
@@ -888,10 +885,9 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "invoice_settings_custom_fields",
         label: "Invoice Custom Fields",
-        type: "array",
+        type: "keyvalue",
         required: false,
-        placeholder: '[{"name": "PO Number", "value": "PO-12345"}]',
-        description: "Custom fields to display on invoices",
+        description: "Custom fields to display on invoices (field name → field value)",
         advanced: true,
         dependsOn: "customerId",
         hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
@@ -1266,7 +1262,7 @@ export const stripeNodes: NodeComponent[] = [
     isTrigger: false,
     producesOutput: true,
     configSchema: [
-      { name: "amount", label: "Amount (cents)", type: "number", required: true, placeholder: "1000" },
+      { name: "amount", label: "Amount ($)", type: "number", required: true, placeholder: "20.99", description: "Enter amount in dollars (e.g., 20.99 for $20.99). Will be converted to cents for Stripe." },
       { name: "currency", label: "Currency", type: "select", required: true, defaultValue: "usd", options: [
         { value: "usd", label: "USD" },
         { value: "eur", label: "EUR" },
@@ -1321,7 +1317,7 @@ export const stripeNodes: NodeComponent[] = [
         description: "Select the customer for this invoice"
       },
       { name: "description", label: "Description", type: "text", required: false, placeholder: "Invoice description" },
-      { name: "autoAdvance", label: "Auto Advance", type: "boolean", required: false, defaultValue: true }
+      { name: "autoAdvance", label: "Auto Advance", type: "boolean", required: false, defaultValue: true, description: "When enabled, Stripe automatically finalizes the invoice and attempts to collect payment. When disabled, the invoice stays in draft status for manual review before sending." }
     ],
     outputSchema: [
       { name: "invoiceId", label: "Invoice ID", type: "string", description: "The unique ID of the invoice (in_...)" },
@@ -1374,6 +1370,32 @@ export const stripeNodes: NodeComponent[] = [
         description: "Select a price from the dropdown (shows product name and price)"
       },
       {
+        name: "default_payment_method",
+        label: "Payment Method",
+        type: "combobox",
+        dynamic: "stripe_payment_methods",
+        required: false,
+        searchable: true,
+        placeholder: "Select a payment method...",
+        description: "Payment method to use for this subscription. Required if the customer has no default payment method.",
+        dependsOn: "customerId",
+        hidden: { $deps: ["customerId"], $condition: { customerId: { $exists: false } } }
+      },
+      {
+        name: "payment_behavior",
+        label: "Payment Behavior",
+        type: "select",
+        required: false,
+        description: "How to handle payment collection. Use 'Allow Incomplete' if the customer has no payment method yet.",
+        options: [
+          { value: "default_incomplete", label: "Default Incomplete - Create subscription, wait for payment" },
+          { value: "allow_incomplete", label: "Allow Incomplete - Create even if payment fails" },
+          { value: "error_if_incomplete", label: "Error If Incomplete - Fail if no payment method (default)" }
+        ],
+        dependsOn: "priceId",
+        hidden: { $deps: ["priceId"], $condition: { priceId: { $exists: false } } }
+      },
+      {
         name: "trialPeriodDays",
         label: "Trial Period (days)",
         type: "number",
@@ -1386,9 +1408,8 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "metadata",
         label: "Custom Metadata (Optional)",
-        type: "object",
+        type: "keyvalue",
         required: false,
-        placeholder: '{"subscription_source": "workflow", "plan_type": "premium"}',
         description: "Set of key-value pairs for storing additional information",
         supportsAI: true,
         advanced: true,
@@ -1424,10 +1445,13 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "customerId",
         label: "Filter by Customer (Optional)",
-        type: "text",
+        type: "combobox",
+        dynamic: "stripe_customers",
         required: false,
-        placeholder: "cus_1234567890",
-        description: "Filter payments by customer ID"
+        loadOnMount: true,
+        searchable: true,
+        placeholder: "Search for a customer...",
+        description: "Filter payments by customer"
       },
       {
         name: "limit",
@@ -1509,12 +1533,12 @@ export const stripeNodes: NodeComponent[] = [
       },
       {
         name: "amount",
-        label: "Amount (cents)",
+        label: "Amount ($)",
         type: "number",
         required: false,
-        placeholder: "1000",
-        description: "Amount to refund in cents. Leave empty to refund full amount.",
-        tooltip: "For partial refunds, specify the amount in cents. For full refunds, leave this empty."
+        placeholder: "20.99",
+        description: "Amount to refund in dollars (e.g., 10.50 for $10.50). Leave empty to refund full amount.",
+        tooltip: "For partial refunds, specify the amount in dollars. For full refunds, leave this empty."
       },
       {
         name: "reason",
@@ -1532,9 +1556,8 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "metadata",
         label: "Custom Metadata",
-        type: "object",
+        type: "keyvalue",
         required: false,
-        placeholder: '{"refund_reason": "product_return", "ticket_id": "12345"}',
         description: "Key-value pairs for storing additional information",
         advanced: true
       }
@@ -1690,9 +1713,13 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "default_payment_method",
         label: "Default Payment Method",
-        type: "text",
+        type: "combobox",
+        dynamic: "stripe_payment_methods",
         required: false,
-        placeholder: "pm_1234567890",
+        loadOnMount: true,
+        searchable: true,
+        allowManualInput: true,
+        placeholder: "Search for a payment method...",
         description: "Update the default payment method",
         advanced: true
       },
@@ -1721,9 +1748,8 @@ export const stripeNodes: NodeComponent[] = [
       {
         name: "metadata",
         label: "Custom Metadata",
-        type: "object",
+        type: "keyvalue",
         required: false,
-        placeholder: '{"plan_change_reason": "upgrade"}',
         description: "Key-value pairs for storing additional information",
         advanced: true
       }
@@ -1753,13 +1779,23 @@ export const stripeNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
-        name: "line_items",
-        label: "Line Items",
-        type: "array",
+        name: "priceId",
+        label: "Products / Prices",
+        type: "multiselect",
+        dynamic: "stripe_prices",
+        loadOnMount: true,
         required: true,
-        placeholder: '[{"price": "price_1234567890", "quantity": 1}]',
-        description: "Array of items for checkout. Each item needs price ID and quantity.",
-        tooltip: "Example: [{\"price\": \"price_abc123\", \"quantity\": 2}]"
+        placeholder: "Select one or more prices...",
+        description: "Select the products/prices to include in this checkout"
+      },
+      {
+        name: "quantity",
+        label: "Quantity (per item)",
+        type: "number",
+        required: false,
+        defaultValue: 1,
+        placeholder: "1",
+        description: "Quantity for each selected price (applies to all items)"
       },
       {
         name: "mode",
@@ -1847,20 +1883,41 @@ export const stripeNodes: NodeComponent[] = [
         advanced: true
       },
       {
-        name: "shipping_address_collection",
-        label: "Shipping Address Collection",
-        type: "object",
+        name: "shipping_countries",
+        label: "Shipping Countries",
+        type: "multiselect",
         required: false,
-        placeholder: '{"allowed_countries": ["US", "CA", "GB"]}',
-        description: "Configure shipping address collection with allowed countries",
-        advanced: true
+        placeholder: "Select allowed shipping countries...",
+        description: "Countries where shipping is available",
+        advanced: true,
+        options: [
+          { value: "US", label: "United States" },
+          { value: "CA", label: "Canada" },
+          { value: "GB", label: "United Kingdom" },
+          { value: "AU", label: "Australia" },
+          { value: "DE", label: "Germany" },
+          { value: "FR", label: "France" },
+          { value: "ES", label: "Spain" },
+          { value: "IT", label: "Italy" },
+          { value: "NL", label: "Netherlands" },
+          { value: "SE", label: "Sweden" },
+          { value: "NO", label: "Norway" },
+          { value: "DK", label: "Denmark" },
+          { value: "FI", label: "Finland" },
+          { value: "IE", label: "Ireland" },
+          { value: "BE", label: "Belgium" },
+          { value: "CH", label: "Switzerland" },
+          { value: "AT", label: "Austria" },
+          { value: "NZ", label: "New Zealand" },
+          { value: "SG", label: "Singapore" },
+          { value: "JP", label: "Japan" }
+        ]
       },
       {
         name: "metadata",
         label: "Custom Metadata",
-        type: "object",
+        type: "keyvalue",
         required: false,
-        placeholder: '{"order_id": "12345", "source": "website"}',
         description: "Key-value pairs for storing additional information",
         advanced: true
       },
@@ -1918,22 +1975,46 @@ export const stripeNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
-        name: "line_items",
-        label: "Line Items",
-        type: "array",
+        name: "priceId",
+        label: "Products / Prices",
+        type: "multiselect",
+        dynamic: "stripe_prices",
+        loadOnMount: true,
         required: true,
-        placeholder: '[{"price": "price_1234567890", "quantity": 1}]',
-        description: "Array of items for the payment link. Each item needs price ID and quantity.",
-        tooltip: "Example: [{\"price\": \"price_abc123\", \"quantity\": 2}]"
+        placeholder: "Select one or more prices...",
+        description: "Select the products/prices to include in this payment link"
       },
       {
-        name: "after_completion",
-        label: "After Completion",
-        type: "object",
+        name: "quantity",
+        label: "Quantity (per item)",
+        type: "number",
         required: false,
-        placeholder: '{"type": "redirect", "redirect": {"url": "https://yoursite.com/success"}}',
-        description: "What happens after payment (redirect or hosted_confirmation)",
+        defaultValue: 1,
+        placeholder: "1",
+        description: "Quantity for each selected price (applies to all items)"
+      },
+      {
+        name: "after_completion_type",
+        label: "After Payment Completion",
+        type: "select",
+        required: false,
+        options: [
+          { value: "hosted_confirmation", label: "Show confirmation page (default)" },
+          { value: "redirect", label: "Redirect to URL" }
+        ],
+        description: "What happens after the customer completes payment",
         advanced: true
+      },
+      {
+        name: "after_completion_url",
+        label: "Redirect URL",
+        type: "text",
+        required: false,
+        placeholder: "https://yoursite.com/success",
+        description: "URL to redirect the customer to after payment",
+        advanced: true,
+        dependsOn: "after_completion_type",
+        hidden: { $deps: ["after_completion_type"], $condition: { after_completion_type: { $neq: "redirect" } } }
       },
       {
         name: "allow_promotion_codes",
@@ -1944,20 +2025,41 @@ export const stripeNodes: NodeComponent[] = [
         description: "Let customers enter promotion codes"
       },
       {
-        name: "shipping_address_collection",
-        label: "Shipping Address Collection",
-        type: "object",
+        name: "shipping_countries",
+        label: "Shipping Countries",
+        type: "multiselect",
         required: false,
-        placeholder: '{"allowed_countries": ["US", "CA", "GB"]}',
-        description: "Configure shipping address collection with allowed countries",
-        advanced: true
+        placeholder: "Select allowed shipping countries...",
+        description: "Countries where shipping is available",
+        advanced: true,
+        options: [
+          { value: "US", label: "United States" },
+          { value: "CA", label: "Canada" },
+          { value: "GB", label: "United Kingdom" },
+          { value: "AU", label: "Australia" },
+          { value: "DE", label: "Germany" },
+          { value: "FR", label: "France" },
+          { value: "ES", label: "Spain" },
+          { value: "IT", label: "Italy" },
+          { value: "NL", label: "Netherlands" },
+          { value: "SE", label: "Sweden" },
+          { value: "NO", label: "Norway" },
+          { value: "DK", label: "Denmark" },
+          { value: "FI", label: "Finland" },
+          { value: "IE", label: "Ireland" },
+          { value: "BE", label: "Belgium" },
+          { value: "CH", label: "Switzerland" },
+          { value: "AT", label: "Austria" },
+          { value: "NZ", label: "New Zealand" },
+          { value: "SG", label: "Singapore" },
+          { value: "JP", label: "Japan" }
+        ]
       },
       {
         name: "metadata",
         label: "Custom Metadata",
-        type: "object",
+        type: "keyvalue",
         required: false,
-        placeholder: '{"campaign": "summer_sale"}',
         description: "Key-value pairs for storing additional information",
         advanced: true
       },

@@ -417,6 +417,51 @@ const OUTPUT_SCHEMA_REGISTRY: Record<string, OutputField[]> = {
   ],
 
   // Stripe Triggers
+  'stripe_trigger_new_payment': [
+    { name: 'paymentIntentId', label: 'Payment Intent ID', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'description', label: 'Description', type: 'string' },
+    { name: 'metadata', label: 'Metadata', type: 'object' }
+  ],
+  'stripe_trigger_payment_failed': [
+    { name: 'paymentIntentId', label: 'Payment Intent ID', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'failureMessage', label: 'Failure Message', type: 'string' },
+    { name: 'metadata', label: 'Metadata', type: 'object' }
+  ],
+  'stripe_trigger_charge_succeeded': [
+    { name: 'chargeId', label: 'Charge ID', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'receiptUrl', label: 'Receipt URL', type: 'string' },
+    { name: 'metadata', label: 'Metadata', type: 'object' }
+  ],
+  'stripe_trigger_charge_failed': [
+    { name: 'chargeId', label: 'Charge ID', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'failureMessage', label: 'Failure Message', type: 'string' },
+    { name: 'metadata', label: 'Metadata', type: 'object' }
+  ],
+  'stripe_trigger_refunded_charge': [
+    { name: 'chargeId', label: 'Charge ID', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'amountRefunded', label: 'Amount Refunded', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'metadata', label: 'Metadata', type: 'object' }
+  ],
   'stripe_trigger_customer_created': [
     { name: 'customerId', label: 'Customer ID', type: 'string' },
     { name: 'email', label: 'Email', type: 'string' },
@@ -425,17 +470,24 @@ const OUTPUT_SCHEMA_REGISTRY: Record<string, OutputField[]> = {
     { name: 'created', label: 'Created Date', type: 'string' },
     { name: 'metadata', label: 'Metadata', type: 'object' }
   ],
-  'stripe_trigger_invoice_payment_failed': [
-    { name: 'invoiceId', label: 'Invoice ID', type: 'string' },
+  'stripe_trigger_customer_updated': [
     { name: 'customerId', label: 'Customer ID', type: 'string' },
-    { name: 'subscriptionId', label: 'Subscription ID', type: 'string' },
-    { name: 'amount', label: 'Amount', type: 'number' },
-    { name: 'currency', label: 'Currency', type: 'string' },
-    { name: 'attemptCount', label: 'Attempt Count', type: 'number' },
-    { name: 'nextPaymentAttempt', label: 'Next Payment Attempt', type: 'string' },
-    { name: 'failureReason', label: 'Failure Reason', type: 'string' }
+    { name: 'email', label: 'Email', type: 'string' },
+    { name: 'name', label: 'Name', type: 'string' },
+    { name: 'phone', label: 'Phone', type: 'string' },
+    { name: 'created', label: 'Created Date', type: 'string' },
+    { name: 'metadata', label: 'Metadata', type: 'object' }
   ],
   'stripe_trigger_subscription_created': [
+    { name: 'subscriptionId', label: 'Subscription ID', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'currentPeriodStart', label: 'Current Period Start', type: 'string' },
+    { name: 'currentPeriodEnd', label: 'Current Period End', type: 'string' },
+    { name: 'planId', label: 'Plan ID', type: 'string' },
+    { name: 'created', label: 'Created Date', type: 'string' }
+  ],
+  'stripe_trigger_subscription_updated': [
     { name: 'subscriptionId', label: 'Subscription ID', type: 'string' },
     { name: 'customerId', label: 'Customer ID', type: 'string' },
     { name: 'status', label: 'Status', type: 'string' },
@@ -451,6 +503,54 @@ const OUTPUT_SCHEMA_REGISTRY: Record<string, OutputField[]> = {
     { name: 'canceledAt', label: 'Cancelled At', type: 'string' },
     { name: 'planId', label: 'Plan ID', type: 'string' },
     { name: 'reason', label: 'Cancellation Reason', type: 'string' }
+  ],
+  'stripe_trigger_invoice_created': [
+    { name: 'invoiceId', label: 'Invoice ID', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'subscriptionId', label: 'Subscription ID', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'metadata', label: 'Metadata', type: 'object' }
+  ],
+  'stripe_trigger_invoice_paid': [
+    { name: 'invoiceId', label: 'Invoice ID', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'subscriptionId', label: 'Subscription ID', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'amountPaid', label: 'Amount Paid', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'hostedInvoiceUrl', label: 'Invoice URL', type: 'string' }
+  ],
+  'stripe_trigger_invoice_payment_failed': [
+    { name: 'invoiceId', label: 'Invoice ID', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'subscriptionId', label: 'Subscription ID', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'attemptCount', label: 'Attempt Count', type: 'number' },
+    { name: 'nextPaymentAttempt', label: 'Next Payment Attempt', type: 'string' },
+    { name: 'failureReason', label: 'Failure Reason', type: 'string' }
+  ],
+  'stripe_trigger_new_dispute': [
+    { name: 'disputeId', label: 'Dispute ID', type: 'string' },
+    { name: 'chargeId', label: 'Charge ID', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'reason', label: 'Reason', type: 'string' },
+    { name: 'metadata', label: 'Metadata', type: 'object' }
+  ],
+  'stripe_trigger_checkout_session_completed': [
+    { name: 'sessionId', label: 'Session ID', type: 'string' },
+    { name: 'customerId', label: 'Customer ID', type: 'string' },
+    { name: 'customerEmail', label: 'Customer Email', type: 'string' },
+    { name: 'amount', label: 'Amount', type: 'number' },
+    { name: 'currency', label: 'Currency', type: 'string' },
+    { name: 'status', label: 'Status', type: 'string' },
+    { name: 'paymentStatus', label: 'Payment Status', type: 'string' },
+    { name: 'metadata', label: 'Metadata', type: 'object' }
   ],
 
   // Teams Triggers
@@ -597,8 +697,6 @@ const OUTPUT_SCHEMA_REGISTRY: Record<string, OutputField[]> = {
   'microsoft_excel_trigger_new_worksheet': [], // TODO: Implement webhook handler
   'onedrive_trigger_new_file': [], // TODO: Implement webhook handler
   'onedrive_trigger_file_modified': [], // TODO: Implement webhook handler
-  'stripe_trigger_new_payment': [], // TODO: Implement webhook handler (use payment_succeeded instead?)
-
   // Special triggers
   'manual': [], // Manual trigger has no outputs
   'schedule': [], // Schedule trigger has no dynamic outputs

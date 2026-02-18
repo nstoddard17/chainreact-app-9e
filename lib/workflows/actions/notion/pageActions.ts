@@ -298,6 +298,15 @@ export async function executeNotionUpdatePage(
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
+  logger.info('[Notion Update Wrapper] Entering executeNotionUpdatePage', {
+    hasPage: !!config.page,
+    pageValue: config.page ? String(config.page).substring(0, 40) : 'MISSING',
+    hasTitle: !!config.title,
+    hasPageFields: !!config.pageFields,
+    pageFieldKeys: config.pageFields ? Object.keys(config.pageFields) : [],
+    inputKeys: Object.keys(input || {}),
+  })
+
   const context = createContext(userId, input);
 
   try {
@@ -502,7 +511,11 @@ export async function executeNotionUpdatePage(
 
     return updateResult;
   } catch (error: any) {
-    logger.error('Notion update page error:', error);
+    logger.error('[Notion Update Wrapper] executeNotionUpdatePage failed', {
+      error: error.message || String(error),
+      stack: error.stack?.split('\n').slice(0, 3).join('\n'),
+      pageId: config.page || 'unknown',
+    });
     return {
       success: false,
       output: {},

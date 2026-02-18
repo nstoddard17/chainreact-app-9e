@@ -769,7 +769,7 @@ export async function executeHITL(
     // Update workflow execution to paused state using service role client
     // IMPORTANT: Store testMode so it's preserved when resuming
     const { error: updateError } = await serviceClient
-      .from('workflow_executions')
+      .from('workflow_execution_sessions')
       .update({
         status: 'paused',
         paused_node_id: context.nodeId,
@@ -845,3 +845,4 @@ export { processConversationLearnings, extractLearningsFromConversation } from '
 export { loadExternalProviderContent, saveExternalProviderContent } from './externalProviders'
 export { getDownstreamRequiredVariables, formatVariablesForPrompt } from './downstreamVariables'
 export { buildNodeContext, getCondensedNodesCatalog } from './nodeContext'
+

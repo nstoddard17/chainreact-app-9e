@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         if (timeoutAction === 'fail') {
           // Mark execution as failed
           await supabase
-            .from('workflow_executions')
+            .from('workflow_execution_sessions')
             .update({
               status: 'failed',
               completed_at: new Date().toISOString(),
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
           // For 'continue' or 'skip', we would need to resume the workflow
           // For now, just mark as completed (implement resume logic similar to events API if needed)
           await supabase
-            .from('workflow_executions')
+            .from('workflow_execution_sessions')
             .update({
               status: 'completed',
               completed_at: new Date().toISOString()
@@ -131,3 +131,4 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+

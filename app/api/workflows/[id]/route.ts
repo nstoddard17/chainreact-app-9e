@@ -28,10 +28,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return errorResponse("Invalid workflow ID format", 400)
     }
 
-    // First try to get the workflow by ID only to see if it exists
-    const { data: workflowExists, error: existsError } = await supabase
+    // Use service client for initial existence check (bypasses RLS)
+    // This matches the list endpoint behavior and ensures team/org workflows are accessible
+    const serviceClient = await createSupabaseServiceClient()
+    const { data: workflowExists, error: existsError } = await serviceClient
       .from("workflows")
-      .select("id, user_id")
+      .select("id, user_id, workspace_type, workspace_id")
       .eq("id", resolvedParams.id)
       .single()
 
@@ -45,97 +47,105 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       workflowId: resolvedParams.id,
       workflowOwnerId: workflowExists.user_id,
       currentUserId: user.id,
-      isOwner: workflowExists.user_id === user.id
+      isOwner: workflowExists.user_id === user.id,
+      workspaceType: workflowExists.workspace_type
     })
+
+    // Verify user has access: owner, team/org member, or shared access
+    let hasAccess = false
 
     // Check if user is the owner
     if (workflowExists.user_id === user.id) {
-      // User is the owner, fetch workflow metadata
-      const { data: workflow, error } = await supabase
-        .from("workflows")
-        .select("id, name, description, status, user_id, workspace_id, created_at, updated_at, created_by, last_modified_by")
-        .eq("id", resolvedParams.id)
-        .single()
-
-      if (error) {
-        logger.error('Error fetching owned workflow:', error)
-        return errorResponse("Failed to fetch workflow", 500)
-      }
-
-      // Load nodes and edges from normalized tables
-      const serviceClient = await createSupabaseServiceClient()
-      const [nodes, edges] = await Promise.all([
-        loadWorkflowNodes(serviceClient, resolvedParams.id),
-        loadWorkflowEdges(serviceClient, resolvedParams.id)
-      ])
-
-      // Convert to legacy format for backward compatibility with frontend
-      const legacyNodes = nodes.map(nodeToLegacyFormat)
-      const legacyConnections = edges.map(edgeToLegacyFormat)
-
-      // Sanitize nodes: drop UI-only or malformed nodes
-      const sanitizeNodes = (nodeList: any[]) =>
-        (Array.isArray(nodeList) ? nodeList : []).filter((n: any) => {
-          if (!n) return false
-          if (n.type === 'addAction') return false
-          const dataType = n?.data?.type
-          const isTrigger = Boolean(n?.data?.isTrigger)
-          return Boolean(dataType || isTrigger)
-        })
-
-      const sanitizedNodes = sanitizeNodes(legacyNodes)
-
-      if (legacyNodes.length !== sanitizedNodes.length) {
-        logger.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on GET', {
-          workflowId: workflow.id,
-          before: legacyNodes.length,
-          after: sanitizedNodes.length
-        })
-      }
-
-      const responseData = {
-        ...workflow,
-        nodes: sanitizedNodes,
-        connections: legacyConnections
-      }
-
-      return jsonResponse(responseData)
+      hasAccess = true
     }
 
-    // Not the owner, check if user has shared access
-    const { data: sharedData, error: sharedError } = await supabase
-      .from("workflows")
-      .select(`
-        id, name, description, status, user_id, workspace_id, created_at, updated_at,
-        workflow_shares!inner(
-          permission,
-          shared_with
-        )
-      `)
-      .eq("id", resolvedParams.id)
-      .eq("workflow_shares.shared_with", user.id)
-      .single()
+    // Check team/org membership if not owner
+    if (!hasAccess && workflowExists.workspace_type === 'team' && workflowExists.workspace_id) {
+      const { data: teamMember } = await serviceClient
+        .from('team_members')
+        .select('team_id')
+        .eq('team_id', workflowExists.workspace_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (teamMember) hasAccess = true
+    }
 
-    if (sharedError || !sharedData) {
+    if (!hasAccess && workflowExists.workspace_type === 'organization' && workflowExists.workspace_id) {
+      const { data: orgMember } = await serviceClient
+        .from('organization_members')
+        .select('organization_id')
+        .eq('organization_id', workflowExists.workspace_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (orgMember) hasAccess = true
+    }
+
+    // Check shared access via workflow_shares
+    if (!hasAccess) {
+      const { data: shareRecord } = await serviceClient
+        .from('workflow_shares')
+        .select('id')
+        .eq('workflow_id', resolvedParams.id)
+        .eq('shared_with', user.id)
+        .maybeSingle()
+      if (shareRecord) hasAccess = true
+    }
+
+    if (!hasAccess) {
       logger.error('User does not have access to workflow:', {
         workflowId: resolvedParams.id,
         userId: user.id,
-        error: sharedError
+        workspaceType: workflowExists.workspace_type
       })
       return errorResponse("Access denied", 403)
     }
 
-    // Load nodes and edges for shared workflow
-    const serviceClient = await createSupabaseServiceClient()
+    // Fetch full workflow metadata using service client
+    const { data: workflow, error } = await serviceClient
+      .from("workflows")
+      .select("id, name, description, status, user_id, workspace_id, created_at, updated_at, created_by, last_modified_by")
+      .eq("id", resolvedParams.id)
+      .single()
+
+    if (error) {
+      logger.error('Error fetching workflow:', error)
+      return errorResponse("Failed to fetch workflow", 500)
+    }
+
+    // Load nodes and edges from normalized tables
     const [nodes, edges] = await Promise.all([
       loadWorkflowNodes(serviceClient, resolvedParams.id),
       loadWorkflowEdges(serviceClient, resolvedParams.id)
     ])
 
+    // Convert to legacy format for backward compatibility with frontend
+    const legacyNodes = nodes.map(nodeToLegacyFormat)
+    const legacyConnections = edges.map(edgeToLegacyFormat)
+
+    // Sanitize nodes: drop UI-only or malformed nodes
+    const sanitizeNodes = (nodeList: any[]) =>
+      (Array.isArray(nodeList) ? nodeList : []).filter((n: any) => {
+        if (!n) return false
+        if (n.type === 'addAction') return false
+        const dataType = n?.data?.type
+        const isTrigger = Boolean(n?.data?.isTrigger)
+        return Boolean(dataType || isTrigger)
+      })
+
+    const sanitizedNodes = sanitizeNodes(legacyNodes)
+
+    if (legacyNodes.length !== sanitizedNodes.length) {
+      logger.warn('🧹 [Workflow API] Sanitized malformed/UI nodes on GET', {
+        workflowId: workflow.id,
+        before: legacyNodes.length,
+        after: sanitizedNodes.length
+      })
+    }
+
     const responseData = {
-      ...sharedData,
-      nodes: nodes.map(nodeToLegacyFormat),
-      connections: edges.map(edgeToLegacyFormat)
+      ...workflow,
+      nodes: sanitizedNodes,
+      connections: legacyConnections
     }
 
     return jsonResponse(responseData)
@@ -171,10 +181,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       connectionsCount: body.connections?.length
     })
 
-    // First verify the user owns this workflow and get current status
-    const { data: workflow, error: checkError } = await supabase
+    // Use service client to verify workflow exists and check access (bypasses RLS)
+    const serviceClient = await createSupabaseServiceClient()
+    const { data: workflow, error: checkError } = await serviceClient
       .from("workflows")
-      .select("id, user_id, status")
+      .select("id, user_id, status, workspace_type, workspace_id")
       .eq("id", resolvedParams.id)
       .single()
 
@@ -182,12 +193,34 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return errorResponse("Workflow not found", 404)
     }
 
-    if (workflow.user_id !== user.id) {
+    // Verify user has write access: owner or team/org member
+    let hasWriteAccess = workflow.user_id === user.id
+
+    if (!hasWriteAccess && workflow.workspace_type === 'team' && workflow.workspace_id) {
+      const { data: teamMember } = await serviceClient
+        .from('team_members')
+        .select('team_id')
+        .eq('team_id', workflow.workspace_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (teamMember) hasWriteAccess = true
+    }
+
+    if (!hasWriteAccess && workflow.workspace_type === 'organization' && workflow.workspace_id) {
+      const { data: orgMember } = await serviceClient
+        .from('organization_members')
+        .select('organization_id')
+        .eq('organization_id', workflow.workspace_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (orgMember) hasWriteAccess = true
+    }
+
+    if (!hasWriteAccess) {
       return errorResponse("Not authorized to update this workflow", 403)
     }
 
     const previousStatus = workflow.status
-    const serviceClient = await createSupabaseServiceClient()
 
     // Load current nodes/edges from normalized tables for safety checks
     const [currentNodes, currentEdges] = await Promise.all([

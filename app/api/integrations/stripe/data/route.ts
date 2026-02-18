@@ -189,19 +189,19 @@ export async function POST(req: NextRequest) {
             const refreshResult = await refreshTokenForProvider(
               'stripe',
               integration.refresh_token,
-              integration.user_id
+              integration
             )
 
-            if (refreshResult.success && refreshResult.access_token) {
+            if (refreshResult.success && refreshResult.accessToken) {
               logger.info('[Stripe API] Token refreshed successfully', {
                 integrationId,
                 userId: integration.user_id
               })
 
               // Encrypt the new token
-              const encryptedToken = await encrypt(refreshResult.access_token)
-              const encryptedRefreshToken = refreshResult.refresh_token
-                ? await encrypt(refreshResult.refresh_token)
+              const encryptedToken = await encrypt(refreshResult.accessToken)
+              const encryptedRefreshToken = refreshResult.refreshToken
+                ? await encrypt(refreshResult.refreshToken)
                 : integration.refresh_token
 
               // Update the integration in the database
@@ -210,7 +210,9 @@ export async function POST(req: NextRequest) {
                 .update({
                   access_token: encryptedToken,
                   refresh_token: encryptedRefreshToken,
-                  expires_at: refreshResult.expires_at || integration.expires_at,
+                  expires_at: refreshResult.accessTokenExpiresIn
+                    ? new Date(Date.now() + refreshResult.accessTokenExpiresIn * 1000).toISOString()
+                    : integration.expires_at,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', integrationId)
@@ -221,12 +223,12 @@ export async function POST(req: NextRequest) {
                   error: updateError.message
                 })
               } else {
-                // Update local integration object with new decrypted token
+                // Update local integration object with new encrypted token
                 integration.access_token = encryptedToken
                 integration.refresh_token = encryptedRefreshToken
 
-                // Update the integration with token for retry
-                integrationWithToken.access_token = refreshResult.access_token
+                // Update the integration with token for retry (decrypted)
+                integrationWithToken.access_token = refreshResult.accessToken
 
                 // Increment retry count and loop will retry
                 retryCount++

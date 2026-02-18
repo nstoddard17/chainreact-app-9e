@@ -19,7 +19,7 @@ export function getTableSchema<T extends TableName>(tableName: T) {
 export const users = getTableSchema('user_profiles')
 export const integrations = getTableSchema('integrations')
 export const workflows = getTableSchema('workflows')
-export const workflow_executions = getTableSchema('workflow_executions')
+export const workflow_execution_sessions = getTableSchema('workflow_execution_sessions')
 export const workflow_nodes = getTableSchema('workflow_nodes')
 export const organizations = getTableSchema('organizations')
 export const teams = getTableSchema('teams')
@@ -46,7 +46,7 @@ export const integrationTable = integrations
 export type User = Database['public']['Tables']['user_profiles']['Row']
 export type Integration = Database['public']['Tables']['integrations']['Row']
 export type Workflow = Database['public']['Tables']['workflows']['Row']
-export type WorkflowExecution = Database['public']['Tables']['workflow_executions']['Row']
+export type WorkflowExecution = Database['public']['Tables']['workflow_execution_sessions']['Row']
 export type WorkflowNode = Database['public']['Tables']['workflow_nodes']['Row']
 export type Organization = Database['public']['Tables']['organizations']['Row']
 export type Team = Database['public']['Tables']['teams']['Row']
@@ -63,3 +63,4 @@ export type Session = {
   created_at: string
   updated_at: string
 }
+

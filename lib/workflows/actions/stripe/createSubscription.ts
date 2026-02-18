@@ -2,6 +2,7 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
+import { flattenForStripe } from './utils'
 
 /**
  * Create a new subscription in Stripe
@@ -27,6 +28,22 @@ export async function stripeCreateSubscription(
     const body: any = {
       customer: customerId,
       items: [{ price: priceId }]
+    }
+
+    // Optional default payment method
+    if (config.default_payment_method) {
+      const paymentMethod = context.dataFlowManager.resolveVariable(config.default_payment_method)
+      if (paymentMethod) {
+        body.default_payment_method = paymentMethod
+      }
+    }
+
+    // Optional payment behavior (controls what happens when no payment method exists)
+    if (config.payment_behavior) {
+      const behavior = context.dataFlowManager.resolveVariable(config.payment_behavior)
+      if (behavior) {
+        body.payment_behavior = behavior
+      }
     }
 
     // Optional trial period
@@ -58,7 +75,7 @@ export async function stripeCreateSubscription(
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams(body).toString()
+      body: new URLSearchParams(flattenForStripe(body)).toString()
     })
 
     if (!response.ok) {

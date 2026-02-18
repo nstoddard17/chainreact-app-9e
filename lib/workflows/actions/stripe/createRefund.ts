@@ -2,6 +2,7 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
+import { flattenForStripe } from './utils'
 
 /**
  * Create a refund in Stripe
@@ -29,18 +30,18 @@ export async function stripeCreateRefund(
     // Build request body
     const body: any = {}
 
-    if (chargeId) {
-      body.charge = chargeId
-    }
+    // Stripe only accepts one of these - prefer payment_intent over charge
     if (paymentIntentId) {
       body.payment_intent = paymentIntentId
+    } else if (chargeId) {
+      body.charge = chargeId
     }
 
     // Amount is optional - if not provided, refunds full amount
     if (config.amount) {
       const amount = context.dataFlowManager.resolveVariable(config.amount)
       if (amount) {
-        body.amount = parseInt(amount.toString())
+        body.amount = Math.round(parseFloat(amount.toString()) * 100)
       }
     }
 
@@ -70,7 +71,7 @@ export async function stripeCreateRefund(
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams(body).toString()
+      body: new URLSearchParams(flattenForStripe(body)).toString()
     })
 
     if (!response.ok) {

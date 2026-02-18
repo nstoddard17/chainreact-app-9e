@@ -2,6 +2,7 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
+import { flattenForStripe } from './utils'
 
 /**
  * Update an existing customer in Stripe
@@ -153,7 +154,10 @@ export async function stripeUpdateCustomer(
       const customFields = context.dataFlowManager.resolveVariable(config.invoice_settings_custom_fields)
       let fieldsArray: any[] = []
 
-      if (Array.isArray(customFields)) {
+      if (typeof customFields === 'object' && !Array.isArray(customFields)) {
+        // KeyValue field format: {key: value} → [{name: key, value: val}]
+        fieldsArray = Object.entries(customFields).map(([name, value]) => ({ name, value }))
+      } else if (Array.isArray(customFields)) {
         fieldsArray = customFields
       } else if (typeof customFields === 'string') {
         try {
@@ -179,7 +183,7 @@ export async function stripeUpdateCustomer(
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams(body).toString()
+      body: new URLSearchParams(flattenForStripe(body)).toString()
     })
 
     if (!response.ok) {

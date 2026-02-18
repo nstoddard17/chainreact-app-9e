@@ -5486,13 +5486,24 @@ export type Database = {
           completed_at: string | null
           created_at: string | null
           current_step: string | null
+          error_message: string | null
           execution_context: Json | null
+          execution_time_ms: number | null
           id: string
+          input_data: Json | null
+          output_data: Json | null
           parallel_branches: Json | null
+          paused_at: string | null
+          paused_data: Json | null
+          paused_node_id: string | null
+          paused_reason: string | null
           progress_percentage: number | null
           session_type: string | null
           started_at: string | null
           status: string | null
+          test_mode: boolean | null
+          trigger_data: Json | null
+          updated_at: string | null
           user_id: string
           workflow_id: string
         }
@@ -5500,13 +5511,24 @@ export type Database = {
           completed_at?: string | null
           created_at?: string | null
           current_step?: string | null
+          error_message?: string | null
           execution_context?: Json | null
+          execution_time_ms?: number | null
           id?: string
+          input_data?: Json | null
+          output_data?: Json | null
           parallel_branches?: Json | null
+          paused_at?: string | null
+          paused_data?: Json | null
+          paused_node_id?: string | null
+          paused_reason?: string | null
           progress_percentage?: number | null
           session_type?: string | null
           started_at?: string | null
           status?: string | null
+          test_mode?: boolean | null
+          trigger_data?: Json | null
+          updated_at?: string | null
           user_id: string
           workflow_id: string
         }
@@ -5514,13 +5536,24 @@ export type Database = {
           completed_at?: string | null
           created_at?: string | null
           current_step?: string | null
+          error_message?: string | null
           execution_context?: Json | null
+          execution_time_ms?: number | null
           id?: string
+          input_data?: Json | null
+          output_data?: Json | null
           parallel_branches?: Json | null
+          paused_at?: string | null
+          paused_data?: Json | null
+          paused_node_id?: string | null
+          paused_reason?: string | null
           progress_percentage?: number | null
           session_type?: string | null
           started_at?: string | null
           status?: string | null
+          test_mode?: boolean | null
+          trigger_data?: Json | null
+          updated_at?: string | null
           user_id?: string
           workflow_id?: string
         }

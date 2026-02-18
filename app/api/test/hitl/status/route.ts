@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     // Get workflow executions with 'paused' status
     const { data: pausedExecutions, error: execError } = await supabase
-      .from("workflow_executions")
+      .from("workflow_execution_sessions")
       .select("id, workflow_id, status, paused_node_id, paused_at, created_at")
       .eq("status", "paused")
       .order("created_at", { ascending: false })
@@ -97,3 +97,4 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+

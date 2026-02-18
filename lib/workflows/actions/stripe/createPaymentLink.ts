@@ -2,6 +2,7 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
+import { flattenForStripe } from './utils'
 
 /**
  * Create a Payment Link in Stripe
@@ -20,32 +21,47 @@ export async function stripeCreatePaymentLink(
     // Build request body
     const body: any = {}
 
-    // Line items (required) - array of price/quantity objects
-    if (!config.line_items) {
-      throw new Error('Line items are required')
-    }
-
-    const lineItems = context.dataFlowManager.resolveVariable(config.line_items)
-    if (typeof lineItems === 'string') {
-      try {
-        body.line_items = JSON.parse(lineItems)
-      } catch (e) {
-        throw new Error('Line items must be a valid JSON array')
+    // Line items - built from priceId multiselect + quantity, or raw line_items for backward compat
+    if (config.priceId) {
+      const priceIds = context.dataFlowManager.resolveVariable(config.priceId)
+      const qty = parseInt(context.dataFlowManager.resolveVariable(config.quantity) || '1') || 1
+      const priceArray = Array.isArray(priceIds) ? priceIds : [priceIds]
+      if (priceArray.length === 0) {
+        throw new Error('At least one price must be selected')
       }
-    } else if (Array.isArray(lineItems)) {
-      body.line_items = lineItems
+      body.line_items = priceArray.map((id: string) => ({ price: id, quantity: qty }))
+    } else if (config.line_items) {
+      const lineItems = context.dataFlowManager.resolveVariable(config.line_items)
+      if (typeof lineItems === 'string') {
+        try {
+          body.line_items = JSON.parse(lineItems)
+        } catch (e) {
+          throw new Error('Line items must be a valid JSON array')
+        }
+      } else if (Array.isArray(lineItems)) {
+        body.line_items = lineItems
+      } else {
+        throw new Error('Line items must be an array')
+      }
     } else {
-      throw new Error('Line items must be an array')
+      throw new Error('At least one price must be selected')
     }
 
-    // Optional: After completion (redirect or hosted_confirmation)
-    if (config.after_completion) {
+    // Optional: After completion - from split fields or raw object
+    if (config.after_completion_type) {
+      const completionType = context.dataFlowManager.resolveVariable(config.after_completion_type)
+      if (completionType === 'redirect' && config.after_completion_url) {
+        const redirectUrl = context.dataFlowManager.resolveVariable(config.after_completion_url)
+        body.after_completion = { type: 'redirect', redirect: { url: redirectUrl } }
+      } else if (completionType) {
+        body.after_completion = { type: completionType }
+      }
+    } else if (config.after_completion) {
       const afterCompletion = context.dataFlowManager.resolveVariable(config.after_completion)
       if (typeof afterCompletion === 'string') {
         try {
           body.after_completion = JSON.parse(afterCompletion)
         } catch (e) {
-          // If not JSON, treat as type
           body.after_completion = { type: afterCompletion }
         }
       } else if (typeof afterCompletion === 'object') {
@@ -59,8 +75,14 @@ export async function stripeCreatePaymentLink(
       body.allow_promotion_codes = allowPromo === true || allowPromo === 'true'
     }
 
-    // Optional: Shipping address collection
-    if (config.shipping_address_collection) {
+    // Optional: Shipping address collection - from country multiselect or raw object
+    if (config.shipping_countries) {
+      const countries = context.dataFlowManager.resolveVariable(config.shipping_countries)
+      const countryArray = Array.isArray(countries) ? countries : [countries]
+      if (countryArray.length > 0) {
+        body.shipping_address_collection = { allowed_countries: countryArray }
+      }
+    } else if (config.shipping_address_collection) {
       const shippingConfig = context.dataFlowManager.resolveVariable(config.shipping_address_collection)
       if (typeof shippingConfig === 'string') {
         try {
@@ -110,7 +132,7 @@ export async function stripeCreatePaymentLink(
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams(body).toString()
+      body: new URLSearchParams(flattenForStripe(body)).toString()
     })
 
     if (!response.ok) {

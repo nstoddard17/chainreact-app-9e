@@ -207,7 +207,7 @@ export default function OrganizationWorkflows({ organizationId, userRole }: Prop
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <Link href={`/workflows/${workflow.id}`} className="flex-1">
+                    <Link href={`/workflows/builder/${workflow.id}`} className="flex-1">
                       <Button variant="outline" className="w-full">
                         View Workflow
                       </Button>

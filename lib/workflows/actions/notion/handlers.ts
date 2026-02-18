@@ -5,6 +5,10 @@ import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
 
 const NOTION_API_VERSION = "2022-06-28"
+const NOTION_TIMEOUT_MS = 30000
+const NOTION_RETRY_BASE_DELAY_MS = 1000
+const NOTION_RETRY_MAX_ATTEMPTS = 3
+const NOTION_RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504])
 
 function normalizeNotionId(id?: string | null) {
   if (!id || typeof id !== 'string') {
@@ -219,22 +223,66 @@ async function notionApiRequest(
   accessToken: string,
   body?: any
 ) {
-  const response = await fetch(`https://api.notion.com/v1${endpoint}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Notion-Version": NOTION_API_VERSION,
-      "Content-Type": "application/json"
-    },
-    body: body ? JSON.stringify(body) : undefined
-  })
+  const upperMethod = method.toUpperCase()
+  const maxAttempts = ["GET", "PATCH"].includes(upperMethod) ? NOTION_RETRY_MAX_ATTEMPTS : 1
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+  let lastError: any = null
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), NOTION_TIMEOUT_MS)
+
+    try {
+      const response = await fetch(`https://api.notion.com/v1${endpoint}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Notion-Version": NOTION_API_VERSION,
+          "Content-Type": "application/json"
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const error: any = new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+        error.status = response.status
+        if (attempt < maxAttempts && NOTION_RETRYABLE_STATUS.has(response.status)) {
+          lastError = error
+        } else {
+          throw error
+        }
+      } else {
+        return response.json()
+      }
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        lastError = new Error(`Notion API timeout: ${method} ${endpoint} did not respond within ${NOTION_TIMEOUT_MS / 1000} seconds`)
+      } else if (error?.status && NOTION_RETRYABLE_STATUS.has(error.status)) {
+        lastError = error
+      } else {
+        throw error
+      }
+    } finally {
+      clearTimeout(timeout)
+    }
+
+    if (attempt < maxAttempts) {
+      const jitter = Math.floor(Math.random() * 500)
+      const delay = NOTION_RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1) + jitter
+      logger.warn('[Notion API] Retrying request', {
+        endpoint,
+        method: upperMethod,
+        attempt,
+        nextDelayMs: delay,
+        error: lastError?.message || 'unknown'
+      })
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
   }
 
-  return response.json()
+  throw lastError || new Error(`Notion API request failed: ${method} ${endpoint}`)
 }
 
 /**
@@ -336,24 +384,58 @@ export async function notionUpdatePage(
     const archived = context.dataFlowManager.resolveVariable(config.archived)
     const title = context.dataFlowManager.resolveVariable(config.title)
 
+    logger.info('[Notion Update] Resolved config', {
+      pageId: pageId || 'MISSING',
+      hasTitle: !!title,
+      propertyCount: Object.keys(properties).length,
+      propertyKeys: Object.keys(properties),
+      hasArchived: archived !== undefined,
+    })
+
+    if (!pageId) {
+      logger.error('[Notion Update] No page_id resolved from config', { rawPageId: config.page_id })
+      return {
+        success: false,
+        output: {},
+        message: 'No page ID provided for Notion update'
+      }
+    }
+
     // Fetch the page to determine if it's a database page and get property schema
-    let propertySchema: Record<string, { type: string }> = {}
+    let propertySchema: Record<string, { type: string; name: string }> = {}
     try {
+      const getPageStart = Date.now()
       const pageData = await notionApiRequest(`/pages/${pageId}`, "GET", accessToken)
+      logger.info('[Notion Update] GET page completed', {
+        pageId,
+        durationMs: Date.now() - getPageStart,
+        parentType: pageData.parent?.type,
+      })
 
       // If this is a database page, fetch the database schema to get property types
       if (pageData.parent?.type === 'database_id') {
         const databaseId = pageData.parent.database_id
         logger.debug('Fetching database schema for property types:', databaseId)
 
+        const getSchemaStart = Date.now()
         const dbData = await notionApiRequest(`/databases/${databaseId}`, "GET", accessToken)
+        logger.info('[Notion Update] GET database schema completed', {
+          databaseId,
+          durationMs: Date.now() - getSchemaStart,
+          propertyCount: dbData.properties ? Object.keys(dbData.properties).length : 0,
+        })
         if (dbData.properties) {
-          // Build a map of property ID/name to type
+          // Build a map of property ID/name to type (with name for ID-to-name conversion)
+          // Store both decoded and URL-encoded forms of IDs since pageFields uses encoded IDs
           for (const [propName, propConfig] of Object.entries(dbData.properties) as any) {
-            propertySchema[propName] = { type: propConfig.type }
-            // Also map by ID for encoded property names
+            propertySchema[propName] = { type: propConfig.type, name: propName }
             if (propConfig.id) {
-              propertySchema[propConfig.id] = { type: propConfig.type }
+              propertySchema[propConfig.id] = { type: propConfig.type, name: propName }
+              // Also store URL-encoded form (pageFields stores IDs like "%7BZs%40" but API returns "{Zs@")
+              const encodedId = encodeURIComponent(propConfig.id)
+              if (encodedId !== propConfig.id) {
+                propertySchema[encodedId] = { type: propConfig.type, name: propName }
+              }
             }
           }
           logger.debug('Property schema loaded:', Object.keys(propertySchema))
@@ -431,10 +513,24 @@ export async function notionUpdatePage(
         continue
       }
 
-      // For explicitly cleared values (null or empty string), send null to clear the property
+      // For explicitly cleared values (null or empty string), use type-aware clearing
       if (value === null || value === '') {
-        processedProperties[key] = null
-        logger.debug(`Clearing property ${key} (sending null to Notion API)`)
+        let clearPropInfo = propertySchema[key]
+        // Try URL-decoding if direct lookup fails
+        if (!clearPropInfo?.type) {
+          try {
+            const decodedKey = decodeURIComponent(key)
+            if (decodedKey !== key) clearPropInfo = propertySchema[decodedKey]
+          } catch { /* ignore malformed sequences */ }
+        }
+        if (clearPropInfo?.type) {
+          const propertyKey = clearPropInfo.name || key
+          processedProperties[propertyKey] = formatNotionPropertyValue(clearPropInfo.type, value)
+          logger.debug(`Clearing property ${key} (resolved to "${propertyKey}") as type ${clearPropInfo.type}`)
+        } else {
+          // Without schema type, skip the property entirely rather than sending raw null
+          logger.debug(`Skipping empty property ${key} - no schema type found, cannot safely clear`)
+        }
         continue
       }
 
@@ -449,8 +545,17 @@ export async function notionUpdatePage(
         const hasNotionKey = notionPropertyKeys.some(nk => nk in valueObj)
 
         if (hasNotionKey) {
-          // Already formatted, use as-is
-          processedProperties[key] = value
+          // Already formatted - resolve property name from schema before using as-is
+          let resolvedKey = propertySchema[key]?.name || key
+          if (resolvedKey === key) {
+            try {
+              const decoded = decodeURIComponent(key)
+              if (decoded !== key && propertySchema[decoded]?.name) {
+                resolvedKey = propertySchema[decoded].name
+              }
+            } catch { /* ignore */ }
+          }
+          processedProperties[resolvedKey] = value
           continue
         }
 
@@ -464,7 +569,8 @@ export async function notionUpdatePage(
       // Look up property type from schema
       const propInfo = propertySchema[key]
       if (propInfo?.type) {
-        logger.debug(`Formatting property ${key} as type ${propInfo.type}`)
+        const propertyKey = propInfo.name || key
+        logger.debug(`Formatting property ${key} (resolved to "${propertyKey}") as type ${propInfo.type}`)
 
         // Special handling for people properties - skip if value can't be resolved to IDs
         if (propInfo.type === 'people') {
@@ -479,39 +585,31 @@ export async function notionUpdatePage(
           }
         }
 
-        processedProperties[key] = formatNotionPropertyValue(propInfo.type, value)
+        processedProperties[propertyKey] = formatNotionPropertyValue(propInfo.type, value)
         continue
       }
 
-      // Fallback: Use heuristics to determine property type
-      let inferredType = 'rich_text'
-
-      if (typeof value === 'boolean') {
-        inferredType = 'checkbox'
-      } else if (typeof value === 'number') {
-        inferredType = 'number'
-      } else if (Array.isArray(value)) {
-        // Check if array contains user objects (people) or plain strings (multi_select)
-        const hasUserObjects = value.some((v: any) => typeof v === 'object' && v.id && v.object === 'user')
-        if (hasUserObjects) {
-          inferredType = 'people'
-        } else {
-          // Arrays of strings are typically multi_select
-          inferredType = 'multi_select'
+      // Try URL-decoding the key and looking it up in the schema
+      // (pageFields stores URL-encoded IDs like "%7BZs%40" but schema has decoded IDs like "{Zs@")
+      let decodedPropInfo = null
+      try {
+        const decodedKey = decodeURIComponent(key)
+        if (decodedKey !== key) {
+          decodedPropInfo = propertySchema[decodedKey]
+          if (decodedPropInfo?.type) {
+            const propertyKey = decodedPropInfo.name || decodedKey
+            logger.debug(`Formatting property ${key} (URL-decoded to "${decodedKey}", resolved to "${propertyKey}") as type ${decodedPropInfo.type}`)
+            processedProperties[propertyKey] = formatNotionPropertyValue(decodedPropInfo.type, value)
+            continue
+          }
         }
-      } else if (typeof value === 'string') {
-        // Check if it looks like a date
-        if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-          inferredType = 'date'
-        } else if (value.includes('@') && value.includes('.')) {
-          inferredType = 'email'
-        } else if (/^https?:\/\//.test(value)) {
-          inferredType = 'url'
-        }
+      } catch {
+        // decodeURIComponent can throw on malformed sequences, ignore
       }
 
-      logger.debug(`Inferred property ${key} as type ${inferredType}`)
-      processedProperties[key] = formatNotionPropertyValue(inferredType, value)
+      // If property not found in schema even after URL-decoding, skip it
+      // Sending unknown property IDs to the Notion API will cause 400 errors
+      logger.warn(`Skipping property ${key} - not found in database schema, cannot determine property name`)
     }
 
     // Debug logging
@@ -545,7 +643,12 @@ export async function notionUpdatePage(
 
     // Check if we have anything to update
     if (Object.keys(payload).length === 0) {
-      logger.debug('No fields to update for Notion page')
+      logger.info('[Notion Update] Empty payload — no fields to update', {
+        pageId,
+        processedPropertyCount: Object.keys(processedProperties).length,
+        rawPropertyCount: Object.keys(properties).length,
+        rawPropertyKeys: Object.keys(properties),
+      })
       return {
         success: true,
         output: {
@@ -555,9 +658,22 @@ export async function notionUpdatePage(
       }
     }
 
-    logger.debug('Final payload for Notion update:', JSON.stringify(payload, null, 2))
+    logger.info('[Notion Update] Sending update to Notion API', {
+      pageId,
+      propertyKeys: Object.keys(payload.properties || {}),
+      propertyCount: Object.keys(payload.properties || {}).length,
+      hasIcon: !!payload.icon,
+      hasCover: !!payload.cover,
+      hasArchived: payload.archived !== undefined,
+    })
 
+    const patchStart = Date.now()
     const result = await notionApiRequest(`/pages/${pageId}`, "PATCH", accessToken, payload)
+    logger.info('[Notion Update] PATCH update completed', {
+      pageId: result.id,
+      url: result.url,
+      durationMs: Date.now() - patchStart,
+    })
 
     return {
       success: true,
@@ -568,7 +684,11 @@ export async function notionUpdatePage(
       }
     }
   } catch (error: any) {
-    logger.error("Notion update page error:", error)
+    logger.error('[Notion Update] notionUpdatePage failed', {
+      error: error.message || String(error),
+      pageId: config.page_id || 'unknown',
+      stack: error.stack?.split('\n').slice(0, 3).join('\n'),
+    })
     return {
       success: false,
       output: {},

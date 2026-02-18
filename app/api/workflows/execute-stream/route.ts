@@ -223,10 +223,10 @@ export async function POST(request: NextRequest) {
         options
       })
 
-      // Create workflow_executions record for HITL and tracking
+      // Create workflow_execution_sessions record for HITL and tracking
       // This is required so HITL can update the execution to 'paused' and later resume it
       const { error: insertError } = await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .insert({
           id: executionId,
           workflow_id: workflowId,
@@ -382,7 +382,7 @@ export async function POST(request: NextRequest) {
 
             // Update execution status to failed
             await supabase
-              .from('workflow_executions')
+              .from('workflow_execution_sessions')
               .update({
                 status: 'failed',
                 completed_at: new Date().toISOString(),
@@ -491,7 +491,7 @@ export async function POST(request: NextRequest) {
 
           // Update execution status to failed
           await supabase
-            .from('workflow_executions')
+            .from('workflow_execution_sessions')
             .update({
               status: 'failed',
               completed_at: new Date().toISOString(),
@@ -513,7 +513,7 @@ export async function POST(request: NextRequest) {
       if (executionQueue.length === 0) {
         // Check if workflow was paused by HITL before marking complete
         const { data: currentExecution } = await supabase
-          .from('workflow_executions')
+          .from('workflow_execution_sessions')
           .select('status')
           .eq('id', executionId)
           .single()
@@ -524,7 +524,7 @@ export async function POST(request: NextRequest) {
           // Don't send workflow_completed - the workflow_paused event was already sent
         } else {
           await supabase
-            .from('workflow_executions')
+            .from('workflow_execution_sessions')
             .update({
               status: 'completed',
               completed_at: new Date().toISOString(),
@@ -544,7 +544,7 @@ export async function POST(request: NextRequest) {
 
       // Update execution status to failed
       await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .update({
           status: 'failed',
           completed_at: new Date().toISOString(),
@@ -574,3 +574,4 @@ export async function POST(request: NextRequest) {
     },
   })
 }
+

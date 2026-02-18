@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
         // Load the paused execution
         const { data: execution, error: execError } = await supabase
-          .from('workflow_executions')
+          .from('workflow_execution_sessions')
           .select('*')
           .eq('id', waiting.execution_id)
           .single()
@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
           logger.info(`[Events] No more nodes after wait node - marking as completed`)
 
           await supabase
-            .from('workflow_executions')
+            .from('workflow_execution_sessions')
             .update({
               status: 'completed',
               completed_at: new Date().toISOString()
@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
 
         // Update execution status to running
         await supabase
-          .from('workflow_executions')
+          .from('workflow_execution_sessions')
           .update({
             status: 'running',
             paused_at: null,
@@ -314,7 +314,7 @@ export async function POST(request: NextRequest) {
         await progressTracker.complete(!hasErrors, hasErrors ? 'Workflow resumed with errors' : undefined)
 
         await supabase
-          .from('workflow_executions')
+          .from('workflow_execution_sessions')
           .update({
             status: hasErrors ? 'failed' : 'completed',
             completed_at: new Date().toISOString()
@@ -360,3 +360,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

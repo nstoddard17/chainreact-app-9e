@@ -172,7 +172,7 @@ export async function executeWaitForTime(
     // If we're in an active execution, update the execution record
     if (context.executionId) {
       await supabase
-        .from("workflow_executions")
+        .from("workflow_execution_sessions")
         .update({
           status: "paused",
           paused_at: new Date().toISOString(),
@@ -210,3 +210,4 @@ export async function executeWaitForTime(
     }
   }
 } 
+

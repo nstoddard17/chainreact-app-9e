@@ -29,7 +29,7 @@ export async function GET(
 
     // Build base query
     let query = supabase
-      .from('workflow_executions')
+      .from('workflow_execution_sessions')
       .select(`
         id,
         workflow_id,

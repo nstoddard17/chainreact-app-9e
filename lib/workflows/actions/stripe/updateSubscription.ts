@@ -2,6 +2,7 @@ import { ActionResult } from '../index'
 import { getDecryptedAccessToken } from '../core/getDecryptedAccessToken'
 import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
+import { flattenForStripe } from './utils'
 
 /**
  * Update an existing subscription in Stripe
@@ -21,27 +22,31 @@ export async function stripeUpdateSubscription(
       throw new Error('Subscription ID is required')
     }
 
+    // Fetch subscription to get the actual subscription item ID (si_xxx)
+    const subResponse = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    })
+    if (!subResponse.ok) {
+      const errorText = await subResponse.text()
+      throw new Error(`Failed to fetch subscription: ${subResponse.status} - ${errorText}`)
+    }
+    const subData = await subResponse.json()
+    const subscriptionItemId = subData.items?.data?.[0]?.id
+
     // Build request body
     const body: any = {}
 
-    // Price ID (change plan)
-    if (config.priceId) {
-      const priceId = context.dataFlowManager.resolveVariable(config.priceId)
-      if (priceId) {
-        // Update items array with new price
-        body.items = [{
-          id: subscriptionId, // Will be replaced by Stripe with actual item ID
-          price: priceId
-        }]
-      }
-    }
+    // Resolve priceId and quantity
+    const priceId = config.priceId ? context.dataFlowManager.resolveVariable(config.priceId) : null
+    const quantity = config.quantity ? context.dataFlowManager.resolveVariable(config.quantity) : null
 
-    // Quantity
-    if (config.quantity) {
-      const quantity = context.dataFlowManager.resolveVariable(config.quantity)
-      if (quantity) {
-        body.quantity = parseInt(quantity.toString())
-      }
+    // Use items array for price and/or quantity changes (never top-level quantity)
+    if (priceId || quantity) {
+      const item: any = {}
+      if (subscriptionItemId) item.id = subscriptionItemId
+      if (priceId) item.price = priceId
+      if (quantity) item.quantity = parseInt(quantity.toString())
+      body.items = [item]
     }
 
     // Trial end (timestamp or 'now')
@@ -102,7 +107,7 @@ export async function stripeUpdateSubscription(
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams(body).toString()
+      body: new URLSearchParams(flattenForStripe(body)).toString()
     })
 
     if (!response.ok) {

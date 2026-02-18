@@ -18,10 +18,10 @@ export async function GET() {
     const sevenDaysAgo = subDays(today, 6);
 
     const { data: executions, error } = await supabase
-        .from('workflow_executions')
-        .select('completed_at, status')
+        .from('workflow_execution_sessions')
+        .select('created_at, started_at, completed_at, status')
         .eq('user_id', user.id)
-        .gte('completed_at', sevenDaysAgo.toISOString());
+        .gte('created_at', sevenDaysAgo.toISOString());
 
     if (error) {
         logger.error("Error fetching workflow executions:", error);
@@ -32,10 +32,12 @@ export async function GET() {
 
     const chartData = days.map(day => {
         const dayString = format(day, 'E'); // Mon, Tue, etc.
-        const dayExecutions = executions.filter(ex => 
-            ex.completed_at && format(new Date(ex.completed_at), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
-        );
-        const successfulExecutions = dayExecutions.filter(ex => ex.status === 'success');
+        const dayExecutions = executions.filter(ex => {
+            const bucketDate = ex.completed_at || ex.started_at || ex.created_at
+            if (!bucketDate) return false
+            return format(new Date(bucketDate), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
+        });
+        const successfulExecutions = dayExecutions.filter(ex => ex.status === 'completed');
         
         return {
             name: dayString,
@@ -46,3 +48,4 @@ export async function GET() {
 
     return jsonResponse({ success: true, data: chartData });
 }
+

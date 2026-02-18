@@ -67,7 +67,8 @@
       "Bash(source:*)",
       "Bash(npx supabase:*)",
       "Bash(jq:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(npx stripe:*)"
     ],
     "deny": [],
     "ask": [],

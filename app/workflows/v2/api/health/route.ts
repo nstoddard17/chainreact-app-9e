@@ -16,7 +16,7 @@ export async function GET() {
   }
 
   const pending = await supabase
-    .from("workflow_executions")
+    .from("workflow_execution_sessions")
     .select("id", { count: "exact", head: true })
     .in("status", RUN_STATUSES_IN_PROGRESS)
 
@@ -27,7 +27,7 @@ export async function GET() {
   const pendingRuns = pending.count ?? 0
 
   const { data: lastRun } = await supabase
-    .from("workflow_executions")
+    .from("workflow_execution_sessions")
     .select("id, status, completed_at")
     .order("completed_at", { ascending: false })
     .order("id", { ascending: false })
@@ -47,3 +47,4 @@ export async function GET() {
       : null,
   })
 }
+
