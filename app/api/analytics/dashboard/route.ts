@@ -60,6 +60,13 @@ interface DashboardData {
   topWorkflows: WorkflowStats[]
   recentExecutions: RecentExecution[]
   integrationStats: IntegrationStats
+  statusBreakdown: Array<{ key: string; label: string; value: number }>
+  topFailingWorkflows: Array<{ workflowId: string; workflowName: string; failedExecutions: number; totalExecutions: number }>
+  executionsByHour: Array<{ hour: number; label: string; executions: number }>
+  executionsByWeekday: Array<{ day: string; dayIndex: number; executions: number }>
+  failureReasons: Array<{ reason: string; count: number }>
+  avgDurationTrend: Array<{ date: string; dayName: string; avgDurationMs: number }>
+  p95ExecutionTimeMs: number
   period: {
     start: string
     end: string
@@ -86,11 +93,12 @@ export async function GET(request: NextRequest) {
     const days = daysParam ? parseInt(daysParam, 10) : 30
 
     const today = startOfDay(new Date())
-    const startDate = subDays(today, days - 1)
+    const isAllTime = !Number.isFinite(days) || days <= 0
+    const startDate = isAllTime ? new Date("1970-01-01T00:00:00.000Z") : subDays(today, days - 1)
 
     logger.debug("[Analytics Dashboard] Fetching data", {
       userId: user.id,
-      days,
+      days: isAllTime ? 0 : days,
       startDate: startDate.toISOString(),
     })
 
@@ -162,11 +170,15 @@ export async function GET(request: NextRequest) {
     // Calculate overview stats
     const overview = calculateOverviewStats(productionExecutions)
 
+    // Keep trend payload bounded for all-time mode while totals remain all-time.
+    const seriesStartDate = isAllTime ? subDays(today, 89) : startDate
+
     // Calculate daily stats
-    const dailyStats = calculateDailyStats(productionExecutions, startDate, today)
+    const dailyStats = calculateDailyStats(productionExecutions, seriesStartDate, today)
 
     // Calculate per-workflow stats
-    const topWorkflows = calculateWorkflowStats(productionExecutions, workflowMap)
+    const workflowStats = calculateWorkflowStats(productionExecutions, workflowMap)
+    const topWorkflows = workflowStats
 
     // Get recent executions (last 10)
     const recentExecutions = productionExecutions.slice(0, 10).map((exec) => {
@@ -191,6 +203,13 @@ export async function GET(request: NextRequest) {
 
     // Calculate integration stats
     const integrationStats = calculateIntegrationStats(integrations)
+    const statusBreakdown = calculateStatusBreakdown(overview)
+    const topFailingWorkflows = calculateTopFailingWorkflows(workflowStats)
+    const executionsByHour = calculateExecutionsByHour(productionExecutions)
+    const executionsByWeekday = calculateExecutionsByWeekday(productionExecutions)
+    const failureReasons = calculateFailureReasons(productionExecutions)
+    const avgDurationTrend = calculateAvgDurationTrend(productionExecutions, seriesStartDate, today)
+    const p95ExecutionTimeMs = calculateP95ExecutionTime(productionExecutions)
 
     const dashboardData: DashboardData = {
       overview,
@@ -198,10 +217,17 @@ export async function GET(request: NextRequest) {
       topWorkflows,
       recentExecutions,
       integrationStats,
+      statusBreakdown,
+      topFailingWorkflows,
+      executionsByHour,
+      executionsByWeekday,
+      failureReasons,
+      avgDurationTrend,
+      p95ExecutionTimeMs,
       period: {
         start: startDate.toISOString(),
         end: today.toISOString(),
-        days,
+        days: isAllTime ? 0 : days,
       },
     }
 
@@ -376,5 +402,117 @@ function calculateIntegrationStats(integrations: any[]): IntegrationStats {
     expired,
     disconnected,
   }
+}
+
+function calculateStatusBreakdown(overview: ExecutionStats) {
+  return [
+    { key: "completed", label: "Successful", value: overview.completed },
+    { key: "failed", label: "Failed", value: overview.failed },
+    { key: "running", label: "Running", value: overview.running },
+    { key: "cancelled", label: "Cancelled", value: overview.cancelled },
+  ]
+}
+
+function calculateTopFailingWorkflows(workflowStats: WorkflowStats[]) {
+  return workflowStats
+    .filter((w) => w.failedExecutions > 0)
+    .sort((a, b) => b.failedExecutions - a.failedExecutions)
+    .slice(0, 10)
+    .map((w) => ({
+      workflowId: w.workflowId,
+      workflowName: w.workflowName,
+      failedExecutions: w.failedExecutions,
+      totalExecutions: w.totalExecutions,
+    }))
+}
+
+function calculateExecutionsByHour(executions: any[]) {
+  const buckets = Array.from({ length: 24 }).map((_, hour) => ({
+    hour,
+    label: `${hour.toString().padStart(2, "0")}:00`,
+    executions: 0,
+  }))
+
+  for (const exec of executions) {
+    const startedAt = exec.started_at || exec.created_at
+    if (!startedAt) continue
+    const hour = new Date(startedAt).getHours()
+    if (hour >= 0 && hour < 24) {
+      buckets[hour].executions += 1
+    }
+  }
+
+  return buckets
+}
+
+function calculateExecutionsByWeekday(executions: any[]) {
+  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  const buckets = labels.map((day, dayIndex) => ({ day, dayIndex, executions: 0 }))
+
+  for (const exec of executions) {
+    const startedAt = exec.started_at || exec.created_at
+    if (!startedAt) continue
+    const dayIndex = new Date(startedAt).getDay()
+    buckets[dayIndex].executions += 1
+  }
+
+  return buckets
+}
+
+function calculateFailureReasons(executions: any[]) {
+  const failures = executions.filter((e) => e.status === "failed")
+  const reasonCounts = new Map<string, number>()
+
+  for (const failure of failures) {
+    const raw = (failure.error_message || "Unknown failure").toString().trim()
+    const normalized = raw.length > 100 ? `${raw.slice(0, 100)}...` : raw
+    reasonCounts.set(normalized, (reasonCounts.get(normalized) || 0) + 1)
+  }
+
+  return Array.from(reasonCounts.entries())
+    .map(([reason, count]) => ({ reason, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+}
+
+function calculateAvgDurationTrend(executions: any[], startDate: Date, endDate: Date) {
+  const days = eachDayOfInterval({ start: startDate, end: endDate })
+  return days.map((day) => {
+    const dayString = format(day, "yyyy-MM-dd")
+    const dayName = format(day, "EEE")
+    const dayDurations = executions
+      .filter((e) => e.status === "completed" && e.completed_at && (e.started_at || e.created_at))
+      .filter((e) => {
+        const startedAt = e.started_at || e.created_at
+        return format(new Date(startedAt), "yyyy-MM-dd") === dayString
+      })
+      .map((e) => {
+        const startedAt = e.started_at || e.created_at
+        return new Date(e.completed_at).getTime() - new Date(startedAt).getTime()
+      })
+      .filter((ms) => Number.isFinite(ms) && ms >= 0)
+
+    const avgDurationMs =
+      dayDurations.length > 0
+        ? Math.round(dayDurations.reduce((sum, ms) => sum + ms, 0) / dayDurations.length)
+        : 0
+
+    return { date: dayString, dayName, avgDurationMs }
+  })
+}
+
+function calculateP95ExecutionTime(executions: any[]) {
+  const durations = executions
+    .filter((e) => e.status === "completed" && e.completed_at && (e.started_at || e.created_at))
+    .map((e) => {
+      const startedAt = e.started_at || e.created_at
+      return new Date(e.completed_at).getTime() - new Date(startedAt).getTime()
+    })
+    .filter((ms) => Number.isFinite(ms) && ms >= 0)
+    .sort((a, b) => a - b)
+
+  if (durations.length === 0) return 0
+  const index = Math.min(durations.length - 1, Math.ceil(0.95 * durations.length) - 1)
+  return Math.round(durations[index])
 }
 

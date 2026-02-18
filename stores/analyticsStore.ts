@@ -57,6 +57,13 @@ export interface DashboardData {
   topWorkflows: WorkflowStats[]
   recentExecutions: RecentExecution[]
   integrationStats: IntegrationStats
+  statusBreakdown: Array<{ key: string; label: string; value: number }>
+  topFailingWorkflows: Array<{ workflowId: string; workflowName: string; failedExecutions: number; totalExecutions: number }>
+  executionsByHour: Array<{ hour: number; label: string; executions: number }>
+  executionsByWeekday: Array<{ day: string; dayIndex: number; executions: number }>
+  failureReasons: Array<{ reason: string; count: number }>
+  avgDurationTrend: Array<{ date: string; dayName: string; avgDurationMs: number }>
+  p95ExecutionTimeMs: number
   period: {
     start: string
     end: string
@@ -132,6 +139,13 @@ const defaultDashboard: DashboardData = {
     expired: 0,
     disconnected: 0,
   },
+  statusBreakdown: [],
+  topFailingWorkflows: [],
+  executionsByHour: [],
+  executionsByWeekday: [],
+  failureReasons: [],
+  avgDurationTrend: [],
+  p95ExecutionTimeMs: 0,
   period: {
     start: new Date().toISOString(),
     end: new Date().toISOString(),

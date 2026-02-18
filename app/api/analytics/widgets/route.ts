@@ -17,6 +17,16 @@ type WidgetType =
   | "top_workflows"
   | "recent_executions"
   | "integration_health"
+  | "success_rate_trend"
+  | "execution_volume_trend"
+  | "failure_trend"
+  | "status_breakdown"
+  | "top_failing_workflows"
+  | "avg_duration_trend"
+  | "p95_execution_time"
+  | "executions_by_hour"
+  | "executions_by_day"
+  | "failure_reasons"
   | "custom"
 
 const DEFAULT_WIDGETS: Array<{
@@ -129,7 +139,40 @@ export async function GET() {
       return errorResponse("Failed to fetch widgets", 500)
     }
 
-    const widgetIds = (widgets || []).map((w) => w.id)
+    // Recover starter state if dashboard exists but user has no widgets.
+    if (!widgets || widgets.length === 0) {
+      const widgetRows = DEFAULT_WIDGETS.map((preset) => ({
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        type: preset.type,
+        title: preset.title,
+        config: {},
+        schedule: "on_demand",
+      }))
+      const starterLayout = buildDefaultLayout(widgetRows.map((w) => w.id))
+
+      const { error: insertWidgetsError } = await supabase
+        .from(WIDGETS_TABLE)
+        .insert(widgetRows)
+
+      if (insertWidgetsError) {
+        logger.error("[Analytics Widgets] Failed to restore starter widgets", insertWidgetsError)
+        return errorResponse("Failed to restore starter widgets", 500)
+      }
+
+      const { error: updateLayoutError } = await supabase
+        .from(DASHBOARDS_TABLE)
+        .update({ layout: starterLayout })
+        .eq("user_id", user.id)
+
+      if (updateLayoutError) {
+        logger.error("[Analytics Widgets] Failed to restore starter layout", updateLayoutError)
+      }
+
+      return jsonResponse({ widgets: widgetRows, layout: starterLayout })
+    }
+
+    const widgetIds = widgets.map((w) => w.id)
     const { data: caches } = widgetIds.length
       ? await supabase
           .from(WIDGET_CACHE_TABLE)
