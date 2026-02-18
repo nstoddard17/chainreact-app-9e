@@ -230,6 +230,13 @@ export class AdvancedExecutionEngine {
       logSuccess(sessionId, 'AdvancedExecutionEngine execution completed', completionInfo)
       return result
     } catch (error) {
+      logger.error('[Execution] executeWorkflowAdvanced failed', {
+        sessionId,
+        workflowId: session.workflow_id,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
+      })
+
       await this.updateSessionStatus(sessionId, "failed")
       await this.logExecutionEvent(sessionId, "execution_error", null, {
         error: error instanceof Error ? error.message : "Unknown error",
@@ -809,19 +816,40 @@ export class AdvancedExecutionEngine {
       }
 
       executedNodeIds.add(triggerNode.id);
-      
+
       // Find action nodes connected to this trigger
       const initialConnections = connections.filter((c: any) => c.source === triggerNode.id);
       const firstActionNodes = initialConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
-      
-      logger.debug(`🎯 Found ${firstActionNodes.length} action node(s) connected to trigger`)
-      logInfo(sessionId, `Found ${firstActionNodes.length} action node(s) connected to trigger`)
+
+      logger.info('[Execution] Post-trigger connection resolution', {
+        sessionId,
+        triggerNodeId: triggerNode.id,
+        allConnectionCount: connections.length,
+        allConnections: connections.map((c: any) => ({ source: c.source, target: c.target })),
+        matchedConnectionCount: initialConnections.length,
+        matchedConnections: initialConnections.map((c: any) => ({ source: c.source, target: c.target })),
+        actionNodesFound: firstActionNodes.length,
+        actionNodeIds: firstActionNodes.map((n: any) => n.id),
+        actionNodeTypes: firstActionNodes.map((n: any) => n.data?.type),
+        allNodeIds: nodes.map((n: any) => n.id),
+      })
+      logInfo(sessionId, `Found ${firstActionNodes.length} action node(s) connected to trigger`, {
+        triggerNodeId: triggerNode.id,
+        matchedConnections: initialConnections.length,
+        actionNodeIds: firstActionNodes.map((n: any) => n.id),
+      })
       executionQueue.push(...firstActionNodes);
     }
 
+    logger.info('[Execution] Entering action node loop', {
+      sessionId,
+      queueLength: executionQueue.length,
+      queuedNodeIds: executionQueue.map((n: any) => n.id),
+    })
+
     while (executionQueue.length > 0) {
       const currentNode = executionQueue.shift();
-      
+
       // Skip if node has already been executed to prevent duplicates
       if (executedNodeIds.has(currentNode.id)) {
         logger.debug(`🔄 Skipping already executed node: ${currentNode.id}`);
@@ -829,7 +857,13 @@ export class AdvancedExecutionEngine {
         continue;
       }
 
-      logger.debug(`🎯 Executing node: ${currentNode.id} (${currentNode.data.type})`);
+      logger.info(`[Execution] Executing action node: ${currentNode.id} (${currentNode.data.type})`, {
+        sessionId,
+        nodeId: currentNode.id,
+        nodeType: currentNode.data.type,
+        nodeLabel: currentNode.data?.label || currentNode.data?.title,
+        remainingQueue: executionQueue.length,
+      });
       logInfo(sessionId, `Executing node: ${currentNode.id} (${currentNode.data.type})`);
 
       // Create a clean context for the node execution
@@ -922,6 +956,12 @@ export class AdvancedExecutionEngine {
       }
     }
 
+    logger.info('[Execution] Main workflow path completed', {
+      sessionId,
+      executedNodeCount: executedNodeIds.size,
+      executedNodeIds: Array.from(executedNodeIds),
+    })
+
     return currentData;
   }
 
@@ -942,13 +982,24 @@ export class AdvancedExecutionEngine {
         .maybeSingle()
 
       if (existingNodeExecution) {
-        logger.debug(`🔄 Node ${node.id} already executed in session ${context.session.id}, skipping`)
-        logInfo(context.session.id, `Node ${node.id} already executed in session ${context.session.id}, skipping`)
+        logger.warn(`[Execution] Node ${node.id} already has node_completed event in session ${context.session.id}, skipping execution`, {
+          nodeId: node.id,
+          nodeType: node.data?.type,
+          sessionId: context.session.id,
+          existingEventId: existingNodeExecution.id,
+        })
+        logWarning(context.session.id, `Node ${node.id} already executed, skipping`, { nodeType: node.data?.type })
         return context.data
       }
 
       await this.logExecutionEvent(context.session.id, "node_started", node.id, { nodeType: node.data.type })
-      logger.debug(`🎯 Executing node via delegated handler: ${node.id} (${node.data.type})`)
+      logger.info(`[Execution] Executing node via delegated handler: ${node.id} (${node.data.type})`, {
+        nodeId: node.id,
+        nodeType: node.data.type,
+        nodeLabel: node.data?.label || node.data?.title,
+        sessionId: context.session.id,
+        inputKeys: Object.keys(context.data || {}),
+      })
       logInfo(context.session.id, `Executing node via delegated handler: ${node.id} (${node.data.type})`)
 
       // Log to backend logger
@@ -1029,7 +1080,12 @@ export class AdvancedExecutionEngine {
       } catch (logError) {
         logger.error('Error logging execution event:', logError)
       }
-      logger.debug(`✅ Node completed: ${node.id}`)
+      logger.info(`[Execution] Node completed: ${node.id} (${node.data.type})`, {
+        nodeId: node.id,
+        nodeType: node.data.type,
+        success: actionResult.success,
+        hasOutput: !!actionResult.output,
+      })
       logSuccess(context.session.id, `Node completed: ${node.id}`)
 
       // Log successful node execution
@@ -1045,7 +1101,14 @@ export class AdvancedExecutionEngine {
 
       return result
     } catch (error) {
-      logger.error(`❌ Node failed: ${node.id}`, error)
+      logger.error(`[Execution] Node failed: ${node.id} (${node.data?.type})`, {
+        nodeId: node.id,
+        nodeType: node.data?.type,
+        nodeLabel: node.data?.label || node.data?.title,
+        sessionId: context.session?.id,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
+      })
 
       // Log error to backend logger
       logError(context.session.id, `Node failed: ${node.data?.title || node.data?.type}`, {
