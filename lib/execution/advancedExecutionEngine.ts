@@ -3,6 +3,7 @@ import { executeAction } from "@/lib/workflows/executeNode"
 import { mapWorkflowData, evaluateExpression, evaluateCondition } from "./variableResolver"
 import { ExecutionProgressTracker } from "./executionProgressTracker"
 import { logInfo, logError, logSuccess, logWarning } from "@/lib/logging/backendLogger"
+import { sendWorkflowErrorNotifications, extractErrorMessage } from "@/lib/notifications/errorHandler"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -86,6 +87,7 @@ export class AdvancedExecutionEngine {
         user_id: userId,
         session_type: sessionType,
         execution_context: context,
+        input_data: context?.inputData ?? null,
         status: "pending",
       })
       .select()
@@ -133,6 +135,11 @@ export class AdvancedExecutionEngine {
       logWarning(sessionId, 'Session already running, skipping duplicate execution')
       return { success: false, message: "Session already running" }
     }
+
+    // Track start time for duration calculation
+    const executionStartMs = session.started_at
+      ? new Date(session.started_at).getTime()
+      : Date.now()
 
     // Update session status
     await this.updateSessionStatus(sessionId, "running")
@@ -217,6 +224,14 @@ export class AdvancedExecutionEngine {
 
       await this.updateSessionStatus(sessionId, "completed", 100)
 
+      // Record execution timing
+      await this.supabase
+        .from("workflow_execution_sessions")
+        .update({
+          execution_time_ms: Date.now() - executionStartMs,
+        })
+        .eq("id", sessionId)
+
       // Mark progress as completed
       if (this.progressTracker) {
         await this.progressTracker.complete(true)
@@ -229,18 +244,49 @@ export class AdvancedExecutionEngine {
       logger.debug('✅ AdvancedExecutionEngine execution completed', completionInfo)
       logSuccess(sessionId, 'AdvancedExecutionEngine execution completed', completionInfo)
       return result
-    } catch (error) {
-      logger.error('[Execution] executeWorkflowAdvanced failed', {
-        sessionId,
-        workflowId: session.workflow_id,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
-      })
+  } catch (error) {
+    logger.error('[Execution] executeWorkflowAdvanced failed', {
+      sessionId,
+      workflowId: session.workflow_id,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
+    })
+
+    // Notify user if workflow has error notifications enabled
+    try {
+      const { data: workflowForNotification } = await this.supabase
+        .from("workflows")
+        .select("*")
+        .eq("id", session.workflow_id)
+        .single()
+
+      if (workflowForNotification) {
+        sendWorkflowErrorNotifications(
+          workflowForNotification,
+          {
+            message: extractErrorMessage(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            executionId: sessionId
+          }
+        ).catch((notifError) => {
+          logger.error('Failed to send workflow error notifications:', notifError)
+        })
+      }
+    } catch (notificationError) {
+      logger.error('Error while attempting to send workflow error notifications:', notificationError)
+    }
 
       await this.updateSessionStatus(sessionId, "failed")
-      await this.logExecutionEvent(sessionId, "execution_error", null, {
-        error: error instanceof Error ? error.message : "Unknown error",
-      })
+      await this.supabase
+        .from("workflow_execution_sessions")
+        .update({
+          error_message: error instanceof Error ? error.message : "Unknown error",
+          execution_time_ms: Date.now() - executionStartMs,
+        })
+        .eq("id", sessionId)
+    await this.logExecutionEvent(sessionId, "execution_error", null, {
+      error: error instanceof Error ? error.message : "Unknown error",
+    })
 
       // Mark progress as failed
       if (this.progressTracker) {

@@ -24,7 +24,7 @@ export async function GET(
 
     // Fetch execution details
     const { data: execution, error } = await supabase
-      .from('workflow_executions')
+      .from('workflow_execution_sessions')
       .select('*')
       .eq('id', executionId)
       .eq('workflow_id', workflowId)

@@ -33,27 +33,27 @@ export async function GET(request: NextRequest) {
     for (const workflow of workflows || []) {
       // Get total executions
       const { count: totalCount } = await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('workflow_id', workflow.id)
 
       // Get today's executions
       const { count: todayCount } = await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('workflow_id', workflow.id)
         .gte('created_at', today.toISOString())
 
       // Get success count
       const { count: successCount } = await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('workflow_id', workflow.id)
         .eq('status', 'completed')
 
       // Get failed count
       const { count: failedCount } = await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('workflow_id', workflow.id)
         .eq('status', 'failed')
@@ -72,3 +72,4 @@ export async function GET(request: NextRequest) {
     return errorResponse(error.message || "Failed to fetch workflow stats", 500)
   }
 }
+

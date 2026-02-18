@@ -284,7 +284,7 @@ async function triggerWorkflowsForEvent(
         return
       }
 
-      await supabase.from('workflow_executions').insert({
+      await supabase.from('workflow_execution_sessions').insert({
         workflow_id: workflowId,
         user_id: workflow.user_id,
         status: 'pending',
@@ -315,10 +315,11 @@ async function triggerWorkflowsForEvent(
         created_at: new Date().toISOString()
       }))
 
-      await supabase.from('workflow_executions').insert(executions)
+      await supabase.from('workflow_execution_sessions').insert(executions)
       logger.debug(`[Monday Webhook] Queued ${executions.length} executions`)
     }
   } catch (error: any) {
     logger.error('[Monday Webhook] Failed to trigger workflows:', error)
   }
 }
+

@@ -25,7 +25,7 @@ export async function resumeWorkflowExecution(
 
     // Get the paused execution
     const { data: execution, error: fetchError } = await supabase
-      .from('workflow_executions')
+      .from('workflow_execution_sessions')
       .select('*, workflows(id, name, workflow_json)')
       .eq('id', executionId)
       .eq('status', 'running') // Should be marked as running by webhook
@@ -103,7 +103,7 @@ export async function resumeWorkflowExecution(
 
       // Mark execution as completed
       await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .update({
           status: 'completed',
           paused_node_id: null,
@@ -211,7 +211,7 @@ export async function checkAndResumeStuckWorkflows(): Promise<{
     // Find executions that are marked as running but still have paused_node_id
     // This means they're ready to resume but haven't been picked up yet
     const { data: stuckExecutions, error } = await supabase
-      .from('workflow_executions')
+      .from('workflow_execution_sessions')
       .select('id')
       .eq('status', 'running')
       .not('paused_node_id', 'is', null)
@@ -254,3 +254,4 @@ export async function checkAndResumeStuckWorkflows(): Promise<{
     return { checked: 0, resumed: 0, failed: 0 }
   }
 }
+

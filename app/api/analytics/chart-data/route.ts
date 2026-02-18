@@ -18,7 +18,7 @@ export async function GET() {
     const sevenDaysAgo = subDays(today, 6);
 
     const { data: executions, error } = await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .select('completed_at, status')
         .eq('user_id', user.id)
         .gte('completed_at', sevenDaysAgo.toISOString());
@@ -35,7 +35,7 @@ export async function GET() {
         const dayExecutions = executions.filter(ex => 
             ex.completed_at && format(new Date(ex.completed_at), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
         );
-        const successfulExecutions = dayExecutions.filter(ex => ex.status === 'success');
+        const successfulExecutions = dayExecutions.filter(ex => ex.status === 'completed');
         
         return {
             name: dayString,
@@ -46,3 +46,4 @@ export async function GET() {
 
     return jsonResponse({ success: true, data: chartData });
 }
+

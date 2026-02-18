@@ -45,21 +45,21 @@ export async function GET() {
       
       // Basic metrics (executions)
       supabase
-        .from("workflow_executions")
+        .from("workflow_execution_sessions")
         .select("id, status, execution_time_ms")
         .eq("user_id", user.id)
         .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()), // Last 30 days
       
       // Chart data (executions per day)
       supabase
-        .from("workflow_executions")
+        .from("workflow_execution_sessions")
         .select("created_at, status")
         .eq("user_id", user.id)
         .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()), // Last 7 days
       
       // Recent activities
       supabase
-        .from("workflow_executions")
+        .from("workflow_execution_sessions")
         .select("id, workflow_name, status, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -75,7 +75,7 @@ export async function GET() {
 
     // Calculate metrics
     const activeWorkflows = workflows.filter((w: any) => w.status === 'active').length
-    const successfulExecutions = executions.filter((e: any) => e.status === 'success').length
+    const successfulExecutions = executions.filter((e: any) => e.status === 'completed').length
     const totalExecutionTime = executions.reduce((sum: number, e: any) => sum + (e.execution_time_ms || 0), 0)
     const hoursSaved = Math.round(totalExecutionTime / (1000 * 60 * 60) * 10) / 10 // Rough estimate
     const connectedIntegrations = integrations.filter((i: any) => i.status === 'connected').length

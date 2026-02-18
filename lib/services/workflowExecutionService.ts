@@ -190,10 +190,10 @@ export class WorkflowExecutionService {
       }
     }
 
-    // Create UUID-based execution record in workflow_executions table
+    // Create UUID-based execution record in workflow_execution_sessions table
     // This is required for HITL which references this table
     const { data: executionRecord, error: execError } = await supabase
-      .from("workflow_executions")
+      .from("workflow_execution_sessions")
       .insert({
         workflow_id: workflow.id,
         user_id: userId,
@@ -308,9 +308,9 @@ export class WorkflowExecutionService {
           })
         }
 
-        // Update workflow_executions record to paused status
+        // Update workflow_execution_sessions record to paused status
         const { error: pauseError } = await supabase
-          .from("workflow_executions")
+          .from("workflow_execution_sessions")
           .update({
             status: "paused",
             paused_node_id: actualPausedNodeId,
@@ -374,13 +374,17 @@ export class WorkflowExecutionService {
     const hasErrors = failedNodeIds.length > 0
     await progressTracker.complete(!hasErrors, hasErrors ? 'Workflow execution completed with errors' : undefined)
 
-    // Update workflow_executions record to completed status
+    // Update workflow_execution_sessions record to completed status
     const finalStatus = hasErrors ? "failed" : "completed"
     const { error: completeError } = await supabase
-      .from("workflow_executions")
+      .from("workflow_execution_sessions")
       .update({
         status: finalStatus,
         completed_at: new Date().toISOString(),
+        execution_time_ms: Date.now() - new Date(executionRecord.started_at).getTime(),
+        error_message: hasErrors
+          ? `Workflow completed with ${failedNodeIds.length} error(s)`
+          : null,
         updated_at: new Date().toISOString()
       })
       .eq("id", executionId)

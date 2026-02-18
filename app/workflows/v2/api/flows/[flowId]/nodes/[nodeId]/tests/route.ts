@@ -66,9 +66,9 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   const runId = uuid()
   const now = new Date().toISOString()
 
-  // Note: workflow_executions is a view over 'executions' table
+  // Note: workflow_execution_sessions is a view over 'executions' table
   // Valid status values are: 'pending', 'running', 'completed', 'failed', 'paused'
-  const runInsert = await serviceClient.from("workflow_executions").insert({
+  const runInsert = await serviceClient.from("workflow_execution_sessions").insert({
     id: runId,
     workflow_id: flowId,
     user_id: user.id,

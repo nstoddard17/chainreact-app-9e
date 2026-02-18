@@ -40,9 +40,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Load the paused execution from workflow_executions
+    // Load the paused execution from workflow_execution_sessions
     const { data: execution, error: execError } = await supabase
-      .from('workflow_executions')
+      .from('workflow_execution_sessions')
       .select('*')
       .eq('id', executionId)
       .eq('status', 'paused')
@@ -153,7 +153,7 @@ export async function POST(
 
       // Mark execution as completed
       await supabase
-        .from('workflow_executions')
+        .from('workflow_execution_sessions')
         .update({
           status: 'completed',
           completed_at: new Date().toISOString()
@@ -205,7 +205,7 @@ export async function POST(
 
     // Update execution status to running
     await supabase
-      .from('workflow_executions')
+      .from('workflow_execution_sessions')
       .update({
         status: 'running',
         paused_node_id: null,
@@ -271,7 +271,7 @@ export async function POST(
     await progressTracker.complete(!hasErrors, hasErrors ? 'Workflow resumed with errors' : undefined)
 
     await supabase
-      .from('workflow_executions')
+      .from('workflow_execution_sessions')
       .update({
         status: hasErrors ? 'failed' : 'completed',
         completed_at: new Date().toISOString()

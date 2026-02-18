@@ -107,7 +107,7 @@ const WAVE_1_DELETIONS: TableDeletion[] = [
 
 // Tables deleted in Wave 2 (mid-level parents)
 const WAVE_2_DELETIONS: TableDeletion[] = [
-  { table: 'workflow_executions', column: 'user_id', modes: ['full', 'partial'] },
+  { table: 'workflow_execution_sessions', column: 'user_id', modes: ['full', 'partial'] },
   { table: 'workflow_folders', column: 'user_id', modes: ['full'] },
   { table: 'team_activity', column: 'user_id', modes: ['full'] },
   { table: 'team_invitations', column: 'user_id', modes: ['full'] },
@@ -451,3 +451,4 @@ export class UserDeletionService {
     }
   }
 }
+

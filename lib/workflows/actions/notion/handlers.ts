@@ -5,6 +5,10 @@ import { ExecutionContext } from '../../execution/types'
 import { logger } from '@/lib/utils/logger'
 
 const NOTION_API_VERSION = "2022-06-28"
+const NOTION_TIMEOUT_MS = 30000
+const NOTION_RETRY_BASE_DELAY_MS = 1000
+const NOTION_RETRY_MAX_ATTEMPTS = 3
+const NOTION_RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504])
 
 function normalizeNotionId(id?: string | null) {
   if (!id || typeof id !== 'string') {
@@ -219,35 +223,66 @@ async function notionApiRequest(
   accessToken: string,
   body?: any
 ) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 15000)
+  const upperMethod = method.toUpperCase()
+  const maxAttempts = ["GET", "PATCH"].includes(upperMethod) ? NOTION_RETRY_MAX_ATTEMPTS : 1
 
-  try {
-    const response = await fetch(`https://api.notion.com/v1${endpoint}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Notion-Version": NOTION_API_VERSION,
-        "Content-Type": "application/json"
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: controller.signal
-    })
+  let lastError: any = null
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), NOTION_TIMEOUT_MS)
+
+    try {
+      const response = await fetch(`https://api.notion.com/v1${endpoint}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Notion-Version": NOTION_API_VERSION,
+          "Content-Type": "application/json"
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const error: any = new Error(`Notion API error: ${response.status} - ${errorData.message || response.statusText}`)
+        error.status = response.status
+        if (attempt < maxAttempts && NOTION_RETRYABLE_STATUS.has(response.status)) {
+          lastError = error
+        } else {
+          throw error
+        }
+      } else {
+        return response.json()
+      }
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        lastError = new Error(`Notion API timeout: ${method} ${endpoint} did not respond within ${NOTION_TIMEOUT_MS / 1000} seconds`)
+      } else if (error?.status && NOTION_RETRYABLE_STATUS.has(error.status)) {
+        lastError = error
+      } else {
+        throw error
+      }
+    } finally {
+      clearTimeout(timeout)
     }
 
-    return response.json()
-  } catch (error: any) {
-    if (error.name === 'AbortError') {
-      throw new Error(`Notion API timeout: ${method} ${endpoint} did not respond within 15 seconds`)
+    if (attempt < maxAttempts) {
+      const jitter = Math.floor(Math.random() * 500)
+      const delay = NOTION_RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1) + jitter
+      logger.warn('[Notion API] Retrying request', {
+        endpoint,
+        method: upperMethod,
+        attempt,
+        nextDelayMs: delay,
+        error: lastError?.message || 'unknown'
+      })
+      await new Promise(resolve => setTimeout(resolve, delay))
     }
-    throw error
-  } finally {
-    clearTimeout(timeout)
   }
+
+  throw lastError || new Error(`Notion API request failed: ${method} ${endpoint}`)
 }
 
 /**
@@ -369,14 +404,26 @@ export async function notionUpdatePage(
     // Fetch the page to determine if it's a database page and get property schema
     let propertySchema: Record<string, { type: string; name: string }> = {}
     try {
+      const getPageStart = Date.now()
       const pageData = await notionApiRequest(`/pages/${pageId}`, "GET", accessToken)
+      logger.info('[Notion Update] GET page completed', {
+        pageId,
+        durationMs: Date.now() - getPageStart,
+        parentType: pageData.parent?.type,
+      })
 
       // If this is a database page, fetch the database schema to get property types
       if (pageData.parent?.type === 'database_id') {
         const databaseId = pageData.parent.database_id
         logger.debug('Fetching database schema for property types:', databaseId)
 
+        const getSchemaStart = Date.now()
         const dbData = await notionApiRequest(`/databases/${databaseId}`, "GET", accessToken)
+        logger.info('[Notion Update] GET database schema completed', {
+          databaseId,
+          durationMs: Date.now() - getSchemaStart,
+          propertyCount: dbData.properties ? Object.keys(dbData.properties).length : 0,
+        })
         if (dbData.properties) {
           // Build a map of property ID/name to type (with name for ID-to-name conversion)
           // Store both decoded and URL-encoded forms of IDs since pageFields uses encoded IDs
@@ -620,11 +667,12 @@ export async function notionUpdatePage(
       hasArchived: payload.archived !== undefined,
     })
 
+    const patchStart = Date.now()
     const result = await notionApiRequest(`/pages/${pageId}`, "PATCH", accessToken, payload)
-
-    logger.info('[Notion Update] Update successful', {
+    logger.info('[Notion Update] PATCH update completed', {
       pageId: result.id,
       url: result.url,
+      durationMs: Date.now() - patchStart,
     })
 
     return {

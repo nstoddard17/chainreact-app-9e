@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       try {
         // Get workflow execution to access resume_data
         const { data: execution, error: execError } = await supabase
-          .from('workflow_executions')
+          .from('workflow_execution_sessions')
           .select('*')
           .eq('id', conversation.execution_id)
           .single()
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
           // ============================================
 
           await supabase
-            .from('workflow_executions')
+            .from('workflow_execution_sessions')
             .update({
               status: 'cancelled',
               completed_at: new Date().toISOString(),
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
           }
 
           await supabase
-            .from('workflow_executions')
+            .from('workflow_execution_sessions')
             .update({
               status: 'running',
               paused_node_id: null,
@@ -205,3 +205,4 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+

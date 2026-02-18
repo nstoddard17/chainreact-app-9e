@@ -1,10 +1,13 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, after } from 'next/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 
 import { logger } from '@/lib/utils/logger'
+
+// Allow up to 5 minutes for workflow execution (trigger + action nodes)
+export const maxDuration = 300
 
 // This webhook handles Stripe integration triggers for workflows
 // It processes events from connected Stripe accounts (Connect webhooks).
@@ -282,17 +285,31 @@ export async function POST(request: NextRequest) {
       eventId: event.id,
     })
 
-    executionEngine.executeWorkflowAdvanced(executionSession.id, {
-      stripeEvent: event,
-      triggerResourceIds: matchingResources.map((resource: any) => resource.id)
-    }).catch((execError: any) => {
-      logger.error('[Stripe Integration Webhook] Workflow execution failed', {
-        workflowId,
-        executionSessionId: executionSession.id,
-        eventType: event.type,
-        error: execError?.message || 'Unknown execution error',
-        stack: execError?.stack?.split('\n').slice(0, 5).join('\n') || 'no stack',
-      })
+    // Use after() to execute workflow AFTER the response is sent to Stripe.
+    // This gives the workflow the full maxDuration (5 min) instead of sharing
+    // it with the response path. Without this, Vercel kills the function at 60s
+    // and the workflow execution is silently abandoned.
+    after(async () => {
+      try {
+        await executionEngine.executeWorkflowAdvanced(executionSession.id, {
+          stripeEvent: event,
+          triggerResourceIds: matchingResources.map((resource: any) => resource.id)
+        })
+        logger.info('[Stripe Integration Webhook] Workflow execution completed', {
+          workflowId,
+          executionSessionId: executionSession.id,
+          eventType: event.type,
+          eventId: event.id,
+        })
+      } catch (execError: any) {
+        logger.error('[Stripe Integration Webhook] Workflow execution failed', {
+          workflowId,
+          executionSessionId: executionSession.id,
+          eventType: event.type,
+          error: execError?.message || 'Unknown execution error',
+          stack: execError?.stack?.split('\n').slice(0, 5).join('\n') || 'no stack',
+        })
+      }
     })
 
     return jsonResponse({

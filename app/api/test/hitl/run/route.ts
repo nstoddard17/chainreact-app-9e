@@ -129,13 +129,13 @@ async function ensureTestWorkflow(serviceClient: any, userId: string): Promise<s
 
 async function createTestExecution(serviceClient: any, workflowId: string, userId: string, triggerData: any) {
   const { data, error } = await serviceClient
-    .from("workflow_executions")
+    .from("workflow_execution_sessions")
     .insert({
       workflow_id: workflowId,
       user_id: userId,
       status: "running",
       trigger_data: triggerData,
-      is_test_mode: true,
+      test_mode: true,
     })
     .select("id")
     .single()
@@ -146,3 +146,4 @@ async function createTestExecution(serviceClient: any, workflowId: string, userI
 
   return data.id
 }
+

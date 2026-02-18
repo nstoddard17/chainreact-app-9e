@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       // Get all executions in date range
       supabase
-        .from("workflow_executions")
+        .from("workflow_execution_sessions")
         .select("id, workflow_id, status, started_at, completed_at, error_message")
         .eq("user_id", user.id)
         .gte("started_at", startDate.toISOString())
@@ -151,6 +151,7 @@ export async function GET(request: NextRequest) {
     const executions = executionsResult.data || []
     const workflows = workflowsResult.data || []
     const integrations = integrationsResult.data || []
+
 
     // Create workflow lookup map
     const workflowMap = new Map(workflows.map((w) => [w.id, w]))
@@ -370,3 +371,4 @@ function calculateIntegrationStats(integrations: any[]): IntegrationStats {
     disconnected,
   }
 }
+

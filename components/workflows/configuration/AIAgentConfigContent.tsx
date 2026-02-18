@@ -741,7 +741,7 @@ Example:
                 title: node.title,
                 outputSchema: node.outputs,
                 // Note: sampleData would come from last test execution
-                // This would need to be fetched from workflow_executions or node snapshots
+                // This would need to be fetched from workflow_execution_sessions or node snapshots
               }))}
             />
           </TabsContent>
@@ -927,3 +927,4 @@ Example:
     </div>
   )
 }
+

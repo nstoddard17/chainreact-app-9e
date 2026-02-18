@@ -86,7 +86,7 @@ export async function executeWaitForEvent(
 
     // Update the execution record to paused status
     await supabase
-      .from("workflow_executions")
+      .from("workflow_execution_sessions")
       .update({
         status: "waiting",
         paused_at: new Date().toISOString(),
@@ -123,3 +123,4 @@ export async function executeWaitForEvent(
     }
   }
 }
+
