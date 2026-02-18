@@ -103,10 +103,10 @@ export async function GET(request: NextRequest) {
       // Get all executions in date range
       supabase
         .from("workflow_execution_sessions")
-        .select("id, workflow_id, status, started_at, completed_at, error_message")
+        .select("id, workflow_id, status, started_at, completed_at, created_at, error_message")
         .eq("user_id", user.id)
-        .gte("started_at", startDate.toISOString())
-        .order("started_at", { ascending: false }),
+        .gte("created_at", startDate.toISOString())
+        .order("created_at", { ascending: false }),
 
       // Get all user workflows
       supabase
@@ -171,9 +171,10 @@ export async function GET(request: NextRequest) {
     // Get recent executions (last 10)
     const recentExecutions = productionExecutions.slice(0, 10).map((exec) => {
       const workflow = workflowMap.get(exec.workflow_id)
+      const startedAt = exec.started_at || exec.created_at
       const durationMs =
-        exec.completed_at && exec.started_at
-          ? new Date(exec.completed_at).getTime() - new Date(exec.started_at).getTime()
+        exec.completed_at && startedAt
+          ? new Date(exec.completed_at).getTime() - new Date(startedAt).getTime()
           : null
 
       return {
@@ -181,7 +182,7 @@ export async function GET(request: NextRequest) {
         workflowId: exec.workflow_id,
         workflowName: workflow?.name || "Unknown Workflow",
         status: exec.status,
-        startedAt: exec.started_at,
+        startedAt,
         completedAt: exec.completed_at,
         durationMs,
         error: exec.error_message,
@@ -227,11 +228,12 @@ function calculateOverviewStats(executions: any[]): ExecutionStats {
   const successRate = total > 0 ? Math.round((completed / total) * 100 * 10) / 10 : 0
 
   // Calculate average execution time for completed executions
-  const completedWithTime = executions.filter(
-    (e) => e.status === "completed" && e.completed_at && e.started_at
+    const completedWithTime = executions.filter(
+    (e) => e.status === "completed" && e.completed_at && (e.started_at || e.created_at)
   )
   const totalTimeMs = completedWithTime.reduce((sum, e) => {
-    return sum + (new Date(e.completed_at).getTime() - new Date(e.started_at).getTime())
+    const startedAt = e.started_at || e.created_at
+    return sum + (new Date(e.completed_at).getTime() - new Date(startedAt).getTime())
   }, 0)
   const avgExecutionTimeMs =
     completedWithTime.length > 0 ? Math.round(totalTimeMs / completedWithTime.length) : 0
@@ -255,8 +257,9 @@ function calculateDailyStats(executions: any[], startDate: Date, endDate: Date):
     const dayName = format(day, "EEE") // Mon, Tue, etc.
 
     const dayExecutions = executions.filter((e) => {
-      if (!e.started_at) return false
-      const execDate = format(new Date(e.started_at), "yyyy-MM-dd")
+      const execStart = e.started_at || e.created_at
+      if (!execStart) return false
+      const execDate = format(new Date(execStart), "yyyy-MM-dd")
       return execDate === dayString
     })
 
@@ -298,10 +301,12 @@ function calculateWorkflowStats(
     const failedExecutions = execs.filter((e) => e.status === "failed").length
 
     // Find last execution
-    const sortedExecs = [...execs].sort(
-      (a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
-    )
-    const lastExecutedAt = sortedExecs[0]?.started_at || null
+    const sortedExecs = [...execs].sort((a, b) => {
+      const aTime = new Date(a.started_at || a.created_at || 0).getTime()
+      const bTime = new Date(b.started_at || b.created_at || 0).getTime()
+      return bTime - aTime
+    })
+    const lastExecutedAt = sortedExecs[0]?.started_at || sortedExecs[0]?.created_at || null
 
     // Calculate success rate
     const successRate =
@@ -311,10 +316,11 @@ function calculateWorkflowStats(
 
     // Calculate average execution time
     const completedWithTime = execs.filter(
-      (e) => e.status === "completed" && e.completed_at && e.started_at
+      (e) => e.status === "completed" && e.completed_at && (e.started_at || e.created_at)
     )
     const totalTimeMs = completedWithTime.reduce((sum, e) => {
-      return sum + (new Date(e.completed_at).getTime() - new Date(e.started_at).getTime())
+      const startedAt = e.started_at || e.created_at
+      return sum + (new Date(e.completed_at).getTime() - new Date(startedAt).getTime())
     }, 0)
     const avgExecutionTimeMs =
       completedWithTime.length > 0 ? Math.round(totalTimeMs / completedWithTime.length) : 0
