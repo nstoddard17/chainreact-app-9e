@@ -6,6 +6,7 @@ import { logger } from "@/lib/utils/logger"
 
 const DASHBOARDS_TABLE = "analytics_dashboards"
 const WIDGETS_TABLE = "analytics_widgets"
+const WIDGET_CACHE_TABLE = "analytics_widget_cache"
 
 type WidgetType =
   | "total_executions"
@@ -127,8 +128,23 @@ export async function GET() {
       return errorResponse("Failed to fetch widgets", 500)
     }
 
+    const widgetIds = (widgets || []).map((w) => w.id)
+    const { data: caches } = widgetIds.length
+      ? await supabase
+          .from(WIDGET_CACHE_TABLE)
+          .select("widget_id, data, refreshed_at")
+          .in("widget_id", widgetIds)
+      : { data: [] }
+
+    const cacheMap = new Map((caches || []).map((c: any) => [c.widget_id, c]))
+
+    const enriched = (widgets || []).map((w) => ({
+      ...w,
+      cache: cacheMap.get(w.id) || null,
+    }))
+
     return jsonResponse({
-      widgets: widgets || [],
+      widgets: enriched,
       layout: dashboard.layout || [],
     })
   } catch (error: any) {

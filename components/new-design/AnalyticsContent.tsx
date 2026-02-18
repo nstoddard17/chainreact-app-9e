@@ -6,6 +6,14 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -34,11 +42,9 @@ import { useAnalyticsStore } from "@/stores/analyticsStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { formatDistanceToNow, format } from "date-fns"
 import Link from "next/link"
-import { Responsive, WidthProvider } from "react-grid-layout"
+import { ResponsiveGridLayout } from "react-grid-layout"
 import "react-grid-layout/css/styles.css"
 import "react-resizable/css/styles.css"
-
-const ResponsiveGridLayout = WidthProvider(Responsive)
 
 function formatDuration(ms: number | null): string {
   if (ms === null || ms === undefined) return "-"
@@ -726,13 +732,12 @@ export function AnalyticsContent() {
         </ResponsiveGridLayout>
       )}
 
-      {showAddWidget && (
-        <AddWidgetDialog
-          integrations={integrations}
-          onClose={() => setShowAddWidget(false)}
-          onCreate={handleAddWidget}
-        />
-      )}
+      <AddWidgetDialog
+        open={showAddWidget}
+        integrations={integrations}
+        onClose={() => setShowAddWidget(false)}
+        onCreate={handleAddWidget}
+      />
       {savingLayout && (
         <div className="text-xs text-muted-foreground flex items-center gap-2">
           <RefreshCw className="w-3 h-3 animate-spin" />
@@ -844,10 +849,12 @@ function WidgetRenderer({
 }
 
 function AddWidgetDialog({
+  open,
   integrations,
   onClose,
   onCreate,
 }: {
+  open: boolean
   integrations: any[]
   onClose: () => void
   onCreate: (widget: any) => void
@@ -858,17 +865,63 @@ function AddWidgetDialog({
   const [integration, setIntegration] = useState("")
   const [metric, setMetric] = useState("")
   const [advancedConfig, setAdvancedConfig] = useState("")
+  const [advancedError, setAdvancedError] = useState<string | null>(null)
 
   const presetOptions = [
-    { value: "total_executions", label: "Total Executions" },
-    { value: "success_rate", label: "Success Rate" },
-    { value: "failed_executions", label: "Failed Executions" },
-    { value: "avg_execution_time", label: "Avg. Execution Time" },
-    { value: "execution_history", label: "Execution History" },
-    { value: "top_workflows", label: "Top Workflows" },
-    { value: "recent_executions", label: "Recent Executions" },
-    { value: "integration_health", label: "Integration Health" },
-    { value: "custom", label: "Custom (Integration)" },
+    {
+      value: "total_executions",
+      label: "Total Executions",
+      description: "Total workflow runs in the selected period.",
+      icon: Zap,
+    },
+    {
+      value: "success_rate",
+      label: "Success Rate",
+      description: "Percentage of successful runs.",
+      icon: CheckCircle2,
+    },
+    {
+      value: "failed_executions",
+      label: "Failed Executions",
+      description: "Count of failed workflow runs.",
+      icon: XCircle,
+    },
+    {
+      value: "avg_execution_time",
+      label: "Avg. Execution Time",
+      description: "Average duration across runs.",
+      icon: Clock,
+    },
+    {
+      value: "execution_history",
+      label: "Execution History",
+      description: "Bar chart of daily executions.",
+      icon: BarChart3,
+    },
+    {
+      value: "top_workflows",
+      label: "Top Workflows",
+      description: "Most active workflows.",
+      icon: Workflow,
+    },
+    {
+      value: "recent_executions",
+      label: "Recent Executions",
+      description: "Latest workflow runs.",
+      icon: Activity,
+    },
+    {
+      value: "integration_health",
+      label: "Integration Health",
+      description: "Status of connected apps.",
+      icon: Link2,
+    },
+    {
+      value: "custom",
+      label: "Custom (Integration)",
+      description: "Build a widget from an integration metric.",
+      icon: Settings,
+    },
   ]
 
   useEffect(() => {
@@ -881,6 +934,15 @@ function AddWidgetDialog({
   const handleCreate = () => {
     let config: any = {}
     if (type === "custom") {
+      if (advancedConfig.trim()) {
+        try {
+          JSON.parse(advancedConfig)
+          setAdvancedError(null)
+        } catch (error) {
+          setAdvancedError("Advanced JSON is invalid. Please fix it before saving.")
+          return
+        }
+      }
       config = {
         integration,
         metric,
@@ -889,100 +951,143 @@ function AddWidgetDialog({
     }
     onCreate({ type, title, schedule, config })
   }
+  const selectedOption = presetOptions.find((option) => option.value === type)
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
-      <div className="bg-white dark:bg-slate-950 rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="text-lg font-semibold">Add Widget</div>
-          <button onClick={onClose}>
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <label className="text-sm font-medium">Widget Type</label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select widget" />
-              </SelectTrigger>
-              <SelectContent>
-                {presetOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Add Widget
+          </DialogTitle>
+          <DialogDescription>
+            Choose a preset widget or configure a custom analytics widget from your connected apps.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+          <div className="space-y-3">
+            <div className="text-sm font-medium text-muted-foreground">Widget Library</div>
+            <div className="space-y-2">
+              {presetOptions.map((option) => {
+                const Icon = option.icon
+                const selected = option.value === type
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setType(option.value)}
+                    aria-pressed={selected}
+                    className={`w-full text-left border rounded-lg p-3 transition ${
+                      selected
+                        ? "border-primary/60 bg-primary/5 shadow-sm"
+                        : "border-border hover:border-primary/40 hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center">
+                        <Icon className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">{option.label}</div>
+                        <div className="text-xs text-muted-foreground">{option.description}</div>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium">Title</label>
-            <input
-              className="w-full border rounded-md p-2 text-sm"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">Refresh Schedule</label>
-            <Select value={schedule} onValueChange={setSchedule}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select schedule" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="on_demand">On demand only</SelectItem>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {type === "custom" && (
-            <>
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-4 border-b pb-4">
               <div>
-                <label className="text-sm font-medium">Integration</label>
-                <Select value={integration} onValueChange={setIntegration}>
+                <div className="text-sm font-medium">Widget Details</div>
+                <div className="text-xs text-muted-foreground">
+                  {selectedOption?.description || "Configure the widget settings."}
+                </div>
+              </div>
+              {selectedOption && (
+                <Badge variant="outline" className="text-xs">
+                  {selectedOption.label}
+                </Badge>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Title</label>
+                <input
+                  className="w-full border rounded-md p-2 text-sm"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Refresh Schedule</label>
+                <Select value={schedule} onValueChange={setSchedule}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select integration" />
+                    <SelectValue placeholder="Select schedule" />
                   </SelectTrigger>
                   <SelectContent>
-                    {integrations.map((i: any) => (
-                      <SelectItem key={i.id} value={i.provider}>
-                        {i.provider}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="on_demand">On demand only</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-sm font-medium">Metric</label>
-                <input
-                  className="w-full border rounded-md p-2 text-sm"
-                  value={metric}
-                  onChange={(e) => setMetric(e.target.value)}
-                  placeholder="e.g. total_revenue"
-                />
+            </div>
+            {type === "custom" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Integration</label>
+                    <Select value={integration} onValueChange={setIntegration}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select integration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {integrations.map((i: any) => (
+                          <SelectItem key={i.id} value={i.provider}>
+                            {i.provider}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Metric</label>
+                    <input
+                      className="w-full border rounded-md p-2 text-sm"
+                      value={metric}
+                      onChange={(e) => setMetric(e.target.value)}
+                      placeholder="e.g. total_revenue"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Advanced JSON</label>
+                  <textarea
+                    className="w-full border rounded-md p-2 text-sm h-24"
+                    value={advancedConfig}
+                    onChange={(e) => setAdvancedConfig(e.target.value)}
+                    placeholder='{"filters": {"status": "paid"}}'
+                  />
+                  {advancedError && (
+                    <p className="text-xs text-red-500 mt-1">{advancedError}</p>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Advanced JSON</label>
-                <textarea
-                  className="w-full border rounded-md p-2 text-sm h-24"
-                  value={advancedConfig}
-                  onChange={(e) => setAdvancedConfig(e.target.value)}
-                  placeholder='{"filters": {"status": "paid"}}'
-                />
-              </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
-        <div className="flex items-center justify-end gap-2">
+        <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={handleCreate}>Add Widget</Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
