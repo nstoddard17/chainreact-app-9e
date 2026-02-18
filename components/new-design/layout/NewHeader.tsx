@@ -33,7 +33,7 @@ export function NewHeader({
   actions,
   commandPaletteOpen: controlledOpen,
   onCommandPaletteOpenChange,
-  showBreadcrumbs = true,
+  showBreadcrumbs = false,
   breadcrumbItems,
 }: NewHeaderProps) {
   // Use controlled state if provided, otherwise use internal state

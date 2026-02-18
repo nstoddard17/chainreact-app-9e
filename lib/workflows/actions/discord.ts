@@ -128,8 +128,23 @@ export async function sendDiscordMessage(
     logger.debug(`   config keys:`, Object.keys(config || {}))
     logger.debug(`   input keys:`, Object.keys(input || {}))
 
+    // CRITICAL DEBUG: Log the raw message config BEFORE resolution
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    console.log('🔍 DISCORD SEND MESSAGE - RAW CONFIG:')
+    console.log(`   message field (BEFORE resolve): "${config?.message}"`)
+    console.log(`   input.trigger exists: ${!!input?.trigger}`)
+    if (input?.trigger) {
+      console.log(`   input.trigger.content: "${input.trigger.content}"`)
+    }
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
     // Resolve templated values
     const resolvedConfig = resolveValue(config, input)
+
+    // Log AFTER resolution to see if variable was resolved
+    console.log('🔍 DISCORD SEND MESSAGE - RESOLVED CONFIG:')
+    console.log(`   message field (AFTER resolve): "${resolvedConfig?.message}"`)
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
 
     const {
       guildId,

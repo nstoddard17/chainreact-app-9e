@@ -63,7 +63,11 @@
       "mcp__playwright__browser_take_screenshot",
       "mcp__playwright__browser_click",
       "mcp__playwright__browser_snapshot",
-      "mcp__playwright__browser_navigate"
+      "mcp__playwright__browser_navigate",
+      "Bash(source:*)",
+      "Bash(npx supabase:*)",
+      "Bash(jq:*)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": [],

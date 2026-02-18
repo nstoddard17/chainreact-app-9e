@@ -41,7 +41,9 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
     } else {
       // Other Discord triggers (message_sent, member_join) just listen to events
       // Store metadata but no external registration needed
-      const { error: insertError } = await getSupabase().from('trigger_resources').insert({
+      // Use upsert to handle re-activation of existing triggers
+      const resourceId = `${workflowId}-${nodeId}`
+      const { error: upsertError } = await getSupabase().from('trigger_resources').upsert({
         workflow_id: workflowId,
         user_id: userId,
         provider: 'discord',
@@ -49,20 +51,24 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
         trigger_type: triggerType,
         node_id: nodeId,
         resource_type: 'other',
-        resource_id: `${workflowId}-${nodeId}`,
+        resource_id: resourceId,
         config,
-        status: 'active'
+        status: 'active',
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'provider,resource_type,resource_id',
+        ignoreDuplicates: false
       })
 
-      if (insertError) {
+      if (upsertError) {
         // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
-        if (insertError.code === '23503') {
-          logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+        if (upsertError.code === '23503') {
+          logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${upsertError.message}`)
           logger.debug(`✅ Discord ${triggerType} trigger activated (passive listener, without local record)`)
           return
         }
-        logger.error(`❌ Failed to store trigger resource:`, insertError)
-        throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+        logger.error(`❌ Failed to store trigger resource:`, upsertError)
+        throw new Error(`Failed to store trigger resource: ${upsertError.message}`)
       }
       logger.debug(`✅ Discord ${triggerType} trigger activated (passive listener)`)
     }
@@ -157,8 +163,8 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
       logger.debug(`✅ Created new Discord slash command: ${commandId}`)
     }
 
-    // Store in trigger_resources table
-    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
+    // Store in trigger_resources table using upsert to handle re-activation
+    const { error: upsertError } = await getSupabase().from('trigger_resources').upsert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'discord',
@@ -174,19 +180,23 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
         commandDescription,
         commandOptions
       },
-      status: 'active'
+      status: 'active',
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'provider,resource_type,resource_id',
+      ignoreDuplicates: false
     })
 
-    if (insertError) {
+    if (upsertError) {
       // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
       // The slash command was already created successfully with Discord, so we can continue
-      if (insertError.code === '23503') {
-        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
+      if (upsertError.code === '23503') {
+        logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${upsertError.message}`)
         logger.debug(`✅ Discord slash command created (without local record): ${commandId}`)
         return
       }
-      logger.error(`❌ Failed to store trigger resource:`, insertError)
-      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+      logger.error(`❌ Failed to store trigger resource:`, upsertError)
+      throw new Error(`Failed to store trigger resource: ${upsertError.message}`)
     }
   }
 

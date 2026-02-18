@@ -97,6 +97,18 @@ export async function POST(
       payload = body
     }
 
+    // Use console.log for critical Discord messages to ensure visibility
+    if (provider === 'discord') {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+      console.log('📥 DISCORD MESSAGE RECEIVED BY WORKFLOW ENDPOINT')
+      console.log(`   Message ID: ${payload?.id || 'unknown'}`)
+      console.log(`   Guild ID: ${payload?.guild_id || 'unknown'}`)
+      console.log(`   Channel ID: ${payload?.channel_id || 'unknown'}`)
+      console.log(`   Author: ${payload?.author?.username || 'unknown'}`)
+      console.log(`   Content: ${payload?.content?.substring(0, 50) || 'empty'}${payload?.content?.length > 50 ? '...' : ''}`)
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    }
+
     logger.debug(`📥 ${logPrefix} Received webhook from ${provider}:`, {
       headers: Object.keys(headers),
       payloadKeys: typeof payload === 'object' ? Object.keys(payload) : 'raw body',
@@ -124,6 +136,18 @@ export async function POST(
 
     // Fetch workflows that match this provider trigger
     const supabase = getSupabase()
+
+    // FIRST: Check for active test sessions that should receive this webhook
+    // Test sessions allow testing unsaved workflows before they're saved to production
+    const { data: testSessions } = await supabase
+      .from('workflow_test_sessions')
+      .select('id, workflow_id, user_id, status, test_mode_config')
+      .eq('status', 'listening')
+
+    if (testSessions && testSessions.length > 0 && provider === 'discord') {
+      console.log(`🧪 Found ${testSessions.length} active test session(s) - will execute test workflows`)
+    }
+
     const { data: workflows, error: workflowError } = await supabase
       .from('workflows')
       .select('id, name, user_id, status')
@@ -134,11 +158,23 @@ export async function POST(
       throw new Error('Failed to fetch workflows')
     }
 
-    if (!workflows || workflows.length === 0) {
-      logger.debug(`${logPrefix} No active workflows found`)
+    // If no saved workflows AND no test sessions, nothing to do
+    if ((!workflows || workflows.length === 0) && (!testSessions || testSessions.length === 0)) {
+      if (provider === 'discord') {
+        console.log('⚠️ NO ACTIVE WORKFLOWS OR TEST SESSIONS FOUND')
+        console.log('   To activate: Toggle the workflow status to "Active" or start a test')
+      }
+      logger.debug(`${logPrefix} No active workflows or test sessions found`)
       return jsonResponse({
         success: true,
         message: 'No active workflows to process'
+      })
+    }
+
+    if (provider === 'discord') {
+      console.log(`📋 Found ${workflows?.length || 0} active workflow(s) and ${testSessions?.length || 0} test session(s)`)
+      workflows?.forEach((w, i) => {
+        console.log(`   ${i + 1}. Workflow: ${w.name} (${w.id}) - status: ${w.status}`)
       })
     }
 
@@ -148,11 +184,18 @@ export async function POST(
       workflow = wf // Set for error handling
 
       // Load nodes from normalized table
-      const { data: dbNodes } = await supabase
+      const { data: dbNodes, error: nodesError } = await supabase
         .from('workflow_nodes')
         .select('*')
         .eq('workflow_id', workflow.id)
         .order('display_order')
+
+      if (provider === 'discord') {
+        console.log(`🔍 Workflow ${workflow.id}: Loaded ${dbNodes?.length || 0} nodes`)
+        if (nodesError) {
+          console.log(`   ❌ Error loading nodes: ${nodesError.message}`)
+        }
+      }
 
       const workflowNodes = (dbNodes || []).map((n: any) => ({
         id: n.id,
@@ -173,9 +216,73 @@ export async function POST(
         node.data?.isTrigger === true
       )
 
+      if (provider === 'discord') {
+        if (triggerNode) {
+          console.log(`   ✅ Found Discord trigger: ${triggerNode.data?.type}`)
+          console.log(`   📝 Trigger config: ${JSON.stringify(triggerNode.data?.config || {})}`)
+        } else {
+          console.log(`   ⚠️ No Discord trigger node found in workflow ${workflow.id}`)
+          const nodeTypes = workflowNodes.map((n: any) => `${n.data?.providerId}:${n.data?.type}:isTrigger=${n.data?.isTrigger}`)
+          console.log(`   📋 Available nodes: ${nodeTypes.join(', ')}`)
+        }
+      }
+
       if (!triggerNode) {
         logger.debug(`${logPrefix} No trigger node found for provider ${provider} in workflow ${workflow.id}, skipping`)
         continue
+      }
+
+      // Provider-specific trigger matching (check if the incoming event matches trigger configuration)
+      if (provider === 'discord') {
+        const triggerConfig = triggerNode.data?.config || {}
+        const triggerType = triggerNode.data?.type
+
+        logger.debug(`${logPrefix} 🔍 Discord trigger matching for workflow ${workflow.id}:`, {
+          triggerType,
+          configuredGuildId: triggerConfig.guildId,
+          configuredChannelId: triggerConfig.channelId,
+          incomingGuildId: payload.guild_id,
+          incomingChannelId: payload.channel_id
+        })
+
+        // Check guild ID match (required for all Discord triggers)
+        if (triggerConfig.guildId && triggerConfig.guildId !== payload.guild_id) {
+          console.log(`   ❌ Guild mismatch - configured: ${triggerConfig.guildId}, incoming: ${payload.guild_id}`)
+          logger.debug(`${logPrefix} ❌ Guild mismatch - configured: ${triggerConfig.guildId}, incoming: ${payload.guild_id}, skipping workflow ${workflow.id}`)
+          continue
+        }
+        console.log(`   ✅ Guild match: ${payload.guild_id}`)
+
+        // Check channel ID match for message triggers (if channel is configured)
+        if (triggerType === 'discord_trigger_new_message') {
+          if (triggerConfig.channelId && triggerConfig.channelId !== payload.channel_id) {
+            console.log(`   ❌ Channel mismatch - configured: ${triggerConfig.channelId}, incoming: ${payload.channel_id}`)
+            logger.debug(`${logPrefix} ❌ Channel mismatch - configured: ${triggerConfig.channelId}, incoming: ${payload.channel_id}, skipping workflow ${workflow.id}`)
+            continue
+          }
+          console.log(`   ✅ Channel check passed (configured: "${triggerConfig.channelId || 'any'}", incoming: ${payload.channel_id})`)
+
+          // Check content filter if configured
+          if (triggerConfig.contentFilter && Array.isArray(triggerConfig.contentFilter) && triggerConfig.contentFilter.length > 0) {
+            const messageContent = (payload.content || '').toLowerCase()
+            const matchesKeyword = triggerConfig.contentFilter.some((keyword: string) =>
+              messageContent.includes(keyword.toLowerCase())
+            )
+            if (!matchesKeyword) {
+              logger.debug(`${logPrefix} ❌ Content filter mismatch - keywords: ${triggerConfig.contentFilter.join(', ')}, content: ${payload.content?.substring(0, 50)}..., skipping workflow ${workflow.id}`)
+              continue
+            }
+          }
+
+          // Check author filter if configured
+          if (triggerConfig.authorFilter && triggerConfig.authorFilter !== payload.author?.id) {
+            logger.debug(`${logPrefix} ❌ Author filter mismatch - configured: ${triggerConfig.authorFilter}, incoming: ${payload.author?.id}, skipping workflow ${workflow.id}`)
+            continue
+          }
+        }
+
+        console.log(`   ✅ Discord trigger MATCHED for workflow ${workflow.id}!`)
+        logger.debug(`${logPrefix} ✅ Discord trigger matched for workflow ${workflow.id}!`)
       }
 
       // Transform payload for the workflow
@@ -185,6 +292,11 @@ export async function POST(
         logger.debug(`${logPrefix} Ignoring webhook payload after transformation (empty payload) for workflow ${workflow.id}`)
         continue
       }
+
+      // NOTE: We intentionally do NOT update test sessions here for ACTIVE workflows.
+      // If a workflow is being executed via webhook because it's active, updating its
+      // test sessions would cause duplicate execution (once here + once from frontend).
+      // Test sessions are handled separately in the test session processing section below.
 
       try {
         // Create execution session
@@ -231,6 +343,100 @@ export async function POST(
       }
     }
 
+    // PROCESS TEST SESSIONS - Execute unsaved workflows from test mode
+    // This allows testing triggers before saving the workflow
+    if (testSessions && testSessions.length > 0) {
+      for (const testSession of testSessions) {
+        try {
+          const testConfig = testSession.test_mode_config as any
+          if (!testConfig?.nodes || !testConfig?.triggerNode) {
+            console.log(`🧪 Test session ${testSession.id} has no valid config, skipping`)
+            continue
+          }
+
+          // Find the trigger node from test config
+          const triggerNode = testConfig.triggerNode
+          if (triggerNode.data?.providerId !== provider) {
+            continue // Skip test sessions for other providers
+          }
+
+          console.log(`🧪 Processing test session ${testSession.id} for workflow ${testSession.workflow_id}`)
+
+          // Check if trigger matches (same logic as production workflows)
+          if (provider === 'discord') {
+            const triggerConfig = triggerNode.data?.config || {}
+            const triggerType = triggerNode.data?.type
+
+            // Check guild ID match
+            if (triggerConfig.guildId && triggerConfig.guildId !== payload.guild_id) {
+              console.log(`   🧪 Guild mismatch for test session, skipping`)
+              continue
+            }
+
+            // Check channel ID match for message triggers
+            if (triggerType === 'discord_trigger_new_message') {
+              if (triggerConfig.channelId && triggerConfig.channelId !== payload.channel_id) {
+                console.log(`   🧪 Channel mismatch for test session, skipping`)
+                continue
+              }
+            }
+
+            console.log(`   🧪 ✅ Discord trigger MATCHED for test session!`)
+          }
+
+          // Transform payload for the test workflow
+          const transformedPayload = await transformPayloadForWorkflow(provider, payload, triggerNode)
+
+          if (!transformedPayload) {
+            continue
+          }
+
+          // Update test session with trigger data so SSE stream sees the update
+          // NOTE: We do NOT execute the workflow here - the frontend will do that
+          // after receiving the trigger_received event via the SSE stream.
+          // This prevents duplicate execution (one here + one from frontend).
+          await supabase
+            .from('workflow_test_sessions')
+            .update({
+              status: 'trigger_received',
+              trigger_data: transformedPayload,
+            })
+            .eq('id', testSession.id)
+          console.log(`   🧪 ✅ Updated test session ${testSession.id} with trigger data (frontend will execute)`)
+
+          results.push({
+            workflowId: testSession.workflow_id,
+            sessionId: null, // No execution session created here - frontend handles it
+            success: true,
+            executionTime: Date.now() - startTime,
+            isTestSession: true,
+            triggerDataReceived: true
+          })
+
+        } catch (testError: any) {
+          console.error(`🧪 ❌ Error processing test session ${testSession.id}:`, testError)
+
+          // Update test session with error
+          await supabase
+            .from('workflow_test_sessions')
+            .update({
+              status: 'failed',
+              ended_at: new Date().toISOString(),
+            })
+            .eq('id', testSession.id)
+
+          results.push({
+            workflowId: testSession.workflow_id,
+            sessionId: null,
+            success: false,
+            error: testError.message,
+            executionTime: Date.now() - startTime,
+            isTestSession: true
+          })
+        }
+      }
+    }
+
     // Return results
     if (results.length === 0) {
       return jsonResponse({
@@ -268,14 +474,17 @@ async function transformPayloadForWorkflow(provider: string, payload: any, trigg
   if (providerTransformation == null) {
     return null
   }
-  
+
   const baseTransformation = {
     provider,
     timestamp: new Date().toISOString(),
     originalPayload: payload,
     triggerType: triggerNode.data?.type,
-    // Add provider-specific transformations
-    ...providerTransformation
+    // Add provider-specific transformations at top level for backward compatibility
+    ...providerTransformation,
+    // CRITICAL: Also add trigger data under 'trigger' key for {{trigger.fieldName}} variable resolution
+    // The resolveValue function looks for input.trigger.fieldName when resolving {{trigger.fieldName}}
+    trigger: providerTransformation
   }
 
   return baseTransformation

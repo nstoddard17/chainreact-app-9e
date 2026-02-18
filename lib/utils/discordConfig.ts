@@ -1,5 +1,8 @@
 /**
  * Check if Discord bot is properly configured
+ *
+ * Only DISCORD_BOT_TOKEN is required - the Gateway can connect without the user ID.
+ * DISCORD_BOT_USER_ID or DISCORD_CLIENT_ID is optional but helpful for certain features.
  */
 export function checkDiscordBotConfig(): {
   isConfigured: boolean
@@ -8,18 +11,19 @@ export function checkDiscordBotConfig(): {
   botUserId: string | null
 } {
   const botToken = process.env.DISCORD_BOT_TOKEN
-  const botUserId = process.env.DISCORD_BOT_USER_ID
-  
+  // Accept either DISCORD_BOT_USER_ID or DISCORD_CLIENT_ID as the bot identifier
+  const botUserId = process.env.DISCORD_BOT_USER_ID || process.env.DISCORD_CLIENT_ID
+
   const missingVars: string[] = []
-  
+
+  // Only the bot token is strictly required for Gateway connection
   if (!botToken) {
     missingVars.push('DISCORD_BOT_TOKEN')
   }
-  
-  if (!botUserId) {
-    missingVars.push('DISCORD_BOT_USER_ID')
-  }
-  
+
+  // Note: botUserId is not strictly required for Gateway to work,
+  // but it's needed for some features like checking bot membership
+
   return {
     isConfigured: missingVars.length === 0,
     missingVars,

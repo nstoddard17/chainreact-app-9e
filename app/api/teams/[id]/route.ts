@@ -115,8 +115,27 @@ export async function PUT(
       return errorResponse("Team name is required", 400)
     }
 
-    // Update the team
-    const { data: team, error: updateError } = await supabase
+    // Use service client to bypass RLS
+    const serviceClient = await createSupabaseServiceClient()
+
+    // Verify user is an owner or admin of this team
+    const { data: membership, error: membershipError } = await serviceClient
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (membershipError || !membership) {
+      return errorResponse("Team not found", 404)
+    }
+
+    if (!['owner', 'admin'].includes(membership.role)) {
+      return errorResponse("You don't have permission to update this team", 403)
+    }
+
+    // Update the team using service client to bypass RLS
+    const { data: team, error: updateError } = await serviceClient
       .from('teams')
       .update({
         name: name.trim(),
@@ -155,8 +174,27 @@ export async function DELETE(
 
     const { id: teamId } = await params
 
-    // Delete the team (cascade will handle members and workflow shares)
-    const { error: deleteError } = await supabase
+    // Use service client to bypass RLS
+    const serviceClient = await createSupabaseServiceClient()
+
+    // Verify user is the owner of this team (only owners can delete)
+    const { data: membership, error: membershipError } = await serviceClient
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (membershipError || !membership) {
+      return errorResponse("Team not found", 404)
+    }
+
+    if (membership.role !== 'owner') {
+      return errorResponse("Only the team owner can delete this team", 403)
+    }
+
+    // Delete the team using service client (cascade will handle members and workflow shares)
+    const { error: deleteError } = await serviceClient
       .from('teams')
       .delete()
       .eq('id', teamId)
