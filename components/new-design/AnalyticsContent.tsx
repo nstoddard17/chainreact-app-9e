@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,10 +26,19 @@ import {
   Workflow,
   Link2,
   Calendar,
+  Plus,
+  Settings,
+  X,
 } from "lucide-react"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { formatDistanceToNow, format } from "date-fns"
 import Link from "next/link"
+import { Responsive, WidthProvider } from "react-grid-layout"
+import "react-grid-layout/css/styles.css"
+import "react-resizable/css/styles.css"
+
+const ResponsiveGridLayout = WidthProvider(Responsive)
 
 function formatDuration(ms: number | null): string {
   if (ms === null || ms === undefined) return "-"
@@ -519,10 +528,91 @@ export function AnalyticsContent() {
     fetchDashboard,
     setSelectedPeriod,
   } = useAnalyticsStore()
+  const { integrations, fetchIntegrations } = useIntegrationStore()
+  const [widgets, setWidgets] = useState<any[]>([])
+  const [layout, setLayout] = useState<any[]>([])
+  const [loadingWidgets, setLoadingWidgets] = useState(true)
+  const [showAddWidget, setShowAddWidget] = useState(false)
+  const [savingLayout, setSavingLayout] = useState(false)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     fetchDashboard()
   }, [fetchDashboard])
+
+  useEffect(() => {
+    fetchIntegrations()
+  }, [fetchIntegrations])
+
+  useEffect(() => {
+    const loadWidgets = async () => {
+      setLoadingWidgets(true)
+      try {
+        const res = await fetch("/api/analytics/widgets")
+        const data = await res.json()
+        setWidgets(data.widgets || [])
+        setLayout(data.layout || [])
+      } catch (error) {
+        console.error("Failed to load widgets", error)
+      } finally {
+        setLoadingWidgets(false)
+      }
+    }
+
+    loadWidgets()
+  }, [])
+
+  const persistLayout = (nextLayout: any[]) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    saveTimeoutRef.current = setTimeout(async () => {
+      setSavingLayout(true)
+      try {
+        await fetch("/api/analytics/widgets", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ layout: nextLayout }),
+        })
+      } finally {
+        setSavingLayout(false)
+      }
+    }, 500)
+  }
+
+  const handleLayoutChange = (nextLayout: any[]) => {
+    setLayout(nextLayout)
+    persistLayout(nextLayout)
+  }
+
+  const handleRemoveWidget = async (widgetId: string) => {
+    await fetch(`/api/analytics/widgets/${widgetId}`, { method: "DELETE" })
+    setWidgets((prev) => prev.filter((w) => w.id !== widgetId))
+    setLayout((prev) => prev.filter((l) => l.i !== widgetId))
+  }
+
+  const handleAddWidget = async (widget: any) => {
+    const res = await fetch("/api/analytics/widgets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(widget),
+    })
+    const created = await res.json()
+    setWidgets((prev) => [...prev, created])
+    setLayout((prev) => [
+      ...prev,
+      {
+        i: created.id,
+        x: 0,
+        y: Infinity,
+        w: 4,
+        h: 3,
+        minW: 2,
+        minH: 2,
+      },
+    ])
+    setShowAddWidget(false)
+  }
 
   const overview = dashboard?.overview
   const dailyStats = dashboard?.dailyStats || []
@@ -539,25 +629,26 @@ export function AnalyticsContent() {
   // Note: Page-level access control is handled by PageAccessGuard in the page component
   return (
     <div className="space-y-6">
-        {/* Header with period selector */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-muted-foreground" />
-            <Select
-              value={selectedPeriod.toString()}
-              onValueChange={(value) => setSelectedPeriod(parseInt(value, 10))}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="14">Last 14 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Header with period selector */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-muted-foreground" />
+          <Select
+            value={selectedPeriod.toString()}
+            onValueChange={(value) => setSelectedPeriod(parseInt(value, 10))}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="14">Last 14 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -567,73 +658,331 @@ export function AnalyticsContent() {
             <RefreshCw className={`w-4 h-4 mr-2 ${dashboardLoading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-        </div>
-
-        {/* Error state */}
-        {dashboardError && (
-          <Card className="border-red-200 dark:border-red-900">
-            <CardContent className="p-4 flex items-center gap-3 text-red-600 dark:text-red-400">
-              <AlertCircle className="w-5 h-5" />
-              <span>{dashboardError}</span>
-              <Button variant="outline" size="sm" onClick={() => fetchDashboard()} className="ml-auto">
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Stats Grid */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Executions"
-            value={overview?.total?.toLocaleString() || "0"}
-            icon={Zap}
-            loading={dashboardLoading}
-          />
-          <StatCard
-            title="Success Rate"
-            value={`${overview?.successRate || 0}%`}
-            icon={CheckCircle2}
-            loading={dashboardLoading}
-            trend={
-              overview?.successRate
-                ? {
-                    direction: overview.successRate >= 90 ? "up" : overview.successRate >= 70 ? "neutral" : "down",
-                    value: overview.successRate >= 90 ? "Good" : overview.successRate >= 70 ? "Fair" : "Low",
-                  }
-                : undefined
-            }
-          />
-          <StatCard
-            title="Failed Executions"
-            value={overview?.failed?.toLocaleString() || "0"}
-            icon={XCircle}
-            loading={dashboardLoading}
-          />
-          <StatCard
-            title="Avg. Execution Time"
-            value={formatDuration(overview?.avgExecutionTimeMs || 0)}
-            icon={Clock}
-            loading={dashboardLoading}
-          />
-        </div>
-
-        {/* Charts and Details */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Execution Chart - spans 2 columns */}
-          <div className="lg:col-span-2">
-            <ExecutionChart dailyStats={dailyStats} loading={dashboardLoading} />
-          </div>
-
-          {/* Integration Health */}
-          <IntegrationHealth stats={integrationStats} loading={dashboardLoading} />
-        </div>
-
-        {/* Workflows and Executions */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          <TopWorkflows workflows={topWorkflows} loading={dashboardLoading} />
-          <RecentExecutions executions={recentExecutions} loading={dashboardLoading} />
+          <Button size="sm" onClick={() => setShowAddWidget(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Widget
+          </Button>
         </div>
       </div>
+
+      {/* Error state */}
+      {dashboardError && (
+        <Card className="border-red-200 dark:border-red-900">
+          <CardContent className="p-4 flex items-center gap-3 text-red-600 dark:text-red-400">
+            <AlertCircle className="w-5 h-5" />
+            <span>{dashboardError}</span>
+            <Button variant="outline" size="sm" onClick={() => fetchDashboard()} className="ml-auto">
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {loadingWidgets ? (
+        <Card>
+          <CardContent className="p-6 flex items-center gap-3">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            <span>Loading dashboard widgets...</span>
+          </CardContent>
+        </Card>
+      ) : (
+        <ResponsiveGridLayout
+          className="layout"
+          layouts={{ lg: layout }}
+          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480 }}
+          cols={{ lg: 12, md: 10, sm: 6, xs: 4 }}
+          rowHeight={40}
+          margin={[16, 16]}
+          isDraggable
+          isResizable
+          onLayoutChange={(next) => handleLayoutChange(next)}
+        >
+          {widgets.map((widget) => (
+            <div key={widget.id} className="group">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Settings className="w-4 h-4 text-muted-foreground" />
+                  {widget.title}
+                </div>
+                <button
+                  className="opacity-0 group-hover:opacity-100 transition"
+                  onClick={() => handleRemoveWidget(widget.id)}
+                >
+                  <X className="w-4 h-4 text-muted-foreground hover:text-red-500" />
+                </button>
+              </div>
+              <WidgetRenderer
+                widget={widget}
+                loading={dashboardLoading}
+                overview={overview}
+                dailyStats={dailyStats}
+                topWorkflows={topWorkflows}
+                recentExecutions={recentExecutions}
+                integrationStats={integrationStats}
+                integrations={integrations}
+              />
+            </div>
+          ))}
+        </ResponsiveGridLayout>
+      )}
+
+      {showAddWidget && (
+        <AddWidgetDialog
+          integrations={integrations}
+          onClose={() => setShowAddWidget(false)}
+          onCreate={handleAddWidget}
+        />
+      )}
+      {savingLayout && (
+        <div className="text-xs text-muted-foreground flex items-center gap-2">
+          <RefreshCw className="w-3 h-3 animate-spin" />
+          Saving layout...
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WidgetRenderer({
+  widget,
+  loading,
+  overview,
+  dailyStats,
+  topWorkflows,
+  recentExecutions,
+  integrationStats,
+  integrations,
+}: {
+  widget: any
+  loading: boolean
+  overview: any
+  dailyStats: any[]
+  topWorkflows: any[]
+  recentExecutions: any[]
+  integrationStats: any
+  integrations: any[]
+}) {
+  switch (widget.type) {
+    case "total_executions":
+      return (
+        <StatCard
+          title="Total Executions"
+          value={overview?.total?.toLocaleString() || "0"}
+          icon={Zap}
+          loading={loading}
+        />
+      )
+    case "success_rate":
+      return (
+        <StatCard
+          title="Success Rate"
+          value={`${overview?.successRate || 0}%`}
+          icon={CheckCircle2}
+          loading={loading}
+          trend={
+            overview?.successRate
+              ? {
+                  direction: overview.successRate >= 90 ? "up" : overview.successRate >= 70 ? "neutral" : "down",
+                  value: overview.successRate >= 90 ? "Good" : overview.successRate >= 70 ? "Fair" : "Low",
+                }
+              : undefined
+          }
+        />
+      )
+    case "failed_executions":
+      return (
+        <StatCard
+          title="Failed Executions"
+          value={overview?.failed?.toLocaleString() || "0"}
+          icon={XCircle}
+          loading={loading}
+        />
+      )
+    case "avg_execution_time":
+      return (
+        <StatCard
+          title="Avg. Execution Time"
+          value={formatDuration(overview?.avgExecutionTimeMs || 0)}
+          icon={Clock}
+          loading={loading}
+        />
+      )
+    case "execution_history":
+      return <ExecutionChart dailyStats={dailyStats} loading={loading} />
+    case "top_workflows":
+      return <TopWorkflows workflows={topWorkflows} loading={loading} />
+    case "recent_executions":
+      return <RecentExecutions executions={recentExecutions} loading={loading} />
+    case "integration_health":
+      return <IntegrationHealth stats={integrationStats} loading={loading} />
+    case "custom":
+      return (
+        <Card>
+          <CardContent className="p-4 space-y-2">
+            <div className="text-sm text-muted-foreground">Custom widget</div>
+            <div className="text-xs text-muted-foreground">
+              Integration: {widget.config?.integration || "Not set"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Schedule: {widget.schedule || "on_demand"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Data source: {widget.config?.metric || "Not set"}
+            </div>
+          </CardContent>
+        </Card>
+      )
+    default:
+      return (
+        <Card>
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            Unsupported widget type.
+          </CardContent>
+        </Card>
+      )
+  }
+}
+
+function AddWidgetDialog({
+  integrations,
+  onClose,
+  onCreate,
+}: {
+  integrations: any[]
+  onClose: () => void
+  onCreate: (widget: any) => void
+}) {
+  const [type, setType] = useState("total_executions")
+  const [title, setTitle] = useState("Total Executions")
+  const [schedule, setSchedule] = useState("on_demand")
+  const [integration, setIntegration] = useState("")
+  const [metric, setMetric] = useState("")
+  const [advancedConfig, setAdvancedConfig] = useState("")
+
+  const presetOptions = [
+    { value: "total_executions", label: "Total Executions" },
+    { value: "success_rate", label: "Success Rate" },
+    { value: "failed_executions", label: "Failed Executions" },
+    { value: "avg_execution_time", label: "Avg. Execution Time" },
+    { value: "execution_history", label: "Execution History" },
+    { value: "top_workflows", label: "Top Workflows" },
+    { value: "recent_executions", label: "Recent Executions" },
+    { value: "integration_health", label: "Integration Health" },
+    { value: "custom", label: "Custom (Integration)" },
+  ]
+
+  useEffect(() => {
+    const match = presetOptions.find((opt) => opt.value === type)
+    if (match && type !== "custom") {
+      setTitle(match.label)
+    }
+  }, [type])
+
+  const handleCreate = () => {
+    let config: any = {}
+    if (type === "custom") {
+      config = {
+        integration,
+        metric,
+        advanced: advancedConfig ? JSON.parse(advancedConfig) : undefined,
+      }
+    }
+    onCreate({ type, title, schedule, config })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+      <div className="bg-white dark:bg-slate-950 rounded-xl shadow-xl w-full max-w-lg p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="text-lg font-semibold">Add Widget</div>
+          <button onClick={onClose}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm font-medium">Widget Type</label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select widget" />
+              </SelectTrigger>
+              <SelectContent>
+                {presetOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium">Title</label>
+            <input
+              className="w-full border rounded-md p-2 text-sm"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Refresh Schedule</label>
+            <Select value={schedule} onValueChange={setSchedule}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select schedule" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="on_demand">On demand only</SelectItem>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {type === "custom" && (
+            <>
+              <div>
+                <label className="text-sm font-medium">Integration</label>
+                <Select value={integration} onValueChange={setIntegration}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select integration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {integrations.map((i: any) => (
+                      <SelectItem key={i.id} value={i.provider}>
+                        {i.provider}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Metric</label>
+                <input
+                  className="w-full border rounded-md p-2 text-sm"
+                  value={metric}
+                  onChange={(e) => setMetric(e.target.value)}
+                  placeholder="e.g. total_revenue"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Advanced JSON</label>
+                <textarea
+                  className="w-full border rounded-md p-2 text-sm h-24"
+                  value={advancedConfig}
+                  onChange={(e) => setAdvancedConfig(e.target.value)}
+                  placeholder='{"filters": {"status": "paid"}}'
+                />
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreate}>Add Widget</Button>
+        </div>
+      </div>
+    </div>
   )
 }
