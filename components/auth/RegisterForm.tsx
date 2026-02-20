@@ -95,6 +95,9 @@ function RegisterFormContent() {
         body: JSON.stringify({ email }),
       });
 
+      if (!response.ok) {
+        throw new Error(`Provider check failed (${response.status})`);
+      }
       const data = await response.json();
 
       if (data.exists && data.provider === 'google') {

@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     if (queryError) {
       logger.error('[Shopify Webhook] Error fetching trigger resources:', queryError)
-      return NextResponse.json({ success: false, error: 'Database error' })
+      return NextResponse.json({ success: false, error: 'Database error' }, { status: 500 })
     }
 
     if (!triggerResources || triggerResources.length === 0) {
@@ -219,17 +219,46 @@ function verifyShopifyHmac(rawBody: string, hmacHeader: string | null): boolean 
  */
 async function executeWorkflow(workflowId: string, userId: string, triggerData: any): Promise<void> {
   try {
-    const { data: workflow, error: workflowError } = await getSupabase()
-      .from('workflows')
-      .select('*')
-      .eq('id', workflowId)
-      .eq('status', 'active')
-      .single()
+    const supabase = getSupabase()
 
-    if (workflowError || !workflow) {
+    // Load workflow, nodes, and edges with service-role client (bypasses RLS)
+    // Webhook context has no cookies, so cookie-based clients can't read nodes
+    const [workflowResult, nodesResult, edgesResult] = await Promise.all([
+      supabase.from('workflows').select('*').eq('id', workflowId).eq('status', 'active').single(),
+      supabase.from('workflow_nodes').select('*').eq('workflow_id', workflowId).order('display_order'),
+      supabase.from('workflow_edges').select('*').eq('workflow_id', workflowId),
+    ])
+
+    if (workflowResult.error || !workflowResult.data) {
       logger.error(`[Shopify Webhook] Workflow ${workflowId} not found or inactive`)
       return
     }
+
+    const workflow = workflowResult.data
+
+    // Map to the format WorkflowExecutionService expects
+    const nodes = (nodesResult.data || []).map((n: any) => ({
+      id: n.id,
+      type: n.node_type,
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        type: n.node_type,
+        label: n.label,
+        config: n.config || {},
+        isTrigger: n.is_trigger,
+        providerId: n.provider_id,
+      },
+    }))
+
+    const edges = (edgesResult.data || []).map((e: any) => ({
+      id: e.id,
+      source: e.source_node_id,
+      target: e.target_node_id,
+      sourceHandle: e.source_port_id || 'source',
+      targetHandle: e.target_port_id || 'target',
+    }))
+
+    logger.debug(`[Shopify Webhook] Loaded ${nodes.length} nodes and ${edges.length} edges for workflow ${workflowId}`)
 
     const { WorkflowExecutionService } = await import('@/lib/services/workflowExecutionService')
     const workflowExecutionService = new WorkflowExecutionService()
@@ -238,9 +267,9 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
       workflow,
       triggerData,
       userId,
-      false, // testMode
-      null,  // no workflow data override
-      true   // skipTriggers (already triggered by webhook)
+      false,            // testMode
+      { nodes, edges }, // workflowData - pass nodes/edges directly to bypass RLS
+      true              // skipTriggers (already triggered by webhook)
     )
 
     logger.info('[Shopify Webhook] Workflow executed:', {

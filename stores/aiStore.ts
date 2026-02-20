@@ -162,6 +162,9 @@ export const useAIStore = create<AIState & AIActions>((set, get) => ({
   getGenerationHistory: async () => {
     try {
       const response = await fetch("/api/ai/workflow-generation")
+      if (!response.ok) {
+        throw new Error(`Failed to fetch generation history (${response.status})`)
+      }
       const data = await response.json()
 
       set({ generationHistory: data.generations || [] })

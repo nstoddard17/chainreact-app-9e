@@ -146,6 +146,7 @@ export async function GET(request: NextRequest) {
         code: workflowsResult.error.code,
         message: workflowsResult.error.message,
       })
+      return errorResponse(`Failed to fetch workflow data: ${workflowsResult.error.message}`, 500)
     }
 
     if (integrationsResult.error) {
@@ -154,6 +155,7 @@ export async function GET(request: NextRequest) {
         code: integrationsResult.error.code,
         message: integrationsResult.error.message,
       })
+      return errorResponse(`Failed to fetch integration data: ${integrationsResult.error.message}`, 500)
     }
 
     const executions = executionsResult.data || []

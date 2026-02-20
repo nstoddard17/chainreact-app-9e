@@ -125,8 +125,18 @@ export async function hubspotCreateTicket(
       )
     }
 
+    const associationWarnings: string[] = []
     if (associations.length > 0) {
-      await Promise.all(associations)
+      const results = await Promise.all(associations)
+      for (const res of results) {
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          associationWarnings.push(errBody.message || `HTTP ${res.status}`)
+        }
+      }
+      if (associationWarnings.length > 0) {
+        logger.error('[HubSpot CreateTicket] Association failures', { associationWarnings })
+      }
     }
 
     let hubspotAttachmentIds: string[] = []
@@ -148,9 +158,13 @@ export async function hubspotCreateTicket(
         properties: data.properties,
         ...(hubspotAttachmentIds.length > 0
           ? { hubspotAttachmentIds }
-          : {})
+          : {}),
+        ...(associationWarnings.length > 0 ? { associationWarnings } : {})
       },
-      message: `Successfully created ticket ${data.id} in HubSpot`
+      ...(associationWarnings.length > 0 ? { associationWarnings } : {}),
+      message: associationWarnings.length > 0
+        ? `Created ticket ${data.id} but ${associationWarnings.length} association(s) failed: ${associationWarnings.join(', ')}`
+        : `Successfully created ticket ${data.id} in HubSpot`
     }
   } catch (error: any) {
     logger.error('HubSpot Create Ticket error:', error)

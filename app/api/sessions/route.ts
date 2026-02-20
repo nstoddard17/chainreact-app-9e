@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
+import { logger } from "@/lib/utils/logger"
 
 /**
  * GET /api/sessions
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ sessions, current: sessionInfo.current })
   } catch (error: any) {
-    console.error("[sessions] Error:", error)
+    logger.error("[sessions] Error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
@@ -110,13 +111,13 @@ export async function DELETE(request: NextRequest) {
       .eq("user_id", user.id)
 
     if (error) {
-      // Table might not exist, but we won't fail
-      console.error("[sessions] Error revoking session:", error)
+      logger.error("[sessions] Error revoking session:", error)
+      return NextResponse.json({ success: false, error: 'Failed to revoke session' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error("[sessions] Error:", error)
+    logger.error("[sessions] Error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

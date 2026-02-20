@@ -133,7 +133,7 @@ export async function stripeUpdateCustomer(
           metadataObj = JSON.parse(metadata)
         } catch (e) {
           logger.error('[Stripe Update Customer] Failed to parse metadata JSON', { metadata })
-          metadataObj = null
+          throw new Error('Invalid metadata format - must be valid JSON object')
         }
       }
 

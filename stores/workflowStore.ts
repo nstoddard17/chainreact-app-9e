@@ -885,6 +885,11 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         body: JSON.stringify({ prompt }),
       })
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to generate workflow (${response.status})`)
+      }
+
       const data = await response.json()
 
       if (!data.success) {

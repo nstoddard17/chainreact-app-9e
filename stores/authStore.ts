@@ -1373,11 +1373,12 @@ export const useAuthStore = create<AuthState>()(
             body: JSON.stringify({ email, password, metadata })
           })
 
-          const result = await response.json()
-
           if (!response.ok) {
-            throw new Error(result.error || 'Failed to create account')
+            const errorData = await response.json().catch(() => ({}))
+            throw new Error(errorData.error || 'Failed to create account')
           }
+
+          const result = await response.json()
 
           // Store signup data temporarily for the waiting page
           if (result.userId) {

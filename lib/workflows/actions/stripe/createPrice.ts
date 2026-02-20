@@ -80,6 +80,7 @@ export async function stripeCreatePrice(
           body.metadata = JSON.parse(metadata)
         } catch (e) {
           logger.error('[Stripe Create Price] Failed to parse metadata', { metadata })
+          throw new Error('Invalid metadata format - must be valid JSON object')
         }
       }
     }

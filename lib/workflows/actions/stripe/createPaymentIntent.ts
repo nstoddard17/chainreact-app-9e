@@ -50,6 +50,7 @@ export async function stripeCreatePaymentIntent(
           body.metadata = JSON.parse(metadata)
         } catch (e) {
           logger.error('[Stripe Create Payment Intent] Failed to parse metadata JSON', { metadata })
+          throw new Error('Invalid metadata format - must be valid JSON object')
         }
       }
     }

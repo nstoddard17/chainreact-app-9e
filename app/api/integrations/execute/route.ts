@@ -77,7 +77,11 @@ async function executeSlackAction(integration: any, action: string, params: any)
           text: params.message,
         }),
       })
-      return await response.json()
+      const slackResult = await response.json()
+      if (!response.ok || slackResult.ok === false) {
+        throw new Error(`Slack API error: ${slackResult.error || response.statusText}`)
+      }
+      return slackResult
     default:
       throw new Error(`Unsupported Slack action: ${action}`)
   }
@@ -241,6 +245,10 @@ async function executeGoogleSheetsAction(integration: any, action: string, param
           }),
         },
       )
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(`Google Sheets API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      }
       return await response.json()
     default:
       throw new Error(`Unsupported Google Sheets action: ${action}`)

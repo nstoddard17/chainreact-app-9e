@@ -60,6 +60,7 @@ export async function stripeCreateRefund(
           body.metadata = JSON.parse(metadata)
         } catch (e) {
           logger.error('[Stripe Create Refund] Failed to parse metadata JSON', { metadata })
+          throw new Error('Invalid metadata format - must be valid JSON object')
         }
       }
     }

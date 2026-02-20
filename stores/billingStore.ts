@@ -395,11 +395,12 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         8000
       )
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to create portal session")
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || "Failed to create portal session")
       }
+
+      const data = await response.json()
 
       return data.url
     } catch (error: any) {

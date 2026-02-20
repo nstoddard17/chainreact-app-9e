@@ -54,6 +54,7 @@ export async function stripeUpdateProduct(
           body.metadata = JSON.parse(metadata)
         } catch (e) {
           logger.error('[Stripe Update Product] Failed to parse metadata', { metadata })
+          throw new Error('Invalid metadata format - must be valid JSON object')
         }
       }
     }

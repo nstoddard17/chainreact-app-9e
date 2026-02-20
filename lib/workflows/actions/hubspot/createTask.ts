@@ -135,8 +135,18 @@ export async function hubspotCreateTask(
       )
     }
 
+    const associationWarnings: string[] = []
     if (associations.length > 0) {
-      await Promise.all(associations)
+      const results = await Promise.all(associations)
+      for (const res of results) {
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          associationWarnings.push(errBody.message || `HTTP ${res.status}`)
+        }
+      }
+      if (associationWarnings.length > 0) {
+        logger.error('[HubSpot CreateTask] Association failures', { associationWarnings })
+      }
     }
 
     return {
@@ -149,9 +159,12 @@ export async function hubspotCreateTask(
         associatedContactId,
         associatedCompanyId,
         associatedDealId,
-        associatedTicketId
+        associatedTicketId,
+        ...(associationWarnings.length > 0 ? { associationWarnings } : {})
       },
-      message: `Successfully created task ${data.id} in HubSpot`
+      message: associationWarnings.length > 0
+        ? `Created task ${data.id} but ${associationWarnings.length} association(s) failed: ${associationWarnings.join(', ')}`
+        : `Successfully created task ${data.id} in HubSpot`
     }
   } catch (error: any) {
     logger.error('HubSpot Create Task error:', error)

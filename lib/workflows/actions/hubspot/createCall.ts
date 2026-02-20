@@ -137,8 +137,18 @@ export async function hubspotCreateCall(
       )
     }
 
+    const associationWarnings: string[] = []
     if (associations.length > 0) {
-      await Promise.all(associations)
+      const results = await Promise.all(associations)
+      for (const res of results) {
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          associationWarnings.push(errBody.message || `HTTP ${res.status}`)
+        }
+      }
+      if (associationWarnings.length > 0) {
+        logger.error('[HubSpot CreateCall] Association failures', { associationWarnings })
+      }
     }
 
     return {
@@ -151,9 +161,12 @@ export async function hubspotCreateCall(
         associatedContactId,
         associatedCompanyId,
         associatedDealId,
-        associatedTicketId
+        associatedTicketId,
+        ...(associationWarnings.length > 0 ? { associationWarnings } : {})
       },
-      message: `Successfully logged call ${data.id} in HubSpot`
+      message: associationWarnings.length > 0
+        ? `Created call ${data.id} but ${associationWarnings.length} association(s) failed: ${associationWarnings.join(', ')}`
+        : `Successfully logged call ${data.id} in HubSpot`
     }
   } catch (error: any) {
     logger.error('HubSpot Create Call error:', error)

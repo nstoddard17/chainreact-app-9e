@@ -52,8 +52,8 @@ async function validateNotionSignature(
   nodeId: string
 ): Promise<boolean> {
   if (!signature) {
-    logger.warn('[Notion Webhook] No signature provided - skipping validation')
-    return true // Allow without signature for now (optional validation)
+    logger.warn('[Notion Webhook] No signature provided - rejecting unsigned webhook')
+    return false
   }
 
   try {
@@ -70,8 +70,8 @@ async function validateNotionSignature(
     const verificationToken = resource?.metadata?.verificationToken
 
     if (!verificationToken) {
-      logger.warn('[Notion Webhook] No verification token found - cannot validate signature')
-      return true // Allow without token
+      logger.warn('[Notion Webhook] No verification token found - rejecting unverifiable webhook')
+      return false
     }
 
     // Compute HMAC-SHA256 hash
@@ -92,7 +92,7 @@ async function validateNotionSignature(
     return isValid
   } catch (error) {
     logger.error('[Notion Webhook] Error validating signature:', error)
-    return true // Allow on error to avoid blocking webhooks
+    return false // Reject on validation error for security
   }
 }
 
