@@ -269,7 +269,9 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
       userId,
       false,            // testMode
       { nodes, edges }, // workflowData - pass nodes/edges directly to bypass RLS
-      true              // skipTriggers (already triggered by webhook)
+      true,             // skipTriggers (already triggered by webhook)
+      undefined,        // testModeConfig
+      supabase          // service-role client (bypasses RLS in webhook context)
     )
 
     logger.info('[Shopify Webhook] Workflow executed:', {

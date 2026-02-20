@@ -35,7 +35,8 @@ export class WorkflowExecutionService {
     testMode: boolean,
     workflowData?: any,
     skipTriggers: boolean = false,
-    testModeConfig?: TestModeConfig
+    testModeConfig?: TestModeConfig,
+    supabaseClient?: any
   ) {
     logger.debug("🚀 Starting workflow execution service", {
       testMode,
@@ -53,7 +54,8 @@ export class WorkflowExecutionService {
       captureStepData: true
     }) : undefined
 
-    const supabase = await createSupabaseRouteHandlerClient()
+    // Use provided client (e.g., service-role from webhook handlers) or fall back to cookie-based
+    const supabase = supabaseClient || await createSupabaseRouteHandlerClient()
 
     // Use workflowData if provided (current state), otherwise load from normalized tables
     let allNodes: any[] = []
