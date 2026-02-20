@@ -171,6 +171,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         trigger_type: triggerType,
         node_id: nodeId,
         resource_type: 'polling',
+        resource_id: `poll-${workflowId}-${nodeId}`,
         config: {
           ...config,
           pollingEnabled: true,
