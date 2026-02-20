@@ -25,6 +25,7 @@ import { registerPollingHandler } from './polling'
 import { microsoftExcelPollingHandler } from './pollers/microsoft-excel'
 import { microsoftOnenotePollingHandler } from './pollers/microsoft-onenote'
 import { googleSheetsPollingHandler } from './pollers/google-sheets'
+import { mailchimpPollingHandler } from './pollers/mailchimp'
 import { OneNoteTriggerLifecycle } from './providers/OneNoteTriggerLifecycle'
 
 import { logger } from '@/lib/utils/logger'
@@ -182,6 +183,7 @@ logger.debug('✅ Trigger lifecycle providers registered:', triggerLifecycleMana
 registerPollingHandler(microsoftExcelPollingHandler)
 registerPollingHandler(microsoftOnenotePollingHandler)
 registerPollingHandler(googleSheetsPollingHandler)
+registerPollingHandler(mailchimpPollingHandler)
 
 // Export the manager for use in workflow activation/deactivation
 export { triggerLifecycleManager } from './TriggerLifecycleManager'

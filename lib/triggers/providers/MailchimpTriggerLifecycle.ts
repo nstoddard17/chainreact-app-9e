@@ -150,6 +150,18 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         triggerType
       })
 
+      // Capture initial snapshot to prevent "first poll miss" bug
+      let initialSnapshot: any = null
+      try {
+        const { accessToken, dc } = await this.getMailchimpAuth(userId)
+        initialSnapshot = await this.captureInitialSnapshot(triggerType, config, accessToken, dc)
+        logger.debug('[Mailchimp] Initial snapshot captured', { triggerType })
+      } catch (snapshotError: any) {
+        logger.warn('[Mailchimp] Failed to capture initial snapshot, will establish baseline on first poll', {
+          error: snapshotError.message
+        })
+      }
+
       // Store in trigger_resources with polling config
       const { error: insertError } = await getSupabase().from('trigger_resources').insert({
         workflow_id: workflowId,
@@ -161,9 +173,12 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         resource_type: 'polling',
         config: {
           ...config,
+          pollingEnabled: true,
           pollInterval: 300000, // 5 minutes
-          triggerType
+          triggerType,
+          ...(initialSnapshot ? { mailchimpSnapshot: initialSnapshot } : {})
         },
+        status: 'active',
         created_at: new Date().toISOString()
       })
 
@@ -188,7 +203,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Get Mailchimp auth
-    const { accessToken, dc } = await getMailchimpAuth(userId)
+    const { accessToken, dc } = await this.getMailchimpAuth(userId)
 
     // Get webhook callback URL
     const webhookUrl = this.getWebhookUrl()
@@ -457,6 +472,125 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         healthy: false,
         message: `Health check error: ${error.message}`
       }
+    }
+  }
+
+  /**
+   * Capture initial snapshot for polling triggers to prevent "first poll miss" bug
+   */
+  private async captureInitialSnapshot(
+    triggerType: string,
+    config: any,
+    accessToken: string,
+    dc: string
+  ): Promise<any> {
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    }
+
+    switch (triggerType) {
+      case 'mailchimp_trigger_email_opened': {
+        const campaignId = config.campaignId
+        if (campaignId) {
+          const resp = await fetch(
+            `https://${dc}.api.mailchimp.com/3.0/reports/${campaignId}`,
+            { headers }
+          )
+          if (resp.ok) {
+            const report = await resp.json()
+            return {
+              type: 'email_opened',
+              campaigns: { [campaignId]: { totalOpens: report.opens?.opens_total || 0 } },
+              updatedAt: new Date().toISOString()
+            }
+          }
+        }
+        // No specific campaign - snapshot recent campaigns
+        const resp = await fetch(
+          `https://${dc}.api.mailchimp.com/3.0/campaigns?status=sent&sort_field=send_time&sort_dir=DESC&count=10`,
+          { headers }
+        )
+        if (resp.ok) {
+          const data = await resp.json()
+          const campaigns: Record<string, any> = {}
+          for (const c of data.campaigns || []) {
+            campaigns[c.id] = { totalOpens: c.report_summary?.opens || 0 }
+          }
+          return { type: 'email_opened', campaigns, updatedAt: new Date().toISOString() }
+        }
+        return { type: 'email_opened', campaigns: {}, updatedAt: new Date().toISOString() }
+      }
+
+      case 'mailchimp_trigger_link_clicked': {
+        const campaignId = config.campaignId
+        if (campaignId) {
+          const resp = await fetch(
+            `https://${dc}.api.mailchimp.com/3.0/reports/${campaignId}`,
+            { headers }
+          )
+          if (resp.ok) {
+            const report = await resp.json()
+            return {
+              type: 'link_clicked',
+              campaigns: { [campaignId]: { totalClicks: report.clicks?.clicks_total || 0 } },
+              updatedAt: new Date().toISOString()
+            }
+          }
+        }
+        const resp = await fetch(
+          `https://${dc}.api.mailchimp.com/3.0/campaigns?status=sent&sort_field=send_time&sort_dir=DESC&count=10`,
+          { headers }
+        )
+        if (resp.ok) {
+          const data = await resp.json()
+          const campaigns: Record<string, any> = {}
+          for (const c of data.campaigns || []) {
+            campaigns[c.id] = { totalClicks: c.report_summary?.clicks || 0 }
+          }
+          return { type: 'link_clicked', campaigns, updatedAt: new Date().toISOString() }
+        }
+        return { type: 'link_clicked', campaigns: {}, updatedAt: new Date().toISOString() }
+      }
+
+      case 'mailchimp_trigger_segment_updated': {
+        const audienceId = config.audienceId || config.audience_id
+        if (!audienceId) return { type: 'segment_updated', segments: {}, updatedAt: new Date().toISOString() }
+
+        const resp = await fetch(
+          `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments?count=100`,
+          { headers }
+        )
+        if (resp.ok) {
+          const data = await resp.json()
+          const segments: Record<string, any> = {}
+          for (const s of data.segments || []) {
+            segments[s.id] = {
+              name: s.name,
+              memberCount: s.member_count,
+              updatedAt: s.updated_at
+            }
+          }
+          return { type: 'segment_updated', segments, updatedAt: new Date().toISOString() }
+        }
+        return { type: 'segment_updated', segments: {}, updatedAt: new Date().toISOString() }
+      }
+
+      case 'mailchimp_trigger_new_audience': {
+        const resp = await fetch(
+          `https://${dc}.api.mailchimp.com/3.0/lists?count=100`,
+          { headers }
+        )
+        if (resp.ok) {
+          const data = await resp.json()
+          const audienceIds = (data.lists || []).map((l: any) => l.id)
+          return { type: 'new_audience', audienceIds, updatedAt: new Date().toISOString() }
+        }
+        return { type: 'new_audience', audienceIds: [], updatedAt: new Date().toISOString() }
+      }
+
+      default:
+        return null
     }
   }
 }

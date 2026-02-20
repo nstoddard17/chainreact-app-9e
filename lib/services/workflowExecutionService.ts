@@ -221,8 +221,6 @@ export class WorkflowExecutionService {
     let executionHistoryId: string | null = null
     try {
       executionHistoryId = await executionHistoryService.startExecution(
-        workflow.id,
-        userId,
         executionId,
         testMode,
         inputData

@@ -22,7 +22,7 @@ export async function GET(
 
     // Verify user owns the execution
     const { data: execution, error: executionError } = await supabase
-      .from('workflow_execution_history')
+      .from('workflow_execution_sessions')
       .select('id, user_id, workflow_id, status, test_mode, started_at, completed_at')
       .eq('id', executionId)
       .single()

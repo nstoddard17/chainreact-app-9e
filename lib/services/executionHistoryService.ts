@@ -3,10 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
 export interface ExecutionHistoryEntry {
-  id?: string
+  id: string
   workflow_id: string
   user_id: string
-  execution_id: string
   status: 'running' | 'completed' | 'failed' | 'cancelled'
   test_mode: boolean
   started_at: string
@@ -18,12 +17,12 @@ export interface ExecutionHistoryEntry {
 
 export interface ExecutionStepEntry {
   id?: string
-  execution_history_id: string
+  execution_id: string
   node_id: string
   node_type: string
   node_name?: string
   step_number: number
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped'
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'paused'
   started_at?: string
   completed_at?: string
   duration_ms?: number
@@ -56,8 +55,6 @@ export class ExecutionHistoryService {
    * Start a new execution history entry
    */
   async startExecution(
-    workflowId: string,
-    userId: string,
     executionId: string,
     testMode: boolean,
     triggerData?: any
@@ -65,30 +62,26 @@ export class ExecutionHistoryService {
     try {
       const supabase = await this.getSupabase()
 
-      const { data, error } = await supabase
-        .from('workflow_execution_history')
-        .insert({
-          workflow_id: workflowId,
-          user_id: userId,
-          execution_id: executionId,
-          status: 'running',
+      // Store additional metadata on the execution session when available.
+      const { error } = await supabase
+        .from('workflow_execution_sessions')
+        .update({
           test_mode: testMode,
-          trigger_data: triggerData,
-          started_at: new Date().toISOString()
+          trigger_data: triggerData ?? undefined,
+          updated_at: new Date().toISOString()
         })
-        .select()
-        .single()
+        .eq('id', executionId)
 
       if (error) {
         logger.error('Error creating execution history:', error)
         throw error
       }
 
-      this.currentExecutionId = data.id
+      this.currentExecutionId = executionId
       this.stepCounter = 0
 
-      logger.debug(`📝 Started execution history tracking: ${data.id}`)
-      return data.id
+      logger.debug(`📝 Started execution history tracking: ${executionId}`)
+      return executionId
     } catch (error) {
       logger.error('Failed to start execution history:', error)
       throw error
@@ -99,7 +92,7 @@ export class ExecutionHistoryService {
    * Record a step execution
    */
   async recordStep(
-    executionHistoryId: string,
+    executionId: string,
     nodeId: string,
     nodeType: string,
     nodeName?: string,
@@ -112,9 +105,9 @@ export class ExecutionHistoryService {
       this.stepCounter++
 
       const { data, error } = await supabase
-        .from('workflow_execution_steps')
+        .from('execution_steps')
         .insert({
-          execution_history_id: executionHistoryId,
+          execution_id: executionId,
           node_id: nodeId,
           node_type: nodeType,
           node_name: nodeName,
@@ -144,7 +137,7 @@ export class ExecutionHistoryService {
    * Update a step with completion status
    */
   async completeStep(
-    executionHistoryId: string,
+    executionId: string,
     nodeId: string,
     status: 'completed' | 'failed' | 'skipped',
     outputData?: any,
@@ -158,9 +151,9 @@ export class ExecutionHistoryService {
 
       // First get the started_at time to calculate duration
       const { data: existingStep } = await supabase
-        .from('workflow_execution_steps')
+        .from('execution_steps')
         .select('started_at')
-        .eq('execution_history_id', executionHistoryId)
+        .eq('execution_id', executionId)
         .eq('node_id', nodeId)
         .single()
 
@@ -171,7 +164,7 @@ export class ExecutionHistoryService {
       }
 
       const { error } = await supabase
-        .from('workflow_execution_steps')
+        .from('execution_steps')
         .update({
           status,
           completed_at: completedAt.toISOString(),
@@ -180,7 +173,7 @@ export class ExecutionHistoryService {
           error_message: errorMessage,
           error_details: errorDetails
         })
-        .eq('execution_history_id', executionHistoryId)
+        .eq('execution_id', executionId)
         .eq('node_id', nodeId)
 
       if (error) {
@@ -200,7 +193,7 @@ export class ExecutionHistoryService {
    * This sets the step status to 'paused' to indicate it's waiting for user input
    */
   async pauseStep(
-    executionHistoryId: string,
+    executionId: string,
     nodeId: string,
     pauseData?: any
   ): Promise<void> {
@@ -208,12 +201,12 @@ export class ExecutionHistoryService {
       const supabase = await this.getSupabase()
 
       const { error } = await supabase
-        .from('workflow_execution_steps')
+        .from('execution_steps')
         .update({
           status: 'paused',
           output_data: pauseData
         })
-        .eq('execution_history_id', executionHistoryId)
+        .eq('execution_id', executionId)
         .eq('node_id', nodeId)
 
       if (error) {
@@ -231,7 +224,7 @@ export class ExecutionHistoryService {
    * Pause execution (for HITL)
    */
   async pauseExecution(
-    executionHistoryId: string,
+    executionId: string,
     pausedNodeId: string,
     pauseData?: any
   ): Promise<void> {
@@ -239,24 +232,24 @@ export class ExecutionHistoryService {
       const supabase = await this.getSupabase()
 
       const { error } = await supabase
-        .from('workflow_execution_history')
+        .from('workflow_execution_sessions')
         .update({
           status: 'running', // Keep as running but store pause info
-          final_output: {
+          output_data: {
             paused: true,
             pausedNodeId,
             pauseData
           },
           updated_at: new Date().toISOString()
         })
-        .eq('id', executionHistoryId)
+        .eq('id', executionId)
 
       if (error) {
         logger.error('Error pausing execution history:', error)
         throw error
       }
 
-      logger.debug(`⏸️  Execution ${executionHistoryId} paused at node ${pausedNodeId}`)
+      logger.debug(`⏸️  Execution ${executionId} paused at node ${pausedNodeId}`)
     } catch (error) {
       logger.error('Failed to pause execution history:', error)
     }
@@ -266,7 +259,7 @@ export class ExecutionHistoryService {
    * Complete the entire execution
    */
   async completeExecution(
-    executionHistoryId: string,
+    executionId: string,
     status: 'completed' | 'failed' | 'cancelled',
     finalOutput?: any,
     errorMessage?: string
@@ -275,15 +268,15 @@ export class ExecutionHistoryService {
       const supabase = await this.getSupabase()
 
       const { error } = await supabase
-        .from('workflow_execution_history')
+        .from('workflow_execution_sessions')
         .update({
           status,
           completed_at: new Date().toISOString(),
-          final_output: finalOutput,
+          output_data: finalOutput,
           error_message: errorMessage,
           updated_at: new Date().toISOString()
         })
-        .eq('id', executionHistoryId)
+        .eq('id', executionId)
 
       if (error) {
         logger.error('Error completing execution history:', error)
@@ -291,7 +284,7 @@ export class ExecutionHistoryService {
       }
 
       const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : '⚠️'
-      logger.debug(`${statusIcon} Execution ${executionHistoryId} ${status}`)
+      logger.debug(`${statusIcon} Execution ${executionId} ${status}`)
     } catch (error) {
       logger.error('Failed to complete execution history:', error)
     }
@@ -308,7 +301,7 @@ export class ExecutionHistoryService {
       const supabase = await this.getSupabase()
 
       const { data, error } = await supabase
-        .from('workflow_execution_history')
+        .from('workflow_execution_sessions')
         .select('*')
         .eq('workflow_id', workflowId)
         .order('started_at', { ascending: false })
@@ -330,15 +323,15 @@ export class ExecutionHistoryService {
    * Get detailed steps for an execution
    */
   async getExecutionSteps(
-    executionHistoryId: string
+    executionId: string
   ): Promise<ExecutionStepEntry[]> {
     try {
       const supabase = await this.getSupabase()
 
       const { data, error } = await supabase
-        .from('workflow_execution_steps')
+        .from('execution_steps')
         .select('*')
-        .eq('execution_history_id', executionHistoryId)
+        .eq('execution_id', executionId)
         .order('step_number', { ascending: true })
 
       if (error) {
@@ -360,9 +353,9 @@ export class ExecutionHistoryService {
     try {
       const supabase = await this.getSupabase()
 
-      // The CASCADE will handle deleting the steps automatically
+      // Delete sessions; steps should cascade if FK exists.
       const { error } = await supabase
-        .from('workflow_execution_history')
+        .from('workflow_execution_sessions')
         .delete()
         .eq('workflow_id', workflowId)
 
@@ -384,15 +377,8 @@ export class ExecutionHistoryService {
     try {
       const supabase = await this.getSupabase()
 
-      const { error } = await supabase
-        .rpc('cleanup_old_execution_history')
-
-      if (error) {
-        logger.error('Error cleaning up old history:', error)
-        throw error
-      }
-
-      logger.debug('🧹 Cleaned up old execution history')
+      // No-op for now: legacy cleanup function targeted removed tables.
+      logger.debug('🧹 Skipped cleanup_old_execution_history (deprecated)')
     } catch (error) {
       logger.error('Failed to cleanup old history:', error)
     }

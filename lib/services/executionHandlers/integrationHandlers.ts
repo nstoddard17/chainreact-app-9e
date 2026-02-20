@@ -842,6 +842,40 @@ export class IntegrationNodeHandlers {
 
         return createPageResult.output
 
+      case "notion_action_update_page": {
+        // Use the dedicated update page handler
+        const { executeNotionUpdatePage } = await import("@/lib/workflows/actions/notion/pageActions")
+
+        const updatePageResult = await executeNotionUpdatePage(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!updatePageResult.success) {
+          throw new Error(updatePageResult.message || "Failed to update Notion page")
+        }
+
+        return updatePageResult.output
+      }
+
+      case "notion_action_append_to_page": {
+        // Use the dedicated append to page handler
+        const { executeNotionAppendToPage } = await import("@/lib/workflows/actions/notion/pageActions")
+
+        const appendResult = await executeNotionAppendToPage(
+          config,
+          context.userId,
+          context.data || {}
+        )
+
+        if (!appendResult.success) {
+          throw new Error(appendResult.message || "Failed to append to Notion page")
+        }
+
+        return appendResult.output
+      }
+
       case "notion_action_manage_page":
         // Import and use the actual Notion manage page handler
         const { executeNotionManagePage } = await import("@/lib/workflows/actions/registry")

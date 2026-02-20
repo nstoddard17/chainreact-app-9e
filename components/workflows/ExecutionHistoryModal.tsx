@@ -50,7 +50,6 @@ interface ExecutionHistoryEntry {
   id: string
   workflow_id: string
   user_id: string
-  execution_id: string
   status: 'running' | 'completed' | 'failed' | 'cancelled'
   test_mode: boolean
   started_at: string
@@ -62,7 +61,7 @@ interface ExecutionHistoryEntry {
 
 interface ExecutionStep {
   id: string
-  execution_history_id: string
+  execution_id: string
   node_id: string
   node_type: string
   node_name?: string
@@ -534,7 +533,7 @@ export function ExecutionHistoryModal({
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="font-mono text-xs text-gray-500 dark:text-gray-400 truncate">
-                                      {execution.execution_id.slice(0, 8)}
+                                      {execution.id.slice(0, 8)}
                                     </span>
                                     {getStatusBadge(execution.status, execution.test_mode)}
                                   </div>
@@ -628,7 +627,7 @@ export function ExecutionHistoryModal({
                           <div className="space-y-1">
                             <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Execution ID</div>
                             <div className="font-mono text-sm bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded border">
-                              {selectedExecution.execution_id}
+                              {selectedExecution.id}
                             </div>
                           </div>
 
