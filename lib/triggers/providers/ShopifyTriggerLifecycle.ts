@@ -42,12 +42,17 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       throw new Error('No Shopify store selected. Please configure the trigger with a store.')
     }
 
-    // Find integration that has this shop in metadata.stores or shop_domain
-    const { data: integrations } = await getSupabase()
+    // Find integration that has this shop in metadata.stores
+    const { data: integrations, error: intError } = await getSupabase()
       .from('integrations')
-      .select('id, access_token, metadata, shop_domain')
+      .select('id, access_token, metadata')
       .eq('provider', 'shopify')
       .eq('user_id', userId)
+
+    if (intError) {
+      logger.error(`❌ Failed to query Shopify integrations:`, intError)
+      throw new Error(`Failed to query Shopify integrations: ${intError.message}`)
+    }
 
     // Find the integration containing this shop
     const integration = integrations?.find(i => {
@@ -55,8 +60,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       const stores = metadata?.stores || []
       return stores.some((s: any) => s.shop === selectedShop) ||
              metadata?.shop === selectedShop ||
-             metadata?.active_store === selectedShop ||
-             i.shop_domain === selectedShop
+             metadata?.active_store === selectedShop
     })
 
     if (!integration) {
