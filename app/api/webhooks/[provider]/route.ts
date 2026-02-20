@@ -455,61 +455,136 @@ function normalizeWebhookEvent(provider: string, rawEvent: any, requestId: strin
 
       const movedByUpdate = Boolean(data.listBefore?.id && data.listAfter?.id && data.listBefore.id !== data.listAfter.id)
       const hasCard = Boolean(data.card?.id)
+      const isArchiveChange = actionType === 'updateCard' && data.old && 'closed' in data.old
 
       let eventType = 'trello_trigger_event'
 
-      switch (actionType) {
-        case 'createCard':
-        case 'copyCard':
-          eventType = 'trello_trigger_new_card'
-          break
-        case 'moveCardToBoard':
-        case 'moveCardFromBoard':
-          eventType = 'trello_trigger_card_moved'
-          break
-        case 'updateCard':
-          eventType = movedByUpdate ? 'trello_trigger_card_moved' : 'trello_trigger_card_updated'
-          break
-        case 'commentCard':
-          eventType = 'trello_trigger_comment_added'
-          break
-        case 'addMemberToCard':
-        case 'removeMemberFromCard':
-          eventType = 'trello_trigger_member_changed'
-          break
-        default:
-          if (hasCard) {
-            eventType = 'trello_trigger_card_updated'
-          }
-          break
+      // Detect archive/unarchive before generic updateCard
+      if (isArchiveChange) {
+        eventType = 'trello_trigger_card_archived'
+      } else {
+        switch (actionType) {
+          case 'createCard':
+          case 'copyCard':
+            eventType = 'trello_trigger_new_card'
+            break
+          case 'moveCardToBoard':
+          case 'moveCardFromBoard':
+            eventType = 'trello_trigger_card_moved'
+            break
+          case 'updateCard':
+            eventType = movedByUpdate ? 'trello_trigger_card_moved' : 'trello_trigger_card_updated'
+            break
+          case 'commentCard':
+            eventType = 'trello_trigger_comment_added'
+            break
+          case 'addMemberToCard':
+          case 'removeMemberFromCard':
+            eventType = 'trello_trigger_member_changed'
+            break
+          default:
+            if (hasCard) {
+              eventType = 'trello_trigger_card_updated'
+            }
+            break
+        }
       }
 
-      const listId = data.list?.id || data.listAfter?.id || data.listBefore?.id || null
-      const listName = data.list?.name || data.listAfter?.name || data.listBefore?.name || null
       const cardShortLink = data.card?.shortLink || null
       const cardUrl = data.card?.url || (cardShortLink ? `https://trello.com/c/${cardShortLink}` : null)
 
-      const normalizedData = {
-        actionType,
-        actionId: action.id || null,
-        boardId: data.board?.id || data.boardTarget?.id || null,
-        boardName: data.board?.name || data.boardTarget?.name || null,
-        cardId: data.card?.id || null,
-        cardName: data.card?.name || null,
-        cardUrl,
-        cardShortLink,
-        listId,
-        listName,
-        listBeforeId: data.listBefore?.id || null,
-        listBeforeName: data.listBefore?.name || null,
-        listAfterId: data.listAfter?.id || null,
-        listAfterName: data.listAfter?.name || null,
-        memberId: data.idMember || data.idMemberAdded || data.idMemberRemoved || data.member?.id || null,
-        memberUsername: action.memberCreator?.username || null,
-        memberName: action.memberCreator?.fullName || null,
-        commentText: data.text || null,
-        action,
-        raw: envelope
+      // Underscore-prefixed metadata for filter logic in processor.ts
+      const filterMeta = {
+        _raw: envelope,
+        _actionType: actionType,
+        _listId: data.list?.id || data.listAfter?.id || data.listBefore?.id || null,
+        _listBeforeId: data.listBefore?.id || null,
+        _listAfterId: data.listAfter?.id || null,
+        _oldData: data.old || null,
+      }
+
+      // Per-eventType normalization — keys MUST match each trigger's outputSchema field names
+      let normalizedData: any
+      switch (eventType) {
+        case 'trello_trigger_new_card':
+          normalizedData = {
+            ...filterMeta,
+            boardId: data.board?.id || null,
+            listId: data.list?.id || null,
+            cardId: data.card?.id || null,
+            name: data.card?.name || null,
+            desc: data.card?.desc || '',
+            url: cardUrl,
+            createdAt: action.date || new Date().toISOString(),
+          }
+          break
+        case 'trello_trigger_card_updated':
+          normalizedData = {
+            ...filterMeta,
+            boardId: data.board?.id || null,
+            listId: data.list?.id || data.card?.idList || null,
+            cardId: data.card?.id || null,
+            name: data.card?.name || null,
+            desc: data.card?.desc || '',
+            changedFields: data.old ? Object.keys(data.old) : [],
+            oldValues: data.old || {},
+            updatedAt: action.date || new Date().toISOString(),
+          }
+          break
+        case 'trello_trigger_card_moved':
+          normalizedData = {
+            ...filterMeta,
+            boardId: data.board?.id || null,
+            fromListId: data.listBefore?.id || null,
+            fromListName: data.listBefore?.name || null,
+            toListId: data.listAfter?.id || null,
+            toListName: data.listAfter?.name || null,
+            cardId: data.card?.id || null,
+            name: data.card?.name || null,
+            movedAt: action.date || new Date().toISOString(),
+          }
+          break
+        case 'trello_trigger_comment_added':
+          normalizedData = {
+            ...filterMeta,
+            boardId: data.board?.id || null,
+            cardId: data.card?.id || null,
+            commentId: action.id || null,
+            commentText: data.text || null,
+            authorId: action.memberCreator?.id || null,
+            authorName: action.memberCreator?.fullName || null,
+            createdAt: action.date || new Date().toISOString(),
+          }
+          break
+        case 'trello_trigger_member_changed':
+          normalizedData = {
+            ...filterMeta,
+            boardId: data.board?.id || null,
+            cardId: data.card?.id || null,
+            action: actionType === 'addMemberToCard' ? 'added' : 'removed',
+            memberId: data.idMember || data.idMemberAdded || data.idMemberRemoved || data.member?.id || null,
+            memberName: action.member?.fullName || action.memberCreator?.fullName || null,
+            changedAt: action.date || new Date().toISOString(),
+          }
+          break
+        case 'trello_trigger_card_archived':
+          normalizedData = {
+            ...filterMeta,
+            boardId: data.board?.id || null,
+            cardId: data.card?.id || null,
+            name: data.card?.name || null,
+            closed: data.card?.closed ?? true,
+            archivedAt: action.date || new Date().toISOString(),
+          }
+          break
+        default:
+          normalizedData = {
+            ...filterMeta,
+            boardId: data.board?.id || null,
+            cardId: data.card?.id || null,
+            actionType,
+          }
+          break
       }
 
       const eventId = action.id || envelope.id || requestId

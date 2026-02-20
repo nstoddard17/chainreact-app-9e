@@ -67,7 +67,7 @@ export const trelloNodes: NodeComponent[] = [
         dependsOn: "boardId",
         required: false,
         placeholder: "Select a list (optional)",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
         tooltip: "Only trigger for cards in a specific list"
       },
       // API VERIFICATION: Trello webhooks fire for ANY card update, but the webhook
@@ -94,7 +94,7 @@ export const trelloNodes: NodeComponent[] = [
           { value: "cover", label: "Card Cover" }
         ],
         placeholder: "All Properties",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
         tooltip: "Only trigger when these specific properties change. Leave empty to trigger on any change."
       }
     ],
@@ -136,15 +136,18 @@ export const trelloNodes: NodeComponent[] = [
         dependsOn: "boardId",
         required: false,
         placeholder: "All lists",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
         tooltip: "Only trigger when cards move into or out of these lists. Leave empty to monitor all lists."
       }
     ],
     outputSchema: [
       { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
       { name: "fromListId", label: "From List ID", type: "string", description: "The ID of the source list" },
+      { name: "fromListName", label: "From List Name", type: "string", description: "The name of the source list" },
       { name: "toListId", label: "To List ID", type: "string", description: "The ID of the destination list" },
+      { name: "toListName", label: "To List Name", type: "string", description: "The name of the destination list" },
       { name: "cardId", label: "Card ID", type: "string", description: "The unique ID of the card" },
+      { name: "name", label: "Card Name", type: "string", description: "The name of the moved card" },
       { name: "movedAt", label: "Moved At", type: "string", description: "When the card was moved" }
     ]
   },
@@ -175,7 +178,7 @@ export const trelloNodes: NodeComponent[] = [
         dependsOn: "boardId",
         required: false,
         placeholder: "Select a list (optional)",
-        hidden: { $condition: { boardId: { $exists: false } } },
+        hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
         tooltip: "Only trigger for cards in a specific list"
       },
       {
@@ -186,7 +189,7 @@ export const trelloNodes: NodeComponent[] = [
         dependsOn: "listId",
         required: false,
         placeholder: "Select a card (optional)",
-        hidden: { $condition: { listId: { $exists: false } } },
+        hidden: { $deps: ["listId"], $condition: { listId: { $exists: false } } },
         tooltip: "Optionally filter to only comments on a specific card"
       }
     ],
@@ -214,7 +217,7 @@ export const trelloNodes: NodeComponent[] = [
         label: "Board",
         type: "select",
         dynamic: "trello_boards",
-        required: false,
+        required: true,
         loadOnMount: true,
         placeholder: "Select a board"
       }
@@ -222,7 +225,7 @@ export const trelloNodes: NodeComponent[] = [
     outputSchema: [
       { name: "boardId", label: "Board ID", type: "string", description: "The ID of the board" },
       { name: "cardId", label: "Card ID", type: "string", description: "The unique ID of the card" },
-      { name: "action", label: "Action", type: "string", description: "Whether member was added or removed" },
+      { name: "action", label: "Action", type: "string", description: "Whether member was 'added' or 'removed'" },
       { name: "memberId", label: "Member ID", type: "string", description: "The ID of the member" },
       { name: "memberName", label: "Member Name", type: "string", description: "The name of the member" },
       { name: "changedAt", label: "Changed At", type: "string", description: "When the member change occurred" }
@@ -846,9 +849,9 @@ export const trelloNodes: NodeComponent[] = [
         label: "Board",
         type: "select",
         dynamic: "trello_boards",
-        required: false,
+        required: true,
         loadOnMount: true,
-        placeholder: "Select a board (optional)"
+        placeholder: "Select a board"
       }
     ],
     outputSchema: [

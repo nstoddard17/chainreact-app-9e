@@ -384,16 +384,53 @@ async function applyTriggerFilters(triggerNode: any, event: WebhookEvent): Promi
     if (listFilter) {
       const listCandidates = [
         event.eventData?.listId,
-        event.eventData?.list_id,
-        event.eventData?.listAfterId,
-        event.eventData?.listAfter?.id,
-        event.eventData?.listBeforeId,
-        event.eventData?.listBefore?.id
+        event.eventData?._listId,
+        event.eventData?.fromListId,
+        event.eventData?.toListId,
+        event.eventData?._listAfterId,
+        event.eventData?._listBeforeId,
       ]
         .map(value => (value ? String(value) : null))
         .filter((value): value is string => Boolean(value))
 
       if (listCandidates.length > 0 && !listCandidates.includes(String(listFilter))) {
+        return false
+      }
+    }
+
+    // watchedProperties filter for card_updated trigger
+    // Trello webhook payload includes action.data.old with ONLY changed field keys
+    const watchedProperties = config.watchedProperties
+    if (watchedProperties && Array.isArray(watchedProperties) && watchedProperties.length > 0) {
+      const changedFields = event.eventData?.changedFields ||
+        (event.eventData?._oldData ? Object.keys(event.eventData._oldData) : [])
+      if (changedFields.length > 0) {
+        const hasWatchedChange = changedFields.some((field: string) => watchedProperties.includes(field))
+        if (!hasWatchedChange) {
+          return false
+        }
+      }
+    }
+
+    // watchedLists filter for card_moved trigger
+    const watchedLists = config.watchedLists
+    if (watchedLists && Array.isArray(watchedLists) && watchedLists.length > 0) {
+      const fromListId = event.eventData?.fromListId || event.eventData?._listBeforeId
+      const toListId = event.eventData?.toListId || event.eventData?._listAfterId
+      const involvedLists = [fromListId, toListId].filter(Boolean).map(String)
+      if (involvedLists.length > 0) {
+        const hasWatchedList = involvedLists.some((id: string) => watchedLists.includes(id))
+        if (!hasWatchedList) {
+          return false
+        }
+      }
+    }
+
+    // cardId filter for comment_added trigger
+    const cardFilter = config.cardId || config.card_id
+    if (cardFilter) {
+      const eventCardId = event.eventData?.cardId || event.eventData?.card_id
+      if (eventCardId && String(eventCardId) !== String(cardFilter)) {
         return false
       }
     }
