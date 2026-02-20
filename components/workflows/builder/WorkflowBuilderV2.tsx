@@ -4650,6 +4650,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       // Skip config modal for nodes with no configuration (like Manual Trigger)
       if (!hasConfigFields) {
         console.log('🔧 [WorkflowBuilder] Node has no config fields, skipping config modal:', nodeType)
+        // For triggers with no config, show a helpful toast instead of silently doing nothing
+        if (node.data?.isTrigger) {
+          toast({
+            title: "No configuration needed",
+            description: "This trigger activates automatically — no settings to configure.",
+          })
+        }
         return
       }
 

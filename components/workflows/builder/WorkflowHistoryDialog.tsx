@@ -2,18 +2,14 @@
 
 import { useState, useEffect } from "react"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { History, Loader2, CheckCircle2, XCircle, AlertCircle, Play, Download } from "lucide-react"
+import {
+  History, Loader2, CheckCircle2, XCircle, AlertCircle,
+  Download, RefreshCw, Filter, Clock, Activity,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
@@ -22,18 +18,8 @@ type FlowRunSummary = {
   status: string
   startedAt: string | null
   finishedAt: string | null
-  revisionId?: string | null
+  sessionType?: string
   metadata?: Record<string, any>
-}
-
-type RunNodeDetails = {
-  id: string
-  node_id: string
-  status: string
-  duration_ms: number | null
-  created_at: string
-  output: any
-  error: any
 }
 
 interface WorkflowHistoryDialogProps {
@@ -44,293 +30,243 @@ interface WorkflowHistoryDialogProps {
   activeRunId?: string | null
 }
 
+const STATUS_CONFIG: Record<string, { label: string; iconColor: string; badgeClass: string }> = {
+  success: {
+    label: "Success",
+    iconColor: "text-emerald-500 dark:text-emerald-400",
+    badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40",
+  },
+  error: {
+    label: "Error",
+    iconColor: "text-red-500 dark:text-red-400",
+    badgeClass: "bg-red-100 text-red-800 border-red-300 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/40",
+  },
+  failed: {
+    label: "Error",
+    iconColor: "text-red-500 dark:text-red-400",
+    badgeClass: "bg-red-100 text-red-800 border-red-300 dark:bg-red-500/20 dark:text-red-300 dark:border-red-500/40",
+  },
+  running: {
+    label: "Listening",
+    iconColor: "text-blue-500 dark:text-blue-400",
+    badgeClass: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/40",
+  },
+  cancelled: {
+    label: "Cancelled",
+    iconColor: "text-amber-500 dark:text-amber-400",
+    badgeClass: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40",
+  },
+}
+
+const DEFAULT_STATUS = {
+  label: "Unknown",
+  iconColor: "text-gray-400 dark:text-gray-500",
+  badgeClass: "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-500/20 dark:text-gray-300 dark:border-gray-500/40",
+}
+
+const StatusIcon = ({ status }: { status: string }) => {
+  const cfg = STATUS_CONFIG[status] || DEFAULT_STATUS
+  const iconClass = cn("h-4 w-4", cfg.iconColor, status === "running" && "animate-spin")
+  switch (status) {
+    case "success": return <CheckCircle2 className={iconClass} />
+    case "error": case "failed": return <XCircle className={iconClass} />
+    case "running": return <RefreshCw className={iconClass} />
+    case "cancelled": return <AlertCircle className={iconClass} />
+    default: return <Clock className={iconClass} />
+  }
+}
+
+const StatusBadge = ({ status }: { status: string }) => {
+  const cfg = STATUS_CONFIG[status] || DEFAULT_STATUS
+  return <Badge variant="outline" className={cn("text-[11px] whitespace-nowrap", cfg.badgeClass)}>{cfg.label}</Badge>
+}
+
 export function WorkflowHistoryDialog({
-  open,
-  onOpenChange,
-  workflowId,
-  onSelectRun,
-  activeRunId,
+  open, onOpenChange, workflowId,
 }: WorkflowHistoryDialogProps) {
   const [runs, setRuns] = useState<FlowRunSummary[]>([])
-  const [selectedRun, setSelectedRun] = useState<FlowRunSummary | null>(null)
-  const [nodes, setNodes] = useState<RunNodeDetails[]>([])
   const [loading, setLoading] = useState(false)
-  const [nodesLoading, setNodesLoading] = useState(false)
+  const [filter, setFilter] = useState<"all" | "success" | "failed">("all")
   const { toast } = useToast()
 
-  useEffect(() => {
-    if (open) {
-      void loadRuns()
-    }
-  }, [open, workflowId])
+  // Stats: success rate only counts completed runs (not running/listening)
+  const successCount = runs.filter((r) => r.status === "success").length
+  const failedCount = runs.filter((r) => r.status === "error" || r.status === "failed").length
+  const completedCount = successCount + failedCount
+  const avgDuration = (() => {
+    const done = runs.filter((r) => r.startedAt && r.finishedAt)
+    if (!done.length) return 0
+    return done.reduce((a, r) => a + (new Date(r.finishedAt!).getTime() - new Date(r.startedAt!).getTime()), 0) / done.length
+  })()
+
+  const filteredRuns = runs.filter((r) => {
+    if (filter === "success") return r.status === "success"
+    if (filter === "failed") return r.status === "error" || r.status === "failed"
+    return true
+  })
+
+  useEffect(() => { if (open) void loadRuns() }, [open, workflowId])
 
   const loadRuns = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/workflows/v2/api/flows/${workflowId}/runs/history`)
-      if (!response.ok) {
-        throw new Error("Failed to load runs")
-      }
-      const data = await response.json()
+      const res = await fetch(`/workflows/v2/api/flows/${workflowId}/runs/history`)
+      if (!res.ok) throw new Error("Failed to load runs")
+      const data = await res.json()
       setRuns(data.runs || [])
-      if (data.runs?.length) {
-        setSelectedRun((previous) => previous ?? data.runs[0])
-        void loadRunNodes(data.runs[0])
-      } else {
-        setSelectedRun(null)
-        setNodes([])
-      }
-    } catch (error) {
-      console.error("[WorkflowHistoryDialog] loadRuns error:", error)
-      toast({
-        title: "Unable to load history",
-        description: "We couldn't fetch workflow runs. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) {
+      console.error("[WorkflowHistoryDialog] loadRuns error:", err)
+      toast({ title: "Unable to load history", description: "Please try again.", variant: "destructive" })
+    } finally { setLoading(false) }
   }
 
-  const loadRunNodes = async (run: FlowRunSummary) => {
-    try {
-      setNodesLoading(true)
-      const response = await fetch(`/workflows/v2/api/runs/${run.id}/nodes`)
-      if (!response.ok) {
-        throw new Error("Failed to load run details")
-      }
-      const data = await response.json()
-      setNodes(data.nodes || [])
-      setSelectedRun(run)
-    } catch (error) {
-      console.error("[WorkflowHistoryDialog] loadRunNodes error:", error)
-      toast({
-        title: "Unable to load run",
-        description: "We couldn't fetch node results for this run.",
-        variant: "destructive",
-      })
-    } finally {
-      setNodesLoading(false)
-    }
-  }
-
-  const handleSetActiveRun = async (run: FlowRunSummary) => {
-    if (!onSelectRun) return
-    await onSelectRun(run.id)
-    toast({
-      title: "Run selected",
-      description: "Results tabs will now show this run's outputs.",
-    })
-    onOpenChange(false)
-  }
-
-  const exportNodes = () => {
-    if (!selectedRun) return
-    const blob = new Blob([JSON.stringify({ run: selectedRun, nodes }, null, 2)], { type: "application/json" })
+  const exportRuns = () => {
+    if (!runs.length) return
+    const blob = new Blob([JSON.stringify({ runs }, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    const startedAt = selectedRun.startedAt ? new Date(selectedRun.startedAt).toISOString() : "unknown"
-    link.download = `workflow-run-${selectedRun.id}-${startedAt}.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `workflow-history-${workflowId.slice(0, 8)}.json`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
 
-  const formatTimestamp = (value?: string | null) => {
-    if (!value) return "N/A"
-    try {
-      return new Date(value).toLocaleString()
-    } catch {
-      return value
-    }
+  const fmtTime = (v?: string | null) => {
+    if (!v) return "N/A"
+    try { return new Date(v).toLocaleString() } catch { return v }
   }
 
-  const formatDuration = (start?: string | null, end?: string | null) => {
+  const fmtDuration = (start?: string | null, end?: string | null) => {
     if (!start || !end) return "—"
     const ms = new Date(end).getTime() - new Date(start).getTime()
     if (ms < 1000) return `${ms}ms`
-    if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`
-    const minutes = Math.floor(ms / 60000)
-    const seconds = Math.floor((ms % 60000) / 1000)
-    return `${minutes}m ${seconds}s`
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+    return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "success":
-        return (
-          <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            Success
-          </Badge>
-        )
-      case "error":
-        return (
-          <Badge variant="secondary" className="bg-red-100 text-red-700 border border-red-200">
-            <XCircle className="w-3 h-3 mr-1" />
-            Error
-          </Badge>
-        )
-      default:
-        return (
-          <Badge variant="secondary" className="bg-amber-100 text-amber-800 border border-amber-200">
-            <AlertCircle className="w-3 h-3 mr-1" />
-            {status}
-          </Badge>
-        )
-    }
+  const fmtMs = (ms: number) => {
+    if (!ms) return "—"
+    if (ms < 1000) return `${Math.round(ms)}ms`
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+    return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
   }
 
-  const getSourceLabel = (run: FlowRunSummary) => {
-    const source = run.metadata?.source || run.metadata?.trigger || "manual"
-    switch (source) {
-      case "scheduler":
-      case "cron":
-        return "Scheduled Run"
-      case "webhook":
-        return "Webhook"
-      case "node_test":
-        return "Node Test"
-      default:
-        return "Manual"
-    }
+  const statCards: { icon: typeof Activity; label: string; value: string | number; color: string }[] = [
+    { icon: Activity, label: "Total Runs", value: runs.length, color: "gray" },
+    { icon: CheckCircle2, label: "Success Rate", value: completedCount > 0 ? `${((successCount / completedCount) * 100).toFixed(0)}%` : "—", color: "emerald" },
+    { icon: XCircle, label: "Failures", value: failedCount, color: "red" },
+    { icon: Clock, label: "Avg Duration", value: fmtMs(avgDuration), color: "blue" },
+  ]
+
+  const colorMap: Record<string, { border: string; text: string; value: string }> = {
+    gray: { border: "border-gray-200 dark:border-gray-700", text: "text-gray-600 dark:text-gray-400", value: "text-gray-900 dark:text-white" },
+    emerald: { border: "border-emerald-200 dark:border-emerald-800", text: "text-emerald-600 dark:text-emerald-400", value: "text-emerald-700 dark:text-emerald-300" },
+    red: { border: "border-red-200 dark:border-red-800", text: "text-red-600 dark:text-red-400", value: "text-red-700 dark:text-red-300" },
+    blue: { border: "border-blue-200 dark:border-blue-800", text: "text-blue-600 dark:text-blue-400", value: "text-blue-700 dark:text-blue-300" },
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <History className="w-5 h-5" />
-            Execution History
-          </DialogTitle>
-          <DialogDescription>
-            Review past workflow runs and inspect node-level output for each execution.
-          </DialogDescription>
+      <DialogContent className="max-w-3xl p-0 overflow-hidden max-h-[85vh] flex flex-col">
+        {/* Header */}
+        <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-950 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="flex items-center gap-2 text-lg">
+                <History className="w-5 h-5" />
+                Execution History
+              </DialogTitle>
+              <DialogDescription className="text-sm mt-1">
+                Review past workflow runs.
+              </DialogDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void loadRuns()} disabled={loading} className="h-9">
+              <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
+              Refresh
+            </Button>
+          </div>
         </DialogHeader>
 
+        {/* Body */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12 px-6">
             <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
           </div>
         ) : runs.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
+          <div className="text-center py-12 px-6 text-muted-foreground">
             <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>No executions yet</p>
             <p className="text-sm mt-2">Run the workflow or a node test to generate history.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
-            <Card className="h-[480px] flex flex-col">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-base">Runs</CardTitle>
-              </CardHeader>
-              <ScrollArea className="flex-1">
-                <div className="space-y-2 px-3 pb-4">
-                  {runs.map((run) => (
-                    <button
-                      key={run.id}
-                      onClick={() => void loadRunNodes(run)}
-                      className={cn(
-                        "w-full text-left border rounded-lg px-3 py-2 transition hover:bg-accent",
-                        selectedRun?.id === run.id && "border-primary bg-primary/5",
-                        activeRunId === run.id && "ring-1 ring-primary"
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{getSourceLabel(run)}</span>
-                        {getStatusBadge(run.status)}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {formatTimestamp(run.startedAt)}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Duration: {formatDuration(run.startedAt, run.finishedAt)}
-                      </div>
-                    </button>
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-6 py-4 border-b bg-gray-50/50 dark:bg-gray-900/50 flex-shrink-0">
+              {statCards.map((sc) => {
+                const c = colorMap[sc.color]
+                return (
+                  <div key={sc.label} className={cn("bg-white dark:bg-gray-800 rounded-lg border p-3", c.border)}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <sc.icon className={cn("h-3.5 w-3.5", c.text)} />
+                      <span className={cn("text-xs font-medium", c.text)}>{sc.label}</span>
+                    </div>
+                    <div className={cn("text-xl font-bold", c.value)}>{sc.value}</div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Runs section - full width */}
+            <div className="px-6 pt-4 pb-6">
+              {/* Runs header with filters + export */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+                  {(["all", "success", "failed"] as const).map((f) => (
+                    <Button key={f} size="sm" variant={filter === f ? "default" : "outline"}
+                      onClick={() => setFilter(f)} className="h-7 px-2.5 text-xs capitalize">
+                      {f === "all" ? `All (${runs.length})` : f === "success" ? `Success (${successCount})` : `Failed (${failedCount})`}
+                    </Button>
                   ))}
                 </div>
-              </ScrollArea>
-            </Card>
+                <Button variant="outline" size="sm" onClick={exportRuns} disabled={!runs.length} className="h-7 px-2.5 text-xs">
+                  <Download className="w-3.5 h-3.5 mr-1.5" />
+                  Export
+                </Button>
+              </div>
 
-            <Card className="h-[480px] flex flex-col">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">
-                  {selectedRun ? `Run ${selectedRun.id.slice(0, 8)}…` : "Select a run"}
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportNodes}
-                    disabled={!selectedRun || nodes.length === 0}
-                    className="hidden sm:flex"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </Button>
-                  {selectedRun && (
-                    <Button size="sm" onClick={() => void handleSetActiveRun(selectedRun)}>
-                      <Play className="w-4 h-4 mr-2" />
-                      View in Builder
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="flex-1 overflow-hidden">
-                {nodesLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              {/* Run list container with scroll */}
+              <div className="max-h-[40vh] overflow-y-auto rounded-lg border bg-gray-50/30 dark:bg-gray-900/30 p-2 space-y-1.5">
+                {filteredRuns.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Filter className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No matching runs</p>
                   </div>
-                ) : nodes.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-12">
-                    Select a run to view node details.
-                  </div>
-                ) : (
-                  <ScrollArea className="h-full pr-4">
-                    <div className="space-y-3">
-                      {nodes.map((node) => (
-                        <div key={node.id} className="border rounded-lg p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <div>
-                              <p className="text-sm font-medium">{node.node_id}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Started {formatTimestamp(node.created_at)}
-                              </p>
-                            </div>
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span>
-                                    {getStatusBadge(node.status)}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Duration:{" "}
-                                  {node.duration_ms ? `${node.duration_ms}ms` : "not recorded"}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                          {node.output && Object.keys(node.output || {}).length > 0 && (
-                            <pre className="mt-2 rounded bg-muted/40 p-2 text-xs overflow-auto">
-                              {JSON.stringify(node.output, null, 2)}
-                            </pre>
-                          )}
-                          {node.error && (
-                            <pre className="mt-2 rounded bg-red-50 text-red-700 p-2 text-xs overflow-auto border border-red-100">
-                              {JSON.stringify(node.error, null, 2)}
-                            </pre>
-                          )}
+                ) : filteredRuns.map((run) => (
+                  <div key={run.id}
+                    className={cn(
+                      "border rounded-lg px-4 py-3 transition-all bg-white dark:bg-gray-900",
+                      "hover:bg-accent hover:shadow-sm hover:border-gray-400 dark:hover:border-gray-500",
+                    )}>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0"><StatusIcon status={run.status} /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">
+                            {run.sessionType === "webhook" ? "Triggered" : "Manual"}
+                          </span>
+                          <StatusBadge status={run.status} />
                         </div>
-                      ))}
+                        <div className="text-xs text-muted-foreground mt-0.5">{fmtTime(run.startedAt)}</div>
+                      </div>
+                      <div className="text-xs text-muted-foreground flex-shrink-0">
+                        {fmtDuration(run.startedAt, run.finishedAt)}
+                      </div>
                     </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </DialogContent>
