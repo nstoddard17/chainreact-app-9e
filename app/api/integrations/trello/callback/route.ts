@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   if (!token || !userId) {
     // Redirect to the client handler page so it can capture the token from the fragment if present
     const base = getBaseUrl()
-    return NextResponse.redirect(`${base}/integrations/trello-auth${state ? `?state=${encodeURIComponent(state)}` : ''}`)
+    return NextResponse.redirect(`${base}/apps/trello-auth${state ? `?state=${encodeURIComponent(state)}` : ''}`)
   }
 
   try {

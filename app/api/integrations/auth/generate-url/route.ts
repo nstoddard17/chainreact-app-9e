@@ -703,7 +703,7 @@ function generateTrelloAuthUrl(state: string): string {
     response_type: "token",
     // Use the page.tsx handler instead of the API route for the callback
     // This allows our client-side code to handle parsing the token from the URL fragment
-    return_url: `${baseUrl}/integrations/trello-auth?state=${state}`,
+    return_url: `${baseUrl}/apps/trello-auth?state=${state}`,
     callback_method: "fragment",
     state,
   })
