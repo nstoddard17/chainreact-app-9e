@@ -138,6 +138,7 @@ interface FlowV2BuilderState {
   secrets: Array<{ id: string; name: string }>
   workflowStatus: 'draft' | 'active' | 'inactive' | null
   isUpdatingStatus: boolean
+  triggerActivationError?: { message: string; details: string | string[] } | null
 }
 
 export interface ApplyEditsOptions {
@@ -1524,6 +1525,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             revisionId?: string
             version?: number
             workflowStatus?: 'draft' | 'active' | 'inactive'
+            triggerActivationError?: { message: string; details: string | string[] }
           }>(
             `${flowApiUrl(flowId, '/apply-edits')}`,
             {
@@ -1548,6 +1550,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             pendingAgentEdits: [],
             // Update workflow status if it changed (e.g., auto-deactivation when trigger is removed)
             ...(payload.workflowStatus ? { workflowStatus: payload.workflowStatus } : {}),
+            // Propagate trigger activation error so the UI can show a toast
+            triggerActivationError: payload.triggerActivationError || null,
           }))
 
           return updatedFlow

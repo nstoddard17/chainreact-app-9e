@@ -411,11 +411,9 @@ export const shopifyNodes: NodeComponent[] = [
     ],
     outputSchema: [
       { name: "inventory_item_id", label: "Inventory Item ID", type: "string", description: "Unique identifier for the inventory item" },
-      { name: "product_id", label: "Product ID", type: "string", description: "Unique identifier for the product with low stock" },
-      { name: "variant_id", label: "Variant ID", type: "string", description: "Unique identifier for the specific variant" },
-      { name: "sku", label: "SKU", type: "string", description: "Stock Keeping Unit code for the variant" },
-      { name: "quantity", label: "Current Quantity", type: "number", description: "Current inventory quantity that fell below threshold" },
-      { name: "location_id", label: "Location ID", type: "string", description: "The location where inventory is low" },
+      { name: "location_id", label: "Location ID", type: "string", description: "The location where inventory changed" },
+      { name: "quantity", label: "Current Quantity", type: "number", description: "Current available inventory quantity that fell below threshold" },
+      { name: "updated_at", label: "Updated At", type: "string", description: "When the inventory was updated (ISO 8601)" },
     ],
   },
 

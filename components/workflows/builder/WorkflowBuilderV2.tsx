@@ -596,6 +596,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
   }, [flowId, flowState?.workflowStatus, builder?.nodes])
 
+  // Show toast when trigger activation fails on an active workflow (e.g., trigger switch failed)
+  useEffect(() => {
+    if (flowState?.triggerActivationError) {
+      const details = flowState.triggerActivationError.details
+      const errorDetail = Array.isArray(details) ? details.join(', ') : details
+
+      toast({
+        title: "Trigger Activation Failed",
+        description: `${flowState.triggerActivationError.message}. Your workflow has been deactivated.${errorDetail ? ' Details: ' + errorDetail : ''}`,
+        variant: "destructive",
+      })
+    }
+  }, [flowState?.triggerActivationError, toast])
+
   const [isIntegrationsPanelOpen, setIsIntegrationsPanelOpen] = useState(false)
   const [integrationsPanelMode, setIntegrationsPanelMode] = useState<'trigger' | 'action'>('action')
   const [configuringNode, setConfiguringNode] = useState<any>(null)

@@ -150,7 +150,7 @@ export class WorkflowService {
   static async updateWorkflow(
     id: string,
     updates: Partial<Workflow>
-  ): Promise<void> {
+  ): Promise<any> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
     logger.debug('🌐 [WorkflowService] Updating workflow', {
@@ -175,7 +175,9 @@ export class WorkflowService {
       throw new Error(`Failed to update workflow: ${response.statusText}`)
     }
 
+    const data = await response.json()
     logger.debug('✅ [WorkflowService] Successfully updated workflow', { id });
+    return data
   }
 
   /**

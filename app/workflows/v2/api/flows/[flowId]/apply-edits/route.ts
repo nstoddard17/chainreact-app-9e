@@ -125,6 +125,10 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     // Pass user.id to associate nodes/edges with the user for RLS
     const revision = await repository.saveGraph(flowId, flow, user.id)
 
+    // Track trigger activation errors - if activation fails on an active workflow,
+    // we need to deactivate the workflow and inform the user
+    let triggerActivationError: { message: string; details: string[] } | null = null
+
     // Clean up orphaned trigger resources for nodes that were removed
     // This runs after revision is saved to ensure we don't lose trigger data on failed saves
     try {
@@ -183,14 +187,41 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
           )
 
           if (activationResult.errors.length > 0) {
-            logger.warn(`[apply-edits] New trigger activation had errors: ${activationResult.errors.join(', ')}`)
+            logger.error(`[apply-edits] New trigger activation failed: ${activationResult.errors.join(', ')}`)
+            triggerActivationError = {
+              message: 'Failed to activate new trigger',
+              details: activationResult.errors
+            }
+            // Roll back workflow to inactive since trigger is broken
+            try {
+              await serviceClient
+                .from('workflows')
+                .update({ status: 'inactive', updated_at: new Date().toISOString() })
+                .eq('id', flowId)
+              logger.info(`[apply-edits] Rolled back workflow ${flowId} to inactive due to trigger activation failure`)
+            } catch (rollbackErr) {
+              logger.error('[apply-edits] Failed to roll back workflow status:', rollbackErr)
+            }
           } else {
             logger.debug(`[apply-edits] Successfully activated ${newTriggerNodes.length} new trigger(s)`)
           }
         }
       } catch (activationError) {
-        // Don't fail the request if activation fails - log and continue
         logger.error('[apply-edits] Failed to activate new triggers:', activationError)
+        triggerActivationError = {
+          message: 'Failed to activate new trigger',
+          details: [activationError instanceof Error ? activationError.message : 'Unknown error']
+        }
+        // Roll back workflow to inactive since trigger is broken
+        try {
+          await serviceClient
+            .from('workflows')
+            .update({ status: 'inactive', updated_at: new Date().toISOString() })
+            .eq('id', flowId)
+          logger.info(`[apply-edits] Rolled back workflow ${flowId} to inactive due to trigger activation failure`)
+        } catch (rollbackErr) {
+          logger.error('[apply-edits] Failed to roll back workflow status:', rollbackErr)
+        }
       }
     }
 
@@ -225,7 +256,8 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
 
     // Handle trigger TYPE changes in active workflows
     // When trigger type changes, do full deactivate + reactivate to ensure clean state
-    if (existingWorkflow.status === 'active') {
+    // Skip if we already have a trigger activation error from the new-trigger path above
+    if (existingWorkflow.status === 'active' && !triggerActivationError) {
       try {
         // Get existing trigger resources
         const { data: existingResources } = await serviceClient
@@ -265,14 +297,41 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
           )
 
           if (activationResult.errors.length > 0) {
-            logger.warn(`[apply-edits] Trigger reactivation had errors: ${activationResult.errors.join(', ')}`)
+            logger.error(`[apply-edits] Trigger reactivation failed: ${activationResult.errors.join(', ')}`)
+            triggerActivationError = {
+              message: 'Failed to reactivate trigger after type change',
+              details: activationResult.errors
+            }
+            // Roll back workflow to inactive since trigger is broken
+            try {
+              await serviceClient
+                .from('workflows')
+                .update({ status: 'inactive', updated_at: new Date().toISOString() })
+                .eq('id', flowId)
+              logger.info(`[apply-edits] Rolled back workflow ${flowId} to inactive due to trigger reactivation failure`)
+            } catch (rollbackErr) {
+              logger.error('[apply-edits] Failed to roll back workflow status:', rollbackErr)
+            }
           } else {
             logger.debug(`[apply-edits] Successfully reactivated ${newTriggerNodes.length} triggers`)
           }
         }
       } catch (triggerError) {
-        // Don't fail the request if trigger handling fails - log and continue
         logger.error('[apply-edits] Failed to handle trigger type change:', triggerError)
+        triggerActivationError = {
+          message: 'Failed to reactivate trigger after type change',
+          details: [triggerError instanceof Error ? triggerError.message : 'Unknown error']
+        }
+        // Roll back workflow to inactive since trigger is broken
+        try {
+          await serviceClient
+            .from('workflows')
+            .update({ status: 'inactive', updated_at: new Date().toISOString() })
+            .eq('id', flowId)
+          logger.info(`[apply-edits] Rolled back workflow ${flowId} to inactive due to trigger reactivation failure`)
+        } catch (rollbackErr) {
+          logger.error('[apply-edits] Failed to roll back workflow status:', rollbackErr)
+        }
       }
     }
 
@@ -290,6 +349,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       revisionId: revision.id,
       version: revision.version,
       workflowStatus: updatedWorkflow?.status || existingWorkflow.status,
+      ...(triggerActivationError ? { triggerActivationError } : {}),
     })
   } catch (error: any) {
     console.error('[apply-edits] Failed to create revision:', error)

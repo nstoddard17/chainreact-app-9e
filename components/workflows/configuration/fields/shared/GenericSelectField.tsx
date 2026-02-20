@@ -273,7 +273,7 @@ export function GenericSelectField({
 
     // Only enable for searchable fields or fields with searchable: true
     const searchableFields = ['gmail-recent-emails', 'gmail_from_addresses', 'gmail-enhanced-recipients', 'gmail_recent_senders', 'gmail-recent-senders'];
-    if (!searchableFields.includes(field.dynamic) && !(field as any).searchable) {
+    if (!searchableFields.includes(field.dynamic)) {
       console.log('❌ [GenericSelectField] Search skipped - field not in searchableFields:', field.dynamic);
       return;
     }

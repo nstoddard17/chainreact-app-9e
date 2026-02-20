@@ -253,12 +253,21 @@ export function useWorkflowSaveActions({
     try {
       setIsSaving(true)
 
-      await updateWorkflow(workflow.id, {
+      const triggerError = await updateWorkflow(workflow.id, {
         name,
         description,
         nodes: workflowNodes,
         connections: workflowConnections,
       })
+
+      // If trigger activation failed, the server rolled back the workflow to inactive
+      if (triggerError) {
+        toast({
+          title: "Trigger Activation Failed",
+          description: `${triggerError.message || 'Failed to activate trigger'}. Your workflow has been deactivated.`,
+          variant: "destructive",
+        })
+      }
 
       justSavedRef.current = true
       setHasUnsavedChanges(false)

@@ -606,13 +606,45 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
           if (!result.success) {
             logger.error('❌ Trigger update had errors:', result.errors)
-            // Continue - partial success is acceptable
+            // Roll back to inactive - trigger is broken
+            const { data: rolledBackWorkflow } = await serviceClient
+              .from('workflows')
+              .update({ status: 'inactive', updated_at: new Date().toISOString() })
+              .eq('id', data.id)
+              .select()
+              .single()
+
+            return jsonResponse({
+              ...rolledBackWorkflow,
+              nodes,
+              connections,
+              triggerActivationError: {
+                message: 'Failed to update workflow triggers',
+                details: result.errors
+              }
+            }, { status: 200 })
           } else {
             logger.debug('✅ All triggers updated successfully')
           }
         } catch (updateErr) {
           logger.error('❌ Failed to update triggers:', updateErr)
-          // Log error but don't fail the workflow update
+          // Roll back to inactive - trigger is broken
+          const { data: rolledBackWorkflow } = await serviceClient
+            .from('workflows')
+            .update({ status: 'inactive', updated_at: new Date().toISOString() })
+            .eq('id', data.id)
+            .select()
+            .single()
+
+          return jsonResponse({
+            ...rolledBackWorkflow,
+            nodes,
+            connections,
+            triggerActivationError: {
+              message: 'Failed to update workflow triggers',
+              details: updateErr instanceof Error ? updateErr.message : String(updateErr)
+            }
+          }, { status: 200 })
         }
       } else if (statusChangedToActive && !wasActive) {
         // Fresh activation

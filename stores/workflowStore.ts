@@ -193,7 +193,7 @@ interface WorkflowActions {
   fetchOrganizationWorkflows: (organizationId: string) => Promise<void>
   getGroupedWorkflows: () => GroupedWorkflows
   createWorkflow: (name: string, description?: string, organizationId?: string, folderId?: string) => Promise<Workflow>
-  updateWorkflow: (id: string, updates: Partial<Workflow>) => Promise<void>
+  updateWorkflow: (id: string, updates: Partial<Workflow>) => Promise<any>
   deleteWorkflow: (id: string) => Promise<void>
   moveWorkflowToTrash: (id: string) => Promise<void>
   restoreWorkflowFromTrash: (id: string) => Promise<void>
@@ -467,14 +467,26 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       })
 
       // Use WorkflowService to update
-      await WorkflowService.updateWorkflow(id, updates)
+      const responseData = await WorkflowService.updateWorkflow(id, updates)
+
+      // If the server rolled back the status (e.g., trigger activation failed),
+      // use the server's actual status instead of our intended updates
+      const effectiveUpdates = responseData?.triggerActivationError
+        ? { ...updates, status: responseData.status || 'inactive' }
+        : updates
 
       // Update local store - merge updates with existing workflow
       set((state) => ({
-        workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...updates } : w)),
+        workflows: state.workflows.map((w) => (w.id === id ? { ...w, ...effectiveUpdates } : w)),
         currentWorkflow:
-          state.currentWorkflow?.id === id ? { ...state.currentWorkflow, ...updates } : state.currentWorkflow,
+          state.currentWorkflow?.id === id ? { ...state.currentWorkflow, ...effectiveUpdates } : state.currentWorkflow,
       }))
+
+      // Return trigger activation error so callers can show toast
+      if (responseData?.triggerActivationError) {
+        logger.warn(`[WorkflowStore] Trigger activation failed for workflow ${id}:`, responseData.triggerActivationError)
+        return responseData.triggerActivationError
+      }
 
       logger.debug(`[WorkflowStore] Successfully updated workflow ${id}`)
 

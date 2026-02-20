@@ -47,6 +47,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       .from('integrations')
       .select('id, access_token, metadata, shop_domain')
       .eq('provider', 'shopify')
+      .eq('user_id', userId)
 
     // Find the integration containing this shop
     const integration = integrations?.find(i => {
