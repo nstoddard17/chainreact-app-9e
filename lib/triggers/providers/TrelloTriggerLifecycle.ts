@@ -76,7 +76,7 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Get webhook callback URL
-    const webhookUrl = getWebhookUrl('trello')
+    const webhookUrl = getWebhookUrl('/api/webhooks/trello')
 
     logger.debug(`📤 Creating Trello webhook`, {
       boardId,
