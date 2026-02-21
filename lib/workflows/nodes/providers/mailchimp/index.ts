@@ -367,6 +367,16 @@ export const mailchimpNodes: NodeComponent[] = [
     producesOutput: true,
     configSchema: [
       {
+        name: "audienceId",
+        label: "Audience",
+        type: "combobox",
+        required: true,
+        dynamic: "mailchimp_audiences",
+        loadOnMount: true,
+        placeholder: "Select an audience",
+        description: "Choose which Mailchimp audience to monitor for campaign sends"
+      },
+      {
         name: "status",
         label: "Campaign Status",
         type: "select",
