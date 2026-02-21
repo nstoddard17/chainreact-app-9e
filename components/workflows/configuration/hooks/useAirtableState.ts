@@ -32,7 +32,7 @@ export function useAirtableState({ nodeInfo, values }: UseAirtableStateProps) {
       
       // Ensure table schema is loaded first (for linked field name mappings)
       if (!airtableTableSchema || airtableTableSchema.table?.name !== tableName) {
-        logger.debug('🔍 Loading table schema before records');
+        logger.info('🔍 Loading table schema before records');
         await fetchAirtableTableSchema(baseId, tableName);
       }
       
@@ -42,7 +42,7 @@ export function useAirtableState({ nodeInfo, values }: UseAirtableStateProps) {
         return;
       }
 
-      logger.debug('🔍 Loading Airtable records:', { baseId, tableName });
+      logger.info('🔍 Loading Airtable records:', { baseId, tableName });
       
       // Call the Airtable-specific data API endpoint
       const response = await fetch('/api/integrations/airtable/data', {
@@ -69,7 +69,7 @@ export function useAirtableState({ nodeInfo, values }: UseAirtableStateProps) {
       }
 
       const data = await response.json();
-      logger.debug('✅ Loaded', data.length, 'records');
+      logger.info('✅ Loaded', data.length, 'records');
       
       setAirtableRecords(data || []);
       setShowRecordsTable(true);
@@ -92,7 +92,7 @@ export function useAirtableState({ nodeInfo, values }: UseAirtableStateProps) {
         return;
       }
 
-      logger.debug('🔍 Fetching Airtable table schema:', { baseId, tableName });
+      logger.info('🔍 Fetching Airtable table schema:', { baseId, tableName });
       
       const response = await fetch('/api/integrations/airtable/data', {
         method: 'POST',
@@ -116,7 +116,7 @@ export function useAirtableState({ nodeInfo, values }: UseAirtableStateProps) {
       }
 
       const data = await response.json();
-      logger.debug('✅ Fetched table schema:', data);
+      logger.info('✅ Fetched table schema:', data);
       
       setAirtableTableSchema(data);
       return data;

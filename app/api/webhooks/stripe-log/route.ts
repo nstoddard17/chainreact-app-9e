@@ -8,25 +8,25 @@ import { logger } from '@/lib/utils/logger'
 // This endpoint logs all incoming Stripe webhook events for debugging
 // No signature verification - just logs everything
 export async function POST(request: Request) {
-  logger.debug("[Stripe Log] ========================================")
-  logger.debug("[Stripe Log] Received webhook at:", new Date().toISOString())
+  logger.info("[Stripe Log] ========================================")
+  logger.info("[Stripe Log] Received webhook at:", new Date().toISOString())
   
   try {
     const body = await request.text()
     const headers = Object.fromEntries(request.headers.entries())
     
-    logger.debug("[Stripe Log] Headers:", JSON.stringify(headers, null, 2))
-    logger.debug("[Stripe Log] Body length:", body.length)
+    logger.info("[Stripe Log] Headers:", JSON.stringify(headers, null, 2))
+    logger.info("[Stripe Log] Body length:", body.length)
     
     // Try to parse the body
     let parsedBody
     try {
       parsedBody = JSON.parse(body)
-      logger.debug("[Stripe Log] Event type:", parsedBody.type)
-      logger.debug("[Stripe Log] Event ID:", parsedBody.id)
+      logger.info("[Stripe Log] Event type:", parsedBody.type)
+      logger.info("[Stripe Log] Event ID:", parsedBody.id)
       
       if (parsedBody.type === "checkout.session.completed") {
-        logger.debug("[Stripe Log] Checkout session data:", {
+        logger.info("[Stripe Log] Checkout session data:", {
           session_id: parsedBody.data?.object?.id,
           customer: parsedBody.data?.object?.customer,
           subscription: parsedBody.data?.object?.subscription,
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         timestamp: new Date().toISOString()
       }
       
-      logger.debug("[Stripe Log] Attempting to store log entry...")
+      logger.info("[Stripe Log] Attempting to store log entry...")
       
       // First try webhook_logs table
       const { error: logError } = await supabase
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         .insert(logEntry)
       
       if (logError) {
-        logger.debug("[Stripe Log] webhook_logs table not available:", logError.message)
+        logger.info("[Stripe Log] webhook_logs table not available:", logError.message)
         
         // Try to store in subscriptions table as a test
         if (parsedBody?.type === "checkout.session.completed") {
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
             updated_at: new Date().toISOString()
           }
           
-          logger.debug("[Stripe Log] Attempting to create test subscription record:", testRecord)
+          logger.info("[Stripe Log] Attempting to create test subscription record:", testRecord)
           const { error: subError } = await supabase
             .from('subscriptions')
             .insert(testRecord)
@@ -88,17 +88,17 @@ export async function POST(request: Request) {
           if (subError) {
             logger.error("[Stripe Log] Failed to create test record:", subError)
           } else {
-            logger.debug("[Stripe Log] Successfully created test subscription record")
+            logger.info("[Stripe Log] Successfully created test subscription record")
           }
         }
       } else {
-        logger.debug("[Stripe Log] Successfully logged to webhook_logs table")
+        logger.info("[Stripe Log] Successfully logged to webhook_logs table")
       }
     } catch (dbError) {
       logger.error("[Stripe Log] Database error:", dbError)
     }
     
-    logger.debug("[Stripe Log] ========================================")
+    logger.info("[Stripe Log] ========================================")
     
     return jsonResponse({ 
       received: true, 

@@ -47,7 +47,7 @@ async function getAirtableTableFieldNames(
 
     if (!res.ok) {
       const errText = await res.text().catch(() => res.statusText)
-      logger.debug(`⚠️ [Airtable] Failed to fetch table schema (${res.status}): ${errText}`)
+      logger.info(`⚠️ [Airtable] Failed to fetch table schema (${res.status}): ${errText}`)
       return null
     }
 
@@ -61,7 +61,7 @@ async function getAirtableTableFieldNames(
     })
 
     if (!table?.fields) {
-      logger.debug('[Airtable] Table schema response did not include fields for', normalizedTableName)
+      logger.info('[Airtable] Table schema response did not include fields for', normalizedTableName)
       return null
     }
 
@@ -224,12 +224,12 @@ export async function uploadAirtableAttachment(
   const extension = guessFileExtension(mimeType)
   const fileName = explicitFilename || buildDefaultFilename(fieldName, index, extension)
 
-  logger.debug(`📎 [Airtable] Uploading temporary attachment for "${fieldName}" via Supabase`)
+  logger.info(`📎 [Airtable] Uploading temporary attachment for "${fieldName}" via Supabase`)
 
   const { url: fileUrl, filePath } = await uploadTempAttachmentToSupabase(buffer, fileName, mimeType)
   cleanupPaths.push(filePath)
 
-  logger.debug(
+  logger.info(
     `📎 [Airtable] Supabase temporary attachment ready for "${fieldName}" at ${filePath}`
   )
 
@@ -437,7 +437,7 @@ export async function createAirtableRecord(
 
   try {
     // Only log essential info, not the entire config
-    logger.debug("📊 [Airtable] Creating record...")
+    logger.info("📊 [Airtable] Creating record...")
 
     // Validate config object
     if (!config || typeof config !== 'object') {
@@ -480,7 +480,7 @@ export async function createAirtableRecord(
       fieldCount += Object.keys(directFields).length
     }
 
-    logger.debug(`📊 [Airtable] Found ${fieldCount} fields to process`)
+    logger.info(`📊 [Airtable] Found ${fieldCount} fields to process`)
 
     if (!baseId || !tableName) {
       const missingFields = []
@@ -495,11 +495,11 @@ export async function createAirtableRecord(
     const resolvedTableId = await resolveTableId(baseId, tableName, tableId, accessToken)
 
     if (resolvedTableId) {
-      logger.debug(
+      logger.info(
         `📎 [Airtable] Using tableId ${resolvedTableId} for table "${tableName}" in base ${baseId}`
       )
     } else {
-      logger.debug('📎 [Airtable] Proceeding without resolved tableId for attachment upload context')
+      logger.info('📎 [Airtable] Proceeding without resolved tableId for attachment upload context')
     }
 
     // Fetch table schema to get field types and date formats
@@ -518,11 +518,11 @@ export async function createAirtableRecord(
         const schemaResult = await schemaResponse.json()
         tableSchema = schemaResult.tables?.find((t: any) => t.name === tableName)
         if (tableSchema) {
-          logger.debug(`📊 [Airtable] Retrieved table schema with ${tableSchema.fields?.length || 0} fields`)
+          logger.info(`📊 [Airtable] Retrieved table schema with ${tableSchema.fields?.length || 0} fields`)
         }
       }
     } catch (error) {
-      logger.debug('📊 [Airtable] Could not fetch table schema, proceeding without field type information')
+      logger.info('📊 [Airtable] Could not fetch table schema, proceeding without field type information')
     }
 
     // Resolve field values using template variables
@@ -555,7 +555,7 @@ export async function createAirtableRecord(
         // Handle ISO strings like "2025-11-13T20:59:23.844Z"
         date = new Date(value)
         if (isNaN(date.getTime())) {
-          logger.debug(`📊 [Airtable] Invalid date value for field "${fieldInfo.name}": ${value}`)
+          logger.info(`📊 [Airtable] Invalid date value for field "${fieldInfo.name}": ${value}`)
           return value
         }
       } else if (value instanceof Date) {
@@ -571,13 +571,13 @@ export async function createAirtableRecord(
         const month = String(date.getMonth() + 1).padStart(2, '0')
         const day = String(date.getDate()).padStart(2, '0')
         const formatted = `${year}-${month}-${day}`
-        logger.debug(`📊 [Airtable] Formatted date field "${fieldInfo.name}": ${formatted}`)
+        logger.info(`📊 [Airtable] Formatted date field "${fieldInfo.name}": ${formatted}`)
         return formatted
       } else if (fieldType === 'dateTime') {
         // DateTime field: format as ISO 8601 string
         // Airtable accepts ISO 8601 format: YYYY-MM-DDTHH:mm:ss.sssZ
         const formatted = date.toISOString()
-        logger.debug(`📊 [Airtable] Formatted datetime field "${fieldInfo.name}": ${formatted}`)
+        logger.info(`📊 [Airtable] Formatted datetime field "${fieldInfo.name}": ${formatted}`)
         return formatted
       }
 
@@ -594,7 +594,7 @@ export async function createAirtableRecord(
           resolved = resolved.map((v: any) => {
             if (typeof v === 'string' && v.includes('::')) {
               const cleaned = v.split('::')[0]
-              logger.debug(`📊 [Airtable] Cleaned linked record for "${fieldName}": "${v}" -> "${cleaned}"`)
+              logger.info(`📊 [Airtable] Cleaned linked record for "${fieldName}": "${v}" -> "${cleaned}"`)
               return cleaned
             }
             return v
@@ -602,7 +602,7 @@ export async function createAirtableRecord(
         } else if (typeof resolved === 'string' && resolved.includes('::')) {
           const original = resolved
           resolved = resolved.split('::')[0]
-          logger.debug(`📊 [Airtable] Cleaned linked record for "${fieldName}": "${original}" -> "${resolved}"`)
+          logger.info(`📊 [Airtable] Cleaned linked record for "${fieldName}": "${original}" -> "${resolved}"`)
         }
 
         // Check if we have schema information for this field
@@ -629,7 +629,7 @@ export async function createAirtableRecord(
         const candidateEntries = extractAttachmentCandidates(resolved)
 
         if ((isLikelyAttachment || candidateEntries) && resolved) {
-          logger.debug(
+          logger.info(
             `📊 [Airtable] Processing attachment field "${fieldName}" (${Array.isArray(candidateEntries) ? candidateEntries.length : 1} value(s))`
           )
 
@@ -650,7 +650,7 @@ export async function createAirtableRecord(
               if (attachment) {
                 attachments.push(attachment)
               } else {
-                logger.debug(`📊 [Airtable] Ignored attachment entry ${index + 1} for field "${fieldName}" (unrecognized format)`)
+                logger.info(`📊 [Airtable] Ignored attachment entry ${index + 1} for field "${fieldName}" (unrecognized format)`)
               }
             } catch (attachmentError) {
               hadAttachmentIssue = true
@@ -662,7 +662,7 @@ export async function createAirtableRecord(
           if (attachments.length > 0) {
             resolvedFields[fieldName] = attachments
             attachmentFields.push(fieldName)
-            logger.debug(
+            logger.info(
               `📊 [Airtable] Prepared ${attachments.length} attachment(s) for field "${fieldName}"`
             )
             continue
@@ -670,7 +670,7 @@ export async function createAirtableRecord(
 
           if (hadAttachmentIssue) {
             skippedFields.push(fieldName)
-            logger.debug(`📊 [Airtable] Skipping field "${fieldName}" due to attachment processing errors`)
+            logger.info(`📊 [Airtable] Skipping field "${fieldName}" due to attachment processing errors`)
             continue
           }
 
@@ -693,21 +693,21 @@ export async function createAirtableRecord(
 
           if (Array.isArray(resolved) && resolved.length === 1 && !shouldStayArray) {
             finalValue = resolved[0]
-            logger.debug(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
+            logger.info(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
           }
 
           // Final safety check: if this is base64 data that wasn't detected as an attachment field,
           // skip it to prevent API errors
           if (typeof finalValue === 'string' && finalValue.startsWith('data:') && finalValue.includes('base64,')) {
-            logger.debug(`📊 [Airtable] Field "${fieldName}" contains base64 data but was not recognized as attachment`)
-            logger.debug(`📊 [Airtable] Skipping to prevent invalid payload. Please rename field or verify configuration.`)
+            logger.info(`📊 [Airtable] Field "${fieldName}" contains base64 data but was not recognized as attachment`)
+            logger.info(`📊 [Airtable] Skipping to prevent invalid payload. Please rename field or verify configuration.`)
             skippedFields.push(fieldName)
             continue
           }
 
           // Additional check for very large string data that might cause issues
           if (typeof finalValue === 'string' && finalValue.length > 100000) {
-            logger.debug(`📊 [Airtable] Field "${fieldName}" contains very large data (${(finalValue.length / 1024).toFixed(1)}KB) - skipping`)
+            logger.info(`📊 [Airtable] Field "${fieldName}" contains very large data (${(finalValue.length / 1024).toFixed(1)}KB) - skipping`)
             skippedFields.push(fieldName)
             continue
           }
@@ -719,10 +719,10 @@ export async function createAirtableRecord(
     }
 
     if (attachmentFields.length > 0) {
-      logger.debug(`📊 [Airtable] Prepared attachment fields: ${attachmentFields.join(', ')}`)
+      logger.info(`📊 [Airtable] Prepared attachment fields: ${attachmentFields.join(', ')}`)
     }
     if (attachmentErrors.length > 0) {
-      logger.debug(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
+      logger.info(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
     }
 
     // Remove any fields that do not exist in the Airtable schema to avoid 422 errors
@@ -737,10 +737,10 @@ export async function createAirtableRecord(
     }
 
     if (skippedFields.length > 0) {
-      logger.debug(`📊 [Airtable] Skipped fields: ${skippedFields.join(', ')}`)
+      logger.info(`📊 [Airtable] Skipped fields: ${skippedFields.join(', ')}`)
     }
-    logger.debug(`📊 [Airtable] Sending ${Object.keys(resolvedFields).length} fields to API`)
-    logger.debug(`📊 [Airtable] Field names being sent: ${Object.keys(resolvedFields).join(', ')}`)
+    logger.info(`📊 [Airtable] Sending ${Object.keys(resolvedFields).length} fields to API`)
+    logger.info(`📊 [Airtable] Field names being sent: ${Object.keys(resolvedFields).join(', ')}`)
 
 
     // Create the record in Airtable
@@ -748,7 +748,7 @@ export async function createAirtableRecord(
       fields: resolvedFields,
     }
 
-    logger.debug(`📊 [Airtable] Sending request to table: ${tableName}`)
+    logger.info(`📊 [Airtable] Sending request to table: ${tableName}`)
 
     const response = await fetch(
       `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`,
@@ -782,7 +782,7 @@ export async function createAirtableRecord(
     }
 
     const result = await response.json()
-    logger.debug(`📊 [Airtable] Record created successfully with ID: ${result.id}`)
+    logger.info(`📊 [Airtable] Record created successfully with ID: ${result.id}`)
     recordCreated = true
 
     return {
@@ -806,14 +806,14 @@ export async function createAirtableRecord(
   } finally {
     if (cleanupPaths.length > 0) {
       if (recordCreated) {
-        logger.debug(
+        logger.info(
           `🧹 [Airtable] Scheduling cleanup for ${cleanupPaths.length} temporary attachment(s)`
         )
         scheduleTempAttachmentCleanup(cleanupPaths)
       } else {
         try {
           await deleteTempAttachments(cleanupPaths)
-          logger.debug(
+          logger.info(
             `🧹 [Airtable] Removed ${cleanupPaths.length} temporary attachment(s) after failure`
           )
         } catch (cleanupError) {

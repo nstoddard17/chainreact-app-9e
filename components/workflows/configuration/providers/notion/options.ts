@@ -11,7 +11,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, dependsOnValue, extraOptions, formValues } = params
 
-    logger.debug('🔵 [Notion Options] loadOptions called:', {
+    logger.info('🔵 [Notion Options] loadOptions called:', {
       fieldName,
       integrationId,
       dependsOnValue,
@@ -132,7 +132,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       
       const requiresDatabaseId = databaseBoundFields.has(fieldName)
       if (requiresDatabaseId && !requestBody.options.databaseId) {
-        logger.debug('⚠️ [Notion Options] Skipping Notion request - missing databaseId', {
+        logger.info('⚠️ [Notion Options] Skipping Notion request - missing databaseId', {
           fieldName,
           dataType,
           integrationId,
@@ -146,7 +146,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
 
       // pageFields and blocksToDelete require pageId
       if ((fieldName === 'pageFields' || fieldName === 'blocksToDelete') && !requestBody.options.pageId) {
-        logger.debug('⚠️ [Notion Options] Skipping Notion request - missing pageId', {
+        logger.info('⚠️ [Notion Options] Skipping Notion request - missing pageId', {
           fieldName,
           dataType,
           integrationId,
@@ -157,7 +157,7 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
         return []
       }
 
-      logger.debug('📤 [Notion Options] Making API request:', {
+      logger.info('📤 [Notion Options] Making API request:', {
         fieldName,
         dataType,
         requestBody,
@@ -201,14 +201,14 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
       const result = await response.json()
       const data = result.data || result
       
-      logger.debug('🔍 [Notion Options] Raw response for', dataType, ':', result)
-      logger.debug('🔍 [Notion Options] Extracted data:', data)
+      logger.info('🔍 [Notion Options] Raw response for', dataType, ':', result)
+      logger.info('🔍 [Notion Options] Extracted data:', data)
       
       // Format the response based on data type
       switch (dataType) {
         case 'workspaces':
           const workspaceData = Array.isArray(data) ? data : (data.workspaces || data)
-          logger.debug('🔍 [Notion Options] Workspace data before mapping:', workspaceData)
+          logger.info('🔍 [Notion Options] Workspace data before mapping:', workspaceData)
           
           const mappedWorkspaces = workspaceData?.map((workspace: any) => {
             // The workspace already has label from the handler, use it directly
@@ -216,11 +216,11 @@ export const notionOptionsLoader: ProviderOptionsLoader = {
               value: workspace.value || workspace.id,
               label: workspace.label || workspace.name || 'Unnamed Workspace'
             }
-            logger.debug('🔍 [Notion Options] Mapped workspace:', option)
+            logger.info('🔍 [Notion Options] Mapped workspace:', option)
             return option
           }) || []
           
-          logger.debug('🔍 [Notion Options] Final workspace options:', mappedWorkspaces)
+          logger.info('🔍 [Notion Options] Final workspace options:', mappedWorkspaces)
           return mappedWorkspaces
           
         case 'databases':

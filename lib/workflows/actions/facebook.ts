@@ -72,14 +72,14 @@ export async function createFacebookPost(
     // Get page access token for the specific page
     const pageAccessToken = await getPageAccessToken(pageId, accessToken)
 
-    logger.debug('[Facebook] Starting create post action')
-    logger.debug('[Facebook] Parameters:', { pageId, message, mediaFile })
+    logger.info('[Facebook] Starting create post action')
+    logger.info('[Facebook] Parameters:', { pageId, message, mediaFile })
 
     // Step 1: Upload media files and collect their IDs
     const mediaIds: string[] = []
     
     if (mediaFile) {
-      logger.debug("Processing media file:", JSON.stringify(mediaFile, null, 2))
+      logger.info("Processing media file:", JSON.stringify(mediaFile, null, 2))
       
       // Handle different media file formats
       let fileIds: string[] = []
@@ -100,7 +100,7 @@ export async function createFacebookPost(
       }
       
       for (const fileId of fileIds) {
-        logger.debug(`[Facebook] Processing file ID: ${fileId}`)
+        logger.info(`[Facebook] Processing file ID: ${fileId}`)
         
         // Get file buffer from storage
         const fileBuffer = await getFileBuffer(fileId, userId)
@@ -122,7 +122,7 @@ export async function createFacebookPost(
         
         if (uploadResult.success) {
           mediaIds.push(uploadResult.id)
-          logger.debug(`[Facebook] Media uploaded successfully: ${uploadResult.id}`)
+          logger.info(`[Facebook] Media uploaded successfully: ${uploadResult.id}`)
         } else {
           logger.error(`[Facebook] Failed to upload media: ${uploadResult.error}`)
         }
@@ -191,7 +191,7 @@ export async function createFacebookPost(
 
     const result = await response.json()
 
-    logger.debug('[Facebook] Create post action completed successfully')
+    logger.info('[Facebook] Create post action completed successfully')
     
     return {
       success: true,
@@ -276,7 +276,7 @@ async function uploadPhotoToFacebook(
   fileName: string
 ): Promise<FacebookMediaUploadResult> {
   try {
-    logger.debug(`[Facebook] Uploading photo to page ${pageId}`)
+    logger.info(`[Facebook] Uploading photo to page ${pageId}`)
     
     const formData = new FormData()
     // Convert Buffer to Blob for native FormData
@@ -304,7 +304,7 @@ async function uploadPhotoToFacebook(
       }
     }
 
-    logger.debug(`[Facebook] Photo uploaded successfully, ID: ${result.id}`)
+    logger.info(`[Facebook] Photo uploaded successfully, ID: ${result.id}`)
     return {
       id: result.id,
       success: true
@@ -331,7 +331,7 @@ async function uploadVideoToFacebook(
   title?: string
 ): Promise<FacebookMediaUploadResult> {
   try {
-    logger.debug(`[Facebook] Uploading video to page ${pageId}`)
+    logger.info(`[Facebook] Uploading video to page ${pageId}`)
     
     const formData = new FormData()
     // Convert Buffer to Blob for native FormData
@@ -366,7 +366,7 @@ async function uploadVideoToFacebook(
       }
     }
 
-    logger.debug(`[Facebook] Video uploaded successfully, ID: ${result.id}`)
+    logger.info(`[Facebook] Video uploaded successfully, ID: ${result.id}`)
     return {
       id: result.id,
       success: true
@@ -391,7 +391,7 @@ async function createFacebookPostWithMedia(
   mediaIds: string[]
 ): Promise<FacebookPostResult> {
   try {
-    logger.debug(`[Facebook] Creating post with ${mediaIds.length} media items`)
+    logger.info(`[Facebook] Creating post with ${mediaIds.length} media items`)
     
     const payload: any = {
       message: message
@@ -424,7 +424,7 @@ async function createFacebookPostWithMedia(
       }
     }
 
-    logger.debug(`[Facebook] Post created successfully, ID: ${result.id}`)
+    logger.info(`[Facebook] Post created successfully, ID: ${result.id}`)
     return {
       id: result.id,
       success: true
@@ -457,7 +457,7 @@ async function getFileBuffer(fileId: string, userId: string): Promise<Buffer | n
     const arrayBuffer = await fileResult.file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     
-    logger.debug(`[Facebook] Successfully retrieved file: ${fileResult.metadata.fileName} (${buffer.length} bytes)`)
+    logger.info(`[Facebook] Successfully retrieved file: ${fileResult.metadata.fileName} (${buffer.length} bytes)`)
     return buffer
   } catch (error) {
     logger.error('[Facebook] Error getting file buffer:', error)
@@ -474,7 +474,7 @@ export async function uploadMediaToFacebook(
   mediaFileIds: string[],
   userId: string
 ): Promise<string[]> {
-  logger.debug('[Facebook] Legacy uploadMediaToFacebook called')
+  logger.info('[Facebook] Legacy uploadMediaToFacebook called')
   
   const mediaIds: string[] = []
   
@@ -917,7 +917,7 @@ export async function deleteFacebookPost(
       throw new Error("Page ID and Post ID are required")
     }
 
-    logger.debug('[Facebook] Starting delete post action', { pageId, postId })
+    logger.info('[Facebook] Starting delete post action', { pageId, postId })
 
     // Get decrypted access token
     const accessToken = await getDecryptedAccessToken(userId, "facebook")
@@ -1002,7 +1002,7 @@ export async function updateFacebookPost(
       throw new Error("Page ID and Post ID are required")
     }
 
-    logger.debug('[Facebook] Starting update post action', { pageId, postId, message })
+    logger.info('[Facebook] Starting update post action', { pageId, postId, message })
 
     // Get decrypted access token
     const accessToken = await getDecryptedAccessToken(userId, "facebook")
@@ -1111,7 +1111,7 @@ export async function uploadFacebookPhoto(
       throw new Error("Page ID and photo file are required")
     }
 
-    logger.debug('[Facebook] Starting upload photo action', { pageId, photoFile, caption })
+    logger.info('[Facebook] Starting upload photo action', { pageId, photoFile, caption })
 
     // Get decrypted access token
     const accessToken = await getDecryptedAccessToken(userId, "facebook")
@@ -1155,7 +1155,7 @@ export async function uploadFacebookPhoto(
 
       if (!isNumericId) {
         // It's a new album name - create the album first
-        logger.debug('[Facebook] Creating new album:', targetAlbum)
+        logger.info('[Facebook] Creating new album:', targetAlbum)
 
         const createAlbumResponse = await fetch(`https://graph.facebook.com/v19.0/${pageId}/albums`, {
           method: 'POST',
@@ -1176,7 +1176,7 @@ export async function uploadFacebookPhoto(
         } else {
           const albumData = await createAlbumResponse.json()
           albumId = albumData.id
-          logger.debug('[Facebook] Album created successfully:', albumId)
+          logger.info('[Facebook] Album created successfully:', albumId)
         }
       }
     }
@@ -1186,7 +1186,7 @@ export async function uploadFacebookPhoto(
       ? `https://graph.facebook.com/v19.0/${albumId}/photos`
       : `https://graph.facebook.com/v19.0/${pageId}/photos`
 
-    logger.debug('[Facebook] Uploading photo to:', uploadEndpoint)
+    logger.info('[Facebook] Uploading photo to:', uploadEndpoint)
 
     // Upload photo
     const response = await fetch(uploadEndpoint, {
@@ -1204,7 +1204,7 @@ export async function uploadFacebookPhoto(
 
     const result = await response.json()
 
-    logger.debug('[Facebook] Photo uploaded successfully:', result)
+    logger.info('[Facebook] Photo uploaded successfully:', result)
 
     // Determine success message
     let successMessage = "Photo uploaded successfully to Facebook"
@@ -1274,7 +1274,7 @@ export async function uploadFacebookVideo(
       throw new Error("Page ID and video file are required")
     }
 
-    logger.debug('[Facebook] Starting upload video action', { pageId, videoFile, title })
+    logger.info('[Facebook] Starting upload video action', { pageId, videoFile, title })
 
     // Get decrypted access token
     const accessToken = await getDecryptedAccessToken(userId, "facebook")
@@ -1334,7 +1334,7 @@ export async function uploadFacebookVideo(
     // Monetization
     if (enableMonetization === true) {
       formData.append('is_eligible_for_monetization', 'true')
-      logger.debug('[Facebook] Monetization enabled for video upload')
+      logger.info('[Facebook] Monetization enabled for video upload')
     }
 
     // Custom thumbnail
@@ -1347,7 +1347,7 @@ export async function uploadFacebookVideo(
       formData.append('captions_file_url', captionsFile)
     }
 
-    logger.debug('[Facebook] Uploading video to page:', pageId)
+    logger.info('[Facebook] Uploading video to page:', pageId)
 
     // Upload video
     const response = await fetch(`https://graph.facebook.com/v19.0/${pageId}/videos`, {
@@ -1365,7 +1365,7 @@ export async function uploadFacebookVideo(
 
     const result = await response.json()
 
-    logger.debug('[Facebook] Video uploaded successfully:', result)
+    logger.info('[Facebook] Video uploaded successfully:', result)
 
     // If monetization was requested, check if it was actually enabled
     let monetizationStatus = {
@@ -1377,7 +1377,7 @@ export async function uploadFacebookVideo(
 
     if (enableMonetization === true && result.id) {
       try {
-        logger.debug('[Facebook] Checking monetization status for video:', result.id)
+        logger.info('[Facebook] Checking monetization status for video:', result.id)
 
         // Fetch video details to check monetization status
         const videoDetailsResponse = await fetch(
@@ -1399,7 +1399,7 @@ export async function uploadFacebookVideo(
             monetizationStatus.eligibilityStatus = 'not_eligible'
           }
 
-          logger.debug('[Facebook] Monetization status:', monetizationStatus)
+          logger.info('[Facebook] Monetization status:', monetizationStatus)
         } else {
           logger.warn('[Facebook] Could not fetch monetization status')
         }

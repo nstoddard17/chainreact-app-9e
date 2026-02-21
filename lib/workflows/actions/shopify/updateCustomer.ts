@@ -54,7 +54,7 @@ export async function updateShopifyCustomer(
     // 3. Convert to GID format
     const customerGid = toCustomerGid(customerId)
 
-    logger.debug('[Shopify GraphQL] Updating customer:', { customerId: customerGid })
+    logger.info('[Shopify GraphQL] Updating customer:', { customerId: customerGid })
 
     // 4. Build GraphQL mutation
     const mutation = `

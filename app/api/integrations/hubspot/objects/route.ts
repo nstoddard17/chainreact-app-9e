@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
         allObjects = [...allObjects, ...customObjects];
       } else if (customObjectsResponse.status === 403) {
         // User doesn't have permission to view custom objects, just return standard objects
-        logger.debug('No permission to view custom objects, returning standard objects only');
+        logger.info('No permission to view custom objects, returning standard objects only');
       } else {
         logger.error('Failed to fetch custom objects:', customObjectsResponse.status, await customObjectsResponse.text());
       }

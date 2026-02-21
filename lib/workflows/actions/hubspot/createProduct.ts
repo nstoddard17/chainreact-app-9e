@@ -34,7 +34,7 @@ export async function hubspotCreateProduct(
       throw new Error('Product name is required')
     }
 
-    logger.debug('Creating HubSpot product:', properties)
+    logger.info('Creating HubSpot product:', properties)
 
     const response = await fetch('https://api.hubapi.com/crm/v3/objects/products', {
       method: 'POST',

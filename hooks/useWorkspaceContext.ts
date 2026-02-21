@@ -74,7 +74,7 @@ export function useWorkspaceContext() {
         // Sync to integration store
         const integrationStore = useIntegrationStore.getState()
         if (integrationStore.workspaceType !== storedType || integrationStore.workspaceId !== storedId) {
-          logger.debug('[useWorkspaceContext] Syncing localStorage workspace to integrationStore', {
+          logger.info('[useWorkspaceContext] Syncing localStorage workspace to integrationStore', {
             type: storedType,
             id: storedId
           })
@@ -84,7 +84,7 @@ export function useWorkspaceContext() {
         // Sync to workflow store
         const workflowStore = useWorkflowStore.getState()
         if (workflowStore.workspaceType !== storedType || workflowStore.workspaceId !== storedId) {
-          logger.debug('[useWorkspaceContext] Syncing localStorage workspace to workflowStore', {
+          logger.info('[useWorkspaceContext] Syncing localStorage workspace to workflowStore', {
             type: storedType,
             id: storedId
           })
@@ -102,7 +102,7 @@ export function useWorkspaceContext() {
       const org = event.detail
       if (!org) return
 
-      logger.debug('Workspace context changed:', {
+      logger.info('Workspace context changed:', {
         type: org.is_workspace ? 'personal' : (org.team_count > 0 ? 'organization' : 'team'),
         id: org.id,
         name: org.name

@@ -22,7 +22,7 @@ export async function hubspotGetLineItems(
       throw new Error('Deal ID is required')
     }
 
-    logger.debug('Getting line items for deal:', { dealId })
+    logger.info('Getting line items for deal:', { dealId })
 
     // Get associated line item IDs
     const associationsResponse = await fetch(

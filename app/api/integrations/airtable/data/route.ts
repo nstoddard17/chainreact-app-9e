@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Airtable API] Processing request:`, {
+    logger.info(`🔍 [Airtable API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as AirtableIntegration, options)
 
-    logger.debug(`✅ [Airtable API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Airtable API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

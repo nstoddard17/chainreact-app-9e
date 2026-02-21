@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Missing validation token', { status: 400 })
   }
 
-  logger.debug('[Teams Webhook] Received validation request (GET)')
+  logger.info('[Teams Webhook] Received validation request (GET)')
   return new NextResponse(validationToken, {
     status: 200,
     headers: {
@@ -154,7 +154,7 @@ async function processTeamsNotification(notification: any) {
 
     if (encryptedContent) {
       // We have encrypted resource data - decrypt it!
-      logger.debug('[Teams Webhook] Decrypting resource data')
+      logger.info('[Teams Webhook] Decrypting resource data')
 
       try {
         // Get the private key from trigger resource config
@@ -175,7 +175,7 @@ async function processTeamsNotification(notification: any) {
           privateKey
         )
 
-        logger.debug('[Teams Webhook] Successfully decrypted resource data')
+        logger.info('[Teams Webhook] Successfully decrypted resource data')
       } catch (error: any) {
         logger.error('[Teams Webhook] Failed to decrypt resource data:', error)
         // Fall back to fetching via API
@@ -185,7 +185,7 @@ async function processTeamsNotification(notification: any) {
 
     // If we don't have decrypted data, fetch it via API (fallback)
     if (!messageData && resourceIds.messageId) {
-      logger.debug('[Teams Webhook] Fetching message details via API')
+      logger.info('[Teams Webhook] Fetching message details via API')
       messageData = await fetchMessageDetails(
         triggerResource.workflow_id,
         resourceIds.teamId,
@@ -230,7 +230,7 @@ async function processTeamsNotification(notification: any) {
       triggerData
     )
 
-    logger.debug('[Teams Webhook] Successfully processed notification')
+    logger.info('[Teams Webhook] Successfully processed notification')
   } catch (error: any) {
     logger.error('[Teams Webhook] Error processing notification:', error)
   }
@@ -557,7 +557,7 @@ async function processLifecycleNotification(notification: any) {
  */
 async function executeWorkflow(workflowId: string, userId: string, triggerData: any): Promise<void> {
   try {
-    logger.debug(`[Teams Webhook] Executing workflow ${workflowId}`)
+    logger.info(`[Teams Webhook] Executing workflow ${workflowId}`)
 
     const supabase = getSupabase()
 
@@ -574,7 +574,7 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
       return
     }
 
-    logger.debug(`[Teams Webhook] Executing workflow "${workflow.name}"`)
+    logger.info(`[Teams Webhook] Executing workflow "${workflow.name}"`)
 
     // Import workflow execution service
     const { WorkflowExecutionService } = await import('@/lib/services/workflowExecutionService')
@@ -590,7 +590,7 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
       true // skipTriggers = true (already triggered by webhook)
     )
 
-    logger.debug(`[Teams Webhook] Workflow execution completed:`, {
+    logger.info(`[Teams Webhook] Workflow execution completed:`, {
       success: !!executionResult.results,
       executionId: executionResult.executionId,
       resultsCount: executionResult.results?.length || 0

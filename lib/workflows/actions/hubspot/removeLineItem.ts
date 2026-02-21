@@ -22,7 +22,7 @@ export async function hubspotRemoveLineItem(
       throw new Error('Line Item ID is required')
     }
 
-    logger.debug('Removing line item:', { lineItemId })
+    logger.info('Removing line item:', { lineItemId })
 
     const response = await fetch(
       `https://api.hubapi.com/crm/v3/objects/line_items/${lineItemId}`,

@@ -81,7 +81,7 @@ export async function searchGmailEmails(
       }
     }
     
-    logger.debug(`Searching Gmail with query: "${query}"`)
+    logger.info(`Searching Gmail with query: "${query}"`)
     
     // First, search for message IDs
     const searchParams = new URLSearchParams({
@@ -139,7 +139,7 @@ export async function searchGmailEmails(
       const batchNumber = Math.floor(i / BATCH_SIZE) + 1
       const totalBatches = Math.ceil(messageIds.length / BATCH_SIZE)
 
-      logger.debug(`[Gmail Search] Fetching batch ${batchNumber}/${totalBatches} (${batchIds.length} messages)`)
+      logger.info(`[Gmail Search] Fetching batch ${batchNumber}/${totalBatches} (${batchIds.length} messages)`)
 
       // Fetch messages in parallel within each batch
       const batchPromises = batchIds.map(async (messageId) => {
@@ -287,7 +287,7 @@ export async function searchGmailEmails(
     const batchResults = await Promise.all(batchPromises)
     emails.push(...batchResults.filter((email): email is NonNullable<typeof email> => email !== null))
 
-    logger.debug(`[Gmail Search] Batch ${batchNumber}/${totalBatches} complete. Total emails fetched: ${emails.length}/${messageIds.length}`)
+    logger.info(`[Gmail Search] Batch ${batchNumber}/${totalBatches} complete. Total emails fetched: ${emails.length}/${messageIds.length}`)
 
     // Add delay between batches to avoid rate limiting (except for the last batch)
     if (i + BATCH_SIZE < messageIds.length) {
@@ -297,7 +297,7 @@ export async function searchGmailEmails(
 
   const failedCount = messageIds.length - emails.length
   if (failedCount > 0) {
-    logger.debug(`[Gmail Search] Finished: ${emails.length}/${messageIds.length} emails (${failedCount} failed due to rate limits)`)
+    logger.info(`[Gmail Search] Finished: ${emails.length}/${messageIds.length} emails (${failedCount} failed due to rate limits)`)
   }
     
     // Return emails array and metadata

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     const isAdmin = profile?.admin === true
 
-    logger.debug('[Analytics API] Fetching template performance', {
+    logger.info('[Analytics API] Fetching template performance', {
       userId: user.id,
       isAdmin
     })

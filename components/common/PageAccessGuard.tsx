@@ -49,7 +49,7 @@ export function PageAccessGuard({ page, children }: PageAccessGuardProps) {
 
   // Wait for profile to be properly loaded before checking access
   useEffect(() => {
-    logger.debug('[PageAccessGuard] State check', {
+    logger.info('[PageAccessGuard] State check', {
       page,
       hydrated,
       initialized,
@@ -68,14 +68,14 @@ export function PageAccessGuard({ page, children }: PageAccessGuardProps) {
     // If we have a profile with explicit admin=true, allow immediately
     // This handles the case where admin status is correctly in localStorage
     if (profile?.admin === true) {
-      logger.debug('[PageAccessGuard] Admin detected, granting access', { page })
+      logger.info('[PageAccessGuard] Admin detected, granting access', { page })
       setShouldCheckAccess(true)
       return
     }
 
     // If we have a profile and it has been updated (fresh from API), check access
     if (profile && profileUpdateCountRef.current > 0) {
-      logger.debug('[PageAccessGuard] Profile updated from API, checking access', {
+      logger.info('[PageAccessGuard] Profile updated from API, checking access', {
         page,
         admin: profile.admin,
         plan: profile.plan
@@ -92,7 +92,7 @@ export function PageAccessGuard({ page, children }: PageAccessGuardProps) {
     // Wait for profile to potentially update with fresh data from API
     // The auth store fetches profile asynchronously after setting initialized=true
     const timer = setTimeout(() => {
-      logger.debug('[PageAccessGuard] Timeout reached, checking access', {
+      logger.info('[PageAccessGuard] Timeout reached, checking access', {
         page,
         hasProfile: !!profile,
         admin: profile?.admin,

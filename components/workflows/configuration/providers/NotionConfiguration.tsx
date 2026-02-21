@@ -84,8 +84,8 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
     }
     
     // New visibility condition logic for actions like Get Page Details
-    logger.debug('🔍 [NotionConfig] Processing visibility conditions for:', nodeInfo.type);
-    logger.debug('  Current values:', {
+    logger.info('🔍 [NotionConfig] Processing visibility conditions for:', nodeInfo.type);
+    logger.info('  Current values:', {
       workspace: values.workspace,
       operation: values.operation,
       page: values.page
@@ -95,13 +95,13 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
     const isFieldVisible = (field: any): boolean => {
       // Always show fields with "always" condition
       if (field.visibilityCondition === 'always') {
-        logger.debug(`  ✅ Field '${field.name}' - always visible`);
+        logger.info(`  ✅ Field '${field.name}' - always visible`);
         return true;
       }
       
       // Fields without visibility conditions default to visible (for legacy compatibility)
       if (!field.visibilityCondition) {
-        logger.debug(`  ✅ Field '${field.name}' - no visibility condition (legacy)`);
+        logger.info(`  ✅ Field '${field.name}' - no visibility condition (legacy)`);
         return true;
       }
       
@@ -132,7 +132,7 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
             }
           });
 
-          logger.debug(`  ${allConditions ? '✅' : '❌'} Field '${field.name}' visibility (AND):`, {
+          logger.info(`  ${allConditions ? '✅' : '❌'} Field '${field.name}' visibility (AND):`, {
             conditions: field.visibilityCondition.and,
             values: field.visibilityCondition.and.map((c: any) => ({ [c.field]: values[c.field] })),
             visible: allConditions
@@ -170,7 +170,7 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
           }
         })();
         
-        logger.debug(`  ${result ? '✅' : '❌'} Field '${field.name}' visibility:`, {
+        logger.info(`  ${result ? '✅' : '❌'} Field '${field.name}' visibility:`, {
           condition: field.visibilityCondition,
           dependsOnValue: fieldValue,
           visible: result
@@ -179,7 +179,7 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
         return result;
       }
       
-      logger.debug(`  ⚠️ Field '${field.name}' - unexpected visibility condition type:`, field.visibilityCondition);
+      logger.info(`  ⚠️ Field '${field.name}' - unexpected visibility condition type:`, field.visibilityCondition);
       return true;
     };
     
@@ -207,7 +207,7 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
     }
 
     const loadWorkspaces = async () => {
-      logger.debug('🔄 [NotionConfig] Loading workspaces for:', nodeInfo?.type);
+      logger.info('🔄 [NotionConfig] Loading workspaces for:', nodeInfo?.type);
 
       hasLoadedWorkspacesRef.current = true;
       setIsLoadingWorkspace(true);
@@ -247,7 +247,7 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
         );
 
         if (hasOperationField && !values.operation) {
-          logger.debug('🔄 [NotionConfig] Skipping page load - operation not selected yet');
+          logger.info('🔄 [NotionConfig] Skipping page load - operation not selected yet');
           return; // Don't load pages until operation is selected
         }
       }
@@ -255,11 +255,11 @@ export function NotionConfiguration(props: NotionConfigurationProps) {
       // CRITICAL: Track which workspace we've loaded to prevent infinite loops
       // Only load if workspace changed from what we've already loaded
       if (loadedPagesForWorkspaceRef.current === values.workspace) {
-        logger.debug('🔄 [NotionConfig] Already loaded pages for workspace:', values.workspace);
+        logger.info('🔄 [NotionConfig] Already loaded pages for workspace:', values.workspace);
         return;
       }
 
-      logger.debug('🔄 [NotionConfig] Auto-loading pages for workspace:', values.workspace);
+      logger.info('🔄 [NotionConfig] Auto-loading pages for workspace:', values.workspace);
 
       // Mark this workspace as being loaded BEFORE the async call
       loadedPagesForWorkspaceRef.current = values.workspace;

@@ -26,7 +26,7 @@ export async function getOutlookCalendarEvents(
   options: CalendarEventsOptions = {}
 ): Promise<OutlookCalendarEvent[]> {
   try {
-    logger.debug('[Outlook API] Fetching calendar events for selection')
+    logger.info('[Outlook API] Fetching calendar events for selection')
 
     // Get decrypted access token
     if (!integration.access_token) {
@@ -84,7 +84,7 @@ export async function getOutlookCalendarEvents(
     const data = await response.json()
     const events = data.value || []
 
-    logger.debug(`[Outlook API] Found ${events.length} calendar events`)
+    logger.info(`[Outlook API] Found ${events.length} calendar events`)
 
     // Map events to the format expected by the UI
     let eventOptions: OutlookCalendarEvent[] = events.map((event: any) => {

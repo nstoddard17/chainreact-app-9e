@@ -30,7 +30,7 @@ export async function createGmailDraftReply(
       }
     }
 
-    logger.debug(`[Gmail Create Draft Reply] Creating draft reply to message ${messageId}`)
+    logger.info(`[Gmail Create Draft Reply] Creating draft reply to message ${messageId}`)
 
     // Fetch the original message to get headers
     const originalResponse = await fetch(
@@ -171,7 +171,7 @@ export async function createGmailDraftReply(
 
     const result = await response.json()
 
-    logger.debug('[Gmail Create Draft Reply] Successfully created draft reply:', result.id)
+    logger.info('[Gmail Create Draft Reply] Successfully created draft reply:', result.id)
 
     return {
       success: true,

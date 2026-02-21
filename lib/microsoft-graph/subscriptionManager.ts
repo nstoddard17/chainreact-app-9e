@@ -89,7 +89,7 @@ export class MicrosoftGraphSubscriptionManager {
         subscriptionPayload.lifecycleNotificationUrl = this.getLifecycleNotificationUrl()
       }
 
-      logger.debug('📤 Creating Microsoft Graph subscription:', {
+      logger.info('📤 Creating Microsoft Graph subscription:', {
         resource,
         changeType,
         expirationDateTime: expirationDateTime.toISOString(),
@@ -102,7 +102,7 @@ export class MicrosoftGraphSubscriptionManager {
         testSessionId: testSessionId || null
       })
 
-      logger.debug('📦 Subscription payload:', JSON.stringify(subscriptionPayload, null, 2))
+      logger.info('📦 Subscription payload:', JSON.stringify(subscriptionPayload, null, 2))
 
       // Create subscription via Microsoft Graph API
       const response = await fetch(`${this.baseUrl}/subscriptions`, {
@@ -142,7 +142,7 @@ export class MicrosoftGraphSubscriptionManager {
         updatedAt: new Date().toISOString()
       }
 
-      logger.debug('✅ Subscription created in Microsoft Graph:', subscription.id)
+      logger.info('✅ Subscription created in Microsoft Graph:', subscription.id)
       return subscription
 
     } catch (error) {
@@ -166,7 +166,7 @@ export class MicrosoftGraphSubscriptionManager {
       const newExpirationDateTime = new Date()
       newExpirationDateTime.setMinutes(newExpirationDateTime.getMinutes() + this.maxExpirationMinutes)
 
-      logger.debug('🔄 Renewing subscription:', {
+      logger.info('🔄 Renewing subscription:', {
         subscriptionId,
         currentExpiration: subscription.expirationDateTime,
         newExpiration: newExpirationDateTime.toISOString()
@@ -206,7 +206,7 @@ export class MicrosoftGraphSubscriptionManager {
 
       await this.updateSubscription(updatedSubscription)
 
-      logger.debug('✅ Subscription renewed successfully:', subscriptionId)
+      logger.info('✅ Subscription renewed successfully:', subscriptionId)
       return updatedSubscription
 
     } catch (error) {
@@ -220,7 +220,7 @@ export class MicrosoftGraphSubscriptionManager {
    */
   async deleteSubscription(subscriptionId: string, accessToken: string): Promise<void> {
     try {
-      logger.debug('🗑️ Deleting subscription:', subscriptionId)
+      logger.info('🗑️ Deleting subscription:', subscriptionId)
 
       // Delete from Microsoft Graph API
       const response = await fetch(`${this.baseUrl}/subscriptions/${subscriptionId}`, {
@@ -233,7 +233,7 @@ export class MicrosoftGraphSubscriptionManager {
       if (!response.ok) {
         // 404 means subscription doesn't exist (already deleted or expired) - treat as success
         if (response.status === 404) {
-          logger.debug('ℹ️ Subscription not found in Microsoft Graph (already deleted/expired):', subscriptionId)
+          logger.info('ℹ️ Subscription not found in Microsoft Graph (already deleted/expired):', subscriptionId)
           await this.markSubscriptionAsDeleted(subscriptionId)
           return
         }
@@ -265,7 +265,7 @@ export class MicrosoftGraphSubscriptionManager {
       // Update status in database
       await this.markSubscriptionAsDeleted(subscriptionId)
 
-      logger.debug('✅ Subscription deleted successfully:', subscriptionId)
+      logger.info('✅ Subscription deleted successfully:', subscriptionId)
 
     } catch (error) {
       logger.error('❌ Error deleting subscription:', error)
@@ -370,7 +370,7 @@ export class MicrosoftGraphSubscriptionManager {
       if (error) {
         logger.error('Error cleaning up expired subscriptions:', error)
       } else {
-        logger.debug('🧹 Cleaned up expired subscriptions')
+        logger.info('🧹 Cleaned up expired subscriptions')
       }
     } catch (error) {
       logger.error('Error cleaning up expired subscriptions:', error)
@@ -452,7 +452,7 @@ export class MicrosoftGraphSubscriptionManager {
 
     const candidate = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
     const notificationUrl = this.buildMicrosoftWebhookUrl(candidate, 'default')
-    logger.debug("[Microsoft Graph] Using webhook notification URL", { notificationUrl })
+    logger.info("[Microsoft Graph] Using webhook notification URL", { notificationUrl })
     return notificationUrl
   }
 
@@ -466,7 +466,7 @@ export class MicrosoftGraphSubscriptionManager {
 
     const candidate = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
     const notificationUrl = this.buildMicrosoftWebhookUrl(candidate, 'test', testSessionId)
-    logger.debug("[Microsoft Graph] Using TEST webhook notification URL", { notificationUrl, testSessionId })
+    logger.info("[Microsoft Graph] Using TEST webhook notification URL", { notificationUrl, testSessionId })
     return notificationUrl
   }
 
@@ -476,7 +476,7 @@ export class MicrosoftGraphSubscriptionManager {
 
     const candidate = (explicit || httpsOverride || getWebhookBaseUrl()).trim()
     const lifecycleUrl = this.buildMicrosoftWebhookUrl(candidate, 'lifecycle')
-    logger.debug("[Microsoft Graph] Using lifecycle notification URL", { lifecycleUrl })
+    logger.info("[Microsoft Graph] Using lifecycle notification URL", { lifecycleUrl })
     return lifecycleUrl
   }
 
@@ -523,7 +523,7 @@ export class MicrosoftGraphSubscriptionManager {
   // DEPRECATED: Subscription saving is now handled by TriggerLifecycleManager
   // This method is no longer used but kept for backward compatibility
   private async saveSubscription(subscription: MicrosoftGraphSubscription): Promise<void> {
-    logger.debug('⚠️ saveSubscription called but is deprecated - lifecycle manager handles persistence')
+    logger.info('⚠️ saveSubscription called but is deprecated - lifecycle manager handles persistence')
   }
 
   private async updateSubscription(subscription: MicrosoftGraphSubscription): Promise<void> {

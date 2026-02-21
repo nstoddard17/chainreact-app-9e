@@ -530,7 +530,7 @@ export class RealTimeCollaboration {
     position: { x: number; y: number },
   ): Promise<void> {
     // In production, use WebSocket or Server-Sent Events
-    logger.debug("Broadcasting cursor update:", { workflowId, sessionToken, position })
+    logger.info("Broadcasting cursor update:", { workflowId, sessionToken, position })
   }
 
   private async broadcastSelectionUpdate(
@@ -539,7 +539,7 @@ export class RealTimeCollaboration {
     selectedNodes: string[],
   ): Promise<void> {
     // In production, use WebSocket or Server-Sent Events
-    logger.debug("Broadcasting selection update:", { workflowId, sessionToken, selectedNodes })
+    logger.info("Broadcasting selection update:", { workflowId, sessionToken, selectedNodes })
   }
 
   private async broadcastWorkflowChange(
@@ -548,22 +548,22 @@ export class RealTimeCollaboration {
     change: WorkflowChange,
   ): Promise<void> {
     // In production, use WebSocket or Server-Sent Events
-    logger.debug("Broadcasting workflow change:", { workflowId, sessionToken, change })
+    logger.info("Broadcasting workflow change:", { workflowId, sessionToken, change })
   }
 
   private handleCursorUpdate(session: CollaborationSession): void {
     // Handle incoming cursor updates from other users
-    logger.debug("Received cursor update:", session)
+    logger.info("Received cursor update:", session)
   }
 
   private handleWorkflowChange(change: WorkflowChange, currentSessionToken: string): void {
     // Handle incoming workflow changes from other users
-    logger.debug("Received workflow change:", change)
+    logger.info("Received workflow change:", change)
   }
 
   private handleExecutionEvent(event: any): void {
     // Handle live execution events
-    logger.debug("Received execution event:", event)
+    logger.info("Received execution event:", event)
   }
 }
 

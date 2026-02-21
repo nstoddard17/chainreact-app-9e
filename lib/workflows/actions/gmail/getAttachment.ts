@@ -27,7 +27,7 @@ export async function getGmailAttachment(
       }
     }
 
-    logger.debug(`[Gmail Get Attachment] Fetching attachments for message ${messageId}, mode: ${attachmentSelection}`)
+    logger.info(`[Gmail Get Attachment] Fetching attachments for message ${messageId}, mode: ${attachmentSelection}`)
 
     // Fetch message with full payload to get attachment info
     const response = await fetch(
@@ -79,7 +79,7 @@ export async function getGmailAttachment(
       }
     }
 
-    logger.debug(`[Gmail Get Attachment] Found ${attachments.length} attachment(s)`)
+    logger.info(`[Gmail Get Attachment] Found ${attachments.length} attachment(s)`)
 
     // Filter attachments based on selection mode
     let selectedAttachments = attachments
@@ -142,7 +142,7 @@ export async function getGmailAttachment(
       }
     }
 
-    logger.debug(`[Gmail Get Attachment] Returning ${selectedAttachments.length} attachment(s)`)
+    logger.info(`[Gmail Get Attachment] Returning ${selectedAttachments.length} attachment(s)`)
 
     return {
       success: true,

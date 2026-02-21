@@ -47,7 +47,7 @@ export class StripeOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
     if (pendingPromise) {
-      logger.debug(`[Stripe] Reusing pending request for ${fieldName}`);
+      logger.info(`[Stripe] Reusing pending request for ${fieldName}`);
       return pendingPromise;
     }
 
@@ -123,7 +123,7 @@ export class StripeOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cache.get(cacheKey);
       if (cached) {
-        logger.debug(`[Stripe] Returning cached ${dataType} (${cached.length} items)`);
+        logger.info(`[Stripe] Returning cached ${dataType} (${cached.length} items)`);
         return cached;
       }
     }
@@ -133,7 +133,7 @@ export class StripeOptionsLoader implements ProviderOptionsLoader {
       return [];
     }
 
-    logger.debug(`[Stripe] Loading ${dataType} for integration ${integrationId}`);
+    logger.info(`[Stripe] Loading ${dataType} for integration ${integrationId}`);
 
     try {
 
@@ -161,7 +161,7 @@ export class StripeOptionsLoader implements ProviderOptionsLoader {
       const responseData = await response.json();
       const data = responseData.data || [];
 
-      logger.debug(`[Stripe] Loaded ${data.length} ${dataType} items`);
+      logger.info(`[Stripe] Loaded ${data.length} ${dataType} items`);
 
       // Stripe handlers already return { value, label } formatted objects
       const formattedOptions: FormattedOption[] = data.map((item: any) => ({

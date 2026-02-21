@@ -18,10 +18,10 @@ export async function GET(request: NextRequest) {
     clientSecret: process.env.ONENOTE_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET!,
     getRedirectUri: (baseUrl) => `${baseUrl}/api/integrations/onenote/callback`,
     transformTokenData: (tokenData) => {
-      logger.debug("🔍 OneNote OAuth callback - Token exchange successful")
-      logger.debug("   Scopes returned:", tokenData.scope)
-      logger.debug("   Token type:", tokenData.token_type)
-      logger.debug("   Expires in:", tokenData.expires_in, "seconds")
+      logger.info("🔍 OneNote OAuth callback - Token exchange successful")
+      logger.info("   Scopes returned:", tokenData.scope)
+      logger.info("   Token type:", tokenData.token_type)
+      logger.info("   Expires in:", tokenData.expires_in, "seconds")
 
       return {
         access_token: tokenData.access_token,
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
             logger.warn("   OneNote API has known limitations with personal accounts")
             logger.warn("   User may experience 401 errors when accessing OneNote")
           } else {
-            logger.debug("✅ Work/School account detected:", email)
+            logger.info("✅ Work/School account detected:", email)
           }
 
           return {

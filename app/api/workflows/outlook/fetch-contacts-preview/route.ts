@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
     
     const apiUrl = `https://graph.microsoft.com/v1.0/me/contacts?$top=${maxResults}&$select=id,displayName,givenName,surname,emailAddresses,businessPhones,jobTitle,companyName`
 
-    logger.debug('Fetching contacts from:', apiUrl)
-    logger.debug('Access token length:', accessToken?.length || 0)
+    logger.info('Fetching contacts from:', apiUrl)
+    logger.info('Access token length:', accessToken?.length || 0)
 
     const response = await fetch(apiUrl, {
       headers: {
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       
       // If it's a 401/403 error, try to refresh the token
       if (response.status === 401 || response.status === 403) {
-        logger.debug('Attempting token refresh due to 401/403 error...')
+        logger.info('Attempting token refresh due to 401/403 error...')
         
         try {
           const { refreshTokenForProvider } = await import("@/lib/integrations/tokenRefreshService")
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
             )
             
             if (refreshResult.success && refreshResult.accessToken) {
-              logger.debug('Token refresh successful, retrying API call...')
+              logger.info('Token refresh successful, retrying API call...')
               
               // Retry the API call with the new token
               const retryResponse = await fetch(apiUrl, {

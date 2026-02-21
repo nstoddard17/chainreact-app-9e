@@ -112,7 +112,7 @@ export function SupportContent() {
   const handleTicketSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     // Handle ticket submission
-    logger.debug("Support ticket submitted:", ticketForm)
+    logger.info("Support ticket submitted:", ticketForm)
     alert("Support ticket submitted successfully! We'll get back to you within 24 hours.")
     setTicketForm({
       name: "",

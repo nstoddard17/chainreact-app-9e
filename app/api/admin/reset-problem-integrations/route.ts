@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const integrationId = body.integrationId // Optional: target a specific integration
     const limit = body.limit || 20 // Limit the number of integrations to process
     
-    logger.debug(`🔧 Resetting problematic integrations: ${problemProviders.join(', ')}`)
+    logger.info(`🔧 Resetting problematic integrations: ${problemProviders.join(', ')}`)
 
     const supabase = getAdminSupabaseClient()
     if (!supabase) {
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       })
     }
     
-    logger.debug(`🔄 Found ${integrations.length} problematic integrations to reset`)
+    logger.info(`🔄 Found ${integrations.length} problematic integrations to reset`)
     
     // Process in smaller batches to avoid timeouts
     const batchSize = 5
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
           error: updateError.message
         })
       } else {
-        logger.debug(`✅ Successfully reset ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
+        logger.info(`✅ Successfully reset ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
         results.push({
           batch: i / batchSize + 1,
           success: true,

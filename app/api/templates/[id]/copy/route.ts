@@ -37,9 +37,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     // Log raw template data to debug
-    logger.debug("Raw template data keys:", Object.keys(template))
-    logger.debug("Nodes type:", typeof template.nodes)
-    logger.debug("Is nodes parsed:", Array.isArray(template.nodes))
+    logger.info("Raw template data keys:", Object.keys(template))
+    logger.info("Nodes type:", typeof template.nodes)
+    logger.info("Is nodes parsed:", Array.isArray(template.nodes))
 
     // Extract nodes and connections from the appropriate fields
     // Handle potential string JSONB fields that need parsing
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       connections = templateConnections || templateWorkflowJson?.edges || templateWorkflowJson?.connections || []
     }
 
-    logger.debug('Template structure:', {
+    logger.info('Template structure:', {
       rawNodesType: typeof template.nodes,
       parsedNodesType: typeof templateNodes,
       parsedNodesLength: templateNodes?.length || 0,
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       workflowJsonNodesLength: templateWorkflowJson?.nodes?.length || 0
     })
 
-    logger.debug('Copying template:', {
+    logger.info('Copying template:', {
       templateName: template.name,
       nodeCount: nodes.length,
       connectionCount: connections.length,
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }, { status: 400 })
     }
 
-    logger.debug(`Creating workflow with ${nodes.length} nodes and ${connections.length} connections`)
+    logger.info(`Creating workflow with ${nodes.length} nodes and ${connections.length} connections`)
 
     // Filter out UI-only placeholder nodes (Add Action buttons, etc.)
     const filteredNodes = nodes.filter(node => {
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         && !isPlaceholder
     })
 
-    logger.debug(`Filtered ${nodes.length - filteredNodes.length} placeholder nodes, ${filteredNodes.length} nodes remaining`)
+    logger.info(`Filtered ${nodes.length - filteredNodes.length} placeholder nodes, ${filteredNodes.length} nodes remaining`)
 
     // Keep ALL remaining nodes in the main workflow (including chain nodes)
     // Chain nodes should be visible on the canvas with their metadata intact
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       };
     });
 
-    logger.debug('Template processing:', {
+    logger.info('Template processing:', {
       totalNodes: processedNodes.length,
       totalConnections: connections.length,
       chainNodes: processedNodes.filter(n => n.data?.isAIAgentChild).length,
@@ -304,7 +304,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    logger.debug(`Successfully created workflow ${workflow.id} from template`)
+    logger.info(`Successfully created workflow ${workflow.id} from template`)
     return jsonResponse({ workflow })
   } catch (error) {
     logger.error("Unexpected error copying template:", error)

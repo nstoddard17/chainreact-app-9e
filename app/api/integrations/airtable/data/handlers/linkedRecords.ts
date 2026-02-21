@@ -77,7 +77,7 @@ export const getLinkedTableRecords = async (
 ): Promise<LinkedRecordOption[]> => {
   const { baseId, linkedTableName } = options
 
-  logger.debug("🔍 Airtable linked records fetcher called with:", {
+  logger.info("🔍 Airtable linked records fetcher called with:", {
     integrationId: integration.id,
     baseId,
     linkedTableName,
@@ -91,16 +91,16 @@ export const getLinkedTableRecords = async (
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !linkedTableName) {
-      logger.debug('⚠️ Base ID or Linked table name missing, returning empty list')
+      logger.info('⚠️ Base ID or Linked table name missing, returning empty list')
       return []
     }
 
-    logger.debug(`🔍 Fetching records from linked table: ${linkedTableName}`)
+    logger.info(`🔍 Fetching records from linked table: ${linkedTableName}`)
 
     // Fetch all records from the linked table
     const queryParams = new URLSearchParams()
@@ -116,7 +116,7 @@ export const getLinkedTableRecords = async (
       // If we get a 403 or 404, the table likely doesn't exist in this base
       // Return test data instead of failing
       if (apiError.message?.includes('403') || apiError.message?.includes('404')) {
-        logger.debug(`⚠️ Table "${linkedTableName}" not accessible (${apiError.message}), returning test data`)
+        logger.info(`⚠️ Table "${linkedTableName}" not accessible (${apiError.message}), returning test data`)
 
         const testDataMap: Record<string, LinkedRecordOption[]> = {
           'Projects': [
@@ -169,7 +169,7 @@ export const getLinkedTableRecords = async (
           if (nameField) {
             const rawValue = String(fields[nameField]);
             label = extractTaskName(rawValue);
-            logger.debug(`📝 [Record ${index + 1}/${data.records.length}] Using "${nameField}":`, {
+            logger.info(`📝 [Record ${index + 1}/${data.records.length}] Using "${nameField}":`, {
               rawValue: rawValue.substring(0, 100),
               extractedLabel: label
             });
@@ -182,7 +182,7 @@ export const getLinkedTableRecords = async (
             if (descField) {
               const rawValue = String(fields[descField]);
               label = extractTaskName(rawValue);
-              logger.debug(`📝 [Record ${index + 1}/${data.records.length}] No name field, using "${descField}":`, {
+              logger.info(`📝 [Record ${index + 1}/${data.records.length}] No name field, using "${descField}":`, {
                 rawValue: rawValue.substring(0, 100),
                 extractedLabel: label
               });
@@ -193,7 +193,7 @@ export const getLinkedTableRecords = async (
               );
               if (firstTextField) {
                 label = extractTaskName(String(firstTextField[1]));
-                logger.debug(`📝 [Record ${index + 1}/${data.records.length}] Using first text field "${firstTextField[0]}":`, {
+                logger.info(`📝 [Record ${index + 1}/${data.records.length}] Using first text field "${firstTextField[0]}":`, {
                   value: String(firstTextField[1]).substring(0, 100)
                 });
               }
@@ -209,11 +209,11 @@ export const getLinkedTableRecords = async (
       })
     }
 
-    logger.debug(`✅ Fetched ${options.length} records from linked table ${linkedTableName}`)
+    logger.info(`✅ Fetched ${options.length} records from linked table ${linkedTableName}`)
 
     // If no options found, return some test data to verify the UI is working
     if (options.length === 0) {
-      logger.debug(`⚠️ No records found in linked table ${linkedTableName}, returning test data`);
+      logger.info(`⚠️ No records found in linked table ${linkedTableName}, returning test data`);
 
       const testDataMap: Record<string, LinkedRecordOption[]> = {
         'Projects': [

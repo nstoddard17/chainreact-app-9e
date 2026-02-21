@@ -30,7 +30,7 @@ export async function createGmailDraft(
       }
     }
 
-    logger.debug('[Gmail Create Draft] Creating draft email')
+    logger.info('[Gmail Create Draft] Creating draft email')
 
     // Build MIME message with multipart support for attachments
     const boundary = `boundary_${Date.now()}`
@@ -136,7 +136,7 @@ export async function createGmailDraft(
 
     const result = await response.json()
 
-    logger.debug('[Gmail Create Draft] Successfully created draft:', result.id)
+    logger.info('[Gmail Create Draft] Successfully created draft:', result.id)
 
     return {
       success: true,

@@ -262,7 +262,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
     // If workspace changed, discard old promise
     if (lastKey !== workspaceCacheKey) {
-      logger.debug('[WorkflowStore] Workspace changed, discarding old fetch promise', {
+      logger.info('[WorkflowStore] Workspace changed, discarding old fetch promise', {
         oldKey: lastKey,
         newKey: workspaceCacheKey
       })
@@ -271,7 +271,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
     // If already fetching for THIS workspace, return the existing promise
     if (state.fetchPromise && state.loadingList && !force) {
-      logger.debug('[WorkflowStore] Already fetching for same workspace, waiting for existing request')
+      logger.info('[WorkflowStore] Already fetching for same workspace, waiting for existing request')
       return state.fetchPromise
     }
 
@@ -286,13 +286,13 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     const timeSinceLastFetch = state.lastFetchTime ? Date.now() - state.lastFetchTime : Infinity
 
     if (!force && timeSinceLastFetch < CACHE_DURATION && state.workflows.length > 0) {
-      logger.debug('[WorkflowStore] Using cached workflows (age: ' + Math.round(timeSinceLastFetch / 1000) + 's)')
+      logger.info('[WorkflowStore] Using cached workflows (age: ' + Math.round(timeSinceLastFetch / 1000) + 's)')
       return
     }
 
     // Create the fetch promise
     const fetchPromise = (async () => {
-      logger.debug('[WorkflowStore] Starting fresh workflow fetch (unified view)')
+      logger.info('[WorkflowStore] Starting fresh workflow fetch (unified view)')
       set({ loadingList: true, error: null, lastFetchTime: Date.now() })
 
       try {
@@ -302,7 +302,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           const sessionData = await SessionManager.getSecureUserAndSession();
           user = sessionData.user;
         } catch (authError: any) {
-          logger.debug("User not authenticated, skipping workflow fetch")
+          logger.info("User not authenticated, skipping workflow fetch")
           set({
             workflows: [],
             loadingList: false,
@@ -329,7 +329,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         // Include trashed workflows so the UI can display them in the trash folder
         const workflows = await WorkflowService.fetchWorkflows(force, filterContext || null, workspaceId, true)
 
-        logger.debug('[WorkflowStore] Successfully fetched workflows (unified view)', {
+        logger.info('[WorkflowStore] Successfully fetched workflows (unified view)', {
           count: workflows.length,
           filterContext: filterContext || 'ALL',
           workspaceId
@@ -460,7 +460,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       const oldStatus = currentWorkflow?.status
       const newStatus = updates.status
 
-      logger.debug(`[WorkflowStore] Updating workflow ${id}:`, {
+      logger.info(`[WorkflowStore] Updating workflow ${id}:`, {
         oldStatus,
         newStatus,
         updates
@@ -488,7 +488,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         return responseData.triggerActivationError
       }
 
-      logger.debug(`[WorkflowStore] Successfully updated workflow ${id}`)
+      logger.info(`[WorkflowStore] Successfully updated workflow ${id}`)
 
     } catch (error: any) {
       logger.error("Error updating workflow:", error)
@@ -661,12 +661,12 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   invalidateCache: () => {
-    logger.debug('🏪 [WorkflowStore] Invalidating cache')
+    logger.info('🏪 [WorkflowStore] Invalidating cache')
     set({ lastFetchTime: null })
   },
 
   setCurrentWorkflow: (workflow: Workflow | null) => {
-    logger.debug('🏪 [WorkflowStore] Setting current workflow:', {
+    logger.info('🏪 [WorkflowStore] Setting current workflow:', {
       id: workflow?.id,
       name: workflow?.name,
       nameType: typeof workflow?.name,
@@ -688,7 +688,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     // Check if workspace context is actually changing
     const contextChanged = state.workspaceType !== workspaceType || state.workspaceId !== newWorkspaceId
 
-    logger.debug('[WorkflowStore] Setting workspace context:', {
+    logger.info('[WorkflowStore] Setting workspace context:', {
       workspaceType,
       workspaceId: newWorkspaceId,
       previousType: state.workspaceType,
@@ -698,7 +698,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
     // If context hasn't changed, do nothing
     if (!contextChanged) {
-      logger.debug('[WorkflowStore] Workspace context unchanged, skipping refetch')
+      logger.info('[WorkflowStore] Workspace context unchanged, skipping refetch')
       return
     }
 
@@ -1048,7 +1048,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   },
 
   addWorkflowToStore: (workflow: Workflow) => {
-    logger.debug('[WorkflowStore] Adding workflow to store:', workflow.id)
+    logger.info('[WorkflowStore] Adding workflow to store:', workflow.id)
     set((state) => ({
       workflows: [workflow, ...state.workflows.filter(existing => existing.id !== workflow.id)],
     }))
@@ -1061,7 +1061,7 @@ if (typeof window !== 'undefined') {
 
   // Listen for workflow updates from other tabs
   sync.subscribe('workflow-updated', (data) => {
-    logger.debug('[WorkflowStore] Received workflow-updated event from another tab', data)
+    logger.info('[WorkflowStore] Received workflow-updated event from another tab', data)
     const state = useWorkflowStore.getState()
     // Refresh workflows to get the latest state
     if (state.fetchWorkflows) {
@@ -1071,7 +1071,7 @@ if (typeof window !== 'undefined') {
 
   // Listen for workflow deletion from other tabs
   sync.subscribe('workflow-deleted', (data) => {
-    logger.debug('[WorkflowStore] Received workflow-deleted event from another tab', data)
+    logger.info('[WorkflowStore] Received workflow-deleted event from another tab', data)
     const state = useWorkflowStore.getState()
     // Remove the workflow from local state
     set((currentState: any) => ({
@@ -1081,7 +1081,7 @@ if (typeof window !== 'undefined') {
 
   // Listen for workspace changes from other tabs
   sync.subscribe('workspace-changed', (data) => {
-    logger.debug('[WorkflowStore] Received workspace-changed event from another tab', data)
+    logger.info('[WorkflowStore] Received workspace-changed event from another tab', data)
     const state = useWorkflowStore.getState()
     // Refresh workflows for the new workspace
     if (state.fetchWorkflows) {

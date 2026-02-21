@@ -54,7 +54,7 @@ export const getMondayColumns: MondayDataHandler<MondayColumn> = async (
       settings_str: column.settings_str
     }))
 
-    logger.debug(`✅ [Monday Columns] Fetched ${columns.length} columns for board ${boardId}`)
+    logger.info(`✅ [Monday Columns] Fetched ${columns.length} columns for board ${boardId}`)
 
     return columns
 

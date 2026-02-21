@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     }
 
     if (profile.admin !== true) {
-      logger.debug("User is not admin. Admin status:", profile.admin)
+      logger.info("User is not admin. Admin status:", profile.admin)
       return jsonResponse(
         { error: `Only admins can view waitlist entries.` },
         { status: 403 }
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
       return errorResponse(error.message || "Failed to fetch waitlist entries", 500)
     }
 
-    logger.debug(`Returning ${data?.length || 0} waitlist entries`)
+    logger.info(`Returning ${data?.length || 0} waitlist entries`)
 
     return jsonResponse({
       success: true,

@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const existingTemplate = await findExistingTemplate(supabase, templateData.promptHash)
 
     if (existingTemplate) {
-      logger.debug('[AI Template] Found existing template with same prompt hash', {
+      logger.info('[AI Template] Found existing template with same prompt hash', {
         existingId: existingTemplate.id,
         existingName: existingTemplate.name,
         promptHash: templateData.promptHash,
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Failed to save template", 500)
     }
 
-    logger.debug('[AI Template] Successfully saved AI-generated template', {
+    logger.info('[AI Template] Successfully saved AI-generated template', {
       templateId: template.id,
       templateName: template.name,
       promptHash: templateData.promptHash,

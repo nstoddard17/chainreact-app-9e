@@ -97,7 +97,7 @@ async function processQueue(): Promise<void> {
     // Check global rate limit first
     if (globalRateLimitUntil > now) {
       const waitTime = globalRateLimitUntil - now
-      logger.debug(`⏸️ Global rate limit active, waiting ${Math.round(waitTime / 1000)}s before processing queue`)
+      logger.info(`⏸️ Global rate limit active, waiting ${Math.round(waitTime / 1000)}s before processing queue`)
       await new Promise(resolve => setTimeout(resolve, waitTime))
       continue
     }
@@ -106,7 +106,7 @@ async function processQueue(): Promise<void> {
 
     if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
       const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest
-      logger.debug(`⏱️ Global queue throttling: waiting ${waitTime}ms`)
+      logger.info(`⏱️ Global queue throttling: waiting ${waitTime}ms`)
       await new Promise(resolve => setTimeout(resolve, waitTime))
     }
 
@@ -161,7 +161,7 @@ export async function fetchDiscordWithRateLimit<T>(
       
       if (response.ok) {
         const data = await response.json()
-        if (attempt > 1) logger.debug(`✅ Discord API success on attempt ${attempt}`)
+        if (attempt > 1) logger.info(`✅ Discord API success on attempt ${attempt}`)
         return data
       }
       
@@ -193,7 +193,7 @@ export async function fetchDiscordWithRateLimit<T>(
         waitTime = Math.min(waitTime, 120000)
 
         logger.warn(`🚦 Discord rate limited (attempt ${attempt}/${maxRetries}), waiting ${Math.round(waitTime / 1000)}s`)
-        logger.debug(`📊 Rate limit details:`, {
+        logger.info(`📊 Rate limit details:`, {
           bucket: response.headers.get('x-ratelimit-bucket'),
           limit: response.headers.get('x-ratelimit-limit'),
           remaining: response.headers.get('x-ratelimit-remaining'),
@@ -245,7 +245,7 @@ export async function fetchDiscordWithRateLimit<T>(
       
       // Exponential backoff for general errors
       const backoffTime = Math.min(2000 * Math.pow(2, attempt - 1), 30000) // Max 30 seconds
-      logger.debug(`🔄 Discord request failed (attempt ${attempt}/${maxRetries}), retrying in ${backoffTime}ms...`)
+      logger.info(`🔄 Discord request failed (attempt ${attempt}/${maxRetries}), retrying in ${backoffTime}ms...`)
       logger.error(`   Error:`, error.message)
       await new Promise(resolve => setTimeout(resolve, backoffTime))
     }
@@ -271,7 +271,7 @@ export async function makeDiscordApiRequest<T = any>(
   const now = Date.now()
   if (globalRateLimitUntil > now) {
     const waitTime = globalRateLimitUntil - now
-    logger.debug(`⏸️ Global rate limit active, waiting ${Math.round(waitTime / 1000)}s before request to ${url}`)
+    logger.info(`⏸️ Global rate limit active, waiting ${Math.round(waitTime / 1000)}s before request to ${url}`)
     await new Promise(resolve => setTimeout(resolve, waitTime))
   }
 

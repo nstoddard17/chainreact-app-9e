@@ -42,7 +42,7 @@ export async function updateGoogleSheetsRow(
       }
     }
 
-    logger.debug("Resolved update row values:", {
+    logger.info("Resolved update row values:", {
       spreadsheetId,
       sheetName,
       findRowBy,
@@ -93,10 +93,10 @@ export async function updateGoogleSheetsRow(
     // Handle row selection shortcuts
     if (rowSelection === 'last') {
       rowNumber = rows.length // Last row
-      logger.debug(`Using last row: ${rowNumber}`)
+      logger.info(`Using last row: ${rowNumber}`)
     } else if (rowSelection === 'first_data') {
       rowNumber = 2 // First data row below headers
-      logger.debug(`Using first data row: ${rowNumber}`)
+      logger.info(`Using first data row: ${rowNumber}`)
     }
 
     // Find the row(s) to update
@@ -204,7 +204,7 @@ export async function updateGoogleSheetsRow(
       const currentRow = rows[rowIndex] || []
       let updatedRow = [...currentRow]
 
-      logger.debug(`Processing row ${rowNum} (index ${rowIndex}):`, {
+      logger.info(`Processing row ${rowNum} (index ${rowIndex}):`, {
         currentRow,
         headers,
         hasValuesArray: !!valuesArray
@@ -215,7 +215,7 @@ export async function updateGoogleSheetsRow(
 
       // Mode 1: Array-based values (automation mode) - replaces entire row
       if (valuesArray && Array.isArray(valuesArray)) {
-        logger.debug('Using values array for update:', valuesArray)
+        logger.info('Using values array for update:', valuesArray)
         updatedRow = [...valuesArray]
       }
       // Mode 2: Column-based updateMapping (UI mode) - updates specific columns
@@ -230,10 +230,10 @@ export async function updateGoogleSheetsRow(
             // and NOT a word like "Address" or "RSVP"
             if (/^[A-Z]$/i.test(columnIdentifier)) {
               columnIndex = columnIdentifier.toUpperCase().charCodeAt(0) - 65
-              logger.debug(`Column ${columnIdentifier} is letter notation, index: ${columnIndex}`)
+              logger.info(`Column ${columnIdentifier} is letter notation, index: ${columnIndex}`)
             } else {
               columnIndex = headers.findIndex((h: string) => h === columnIdentifier)
-              logger.debug(`Column ${columnIdentifier} is header name, found at index: ${columnIndex}`)
+              logger.info(`Column ${columnIdentifier} is header name, found at index: ${columnIndex}`)
             }
 
             if (columnIndex >= 0) {
@@ -241,7 +241,7 @@ export async function updateGoogleSheetsRow(
               while (updatedRow.length <= columnIndex) {
                 updatedRow.push('')
               }
-              logger.debug(`Setting column ${columnIdentifier} (index ${columnIndex}) to value: ${resolvedValue}`)
+              logger.info(`Setting column ${columnIdentifier} (index ${columnIndex}) to value: ${resolvedValue}`)
               updatedRow[columnIndex] = resolvedValue
             } else {
               logger.warn(`Could not find column index for: ${columnIdentifier}`)
@@ -253,7 +253,7 @@ export async function updateGoogleSheetsRow(
       newValues.push(updatedRow)
 
       const range = `${sheetName}!A${rowNum}:${String.fromCharCode(65 + updatedRow.length - 1)}${rowNum}`
-      logger.debug(`Update range: ${range}, Updated row:`, updatedRow)
+      logger.info(`Update range: ${range}, Updated row:`, updatedRow)
 
       updateRequests.push({
         range,
@@ -266,7 +266,7 @@ export async function updateGoogleSheetsRow(
       data: updateRequests
     }
     
-    logger.debug("Sending batch update request:", JSON.stringify(requestBody, null, 2))
+    logger.info("Sending batch update request:", JSON.stringify(requestBody, null, 2))
 
     // Batch update all rows
     const updateResponse = await fetch(

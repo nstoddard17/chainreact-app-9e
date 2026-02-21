@@ -32,7 +32,7 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
 
   const handleSignOut = async () => {
     try {
-      logger.debug("Starting sign out process...")
+      logger.info("Starting sign out process...")
       // Navigate to homepage first for smoother UX
       router.push("/")
       // Then sign out (this will clear the state)

@@ -67,7 +67,7 @@ export async function createGumroadOfferCode(
       requestBody.universal = universal
     }
 
-    logger.debug('[createGumroadOfferCode] Creating offer code:', {
+    logger.info('[createGumroadOfferCode] Creating offer code:', {
       productId,
       name,
       discountType

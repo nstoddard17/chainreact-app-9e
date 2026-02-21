@@ -26,7 +26,7 @@ export const saveNodeConfig = async (
 ): Promise<void> => {
   if (typeof window === "undefined") return
 
-  logger.debug(`🔄 [ConfigPersistence] Saving config for node ${nodeId} in workflow ${workflowId}`)
+  logger.info(`🔄 [ConfigPersistence] Saving config for node ${nodeId} in workflow ${workflowId}`)
 
   try {
     const supabase = createClient()
@@ -80,7 +80,7 @@ export const saveNodeConfig = async (
       return
     }
 
-    logger.debug(`✅ [ConfigPersistence] Successfully saved configuration for node ${nodeId}`)
+    logger.info(`✅ [ConfigPersistence] Successfully saved configuration for node ${nodeId}`)
   } catch (error) {
     logger.error(`❌ [ConfigPersistence] Failed to save configuration for node ${nodeId}:`, error)
     throw error
@@ -110,7 +110,7 @@ export const clearNodeConfig = async (
 ): Promise<void> => {
   if (typeof window === "undefined") return
 
-  logger.debug(`🗑️ [ConfigPersistence] Clearing saved configuration for node ${nodeId}`)
+  logger.info(`🗑️ [ConfigPersistence] Clearing saved configuration for node ${nodeId}`)
 
   // Clear any localStorage fallback data
   const fallbackKey = `workflow_${workflowId}_node_${nodeId}_config`
@@ -142,7 +142,7 @@ export const clearNodeConfig = async (
       return
     }
 
-    logger.debug(`✅ [ConfigPersistence] Successfully cleared configuration for node ${nodeId}`)
+    logger.info(`✅ [ConfigPersistence] Successfully cleared configuration for node ${nodeId}`)
   } catch (error) {
     logger.error(`❌ [ConfigPersistence] Failed to clear configuration for node ${nodeId}:`, error)
   }
@@ -162,7 +162,7 @@ export const loadNodeConfig = async (
 ): Promise<SavedNodeConfig | null> => {
   if (typeof window === "undefined") return null
 
-  logger.debug(`🔍 [ConfigPersistence] Loading config for node ${nodeId} in workflow ${workflowId}`)
+  logger.info(`🔍 [ConfigPersistence] Loading config for node ${nodeId} in workflow ${workflowId}`)
 
   try {
     const supabase = createClient()
@@ -171,7 +171,7 @@ export const loadNodeConfig = async (
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      logger.debug(`🔍 [ConfigPersistence] User not authenticated, cannot load config for node ${nodeId}`)
+      logger.info(`🔍 [ConfigPersistence] User not authenticated, cannot load config for node ${nodeId}`)
       return null
     }
 
@@ -184,7 +184,7 @@ export const loadNodeConfig = async (
       .single()
 
     if (nodeError || !node) {
-      logger.debug(`🔍 [ConfigPersistence] Node not found in workflow_nodes for ${nodeId}`)
+      logger.info(`🔍 [ConfigPersistence] Node not found in workflow_nodes for ${nodeId}`)
 
       // Check localStorage fallback
       const fallbackKey = `workflow_${workflowId}_node_${nodeId}_config`
@@ -192,7 +192,7 @@ export const loadNodeConfig = async (
       if (fallbackData) {
         try {
           const parsed = JSON.parse(fallbackData)
-          logger.debug(`💾 [ConfigPersistence] Loaded config from localStorage fallback for node ${nodeId}`)
+          logger.info(`💾 [ConfigPersistence] Loaded config from localStorage fallback for node ${nodeId}`)
           localStorage.removeItem(fallbackKey)
           return parsed as SavedNodeConfig
         } catch (e) {
@@ -209,11 +209,11 @@ export const loadNodeConfig = async (
     const { _savedConfig, ...cleanConfig } = config
 
     if (Object.keys(cleanConfig).length === 0) {
-      logger.debug(`🔍 [ConfigPersistence] No saved configuration found for node ${nodeId}`)
+      logger.info(`🔍 [ConfigPersistence] No saved configuration found for node ${nodeId}`)
       return null
     }
 
-    logger.debug(`✅ [ConfigPersistence] Successfully loaded config for node ${nodeId}`)
+    logger.info(`✅ [ConfigPersistence] Successfully loaded config for node ${nodeId}`)
     return {
       config: cleanConfig,
       dynamicOptions: savedConfigMeta?.dynamicOptions,
@@ -233,7 +233,7 @@ export const loadNodeConfig = async (
 export const clearWorkflowConfigs = async (workflowId: string): Promise<void> => {
   if (typeof window === "undefined") return
 
-  logger.debug(`🗑️ [ConfigPersistence] Clearing all configurations for workflow ${workflowId}`)
+  logger.info(`🗑️ [ConfigPersistence] Clearing all configurations for workflow ${workflowId}`)
 
   try {
     const supabase = createClient()
@@ -260,7 +260,7 @@ export const clearWorkflowConfigs = async (workflowId: string): Promise<void> =>
       return
     }
 
-    logger.debug(`✅ [ConfigPersistence] Successfully cleared all configurations for workflow ${workflowId}`)
+    logger.info(`✅ [ConfigPersistence] Successfully cleared all configurations for workflow ${workflowId}`)
   } catch (error) {
     logger.error(`❌ [ConfigPersistence] Failed to clear workflow configurations:`, error)
   }
@@ -274,7 +274,7 @@ export const clearWorkflowConfigs = async (workflowId: string): Promise<void> =>
 export const getAllWorkflowConfigs = async (workflowId: string): Promise<Record<string, SavedNodeConfig>> => {
   if (typeof window === "undefined") return {}
 
-  logger.debug(`🔍 [ConfigPersistence] Getting all configurations for workflow ${workflowId}`)
+  logger.info(`🔍 [ConfigPersistence] Getting all configurations for workflow ${workflowId}`)
 
   try {
     const supabase = createClient()
@@ -283,7 +283,7 @@ export const getAllWorkflowConfigs = async (workflowId: string): Promise<Record<
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      logger.debug(`🔍 [ConfigPersistence] User not authenticated, cannot get workflow configs`)
+      logger.info(`🔍 [ConfigPersistence] User not authenticated, cannot get workflow configs`)
       return {}
     }
 
@@ -294,7 +294,7 @@ export const getAllWorkflowConfigs = async (workflowId: string): Promise<Record<
       .eq('workflow_id', workflowId)
 
     if (nodesError || !nodes) {
-      logger.debug(`🔍 [ConfigPersistence] No nodes found for workflow ${workflowId}`)
+      logger.info(`🔍 [ConfigPersistence] No nodes found for workflow ${workflowId}`)
       return {}
     }
 
@@ -314,7 +314,7 @@ export const getAllWorkflowConfigs = async (workflowId: string): Promise<Record<
       }
     })
 
-    logger.debug(`✅ [ConfigPersistence] Found ${Object.keys(configs).length} saved configurations for workflow ${workflowId}`)
+    logger.info(`✅ [ConfigPersistence] Found ${Object.keys(configs).length} saved configurations for workflow ${workflowId}`)
     return configs
   } catch (error) {
     logger.error(`❌ [ConfigPersistence] Failed to get workflow configurations:`, error)
@@ -331,12 +331,12 @@ export const getAllWorkflowConfigs = async (workflowId: string): Promise<Record<
 export const hasNodeConfig = async (workflowId: string, nodeId: string): Promise<boolean> => {
   if (typeof window === "undefined") return false
 
-  logger.debug(`🔍 [ConfigPersistence] Checking if node ${nodeId} has saved config`)
+  logger.info(`🔍 [ConfigPersistence] Checking if node ${nodeId} has saved config`)
 
   try {
     const savedConfig = await loadNodeConfig(workflowId, nodeId, '')
     const hasConfig = !!savedConfig
-    logger.debug(`🔍 [ConfigPersistence] Node ${nodeId} has saved config: ${hasConfig}`)
+    logger.info(`🔍 [ConfigPersistence] Node ${nodeId} has saved config: ${hasConfig}`)
     return hasConfig
   } catch (error) {
     logger.error(`❌ [ConfigPersistence] Failed to check for node configuration:`, error)

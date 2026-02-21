@@ -52,14 +52,14 @@ export abstract class BaseActionHandler {
   }
 
   protected logHandlerStart(handlerType: string, intent: IntentAnalysisResult): void {
-    logger.debug(`🎯 ${handlerType} handler - ${intent.intent}:${intent.action}`, {
+    logger.info(`🎯 ${handlerType} handler - ${intent.intent}:${intent.action}`, {
       specifiedIntegration: intent.specifiedIntegration,
       parameters: intent.parameters
     })
   }
 
   protected logIntegrationsFound(handlerType: string, integrations: Integration[]): void {
-    logger.debug(`🔌 ${handlerType} integrations found:`, integrations.map(i => ({
+    logger.info(`🔌 ${handlerType} integrations found:`, integrations.map(i => ({
       provider: i.provider,
       hasToken: this.hasValidToken(i)
     })))

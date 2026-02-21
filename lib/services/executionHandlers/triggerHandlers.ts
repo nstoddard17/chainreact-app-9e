@@ -12,7 +12,7 @@ export class TriggerNodeHandlers {
     const useMockData = context.testMode &&
       context.testModeConfig?.triggerMode === TriggerTestMode.USE_MOCK_DATA
 
-    logger.debug(`🎯 Trigger execution mode: ${useMockData ? 'MOCK DATA' : 'REAL DATA'}`, {
+    logger.info(`🎯 Trigger execution mode: ${useMockData ? 'MOCK DATA' : 'REAL DATA'}`, {
       nodeType,
       testMode: context.testMode,
       triggerMode: context.testModeConfig?.triggerMode
@@ -21,7 +21,7 @@ export class TriggerNodeHandlers {
     // If using mock data, return it immediately
     if (useMockData) {
       const mockData = getMockTriggerData(nodeType)
-      logger.debug(`📝 Using mock data for ${nodeType}`, mockData)
+      logger.info(`📝 Using mock data for ${nodeType}`, mockData)
       return {
         success: true,
         output: mockData,
@@ -60,7 +60,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeWebhookTrigger(node: any, context: ExecutionContext) {
-    logger.debug("🪝 Executing webhook trigger")
+    logger.info("🪝 Executing webhook trigger")
 
     const timestamp = new Date().toISOString()
     const config = node.data?.config || {}
@@ -94,7 +94,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeScheduleTrigger(node: any, context: ExecutionContext) {
-    logger.debug("⏰ Executing schedule trigger")
+    logger.info("⏰ Executing schedule trigger")
 
     const config = node.data?.config || {}
     const scheduledTime = new Date().toISOString()
@@ -117,7 +117,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeManualTrigger(node: any, context: ExecutionContext) {
-    logger.debug("👆 Executing manual trigger")
+    logger.info("👆 Executing manual trigger")
 
     const config = node.data?.config || {}
     const timestamp = new Date().toISOString()
@@ -151,7 +151,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeGmailTrigger(node: any, context: ExecutionContext) {
-    logger.debug("📧 Executing Gmail new email trigger")
+    logger.info("📧 Executing Gmail new email trigger")
     
     if (context.testMode) {
       return {
@@ -176,7 +176,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeGmailAttachmentTrigger(node: any, context: ExecutionContext) {
-    logger.debug("📎 Executing Gmail attachment trigger")
+    logger.info("📎 Executing Gmail attachment trigger")
     
     if (context.testMode) {
       return {
@@ -205,7 +205,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeGmailLabelTrigger(node: any, context: ExecutionContext) {
-    logger.debug("🏷️ Executing Gmail label trigger")
+    logger.info("🏷️ Executing Gmail label trigger")
     
     return {
       type: "gmail_trigger_new_label",
@@ -215,7 +215,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeCalendarNewEventTrigger(node: any, context: ExecutionContext) {
-    logger.debug("📅 Executing Calendar new event trigger")
+    logger.info("📅 Executing Calendar new event trigger")
     
     return {
       type: "google_calendar_trigger_new_event",
@@ -225,7 +225,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeCalendarEventUpdatedTrigger(node: any, context: ExecutionContext) {
-    logger.debug("📅 Executing Calendar event updated trigger")
+    logger.info("📅 Executing Calendar event updated trigger")
     
     return {
       type: "google_calendar_trigger_event_updated",
@@ -235,7 +235,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeCalendarEventCanceledTrigger(node: any, context: ExecutionContext) {
-    logger.debug("📅 Executing Calendar event canceled trigger")
+    logger.info("📅 Executing Calendar event canceled trigger")
     
     return {
       type: "google_calendar_trigger_event_canceled",
@@ -245,7 +245,7 @@ export class TriggerNodeHandlers {
   }
 
   private async executeGoogleDriveTrigger(node: any, context: ExecutionContext) {
-    logger.debug("📁 Executing Google Drive trigger")
+    logger.info("📁 Executing Google Drive trigger")
     
     return {
       type: node.data.type,

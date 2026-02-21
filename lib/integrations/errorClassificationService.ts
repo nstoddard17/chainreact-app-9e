@@ -124,7 +124,7 @@ export function classifyOAuthError(
   const errorString = extractErrorString(errorResponse)
   const errorCode = extractErrorCode(errorResponse)
 
-  logger.debug(`[ErrorClassification] Classifying error for ${provider}`, {
+  logger.info(`[ErrorClassification] Classifying error for ${provider}`, {
     statusCode,
     errorCode,
     errorString: errorString.substring(0, 200),

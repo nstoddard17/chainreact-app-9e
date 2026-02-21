@@ -69,7 +69,7 @@ export async function sendOnedriveSharingInvitation(
       payload.message = message
     }
 
-    logger.debug('[OneDrive] Sending sharing invitation:', {
+    logger.info('[OneDrive] Sending sharing invitation:', {
       itemId: targetItemId,
       recipients: recipientEmails,
       role,

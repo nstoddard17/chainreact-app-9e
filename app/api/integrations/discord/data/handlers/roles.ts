@@ -57,7 +57,7 @@ export const getDiscordRoles: DiscordDataHandler<DiscordRole> = async (integrati
       }
       if (error.message.includes("404")) {
         // Bot is not in the server - return empty array instead of throwing error
-        logger.debug(`Bot is not a member of server ${guildId} - returning empty roles list`)
+        logger.info(`Bot is not a member of server ${guildId} - returning empty roles list`)
         return []
       }
       throw error

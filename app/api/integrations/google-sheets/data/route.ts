@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Google Sheets API] Processing request:`, {
+    logger.info(`🔍 [Google Sheets API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as GoogleSheetsIntegration, options)
 
-    logger.debug(`✅ [Google Sheets API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Google Sheets API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: Array.isArray(data) ? data.length : 1
     })

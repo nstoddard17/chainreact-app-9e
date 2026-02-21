@@ -8,7 +8,7 @@ import { validateAirtableIntegration, validateAirtableToken, makeAirtableApiRequ
 import { logger } from '@/lib/utils/logger'
 
 export const getAirtableBases: AirtableDataHandler<AirtableBase> = async (integration: AirtableIntegration, options: any = {}): Promise<AirtableBase[]> => {
-  logger.debug("🔍 Airtable bases fetcher called with integration:", {
+  logger.info("🔍 Airtable bases fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -19,15 +19,15 @@ export const getAirtableBases: AirtableDataHandler<AirtableBase> = async (integr
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    logger.debug(`🔍 Validating Airtable token...`)
+    logger.info(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    logger.debug('🔍 Fetching Airtable bases from API...')
+    logger.info('🔍 Fetching Airtable bases from API...')
     const apiUrl = buildAirtableApiUrl('/v0/meta/bases')
     
     const response = await makeAirtableApiRequest(apiUrl, tokenResult.token!)
@@ -41,7 +41,7 @@ export const getAirtableBases: AirtableDataHandler<AirtableBase> = async (integr
       permissionLevel: base.permissionLevel || 'read'
     }))
     
-    logger.debug(`✅ Airtable bases fetched successfully: ${transformedBases.length} bases`)
+    logger.info(`✅ Airtable bases fetched successfully: ${transformedBases.length} bases`)
     return transformedBases
     
   } catch (error: any) {

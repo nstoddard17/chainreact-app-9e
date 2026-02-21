@@ -26,11 +26,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { integrationId, dataType, options = {} } = body
 
-    logger.debug('🔍 [GitHub Data API] Request:', { integrationId, dataType, options })
+    logger.info('🔍 [GitHub Data API] Request:', { integrationId, dataType, options })
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      logger.debug('❌ [GitHub Data API] Missing required parameters')
+      logger.info('❌ [GitHub Data API] Missing required parameters')
       return errorResponse('Missing required parameters: integrationId and dataType', 400)
     }
 
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     // Get access token from encrypted_data (new format) or access_token field (old format)
     let accessToken: string | null = null
 
-    logger.debug('🔍 [GitHub API] Token extraction debug:', {
+    logger.info('🔍 [GitHub API] Token extraction debug:', {
       hasEncryptedData: !!integration.encrypted_data,
       hasAccessToken: !!integration.access_token,
       encryptedDataType: typeof integration.encrypted_data
@@ -105,14 +105,14 @@ export async function POST(request: NextRequest) {
           ? JSON.parse(integration.encrypted_data)
           : integration.encrypted_data
 
-        logger.debug('🔍 [GitHub API] Encrypted data parsed:', {
+        logger.info('🔍 [GitHub API] Encrypted data parsed:', {
           hasAccessToken: !!encryptedData.access_token,
           keys: Object.keys(encryptedData)
         })
 
         if (encryptedData.access_token) {
           accessToken = decrypt(encryptedData.access_token, encryptionKey)
-          logger.debug('✅ [GitHub API] Access token decrypted successfully')
+          logger.info('✅ [GitHub API] Access token decrypted successfully')
         } else {
           logger.warn('⚠️ [GitHub API] No access_token in encrypted_data')
         }
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         }
 
         accessToken = decrypt(integration.access_token, encryptionKey)
-        logger.debug('✅ [GitHub API] Using legacy access_token field (decrypted)')
+        logger.info('✅ [GitHub API] Using legacy access_token field (decrypted)')
       } catch (decryptError: any) {
         logger.error('❌ [GitHub API] Failed to decrypt legacy access token:', {
           error: decryptError.message,
@@ -153,21 +153,21 @@ export async function POST(request: NextRequest) {
       return errorResponse('GitHub access token not found', 500)
     }
 
-    logger.debug('✅ [GitHub API] Access token ready, calling handler')
+    logger.info('✅ [GitHub API] Access token ready, calling handler')
 
     // Get handler for the requested data type
     const handler = getGitHubHandler(dataType)
 
     if (!handler) {
-      logger.debug('❌ [GitHub Data API] Unsupported data type:', dataType)
+      logger.info('❌ [GitHub Data API] Unsupported data type:', dataType)
       return errorResponse(`Unsupported data type: ${dataType}`, 400)
     }
 
     // Call the handler with access token and options
-    logger.debug('📡 [GitHub Data API] Calling handler:', { dataType, options })
+    logger.info('📡 [GitHub Data API] Calling handler:', { dataType, options })
     const data = await handler(accessToken, options)
 
-    logger.debug('✅ [GitHub Data API] Success:', { dataType, count: data.length })
+    logger.info('✅ [GitHub Data API] Success:', { dataType, count: data.length })
     return jsonResponse({ data, success: true })
 
   } catch (error: any) {

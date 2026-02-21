@@ -88,40 +88,40 @@ export async function tryMultipleOneNoteEndpoints<T>(
   endpoints: string[],
   operation: string
 ): Promise<{ data: T[], error?: { message: string } }> {
-  logger.debug(`🔍 Trying ${endpoints.length} OneNote endpoints for ${operation}...`)
+  logger.info(`🔍 Trying ${endpoints.length} OneNote endpoints for ${operation}...`)
   
   for (const endpoint of endpoints) {
     try {
-      logger.debug(`🔍 Trying endpoint: ${endpoint}`)
+      logger.info(`🔍 Trying endpoint: ${endpoint}`)
       
       const response = await makeOneNoteApiRequest(endpoint, accessToken)
       
       if (response.ok) {
         const data = await response.json()
-        logger.debug(`✅ OneNote API response received. Found ${data.value?.length || 0} items`)
+        logger.info(`✅ OneNote API response received. Found ${data.value?.length || 0} items`)
         
         // Only return if we actually got data
         if (data.value && data.value.length > 0) {
-          logger.debug(`✅ OneNote API success! Returning ${data.value.length} ${operation}`)
+          logger.info(`✅ OneNote API success! Returning ${data.value.length} ${operation}`)
           return {
             data: data.value,
             error: undefined
           }
         } 
-          logger.debug(`⚠️ OneNote API returned empty data, trying next endpoint...`)
+          logger.info(`⚠️ OneNote API returned empty data, trying next endpoint...`)
         
       } else {
         const errorText = await response.text()
-        logger.debug(`❌ OneNote API failed: ${response.status} ${errorText}`)
+        logger.info(`❌ OneNote API failed: ${response.status} ${errorText}`)
       }
     } catch (error) {
-      logger.debug(`❌ OneNote API error:`, error)
+      logger.info(`❌ OneNote API error:`, error)
     }
   }
   
   // If we got here, all endpoints either failed or returned empty data
   // This could mean the user simply has no notebooks/sections/pages
-  logger.debug(`⚠️ All OneNote endpoints checked for ${operation} - returning empty result`)
+  logger.info(`⚠️ All OneNote endpoints checked for ${operation} - returning empty result`)
   return {
     data: [],
     error: undefined // Don't treat empty data as an error
@@ -162,7 +162,7 @@ export async function validateOneNoteToken(integration: any): Promise<{ success:
 
     // Successfully decrypted the token - return it
     // We're following Discord's approach: just decrypt and return, don't validate
-    logger.debug('✅ OneNote token decrypted successfully')
+    logger.info('✅ OneNote token decrypted successfully')
     return {
       success: true,
       token: accessToken
@@ -200,7 +200,7 @@ async function refreshOneNoteToken(integration: any): Promise<string | null> {
       refreshToken = integration.refresh_token
     }
 
-    logger.debug('🔄 Attempting token refresh with:', {
+    logger.info('🔄 Attempting token refresh with:', {
       clientId: `${clientId.substring(0, 8) }...`,
       hasRefreshToken: !!refreshToken,
       refreshTokenLength: refreshToken?.length
@@ -245,12 +245,12 @@ async function refreshOneNoteToken(integration: any): Promise<string | null> {
 
     const data = await response.json()
     
-    logger.debug('✅ Token refresh successful, updating database...')
+    logger.info('✅ Token refresh successful, updating database...')
     
     // Update the integration with new tokens
     await updateIntegrationTokens(integration.id, data)
     
-    logger.debug('✅ Database updated with new tokens')
+    logger.info('✅ Database updated with new tokens')
     return data.access_token
   } catch (error: any) {
     logger.error('❌ Error refreshing OneNote token:', error)
@@ -300,7 +300,7 @@ async function updateIntegrationTokens(integrationId: string, tokenData: any): P
     if (error) {
       logger.error('❌ Failed to update integration tokens:', error)
     } else {
-      logger.debug('✅ Successfully updated OneNote integration tokens')
+      logger.info('✅ Successfully updated OneNote integration tokens')
     }
   } catch (error: any) {
     logger.error('❌ Error updating integration tokens:', error)

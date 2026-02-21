@@ -5,8 +5,8 @@ import { logger } from '@/lib/utils/logger'
 
 export class LegacyIntegrationService {
   async executeFallbackAction(node: any, context: ExecutionContext): Promise<any> {
-    logger.debug(`🔄 Fallback to legacy action execution for: ${node.data.type}`)
-    logger.debug(`📌 Context userId: ${context.userId}, workflowId: ${context.workflowId}`)
+    logger.info(`🔄 Fallback to legacy action execution for: ${node.data.type}`)
+    logger.info(`📌 Context userId: ${context.userId}, workflowId: ${context.workflowId}`)
     
     if (!context.userId) {
       logger.error('❌ ERROR: userId is undefined in ExecutionContext!')
@@ -30,7 +30,7 @@ export class LegacyIntegrationService {
   }
 
   async executeOneDriveUpload(node: any, context: ExecutionContext): Promise<any> {
-    logger.debug("☁️ Executing OneDrive upload (legacy)")
+    logger.info("☁️ Executing OneDrive upload (legacy)")
     
     if (context.testMode) {
       return {
@@ -45,7 +45,7 @@ export class LegacyIntegrationService {
   }
 
   async executeDropboxUpload(node: any, context: ExecutionContext): Promise<any> {
-    logger.debug("📦 Executing Dropbox upload (legacy)")
+    logger.info("📦 Executing Dropbox upload (legacy)")
     
     if (context.testMode) {
       return {

@@ -285,7 +285,7 @@ export const getSearchEmailsPreview: GmailDataHandler = async (integration: Gmai
   const { searchConfig = {} } = options
   const previewLimit = searchConfig.previewLimit || 10
 
-  logger.debug('[Gmail Preview] Search emails preview request:', { searchConfig, previewLimit })
+  logger.info('[Gmail Preview] Search emails preview request:', { searchConfig, previewLimit })
 
   validateGmailIntegration(integration)
   const accessToken = getGmailAccessToken(integration)
@@ -293,7 +293,7 @@ export const getSearchEmailsPreview: GmailDataHandler = async (integration: Gmai
   try {
     // Build query
     const query = buildGmailQuery(searchConfig)
-    logger.debug('[Gmail Preview] Built query:', query)
+    logger.info('[Gmail Preview] Built query:', query)
 
     // Build URL with query params
     const params = new URLSearchParams({
@@ -322,7 +322,7 @@ export const getSearchEmailsPreview: GmailDataHandler = async (integration: Gmai
 
     const listData = await listResponse.json()
     const messages = listData.messages || []
-    logger.debug(`[Gmail Preview] Found ${messages.length} messages`)
+    logger.info(`[Gmail Preview] Found ${messages.length} messages`)
 
     if (messages.length === 0) {
       return {
@@ -375,7 +375,7 @@ export const getAdvancedSearchPreview: GmailDataHandler = async (integration: Gm
   const { advancedSearchConfig = {} } = options
   const previewLimit = advancedSearchConfig.previewLimit || 10
 
-  logger.debug('[Gmail Preview] Advanced search preview request:', { advancedSearchConfig, previewLimit })
+  logger.info('[Gmail Preview] Advanced search preview request:', { advancedSearchConfig, previewLimit })
 
   validateGmailIntegration(integration)
   const accessToken = getGmailAccessToken(integration)
@@ -383,7 +383,7 @@ export const getAdvancedSearchPreview: GmailDataHandler = async (integration: Gm
   try {
     // Build query from advanced search config
     const query = buildAdvancedGmailQuery(advancedSearchConfig)
-    logger.debug('[Gmail Preview] Built advanced query:', query)
+    logger.info('[Gmail Preview] Built advanced query:', query)
 
     if (!query || query.trim() === '') {
       return {
@@ -419,7 +419,7 @@ export const getAdvancedSearchPreview: GmailDataHandler = async (integration: Gm
 
     const listData = await listResponse.json()
     const messages = listData.messages || []
-    logger.debug(`[Gmail Preview] Found ${messages.length} messages`)
+    logger.info(`[Gmail Preview] Found ${messages.length} messages`)
 
     if (messages.length === 0) {
       return {
@@ -534,7 +534,7 @@ export const getMarkAsReadPreview: GmailDataHandler = async (integration: GmailI
   const { markAsReadConfig = {} } = options
   const previewLimit = markAsReadConfig.previewLimit || 10
 
-  logger.debug('[Gmail Preview] Mark as Read preview request:', { markAsReadConfig, previewLimit })
+  logger.info('[Gmail Preview] Mark as Read preview request:', { markAsReadConfig, previewLimit })
 
   validateGmailIntegration(integration)
   const accessToken = getGmailAccessToken(integration)
@@ -542,7 +542,7 @@ export const getMarkAsReadPreview: GmailDataHandler = async (integration: GmailI
   try {
     // Build query from Mark as Read config
     const query = buildMarkAsReadQuery(markAsReadConfig)
-    logger.debug('[Gmail Preview] Built mark as read query:', query)
+    logger.info('[Gmail Preview] Built mark as read query:', query)
 
     if (!query || query.trim() === '') {
       return {
@@ -578,7 +578,7 @@ export const getMarkAsReadPreview: GmailDataHandler = async (integration: GmailI
 
     const listData = await listResponse.json()
     const messages = listData.messages || []
-    logger.debug(`[Gmail Preview] Found ${messages.length} messages that would be marked as read`)
+    logger.info(`[Gmail Preview] Found ${messages.length} messages that would be marked as read`)
 
     if (messages.length === 0) {
       return {
@@ -631,7 +631,7 @@ export const getMarkAsUnreadPreview: GmailDataHandler = async (integration: Gmai
   const { markAsUnreadConfig = {} } = options
   const previewLimit = markAsUnreadConfig.previewLimit || 10
 
-  logger.debug('[Gmail Preview] Mark as Unread preview request:', { markAsUnreadConfig, previewLimit })
+  logger.info('[Gmail Preview] Mark as Unread preview request:', { markAsUnreadConfig, previewLimit })
 
   validateGmailIntegration(integration)
   const accessToken = getGmailAccessToken(integration)
@@ -639,7 +639,7 @@ export const getMarkAsUnreadPreview: GmailDataHandler = async (integration: Gmai
   try {
     // Build query from Mark as Unread config (uses same query builder)
     const query = buildMarkAsReadQuery(markAsUnreadConfig)
-    logger.debug('[Gmail Preview] Built mark as unread query:', query)
+    logger.info('[Gmail Preview] Built mark as unread query:', query)
 
     if (!query || query.trim() === '') {
       return {
@@ -675,7 +675,7 @@ export const getMarkAsUnreadPreview: GmailDataHandler = async (integration: Gmai
 
     const listData = await listResponse.json()
     const messages = listData.messages || []
-    logger.debug(`[Gmail Preview] Found ${messages.length} messages that would be marked as unread`)
+    logger.info(`[Gmail Preview] Found ${messages.length} messages that would be marked as unread`)
 
     if (messages.length === 0) {
       return {

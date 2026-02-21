@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('Failed to confirm email' , 500)
     }
 
-    logger.debug('User email confirmed successfully:', userId)
+    logger.info('User email confirmed successfully:', userId)
     return jsonResponse({
       success: true,
       message: 'Email confirmed successfully'

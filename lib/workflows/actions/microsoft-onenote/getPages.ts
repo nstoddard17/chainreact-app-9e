@@ -16,7 +16,7 @@ export async function onenoteGetPages(
   const { notebookId, sectionId, filter, orderBy = "lastModifiedDateTime desc", top = 20 } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would get OneNote pages:", { notebookId, sectionId, filter })
+    logger.info("[TEST MODE] Would get OneNote pages:", { notebookId, sectionId, filter })
     return {
       success: true,
       output: {

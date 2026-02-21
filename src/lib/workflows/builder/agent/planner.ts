@@ -1098,7 +1098,7 @@ export async function planEdits({
   // Check for unsupported features first
   const unsupportedCheck = detectUnsupportedFeatures(prompt)
   if (unsupportedCheck.hasUnsupported) {
-    logger.debug('[Planner] Detected unsupported features', {
+    logger.info('[Planner] Detected unsupported features', {
       features: unsupportedCheck.unsupportedList.map(f => f.feature),
     })
 
@@ -1108,11 +1108,11 @@ export async function planEdits({
 
   // Check if this is a refinement request
   if (looksLikeRefinement(prompt) && flow.nodes.length > 0) {
-    logger.debug('[Planner] Detected refinement request', { prompt })
+    logger.info('[Planner] Detected refinement request', { prompt })
     const refinementIntent = parseRefinementIntent(prompt, flow.nodes)
 
     if (refinementIntent && refinementIntent.confidence !== 'low') {
-      logger.debug('[Planner] Applying refinement', { intent: refinementIntent })
+      logger.info('[Planner] Applying refinement', { intent: refinementIntent })
       const edges = flow.edges.map(e => ({ id: e.id, from: e.from, to: e.to }))
       const result = applyRefinement(refinementIntent, flow.nodes, edges, 1)
 
@@ -1140,7 +1140,7 @@ export async function planEdits({
   // Try LLM planner first (for complex requests)
   if (useLLM) {
     try {
-      logger.debug('[Planner] Attempting LLM-based planning', { prompt })
+      logger.info('[Planner] Attempting LLM-based planning', { prompt })
 
       const llmInput: LLMPlannerInput = {
         prompt,
@@ -1155,7 +1155,7 @@ export async function planEdits({
       if (llmResult.confidence !== 'low' && llmResult.nodes.length > 0) {
         const plannerResult = llmOutputToPlannerResult(llmResult, existingNodeIds)
 
-        logger.debug('[Planner] LLM planning successful', {
+        logger.info('[Planner] LLM planning successful', {
           nodeCount: llmResult.nodes.length,
           confidence: llmResult.confidence,
         })
@@ -1174,7 +1174,7 @@ export async function planEdits({
         }
       }
 
-      logger.debug('[Planner] LLM result low confidence, falling back to patterns', {
+      logger.info('[Planner] LLM result low confidence, falling back to patterns', {
         confidence: llmResult.confidence,
         nodeCount: llmResult.nodes.length,
       })
@@ -1184,7 +1184,7 @@ export async function planEdits({
   }
 
   // Fall back to pattern matching
-  logger.debug('[Planner] Using pattern-based planning', { prompt })
+  logger.info('[Planner] Using pattern-based planning', { prompt })
   const patternResult = await planEditsWithPatterns({ prompt, flow })
 
   // Add unsupported features info if detected
@@ -1424,7 +1424,7 @@ async function planEditsWithPatterns({ prompt, flow }: { prompt: string; flow: F
 
   // Generate workflow name from prompt using AI
   const workflowName = await generateWorkflowNameWithAI(prompt, planTemplate)
-  logger.debug('[Planner] Generated workflow name', { workflowName, prompt })
+  logger.info('[Planner] Generated workflow name', { workflowName, prompt })
 
   return {
     edits,

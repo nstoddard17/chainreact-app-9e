@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     // Build the query to get integrations with refresh tokens that need refreshing
     // Exclude integrations that already need reauthorization to avoid repeated error logs
-    logger.debug(`📊 Query parameters:`, {
+    logger.info(`📊 Query parameters:`, {
       provider: provider || 'all',
       limit,
       batchSize,
@@ -92,12 +92,12 @@ export async function GET(request: NextRequest) {
     // Filter by provider if specified
     if (provider) {
       query = query.eq("provider", provider)
-      logger.debug(`🔍 Filtering by provider: ${provider}`)
+      logger.info(`🔍 Filtering by provider: ${provider}`)
     }
 
     // Add pagination
     query = query.range(offset, offset + limit - 1)
-    logger.debug(`📄 Pagination: offset=${offset}, limit=${limit}`)
+    logger.info(`📄 Pagination: offset=${offset}, limit=${limit}`)
 
     // Order by expiration time to prioritize tokens that expire soonest
     query = query.order("expires_at", { ascending: true, nullsFirst: false })
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
     // Execute the query
     let integrations: any[] = []
     try {
-      if (verbose) logger.debug(`Executing database query to find integrations needing refresh...`)
+      if (verbose) logger.info(`Executing database query to find integrations needing refresh...`)
 
       const { data, error: fetchError } = await query
 
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
       for (const integration of batch) {
         try {
           if (verbose) {
-            logger.debug(
+            logger.info(
               `Processing ${integration.provider} for user ${integration.user_id}`
             )
           }
@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
 
           // Skip if no refresh token
           if (!integration.refresh_token) {
-            if (verbose) logger.debug(`Skipping ${integration.provider} - no refresh token`)
+            if (verbose) logger.info(`Skipping ${integration.provider} - no refresh token`)
 
             // Check if the token is expired and update status if needed
             // IMPORTANT: Add 10-minute grace period to avoid premature marking
@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
               const expiredWithGrace = now.getTime() > (expiresAt.getTime() + gracePeriodMs)
 
               if (expiredWithGrace) {
-                if (verbose) logger.debug(`${integration.provider} has been expired for >${gracePeriodMinutes} minutes without refresh token - marking as needs_reauthorization`)
+                if (verbose) logger.info(`${integration.provider} has been expired for >${gracePeriodMinutes} minutes without refresh token - marking as needs_reauthorization`)
 
                 await supabase
                   .from("integrations")
@@ -206,7 +206,7 @@ export async function GET(request: NextRequest) {
                   .eq("id", integration.id)
               } else if (verbose) {
                 const minutesUntilExpiry = Math.ceil((expiresAt.getTime() - now.getTime()) / (60 * 1000))
-                logger.debug(`${integration.provider} expires in ${minutesUntilExpiry} minutes or expired <${gracePeriodMinutes} min ago - not marking yet`)
+                logger.info(`${integration.provider} expires in ${minutesUntilExpiry} minutes or expired <${gracePeriodMinutes} min ago - not marking yet`)
               }
             }
 
@@ -254,7 +254,7 @@ export async function GET(request: NextRequest) {
             if (updateError) {
               logger.error(`Error updating integration after successful refresh:`, updateError)
             } else if (verbose) {
-              logger.debug(`Successfully refreshed ${integration.provider}`)
+              logger.info(`Successfully refreshed ${integration.provider}`)
             }
 
             results.push({
@@ -288,13 +288,13 @@ export async function GET(request: NextRequest) {
               // Transient failure (rate limit, network error, 5xx)
               newTransientFailures = currentTransientFailures + 1
               if (verbose) {
-                logger.debug(`${integration.provider}: Transient failure #${newTransientFailures} (rate limit/network)`)
+                logger.info(`${integration.provider}: Transient failure #${newTransientFailures} (rate limit/network)`)
               }
             } else {
               // Permanent auth failure
               newAuthFailures = currentAuthFailures + 1
               if (verbose) {
-                logger.debug(`${integration.provider}: Auth failure #${newAuthFailures} (permanent)`)
+                logger.info(`${integration.provider}: Auth failure #${newAuthFailures} (permanent)`)
               }
             }
 
@@ -324,7 +324,7 @@ export async function GET(request: NextRequest) {
             if (updateError) {
               logger.error(`Error updating integration after failed refresh:`, updateError)
             } else if (verbose) {
-              logger.debug(`Failed to refresh ${integration.provider}: ${refreshResult.error}`)
+              logger.info(`Failed to refresh ${integration.provider}: ${refreshResult.error}`)
             }
 
             // Send notifications based on failure type and count
@@ -417,7 +417,7 @@ export async function GET(request: NextRequest) {
       
       // Add a small delay between batches to avoid overwhelming external APIs
       if (batchIndex < batches.length - 1) {
-        if (verbose) logger.debug(`Pausing briefly between batches...`)
+        if (verbose) logger.info(`Pausing briefly between batches...`)
         await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay between batches
       }
     }
@@ -475,7 +475,7 @@ export async function GET(request: NextRequest) {
       
       const fixedCount = statusFixResult?.count || 0;
       if (fixedCount > 0) {
-        logger.debug(`Fixed statuses for ${fixedCount} integrations with recent successful refreshes`)
+        logger.info(`Fixed statuses for ${fixedCount} integrations with recent successful refreshes`)
       }
     } catch (error) {
       logger.error(`Could not run status fix procedure:`, error)

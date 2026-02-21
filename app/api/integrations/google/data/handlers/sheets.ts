@@ -35,7 +35,7 @@ import { validateGoogleIntegration, makeGoogleApiRequest, getGoogleAccessToken }
 export const getGoogleSheetsSpreadsheets: GoogleDataHandler<GoogleSpreadsheet> = async (integration: GoogleIntegration) => {
   try {
     validateGoogleIntegration(integration)
-    logger.debug("📊 [Google Sheets] Fetching spreadsheets")
+    logger.info("📊 [Google Sheets] Fetching spreadsheets")
 
     const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
@@ -57,7 +57,7 @@ export const getGoogleSheetsSpreadsheets: GoogleDataHandler<GoogleSpreadsheet> =
       mime_type: 'application/vnd.google-apps.spreadsheet'
     }))
 
-    logger.debug(`✅ [Google Sheets] Retrieved ${spreadsheets.length} spreadsheets`)
+    logger.info(`✅ [Google Sheets] Retrieved ${spreadsheets.length} spreadsheets`)
     return spreadsheets
 
   } catch (error: any) {
@@ -78,7 +78,7 @@ export const getGoogleSheetsSheets: GoogleDataHandler<GoogleSheet> = async (inte
       throw new Error("Spreadsheet ID is required")
     }
 
-    logger.debug(`📊 [Google Sheets] Fetching sheets for spreadsheet: ${spreadsheetId}`)
+    logger.info(`📊 [Google Sheets] Fetching sheets for spreadsheet: ${spreadsheetId}`)
 
     const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
@@ -97,7 +97,7 @@ export const getGoogleSheetsSheets: GoogleDataHandler<GoogleSheet> = async (inte
       grid_properties: sheet.properties.gridProperties
     }))
 
-    logger.debug(`✅ [Google Sheets] Retrieved ${sheets.length} sheets`)
+    logger.info(`✅ [Google Sheets] Retrieved ${sheets.length} sheets`)
     return sheets
 
   } catch (error: any) {
@@ -118,7 +118,7 @@ export const getGoogleSheetsSheetPreview: GoogleDataHandler<GoogleSheetPreview> 
       throw new Error("Spreadsheet ID and sheet name are required to fetch sheet preview")
     }
 
-    logger.debug(`📊 [Google Sheets] Fetching sheet preview for: ${spreadsheetId}/${sheetName}`)
+    logger.info(`📊 [Google Sheets] Fetching sheet preview for: ${spreadsheetId}/${sheetName}`)
 
     // Get the first 10 rows to show structure and sample data
     const accessToken = getGoogleAccessToken(integration)
@@ -145,7 +145,7 @@ export const getGoogleSheetsSheetPreview: GoogleDataHandler<GoogleSheetPreview> 
       hasHeaders: headers.length > 0 && headers.some((h: string) => h && h.trim() !== ''),
     }
 
-    logger.debug(`✅ [Google Sheets] Retrieved sheet preview with ${headers.length} headers`)
+    logger.info(`✅ [Google Sheets] Retrieved sheet preview with ${headers.length} headers`)
     return [preview]
 
   } catch (error: any) {
@@ -166,7 +166,7 @@ export const getGoogleSheetsSheetData: GoogleDataHandler<GoogleSheetData> = asyn
       throw new Error("Spreadsheet ID and sheet name are required to fetch sheet data")
     }
 
-    logger.debug(`📊 [Google Sheets] Fetching sheet data for: ${spreadsheetId}/${sheetName}`)
+    logger.info(`📊 [Google Sheets] Fetching sheet data for: ${spreadsheetId}/${sheetName}`)
 
     // Get all rows from the sheet (limit to first 1000 rows for performance)
     const accessToken = getGoogleAccessToken(integration)
@@ -202,7 +202,7 @@ export const getGoogleSheetsSheetData: GoogleDataHandler<GoogleSheetData> = asyn
       totalRows: dataRows.length,
     }
 
-    logger.debug(`✅ [Google Sheets] Retrieved sheet data with ${dataRows.length} rows`)
+    logger.info(`✅ [Google Sheets] Retrieved sheet data with ${dataRows.length} rows`)
     return [sheetData]
 
   } catch (error: any) {
@@ -223,7 +223,7 @@ export const getGoogleSheetsColumns: GoogleDataHandler<GoogleSheetColumn> = asyn
       throw new Error("Spreadsheet ID and sheet name are required to fetch columns")
     }
 
-    logger.debug(`📊 [Google Sheets] Fetching columns for: ${spreadsheetId}/${sheetName}`)
+    logger.info(`📊 [Google Sheets] Fetching columns for: ${spreadsheetId}/${sheetName}`)
 
     const accessToken = getGoogleAccessToken(integration)
     
@@ -281,7 +281,7 @@ export const getGoogleSheetsColumns: GoogleDataHandler<GoogleSheetColumn> = asyn
       })
     }
 
-    logger.debug(`✅ [Google Sheets] Retrieved ${columns.length} columns`)
+    logger.info(`✅ [Google Sheets] Retrieved ${columns.length} columns`)
     return columns
 
   } catch (error: any) {
@@ -302,7 +302,7 @@ export const getGoogleSheetsColumnValues: GoogleDataHandler<{ id: string; name: 
       throw new Error("Spreadsheet ID, sheet name, and column are required to fetch column values")
     }
 
-    logger.debug(`📊 [Google Sheets] Fetching column values for: ${spreadsheetId}/${sheetName}/${filterColumn}`)
+    logger.info(`📊 [Google Sheets] Fetching column values for: ${spreadsheetId}/${sheetName}/${filterColumn}`)
 
     const accessToken = getGoogleAccessToken(integration)
     
@@ -362,7 +362,7 @@ export const getGoogleSheetsColumnValues: GoogleDataHandler<{ id: string; name: 
         value: value
       }))
 
-    logger.debug(`✅ [Google Sheets] Retrieved ${values.length} unique values from column ${filterColumn}`)
+    logger.info(`✅ [Google Sheets] Retrieved ${values.length} unique values from column ${filterColumn}`)
     return values
 
   } catch (error: any) {
@@ -383,7 +383,7 @@ export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhanc
       throw new Error("Spreadsheet ID and sheet name are required for enhanced preview")
     }
 
-    logger.debug(`📊 [Google Sheets] Fetching enhanced preview for: ${spreadsheetId}/${sheetName}`)
+    logger.info(`📊 [Google Sheets] Fetching enhanced preview for: ${spreadsheetId}/${sheetName}`)
 
     const accessToken = getGoogleAccessToken(integration)
 
@@ -486,7 +486,7 @@ export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhanc
       columnStats: columnStats
     }
 
-    logger.debug(`✅ [Google Sheets] Enhanced preview completed for ${maxColumns} columns, ${dataRows.length} rows`)
+    logger.info(`✅ [Google Sheets] Enhanced preview completed for ${maxColumns} columns, ${dataRows.length} rows`)
     return [enhancedPreview]
 
   } catch (error: any) {

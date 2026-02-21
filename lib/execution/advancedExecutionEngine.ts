@@ -118,7 +118,7 @@ export class AdvancedExecutionEngine {
       startNodeId: options.startNodeId,
       inputKeys: Object.keys(inputData || {})
     }
-    logger.debug('🛠️ AdvancedExecutionEngine.executeWorkflowAdvanced called', startInfo)
+    logger.info('🛠️ AdvancedExecutionEngine.executeWorkflowAdvanced called', startInfo)
     logInfo(sessionId, 'AdvancedExecutionEngine.executeWorkflowAdvanced called', startInfo)
 
     // Log to backend logger for debug modal
@@ -131,7 +131,7 @@ export class AdvancedExecutionEngine {
 
     // Check if session is already running to prevent duplicate executions
     if (session.status === "running") {
-      logger.debug(`⚠️ Session ${sessionId} is already running, skipping duplicate execution`)
+      logger.info(`⚠️ Session ${sessionId} is already running, skipping duplicate execution`)
       logWarning(sessionId, 'Session already running, skipping duplicate execution')
       return { success: false, message: "Session already running" }
     }
@@ -209,7 +209,7 @@ export class AdvancedExecutionEngine {
     try {
       if (!workflow) throw new Error("Workflow not found")
 
-      logger.debug('📋 executeWorkflowAdvanced using workflow', {
+      logger.info('📋 executeWorkflowAdvanced using workflow', {
         sessionId,
         workflowId: workflow.id,
         nodeCount: workflow.nodes?.length || 0,
@@ -241,7 +241,7 @@ export class AdvancedExecutionEngine {
         sessionId,
         workflowId: session.workflow_id
       }
-      logger.debug('✅ AdvancedExecutionEngine execution completed', completionInfo)
+      logger.info('✅ AdvancedExecutionEngine execution completed', completionInfo)
       logSuccess(sessionId, 'AdvancedExecutionEngine execution completed', completionInfo)
       return result
   } catch (error) {
@@ -413,7 +413,7 @@ export class AdvancedExecutionEngine {
 
     // For now, disable parallel processing to prevent duplicate executions
     // Only execute the main workflow path to avoid duplicate emails
-    logger.debug(`🎯 Executing workflow ${workflow.id} - main path only (parallel processing disabled)`)
+    logger.info(`🎯 Executing workflow ${workflow.id} - main path only (parallel processing disabled)`)
     logInfo(context.session.id, 'Executing workflow - main path only (parallel processing disabled)', { workflowId: workflow.id })
 
     // Execute main workflow path only
@@ -424,7 +424,7 @@ export class AdvancedExecutionEngine {
       sessionId: session.id,
       workflowId: workflow.id
     }
-    logger.debug('✅ Main workflow path finished', mainPathInfo)
+    logger.info('✅ Main workflow path finished', mainPathInfo)
     logSuccess(context.session.id, 'Main workflow path finished', mainPathInfo)
 
     return results
@@ -828,7 +828,7 @@ export class AdvancedExecutionEngine {
       connectionCount: Array.isArray(connections) ? connections.length : 0,
       hasStartNodeOverride: Boolean(startNodeId)
     }
-    logger.debug('🧱 executeMainWorkflowPath', pathInfo)
+    logger.info('🧱 executeMainWorkflowPath', pathInfo)
     logInfo(sessionId, 'executeMainWorkflowPath', pathInfo)
 
     const executionQueue: any[] = [];
@@ -848,7 +848,7 @@ export class AdvancedExecutionEngine {
         throw new Error("No trigger node found in the workflow.");
       }
       
-      logger.debug(`🎯 Found ${triggerNodes.length} trigger node(s), processing trigger: ${triggerNodes[0].id}`)
+      logger.info(`🎯 Found ${triggerNodes.length} trigger node(s), processing trigger: ${triggerNodes[0].id}`)
       logInfo(sessionId, `Found ${triggerNodes.length} trigger node(s), processing trigger: ${triggerNodes[0].id}`)
       
       // Execute the trigger first to pass through data
@@ -898,7 +898,7 @@ export class AdvancedExecutionEngine {
 
       // Skip if node has already been executed to prevent duplicates
       if (executedNodeIds.has(currentNode.id)) {
-        logger.debug(`🔄 Skipping already executed node: ${currentNode.id}`);
+        logger.info(`🔄 Skipping already executed node: ${currentNode.id}`);
         logInfo(sessionId, `Skipping already executed node: ${currentNode.id}`);
         continue;
       }
@@ -976,7 +976,7 @@ export class AdvancedExecutionEngine {
               availableHandles: nextConnections.map((c: any) => c.sourceHandle),
             });
           } else {
-            logger.debug(`🧭 AI Router selected paths for node ${currentNode.id}:`, selectedPaths);
+            logger.info(`🧭 AI Router selected paths for node ${currentNode.id}:`, selectedPaths);
             logInfo(sessionId, `AI Router selected paths`, {
               nodeId: currentNode.id,
               selectedPaths,
@@ -995,7 +995,7 @@ export class AdvancedExecutionEngine {
       // Add next nodes to queue only if they haven't been executed and aren't already in queue
       for (const nextNode of nextNodes) {
         if (!executedNodeIds.has(nextNode.id) && !executionQueue.some(queuedNode => queuedNode.id === nextNode.id)) {
-          logger.debug(`➡️ Adding node to queue: ${nextNode.id}`);
+          logger.info(`➡️ Adding node to queue: ${nextNode.id}`);
           logInfo(sessionId, `Adding node to queue: ${nextNode.id}`);
           executionQueue.push(nextNode);
         }
@@ -1085,7 +1085,7 @@ export class AdvancedExecutionEngine {
 
       // Log specific node details for debugging
       if (node.id.includes('slack')) {
-        logger.debug(`📧 Executing Slack node ${node.id}, data keys:`, Object.keys(safeInput));
+        logger.info(`📧 Executing Slack node ${node.id}, data keys:`, Object.keys(safeInput));
         logInfo(context.session.id, `Executing Slack node ${node.id}, data keys:`, Object.keys(safeInput));
       }
 

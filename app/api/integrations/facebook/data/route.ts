@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Facebook API] Processing request:`, {
+    logger.info(`🔍 [Facebook API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as FacebookIntegration, options)
 
-    logger.debug(`✅ [Facebook API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Facebook API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

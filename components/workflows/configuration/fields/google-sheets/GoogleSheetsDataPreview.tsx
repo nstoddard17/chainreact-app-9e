@@ -234,7 +234,7 @@ export function GoogleSheetsDataPreview({
                           className="bg-gray-50 min-w-32 cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => {
                             // This would trigger column selection in parent form
-                            logger.debug('Column selected:', header);
+                            logger.info('Column selected:', header);
                           }}
                         >
                           <div className="flex flex-col p-2">
@@ -270,7 +270,7 @@ export function GoogleSheetsDataPreview({
                           className="bg-gray-50 text-gray-600 font-mono text-sm text-center cursor-pointer hover:bg-gray-100 font-medium"
                           onClick={() => {
                             // This would trigger row selection in parent form
-                            logger.debug('Row selected:', rowIndex + 2);
+                            logger.info('Row selected:', rowIndex + 2);
                           }}
                         >
                           {rowIndex + 2}

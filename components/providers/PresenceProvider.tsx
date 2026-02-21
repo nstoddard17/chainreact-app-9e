@@ -18,8 +18,8 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
   useEffect(() => {
     // Only log when user is authenticated to avoid noise
     if (user?.id) {
-      logger.debug('PresenceProvider: User online status:', isOnline)
-      logger.debug('PresenceProvider: Total online users:', onlineCount)
+      logger.info('PresenceProvider: User online status:', isOnline)
+      logger.info('PresenceProvider: Total online users:', onlineCount)
     }
   }, [isOnline, onlineCount, user?.id])
 
@@ -36,7 +36,7 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
       if (error) {
         logger.error('PresenceProvider: Error removing from database:', error)
       } else {
-        logger.debug('PresenceProvider: Removed from database presence')
+        logger.info('PresenceProvider: Removed from database presence')
       }
     } catch (error) {
       logger.error('PresenceProvider: Failed to remove from database:', error)
@@ -49,11 +49,11 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
 
     const handleVisibilityChange = async () => {
       if (document.hidden) {
-        logger.debug('PresenceProvider: Page hidden, user going away')
+        logger.info('PresenceProvider: Page hidden, user going away')
         // Remove from database when page is hidden
         await removeFromDatabasePresence()
       } else {
-        logger.debug('PresenceProvider: Page visible, user active')
+        logger.info('PresenceProvider: Page visible, user active')
         // Update presence when page becomes visible again
         if (updatePresence) {
           await updatePresence({ online_at: new Date().toISOString() })
@@ -62,14 +62,14 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
     }
 
     const handleBeforeUnload = async () => {
-      logger.debug('PresenceProvider: Page unloading, cleaning up presence')
+      logger.info('PresenceProvider: Page unloading, cleaning up presence')
       // Remove from database when user leaves
       await removeFromDatabasePresence()
     }
 
     // Handle when user closes tab/browser
     const handleUnload = async () => {
-      logger.debug('PresenceProvider: User leaving, cleaning up presence')
+      logger.info('PresenceProvider: User leaving, cleaning up presence')
       await removeFromDatabasePresence()
     }
 
@@ -88,7 +88,7 @@ export function PresenceProvider({ children }: PresenceProviderProps) {
   useEffect(() => {
     if (process.env.NODE_ENV === 'development' && user?.id) {
       const logInterval = setInterval(() => {
-        logger.debug('PresenceProvider Debug:', {
+        logger.info('PresenceProvider Debug:', {
           isOnline,
           onlineCount,
           totalUsers: onlineUsers.length,

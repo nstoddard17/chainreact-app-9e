@@ -14,7 +14,7 @@ export async function onenoteCreateNotebook(
   const { displayName, userRole = "owner", overwriteIfExists = false } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would create OneNote notebook:", { displayName, userRole })
+    logger.info("[TEST MODE] Would create OneNote notebook:", { displayName, userRole })
     return {
       success: true,
       output: {
@@ -78,7 +78,7 @@ export async function onenoteCreateNotebook(
         accessToken,
         { method: 'GET' }
       )
-      logger.debug('[OneNote] Created notebook for user', {
+      logger.info('[OneNote] Created notebook for user', {
         userId: me?.id,
         userPrincipalName: me?.userPrincipalName,
         mail: me?.mail
@@ -93,7 +93,7 @@ export async function onenoteCreateNotebook(
         accessToken,
         { method: 'GET' }
       )
-      logger.debug('[OneNote] Notebook confirmation', {
+      logger.info('[OneNote] Notebook confirmation', {
         id: confirmed?.id,
         displayName: confirmed?.displayName,
         webUrl: confirmed?.links?.oneNoteWebUrl?.href || confirmed?.webUrl

@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
         // Skip if not yet within threshold
         if (minutesUntilExpiry > threshold) {
           stats.skipped++
-          logger.debug(
+          logger.info(
             `[WebhookRenewal] Skipping ${providerId} subscription: expires in ${Math.round(minutesUntilExpiry)} min, threshold is ${threshold} min`
           )
           continue
@@ -413,7 +413,7 @@ async function renewGoogleWatch(
   // Google watch renewal is more complex - need to stop old watch and create new one
   // The existing google-watch-renewal job handles this
   // For now, just log and let the dedicated job handle it
-  logger.debug(
+  logger.info(
     "[WebhookRenewal] Google watch renewal delegated to /api/webhooks/google/renew cron job"
   )
 

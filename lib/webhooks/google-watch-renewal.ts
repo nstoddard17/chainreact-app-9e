@@ -35,16 +35,16 @@ export async function renewExpiringGoogleWatches(): Promise<void> {
     }
 
     if (!expiringSubscriptions || expiringSubscriptions.length === 0) {
-      logger.debug('No Google watches expiring soon')
+      logger.info('No Google watches expiring soon')
       return
     }
 
-    logger.debug(`Found ${expiringSubscriptions.length} Google watches expiring soon`)
+    logger.info(`Found ${expiringSubscriptions.length} Google watches expiring soon`)
 
     // Process each expiring subscription
     for (const subscription of expiringSubscriptions) {
       try {
-        logger.debug(`Renewing ${subscription.provider} watch for user ${subscription.user_id}`)
+        logger.info(`Renewing ${subscription.provider} watch for user ${subscription.user_id}`)
 
         switch (subscription.provider) {
           case 'gmail':
@@ -61,7 +61,7 @@ export async function renewExpiringGoogleWatches(): Promise<void> {
             break
         }
 
-        logger.debug(`✅ Successfully renewed ${subscription.provider} watch`)
+        logger.info(`✅ Successfully renewed ${subscription.provider} watch`)
       } catch (error) {
         logger.error(`Failed to renew ${subscription.provider} watch:`, error)
 
@@ -90,7 +90,7 @@ async function renewGmailWatch(subscription: any): Promise<void> {
   try {
     await stopGmailWatch(subscription.user_id, subscription.integration_id)
   } catch (error) {
-    logger.debug('Could not stop old Gmail watch (may already be expired):', error)
+    logger.info('Could not stop old Gmail watch (may already be expired):', error)
   }
 
   // Create a new watch
@@ -142,7 +142,7 @@ async function renewGoogleDriveWatch(subscription: any): Promise<void> {
       subscription.resource_id
     )
   } catch (error) {
-    logger.debug('Could not stop old Drive watch (may already be expired):', error)
+    logger.info('Could not stop old Drive watch (may already be expired):', error)
   }
 
   // Create a new watch
@@ -157,7 +157,7 @@ async function renewGoogleDriveWatch(subscription: any): Promise<void> {
 
   // The new subscription is automatically created by setupGoogleDriveWatch
   // Just log the renewal
-  logger.debug(`Google Drive watch renewed with new channel ID: ${result.channelId}`)
+  logger.info(`Google Drive watch renewed with new channel ID: ${result.channelId}`)
 }
 
 /**
@@ -173,7 +173,7 @@ async function renewGoogleCalendarWatch(subscription: any): Promise<void> {
       subscription.resource_id
     )
   } catch (error) {
-    logger.debug('Could not stop old Calendar watch (may already be expired):', error)
+    logger.info('Could not stop old Calendar watch (may already be expired):', error)
   }
 
   // Create a new watch
@@ -188,7 +188,7 @@ async function renewGoogleCalendarWatch(subscription: any): Promise<void> {
 
   // The new subscription is automatically created by setupGoogleCalendarWatch
   // Just log the renewal
-  logger.debug(`Google Calendar watch renewed with new channel ID: ${result.channelId}`)
+  logger.info(`Google Calendar watch renewed with new channel ID: ${result.channelId}`)
 }
 
 /**
@@ -204,7 +204,7 @@ async function renewGoogleSheetsWatch(subscription: any): Promise<void> {
       subscription.resource_id
     )
   } catch (error) {
-    logger.debug('Could not stop old Sheets watch (may already be expired):', error)
+    logger.info('Could not stop old Sheets watch (may already be expired):', error)
   }
 
   // Create a new watch
@@ -219,7 +219,7 @@ async function renewGoogleSheetsWatch(subscription: any): Promise<void> {
 
   // The new subscription is automatically created by setupGoogleSheetsWatch
   // Just log the renewal
-  logger.debug(`Google Sheets watch renewed with new channel ID: ${result.channelId}`)
+  logger.info(`Google Sheets watch renewed with new channel ID: ${result.channelId}`)
 }
 
 /**
@@ -248,7 +248,7 @@ export async function cleanupExpiredSubscriptions(): Promise<void> {
     }
 
     if (deleted && deleted.length > 0) {
-      logger.debug(`Cleaned up ${deleted.length} expired webhook subscriptions`)
+      logger.info(`Cleaned up ${deleted.length} expired webhook subscriptions`)
     }
   } catch (error) {
     logger.error('Failed to cleanup expired subscriptions:', error)

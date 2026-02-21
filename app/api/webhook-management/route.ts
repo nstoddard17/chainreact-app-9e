@@ -12,15 +12,15 @@ export async function GET(request: NextRequest) {
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      logger.debug('Auth error:', authError)
+      logger.info('Auth error:', authError)
       return errorResponse("Unauthorized" , 401)
     }
 
-    logger.debug('User authenticated:', user.id)
+    logger.info('User authenticated:', user.id)
 
     // Get user's webhooks
     const webhooks = await webhookManager.getUserWebhooks(user.id)
-    logger.debug('Webhooks fetched:', webhooks.length)
+    logger.info('Webhooks fetched:', webhooks.length)
     
     return jsonResponse(webhooks)
   } catch (error: any) {

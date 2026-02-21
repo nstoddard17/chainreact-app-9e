@@ -114,16 +114,16 @@ export async function GET(request: NextRequest) {
     const userData = await userResponse.json()
 
     // Log the scopes we received
-    logger.debug('🔐 Airtable OAuth callback - User:', userData.email)
-    logger.debug('📋 Scopes from token:', tokenData.scope)
-    logger.debug('📋 User scopes from API:', userData.scopes)
+    logger.info('🔐 Airtable OAuth callback - User:', userData.email)
+    logger.info('📋 Scopes from token:', tokenData.scope)
+    logger.info('📋 User scopes from API:', userData.scopes)
 
     // Verify webhook:manage scope
     const hasWebhookScope = userData.scopes?.includes('webhook:manage') || tokenData.scope?.includes('webhook:manage')
     if (!hasWebhookScope) {
       logger.warn('⚠️ WARNING: webhook:manage scope not present in token!')
     } else {
-      logger.debug('✅ webhook:manage scope confirmed')
+      logger.info('✅ webhook:manage scope confirmed')
     }
 
     // Encrypt tokens before storing
@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
           throw new Error(`Failed to update Airtable integration: ${updateError.message}`)
         }
 
-        logger.debug(`✅ Updated existing Airtable integration: ${existingIntegration.id}`)
+        logger.info(`✅ Updated existing Airtable integration: ${existingIntegration.id}`)
       } else {
         // Insert new integration (different email = new account)
         const { error: insertError } = await getSupabase()
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
           throw new Error(`Failed to save Airtable integration: ${insertError.message}`)
         }
 
-        logger.debug(`✅ Created new Airtable integration for ${email}`)
+        logger.info(`✅ Created new Airtable integration for ${email}`)
       }
     } else {
       // Fallback: No email available, try to update by user_id + provider
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
           throw new Error(`Failed to update Airtable integration: ${updateError.message}`)
         }
 
-        logger.debug(`✅ Updated existing Airtable integration (no email): ${existingIntegration.id}`)
+        logger.info(`✅ Updated existing Airtable integration (no email): ${existingIntegration.id}`)
       } else {
         const { error: insertError } = await getSupabase()
           .from('integrations')
@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
           throw new Error(`Failed to save Airtable integration: ${insertError.message}`)
         }
 
-        logger.debug(`✅ Created new Airtable integration (no email)`)
+        logger.info(`✅ Created new Airtable integration (no email)`)
       }
     }
 

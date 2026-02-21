@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const cacheKey = `${userId}-${fieldType}-${userPrompt.substring(0, 100)}`
     const cached = fieldCache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      logger.debug('📦 Returning cached field value')
+      logger.info('📦 Returning cached field value')
       return jsonResponse({ value: cached.value })
     }
 

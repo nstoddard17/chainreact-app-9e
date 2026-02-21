@@ -89,7 +89,7 @@ export async function addSlackReaction(params: {
       name: cleanEmoji
     }
 
-    logger.debug('[Slack Add Reaction] Adding reaction:', {
+    logger.info('[Slack Add Reaction] Adding reaction:', {
       channel,
       timestamp: formattedTimestamp,
       emoji: cleanEmoji
@@ -113,12 +113,12 @@ export async function addSlackReaction(params: {
 
     // If not in channel, try to join first then retry
     if (!result.ok && result.error === 'not_in_channel') {
-      logger.debug('[Slack Add Reaction] Bot not in channel, attempting to join:', channel)
+      logger.info('[Slack Add Reaction] Bot not in channel, attempting to join:', channel)
 
       const joinResult = await callSlackApi('conversations.join', { channel })
 
       if (joinResult.ok) {
-        logger.debug('[Slack Add Reaction] Successfully joined channel, retrying reaction')
+        logger.info('[Slack Add Reaction] Successfully joined channel, retrying reaction')
         // Retry the reaction after joining
         result = await callSlackApi('reactions.add', reactionPayload)
       } else {

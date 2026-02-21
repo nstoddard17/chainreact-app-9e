@@ -13,7 +13,7 @@ import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest
 import { logger } from '@/lib/utils/logger'
 
 export const getHubSpotTicketPipelines: HubSpotDataHandler<HubSpotPipeline> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotPipeline[]> => {
-  logger.debug("🔍 HubSpot ticket pipelines fetcher called with integration:", {
+  logger.info("🔍 HubSpot ticket pipelines fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -24,22 +24,22 @@ export const getHubSpotTicketPipelines: HubSpotDataHandler<HubSpotPipeline> = as
     // Validate integration status
     validateHubSpotIntegration(integration)
 
-    logger.debug(`🔍 Validating HubSpot token...`)
+    logger.info(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    logger.debug('🔍 Fetching HubSpot ticket pipelines from API...')
+    logger.info('🔍 Fetching HubSpot ticket pipelines from API...')
     const apiUrl = buildHubSpotApiUrl('/crm/v3/pipelines/tickets')
 
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
 
     const pipelines = await parseHubSpotApiResponse<HubSpotPipeline>(response)
 
-    logger.debug(`✅ HubSpot ticket pipelines fetched successfully: ${pipelines.length} pipelines`)
+    logger.info(`✅ HubSpot ticket pipelines fetched successfully: ${pipelines.length} pipelines`)
     return pipelines
 
   } catch (error: any) {

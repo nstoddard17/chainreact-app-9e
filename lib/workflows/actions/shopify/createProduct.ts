@@ -42,7 +42,7 @@ export async function createShopifyProduct(
       ? await resolveValue(config.inventory_quantity, input)
       : 0
 
-    logger.debug('[Shopify GraphQL] Creating product:', { title, selectedStore })
+    logger.info('[Shopify GraphQL] Creating product:', { title, selectedStore })
 
     // 3. Build GraphQL mutation
     const mutation = `

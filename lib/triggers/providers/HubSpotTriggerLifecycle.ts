@@ -71,7 +71,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.debug(`🔔 Activating HubSpot trigger for workflow ${workflowId}`, {
+    logger.info(`🔔 Activating HubSpot trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -96,7 +96,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
     let accessToken: string
     try {
       accessToken = await getDecryptedAccessToken(userId, 'hubspot')
-      logger.debug(`✅ Retrieved valid HubSpot access token for user ${userId}`)
+      logger.info(`✅ Retrieved valid HubSpot access token for user ${userId}`)
     } catch (error: any) {
       logger.error('❌ Failed to get valid HubSpot token:', error)
       throw new Error('HubSpot integration not connected or token expired. Please reconnect your HubSpot account.')
@@ -105,7 +105,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
     // Get webhook callback URL for this specific workflow
     const targetUrl = this.getWebhookUrl(workflowId)
 
-    logger.debug(`📤 Creating HubSpot webhook subscription`, {
+    logger.info(`📤 Creating HubSpot webhook subscription`, {
       appId,
       subscriptionType: mapping.subscriptionType,
       targetUrl,
@@ -149,7 +149,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
 
     const subscription = await response.json()
 
-    logger.debug('HubSpot subscription created:', {
+    logger.info('HubSpot subscription created:', {
       id: subscription.id,
       eventType: subscription.eventType,
       active: subscription.active
@@ -181,14 +181,14 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       // The subscription was already created successfully with HubSpot, so we can continue
       if (insertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-        logger.debug(`✅ HubSpot webhook subscription created (without local record): ${subscription.id}`)
+        logger.info(`✅ HubSpot webhook subscription created (without local record): ${subscription.id}`)
         return
       }
       logger.error(`❌ Failed to store trigger resource:`, insertError)
       throw new Error(`Failed to store trigger resource: ${insertError.message}`)
     }
 
-    logger.debug(`✅ HubSpot webhook subscription created: ${subscription.id}`)
+    logger.info(`✅ HubSpot webhook subscription created: ${subscription.id}`)
   }
 
   /**
@@ -199,7 +199,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId, userId } = context
 
-    logger.debug(`🛑 Deactivating HubSpot triggers for workflow ${workflowId}`)
+    logger.info(`🛑 Deactivating HubSpot triggers for workflow ${workflowId}`)
 
     // Get all HubSpot subscriptions for this workflow
     const { data: resources } = await getSupabase()
@@ -210,7 +210,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No active HubSpot subscriptions for workflow ${workflowId}`)
+      logger.info(`ℹ️ No active HubSpot subscriptions for workflow ${workflowId}`)
       return
     }
 
@@ -230,7 +230,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
     let accessToken: string
     try {
       accessToken = await getDecryptedAccessToken(userId, 'hubspot')
-      logger.debug('✅ Retrieved valid HubSpot access token for deactivation')
+      logger.info('✅ Retrieved valid HubSpot access token for deactivation')
     } catch (error) {
       logger.warn(`⚠️ Failed to get valid HubSpot token, deleting subscription records without API cleanup`, error)
       // Delete even if we can't clean up in HubSpot API
@@ -270,7 +270,7 @@ export class HubSpotTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        logger.debug(`✅ Deleted HubSpot subscription: ${subscriptionId}`)
+        logger.info(`✅ Deleted HubSpot subscription: ${subscriptionId}`)
       } catch (error: any) {
         logger.error(`❌ Failed to delete subscription ${resource.external_id}:`, {
           message: error.message,

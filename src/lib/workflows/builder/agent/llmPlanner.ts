@@ -691,7 +691,7 @@ export async function planWithLLM(input: LLMPlannerInput): Promise<LLMPlannerOut
     })
 
     const duration = Date.now() - startTime
-    logger.debug('[LLMPlanner] Planning complete', {
+    logger.info('[LLMPlanner] Planning complete', {
       duration,
       nodeCount: selectedNodes.length,
       edgeCount: edges.length,

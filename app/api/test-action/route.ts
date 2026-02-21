@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { nodeType, config, testData = {}, integrationId } = body
 
-    logger.debug('[Test Action] Starting test', {
+    logger.info('[Test Action] Starting test', {
       nodeType,
       integrationId,
       configKeys: Object.keys(config || {})
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
       // Check if user has enough tasks
       if (tasksRemaining < testCost) {
-        logger.debug('[Test Action] Insufficient task quota', {
+        logger.info('[Test Action] Insufficient task quota', {
           tasksUsed,
           tasksLimit,
           tasksRemaining,
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      logger.debug('[Test Action] Billable test - will deduct tasks after execution', {
+      logger.info('[Test Action] Billable test - will deduct tasks after execution', {
         testCost,
         tasksRemaining
       })
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // Verify integration exists and user has access
     if (integrationId) {
-      logger.debug('[Test Action] Fetching integration', {
+      logger.info('[Test Action] Fetching integration', {
         integrationId,
         userId: user.id
       })
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      logger.debug('[Test Action] Integration found', {
+      logger.info('[Test Action] Integration found', {
         integrationId: integration.id,
         provider: integration.provider,
         status: integration.status
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
       variables: {}
     }
 
-    logger.debug('[Test Action] Executing action', {
+    logger.info('[Test Action] Executing action', {
       nodeType,
       executionContext: {
         outputKeys: Object.keys(testData)
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
 
       const executionTime = Date.now() - executionStartTime
 
-      logger.debug('[Test Action] Execution completed', {
+      logger.info('[Test Action] Execution completed', {
         success: result.success,
         executionTime,
         outputKeys: result.output ? Object.keys(result.output) : []
@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
           // Don't fail the request - the test already executed
         } else {
           tasksDeducted = testCost
-          logger.debug('[Test Action] Deducted tasks for billable test', {
+          logger.info('[Test Action] Deducted tasks for billable test', {
             userId: user.id,
             testCost,
             newTasksUsed,

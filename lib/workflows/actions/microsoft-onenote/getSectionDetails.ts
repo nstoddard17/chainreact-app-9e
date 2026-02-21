@@ -11,7 +11,7 @@ export async function onenoteGetSectionDetails(
   const { sectionId } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would get section details:", { sectionId })
+    logger.info("[TEST MODE] Would get section details:", { sectionId })
     return {
       success: true,
       output: {

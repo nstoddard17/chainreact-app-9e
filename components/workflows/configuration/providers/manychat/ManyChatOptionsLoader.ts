@@ -38,7 +38,7 @@ export class ManyChatOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey)
     if (pendingPromise) {
-      logger.debug(`🔄 [ManyChat] Reusing pending request for ${fieldName}`)
+      logger.info(`🔄 [ManyChat] Reusing pending request for ${fieldName}`)
       return pendingPromise
     }
 
@@ -107,13 +107,13 @@ export class ManyChatOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = useConfigCacheStore.getState().get(cacheKey)
       if (cached && Array.isArray(cached)) {
-        logger.debug(`✅ [ManyChat] Using cached tags (${cached.length} items)`)
+        logger.info(`✅ [ManyChat] Using cached tags (${cached.length} items)`)
         return cached
       }
     }
 
     try {
-      logger.debug(`📡 [ManyChat] Fetching tags from API`)
+      logger.info(`📡 [ManyChat] Fetching tags from API`)
       const response = await fetch(`/api/integrations/manychat/tags?integrationId=${integrationId}`)
 
       if (!response.ok) {
@@ -129,7 +129,7 @@ export class ManyChatOptionsLoader implements ProviderOptionsLoader {
 
       // Cache the results
       useConfigCacheStore.getState().set(cacheKey, tags, getFieldTTL('tags'))
-      logger.debug(`✅ [ManyChat] Loaded ${tags.length} tags`)
+      logger.info(`✅ [ManyChat] Loaded ${tags.length} tags`)
 
       return tags
     } catch (error: any) {
@@ -146,13 +146,13 @@ export class ManyChatOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = useConfigCacheStore.getState().get(cacheKey)
       if (cached && Array.isArray(cached)) {
-        logger.debug(`✅ [ManyChat] Using cached custom fields (${cached.length} items)`)
+        logger.info(`✅ [ManyChat] Using cached custom fields (${cached.length} items)`)
         return cached
       }
     }
 
     try {
-      logger.debug(`📡 [ManyChat] Fetching custom fields from API`)
+      logger.info(`📡 [ManyChat] Fetching custom fields from API`)
       const response = await fetch(
         `/api/integrations/manychat/custom-fields?integrationId=${integrationId}`
       )
@@ -170,7 +170,7 @@ export class ManyChatOptionsLoader implements ProviderOptionsLoader {
 
       // Cache the results
       useConfigCacheStore.getState().set(cacheKey, fields, getFieldTTL('custom_fields'))
-      logger.debug(`✅ [ManyChat] Loaded ${fields.length} custom fields`)
+      logger.info(`✅ [ManyChat] Loaded ${fields.length} custom fields`)
 
       return fields
     } catch (error: any) {
@@ -187,13 +187,13 @@ export class ManyChatOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = useConfigCacheStore.getState().get(cacheKey)
       if (cached && Array.isArray(cached)) {
-        logger.debug(`✅ [ManyChat] Using cached flows (${cached.length} items)`)
+        logger.info(`✅ [ManyChat] Using cached flows (${cached.length} items)`)
         return cached
       }
     }
 
     try {
-      logger.debug(`📡 [ManyChat] Fetching flows from API`)
+      logger.info(`📡 [ManyChat] Fetching flows from API`)
       const response = await fetch(`/api/integrations/manychat/flows?integrationId=${integrationId}`)
 
       if (!response.ok) {
@@ -209,7 +209,7 @@ export class ManyChatOptionsLoader implements ProviderOptionsLoader {
 
       // Cache the results
       useConfigCacheStore.getState().set(cacheKey, flows, getFieldTTL('flows'))
-      logger.debug(`✅ [ManyChat] Loaded ${flows.length} flows`)
+      logger.info(`✅ [ManyChat] Loaded ${flows.length} flows`)
 
       return flows
     } catch (error: any) {
@@ -226,13 +226,13 @@ export class ManyChatOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = useConfigCacheStore.getState().get(cacheKey)
       if (cached && Array.isArray(cached)) {
-        logger.debug(`✅ [ManyChat] Using cached sequences (${cached.length} items)`)
+        logger.info(`✅ [ManyChat] Using cached sequences (${cached.length} items)`)
         return cached
       }
     }
 
     try {
-      logger.debug(`📡 [ManyChat] Fetching sequences from API`)
+      logger.info(`📡 [ManyChat] Fetching sequences from API`)
       const response = await fetch(
         `/api/integrations/manychat/sequences?integrationId=${integrationId}`
       )
@@ -250,7 +250,7 @@ export class ManyChatOptionsLoader implements ProviderOptionsLoader {
 
       // Cache the results
       useConfigCacheStore.getState().set(cacheKey, sequences, getFieldTTL('sequences'))
-      logger.debug(`✅ [ManyChat] Loaded ${sequences.length} sequences`)
+      logger.info(`✅ [ManyChat] Loaded ${sequences.length} sequences`)
 
       return sequences
     } catch (error: any) {

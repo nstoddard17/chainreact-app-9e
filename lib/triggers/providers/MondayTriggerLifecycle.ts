@@ -33,7 +33,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, nodeId, triggerType, config, testMode } = context
 
     const modeLabel = testMode ? '🧪 TEST' : '🚀 PRODUCTION'
-    logger.debug(`${modeLabel} Activating Monday.com trigger for workflow ${workflowId}`, {
+    logger.info(`${modeLabel} Activating Monday.com trigger for workflow ${workflowId}`, {
       triggerType,
       boardId: config.boardId,
       testSessionId: testMode?.testSessionId
@@ -69,7 +69,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     // Get webhook callback URL
     const webhookUrl = this.getWebhookUrl()
 
-    logger.debug(`📤 Creating Monday.com webhook`, {
+    logger.info(`📤 Creating Monday.com webhook`, {
       boardId,
       columnId: columnId || 'all columns',
       webhookUrl
@@ -201,14 +201,14 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
       // The webhook was already created successfully with Monday.com, so we can continue
       if (insertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-        logger.debug(`✅ Monday.com webhook created (without local record): ${webhook.id}`)
+        logger.info(`✅ Monday.com webhook created (without local record): ${webhook.id}`)
         return
       }
       logger.error(`❌ Failed to store trigger resource:`, insertError)
       throw new Error(`Failed to store trigger resource: ${insertError.message}`)
     }
 
-    logger.debug(`✅ Monday.com webhook created: ${webhook.id}`)
+    logger.info(`✅ Monday.com webhook created: ${webhook.id}`)
   }
 
   /**
@@ -219,7 +219,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, testSessionId } = context
 
     const modeLabel = testSessionId ? '🧪 TEST' : '🛑 PRODUCTION'
-    logger.debug(`${modeLabel} Deactivating Monday.com triggers for workflow ${workflowId}`, {
+    logger.info(`${modeLabel} Deactivating Monday.com triggers for workflow ${workflowId}`, {
       testSessionId
     })
 
@@ -242,7 +242,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
     const { data: resources } = await query
 
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No active Monday.com webhooks for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
+      logger.info(`ℹ️ No active Monday.com webhooks for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
       return
     }
 
@@ -319,7 +319,7 @@ export class MondayTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        logger.debug(`✅ Deleted Monday.com webhook: ${webhookId}`)
+        logger.info(`✅ Deleted Monday.com webhook: ${webhookId}`)
       } catch (error) {
         logger.error(`❌ Failed to delete webhook ${resource.external_id}:`, error)
         // Mark as error but continue with others

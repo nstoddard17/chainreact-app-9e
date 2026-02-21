@@ -68,12 +68,12 @@ export async function createGoogleCalendarEvent(
     // Auto-detect timezone if not set or set to 'auto'
     if (!eventStartTimeZone || eventStartTimeZone === 'auto') {
       eventStartTimeZone = getUserTimezone()
-      logger.debug(`🌍 [Google Calendar] Auto-detected start timezone: ${eventStartTimeZone}`)
+      logger.info(`🌍 [Google Calendar] Auto-detected start timezone: ${eventStartTimeZone}`)
     }
 
     if (separateTimezones && (!eventEndTimeZone || eventEndTimeZone === 'auto')) {
       eventEndTimeZone = getUserTimezone()
-      logger.debug(`🌍 [Google Calendar] Auto-detected end timezone: ${eventEndTimeZone}`)
+      logger.info(`🌍 [Google Calendar] Auto-detected end timezone: ${eventEndTimeZone}`)
     }
 
     // Create OAuth2 client
@@ -203,7 +203,7 @@ export async function createGoogleCalendarEvent(
         }
       })
 
-      logger.debug('📣 [Google Calendar] Processing notifications:', {
+      logger.info('📣 [Google Calendar] Processing notifications:', {
         allDay,
         rawNotifications: notifications,
         processedNotifications
@@ -271,7 +271,7 @@ export async function createGoogleCalendarEvent(
     }
 
     // Log the event data being sent for debugging
-    logger.debug('📤 [Google Calendar] Event data being sent:', {
+    logger.info('📤 [Google Calendar] Event data being sent:', {
       allDay,
       eventData: JSON.stringify(eventData, null, 2)
     })

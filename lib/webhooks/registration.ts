@@ -20,7 +20,7 @@ export async function registerGoogleWebhook(registration: WebhookRegistration): 
     // For Google services, we need to register with Google Cloud Pub/Sub
     // This is a simplified implementation - in production you'd use the Google Cloud API
     
-    logger.debug(`Registering Google webhook for ${service}:`, {
+    logger.info(`Registering Google webhook for ${service}:`, {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -59,7 +59,7 @@ export async function registerGmailWebhook(registration: WebhookRegistration): P
     // For Gmail, we use the Gmail API watch method
     // This is a simplified implementation - in production you'd use the Gmail API
     
-    logger.debug('Registering Gmail webhook:', {
+    logger.info('Registering Gmail webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -92,12 +92,12 @@ export async function registerGmailWebhook(registration: WebhookRegistration): P
 }
 
 export async function registerDiscordWebhook(registration: WebhookRegistration): Promise<boolean> {
-  logger.debug('🚀 registerDiscordWebhook called!') // Immediate debug
+  logger.info('🚀 registerDiscordWebhook called!') // Immediate debug
   
   try {
     const { webhookUrl, events, secret, config } = registration
     
-    logger.debug('🔗 Registering Discord Gateway listener (not webhook):', {
+    logger.info('🔗 Registering Discord Gateway listener (not webhook):', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined,
@@ -118,21 +118,21 @@ export async function registerDiscordWebhook(registration: WebhookRegistration):
     }
     
     // Check Gateway connection status
-    logger.debug('🔌 Checking Discord Gateway status...')
+    logger.info('🔌 Checking Discord Gateway status...')
     const status = discordGateway.getStatus()
-    logger.debug('🔌 Gateway status:', status)
+    logger.info('🔌 Gateway status:', status)
     
     if (!status.isConnected) {
-      logger.debug('Discord Gateway not connected, attempting to connect...')
+      logger.info('Discord Gateway not connected, attempting to connect...')
       try {
         await discordGateway.connect()
-        logger.debug('✅ Discord Gateway connected successfully!')
+        logger.info('✅ Discord Gateway connected successfully!')
       } catch (error) {
         logger.error('Failed to connect Discord Gateway:', error)
         return false
       }
     } else {
-      logger.debug('✅ Discord Gateway already connected!')
+      logger.info('✅ Discord Gateway already connected!')
     }
     
     // Store the registration for tracking (but no external webhook needed)
@@ -161,7 +161,7 @@ export async function registerDiscordWebhook(registration: WebhookRegistration):
       throw new Error(`Failed to store webhook registration: ${insertError.message}`)
     }
 
-    logger.debug('🎉 Discord Gateway listener registered successfully!')
+    logger.info('🎉 Discord Gateway listener registered successfully!')
     return true
 
   } catch (error) {
@@ -175,7 +175,7 @@ export async function registerSlackWebhook(registration: WebhookRegistration): P
     const { webhookUrl, events, secret } = registration
 
     // For Slack, we register with Slack's Events API
-    logger.debug('Registering Slack webhook:', {
+    logger.info('Registering Slack webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -211,7 +211,7 @@ export async function registerGitHubWebhook(registration: WebhookRegistration): 
     const { webhookUrl, events, secret } = registration
 
     // For GitHub, we register with GitHub's webhook system
-    logger.debug('Registering GitHub webhook:', {
+    logger.info('Registering GitHub webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -247,7 +247,7 @@ export async function registerNotionWebhook(registration: WebhookRegistration): 
     const { webhookUrl, events, secret } = registration
 
     // For Notion, we register with Notion's webhook system
-    logger.debug('Registering Notion webhook:', {
+    logger.info('Registering Notion webhook:', {
       webhookUrl,
       events,
       secret: secret ? '[REDACTED]' : undefined
@@ -322,7 +322,7 @@ export async function unregisterWebhook(provider: string, webhookUrl: string): P
       return false
     }
     
-    logger.debug(`Unregistered webhook for ${provider}:`, webhookUrl)
+    logger.info(`Unregistered webhook for ${provider}:`, webhookUrl)
     return true
   } catch (error) {
     logger.error('Failed to unregister webhook:', error)

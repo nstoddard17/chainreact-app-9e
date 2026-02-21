@@ -16,7 +16,7 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       return []
     }
 
-    logger.debug("🔍 Fetching messages for channel:", channelId)
+    logger.info("🔍 Fetching messages for channel:", channelId)
 
     // Use bot token for server operations
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -25,7 +25,7 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       return []
     }
 
-    logger.debug("🔍 Bot token available, making Discord API call...")
+    logger.info("🔍 Bot token available, making Discord API call...")
 
     try {
       // Validate channel ID format
@@ -65,7 +65,7 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       })
 
       if (isEditAction && filteredMessages.length === 0 && data.length > 0) {
-        logger.debug(`⚠️ [Discord Messages] No editable messages found. Discord API limitation: Bots can only edit their own messages, not messages from other users.`);
+        logger.info(`⚠️ [Discord Messages] No editable messages found. Discord API limitation: Bots can only edit their own messages, not messages from other users.`);
       }
 
       const processedMessages = filteredMessages
@@ -138,13 +138,13 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
 
       // Debug: Log message data
       if (isEditAction) {
-        logger.debug(`📝 [Discord Messages] Edit action: Found ${processedMessages.length} bot messages that can be edited (Discord API only allows editing own messages)`);
+        logger.info(`📝 [Discord Messages] Edit action: Found ${processedMessages.length} bot messages that can be edited (Discord API only allows editing own messages)`);
       }
       const messagesWithReactions = processedMessages.filter(msg => msg.reactions && msg.reactions.length > 0);
-      logger.debug(`🔍 [Discord Messages] Processed ${processedMessages.length} messages, ${messagesWithReactions.length} have reactions`);
+      logger.info(`🔍 [Discord Messages] Processed ${processedMessages.length} messages, ${messagesWithReactions.length} have reactions`);
       
       if (messagesWithReactions.length > 0) {
-        logger.debug('🔍 [Discord Messages] Sample message with reactions:', {
+        logger.info('🔍 [Discord Messages] Sample message with reactions:', {
           id: messagesWithReactions[0].id,
           content: `${messagesWithReactions[0].content?.substring(0, 30) }...`,
           reactions: messagesWithReactions[0].reactions.map((r: any) => ({
@@ -153,9 +153,9 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
           }))
         });
       } else {
-        logger.debug('🔍 [Discord Messages] No messages found with reactions in this response');
+        logger.info('🔍 [Discord Messages] No messages found with reactions in this response');
         if (processedMessages.length > 0) {
-          logger.debug('🔍 [Discord Messages] Sample message structure:', {
+          logger.info('🔍 [Discord Messages] Sample message structure:', {
             id: processedMessages[0].id,
             hasReactions: processedMessages[0].hasOwnProperty('reactions'),
             reactions: processedMessages[0].reactions
@@ -175,7 +175,7 @@ export const getDiscordMessages: DiscordDataHandler<DiscordMessage> = async (int
       }
       if (error.status === 404 || error.message.includes("404")) {
         // Channel not found - return empty array instead of throwing error
-        logger.debug(`Channel ${channelId} not found - returning empty messages list`)
+        logger.info(`Channel ${channelId} not found - returning empty messages list`)
         return []
       }
       if (error.status === 400 || error.message.includes("400")) {

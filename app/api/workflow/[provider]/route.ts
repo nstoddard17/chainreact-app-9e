@@ -18,7 +18,7 @@ async function resolveDiscordChannelName(channelId: string, guildId: string): Pr
     
     if (response.ok) {
       const channel = await response.json()
-      logger.debug(`🏷️ Resolved channel ${channelId} to: ${channel.name}`)
+      logger.info(`🏷️ Resolved channel ${channelId} to: ${channel.name}`)
       return channel.name || null
     }
   } catch (error) {
@@ -38,7 +38,7 @@ async function resolveDiscordGuildName(guildId: string): Promise<string | null> 
     
     if (response.ok) {
       const guild = await response.json()
-      logger.debug(`🏷️ Resolved guild ${guildId} to: ${guild.name}`)
+      logger.info(`🏷️ Resolved guild ${guildId} to: ${guild.name}`)
       return guild.name || null
     }
   } catch (error) {
@@ -78,7 +78,7 @@ export async function POST(
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
   const logPrefix = `[${requestId}][${provider}]`
 
-  logger.debug(`🚀 ${logPrefix} Starting webhook processing for provider: ${provider}`)
+  logger.info(`🚀 ${logPrefix} Starting webhook processing for provider: ${provider}`)
 
   // Variables to track for error handling
   let workflow: any = null
@@ -109,7 +109,7 @@ export async function POST(
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     }
 
-    logger.debug(`📥 ${logPrefix} Received webhook from ${provider}:`, {
+    logger.info(`📥 ${logPrefix} Received webhook from ${provider}:`, {
       headers: Object.keys(headers),
       payloadKeys: typeof payload === 'object' ? Object.keys(payload) : 'raw body',
       messageId: payload?.id || 'no-id',
@@ -122,7 +122,7 @@ export async function POST(
       if (cachedData && cachedData.requestId !== requestId) {
         const timeDiff = Date.now() - cachedData.timestamp
         if (timeDiff < 1000) { // Within 1 second is likely a duplicate
-          logger.debug(`⚡ ${logPrefix} Duplicate Discord message ${payload.id} detected (${timeDiff}ms apart), skipping`)
+          logger.info(`⚡ ${logPrefix} Duplicate Discord message ${payload.id} detected (${timeDiff}ms apart), skipping`)
           return jsonResponse({
             success: true,
             message: 'Duplicate request ignored',
@@ -164,7 +164,7 @@ export async function POST(
         console.log('⚠️ NO ACTIVE WORKFLOWS OR TEST SESSIONS FOUND')
         console.log('   To activate: Toggle the workflow status to "Active" or start a test')
       }
-      logger.debug(`${logPrefix} No active workflows or test sessions found`)
+      logger.info(`${logPrefix} No active workflows or test sessions found`)
       return jsonResponse({
         success: true,
         message: 'No active workflows to process'
@@ -228,7 +228,7 @@ export async function POST(
       }
 
       if (!triggerNode) {
-        logger.debug(`${logPrefix} No trigger node found for provider ${provider} in workflow ${workflow.id}, skipping`)
+        logger.info(`${logPrefix} No trigger node found for provider ${provider} in workflow ${workflow.id}, skipping`)
         continue
       }
 
@@ -237,7 +237,7 @@ export async function POST(
         const triggerConfig = triggerNode.data?.config || {}
         const triggerType = triggerNode.data?.type
 
-        logger.debug(`${logPrefix} 🔍 Discord trigger matching for workflow ${workflow.id}:`, {
+        logger.info(`${logPrefix} 🔍 Discord trigger matching for workflow ${workflow.id}:`, {
           triggerType,
           configuredGuildId: triggerConfig.guildId,
           configuredChannelId: triggerConfig.channelId,
@@ -248,7 +248,7 @@ export async function POST(
         // Check guild ID match (required for all Discord triggers)
         if (triggerConfig.guildId && triggerConfig.guildId !== payload.guild_id) {
           console.log(`   ❌ Guild mismatch - configured: ${triggerConfig.guildId}, incoming: ${payload.guild_id}`)
-          logger.debug(`${logPrefix} ❌ Guild mismatch - configured: ${triggerConfig.guildId}, incoming: ${payload.guild_id}, skipping workflow ${workflow.id}`)
+          logger.info(`${logPrefix} ❌ Guild mismatch - configured: ${triggerConfig.guildId}, incoming: ${payload.guild_id}, skipping workflow ${workflow.id}`)
           continue
         }
         console.log(`   ✅ Guild match: ${payload.guild_id}`)
@@ -257,7 +257,7 @@ export async function POST(
         if (triggerType === 'discord_trigger_new_message') {
           if (triggerConfig.channelId && triggerConfig.channelId !== payload.channel_id) {
             console.log(`   ❌ Channel mismatch - configured: ${triggerConfig.channelId}, incoming: ${payload.channel_id}`)
-            logger.debug(`${logPrefix} ❌ Channel mismatch - configured: ${triggerConfig.channelId}, incoming: ${payload.channel_id}, skipping workflow ${workflow.id}`)
+            logger.info(`${logPrefix} ❌ Channel mismatch - configured: ${triggerConfig.channelId}, incoming: ${payload.channel_id}, skipping workflow ${workflow.id}`)
             continue
           }
           console.log(`   ✅ Channel check passed (configured: "${triggerConfig.channelId || 'any'}", incoming: ${payload.channel_id})`)
@@ -269,27 +269,27 @@ export async function POST(
               messageContent.includes(keyword.toLowerCase())
             )
             if (!matchesKeyword) {
-              logger.debug(`${logPrefix} ❌ Content filter mismatch - keywords: ${triggerConfig.contentFilter.join(', ')}, content: ${payload.content?.substring(0, 50)}..., skipping workflow ${workflow.id}`)
+              logger.info(`${logPrefix} ❌ Content filter mismatch - keywords: ${triggerConfig.contentFilter.join(', ')}, content: ${payload.content?.substring(0, 50)}..., skipping workflow ${workflow.id}`)
               continue
             }
           }
 
           // Check author filter if configured
           if (triggerConfig.authorFilter && triggerConfig.authorFilter !== payload.author?.id) {
-            logger.debug(`${logPrefix} ❌ Author filter mismatch - configured: ${triggerConfig.authorFilter}, incoming: ${payload.author?.id}, skipping workflow ${workflow.id}`)
+            logger.info(`${logPrefix} ❌ Author filter mismatch - configured: ${triggerConfig.authorFilter}, incoming: ${payload.author?.id}, skipping workflow ${workflow.id}`)
             continue
           }
         }
 
         console.log(`   ✅ Discord trigger MATCHED for workflow ${workflow.id}!`)
-        logger.debug(`${logPrefix} ✅ Discord trigger matched for workflow ${workflow.id}!`)
+        logger.info(`${logPrefix} ✅ Discord trigger matched for workflow ${workflow.id}!`)
       }
 
       // Transform payload for the workflow
       const transformedPayload = await transformPayloadForWorkflow(provider, payload, triggerNode)
 
       if (!transformedPayload) {
-        logger.debug(`${logPrefix} Ignoring webhook payload after transformation (empty payload) for workflow ${workflow.id}`)
+        logger.info(`${logPrefix} Ignoring webhook payload after transformation (empty payload) for workflow ${workflow.id}`)
         continue
       }
 
@@ -313,12 +313,12 @@ export async function POST(
           }
         )
 
-        logger.debug(`${logPrefix} Created execution session: ${session.id} for workflow ${workflow.id}`)
+        logger.info(`${logPrefix} Created execution session: ${session.id} for workflow ${workflow.id}`)
 
         // Execute the workflow
-        logger.debug(`${logPrefix} Starting workflow execution for workflow ${workflow.id}...`)
+        logger.info(`${logPrefix} Starting workflow execution for workflow ${workflow.id}...`)
         await executionEngine.executeWorkflowAdvanced(session.id, transformedPayload)
-        logger.debug(`${logPrefix} Workflow execution completed for workflow ${workflow.id}`)
+        logger.info(`${logPrefix} Workflow execution completed for workflow ${workflow.id}`)
 
         // Log webhook execution
         await logWebhookExecution(workflow.id, provider, payload, headers, 'success', Date.now() - startTime)
@@ -512,7 +512,7 @@ async function getProviderSpecificTransformation(provider: string, payload: any)
 
         const subtype = event.subtype ?? payload?.subtype
         if (subtype === 'message_deleted') {
-          logger.debug('🧹 [Slack Workflow Webhook] Ignoring message_deleted event', {
+          logger.info('🧹 [Slack Workflow Webhook] Ignoring message_deleted event', {
             channel: event.channel ?? payload?.channel,
             ts: event.deleted_ts || event.ts || payload?.ts
           })
@@ -532,7 +532,7 @@ async function getProviderSpecificTransformation(provider: string, payload: any)
       }
     
     case 'discord':
-      logger.debug('🔧 Discord payload received for transformation:', JSON.stringify(payload, null, 2))
+      logger.info('🔧 Discord payload received for transformation:', JSON.stringify(payload, null, 2))
 
       // Resolve Discord names from IDs
       const channelName = await resolveDiscordChannelName(payload.channel_id, payload.guild_id)
@@ -552,7 +552,7 @@ async function getProviderSpecificTransformation(provider: string, payload: any)
         attachments: payload.attachments || [],
         mentions: payload.mentions || []
       }
-      logger.debug('🔧 Transformed Discord data:', JSON.stringify(transformedData, null, 2))
+      logger.info('🔧 Transformed Discord data:', JSON.stringify(transformedData, null, 2))
       return transformedData
     
     case 'github':

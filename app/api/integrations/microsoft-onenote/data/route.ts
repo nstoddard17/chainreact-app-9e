@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
       return errorResponse('Missing dataType parameter' , 400)
     }
 
-    logger.debug('OneNote data request', { dataType, integrationId, notebookId })
+    logger.info('OneNote data request', { dataType, integrationId, notebookId })
 
     const { data: integration, error } = await fetchIntegration({
       integrationId: integrationId || undefined,
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('Missing dataType parameter', 400)
     }
 
-    logger.debug('OneNote data POST request', { dataType, integrationId, options })
+    logger.info('OneNote data POST request', { dataType, integrationId, options })
 
     const { data: integration, error } = await fetchIntegration({
       integrationId: integrationId || undefined,

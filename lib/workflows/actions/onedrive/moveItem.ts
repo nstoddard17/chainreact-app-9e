@@ -56,7 +56,7 @@ export async function moveOnedriveItem(
       payload.name = newName
     }
 
-    logger.debug('[OneDrive] Moving item:', {
+    logger.info('[OneDrive] Moving item:', {
       sourceId: sourceItemId,
       destinationFolderId,
       newName,

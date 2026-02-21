@@ -256,14 +256,14 @@ export async function advancedGmailSearch(
       }
     }
 
-    logger.debug(`[Gmail Advanced Search] Executing query: "${query}"`)
+    logger.info(`[Gmail Advanced Search] Executing query: "${query}"`)
 
     // Get max results (default 10, max 100 to balance speed vs rate limits)
     const rawMaxResults = resolveValue(config.maxResults, input)
     const maxResults = Math.min(Number(rawMaxResults) || 10, 100)
     const includeSpam = resolveValue(config.includeSpam, input) === true
 
-    logger.debug(`[Gmail Advanced Search] Configuration:`, {
+    logger.info(`[Gmail Advanced Search] Configuration:`, {
       rawMaxResults,
       resolvedMaxResults: maxResults,
       includeSpam,

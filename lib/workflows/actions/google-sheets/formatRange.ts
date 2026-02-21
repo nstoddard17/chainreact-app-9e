@@ -119,7 +119,7 @@ export async function formatGoogleSheetsRange(
       gridRange.startRowIndex = lastRowNumber - 1
       gridRange.endRowIndex = lastRowNumber
 
-      logger.debug("Formatting last row:", { lastRowNumber, range: rangeToFormat })
+      logger.info("Formatting last row:", { lastRowNumber, range: rangeToFormat })
     } else {
       return {
         success: false,
@@ -127,7 +127,7 @@ export async function formatGoogleSheetsRange(
       }
     }
 
-    logger.debug("Formatting Google Sheets range:", {
+    logger.info("Formatting Google Sheets range:", {
       spreadsheetId,
       sheetName,
       rangeSelection,

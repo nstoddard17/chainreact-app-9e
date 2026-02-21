@@ -19,7 +19,7 @@ export const getAirtableFeedback: AirtableDataHandler<FeedbackOption> = async (
 ): Promise<FeedbackOption[]> => {
   const { baseId, tableName } = options
 
-  logger.debug("🔍 Airtable feedback fetcher called with:", {
+  logger.info("🔍 Airtable feedback fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -33,16 +33,16 @@ export const getAirtableFeedback: AirtableDataHandler<FeedbackOption> = async (
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !tableName) {
-      logger.debug('⚠️ Base ID or Table name missing, returning empty list')
+      logger.info('⚠️ Base ID or Table name missing, returning empty list')
       return []
     }
 
-    logger.debug('🔍 Fetching Airtable feedback from API...')
+    logger.info('🔍 Fetching Airtable feedback from API...')
 
     // Fetch records to extract unique feedback
     const queryParams = new URLSearchParams()
@@ -59,7 +59,7 @@ export const getAirtableFeedback: AirtableDataHandler<FeedbackOption> = async (
     if (data.records && Array.isArray(data.records)) {
       // Log first record to see field structure
       if (data.records.length > 0) {
-        logger.debug('📊 [Airtable Feedback] Sample record fields:', Object.keys(data.records[0].fields || {}))
+        logger.info('📊 [Airtable Feedback] Sample record fields:', Object.keys(data.records[0].fields || {}))
       }
 
       data.records.forEach((record: any) => {
@@ -70,12 +70,12 @@ export const getAirtableFeedback: AirtableDataHandler<FeedbackOption> = async (
           )
 
           if (fieldName) {
-            logger.debug(`📊 [Airtable Feedback] Found matching field '${fieldName}'`)
+            logger.info(`📊 [Airtable Feedback] Found matching field '${fieldName}'`)
             const feedback = record.fields[fieldName]
 
             // Handle linked records (array of record IDs)
             if (Array.isArray(feedback)) {
-              logger.debug(`📊 [Airtable Feedback] Field is array of linked records:`, feedback)
+              logger.info(`📊 [Airtable Feedback] Field is array of linked records:`, feedback)
               feedback.forEach(item => {
                 if (typeof item === 'string') {
                   feedbackValues.add(item) // Add the record ID for now
@@ -95,7 +95,7 @@ export const getAirtableFeedback: AirtableDataHandler<FeedbackOption> = async (
       label: value
     })).sort((a, b) => a.label.localeCompare(b.label))
 
-    logger.debug(`✅ Airtable feedback fetched successfully: ${options.length} unique values`)
+    logger.info(`✅ Airtable feedback fetched successfully: ${options.length} unique values`)
     return options
 
   } catch (error: any) {

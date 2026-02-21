@@ -34,7 +34,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
 
   const guildId: string | undefined = options?.guildId
 
-  logger.debug('🔍 [Discord Commands] Fetching slash commands:', {
+  logger.info('🔍 [Discord Commands] Fetching slash commands:', {
     guildId: guildId || 'none (global only)',
     clientId: clientId.substring(0, 8) + '...'
   })
@@ -46,7 +46,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
 
     if (guildId) {
       // Fetch guild-specific commands
-      logger.debug('📡 [Discord Commands] Fetching guild-specific commands...')
+      logger.info('📡 [Discord Commands] Fetching guild-specific commands...')
       const guildUrl = `https://discord.com/api/v10/applications/${clientId}/guilds/${guildId}/commands`
 
       try {
@@ -60,7 +60,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
         )
 
         if (Array.isArray(guildData)) {
-          logger.debug(`✅ [Discord Commands] Found ${guildData.length} guild-specific commands`)
+          logger.info(`✅ [Discord Commands] Found ${guildData.length} guild-specific commands`)
           commandSets.push(guildData.map((cmd: any) => ({
             id: cmd.id,
             name: cmd.name,
@@ -75,7 +75,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
       }
 
       // Also fetch global commands (they can be used in any server)
-      logger.debug('📡 [Discord Commands] Fetching global commands...')
+      logger.info('📡 [Discord Commands] Fetching global commands...')
       const globalUrl = `https://discord.com/api/v10/applications/${clientId}/commands`
 
       try {
@@ -89,7 +89,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
         )
 
         if (Array.isArray(globalData)) {
-          logger.debug(`✅ [Discord Commands] Found ${globalData.length} global commands`)
+          logger.info(`✅ [Discord Commands] Found ${globalData.length} global commands`)
           commandSets.push(globalData.map((cmd: any) => ({
             id: cmd.id,
             name: cmd.name,
@@ -104,7 +104,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
       }
     } else {
       // No guildId - fetch only global commands
-      logger.debug('📡 [Discord Commands] Fetching global commands only...')
+      logger.info('📡 [Discord Commands] Fetching global commands only...')
       const globalUrl = `https://discord.com/api/v10/applications/${clientId}/commands`
 
       const globalData = await fetchDiscordWithRateLimit<any[]>(() =>
@@ -117,7 +117,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
       )
 
       if (Array.isArray(globalData)) {
-        logger.debug(`✅ [Discord Commands] Found ${globalData.length} global commands`)
+        logger.info(`✅ [Discord Commands] Found ${globalData.length} global commands`)
         commandSets.push(globalData.map((cmd: any) => ({
           id: cmd.id,
           name: cmd.name,
@@ -132,7 +132,7 @@ export const getDiscordCommands: DiscordDataHandler<DiscordApplicationCommand> =
     // Combine all commands
     const allCommands = commandSets.flat()
 
-    logger.debug(`📋 [Discord Commands] Total commands available: ${allCommands.length}`, {
+    logger.info(`📋 [Discord Commands] Total commands available: ${allCommands.length}`, {
       commands: allCommands.map(c => c.name)
     })
 

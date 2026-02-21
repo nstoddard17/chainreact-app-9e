@@ -60,13 +60,13 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, nodeType, dependsOnValue, integrationId, forceRefresh, signal } = params;
 
-    logger.debug(`🔍 [Monday] loadOptions called:`, { fieldName, nodeType, dependsOnValue, integrationId });
+    logger.info(`🔍 [Monday] loadOptions called:`, { fieldName, nodeType, dependsOnValue, integrationId });
 
     // Determine the data type - first check field mappings for node-specific type, then fall back to generic
     const mappedDataType = getResourceTypeForField(fieldName, nodeType);
     const dataType = mappedDataType || this.fieldToDataType[fieldName];
 
-    logger.debug(`🔍 [Monday] Data type resolved:`, { fieldName, mappedDataType, dataType });
+    logger.info(`🔍 [Monday] Data type resolved:`, { fieldName, mappedDataType, dataType });
 
     if (!dataType) {
       logger.warn(`❌ [Monday] Unknown field: ${fieldName} for nodeType: ${nodeType}`);
@@ -87,7 +87,7 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
 
     // Check if we should force refresh (invalidate cache first)
     if (forceRefresh) {
-      logger.debug(`🔄 [Monday] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Monday] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -95,10 +95,10 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Monday] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Monday] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Monday] Cache MISS for ${fieldName}:`, { cacheKey });
+      logger.info(`❌ [Monday] Cache MISS for ${fieldName}:`, { cacheKey });
     }
 
     // Create a unique key for pending promises (includes forceRefresh to prevent reuse during refresh)
@@ -107,7 +107,7 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
     if (pendingPromise) {
-      logger.debug(`🔄 [Monday] Reusing pending request for ${fieldName}`);
+      logger.info(`🔄 [Monday] Reusing pending request for ${fieldName}`);
       return pendingPromise;
     }
 
@@ -136,7 +136,7 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
             apiOptions.boardId = dependsOnValue;
           }
 
-          logger.debug(`📡 [Monday] Loading ${dataType}:`, { integrationId, options: apiOptions, nodeType });
+          logger.info(`📡 [Monday] Loading ${dataType}:`, { integrationId, options: apiOptions, nodeType });
 
           const result = await fetchDataType({
             integrationId,
@@ -207,7 +207,7 @@ export class MondayOptionsLoader implements ProviderOptionsLoader {
     const cacheStore = useConfigCacheStore.getState();
     cacheStore.invalidateProvider('monday');
 
-    logger.debug('🧹 [Monday] Cache cleared');
+    logger.info('🧹 [Monday] Cache cleared');
   }
 }
 async function fetchDataType(params: {
@@ -251,7 +251,7 @@ async function fetchDataType(params: {
 
     const ttl = getFieldTTL(fieldName);
     cacheStore.set(cacheKey, result, ttl);
-    logger.debug(`💾 [Monday] Cached ${result.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
+    logger.info(`💾 [Monday] Cached ${result.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
 
     return result;
   } catch (error) {

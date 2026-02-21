@@ -81,7 +81,7 @@ export const validateWorkflowNodes = (
     const nodeInfo = deriveNodeInfo(node, context)
     const values = deriveNodeValues(node)
 
-    logger.debug(`🔍 [Validation] Validating node: ${node.id} (${node.data?.type})`, {
+    logger.info(`🔍 [Validation] Validating node: ${node.id} (${node.data?.type})`, {
       hasAIAgent,
       isAIAgent: node.data?.type === 'ai_agent',
       isChainChild: !!node.data?.parentAIAgentId,
@@ -92,19 +92,19 @@ export const validateWorkflowNodes = (
     // Skip validation only for AI Agent nodes themselves
     // Chain children in the main workflow should still be validated!
     if (node.data?.type === 'ai_agent') {
-      logger.debug(`🔍 [Validation] Skipping validation for ${node.id} (AI Agent node)`)
+      logger.info(`🔍 [Validation] Skipping validation for ${node.id} (AI Agent node)`)
       const validationState = buildValidationState([])
       return applyValidationToNode(node, validationState)
     }
 
     if (!nodeInfo.configSchema?.length) {
-      logger.debug(`🔍 [Validation] No config schema for ${node.id}, skipping`)
+      logger.info(`🔍 [Validation] No config schema for ${node.id}, skipping`)
       const validationState = buildValidationState([])
       return applyValidationToNode(node, validationState)
     }
 
     let missing = getMissingRequiredFields(nodeInfo, values)
-    logger.debug(`🔍 [Validation] Missing fields for ${node.id}:`, missing)
+    logger.info(`🔍 [Validation] Missing fields for ${node.id}:`, missing)
 
     // If AI Agent is present, check if missing fields are set to AI mode
     if (hasAIAgent && missing.length > 0) {
@@ -114,20 +114,20 @@ export const validateWorkflowNodes = (
         // Field is valid if it's set to AI mode
         const hasAIPlaceholder = typeof fieldValue === 'string' && fieldValue.includes('{{AI_FIELD:')
         if (hasAIPlaceholder) {
-          logger.debug(`🔍 [Validation] Field ${fieldName} has AI placeholder, considering valid`)
+          logger.info(`🔍 [Validation] Field ${fieldName} has AI placeholder, considering valid`)
         }
         return !hasAIPlaceholder
       })
-      logger.debug(`🔍 [Validation] After AI filter: ${originalMissing.length} -> ${missing.length} missing fields`)
+      logger.info(`🔍 [Validation] After AI filter: ${originalMissing.length} -> ${missing.length} missing fields`)
     }
 
     const validationState = buildValidationState(missing)
 
     if (!validationState.isValid) {
-      logger.debug(`❌ [Validation] Node ${node.id} is INVALID, adding to invalidNodeIds`)
+      logger.info(`❌ [Validation] Node ${node.id} is INVALID, adding to invalidNodeIds`)
       invalidNodeIds.push(node.id)
     } else {
-      logger.debug(`✅ [Validation] Node ${node.id} is valid`)
+      logger.info(`✅ [Validation] Node ${node.id} is valid`)
     }
 
     return applyValidationToNode(node, validationState)

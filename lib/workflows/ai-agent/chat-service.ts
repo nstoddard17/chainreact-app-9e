@@ -63,7 +63,7 @@ export class ChatService {
 
       // Skip saving messages with empty text - these are UI-only state
       if (!message.text?.trim()) {
-        logger.debug('ChatService.addMessage: Skipping empty message', { flowId, role: message.role })
+        logger.info('ChatService.addMessage: Skipping empty message', { flowId, role: message.role })
         return null
       }
 

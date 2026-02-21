@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       .maybeSingle()
 
     if (existingProfile) {
-      logger.debug('[API /api/auth/profile] Returning existing profile', {
+      logger.info('[API /api/auth/profile] Returning existing profile', {
         userId: existingProfile.id,
         admin: existingProfile.admin,
         plan: existingProfile.plan,

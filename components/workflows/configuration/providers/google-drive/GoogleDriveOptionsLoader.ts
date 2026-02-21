@@ -31,7 +31,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
   }): Promise<{ value: string; label: string; group?: string }[]> {
     const { fieldName, providerId, integrationId, nodeType, dependsOnValue, forceRefresh, extraOptions } = params;
 
-    logger.debug('[GoogleDriveOptionsLoader] Loading options for:', {
+    logger.info('[GoogleDriveOptionsLoader] Loading options for:', {
       fieldName,
       providerId,
       integrationId,
@@ -81,7 +81,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
           return []
         }
 
-        logger.debug('[GoogleDriveOptionsLoader] Using data type:', dataType)
+        logger.info('[GoogleDriveOptionsLoader] Using data type:', dataType)
 
         // Use POST endpoint for new data handler
         const response = await fetch(`/api/integrations/google-drive/data`, {

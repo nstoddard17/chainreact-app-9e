@@ -39,7 +39,7 @@ export async function getGoogleSheetsCellValue(
       }
     }
 
-    logger.debug("Getting Google Sheets cell value:", {
+    logger.info("Getting Google Sheets cell value:", {
       spreadsheetId,
       sheetName,
       cellAddress

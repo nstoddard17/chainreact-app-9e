@@ -34,7 +34,7 @@ export const getShopifyCollections: ShopifyDataHandler<ShopifyCollection[]> = as
 
     const allCollections = [...collections, ...smartCollections]
 
-    logger.debug(`✅ [Shopify] Fetched ${allCollections.length} collections`)
+    logger.info(`✅ [Shopify] Fetched ${allCollections.length} collections`)
     return allCollections
 
   } catch (error: any) {

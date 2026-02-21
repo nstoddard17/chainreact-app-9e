@@ -48,7 +48,7 @@ export async function addMondayFile(
 
     if (sourceType === 'url' && fileUrl) {
       // Download file from URL
-      logger.debug('[Monday.com] Downloading file from URL:', fileUrl)
+      logger.info('[Monday.com] Downloading file from URL:', fileUrl)
       const response = await fetch(fileUrl)
       if (!response.ok) {
         throw new Error(`Failed to fetch file from URL: ${response.statusText}`)
@@ -61,7 +61,7 @@ export async function addMondayFile(
 
     } else if (sourceType === 'node' && fileFromNode) {
       // Handle file from previous node
-      logger.debug('[Monday.com] Processing file from node:', fileFromNode)
+      logger.info('[Monday.com] Processing file from node:', fileFromNode)
 
       if (typeof fileFromNode === 'string') {
         // Base64 string
@@ -89,7 +89,7 @@ export async function addMondayFile(
 
     } else if (sourceType === 'file' && uploadedFiles.length > 0) {
       // Handle uploaded files from workflow file storage
-      logger.debug('[Monday.com] Processing uploaded files:', uploadedFiles)
+      logger.info('[Monday.com] Processing uploaded files:', uploadedFiles)
 
       for (const fileRef of uploadedFiles) {
         try {
@@ -149,7 +149,7 @@ export async function addMondayFile(
       throw new Error('No file provided. Please upload a file, provide a URL, or select a file from a previous node.')
     }
 
-    logger.debug('[Monday.com] Uploading file:', { fileName, size: fileBuffer.length, mimeType })
+    logger.info('[Monday.com] Uploading file:', { fileName, size: fileBuffer.length, mimeType })
 
     // Monday.com requires multipart form upload
     // Build the GraphQL mutation

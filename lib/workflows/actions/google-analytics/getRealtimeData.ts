@@ -15,7 +15,7 @@ export async function getGoogleAnalyticsRealtimeData(context: ExecutionContext):
     dimensions
   } = context.config
 
-  logger.debug('[Google Analytics] Fetching real-time data:', {
+  logger.info('[Google Analytics] Fetching real-time data:', {
     propertyId,
     metrics,
     dimensions
@@ -32,7 +32,7 @@ export async function getGoogleAnalyticsRealtimeData(context: ExecutionContext):
 
   // Check test mode
   if (context.testMode) {
-    logger.debug('[Google Analytics] Test mode - returning mock data')
+    logger.info('[Google Analytics] Test mode - returning mock data')
     return {
       active_users: 42,
       page_views: 156,
@@ -99,7 +99,7 @@ export async function getGoogleAnalyticsRealtimeData(context: ExecutionContext):
       }
     })
 
-    logger.debug('[Google Analytics] Real-time data fetched successfully')
+    logger.info('[Google Analytics] Real-time data fetched successfully')
 
     // Extract specific metrics from response
     const rows = response.data.rows || []

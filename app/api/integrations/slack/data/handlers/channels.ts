@@ -13,7 +13,7 @@ import { logger } from '@/lib/utils/logger'
 export const getSlackChannels: SlackDataHandler<SlackChannel> = async (integration: SlackIntegration) => {
   try {
     validateSlackIntegration(integration)
-    logger.debug("💬 [Slack Channels] Fetching all channels")
+    logger.info("💬 [Slack Channels] Fetching all channels")
 
     const response = await makeSlackApiRequest(
       "https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=1000",
@@ -63,7 +63,7 @@ export const getSlackChannels: SlackDataHandler<SlackChannel> = async (integrati
         purpose: channel.purpose,
       }))
 
-    logger.debug(`✅ [Slack Channels] Retrieved ${channels.length} channels (public + private)`)
+    logger.info(`✅ [Slack Channels] Retrieved ${channels.length} channels (public + private)`)
     return channels
 
   } catch (error: any) {
@@ -78,7 +78,7 @@ export const getSlackChannels: SlackDataHandler<SlackChannel> = async (integrati
 export const getSlackPublicChannels: SlackDataHandler<SlackChannel> = async (integration: SlackIntegration) => {
   try {
     validateSlackIntegration(integration)
-    logger.debug("💬 [Slack Public Channels] Fetching public channels only")
+    logger.info("💬 [Slack Public Channels] Fetching public channels only")
 
     const response = await makeSlackApiRequest(
       "https://slack.com/api/conversations.list?types=public_channel&limit=1000",
@@ -127,7 +127,7 @@ export const getSlackPublicChannels: SlackDataHandler<SlackChannel> = async (int
         purpose: channel.purpose,
       }))
 
-    logger.debug(`✅ [Slack Public Channels] Retrieved ${channels.length} public channels`)
+    logger.info(`✅ [Slack Public Channels] Retrieved ${channels.length} public channels`)
     return channels
 
   } catch (error: any) {
@@ -142,7 +142,7 @@ export const getSlackPublicChannels: SlackDataHandler<SlackChannel> = async (int
 export const getSlackPrivateChannels: SlackDataHandler<SlackChannel> = async (integration: SlackIntegration) => {
   try {
     validateSlackIntegration(integration)
-    logger.debug("💬 [Slack Private Channels] Fetching private channels only")
+    logger.info("💬 [Slack Private Channels] Fetching private channels only")
 
     const response = await makeSlackApiRequest(
       "https://slack.com/api/conversations.list?types=private_channel&limit=1000",
@@ -191,7 +191,7 @@ export const getSlackPrivateChannels: SlackDataHandler<SlackChannel> = async (in
         purpose: channel.purpose,
       }))
 
-    logger.debug(`✅ [Slack Private Channels] Retrieved ${channels.length} private channels`)
+    logger.info(`✅ [Slack Private Channels] Retrieved ${channels.length} private channels`)
     return channels
 
   } catch (error: any) {

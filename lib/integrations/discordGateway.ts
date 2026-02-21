@@ -185,13 +185,13 @@ class DiscordGateway extends SimpleEventEmitter {
   async connect(): Promise<void> {
     // Prevent multiple simultaneous connections
     if (this.isConnected) {
-      logger.debug('✅ Discord Gateway already connected')
+      logger.info('✅ Discord Gateway already connected')
       return
     }
 
     // If already initializing, wait for that to complete
     if (DiscordGateway.isInitializing && DiscordGateway.connectionPromise) {
-      logger.debug('⏳ Discord Gateway connection already in progress, waiting...')
+      logger.info('⏳ Discord Gateway connection already in progress, waiting...')
       return DiscordGateway.connectionPromise
     }
 
@@ -226,7 +226,7 @@ class DiscordGateway extends SimpleEventEmitter {
         // Remove quotes if they exist (common mistake in .env files)
         this.botToken = this.botToken.replace(/^["']|["']$/g, '')
 
-        logger.debug('🔑 Discord bot token loaded')
+        logger.info('🔑 Discord bot token loaded')
 
         // Basic token format validation
         if (!validateDiscordBotToken(this.botToken)) {
@@ -312,7 +312,7 @@ class DiscordGateway extends SimpleEventEmitter {
         this.isConnected = true
         this.reconnectAttempts = 0 // Reset attempts on success
         this.lastSuccessfulConnection = Date.now()
-        logger.debug('Discord Gateway WebSocket connection established')
+        logger.info('Discord Gateway WebSocket connection established')
 
         // Start connection health monitoring (less aggressive)
         this.startHealthCheck()
@@ -385,15 +385,15 @@ class DiscordGateway extends SimpleEventEmitter {
 
         // Only reconnect if not intentionally disconnected and persistent reconnect is enabled
         if (!wasIntentional && this.persistentReconnect && !noReconnectCodes.includes(event.code)) {
-          logger.debug(`Discord Gateway closed with code ${event.code}, will attempt reconnection`)
+          logger.info(`Discord Gateway closed with code ${event.code}, will attempt reconnection`)
           this.scheduleReconnect()
         } else if (wasIntentional) {
-          logger.debug('Discord Gateway closed intentionally, not reconnecting')
+          logger.info('Discord Gateway closed intentionally, not reconnecting')
         } else if (noReconnectCodes.includes(event.code)) {
           logger.error(`Discord Gateway closed with non-recoverable code ${event.code}, not reconnecting`)
           this.disablePersistentReconnect() // Disable to prevent reconnection spam
         } else {
-          logger.debug('Discord Gateway closed, persistent reconnect disabled')
+          logger.info('Discord Gateway closed, persistent reconnect disabled')
         }
       }
 
@@ -508,7 +508,7 @@ class DiscordGateway extends SimpleEventEmitter {
       default:
         // Log other events for debugging
         if (payload.t) {
-          logger.debug(`📡 Discord event received: ${payload.t}`)
+          logger.info(`📡 Discord event received: ${payload.t}`)
         }
         break
     }
@@ -573,7 +573,7 @@ class DiscordGateway extends SimpleEventEmitter {
     // Ignore messages from bots (including our own bot)
     if (messageData.author?.bot) {
       console.log('🤖 Ignoring bot message')
-      logger.debug('🤖 Ignoring bot message')
+      logger.info('🤖 Ignoring bot message')
       return
     }
 
@@ -669,12 +669,12 @@ class DiscordGateway extends SimpleEventEmitter {
         const webhookUrl = process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL
         const ngrokUrl = process.env.NGROK_URL || process.env.NEXT_PUBLIC_NGROK_URL || process.env.TUNNEL_URL
         baseUrl = webhookUrl || ngrokUrl || 'http://localhost:3000'
-        logger.debug(`📍 Using development URL: ${baseUrl}${webhookUrl ? ' (NEXT_PUBLIC_WEBHOOK_HTTPS_URL)' : ngrokUrl ? ' (ngrok/tunnel)' : ''}`)
+        logger.info(`📍 Using development URL: ${baseUrl}${webhookUrl ? ' (NEXT_PUBLIC_WEBHOOK_HTTPS_URL)' : ngrokUrl ? ' (ngrok/tunnel)' : ''}`)
       } else {
         // Production
         if (configured) {
           baseUrl = configured
-          logger.debug(`📍 Using configured URL: ${baseUrl}`)
+          logger.info(`📍 Using configured URL: ${baseUrl}`)
         } else {
           baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
                     process.env.RENDER_EXTERNAL_URL ||
@@ -682,8 +682,8 @@ class DiscordGateway extends SimpleEventEmitter {
         }
       }
 
-      logger.debug(`📤 Sending Discord message to workflow endpoint: ${baseUrl}/api/workflow/discord`)
-      logger.debug(`📨 Message details:`, {
+      logger.info(`📤 Sending Discord message to workflow endpoint: ${baseUrl}/api/workflow/discord`)
+      logger.info(`📨 Message details:`, {
         messageId: messageData.id,
         channelId: messageData.channel_id,
         guildId: messageData.guild_id,
@@ -725,7 +725,7 @@ class DiscordGateway extends SimpleEventEmitter {
           attemptedUrls.push({ url: endpoint, status: response.status })
 
           if (response.ok) {
-            logger.debug('✅ Discord message processed for workflows:', {
+            logger.info('✅ Discord message processed for workflows:', {
               messageId: messageData.id,
               channelId: messageData.channel_id,
               author: messageData.author?.username,
@@ -762,7 +762,7 @@ class DiscordGateway extends SimpleEventEmitter {
    * Handle INVITE_CREATE event - cache new invites
    */
   private handleInviteCreate(inviteData: any): void {
-    logger.debug('📨 Discord INVITE_CREATE received:', {
+    logger.info('📨 Discord INVITE_CREATE received:', {
       code: inviteData.code,
       guildId: inviteData.guild_id,
       channelId: inviteData.channel_id,
@@ -795,7 +795,7 @@ class DiscordGateway extends SimpleEventEmitter {
    * Handle INVITE_DELETE event - remove from cache
    */
   private handleInviteDelete(inviteData: any): void {
-    logger.debug('🗑️ Discord INVITE_DELETE received:', {
+    logger.info('🗑️ Discord INVITE_DELETE received:', {
       code: inviteData.code,
       guildId: inviteData.guild_id
     })
@@ -812,7 +812,7 @@ class DiscordGateway extends SimpleEventEmitter {
    * Handle GUILD_MEMBER_ADD event - detect invite used and assign roles
    */
   private async handleMemberAdd(memberData: any): Promise<void> {
-    logger.debug('👋 Discord GUILD_MEMBER_ADD received:', {
+    logger.info('👋 Discord GUILD_MEMBER_ADD received:', {
       userId: memberData.user?.id,
       username: memberData.user?.username,
       guildId: memberData.guild_id,
@@ -838,7 +838,7 @@ class DiscordGateway extends SimpleEventEmitter {
           if (cachedInvite && invite.uses > cachedInvite.uses) {
             const normalizedCode = normalizeInviteCode(invite.code) || invite.code
             usedInvite = { ...invite, code: normalizedCode }
-            logger.debug(`✅ Member joined using invite: ${normalizedCode}`)
+            logger.info(`✅ Member joined using invite: ${normalizedCode}`)
             break
           }
         }
@@ -861,7 +861,7 @@ class DiscordGateway extends SimpleEventEmitter {
       if (usedInvite) {
         await this.assignRoleBasedOnInvite(memberData, usedInvite.code, guildId)
       } else {
-        logger.debug('⚠️ Could not determine which invite was used')
+        logger.info('⚠️ Could not determine which invite was used')
       }
 
       await this.triggerMemberJoinWorkflows(memberData, usedInvite)
@@ -918,7 +918,7 @@ class DiscordGateway extends SimpleEventEmitter {
           return
         }
 
-        logger.debug(`🎯 Assigning role ${roleId} to user ${memberData.user?.username} via invite ${normalizedInvite}`)
+        logger.info(`🎯 Assigning role ${roleId} to user ${memberData.user?.username} via invite ${normalizedInvite}`)
 
         // Use Discord API to assign role
         const response = await fetch(
@@ -934,7 +934,7 @@ class DiscordGateway extends SimpleEventEmitter {
         )
 
         if (response.ok) {
-          logger.debug(`✅ Successfully assigned role ${roleId} to ${memberData.user?.username}`)
+          logger.info(`✅ Successfully assigned role ${roleId} to ${memberData.user?.username}`)
         } else {
           const errorText = await response.text()
           logger.error(`❌ Failed to assign role: ${response.status} - ${errorText}`)
@@ -964,7 +964,7 @@ class DiscordGateway extends SimpleEventEmitter {
       }
 
       if (!workflows || workflows.length === 0) {
-        logger.debug('[Discord] No active workflows to evaluate for member join')
+        logger.info('[Discord] No active workflows to evaluate for member join')
         return
       }
 
@@ -1005,7 +1005,7 @@ class DiscordGateway extends SimpleEventEmitter {
         nodes: nodesByWorkflow.get(w.id) || []
       }))
 
-      logger.debug('[Discord] Loaded member join workflows', workflowsWithNodes.map((workflow) => ({
+      logger.info('[Discord] Loaded member join workflows', workflowsWithNodes.map((workflow) => ({
         id: workflow.id,
         status: workflow.status,
         nodesCount: workflow.nodes.length,
@@ -1050,7 +1050,7 @@ class DiscordGateway extends SimpleEventEmitter {
       // Nodes are already in the correct format from the normalized tables
       const candidateWorkflows = workflowsWithNodes.filter((workflow) => {
         const nodes = workflow.nodes || []
-        logger.debug('[Discord] Workflow nodes overview', {
+        logger.info('[Discord] Workflow nodes overview', {
           workflowId: workflow.id,
           nodeCount: nodes.length,
           nodeTypes: nodes.map((n: any) => n?.data?.type || n?.type)
@@ -1061,7 +1061,7 @@ class DiscordGateway extends SimpleEventEmitter {
         })
       })
 
-      logger.debug('[Discord] Evaluating member join workflows', {
+      logger.info('[Discord] Evaluating member join workflows', {
         workflowsCount: candidateWorkflows.length,
         guildId
       })
@@ -1073,7 +1073,7 @@ class DiscordGateway extends SimpleEventEmitter {
           return nodeType === 'discord_trigger_member_join'
         })
         if (!triggerNode) {
-          logger.debug('[Discord] Skipping workflow due to missing trigger node after parse', {
+          logger.info('[Discord] Skipping workflow due to missing trigger node after parse', {
             workflowId: workflow.id
           })
           continue
@@ -1082,7 +1082,7 @@ class DiscordGateway extends SimpleEventEmitter {
         const triggerConfig = triggerNode.data?.config || triggerNode.data || {}
 
         if (triggerConfig.guildId && triggerConfig.guildId !== guildId) {
-          logger.debug('[Discord] Skipping workflow due to guild mismatch', {
+          logger.info('[Discord] Skipping workflow due to guild mismatch', {
             workflowId: workflow.id,
             expected: triggerConfig.guildId,
             actual: guildId
@@ -1092,7 +1092,7 @@ class DiscordGateway extends SimpleEventEmitter {
 
         const filterCode = normalizeInviteCode(triggerConfig.inviteFilter)
         if (filterCode && filterCode !== normalizedInvite) {
-          logger.debug('[Discord] Skipping workflow due to invite filter mismatch', {
+          logger.info('[Discord] Skipping workflow due to invite filter mismatch', {
             workflowId: workflow.id,
             expected: filterCode,
             actual: normalizedInvite
@@ -1118,7 +1118,7 @@ class DiscordGateway extends SimpleEventEmitter {
           )
 
           await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerData)
-          logger.debug('[Discord] Workflow triggered successfully for member join', {
+          logger.info('[Discord] Workflow triggered successfully for member join', {
             workflowId: workflow.id,
             memberId: memberData.user?.id || null,
             inviteCode: normalizedInvite
@@ -1138,7 +1138,7 @@ class DiscordGateway extends SimpleEventEmitter {
   private async initializeInviteCache(): Promise<void> {
     // This will be called when bot is ready
     // We'll fetch invites for all guilds the bot is in
-    logger.debug('📋 Initializing invite cache...')
+    logger.info('📋 Initializing invite cache...')
 
     // Note: We'll need to get the guild list from the READY event
     // For now, just initialize for the configured guild
@@ -1156,7 +1156,7 @@ class DiscordGateway extends SimpleEventEmitter {
           })
         }
         this.inviteCache.set(process.env.DISCORD_GUILD_ID, inviteMap)
-        logger.debug(`✅ Cached ${invites.length} invites for guild ${process.env.DISCORD_GUILD_ID}`)
+        logger.info(`✅ Cached ${invites.length} invites for guild ${process.env.DISCORD_GUILD_ID}`)
       }
     }
   }
@@ -1197,7 +1197,7 @@ class DiscordGateway extends SimpleEventEmitter {
       INTENTS.GUILD_MESSAGES |
       INTENTS.MESSAGE_CONTENT
 
-    logger.debug('🔑 Sending identify with intents:', {
+    logger.info('🔑 Sending identify with intents:', {
       GUILDS: true,
       GUILD_MEMBERS: true,
       GUILD_INVITES: true,
@@ -1294,7 +1294,7 @@ class DiscordGateway extends SimpleEventEmitter {
   private scheduleReconnect(rateLimited = false, isTransientError = false): void {
     // Check if we should reconnect
     if (this.intentionalDisconnect) {
-      logger.debug('Discord Gateway: Skipping reconnect due to intentional disconnect')
+      logger.info('Discord Gateway: Skipping reconnect due to intentional disconnect')
       return
     }
 
@@ -1317,7 +1317,7 @@ class DiscordGateway extends SimpleEventEmitter {
       delay = Math.min(30000 * Math.pow(2, this.reconnectAttempts - 1), 600000) // Start at 30s, max 10 minutes
     }
 
-    logger.debug(`Discord Gateway: Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay / 1000}s`)
+    logger.info(`Discord Gateway: Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay / 1000}s`)
 
     setTimeout(() => {
       this.reconnect()
@@ -1329,7 +1329,7 @@ class DiscordGateway extends SimpleEventEmitter {
    */
   async reconnect(): Promise<void> {
     if (this.intentionalDisconnect) {
-      logger.debug('Discord Gateway: Skipping reconnect due to intentional disconnect')
+      logger.info('Discord Gateway: Skipping reconnect due to intentional disconnect')
       return
     }
 
@@ -1398,7 +1398,7 @@ class DiscordGateway extends SimpleEventEmitter {
     this.intentionalDisconnect = true
     this.persistentReconnect = false
     this.cleanup()
-    logger.debug('Discord Gateway disconnected intentionally')
+    logger.info('Discord Gateway disconnected intentionally')
   }
 
   /**
@@ -1489,7 +1489,7 @@ let isInitialized = false
 export async function initializeDiscordGateway(): Promise<void> {
   // Prevent multiple initializations
   if (isInitialized) {
-    logger.debug('Discord Gateway already initialized, skipping')
+    logger.info('Discord Gateway already initialized, skipping')
     return
   }
 
@@ -1499,14 +1499,14 @@ export async function initializeDiscordGateway(): Promise<void> {
 
     if (!config.isConfigured) {
       // Discord bot not configured, don't attempt to connect
-      logger.debug('Discord bot not configured, skipping Gateway connection')
+      logger.info('Discord bot not configured, skipping Gateway connection')
       return
     }
 
     // Mark as initialized before attempting connection
     isInitialized = true
 
-    logger.debug('Initializing Discord Gateway connection (singleton)...')
+    logger.info('Initializing Discord Gateway connection (singleton)...')
 
     // Get singleton instance
     const gateway = DiscordGateway.getInstance()
@@ -1514,7 +1514,7 @@ export async function initializeDiscordGateway(): Promise<void> {
     // Check if already connected
     const status = gateway.getStatus()
     if (status.isConnected) {
-      logger.debug('Discord Gateway already connected')
+      logger.info('Discord Gateway already connected')
       return
     }
 
@@ -1525,7 +1525,7 @@ export async function initializeDiscordGateway(): Promise<void> {
     // Connect with singleton protection
     await gateway.connect()
 
-    logger.debug('Discord Gateway initialization complete')
+    logger.info('Discord Gateway initialization complete')
   } catch (error) {
     logger.error('Discord Gateway initialization failed:', error)
     // Don't retry automatically to avoid connection spam

@@ -64,7 +64,7 @@ export const getShopifyProducts: ShopifyDataHandler<ShopifyProduct[]> = async (
       }
     })
 
-    logger.debug(`✅ [Shopify] Fetched ${products.length} products`)
+    logger.info(`✅ [Shopify] Fetched ${products.length} products`)
     return products
 
   } catch (error: any) {

@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     const redirectUri = process.env.PAYPAL_REDIRECT_URI || "https://chainreact.app/api/integrations/paypal/callback"
     
     // For debugging
-    logger.debug("PayPal callback processing - using redirect URI:", redirectUri)
+    logger.info("PayPal callback processing - using redirect URI:", redirectUri)
 
     if (!clientId || !clientSecret) {
       throw new Error('PayPal client ID or secret not configured')
@@ -80,8 +80,8 @@ export async function GET(request: NextRequest) {
     // For v1 token endpoint
     const paypalDomain = isSandbox ? 'api-m.sandbox.paypal.com' : 'api-m.paypal.com'
     
-    logger.debug("Using PayPal domain for token exchange:", paypalDomain)
-    logger.debug("Received code parameter:", !!code)
+    logger.info("Using PayPal domain for token exchange:", paypalDomain)
+    logger.info("Received code parameter:", !!code)
 
     const tokenResponse = await fetch(`https://${paypalDomain}/v1/oauth2/token`, {
       method: 'POST',
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 
       if (userInfoResponse.ok) {
         userInfo = await userInfoResponse.json()
-        logger.debug('PayPal user info:', userInfo)
+        logger.info('PayPal user info:', userInfo)
       } else {
         logger.error('Failed to fetch PayPal user info:', await userInfoResponse.text())
       }
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
 
       if (attributesResponse.ok) {
         paypalAttributes = await attributesResponse.json()
-        logger.debug('PayPal attributes:', paypalAttributes)
+        logger.info('PayPal attributes:', paypalAttributes)
       } else {
         logger.error('Failed to fetch PayPal attributes:', await attributesResponse.text())
       }

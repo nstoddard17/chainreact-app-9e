@@ -88,12 +88,12 @@ async function checkChannelBotStatus(
             botHasChannelPerms = true
           }
         } catch (channelError) {
-          logger.debug('Bot cannot access channel:', channelError)
+          logger.info('Bot cannot access channel:', channelError)
           botHasChannelPerms = false
         }
       }
     } catch (guildError) {
-      logger.debug('Bot not in guild:', guildError)
+      logger.info('Bot not in guild:', guildError)
       botInGuild = false
     }
 
@@ -118,7 +118,7 @@ async function checkChannelBotStatus(
         }
       }
     } catch (userError) {
-      logger.debug('Error checking user permissions:', userError)
+      logger.info('Error checking user permissions:', userError)
     }
 
     return {
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
     // Check channel bot status
     const status = await checkChannelBotStatus(channelId, guildId, integration)
     
-    logger.debug(`🤖 Channel bot status for ${channelId}:`, status)
+    logger.info(`🤖 Channel bot status for ${channelId}:`, status)
 
     return jsonResponse(status)
   } catch (error) {

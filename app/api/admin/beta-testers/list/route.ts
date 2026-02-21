@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     }
 
     if (profile.admin !== true) {
-      logger.debug("User is not admin. Admin status:", profile.admin)
+      logger.info("User is not admin. Admin status:", profile.admin)
       return jsonResponse(
         { error: `Only admins can view beta testers.` },
         { status: 403 }
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       return errorResponse(error.message || "Failed to fetch beta testers" , 500)
     }
 
-    logger.debug(`Returning ${data?.length || 0} beta testers`)
+    logger.info(`Returning ${data?.length || 0} beta testers`)
 
     return jsonResponse({
       success: true,

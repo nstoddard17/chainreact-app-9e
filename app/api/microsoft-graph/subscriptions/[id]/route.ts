@@ -30,7 +30,7 @@ export async function PATCH(
       , 400)
     }
 
-    logger.debug('🔄 Renewing Microsoft Graph subscription:', id)
+    logger.info('🔄 Renewing Microsoft Graph subscription:', id)
 
     // Renew the subscription
     const subscription = await subscriptionManager.renewSubscription(id, accessToken)
@@ -88,7 +88,7 @@ export async function DELETE(
       , 400)
     }
 
-    logger.debug('🗑️ Deleting Microsoft Graph subscription:', id)
+    logger.info('🗑️ Deleting Microsoft Graph subscription:', id)
 
     // Delete the subscription
     await subscriptionManager.deleteSubscription(id, accessToken)

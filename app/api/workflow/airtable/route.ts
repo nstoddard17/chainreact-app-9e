@@ -292,7 +292,7 @@ function schedulePendingRecord(
 
   // Check if already has an active timer
   if (activeTimers.has(dedupeKey)) {
-    logger.debug(`      ⏸️ Record ${recordId} already has active timer, updating data only`)
+    logger.info(`      ⏸️ Record ${recordId} already has active timer, updating data only`)
     // Update with latest data (in case fields were added)
     const existing = pendingRecords.get(dedupeKey)
     if (existing && triggerData.fields) {
@@ -316,7 +316,7 @@ function schedulePendingRecord(
 
   // Schedule the execution with setTimeout
   const timer = setTimeout(async () => {
-    logger.debug(`⏰ Timer expired for record ${recordId}, processing...`)
+    logger.info(`⏰ Timer expired for record ${recordId}, processing...`)
     activeTimers.delete(dedupeKey) // Remove from active timers
     await processSinglePendingRecord(dedupeKey, pendingRecord)
   }, verificationDelay * 1000)
@@ -327,7 +327,7 @@ function schedulePendingRecord(
 
 // Process a single pending record when its timer expires
 async function processSinglePendingRecord(key: string, pending: any): Promise<void> {
-  logger.debug(`  ✅ Processing pending record: ${key}`)
+  logger.info(`  ✅ Processing pending record: ${key}`)
 
   // Remove from pending map
   pendingRecords.delete(key)
@@ -339,11 +339,11 @@ async function processSinglePendingRecord(key: string, pending: any): Promise<vo
 
   // If verification delay is 0, process immediately without verification
   if (pending.verificationDelay === 0) {
-    logger.debug(`🚀 Processing record ${recordId} immediately (no delay configured)`)
+    logger.info(`🚀 Processing record ${recordId} immediately (no delay configured)`)
     await createWorkflowExecution(pending.workflowId, pending.userId, pending.triggerData)
   } else {
     // Verify record still exists before processing
-    logger.debug(`🔍 Verifying record ${recordId} still exists after ${pending.verificationDelay}s delay`)
+    logger.info(`🔍 Verifying record ${recordId} still exists after ${pending.verificationDelay}s delay`)
 
     // Import and use the verification function
     const { verifyAirtableRecord } = await import('@/lib/integrations/airtable/verification')
@@ -356,10 +356,10 @@ async function processSinglePendingRecord(key: string, pending: any): Promise<vo
     )
 
     if (recordExists) {
-      logger.debug(`✅ Record ${recordId} verified - executing workflow`)
+      logger.info(`✅ Record ${recordId} verified - executing workflow`)
       await createWorkflowExecution(pending.workflowId, pending.userId, pending.triggerData)
     } else {
-      logger.debug(`⏭️ Skipping workflow for deleted record ${recordId}`)
+      logger.info(`⏭️ Skipping workflow for deleted record ${recordId}`)
     }
   }
 }
@@ -367,11 +367,11 @@ async function processSinglePendingRecord(key: string, pending: any): Promise<vo
 // Process records that have reached their scheduled time (for manual checking)
 async function processPendingRecords(): Promise<void> {
   const now = Date.now()
-  logger.debug(`🔄 Checking ${pendingRecords.size} pending records...`)
+  logger.info(`🔄 Checking ${pendingRecords.size} pending records...`)
 
   for (const [key, pending] of pendingRecords.entries()) {
     const timeRemaining = Math.ceil((pending.scheduledAt - now) / 1000)
-    logger.debug(`  - Record ${pending.recordId} (${key}): ${timeRemaining > 0 ? `${timeRemaining}s remaining` : 'ready to process'}`)
+    logger.info(`  - Record ${pending.recordId} (${key}): ${timeRemaining > 0 ? `${timeRemaining}s remaining` : 'ready to process'}`)
 
     // Since we're now using setTimeout, we don't process here
     // This function is just for logging status
@@ -400,7 +400,7 @@ async function setWebhookSkipBefore(
 export async function POST(req: NextRequest) {
   let currentWebhook: any = null
   // Simplified deduplication approach - execute immediately but block duplicates
-  logger.debug('🔔 Airtable webhook received at', new Date().toISOString())
+  logger.info('🔔 Airtable webhook received at', new Date().toISOString())
 
   const headers = Object.fromEntries(req.headers.entries())
   const raw = await req.text()
@@ -419,7 +419,7 @@ export async function POST(req: NextRequest) {
     const baseId = notification?.base?.id
     const webhookId = notification?.webhook?.id
 
-    logger.debug(`🔍 Looking for webhook - Base: ${baseId}, Webhook: ${webhookId}`)
+    logger.info(`🔍 Looking for webhook - Base: ${baseId}, Webhook: ${webhookId}`)
 
     if (!baseId || !webhookId) {
       logger.error('❌ Missing base or webhook id in notification')
@@ -450,12 +450,12 @@ export async function POST(req: NextRequest) {
         .select('base_id, webhook_id, status')
         .eq('status', 'active')
 
-      logger.debug('📋 Active webhooks in database:', allWebhooks)
+      logger.info('📋 Active webhooks in database:', allWebhooks)
 
       return errorResponse('Webhook not registered' , 404)
     }
 
-    logger.debug('✅ Found webhook in database')
+    logger.info('✅ Found webhook in database')
 
     // Verify signature
     const headerNames = ['x-airtable-signature-256', 'x-airtable-content-mac', 'x-airtable-signature']
@@ -478,8 +478,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    logger.debug('🔐 Airtable signature header (raw):', signatureHeader ? signatureHeader.slice(0, 128) : 'none')
-    logger.debug('🔐 Airtable headers snapshot:', headerNames.reduce((acc: Record<string, string | undefined>, name) => {
+    logger.info('🔐 Airtable signature header (raw):', signatureHeader ? signatureHeader.slice(0, 128) : 'none')
+    logger.info('🔐 Airtable headers snapshot:', headerNames.reduce((acc: Record<string, string | undefined>, name) => {
       acc[name] = headers[name]
       return acc
     }, {}))
@@ -500,7 +500,7 @@ export async function POST(req: NextRequest) {
     const payloads = await fetchAirtableWebhookPayloads(baseId, webhookId, wh.last_cursor ?? undefined)
     const payloadCount = payloads?.payloads?.length || 0
   if (payloadCount > 0) {
-    logger.debug(`📦 Processing ${payloadCount} Airtable payload(s)`)
+    logger.info(`📦 Processing ${payloadCount} Airtable payload(s)`)
   }
 
     if (payloads?.payloads && payloads.payloads.length > 0) {
@@ -570,7 +570,7 @@ async function processAirtablePayloadsBatch(
     }
   }
 
-  logger.debug(`📊 Found ${allChangedRecords.size} total changed records across all payloads`)
+  logger.info(`📊 Found ${allChangedRecords.size} total changed records across all payloads`)
 
   // Process each payload with access to all change data
   for (const payload of payloads) {
@@ -603,7 +603,7 @@ async function processAirtablePayload(
   const skipBeforeMs = skipBeforeTimestamp ? new Date(skipBeforeTimestamp).getTime() : null
 
   if (skipBeforeMs && payloadTimestampMs && payloadTimestampMs <= skipBeforeMs) {
-    logger.debug(`⏭️ Skipping payload from ${normalizedPayload.timestamp} due to previous validation failure window`)
+    logger.info(`⏭️ Skipping payload from ${normalizedPayload.timestamp} due to previous validation failure window`)
     return
   }
 
@@ -663,11 +663,11 @@ async function processAirtablePayload(
   const destroyed_table_ids = getDestroyedTableIds(normalizedPayload)
 
   if (created_tables_by_id) {
-    logger.debug('  - Created tables:', Object.keys(created_tables_by_id))
+    logger.info('  - Created tables:', Object.keys(created_tables_by_id))
     for (const [tableId, tableData] of Object.entries(created_tables_by_id)) {
       const createdRecords = getCreatedRecords(tableData)
       const createdCount = createdRecords ? Object.keys(createdRecords).length : 0
-      logger.debug(`    Table ${tableId}: ${tableData.name || 'unnamed'}, ${createdCount} new records`)
+      logger.info(`    Table ${tableId}: ${tableData.name || 'unnamed'}, ${createdCount} new records`)
     }
   }
 
@@ -679,7 +679,7 @@ async function processAirtablePayload(
       const createdCount = createdRecords ? Object.keys(createdRecords).length : 0
       const changedCount = changedRecords ? Object.keys(changedRecords).length : 0
       if (createdCount > 0 || changedCount > 0) {
-        logger.debug(`  - Changed table ${tableId}: ${tableData.name || 'unnamed'}, ${createdCount} new records, ${changedCount} changed records`)
+        logger.info(`  - Changed table ${tableId}: ${tableData.name || 'unnamed'}, ${createdCount} new records, ${changedCount} changed records`)
       }
     }
   }
@@ -689,7 +689,7 @@ async function processAirtablePayload(
     const triggerNode = nodes.find((node: any) => node.data?.isTrigger)
 
     if (!triggerNode) {
-      logger.debug(`❌ No trigger node found in workflow ${workflow.id}`)
+      logger.info(`❌ No trigger node found in workflow ${workflow.id}`)
       continue
     }
 
@@ -702,14 +702,14 @@ async function processAirtablePayload(
       triggerConfig.tableId = tableIdFilter
     }
 
-    logger.debug(`🔍 Checking workflow "${workflow.name}" (${workflow.id})`)
-    logger.debug(`   - Trigger type: ${triggerType}`)
-    logger.debug(`   - Table filter: ${tableName || 'all tables'}`)
-    logger.debug(`   - Table filter ID: ${tableIdFilter || 'all tables'}`)
-    logger.debug(`   - Verification delay in config: ${triggerConfig.verificationDelay}`)
+    logger.info(`🔍 Checking workflow "${workflow.name}" (${workflow.id})`)
+    logger.info(`   - Trigger type: ${triggerType}`)
+    logger.info(`   - Table filter: ${tableName || 'all tables'}`)
+    logger.info(`   - Table filter ID: ${tableIdFilter || 'all tables'}`)
+    logger.info(`   - Verification delay in config: ${triggerConfig.verificationDelay}`)
     const changeGrouping = triggerConfig.changeGrouping || 'per_record'
-    logger.debug(`   - Linked record handling: ${changeGrouping === 'combine_linked' ? 'Combine linked updates into one run' : 'Run once per record change'}`)
-    logger.debug(`   - Full trigger config:`, JSON.stringify(triggerConfig, null, 2))
+    logger.info(`   - Linked record handling: ${changeGrouping === 'combine_linked' ? 'Combine linked updates into one run' : 'Run once per record change'}`)
+    logger.info(`   - Full trigger config:`, JSON.stringify(triggerConfig, null, 2))
 
     if (triggerType === 'airtable_trigger_new_record') {
       const batchedNewRecords = changeGrouping === 'combine_linked' ? new Map<string, AirtableBatchGroup>() : null
@@ -758,9 +758,9 @@ async function processAirtablePayload(
             }
 
             const rawDelayValue = triggerConfig.verificationDelay
-            logger.debug(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
+            logger.info(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
             const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
-            logger.debug(`🕐 Verification delay for workflow ${workflow.id}: ${verificationDelay}s (from config: ${rawDelayValue})`)
+            logger.info(`🕐 Verification delay for workflow ${workflow.id}: ${verificationDelay}s (from config: ${rawDelayValue})`)
 
             const triggerData = {
               baseId,
@@ -782,16 +782,16 @@ async function processAirtablePayload(
             }
 
             if (wasRecentlyProcessed(workflow.id, recordId)) {
-              logger.debug(`      ⏭️ Skipping duplicate - already processed`)
+              logger.info(`      ⏭️ Skipping duplicate - already processed`)
               continue
             }
 
             if (verificationDelay === 0) {
-              logger.debug(`🚀 Processing new record ${recordId} immediately (no delay)`)
+              logger.info(`🚀 Processing new record ${recordId} immediately (no delay)`)
               markRecordProcessed(workflow.id, recordId)
               await createWorkflowExecution(workflow.id, userId, triggerData)
             } else {
-              logger.debug(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s`)
+              logger.info(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s`)
               schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay)
             }
           }
@@ -809,7 +809,7 @@ async function processAirtablePayload(
             continue
           }
 
-          logger.debug(`  🆕 Found ${Object.keys(nestedCreatedRecords).length} new records in table ${tableData.name || tableId}`)
+          logger.info(`  🆕 Found ${Object.keys(nestedCreatedRecords).length} new records in table ${tableData.name || tableId}`)
 
           for (const [recordId, record] of Object.entries(nestedCreatedRecords)) {
             const fields = extractRecordFields(record)
@@ -817,7 +817,7 @@ async function processAirtablePayload(
             const nonEmptyFields = Object.values(fields).filter(v => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)).length
             const hasData = fieldCount > 0 && nonEmptyFields > 0 && hasNonEmptyFieldValues(fields)
 
-            logger.debug(`    - Record ${recordId}: ${fieldCount} fields, ${nonEmptyFields} non-empty, hasData: ${hasData}`)
+            logger.info(`    - Record ${recordId}: ${fieldCount} fields, ${nonEmptyFields} non-empty, hasData: ${hasData}`)
 
             if (!hasData) {
               let foundWithData = false
@@ -830,22 +830,22 @@ async function processAirtablePayload(
                 const changedNonEmpty = Object.values(changedFields).filter(v => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0)).length
 
                 if (changedFieldCount > 0 && changedNonEmpty > 0) {
-                  logger.debug(`      📝 Found data in change event from another payload: ${changedFieldCount} fields, ${changedNonEmpty} non-empty`)
+                  logger.info(`      📝 Found data in change event from another payload: ${changedFieldCount} fields, ${changedNonEmpty} non-empty`)
                   Object.assign(fields, changedFields)
                   foundWithData = true
                 }
               }
 
               if (!foundWithData) {
-                logger.debug(`      ⏭️ Skipping empty record (no data found in any change event across all payloads)`)
+                logger.info(`      ⏭️ Skipping empty record (no data found in any change event across all payloads)`)
                 continue
               }
             }
 
             const rawDelayValue = triggerConfig.verificationDelay
-            logger.debug(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
+            logger.info(`🔧 Checking verificationDelay - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
             const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
-            logger.debug(`🕐 Verification delay for workflow ${workflow.id}: ${verificationDelay}s (from config: ${rawDelayValue})`)
+            logger.info(`🕐 Verification delay for workflow ${workflow.id}: ${verificationDelay}s (from config: ${rawDelayValue})`)
 
             const triggerData = {
               baseId,
@@ -867,16 +867,16 @@ async function processAirtablePayload(
             }
 
             if (wasRecentlyProcessed(workflow.id, recordId)) {
-              logger.debug(`      ⏭️ Skipping duplicate - already processed`)
+              logger.info(`      ⏭️ Skipping duplicate - already processed`)
               continue
             }
 
             if (verificationDelay === 0) {
-              logger.debug(`🚀 Processing new record ${recordId} immediately (no delay)`)
+              logger.info(`🚀 Processing new record ${recordId} immediately (no delay)`)
               markRecordProcessed(workflow.id, recordId)
               await createWorkflowExecution(workflow.id, userId, triggerData)
             } else {
-              logger.debug(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s`)
+              logger.info(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s`)
               schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay)
             }
           }
@@ -896,7 +896,7 @@ async function processAirtablePayload(
             continue
           }
 
-          logger.debug(`  🔄 Checking ${Object.keys(changedRecordsOnly).length} changed records for potential new records`)
+          logger.info(`  🔄 Checking ${Object.keys(changedRecordsOnly).length} changed records for potential new records`)
 
           for (const [recordId, changes] of Object.entries(changedRecordsOnly)) {
             const currentFieldsSnapshot = extractSnapshotFields((changes as any)?.current)
@@ -911,12 +911,12 @@ async function processAirtablePayload(
 
             const pendingKey = buildDedupeKey(workflow.id, recordId)
             if (pendingRecords.has(pendingKey)) {
-              logger.debug(`      ⏸️ Record ${recordId} already scheduled, skipping change event`)
+              logger.info(`      ⏸️ Record ${recordId} already scheduled, skipping change event`)
               continue
             }
 
             const rawDelayValue = triggerConfig.verificationDelay
-            logger.debug(`🔧 Checking verificationDelay for changed record - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
+            logger.info(`🔧 Checking verificationDelay for changed record - raw value: ${rawDelayValue}, type: ${typeof rawDelayValue}`)
             const verificationDelay = parseVerificationDelay(rawDelayValue, 30)
 
             const triggerData = {
@@ -939,16 +939,16 @@ async function processAirtablePayload(
             }
 
             if (wasRecentlyProcessed(workflow.id, recordId)) {
-              logger.debug(`      ⏭️ Skipping duplicate - already processed`)
+              logger.info(`      ⏭️ Skipping duplicate - already processed`)
               continue
             }
 
             if (verificationDelay === 0) {
-              logger.debug(`🚀 Processing new record ${recordId} immediately (was empty, now has data)`)
+              logger.info(`🚀 Processing new record ${recordId} immediately (was empty, now has data)`)
               markRecordProcessed(workflow.id, recordId)
               await createWorkflowExecution(workflow.id, userId, triggerData)
             } else {
-              logger.debug(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s (from change event)`)
+              logger.info(`⏳ Scheduling record ${recordId} for processing in ${verificationDelay}s (from change event)`)
               schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay)
             }
           }
@@ -959,7 +959,7 @@ async function processAirtablePayload(
         for (const [batchKey, group] of batchedNewRecords.entries()) {
           const dedupeKey = `batch:${batchKey}`
           if (wasRecentlyProcessed(workflow.id, dedupeKey)) {
-            logger.debug(`      ⏭️ Skipping duplicate batch ${dedupeKey}`)
+            logger.info(`      ⏭️ Skipping duplicate batch ${dedupeKey}`)
             continue
           }
 
@@ -977,7 +977,7 @@ async function processAirtablePayload(
             recordBatch: group.records
           }
 
-          logger.debug(`🚀 Processing batched new records (${group.records.length}) for table ${group.tableName}`)
+          logger.info(`🚀 Processing batched new records (${group.records.length}) for table ${group.tableName}`)
           await createWorkflowExecution(workflow.id, userId, triggerData)
         }
       }
@@ -1061,7 +1061,7 @@ async function processAirtablePayload(
             continue
           }
 
-          logger.debug(`✏️ Processing updated record ${recordId}`)
+          logger.info(`✏️ Processing updated record ${recordId}`)
 
           const triggerData = {
             baseId,
@@ -1077,7 +1077,7 @@ async function processAirtablePayload(
           const dedupeSuffix = `${recordId}-${normalizedPayload.timestamp || Date.now()}`
 
           if (wasRecentlyProcessed(workflow.id, dedupeSuffix)) {
-            logger.debug(`      ⏭️ Skipping duplicate update for record ${recordId}`)
+            logger.info(`      ⏭️ Skipping duplicate update for record ${recordId}`)
             continue
           }
 
@@ -1085,7 +1085,7 @@ async function processAirtablePayload(
             markRecordProcessed(workflow.id, dedupeSuffix)
             await createWorkflowExecution(workflow.id, userId, triggerData)
           } else {
-            logger.debug(`⏳ Scheduling updated record ${recordId} for processing in ${verificationDelay}s`)
+            logger.info(`⏳ Scheduling updated record ${recordId} for processing in ${verificationDelay}s`)
             schedulePendingRecord(workflow.id, recordId, userId, triggerData, verificationDelay, dedupeSuffix)
           }
         }
@@ -1095,7 +1095,7 @@ async function processAirtablePayload(
         for (const [batchKey, group] of batchedUpdatedRecords.entries()) {
           const dedupeKey = `batch:${batchKey}`
           if (wasRecentlyProcessed(workflow.id, dedupeKey)) {
-            logger.debug(`      ⏭️ Skipping duplicate batch ${dedupeKey}`)
+            logger.info(`      ⏭️ Skipping duplicate batch ${dedupeKey}`)
             continue
           }
 
@@ -1114,14 +1114,14 @@ async function processAirtablePayload(
             recordBatch: group.records
           }
 
-          logger.debug(`🚀 Processing batched record updates (${group.records.length}) for table ${group.tableName}`)
+          logger.info(`🚀 Processing batched record updates (${group.records.length}) for table ${group.tableName}`)
           await createWorkflowExecution(workflow.id, userId, triggerData)
         }
       }
     }
 
     if (triggerType === 'airtable_trigger_table_deleted' && destroyed_table_ids && destroyed_table_ids.length > 0) {
-      logger.debug(`🗑️ Processing ${destroyed_table_ids.length} destroyed table(s) for workflow ${workflow.id}`)
+      logger.info(`🗑️ Processing ${destroyed_table_ids.length} destroyed table(s) for workflow ${workflow.id}`)
 
       // Get watched tables configuration (optional filter)
       const watchedTables: string[] | undefined = Array.isArray(triggerConfig.watchedTables)
@@ -1129,16 +1129,16 @@ async function processAirtablePayload(
         : undefined
 
       if (watchedTables && watchedTables.length > 0) {
-        logger.debug(`   - Filtering by watched tables: ${watchedTables.join(', ')}`)
+        logger.info(`   - Filtering by watched tables: ${watchedTables.join(', ')}`)
       } else {
-        logger.debug(`   - No table filter, monitoring all tables`)
+        logger.info(`   - No table filter, monitoring all tables`)
       }
 
       for (const destroyedTableId of destroyed_table_ids) {
         const dedupeSuffix = `table-${destroyedTableId}`
 
         if (wasRecentlyProcessed(workflow.id, dedupeSuffix)) {
-          logger.debug(`      ⏭️ Table ${destroyedTableId} already handled recently, skipping`)
+          logger.info(`      ⏭️ Table ${destroyedTableId} already handled recently, skipping`)
           continue
         }
 
@@ -1168,11 +1168,11 @@ async function processAirtablePayload(
           })
 
           if (!isWatched) {
-            logger.debug(`      ⏭️ Table ${destroyedTableId} (${tableName || 'unknown'}) not in watched list, skipping`)
+            logger.info(`      ⏭️ Table ${destroyedTableId} (${tableName || 'unknown'}) not in watched list, skipping`)
             continue
           }
 
-          logger.debug(`      ✅ Table ${destroyedTableId} (${tableName || 'unknown'}) is in watched list`)
+          logger.info(`      ✅ Table ${destroyedTableId} (${tableName || 'unknown'}) is in watched list`)
         }
 
         const triggerData = {
@@ -1192,8 +1192,8 @@ async function processAirtablePayload(
 
 async function createWorkflowExecution(workflowId: string, userId: string, triggerData: any) {
   try {
-    logger.debug(`🚀 Creating workflow execution for workflow ${workflowId}`)
-    logger.debug('📝 Trigger data fields:', Object.keys(triggerData))
+    logger.info(`🚀 Creating workflow execution for workflow ${workflowId}`)
+    logger.info('📝 Trigger data fields:', Object.keys(triggerData))
 
     // Get the workflow details first
     const { data: workflow, error: workflowError } = await getSupabase()
@@ -1244,13 +1244,13 @@ async function createWorkflowExecution(workflowId: string, userId: string, trigg
     // Construct workflow object with nodes/connections for execution
     const workflowWithGraph = { ...workflow, nodes, connections }
 
-    logger.debug(`⚡ Executing workflow "${workflow.name}" (${workflow.id})`)
+    logger.info(`⚡ Executing workflow "${workflow.name}" (${workflow.id})`)
 
     // Log the workflow structure to understand what nodes will execute
     const actionNodes = nodes.filter((n: any) => !n.data?.isTrigger && n.data?.type)
-    logger.debug(`📊 Workflow has ${actionNodes.length} action nodes:`)
+    logger.info(`📊 Workflow has ${actionNodes.length} action nodes:`)
     actionNodes.forEach((node: any) => {
-      logger.debug(`   - ${node.data.type} (${node.id})`)
+      logger.info(`   - ${node.data.type} (${node.id})`)
     })
 
     // Import and use the workflow execution service
@@ -1269,7 +1269,7 @@ async function createWorkflowExecution(workflowId: string, userId: string, trigg
       true // skipTriggers = true (we're already triggered by webhook)
     )
 
-    logger.debug(`✅ Workflow execution result:`, {
+    logger.info(`✅ Workflow execution result:`, {
       success: !!executionResult.results,
       executionId: executionResult.executionId,
       resultsCount: executionResult.results?.length || 0,
@@ -1278,15 +1278,15 @@ async function createWorkflowExecution(workflowId: string, userId: string, trigg
 
     // Log what was actually executed
     if (executionResult.results && executionResult.results.length > 0) {
-      logger.debug('📋 Execution details:')
+      logger.info('📋 Execution details:')
       executionResult.results.forEach((result: any) => {
-        logger.debug(`   - Node ${result.nodeId}: ${result.success ? '✅' : '❌'}`)
+        logger.info(`   - Node ${result.nodeId}: ${result.success ? '✅' : '❌'}`)
         if (result.error) {
-          logger.debug(`     Error: ${result.error}`)
+          logger.info(`     Error: ${result.error}`)
         }
       })
     } else {
-      logger.debug('⚠️ No execution results returned')
+      logger.info('⚠️ No execution results returned')
     }
   } catch (error) {
     logger.error('❌ Failed to create/execute workflow:', error)

@@ -53,7 +53,7 @@ export function useBubbleManagement({
 
     // Check if bubble already exists
     if (bubbleExists(fieldName, value)) {
-      logger.debug(`Bubble already exists for value ${label} in field ${fieldName}`);
+      logger.info(`Bubble already exists for value ${label} in field ${fieldName}`);
       return false;
     }
 
@@ -70,7 +70,7 @@ export function useBubbleManagement({
         [fieldName]: 0
       }));
       
-      logger.debug(`Replaced bubble for single-value field ${fieldName}`);
+      logger.info(`Replaced bubble for single-value field ${fieldName}`);
     } else if (hasActiveBubble(fieldName)) {
       // Multi-value field with active bubble - replace the active bubble
       const activeBubbleIndices = activeBubbles[fieldName];
@@ -95,7 +95,7 @@ export function useBubbleManagement({
         };
       });
       
-      logger.debug(`Replaced active bubble with ${label}`);
+      logger.info(`Replaced active bubble with ${label}`);
     } else {
       // Multi-value field with no active bubble - add new bubble
       setFieldSuggestions(prev => ({
@@ -103,7 +103,7 @@ export function useBubbleManagement({
         [fieldName]: [...(prev[fieldName] || []), newSuggestion]
       }));
       
-      logger.debug(`Added new bubble for ${label}`);
+      logger.info(`Added new bubble for ${label}`);
     }
 
     return true;

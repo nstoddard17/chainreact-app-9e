@@ -52,7 +52,7 @@ export async function createMicrosoftExcelWorkbook(
       createUrl = `${baseUrl}/root:/${workbookName}:/content`
     }
 
-    logger.debug(`📊 [Excel Create] Creating workbook at: ${createUrl}`)
+    logger.info(`📊 [Excel Create] Creating workbook at: ${createUrl}`)
 
     // First, create an empty Excel file using proper XLSX structure
     // We'll use the ExcelJS library or create a minimal valid structure
@@ -75,12 +75,12 @@ export async function createMicrosoftExcelWorkbook(
     }
 
     const createdFile = await createResponse.json()
-    logger.debug(`✅ [Excel Create] Workbook created successfully with ID: ${createdFile.id}`)
+    logger.info(`✅ [Excel Create] Workbook created successfully with ID: ${createdFile.id}`)
     const workbookId = createdFile.id
 
     // Wait a moment for the file to be fully processed by OneDrive
     // This helps avoid the "resourceLocked" error
-    logger.debug(`⏳ [Excel Create] Waiting for file to be ready...`)
+    logger.info(`⏳ [Excel Create] Waiting for file to be ready...`)
     await new Promise(resolve => setTimeout(resolve, 2000)) // 2 second delay
 
     // Now work with the created workbook
@@ -120,11 +120,11 @@ export async function createMicrosoftExcelWorkbook(
               }
             } else if (addSheetResponse.status === 423) {
               // Resource locked, skip adding worksheets for now
-              logger.debug(`⚠️ [Excel Create] File still locked, skipping worksheet creation`)
+              logger.info(`⚠️ [Excel Create] File still locked, skipping worksheet creation`)
               break
             }
           } catch (err) {
-            logger.debug(`⚠️ [Excel Create] Could not add worksheet: ${err}`)
+            logger.info(`⚠️ [Excel Create] Could not add worksheet: ${err}`)
           }
         }
       }
@@ -138,7 +138,7 @@ export async function createMicrosoftExcelWorkbook(
           await populateWorksheet(workbookUrl, 'Sheet1', dataRows, accessToken)
         }
       } catch (err) {
-        logger.debug(`⚠️ [Excel Create] Could not add initial data: ${err}`)
+        logger.info(`⚠️ [Excel Create] Could not add initial data: ${err}`)
       }
     }
 
@@ -159,7 +159,7 @@ export async function createMicrosoftExcelWorkbook(
         })
       } catch (err) {
         // Non-critical error, continue
-        logger.debug('Could not add description to workbook metadata')
+        logger.info('Could not add description to workbook metadata')
       }
     }
 

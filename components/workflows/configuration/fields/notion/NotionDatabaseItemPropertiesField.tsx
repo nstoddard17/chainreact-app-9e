@@ -192,7 +192,7 @@ export function NotionDatabaseItemPropertiesField({
         const pageData = result.data
 
         if (pageData?.properties) {
-          logger.debug('[NotionDatabaseItemPropertiesField] Fetched item properties:', Object.keys(pageData.properties))
+          logger.info('[NotionDatabaseItemPropertiesField] Fetched item properties:', Object.keys(pageData.properties))
 
           // Extract values from each property
           const extractedValues: Record<string, any> = {}
@@ -204,14 +204,14 @@ export function NotionDatabaseItemPropertiesField({
             // Only set if we got a meaningful value
             if (extractedValue !== '' && extractedValue !== null && extractedValue !== undefined) {
               extractedValues[propName] = extractedValue
-              logger.debug(`[NotionDatabaseItemPropertiesField] Extracted ${propName} (${propType}):`, extractedValue)
+              logger.info(`[NotionDatabaseItemPropertiesField] Extracted ${propName} (${propType}):`, extractedValue)
             }
           }
 
           // Merge with any existing saved values (saved values take precedence)
           const mergedValues = { ...extractedValues, ...(value || {}) }
 
-          logger.debug('[NotionDatabaseItemPropertiesField] Setting initial values:', mergedValues)
+          logger.info('[NotionDatabaseItemPropertiesField] Setting initial values:', mergedValues)
           setPropertyValues(mergedValues)
           onChange(mergedValues)
         }
@@ -229,7 +229,7 @@ export function NotionDatabaseItemPropertiesField({
   useEffect(() => {
     const loadedProperties = dynamicOptions?.[field.name] || []
 
-    logger.debug('[NotionDatabaseItemPropertiesField] Properties loaded:', {
+    logger.info('[NotionDatabaseItemPropertiesField] Properties loaded:', {
       fieldName: field.name,
       propertyCount: loadedProperties.length,
       properties: loadedProperties.slice(0, 3)

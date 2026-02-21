@@ -140,7 +140,7 @@ export async function POST(
         return errorResponse(updateError.message, 500)
       }
 
-      logger.debug('[API] Updated workflow permission:', {
+      logger.info('[API] Updated workflow permission:', {
         workflowId,
         userId: user_id,
         permission
@@ -166,7 +166,7 @@ export async function POST(
         return errorResponse(insertError.message, 500)
       }
 
-      logger.debug('[API] Granted workflow permission:', {
+      logger.info('[API] Granted workflow permission:', {
         workflowId,
         userId: user_id,
         permission
@@ -249,7 +249,7 @@ export async function DELETE(
       return errorResponse(deleteError.message, 500)
     }
 
-    logger.debug('[API] Revoked workflow permission:', {
+    logger.info('[API] Revoked workflow permission:', {
       workflowId,
       userId: userIdToRevoke
     })

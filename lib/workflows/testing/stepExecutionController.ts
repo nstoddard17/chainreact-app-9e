@@ -309,7 +309,7 @@ export class StepExecutionController {
     const mockData = this.generateMockData(node.data.type, inputData)
 
     // Log what would happen
-    logger.debug(`🧪 [SANDBOX] Node ${node.id} would execute:`, {
+    logger.info(`🧪 [SANDBOX] Node ${node.id} would execute:`, {
       type: node.data.type,
       config: node.data.config,
       input: inputData,

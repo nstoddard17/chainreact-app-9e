@@ -11,7 +11,7 @@ export async function GET() {
   const { serviceClient: supabase } = authResult
 
   try {
-    logger.debug('Checking execution_progress table...')
+    logger.info('Checking execution_progress table...')
 
     // First check if the table exists
     const { data: tableExists, error: checkError } = await supabase
@@ -20,7 +20,7 @@ export async function GET() {
       .limit(1)
 
     if (!checkError) {
-      logger.debug('✅ execution_progress table already exists')
+      logger.info('✅ execution_progress table already exists')
       return jsonResponse({
         success: true,
         message: 'execution_progress table already exists',
@@ -30,7 +30,7 @@ export async function GET() {
 
     // If table doesn't exist, try to create it
     if (checkError?.message?.includes('relation') && checkError?.message?.includes('does not exist')) {
-      logger.debug('Table does not exist, attempting to create it...')
+      logger.info('Table does not exist, attempting to create it...')
 
       // Create the table using raw SQL
       const createTableSQL = `
@@ -153,7 +153,7 @@ export async function GET() {
         }, { status: 500 })
       }
 
-      logger.debug('✅ execution_progress table created successfully')
+      logger.info('✅ execution_progress table created successfully')
       return jsonResponse({
         success: true,
         message: 'execution_progress table created successfully',

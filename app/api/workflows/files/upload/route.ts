@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     if (isTemporaryUpload) {
       // For temporary uploads, just return the file info without database storage
       // The file is already uploaded to Supabase storage
-      logger.debug('Temporary file upload - skipping database record for:', { workflowId, nodeId, fileName: file.name });
+      logger.info('Temporary file upload - skipping database record for:', { workflowId, nodeId, fileName: file.name });
       return jsonResponse({
         success: true,
         fileId: nodeId, // Use the node ID as identifier

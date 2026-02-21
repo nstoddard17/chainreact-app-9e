@@ -11,7 +11,7 @@ export async function onenoteGetNotebookDetails(
   const { notebookId } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would get notebook details:", { notebookId })
+    logger.info("[TEST MODE] Would get notebook details:", { notebookId })
     return {
       success: true,
       output: {

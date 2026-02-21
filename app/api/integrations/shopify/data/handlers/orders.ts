@@ -50,7 +50,7 @@ export const getShopifyOrders: ShopifyDataHandler<ShopifyOrder[]> = async (
       }
     })
 
-    logger.debug(`✅ [Shopify] Fetched ${orders.length} orders`)
+    logger.info(`✅ [Shopify] Fetched ${orders.length} orders`)
     return orders
 
   } catch (error: any) {

@@ -24,17 +24,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { integrationId, dataType, options = {} } = body
 
-    logger.debug('🔍 [Monday Data API] Request:', { integrationId, dataType, options })
+    logger.info('🔍 [Monday Data API] Request:', { integrationId, dataType, options })
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      logger.debug('❌ [Monday Data API] Missing required parameters')
+      logger.info('❌ [Monday Data API] Missing required parameters')
       return errorResponse('Missing required parameters: integrationId and dataType', 400)
     }
 
     // Check if data type is supported
     if (!isMondayDataTypeSupported(dataType)) {
-      logger.debug('❌ [Monday Data API] Unsupported data type:', dataType)
+      logger.info('❌ [Monday Data API] Unsupported data type:', dataType)
       return jsonResponse({
         error: `Data type '${dataType}' not supported. Available types: ${getAvailableMondayDataTypes().join(', ')}`
       }, { status: 400 })
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      logger.debug('⚠️ [Monday Data API] Integration not connected:', integration.status)
+      logger.info('⚠️ [Monday Data API] Integration not connected:', integration.status)
       return errorResponse('Monday.com integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
@@ -70,13 +70,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Execute the handler
-    logger.debug(`🚀 [Monday Data API] Executing handler for: ${dataType}`)
+    logger.info(`🚀 [Monday Data API] Executing handler for: ${dataType}`)
     const startTime = Date.now()
 
     const result = await handler(integration as MondayIntegration, options)
 
     const duration = Date.now() - startTime
-    logger.debug(`✅ [Monday Data API] Handler completed in ${duration}ms, returned ${Array.isArray(result) ? result.length : 'non-array'} items`)
+    logger.info(`✅ [Monday Data API] Handler completed in ${duration}ms, returned ${Array.isArray(result) ? result.length : 'non-array'} items`)
 
     return jsonResponse({
       data: result,

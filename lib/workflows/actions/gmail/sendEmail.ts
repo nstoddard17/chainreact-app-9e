@@ -23,9 +23,9 @@ export async function sendGmailEmail(
 
   try {
     // Debug logging
-    logger.debug('📧 [sendGmailEmail] Raw config:', JSON.stringify(config, null, 2))
-    logger.debug('📧 [sendGmailEmail] Input keys:', Object.keys(input || {}))
-    logger.debug('📧 [sendGmailEmail] Input structure:', JSON.stringify(input, (key, value) => {
+    logger.info('📧 [sendGmailEmail] Raw config:', JSON.stringify(config, null, 2))
+    logger.info('📧 [sendGmailEmail] Input keys:', Object.keys(input || {}))
+    logger.info('📧 [sendGmailEmail] Input structure:', JSON.stringify(input, (key, value) => {
       if (typeof value === 'string' && value.length > 100) return value.substring(0, 100) + '...'
       return value
     }, 2))
@@ -37,7 +37,7 @@ export async function sendGmailEmail(
         typeof v === 'string' && v.includes('{{') && v.includes('}}')
       )
 
-    logger.debug('📧 [sendGmailEmail] Needs resolution:', needsResolution)
+    logger.info('📧 [sendGmailEmail] Needs resolution:', needsResolution)
 
     // Resolve each field individually (like createDraft does) to ensure all fields are properly resolved
     const from = resolveValue(config.from, input)
@@ -61,10 +61,10 @@ export async function sendGmailEmail(
     const trackClicks = resolveValue(config.trackClicks, input) || false
     const isHtml = resolveValue(config.isHtml, input) || false
 
-    logger.debug('📧 [sendGmailEmail] Resolved to:', to)
-    logger.debug('📧 [sendGmailEmail] Resolved cc:', cc)
-    logger.debug('📧 [sendGmailEmail] Resolved bcc:', bcc)
-    logger.debug('📧 [sendGmailEmail] Resolved body:', rawBody)
+    logger.info('📧 [sendGmailEmail] Resolved to:', to)
+    logger.info('📧 [sendGmailEmail] Resolved cc:', cc)
+    logger.info('📧 [sendGmailEmail] Resolved bcc:', bcc)
+    logger.info('📧 [sendGmailEmail] Resolved body:', rawBody)
 
     // Apply meta-variable resolution to subject and body
     // This resolves {{recipient_name}}, {{sender_email}}, etc. based on To/From fields
@@ -97,7 +97,7 @@ export async function sendGmailEmail(
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
 
     // Build email headers
-    logger.debug('📧 [sendGmailEmail] Building headers with cc:', cc, 'type:', typeof cc, 'isArray:', Array.isArray(cc))
+    logger.info('📧 [sendGmailEmail] Building headers with cc:', cc, 'type:', typeof cc, 'isArray:', Array.isArray(cc))
 
     const headers: Record<string, string> = {
       'To': Array.isArray(to) ? to.join(', ') : to,
@@ -107,9 +107,9 @@ export async function sendGmailEmail(
 
     if (cc && (Array.isArray(cc) ? cc.length > 0 : cc.trim())) {
       headers['Cc'] = Array.isArray(cc) ? cc.join(', ') : cc
-      logger.debug('📧 [sendGmailEmail] CC header set to:', headers['Cc'])
+      logger.info('📧 [sendGmailEmail] CC header set to:', headers['Cc'])
     } else {
-      logger.debug('📧 [sendGmailEmail] CC is empty or falsy, not adding CC header. CC value:', cc)
+      logger.info('📧 [sendGmailEmail] CC is empty or falsy, not adding CC header. CC value:', cc)
     }
 
     if (bcc && (Array.isArray(bcc) ? bcc.length > 0 : bcc.trim())) {
@@ -154,11 +154,11 @@ export async function sendGmailEmail(
     const messageParts = []
 
     // Add headers
-    logger.debug('📧 [sendGmailEmail] All headers before adding to message:', JSON.stringify(headers, null, 2))
+    logger.info('📧 [sendGmailEmail] All headers before adding to message:', JSON.stringify(headers, null, 2))
     for (const [key, value] of Object.entries(headers)) {
       messageParts.push(`${key}: ${value}`)
     }
-    logger.debug('📧 [sendGmailEmail] Message parts after adding headers:', messageParts.slice(0, 10))
+    logger.info('📧 [sendGmailEmail] Message parts after adding headers:', messageParts.slice(0, 10))
     messageParts.push(`Content-Type: multipart/mixed; boundary="${boundary}"`)
     messageParts.push('')
     messageParts.push(`--${boundary}`)

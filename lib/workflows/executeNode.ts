@@ -219,7 +219,7 @@ async function decryptIntegrationToken(integration: any): Promise<string> {
   let accessToken = integration.access_token
 
   if (shouldRefresh.shouldRefresh && integration.refresh_token) {
-    logger.debug(`Refreshing token for ${integration.provider}: ${shouldRefresh.reason}`)
+    logger.info(`Refreshing token for ${integration.provider}: ${shouldRefresh.reason}`)
 
     const refreshResult = await TokenRefreshService.refreshTokenForProvider(
       integration.provider,
@@ -229,7 +229,7 @@ async function decryptIntegrationToken(integration: any): Promise<string> {
 
     if (refreshResult.success && refreshResult.accessToken) {
       accessToken = refreshResult.accessToken
-      logger.debug(`Token refresh successful for ${integration.provider}`)
+      logger.info(`Token refresh successful for ${integration.provider}`)
     } else {
       logger.error(`Token refresh failed for ${integration.provider}:`, refreshResult.error)
       throw new Error(`Failed to refresh ${integration.provider} token: ${refreshResult.error}`)
@@ -246,11 +246,11 @@ async function decryptIntegrationToken(integration: any): Promise<string> {
     throw new Error("Encryption secret not configured. Please set ENCRYPTION_KEY environment variable.")
   }
 
-  logger.debug(`Attempting to decrypt access token for ${integration.provider}`)
+  logger.info(`Attempting to decrypt access token for ${integration.provider}`)
 
   try {
     const decryptedToken = decrypt(accessToken, secret)
-    logger.debug(`Successfully decrypted access token for ${integration.provider}`)
+    logger.info(`Successfully decrypted access token for ${integration.provider}`)
     return decryptedToken
   } catch (decryptError: any) {
     logger.error(`Decryption failed for ${integration.provider}:`, {
@@ -261,7 +261,7 @@ async function decryptIntegrationToken(integration: any): Promise<string> {
 
     // If the token doesn't have the expected format, it might be stored as plain text
     if (!accessToken.includes(':')) {
-      logger.debug(`Token for ${integration.provider} appears to be stored as plain text, returning as-is`)
+      logger.info(`Token for ${integration.provider} appears to be stored as plain text, returning as-is`)
       return accessToken
     }
 
@@ -343,7 +343,7 @@ export async function executeNode(
  * Routes to the appropriate handler based on node type
  */
 export async function executeAction({ node, input, userId, workflowId, testMode, executionMode }: ExecuteActionParams): Promise<ActionResult> {
-  logger.debug(`📌 executeAction received userId: ${userId}, workflowId: ${workflowId}`)
+  logger.info(`📌 executeAction received userId: ${userId}, workflowId: ${workflowId}`)
   
   const { type, config } = node.data
   const startTime = Date.now()
@@ -466,7 +466,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
 
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
-        logger.debug('[Wait Completed]', formatExecutionLogEntry(logEntry))
+        logger.info('[Wait Completed]', formatExecutionLogEntry(logEntry))
       }
 
       return result
@@ -480,7 +480,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, errorEntry)
-        logger.debug('[Wait Error]', formatExecutionLogEntry(errorEntry))
+        logger.info('[Wait Error]', formatExecutionLogEntry(errorEntry))
       }
       throw error
     }
@@ -524,7 +524,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
 
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
-        logger.debug(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Completed]`, formatExecutionLogEntry(logEntry))
+        logger.info(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Completed]`, formatExecutionLogEntry(logEntry))
       }
 
       return result
@@ -538,7 +538,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, errorEntry)
-        logger.debug(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Error]`, formatExecutionLogEntry(errorEntry))
+        logger.info(`[${type === "ai_agent" ? "AI Agent" : "AI Message"} Error]`, formatExecutionLogEntry(errorEntry))
       }
       throw error
     }
@@ -547,7 +547,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   // SANDBOX MODE INTERCEPTION
   // If we're in sandbox mode, return mock data instead of executing real actions
   if (isSandboxMode) {
-    logger.debug(`[SANDBOX MODE] Intercepting ${type} action - no external calls will be made`)
+    logger.info(`[SANDBOX MODE] Intercepting ${type} action - no external calls will be made`)
     
     // Generate mock response based on action type
     const mockOutput = generateMockOutput(type, processedConfig)
@@ -561,7 +561,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     
     if (workflowId) {
       storeExecutionLog(workflowId, logEntry)
-      logger.debug('[SANDBOX Completed]', formatExecutionLogEntry(logEntry))
+      logger.info('[SANDBOX Completed]', formatExecutionLogEntry(logEntry))
     }
     
     return {
@@ -582,7 +582,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
 
   // If there's no handler for this node type, try the generic handler
   if (!handler) {
-    logger.debug(`Using generic handler for node type: ${type}`)
+    logger.info(`Using generic handler for node type: ${type}`)
     try {
       const result = await executeGenericAction(
         { ...processedConfig, actionType: type },
@@ -618,7 +618,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
 
       if (workflowId) {
         storeExecutionLog(workflowId, logEntry)
-        logger.debug('[Generic Action Completed]', formatExecutionLogEntry(logEntry))
+        logger.info('[Generic Action Completed]', formatExecutionLogEntry(logEntry))
       }
 
       return result
@@ -632,7 +632,7 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
       
       if (workflowId) {
         storeExecutionLog(workflowId, errorEntry)
-        logger.debug('[Generic Action Error]', formatExecutionLogEntry(errorEntry))
+        logger.info('[Generic Action Error]', formatExecutionLogEntry(errorEntry))
       }
       throw error
     }

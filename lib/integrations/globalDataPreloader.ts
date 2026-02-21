@@ -87,7 +87,7 @@ class GlobalDataPreloader {
     progressCallback?: (progress: { [key: string]: boolean }) => void,
   ): Promise<PreloadResult[]> {
     if (this.isPreloading) {
-      logger.debug("Preloading already in progress")
+      logger.info("Preloading already in progress")
       return this.results
     }
 
@@ -101,7 +101,7 @@ class GlobalDataPreloader {
         (a, b) => a.priority - b.priority,
       )
 
-      logger.debug(`Starting preload for ${this.preloadQueue.length} provider configurations`)
+      logger.info(`Starting preload for ${this.preloadQueue.length} provider configurations`)
 
       // Initialize progress
       const initialProgress: { [key: string]: boolean } = {}
@@ -115,7 +115,7 @@ class GlobalDataPreloader {
         await this.preloadProvider(config)
       }
 
-      logger.debug("Global preloading completed", this.results)
+      logger.info("Global preloading completed", this.results)
       return this.results
     } catch (error) {
       logger.error("Global preloading failed:", error)
@@ -126,7 +126,7 @@ class GlobalDataPreloader {
   }
 
   private async preloadProvider(config: PreloadConfig): Promise<void> {
-    logger.debug(`Preloading ${config.provider} with data types:`, config.dataTypes)
+    logger.info(`Preloading ${config.provider} with data types:`, config.dataTypes)
 
     try {
       // Process each data type for this provider
@@ -141,7 +141,7 @@ class GlobalDataPreloader {
       currentProgress[config.provider] = true
       this.progressCallback?.(currentProgress)
 
-      logger.debug(`Completed preloading for ${config.provider}`)
+      logger.info(`Completed preloading for ${config.provider}`)
     } catch (error) {
       logger.error(`Failed to preload ${config.provider}:`, error)
     }
@@ -149,7 +149,7 @@ class GlobalDataPreloader {
 
   private async preloadDataType(provider: string, dataType: string, batchSize = 50): Promise<void> {
     try {
-      logger.debug(`Fetching ${dataType} for ${provider}`)
+      logger.info(`Fetching ${dataType} for ${provider}`)
 
       const response = await apiClient.post("/api/integrations/fetch-user-data", {
           provider,
@@ -166,7 +166,7 @@ class GlobalDataPreloader {
           count: response.data.length || 0,
         })
 
-        logger.debug(`Successfully preloaded ${response.data.length || 0} ${dataType} for ${provider}`)
+        logger.info(`Successfully preloaded ${response.data.length || 0} ${dataType} for ${provider}`)
       } else {
         throw new Error(response.error || `Failed to fetch ${dataType}`)
       }
@@ -201,7 +201,7 @@ class GlobalDataPreloader {
       throw new Error(`No preload configuration found for provider: ${provider}`)
     }
 
-    logger.debug(`Refreshing data for ${provider}`)
+    logger.info(`Refreshing data for ${provider}`)
 
     const refreshResults: PreloadResult[] = []
 

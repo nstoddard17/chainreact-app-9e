@@ -77,13 +77,13 @@ export default function AIUsageContent() {
 
     return () => {
       clearInterval(interval)
-      logger.debug('🛑 Stopped AI usage polling - user left settings page')
+      logger.info('🛑 Stopped AI usage polling - user left settings page')
     }
   }, [])
 
   const fetchUsage = async () => {
     try {
-      logger.debug('📊 Fetching AI usage data for settings page')
+      logger.info('📊 Fetching AI usage data for settings page')
       const response = await fetch('/api/ai/usage')
       if (!response.ok) throw new Error('Failed to fetch usage data')
       const data = await response.json()

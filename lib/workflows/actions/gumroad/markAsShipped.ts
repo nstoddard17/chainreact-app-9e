@@ -28,7 +28,7 @@ export async function markGumroadAsShipped(
       requestBody.tracking_url = trackingUrl
     }
 
-    logger.debug('[markGumroadAsShipped] Marking sale as shipped:', {
+    logger.info('[markGumroadAsShipped] Marking sale as shipped:', {
       saleId,
       trackingUrl
     })

@@ -17,7 +17,7 @@ export const getMailchimpAudiences: MailchimpDataHandler<MailchimpAudience> = as
   integration: MailchimpIntegration,
   options: any = {}
 ): Promise<MailchimpAudience[]> => {
-  logger.debug("🔍 [Mailchimp] Fetching audiences for integration:", {
+  logger.info("🔍 [Mailchimp] Fetching audiences for integration:", {
     id: integration.id,
     hasToken: !!integration.access_token
   })
@@ -26,15 +26,15 @@ export const getMailchimpAudiences: MailchimpDataHandler<MailchimpAudience> = as
     // Validate integration status
     validateMailchimpIntegration(integration)
 
-    logger.debug(`🔍 [Mailchimp] Validating token...`)
+    logger.info(`🔍 [Mailchimp] Validating token...`)
     const tokenResult = await validateMailchimpToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    logger.debug('🔍 [Mailchimp] Fetching audiences from API...')
+    logger.info('🔍 [Mailchimp] Fetching audiences from API...')
     const apiUrl = await buildMailchimpApiUrl(integration, '/lists')
 
     // Add query parameters
@@ -46,7 +46,7 @@ export const getMailchimpAudiences: MailchimpDataHandler<MailchimpAudience> = as
 
     const audiences = await parseMailchimpApiResponse<MailchimpAudience>(response)
 
-    logger.debug(`✅ [Mailchimp] Audiences fetched successfully: ${audiences.length} audiences`)
+    logger.info(`✅ [Mailchimp] Audiences fetched successfully: ${audiences.length} audiences`)
     return audiences
 
   } catch (error: any) {

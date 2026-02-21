@@ -27,7 +27,7 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
   // Parse sheetName using the shared utility
   const sheetName = parseSheetName(rawSheetName) || undefined
 
-  logger.debug("🔍 Google Sheets records fetcher called with:", {
+  logger.info("🔍 Google Sheets records fetcher called with:", {
     integrationId: integration.id,
     spreadsheetId,
     sheetName,
@@ -48,7 +48,7 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
     
     const sheets = await createGoogleSheetsClient(integration)
     
-    logger.debug('🔍 Fetching Google Sheets data...')
+    logger.info('🔍 Fetching Google Sheets data...')
     
     // Calculate the range to fetch
     const finalEndRow = endRow || startRow + maxRows - 1
@@ -65,11 +65,11 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
     const rows = response.data.values || []
     
     if (rows.length === 0) {
-      logger.debug('📋 No data found in the specified range')
+      logger.info('📋 No data found in the specified range')
       return []
     }
     
-    logger.debug(`📊 Fetched ${rows.length} rows. First row:`, rows[0]?.slice(0, 3), '...')
+    logger.info(`📊 Fetched ${rows.length} rows. First row:`, rows[0]?.slice(0, 3), '...')
     
     // Get headers if needed
     let headers: string[] | undefined
@@ -117,8 +117,8 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
       actualStartRow
     )
     
-    logger.debug(`✅ Converted to ${records.length} records. Headers:`, headers)
-    logger.debug(`📋 First record:`, records[0])
+    logger.info(`✅ Converted to ${records.length} records. Headers:`, headers)
+    logger.info(`📋 First record:`, records[0])
     
     // Apply filters if specified
     const filteredRecords = filterRecords(records, {
@@ -127,7 +127,7 @@ export const getGoogleSheetsRecords: GoogleSheetsDataHandler<GoogleSheetsRecord[
       searchQuery
     })
     
-    logger.debug(`✅ Google Sheets records fetched successfully: ${filteredRecords.length} records`)
+    logger.info(`✅ Google Sheets records fetched successfully: ${filteredRecords.length} records`)
     return filteredRecords
     
   } catch (error: any) {

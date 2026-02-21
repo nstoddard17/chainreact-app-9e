@@ -41,7 +41,7 @@ export async function replyToGmailEmail(
       }
     }
 
-    logger.debug(`[Gmail Reply] Configuration values:`, {
+    logger.info(`[Gmail Reply] Configuration values:`, {
       hasCustomSubject: !!customSubject,
       attachmentsType: typeof attachments,
       attachmentsValue: JSON.stringify(attachments),
@@ -138,23 +138,23 @@ export async function replyToGmailEmail(
       if (Array.isArray(attachments)) {
         // Array of attachments (from variables like {{node.attachments}} or multiple uploads)
         allAttachments = attachments
-        logger.debug(`[Gmail Reply] Found ${attachments.length} attachment(s) from array`)
+        logger.info(`[Gmail Reply] Found ${attachments.length} attachment(s) from array`)
       } else if (typeof attachments === 'object' && attachments.attachments && Array.isArray(attachments.attachments)) {
         // Handle case where entire Get Attachment output is passed (has .attachments property)
         allAttachments = attachments.attachments
-        logger.debug(`[Gmail Reply] Detected Get Attachment output format with attachments array`)
+        logger.info(`[Gmail Reply] Detected Get Attachment output format with attachments array`)
       } else if (typeof attachments === 'object') {
         // Single attachment object
         allAttachments = [attachments]
-        logger.debug(`[Gmail Reply] Found single attachment object`)
+        logger.info(`[Gmail Reply] Found single attachment object`)
       } else if (typeof attachments === 'string') {
         // Could be a file ID or raw base64 - treat as single attachment
         allAttachments = [attachments]
-        logger.debug(`[Gmail Reply] Found attachment string (file ID or base64)`)
+        logger.info(`[Gmail Reply] Found attachment string (file ID or base64)`)
       }
     }
 
-    logger.debug(`[Gmail Reply] Total attachments to process: ${allAttachments.length}`)
+    logger.info(`[Gmail Reply] Total attachments to process: ${allAttachments.length}`)
 
     // Check if we have attachments to include
     const hasAttachments = allAttachments.length > 0
@@ -176,7 +176,7 @@ export async function replyToGmailEmail(
 
       for (const attachment of attachmentList) {
         try {
-          logger.debug(`[Gmail Reply] Processing attachment:`, {
+          logger.info(`[Gmail Reply] Processing attachment:`, {
             type: typeof attachment,
             isArray: Array.isArray(attachment),
             keys: typeof attachment === 'object' ? Object.keys(attachment || {}) : 'N/A',
@@ -225,7 +225,7 @@ export async function replyToGmailEmail(
               mimeType: attachment.mimeType || 'application/octet-stream'
             }
 
-            logger.debug('[Gmail Reply] Processed Gmail attachment:', {
+            logger.info('[Gmail Reply] Processed Gmail attachment:', {
               originalFilename: attachment.filename || attachment.fileName,
               mimeType: attachment.mimeType,
               dataLengthBefore: attachment.data?.length,
@@ -284,7 +284,7 @@ export async function replyToGmailEmail(
 
           // Add attachment to MIME message
           if (fileData && fileData.data) {
-            logger.debug(`[Gmail Reply] Adding attachment to email:`, {
+            logger.info(`[Gmail Reply] Adding attachment to email:`, {
               fileName: fileData.fileName,
               mimeType: fileData.mimeType,
               dataLength: fileData.data?.length || 0
@@ -340,7 +340,7 @@ export async function replyToGmailEmail(
 
     const result = await response.json()
 
-    logger.debug('[Gmail Reply] Successfully sent reply:', result.id)
+    logger.info('[Gmail Reply] Successfully sent reply:', result.id)
 
     return {
       success: true,

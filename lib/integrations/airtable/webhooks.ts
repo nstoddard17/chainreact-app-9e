@@ -63,7 +63,7 @@ export async function ensureAirtableWebhooksForUser(userId: string) {
     .eq("provider", "airtable")
 
   const notificationUrl = getWebhookUrl("airtable")
-  logger.debug(`📢 Webhook notification URL: ${notificationUrl}`)
+  logger.info(`📢 Webhook notification URL: ${notificationUrl}`)
 
   for (const b of bases || []) {
     await ensureWebhookForBase(userId, token, b.base_id, notificationUrl)
@@ -110,7 +110,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
     : null
 
   // First, check the token scopes
-  logger.debug(`🔍 Checking token scopes...`)
+  logger.info(`🔍 Checking token scopes...`)
   const whoamiRes = await fetch(`https://api.airtable.com/v0/meta/whoami`, {
     method: 'GET',
     headers: {
@@ -120,15 +120,15 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
 
   if (whoamiRes.ok) {
     const whoamiData = await whoamiRes.json()
-    logger.debug('📋 Token scopes:', whoamiData.scopes)
+    logger.info('📋 Token scopes:', whoamiData.scopes)
     if (!whoamiData.scopes?.includes('webhook:manage')) {
       throw new Error('❌ Missing webhook:manage scope. Please reconnect your Airtable integration with the webhook:manage permission.')
     }
-    logger.debug('✅ webhook:manage scope confirmed')
+    logger.info('✅ webhook:manage scope confirmed')
   }
 
   // Now list all bases to verify this base exists
-  logger.debug(`🔍 Verifying base ${baseId} exists...`)
+  logger.info(`🔍 Verifying base ${baseId} exists...`)
   const basesRes = await fetch(`https://api.airtable.com/v0/meta/bases`, {
     method: 'GET',
     headers: {
@@ -147,17 +147,17 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
 
   if (!targetBase) {
     logger.error(`❌ Base ${baseId} not found in user's bases`)
-    logger.debug('Available bases:', basesData.bases.map((b: any) => ({ id: b.id, name: b.name })))
+    logger.info('Available bases:', basesData.bases.map((b: any) => ({ id: b.id, name: b.name })))
     throw new Error(`Base ${baseId} not found. Please use a valid base ID from your Airtable account.`)
   }
 
-  logger.debug(`✅ Found base: ${targetBase.name} (${targetBase.id})`)
-  logger.debug(`📝 Permission level: ${targetBase.permissionLevel}`)
+  logger.info(`✅ Found base: ${targetBase.name} (${targetBase.id})`)
+  logger.info(`📝 Permission level: ${targetBase.permissionLevel}`)
 
   // Look up table ID if a specific table is requested
   let tableId: string | undefined
   if (tableName) {
-    logger.debug(`🔍 Looking up table ID for table: ${tableName}`)
+    logger.info(`🔍 Looking up table ID for table: ${tableName}`)
 
     try {
       const schemaRes = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
@@ -173,7 +173,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
 
         if (table) {
           tableId = table.id
-          logger.debug(`✅ Found table ID: ${tableId} for table: ${tableName}`)
+          logger.info(`✅ Found table ID: ${tableId} for table: ${tableName}`)
         } else {
           logger.warn(`⚠️ Table "${tableName}" not found in base. Available tables:`,
             schemaData.tables?.map((t: any) => t.name).join(', '))
@@ -187,7 +187,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   }
 
   // Check for existing webhooks on this base
-  logger.debug(`🔍 Checking for existing webhooks on base ${baseId}...`)
+  logger.info(`🔍 Checking for existing webhooks on base ${baseId}...`)
   const existingWebhooksRes = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks`, {
     method: 'GET',
     headers: {
@@ -197,7 +197,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
 
   if (existingWebhooksRes.ok) {
     const webhooksData = await existingWebhooksRes.json()
-    logger.debug(`📋 Found ${webhooksData.webhooks?.length || 0} existing webhook(s) on this base`)
+    logger.info(`📋 Found ${webhooksData.webhooks?.length || 0} existing webhook(s) on this base`)
 
     if (webhooksData.webhooks && webhooksData.webhooks.length > 0) {
       const allWebhooks = webhooksData.webhooks as any[]
@@ -212,8 +212,8 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
           const urlMatches = airtableWebhook.notificationUrl === notificationUrl
 
           if (urlMatches && !expiringSoon && existing.mac_secret_base64) {
-            logger.debug(`✅ Found existing webhook in DB and Airtable with matching URL: ${airtableWebhook.id}`)
-            logger.debug(`   Has MAC Secret: true`)
+            logger.info(`✅ Found existing webhook in DB and Airtable with matching URL: ${airtableWebhook.id}`)
+            logger.info(`   Has MAC Secret: true`)
 
             await upsertAirtableWebhookRecord(
               userId,
@@ -230,7 +230,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
           }
 
           if (!urlMatches) {
-            logger.debug(`⚠️ Existing webhook ${airtableWebhook.id} points to ${airtableWebhook.notificationUrl}, expected ${notificationUrl}. Recreating...`)
+            logger.info(`⚠️ Existing webhook ${airtableWebhook.id} points to ${airtableWebhook.notificationUrl}, expected ${notificationUrl}. Recreating...`)
 
             try {
               const deleteRes = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks/${airtableWebhook.id}`, {
@@ -258,12 +258,12 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
       }
 
       if (ourWebhook) {
-        logger.debug(`✅ Webhook already exists for our URL: ${ourWebhook.id}`)
-        logger.debug(`   Expires: ${ourWebhook.expirationTime || 'No expiration'}`)
-        logger.debug(`   MAC Secret present: ${!!ourWebhook.macSecretBase64}`)
+        logger.info(`✅ Webhook already exists for our URL: ${ourWebhook.id}`)
+        logger.info(`   Expires: ${ourWebhook.expirationTime || 'No expiration'}`)
+        logger.info(`   MAC Secret present: ${!!ourWebhook.macSecretBase64}`)
 
         if (existing?.webhook_id === ourWebhook.id && existing.mac_secret_base64) {
-          logger.debug('🔐 Using stored MAC secret from database for existing webhook')
+          logger.info('🔐 Using stored MAC secret from database for existing webhook')
           await upsertAirtableWebhookRecord(
             userId,
             baseId,
@@ -280,7 +280,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
 
         // IMPORTANT: The list endpoint doesn't return macSecretBase64
         // We need to get it from the individual webhook endpoint
-        logger.debug(`🔑 Fetching webhook details to get MAC secret...`)
+        logger.info(`🔑 Fetching webhook details to get MAC secret...`)
         let macSecret = null
 
         try {
@@ -293,13 +293,13 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
           if (webhookDetailRes.ok) {
             const webhookDetail = await webhookDetailRes.json()
             macSecret = webhookDetail.macSecretBase64
-            logger.debug(`✅ MAC Secret retrieved: ${!!macSecret}`)
+            logger.info(`✅ MAC Secret retrieved: ${!!macSecret}`)
             if (!macSecret) {
-              logger.debug('⚠️ WARNING: Webhook exists but has no MAC secret!')
-              logger.debug('   Webhook details:', JSON.stringify(webhookDetail, null, 2))
+              logger.info('⚠️ WARNING: Webhook exists but has no MAC secret!')
+              logger.info('   Webhook details:', JSON.stringify(webhookDetail, null, 2))
 
               // If no MAC secret, we need to delete and recreate the webhook
-              logger.debug('🗑️ Deleting webhook to recreate with MAC secret...')
+              logger.info('🗑️ Deleting webhook to recreate with MAC secret...')
               const deleteRes = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks/${ourWebhook.id}`, {
                 method: 'DELETE',
                 headers: {
@@ -308,10 +308,10 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
               })
 
               if (deleteRes.ok) {
-                logger.debug('✅ Old webhook deleted, creating new one...')
+                logger.info('✅ Old webhook deleted, creating new one...')
                 // Don't return - let it fall through to create a new webhook
               } else {
-                logger.debug('❌ Failed to delete old webhook')
+                logger.info('❌ Failed to delete old webhook')
                 return // Still return to avoid duplicate webhooks
               }
             }
@@ -326,7 +326,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
 
         // If we have a MAC secret, save and return
         if (macSecret) {
-          logger.debug(`💾 Saving webhook with MAC secret to database...`)
+          logger.info(`💾 Saving webhook with MAC secret to database...`)
 
           await upsertAirtableWebhookRecord(
             userId,
@@ -340,18 +340,18 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
             tableId || existing?.metadata?.tableId || null
           )
 
-          logger.debug('✅ Webhook saved with MAC secret')
+          logger.info('✅ Webhook saved with MAC secret')
           return // Webhook already exists, no need to create a new one
         }
 
         // If we get here, either the webhook was deleted or has no MAC secret
         // Continue to create a new webhook
-        logger.debug('⚠️ No valid webhook with MAC secret found, creating new webhook...')
+        logger.info('⚠️ No valid webhook with MAC secret found, creating new webhook...')
       }
 
       // Log other webhooks for debugging
       webhooksData.webhooks.forEach((w: any) => {
-        logger.debug(`   - Webhook ${w.id}: ${w.notificationUrl}`)
+        logger.info(`   - Webhook ${w.id}: ${w.notificationUrl}`)
       })
     }
   } else {
@@ -359,7 +359,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
     logger.warn(`⚠️ Could not list existing webhooks: ${existingWebhooksRes.status} ${error}`)
   }
 
-  logger.debug(`✅ Base ${baseId} is accessible (appears in user's base list)`)
+  logger.info(`✅ Base ${baseId} is accessible (appears in user's base list)`)
 
   // Create webhook via Airtable API
   const webhookPayload: any = {
@@ -376,14 +376,14 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
   // Add recordChangeScope if we have a specific table ID
   if (tableId) {
     webhookPayload.specification.options.filters.recordChangeScope = tableId
-    logger.debug(`🎯 Webhook will monitor only table: ${tableName} (${tableId})`)
+    logger.info(`🎯 Webhook will monitor only table: ${tableName} (${tableId})`)
   } else if (tableName && !tableId) {
-    logger.debug(`⚠️ Table name provided but ID not found. Webhook will monitor entire base: ${baseId}`)
+    logger.info(`⚠️ Table name provided but ID not found. Webhook will monitor entire base: ${baseId}`)
   } else {
-    logger.debug(`🎯 Webhook will monitor entire base: ${baseId}`)
+    logger.info(`🎯 Webhook will monitor entire base: ${baseId}`)
   }
 
-  logger.debug(`📤 Creating webhook for base ${baseId} with payload keys:`, Object.keys(webhookPayload))
+  logger.info(`📤 Creating webhook for base ${baseId} with payload keys:`, Object.keys(webhookPayload))
 
   const res = await fetch(`https://api.airtable.com/v0/bases/${baseId}/webhooks`, {
     method: 'POST',
@@ -404,7 +404,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
       if (errorData.error?.type === 'INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND') {
         errorMessage = 'Invalid Airtable permissions or base not found. Please check that your Airtable integration has access to this base.'
       } else if (errorData.error?.type === 'TOO_MANY_WEBHOOKS_BY_OAUTH_INTEGRATION_IN_BASE') {
-        logger.debug('⚠️ Webhook limit reached. Using existing webhooks.')
+        logger.info('⚠️ Webhook limit reached. Using existing webhooks.')
         await upsertAirtableWebhookRecord(
           userId,
           baseId,
@@ -430,8 +430,8 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
     throw new Error(errorMessage)
   }
   const data = await res.json()
-  logger.debug(`✅ Webhook created successfully: ${data.id}`)
-  logger.debug(`   Notifications are enabled by default`)
+  logger.info(`✅ Webhook created successfully: ${data.id}`)
+  logger.info(`   Notifications are enabled by default`)
 
   await upsertAirtableWebhookRecord(
     userId,
@@ -620,7 +620,7 @@ export async function fetchAirtableWebhookPayloads(baseId: string, webhookId: st
       url += `?cursor=${cursor}`
     }
 
-    logger.debug(`🔍 Fetching payloads from: ${url}`)
+    logger.info(`🔍 Fetching payloads from: ${url}`)
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`
@@ -634,7 +634,7 @@ export async function fetchAirtableWebhookPayloads(baseId: string, webhookId: st
     }
 
     const data = await response.json()
-    logger.debug(`✅ Successfully fetched ${data.payloads?.length || 0} payloads`)
+    logger.info(`✅ Successfully fetched ${data.payloads?.length || 0} payloads`)
     return data
   } catch (error) {
     logger.error('Failed to fetch Airtable webhook payloads:', error)
@@ -691,7 +691,7 @@ export async function refreshAirtableWebhook(userId: string, baseId: string) {
         })
         .eq('webhook_id', webhook.webhook_id)
 
-      logger.debug('✅ Airtable webhook refreshed, new expiration:', data.expirationTime)
+      logger.info('✅ Airtable webhook refreshed, new expiration:', data.expirationTime)
     }
   } catch (error) {
     logger.error('Failed to refresh Airtable webhook:', error)
@@ -721,7 +721,7 @@ export async function cleanupInactiveAirtableWebhooks() {
         .update({ status: 'inactive' })
         .eq('webhook_id', webhook.webhook_id)
 
-      logger.debug(`Marked webhook ${webhook.webhook_id} as inactive due to expiration`)
+      logger.info(`Marked webhook ${webhook.webhook_id} as inactive due to expiration`)
     }
   } catch (error) {
     logger.error('Failed to cleanup inactive Airtable webhooks:', error)

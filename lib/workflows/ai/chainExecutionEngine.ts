@@ -14,7 +14,7 @@ import { logger } from '@/lib/utils/logger'
 const AI_LOGGING_ENABLED = true
 const aiLog = (...args: any[]) => {
   if (AI_LOGGING_ENABLED) {
-    logger.debug(...args)
+    logger.info(...args)
   }
 }
 

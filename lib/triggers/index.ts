@@ -178,7 +178,7 @@ triggerLifecycleManager.registerProvider({
 // - Dropbox
 // etc.
 
-logger.debug('✅ Trigger lifecycle providers registered:', triggerLifecycleManager.getRegisteredProviders())
+logger.info('✅ Trigger lifecycle providers registered:', triggerLifecycleManager.getRegisteredProviders())
 
 registerPollingHandler(microsoftExcelPollingHandler)
 registerPollingHandler(microsoftOnenotePollingHandler)

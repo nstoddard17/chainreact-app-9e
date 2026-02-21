@@ -114,7 +114,7 @@ export async function deductAIWorkflowTasks(
 
     // Cache hits are free (template already paid for)
     if (planningMethod === 'cache') {
-      logger.debug('[AIWorkflowCost] Template cache hit - no cost', { userId, flowId })
+      logger.info('[AIWorkflowCost] Template cache hit - no cost', { userId, flowId })
       return {
         tasksUsed: 0,
         breakdown: { base: 0, complexity: 0, total: 0 },
@@ -199,7 +199,7 @@ export async function deductAIWorkflowTasks(
       }
     })
 
-    logger.debug('[AIWorkflowCost] Tasks deducted successfully', {
+    logger.info('[AIWorkflowCost] Tasks deducted successfully', {
       userId,
       flowId,
       tasksDeducted: totalCost,

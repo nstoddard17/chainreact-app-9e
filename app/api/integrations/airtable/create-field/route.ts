@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { integrationId, baseId, tableName, fieldName, fieldType } = body;
 
-    logger.debug('[Create Field] API called with:', { integrationId, baseId, tableName, fieldName, fieldType });
+    logger.info('[Create Field] API called with:', { integrationId, baseId, tableName, fieldName, fieldType });
 
     if (!integrationId || !baseId || !tableName || !fieldName || !fieldType) {
       return errorResponse('Missing required parameters', 400);
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     try {
       const { safeDecrypt } = await import('../../../../../lib/security/encryption');
       accessToken = safeDecrypt(integration.access_token);
-      logger.debug('[Create Field] Access token decrypted successfully');
+      logger.info('[Create Field] Access token decrypted successfully');
     } catch (decryptError: any) {
       logger.error('[Create Field] Failed to decrypt access token:', decryptError);
       return errorResponse('Failed to decrypt access token', 500);
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
     // First, get the table metadata to find the table ID
     const metaUrl = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`;
-    logger.debug('[Create Field] Fetching table metadata:', metaUrl);
+    logger.info('[Create Field] Fetching table metadata:', metaUrl);
 
     const metaResponse = await fetch(metaUrl, {
       headers: {
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     // Create the field using Airtable API
     const createFieldUrl = `https://api.airtable.com/v0/meta/bases/${baseId}/tables/${table.id}/fields`;
-    logger.debug('[Create Field] Creating field:', { url: createFieldUrl, fieldName, fieldType });
+    logger.info('[Create Field] Creating field:', { url: createFieldUrl, fieldName, fieldType });
 
     const createResponse = await fetch(createFieldUrl, {
       method: 'POST',
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     }
 
     const createdField = await createResponse.json();
-    logger.debug('[Create Field] Field created successfully:', createdField);
+    logger.info('[Create Field] Field created successfully:', createdField);
 
     return jsonResponse({
       success: true,

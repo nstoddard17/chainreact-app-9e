@@ -18,12 +18,12 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
 
   // Helper function to handle authentication failures
   const handleAuthFailure = useCallback(async (originalError: any) => {
-    logger.debug("🔄 Authentication failed, attempting session refresh...")
+    logger.info("🔄 Authentication failed, attempting session refresh...")
     
     try {
       const refreshSuccess = await refreshSession()
       if (refreshSuccess) {
-        logger.debug("✅ Session refreshed successfully")
+        logger.info("✅ Session refreshed successfully")
         return true
       } else {
         logger.error("❌ Session refresh failed")
@@ -60,7 +60,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               logger.debug("🔐 Authentication error detected, attempting session refresh...")
+               logger.info("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -120,7 +120,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               logger.debug("🔐 Authentication error detected, attempting session refresh...")
+               logger.info("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -190,7 +190,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               logger.debug("🔐 Authentication error detected, attempting session refresh...")
+               logger.info("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -260,7 +260,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               logger.debug("🔐 Authentication error detected, attempting session refresh...")
+               logger.info("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -320,7 +320,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               logger.debug("🔐 Authentication error detected, attempting session refresh...")
+               logger.info("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -380,7 +380,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               logger.debug("🔐 Authentication error detected, attempting session refresh...")
+               logger.info("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -440,7 +440,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
                } catch (err: any) {
              // Check if it's an authentication error
              if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-               logger.debug("🔐 Authentication error detected, attempting session refresh...")
+               logger.info("🔐 Authentication error detected, attempting session refresh...")
                const refreshSuccess = await handleAuthFailure(err)
                
                if (refreshSuccess) {
@@ -500,7 +500,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
     } catch (err: any) {
       // Check if it's an authentication error
       if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-        logger.debug("🔐 Authentication error detected, attempting session refresh...")
+        logger.info("🔐 Authentication error detected, attempting session refresh...")
         const refreshSuccess = await handleAuthFailure(err)
         
         if (refreshSuccess) {
@@ -560,7 +560,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
     } catch (err: any) {
       // Check if it's an authentication error
       if (err.message?.includes('Authorization header required') || err.message?.includes('Unauthorized') || err.message?.includes('Not authenticated')) {
-        logger.debug("🔐 Authentication error detected, attempting session refresh...")
+        logger.info("🔐 Authentication error detected, attempting session refresh...")
         const refreshSuccess = await handleAuthFailure(err)
         
         if (refreshSuccess) {

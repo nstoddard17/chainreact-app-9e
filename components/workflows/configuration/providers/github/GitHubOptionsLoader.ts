@@ -54,7 +54,7 @@ export class GitHubOptionsLoader implements ProviderOptionsLoader {
 
     // Check if we should force refresh (invalidate cache first)
     if (forceRefresh) {
-      logger.debug(`🔄 [GitHub] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [GitHub] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -62,10 +62,10 @@ export class GitHubOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [GitHub] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [GitHub] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [GitHub] Cache MISS for ${fieldName}:`, { cacheKey });
+      logger.info(`❌ [GitHub] Cache MISS for ${fieldName}:`, { cacheKey });
     }
 
     // Create a unique key for pending promises (includes forceRefresh to prevent reuse during refresh)
@@ -74,7 +74,7 @@ export class GitHubOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
     if (pendingPromise) {
-      logger.debug(`🔄 [GitHub] Reusing pending request for ${fieldName}`);
+      logger.info(`🔄 [GitHub] Reusing pending request for ${fieldName}`);
       return pendingPromise;
     }
 
@@ -111,7 +111,7 @@ export class GitHubOptionsLoader implements ProviderOptionsLoader {
             apiOptions.repository = dependsOnValue;
           }
 
-          logger.debug(`📡 [GitHub] Loading ${dataType}:`, { integrationId, options: apiOptions });
+          logger.info(`📡 [GitHub] Loading ${dataType}:`, { integrationId, options: apiOptions });
 
           // Make API request
           const response = await fetch('/api/integrations/github/data', {
@@ -132,12 +132,12 @@ export class GitHubOptionsLoader implements ProviderOptionsLoader {
           const responseData = await response.json();
           result = responseData.data || [];
 
-          logger.debug(`✅ [GitHub] Loaded ${result.length} ${dataType}`);
+          logger.info(`✅ [GitHub] Loaded ${result.length} ${dataType}`);
 
           // Store in cache with appropriate TTL
           const ttl = getFieldTTL(fieldName);
           cacheStore.set(cacheKey, result, ttl);
-          logger.debug(`💾 [GitHub] Cached ${result.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
+          logger.info(`💾 [GitHub] Cached ${result.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
 
           // Clean up pending promise
           pendingPromises.delete(requestKey);
@@ -203,6 +203,6 @@ export class GitHubOptionsLoader implements ProviderOptionsLoader {
     const cacheStore = useConfigCacheStore.getState();
     cacheStore.invalidateProvider('github');
 
-    logger.debug('🧹 [GitHub] Cache cleared');
+    logger.info('🧹 [GitHub] Cache cleared');
   }
 }

@@ -36,7 +36,7 @@ export async function readGoogleSheetsData(
       rangeParam = `${formattedSheetName}!${range}`
     }
     
-    logger.debug(`Reading Google Sheets data from ${spreadsheetId}, range: ${rangeParam}`)
+    logger.info(`Reading Google Sheets data from ${spreadsheetId}, range: ${rangeParam}`)
     
     // Fetch the data from Google Sheets API
     const response = await fetch(

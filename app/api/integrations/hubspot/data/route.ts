@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       dataType = body.dataType
       options = body.options || {}
       
-      logger.debug('📥 [HubSpot API] Received request:', {
+      logger.info('📥 [HubSpot API] Received request:', {
         integrationId,
         dataType,
         options
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [HubSpot API] Processing request:`, {
+    logger.info(`🔍 [HubSpot API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
           logger.error('❌ [HubSpot API] Failed to update integration status:', updateError)
         }
       } else {
-        logger.debug('❌ [HubSpot API] Error is not an auth issue, not marking as needs_reauthorization', {
+        logger.info('❌ [HubSpot API] Error is not an auth issue, not marking as needs_reauthorization', {
           status: handlerError.status,
           message: handlerError.message
         })
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    logger.debug(`✅ [HubSpot API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [HubSpot API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

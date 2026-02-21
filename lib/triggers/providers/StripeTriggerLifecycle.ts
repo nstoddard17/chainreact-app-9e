@@ -43,7 +43,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.debug(`Activating Stripe trigger for workflow ${workflowId}`, {
+    logger.info(`Activating Stripe trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -155,14 +155,14 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       // FK violation (code 23503) can happen for unsaved workflows in test mode.
       if (insertError.code === '23503') {
         logger.warn(`Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-        logger.debug(`Stripe webhook endpoint created (without local record): ${endpoint.id}`)
+        logger.info(`Stripe webhook endpoint created (without local record): ${endpoint.id}`)
         return
       }
       logger.error('Failed to store trigger resource:', insertError)
       throw new Error(`Failed to store trigger resource: ${insertError.message}`)
     }
 
-    logger.debug(`Stripe webhook endpoint created: ${endpoint.id}`)
+    logger.info(`Stripe webhook endpoint created: ${endpoint.id}`)
   }
 
   /**
@@ -172,7 +172,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId } = context
 
-    logger.debug(`Deactivating Stripe triggers for workflow ${workflowId}`)
+    logger.info(`Deactivating Stripe triggers for workflow ${workflowId}`)
 
     // Get all Stripe webhook endpoints for this workflow
     const { data: resources } = await getSupabase()
@@ -183,7 +183,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      logger.debug(`No active Stripe webhooks for workflow ${workflowId}`)
+      logger.info(`No active Stripe webhooks for workflow ${workflowId}`)
       return
     }
 
@@ -201,7 +201,7 @@ export class StripeTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        logger.debug(`Deleted Stripe webhook endpoint: ${resource.external_id}`)
+        logger.info(`Deleted Stripe webhook endpoint: ${resource.external_id}`)
       } catch (error: any) {
         logger.error(`Failed to delete webhook ${resource.external_id}:`, error)
 

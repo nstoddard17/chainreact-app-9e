@@ -39,7 +39,7 @@ export function NotificationDropdown() {
       const response = await fetch('/api/notifications?unread=true')
       if (response.ok) {
         const { notifications: data } = await response.json()
-        logger.debug('Fetched notifications:', { count: data?.length || 0, notifications: data })
+        logger.info('Fetched notifications:', { count: data?.length || 0, notifications: data })
         setNotifications(data || [])
       } else {
         logger.error('Failed to fetch notifications:', { status: response.status })
@@ -52,7 +52,7 @@ export function NotificationDropdown() {
   }
 
   useEffect(() => {
-    logger.debug('NotificationDropdown mounted - fetching notifications...')
+    logger.info('NotificationDropdown mounted - fetching notifications...')
     fetchNotifications()
 
     // Check periodically for new notifications

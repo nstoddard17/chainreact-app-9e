@@ -589,10 +589,10 @@ function createExecutionContextWrapper(handler: Function) {
         // Check if integrationId is provided in input or config (from test-actions page)
         const integrationId = params.input?.integrationId || params.config?.integrationId
         if (integrationId) {
-          logger.debug(`[Registry] Looking up integration by ID: ${integrationId} for user: ${params.userId}`)
+          logger.info(`[Registry] Looking up integration by ID: ${integrationId} for user: ${params.userId}`)
           try {
             const integration = await getIntegrationById(integrationId, { userId: params.userId })
-            logger.debug(`[Registry] Found integration: ${integration?.provider}, status: ${integration?.status}`)
+            logger.info(`[Registry] Found integration: ${integration?.provider}, status: ${integration?.status}`)
             return integration
           } catch (error: any) {
             logger.error(`[Registry] Failed to get integration by ID ${integrationId}:`, error)

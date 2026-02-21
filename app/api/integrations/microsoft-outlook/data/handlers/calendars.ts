@@ -17,7 +17,7 @@ export interface OutlookCalendar {
  */
 export async function getOutlookCalendars(integration: any): Promise<OutlookCalendar[]> {
   try {
-    logger.debug(" [Outlook API] Fetching calendars")
+    logger.info(" [Outlook API] Fetching calendars")
 
     // Get decrypted access token
     if (!integration.access_token) {
@@ -49,7 +49,7 @@ export async function getOutlookCalendars(integration: any): Promise<OutlookCale
     const data = await response.json()
     const calendars = data.value || []
 
-    logger.debug(` [Outlook API] Found ${calendars.length} calendars`)
+    logger.info(` [Outlook API] Found ${calendars.length} calendars`)
 
     // Map calendars to the format expected by the UI
     const calendarOptions = calendars.map((calendar: any) => ({

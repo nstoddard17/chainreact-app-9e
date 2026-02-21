@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Unauthorized" , 401)
     }
 
-    logger.debug(`🚀 [${jobId}] Token refresh job started`)
+    logger.info(`🚀 [${jobId}] Token refresh job started`)
 
     // Get query parameters
     const searchParams = request.nextUrl.searchParams
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     // Pre-processing step: Reactivate problematic integrations
     if (reactivateProblemProviders) {
-      logger.debug(`🔧 [${jobId}] Pre-processing: Reactivating problematic integrations...`)
+      logger.info(`🔧 [${jobId}] Pre-processing: Reactivating problematic integrations...`)
       
       const providerFilter = provider ? [provider].filter(p => problemProviders.includes(p)) : problemProviders
       
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
           if (findError) {
             logger.error(`❌ [${jobId}] Error finding problematic integrations:`, findError)
           } else if (problemIntegrations && problemIntegrations.length > 0) {
-            logger.debug(`🔄 [${jobId}] Found ${problemIntegrations.length} problematic integrations to reactivate`)
+            logger.info(`🔄 [${jobId}] Found ${problemIntegrations.length} problematic integrations to reactivate`)
             
             // Process in smaller batches to avoid timeouts
             const batchSize = 3;
@@ -98,14 +98,14 @@ export async function GET(request: NextRequest) {
               if (updateError) {
                 logger.error(`❌ [${jobId}] Error reactivating batch of problematic integrations:`, updateError)
               } else {
-                logger.debug(`✅ [${jobId}] Successfully reactivated ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
+                logger.info(`✅ [${jobId}] Successfully reactivated ${count} problematic integrations in batch ${Math.floor(i/batchSize) + 1}`)
               }
               
               // Small delay between batches to avoid rate limiting
               await new Promise(resolve => setTimeout(resolve, 100));
             }
           } else {
-            logger.debug(`ℹ️ [${jobId}] No problematic integrations found that need reactivation`)
+            logger.info(`ℹ️ [${jobId}] No problematic integrations found that need reactivation`)
           }
         } catch (reactivationError) {
           logger.error(`❌ [${jobId}] Error during reactivation process:`, reactivationError)
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    logger.debug(`📊 [${jobId}] Getting integrations that need token refresh...`)
+    logger.info(`📊 [${jobId}] Getting integrations that need token refresh...`)
 
     const now = new Date()
     const accessExpiryThreshold = new Date(now.getTime() + accessTokenExpiryThreshold * 60 * 1000)
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
     // Execute the query
     let integrations: any[] = []
     try {
-      logger.debug(`🔍 [${jobId}] Executing database query to find integrations needing refresh...`)
+      logger.info(`🔍 [${jobId}] Executing database query to find integrations needing refresh...`)
       
       const { data, error: fetchError } = await query
       
@@ -159,14 +159,14 @@ export async function GET(request: NextRequest) {
       }
       
       integrations = data || []
-      logger.debug(`✅ [${jobId}] Found ${integrations.length} integrations that need token refresh`)
+      logger.info(`✅ [${jobId}] Found ${integrations.length} integrations that need token refresh`)
     } catch (queryError: any) {
       logger.error(`💥 [${jobId}] Database query error:`, queryError)
       throw new Error(`Database query error: ${queryError.message}`)
     }
 
     if (!integrations || integrations.length === 0) {
-      logger.debug(`ℹ️ [${jobId}] No integrations to process`)
+      logger.info(`ℹ️ [${jobId}] No integrations to process`)
 
       const endTime = Date.now()
       const durationMs = endTime - startTime
@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Process integrations
-    logger.debug(`🔄 [${jobId}] Processing ${integrations.length} integrations...`)
+    logger.info(`🔄 [${jobId}] Processing ${integrations.length} integrations...`)
 
     let successful = 0
     let failed = 0
@@ -208,13 +208,13 @@ export async function GET(request: NextRequest) {
 
         providerStats[integration.provider].processed++
 
-        logger.debug(
+        logger.info(
           `🔍 [${jobId}] Processing ${integration.provider} for user ${integration.user_id} (status: ${integration.status})`,
         )
 
         // Check if integration has no refresh token
         if (!integration.refresh_token) {
-          logger.debug(`⏭️ [${jobId}] Skipping ${integration.provider} - no refresh token`)
+          logger.info(`⏭️ [${jobId}] Skipping ${integration.provider} - no refresh token`)
           skipped++
           continue
         }
@@ -226,12 +226,12 @@ export async function GET(request: NextRequest) {
         })
 
         if (!needsRefresh.shouldRefresh) {
-          logger.debug(`⏭️ [${jobId}] Skipping ${integration.provider}: ${needsRefresh.reason}`)
+          logger.info(`⏭️ [${jobId}] Skipping ${integration.provider}: ${needsRefresh.reason}`)
           skipped++
           continue
         }
 
-        logger.debug(`🔄 [${jobId}] Refreshing token for ${integration.provider}: ${needsRefresh.reason}`)
+        logger.info(`🔄 [${jobId}] Refreshing token for ${integration.provider}: ${needsRefresh.reason}`)
 
         // Refresh the token
         const refreshResult = await refreshTokenForProvider(
@@ -246,7 +246,7 @@ export async function GET(request: NextRequest) {
 
           // Update the token in the database
           await updateIntegrationWithRefreshResult(supabase, integration.id, refreshResult)
-          logger.debug(`✅ [${jobId}] Successfully refreshed ${integration.provider}`)
+          logger.info(`✅ [${jobId}] Successfully refreshed ${integration.provider}`)
         } else {
           failed++
           providerStats[integration.provider].failed++
@@ -309,10 +309,10 @@ export async function GET(request: NextRequest) {
     const durationMs = endTime - startTime
     const duration = durationMs / 1000
 
-    logger.debug(`🏁 [${jobId}] Token refresh job completed in ${duration.toFixed(2)}s`)
-    logger.debug(`   - Successful refreshes: ${successful}`)
-    logger.debug(`   - Failed: ${failed}`)
-    logger.debug(`   - Skipped: ${skipped}`)
+    logger.info(`🏁 [${jobId}] Token refresh job completed in ${duration.toFixed(2)}s`)
+    logger.info(`   - Successful refreshes: ${successful}`)
+    logger.info(`   - Failed: ${failed}`)
+    logger.info(`   - Skipped: ${skipped}`)
 
     const responseMessage = `Token refresh finished in ${duration.toFixed(2)}s. ${successful} succeeded, ${failed} failed.`
 
@@ -460,7 +460,7 @@ async function updateIntegrationWithRefreshResult(
       throw error
     }
 
-    logger.debug(`✅ Updated tokens for integration ID: ${integrationId}`)
+    logger.info(`✅ Updated tokens for integration ID: ${integrationId}`)
   } catch (error: any) {
     logger.error(`❌ Failed to update tokens for integration ID: ${integrationId}:`, error)
     throw error
@@ -529,7 +529,7 @@ async function updateIntegrationWithError(
         }
       }
     } catch (metadataError) {
-      logger.debug(`Note: metadata column not available for integration ${integrationId}`)
+      logger.info(`Note: metadata column not available for integration ${integrationId}`)
     }
 
     // Update the database
@@ -541,7 +541,7 @@ async function updateIntegrationWithError(
       const statusMsg = additionalData.shouldDisconnect
         ? `deactivated (requires re-auth)`
         : `error status (${consecutiveFailures} consecutive failures)`
-      logger.debug(`✅ Updated integration ${integrationId} with ${statusMsg}`)
+      logger.info(`✅ Updated integration ${integrationId} with ${statusMsg}`)
     }
   } catch (error) {
     logger.error(`Unexpected error updating integration ${integrationId} with error:`, error)

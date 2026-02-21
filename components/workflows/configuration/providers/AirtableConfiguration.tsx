@@ -164,7 +164,7 @@ export function AirtableConfiguration({
     const actuallyLoading = isReopen ? false : wouldBeLoading;
 
     if (wouldBeLoading) {
-      logger.debug(`🔍 [isFieldLoading] ${fieldName}:`, {
+      logger.info(`🔍 [isFieldLoading] ${fieldName}:`, {
         isReopen,
         wouldBeLoading,
         actuallyLoading
@@ -267,7 +267,7 @@ export function AirtableConfiguration({
       const dbCacheKey = `_cached_schema_${values.baseId}_${values.tableName}`;
       const cachedFromDb = initialConfig?.[dbCacheKey];
       if (cachedFromDb) {
-        logger.debug('⚡ [INSTANT SCHEMA] Loaded from database cache:', {
+        logger.info('⚡ [INSTANT SCHEMA] Loaded from database cache:', {
           baseId: values.baseId,
           tableName: values.tableName,
           fieldsCount: cachedFromDb.fields?.length
@@ -284,7 +284,7 @@ export function AirtableConfiguration({
           // Use cache if less than 24 hours old
           const age = Date.now() - timestamp;
           if (age < 24 * 60 * 60 * 1000) {
-            logger.debug('⚡ [INSTANT SCHEMA] Loaded from localStorage cache:', {
+            logger.info('⚡ [INSTANT SCHEMA] Loaded from localStorage cache:', {
               baseId: values.baseId,
               tableName: values.tableName,
               fieldsCount: schema.fields?.length,
@@ -388,7 +388,7 @@ export function AirtableConfiguration({
         fields: {} // Empty for now, will be populated when actual records load
       };
       setSelectedRecord(minimalRecord);
-      logger.debug('🔄 [INSTANT REOPEN] Restored selectedRecord from saved recordId:', values.recordId);
+      logger.info('🔄 [INSTANT REOPEN] Restored selectedRecord from saved recordId:', values.recordId);
     }
 
     // Once records are loaded, find and set the full record object
@@ -396,7 +396,7 @@ export function AirtableConfiguration({
       const fullRecord = airtableRecords.find(r => r.id === values.recordId);
       if (fullRecord && (!selectedRecord || selectedRecord.id === values.recordId && Object.keys(selectedRecord.fields || {}).length === 0)) {
         setSelectedRecord(fullRecord);
-        logger.debug('✅ [INSTANT REOPEN] Updated selectedRecord with full data');
+        logger.info('✅ [INSTANT REOPEN] Updated selectedRecord with full data');
       }
     }
   }, [values.recordId, airtableRecords, selectedRecord, isUpdateRecord, setSelectedRecord]);
@@ -411,7 +411,7 @@ export function AirtableConfiguration({
       // Try to get the cached record first, then fall back to loaded records
       const cachedRecord = initialConfig?._cached_duplicate_record;
 
-      logger.debug('🔄 [DUPLICATE REOPEN] Starting restoration check:', {
+      logger.info('🔄 [DUPLICATE REOPEN] Starting restoration check:', {
         hasRecordId: !!values.recordId,
         hasDuplicateConfig: !!values.duplicateConfig,
         hasSchema: !!airtableTableSchema?.fields,
@@ -429,7 +429,7 @@ export function AirtableConfiguration({
           fields: {}
         };
         setSelectedDuplicateRecord(recordToRestore);
-        logger.debug('🔄 [DUPLICATE REOPEN] Restored selectedDuplicateRecord:', {
+        logger.info('🔄 [DUPLICATE REOPEN] Restored selectedDuplicateRecord:', {
           fromCache: !!cachedRecord,
           recordId: values.recordId,
           hasFields: !!cachedRecord?.fields
@@ -440,7 +440,7 @@ export function AirtableConfiguration({
       if (duplicateFieldChecklist.length === 0) {
         const { fieldsToCopy = [], fieldsToOverride = {} } = values.duplicateConfig;
 
-        logger.debug('🔄 [DUPLICATE REOPEN] Restoring field checklist from config:', {
+        logger.info('🔄 [DUPLICATE REOPEN] Restoring field checklist from config:', {
           fieldsToCopy: fieldsToCopy.length,
           fieldsToOverride: Object.keys(fieldsToOverride).length
         });
@@ -468,7 +468,7 @@ export function AirtableConfiguration({
           }));
 
         setDuplicateFieldChecklist(checklist);
-        logger.debug('✅ [DUPLICATE REOPEN] Restored field checklist:', {
+        logger.info('✅ [DUPLICATE REOPEN] Restored field checklist:', {
           totalFields: checklist.length,
           enabledFields: checklist.filter(f => f.enabled).length,
           overriddenFields: checklist.filter(f => f.override).length,
@@ -478,7 +478,7 @@ export function AirtableConfiguration({
         // Update the selected record with full data if we have it and current is minimal
         if (recordData && selectedDuplicateRecord && Object.keys(selectedDuplicateRecord.fields || {}).length === 0) {
           setSelectedDuplicateRecord(recordData);
-          logger.debug('✅ [DUPLICATE REOPEN] Updated selectedDuplicateRecord with full data');
+          logger.info('✅ [DUPLICATE REOPEN] Updated selectedDuplicateRecord with full data');
         }
       }
     }
@@ -500,53 +500,53 @@ export function AirtableConfiguration({
       hasRestoredSnapshot.current = true;
       setIsRestoringSnapshot(true);
 
-      logger.debug('⚡ [INSTANT REOPEN] Restoring complete snapshot...');
+      logger.info('⚡ [INSTANT REOPEN] Restoring complete snapshot...');
 
       // Restore ALL state instantly
       try {
         // 1. Restore field suggestions (bubbles)
         if (snapshot.bubbles && Object.keys(snapshot.bubbles).length > 0) {
           setFieldSuggestions(snapshot.bubbles);
-          logger.debug('✅ [INSTANT REOPEN] Restored bubbles:', Object.keys(snapshot.bubbles).length);
+          logger.info('✅ [INSTANT REOPEN] Restored bubbles:', Object.keys(snapshot.bubbles).length);
         }
 
         // 2. Restore active bubbles
         if (snapshot.activeBubbles && Object.keys(snapshot.activeBubbles).length > 0) {
           setActiveBubbles(snapshot.activeBubbles);
-          logger.debug('✅ [INSTANT REOPEN] Restored active bubbles');
+          logger.info('✅ [INSTANT REOPEN] Restored active bubbles');
         }
 
         // 3. Restore dynamic options
         if (snapshot.dynamicOptions && Object.keys(snapshot.dynamicOptions).length > 0) {
           setDynamicOptions(snapshot.dynamicOptions);
-          logger.debug('✅ [INSTANT REOPEN] Restored dynamic options:', Object.keys(snapshot.dynamicOptions).length);
+          logger.info('✅ [INSTANT REOPEN] Restored dynamic options:', Object.keys(snapshot.dynamicOptions).length);
         }
 
         // 4. Restore selected record
         if (snapshot.selectedRecord) {
           setSelectedRecord(snapshot.selectedRecord);
-          logger.debug('✅ [INSTANT REOPEN] Restored selected record');
+          logger.info('✅ [INSTANT REOPEN] Restored selected record');
         }
 
         // 5. Restore selected records (for multi-select)
         if (snapshot.selectedRecords && snapshot.selectedRecords.length > 0) {
           setSelectedMultipleRecords(snapshot.selectedRecords);
-          logger.debug('✅ [INSTANT REOPEN] Restored selected records');
+          logger.info('✅ [INSTANT REOPEN] Restored selected records');
         }
 
         // 6. Restore table schema
         if (snapshot.tableSchema) {
           setAirtableTableSchema(snapshot.tableSchema);
-          logger.debug('✅ [INSTANT REOPEN] Restored table schema');
+          logger.info('✅ [INSTANT REOPEN] Restored table schema');
         }
 
         // 7. Restore records
         if (snapshot.records && snapshot.records.length > 0) {
           setAirtableRecords(snapshot.records);
-          logger.debug('✅ [INSTANT REOPEN] Restored records:', snapshot.records.length);
+          logger.info('✅ [INSTANT REOPEN] Restored records:', snapshot.records.length);
         }
 
-        logger.debug('🎉 [INSTANT REOPEN] Snapshot restoration complete - ZERO LATENCY!');
+        logger.info('🎉 [INSTANT REOPEN] Snapshot restoration complete - ZERO LATENCY!');
       } catch (error) {
         logger.error('[INSTANT REOPEN] Failed to restore snapshot:', error);
       } finally {
@@ -574,7 +574,7 @@ export function AirtableConfiguration({
       return;
     }
 
-    logger.debug('🔄 [Batch Load] Starting batch field value loading...', {
+    logger.info('🔄 [Batch Load] Starting batch field value loading...', {
       baseId,
       tableName,
       fieldCount: schema.fields.length
@@ -600,12 +600,12 @@ export function AirtableConfiguration({
       });
 
       if (linkedRecordFields.length === 0 && selectFields.length === 0 && collaboratorFields.length === 0) {
-        logger.debug('✅ [Batch Load] No fields require dynamic loading');
+        logger.info('✅ [Batch Load] No fields require dynamic loading');
         setIsBatchLoading(false);
         return;
       }
 
-      logger.debug(`🔄 [Batch Load] Loading values in parallel:`, {
+      logger.info(`🔄 [Batch Load] Loading values in parallel:`, {
         linkedRecordCount: linkedRecordFields.length,
         selectFieldCount: selectFields.length,
         collaboratorFieldCount: collaboratorFields.length
@@ -673,7 +673,7 @@ export function AirtableConfiguration({
           label: choice.name || choice.id,
           color: choice.color
         }));
-        logger.debug(`  ✓ Loaded ${choices.length} choices from schema for ${fieldName}`);
+        logger.info(`  ✓ Loaded ${choices.length} choices from schema for ${fieldName}`);
       });
 
       // 2. Process API results
@@ -683,27 +683,27 @@ export function AirtableConfiguration({
           result.data.forEach((fieldData: any) => {
             const fieldName = `airtable_field_${fieldData.fieldName}`;
             newOptions[fieldName] = fieldData.values;
-            logger.debug(`  ✓ Loaded ${fieldData.values.length} values for ${fieldName}`);
+            logger.info(`  ✓ Loaded ${fieldData.values.length} values for ${fieldName}`);
           });
         } else if (result.linkedRecords) {
           // This is linked records result
           const fieldName = `airtable_field_${result.fieldName}`;
 
-          logger.debug(`🔍 [Linked Records] Processing ${result.linkedRecords.length} records for ${fieldName}:`, {
+          logger.info(`🔍 [Linked Records] Processing ${result.linkedRecords.length} records for ${fieldName}:`, {
             sampleRecord: result.linkedRecords[0],
             recordKeys: result.linkedRecords[0] ? Object.keys(result.linkedRecords[0]) : []
           });
 
           // API already returns options in the correct {value, label} format - just use them directly!
           newOptions[fieldName] = result.linkedRecords;
-          logger.debug(`  ✓ Loaded ${result.linkedRecords.length} linked records for ${fieldName}`);
+          logger.info(`  ✓ Loaded ${result.linkedRecords.length} linked records for ${fieldName}`);
         }
       });
 
       // Store batch-loaded options in local state
       setBatchLoadedOptions(newOptions);
 
-      logger.debug('✅ [Batch Load] Parallel loading complete!', {
+      logger.info('✅ [Batch Load] Parallel loading complete!', {
         totalFields: Object.keys(newOptions).length,
         totalValues: Object.values(newOptions).reduce((sum, arr) => sum + arr.length, 0),
         fieldDetails: Object.entries(newOptions).map(([key, values]) => ({
@@ -756,15 +756,15 @@ export function AirtableConfiguration({
 
       if (metaResponse.ok) {
         const metadata = await metaResponse.json();
-        logger.debug(`📋 Fetched Airtable table metadata: ${metadata.fields?.length || 0} fields, ${metadata.views?.length || 0} views`);
+        logger.info(`📋 Fetched Airtable table metadata: ${metadata.fields?.length || 0} fields, ${metadata.views?.length || 0} views`);
 
         if (metadata.fields && metadata.fields.length > 0) {
-          logger.debug(`📋 Setting table schema with ${metadata.fields.length} fields`);
+          logger.info(`📋 Setting table schema with ${metadata.fields.length} fields`);
 
           const visibilityByFieldId: Record<string, string> = {};
 
           if (Array.isArray(metadata.views)) {
-            logger.debug(`📋 [Visibility] Processing ${metadata.views.length} views for visibility info`);
+            logger.info(`📋 [Visibility] Processing ${metadata.views.length} views for visibility info`);
             metadata.views.forEach((view: any) => {
               const visibleFieldIdsFromOrder: string[] =
                 view?.fieldOrder?.visibleFieldIds ||
@@ -780,7 +780,7 @@ export function AirtableConfiguration({
                 view?.field_ids ||
                 [];
 
-              logger.debug(`📋 [Visibility] View "${view.name || view.id}": ${visibleFieldIdsFromOrder.length} visible fields, ${allFieldIdsFromOrder.length} total fields`);
+              logger.info(`📋 [Visibility] View "${view.name || view.id}": ${visibleFieldIdsFromOrder.length} visible fields, ${allFieldIdsFromOrder.length} total fields`);
 
               const visibleFieldSet = new Set<string>();
               visibleFieldIdsFromOrder?.forEach((fieldId: string) => {
@@ -846,7 +846,7 @@ export function AirtableConfiguration({
             id: f.id,
             visibility: visibilityByFieldId[f.id] || 'unknown'
           }));
-          logger.debug(`📋 [Visibility] Final visibility map:`, visibilityDebug);
+          logger.info(`📋 [Visibility] Final visibility map:`, visibilityDebug);
 
           const newSchema = {
             table: { name: tableName, id: metadata.id },
@@ -858,9 +858,9 @@ export function AirtableConfiguration({
           // CRITICAL: Batch load field values BEFORE setting schema
           // This prevents auto-load effects from firing individual requests
           if (shouldBatchLoadValues) {
-            logger.debug('🔄 [Schema Load] Batch loading field values before setting schema...');
+            logger.info('🔄 [Schema Load] Batch loading field values before setting schema...');
             await batchLoadFieldValues(baseId, tableName, newSchema);
-            logger.debug('✅ [Schema Load] Batch loading complete, now setting schema');
+            logger.info('✅ [Schema Load] Batch loading complete, now setting schema');
           }
 
           // Set schema AFTER batch loading completes
@@ -872,7 +872,7 @@ export function AirtableConfiguration({
       }
       
       // Fallback: Infer schema from records if metadata API fails
-      logger.debug('⚠️ Metadata API failed or returned no fields, falling back to record inference');
+      logger.info('⚠️ Metadata API failed or returned no fields, falling back to record inference');
       const response = await fetch('/api/integrations/airtable/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -948,9 +948,9 @@ export function AirtableConfiguration({
 
       // CRITICAL: Batch load field values BEFORE setting schema (same as above)
       if (isCreateMultipleRecords || isCreateRecord || isUpdateRecord || isUpdateMultipleRecords) {
-        logger.debug('🔄 [Fallback Schema] Batch loading field values before setting schema...');
+        logger.info('🔄 [Fallback Schema] Batch loading field values before setting schema...');
         await batchLoadFieldValues(baseId, tableName, fallbackSchema);
-        logger.debug('✅ [Fallback Schema] Batch loading complete, now setting schema');
+        logger.info('✅ [Fallback Schema] Batch loading complete, now setting schema');
       }
 
       // Set schema AFTER batch loading completes
@@ -969,7 +969,7 @@ export function AirtableConfiguration({
             schema: fallbackSchema,
             timestamp: Date.now()
           }));
-          logger.debug('[AirtableConfig] Cached table schema:', {
+          logger.info('[AirtableConfig] Cached table schema:', {
             baseId,
             tableName,
             fieldsCount: fallbackSchema.fields?.length
@@ -1000,7 +1000,7 @@ export function AirtableConfiguration({
 
     // Cancel any ongoing fetch requests
     if (recordsFetchAbortController.current) {
-      logger.debug('[AirtableConfig] Cancelling previous records fetch for:', {
+      logger.info('[AirtableConfig] Cancelling previous records fetch for:', {
         previousRequest: 'in-flight'
       });
       recordsFetchAbortController.current.abort();
@@ -1019,7 +1019,7 @@ export function AirtableConfiguration({
         await fetchAirtableTableSchema(baseId, tableName);
       }
 
-      logger.debug('[AirtableConfig] Fetching records for:', { baseId, tableName });
+      logger.info('[AirtableConfig] Fetching records for:', { baseId, tableName });
 
       const response = await fetch('/api/integrations/airtable/data', {
         method: 'POST',
@@ -1038,7 +1038,7 @@ export function AirtableConfiguration({
 
       // Check if this request was aborted
       if (abortController.signal.aborted) {
-        logger.debug('[AirtableConfig] Records fetch was cancelled');
+        logger.info('[AirtableConfig] Records fetch was cancelled');
         return;
       }
 
@@ -1052,13 +1052,13 @@ export function AirtableConfiguration({
 
       // Double-check we weren't aborted during JSON parsing
       if (abortController.signal.aborted) {
-        logger.debug('[AirtableConfig] Records fetch was cancelled after response');
+        logger.info('[AirtableConfig] Records fetch was cancelled after response');
         return;
       }
 
       const fetchedRecords = result.data || [];
 
-      logger.debug('[AirtableConfig] Successfully loaded records:', {
+      logger.info('[AirtableConfig] Successfully loaded records:', {
         count: fetchedRecords.length,
         baseId,
         tableName
@@ -1070,7 +1070,7 @@ export function AirtableConfiguration({
       // Store in form values with special key
       if (fetchedRecords.length > 0) {
         setValue('_cached_records', fetchedRecords);
-        logger.debug('[AirtableConfig] Cached records for instant display:', {
+        logger.info('[AirtableConfig] Cached records for instant display:', {
           count: fetchedRecords.length,
           baseId,
           tableName
@@ -1084,7 +1084,7 @@ export function AirtableConfiguration({
     } catch (error: any) {
       // Don't log errors for aborted requests
       if (error.name === 'AbortError') {
-        logger.debug('[AirtableConfig] Records fetch aborted (expected)');
+        logger.info('[AirtableConfig] Records fetch aborted (expected)');
         return;
       }
 
@@ -1100,14 +1100,14 @@ export function AirtableConfiguration({
 
   // Handle record selection for duplicate record
   const handleDuplicateRecordSelection = useCallback((record: any) => {
-    logger.debug('[DuplicateRecord] Record selected:', record);
+    logger.info('[DuplicateRecord] Record selected:', record);
 
     setSelectedDuplicateRecord(record);
     setValue('recordId', record.id);
 
     // Cache the selected record for instant restoration (like update record)
     setValue('_cached_duplicate_record', record);
-    logger.debug('[DuplicateRecord] Cached selected record for instant reopen');
+    logger.info('[DuplicateRecord] Cached selected record for instant reopen');
 
     // Build field checklist from record data and schema
     if (record.fields && airtableTableSchema?.fields) {
@@ -1129,7 +1129,7 @@ export function AirtableConfiguration({
           overrideValue: undefined
         }));
 
-      logger.debug('[DuplicateRecord] Created field checklist (filtered read-only fields):', checklist);
+      logger.info('[DuplicateRecord] Created field checklist (filtered read-only fields):', checklist);
       setDuplicateFieldChecklist(checklist);
 
       // Store in duplicateConfig hidden field
@@ -1143,7 +1143,7 @@ export function AirtableConfiguration({
 
   // Handle changes to duplicate field checklist
   const handleDuplicateFieldsChange = useCallback((updatedFields: any[]) => {
-    logger.debug('[DuplicateRecord] Fields updated:', updatedFields);
+    logger.info('[DuplicateRecord] Fields updated:', updatedFields);
     setDuplicateFieldChecklist(updatedFields);
 
     // Update duplicateConfig with new settings
@@ -1161,7 +1161,7 @@ export function AirtableConfiguration({
       fieldsToOverride
     };
 
-    logger.debug('[DuplicateRecord] Updated config:', config);
+    logger.info('[DuplicateRecord] Updated config:', config);
     setValue('duplicateConfig', config);
   }, [setValue]);
 
@@ -1194,14 +1194,14 @@ export function AirtableConfiguration({
       .filter((field: any) => {
         if (!field) return false;
         if (unsupportedFieldTypes.has(field.type)) {
-          logger.debug('🚫 [AirtableConfig] Excluding unsupported field:', field.name, field.type);
+          logger.info('🚫 [AirtableConfig] Excluding unsupported field:', field.name, field.type);
           return false;
         }
 
         // For CREATE, UPDATE, or CREATE MULTIPLE records: filter out read-only fields
         if (isCreateRecord || isCreateMultipleRecords || isUpdateRecord || isUpdateMultipleRecords) {
           if (readOnlyFieldTypes.has(field.type)) {
-            logger.debug('🚫 [AirtableConfig] Excluding read-only field:', {
+            logger.info('🚫 [AirtableConfig] Excluding read-only field:', {
               fieldName: field.name,
               fieldType: field.type,
               reason: 'Cannot be edited via API'
@@ -1216,7 +1216,7 @@ export function AirtableConfiguration({
               const isHidden = visibilitySetting.toLowerCase() !== 'visible' &&
                              visibilitySetting.toLowerCase() !== 'shown';
               if (isHidden) {
-                logger.debug('🚫 [AirtableConfig] Excluding hidden field for create action:', {
+                logger.info('🚫 [AirtableConfig] Excluding hidden field for create action:', {
                   fieldName: field.name,
                   fieldType: field.type,
                   fieldId: field.id,
@@ -1713,7 +1713,7 @@ export function AirtableConfiguration({
   useEffect(() => {
     // Check if we're reopening the modal with existing values
     if (values.baseId && values.tableName && !airtableTableSchema && !isLoadingTableSchema) {
-      logger.debug('📂 [INITIAL LOAD] Modal opened with existing values, loading schema:', {
+      logger.info('📂 [INITIAL LOAD] Modal opened with existing values, loading schema:', {
         baseId: values.baseId,
         tableName: values.tableName,
         isEditMode
@@ -1741,12 +1741,12 @@ export function AirtableConfiguration({
       return;
     }
 
-    logger.debug('🔄 [Reopen] Silently batch loading field values in background...');
+    logger.info('🔄 [Reopen] Silently batch loading field values in background...');
 
     // Batch load in background without showing loading states
     batchLoadFieldValues(values.baseId, values.tableName, airtableTableSchema)
       .then(() => {
-        logger.debug('✅ [Reopen] Background batch loading complete');
+        logger.info('✅ [Reopen] Background batch loading complete');
       })
       .catch((error) => {
         logger.error('❌ [Reopen] Background batch loading failed:', error);
@@ -1758,13 +1758,13 @@ export function AirtableConfiguration({
 
   // Reset processed schema ref and clear aiFields when table changes so AI fields can be re-applied
   useEffect(() => {
-    logger.debug('🔄 [AirtableConfig] Table changed, resetting processedSchemaRef and clearing aiFields');
+    logger.info('🔄 [AirtableConfig] Table changed, resetting processedSchemaRef and clearing aiFields');
     processedSchemaRef.current = null;
     // Clear aiFields so all fields in the new table can be set to AI mode
     setAiFields({});
     // Also clear the schema to ensure we don't apply AI fields with stale schema
     setAirtableTableSchema?.(null);
-    logger.debug('✅ [AirtableConfig] Cleared schema to force reload for new table');
+    logger.info('✅ [AirtableConfig] Cleared schema to force reload for new table');
   }, [values.tableName, setAiFields, setAirtableTableSchema]);
 
   // Pre-load searchField options for Find Record and Delete Record nodes so the dropdown never appears empty
@@ -1887,7 +1887,7 @@ export function AirtableConfiguration({
 
   // Log component mount and initial state
   useEffect(() => {
-    logger.debug('🔍 [AirtableConfig] Component mounted/updated:', {
+    logger.info('🔍 [AirtableConfig] Component mounted/updated:', {
       nodeType: nodeInfo?.type,
       hasAllFieldsAI: !!values._allFieldsAI,
       allFieldsAIValue: values._allFieldsAI,
@@ -1904,7 +1904,7 @@ export function AirtableConfiguration({
 
   // Auto-set AI mode for dynamically loaded fields
   useEffect(() => {
-    logger.debug('🔍 [AirtableConfig] Auto-AI useEffect triggered:', {
+    logger.info('🔍 [AirtableConfig] Auto-AI useEffect triggered:', {
       hasAllFieldsAI: !!values._allFieldsAI,
       allFieldsAIValue: values._allFieldsAI,
       hasSchema: !!airtableTableSchema,
@@ -1919,7 +1919,7 @@ export function AirtableConfiguration({
       // Create a unique key for this schema
       const schemaKey = `${values.baseId}-${values.tableName}-${airtableTableSchema.fields.length}`;
 
-      logger.debug('🔍 [AirtableConfig] Schema detected:', {
+      logger.info('🔍 [AirtableConfig] Schema detected:', {
         schemaKey,
         previousSchemaKey: processedSchemaRef.current,
         alreadyProcessed: processedSchemaRef.current === schemaKey
@@ -1927,14 +1927,14 @@ export function AirtableConfiguration({
 
       // Skip if we've already processed this exact schema
       if (processedSchemaRef.current === schemaKey) {
-        logger.debug('⏭️ [AirtableConfig] Skipping - already processed this schema');
+        logger.info('⏭️ [AirtableConfig] Skipping - already processed this schema');
         return;
       }
 
-      logger.debug('🤖 [AirtableConfig] Auto-setting AI mode for dynamic fields');
+      logger.info('🤖 [AirtableConfig] Auto-setting AI mode for dynamic fields');
 
       const dynamicFields = getDynamicFields();
-      logger.debug('🔍 [AirtableConfig] Dynamic fields:', dynamicFields.map((f: any) => f.name));
+      logger.info('🔍 [AirtableConfig] Dynamic fields:', dynamicFields.map((f: any) => f.name));
 
       const newAiFields: Record<string, boolean> = { ...aiFields };
       let hasChanges = false;
@@ -1959,7 +1959,7 @@ export function AirtableConfiguration({
                              field.formula ||
                              readOnlyAirtableTypes.includes(field.airtableFieldType);
 
-        logger.debug('🔍 [AirtableConfig] Processing field:', {
+        logger.info('🔍 [AirtableConfig] Processing field:', {
           fieldName,
           rawFieldName,
           fieldType: field.type,
@@ -1975,21 +1975,21 @@ export function AirtableConfiguration({
           // Also set the value to the AI placeholder using the raw field name
           setValue(fieldName, `{{AI_FIELD:${rawFieldName}}}`);
           hasChanges = true;
-          logger.debug('✅ [AirtableConfig] Set field to AI mode:', fieldName);
+          logger.info('✅ [AirtableConfig] Set field to AI mode:', fieldName);
         }
       });
 
       // Update aiFields state only if there are changes
       if (hasChanges) {
-        logger.debug('🤖 [AirtableConfig] Setting aiFields for', Object.keys(newAiFields).length, 'fields');
-        logger.debug('🔍 [AirtableConfig] New aiFields:', newAiFields);
+        logger.info('🤖 [AirtableConfig] Setting aiFields for', Object.keys(newAiFields).length, 'fields');
+        logger.info('🔍 [AirtableConfig] New aiFields:', newAiFields);
         setAiFields(newAiFields);
         processedSchemaRef.current = schemaKey;
       } else {
-        logger.debug('⚠️ [AirtableConfig] No changes to make');
+        logger.info('⚠️ [AirtableConfig] No changes to make');
       }
     } else {
-      logger.debug('⚠️ [AirtableConfig] Conditions not met:', {
+      logger.info('⚠️ [AirtableConfig] Conditions not met:', {
         hasAllFieldsAI: !!values._allFieldsAI,
         hasSchema: !!airtableTableSchema?.fields
       });
@@ -2029,7 +2029,7 @@ export function AirtableConfiguration({
   useEffect(() => {
     if (schemaLoadedFromCache && values.baseId && values.tableName && !hasTriggeredBackgroundRefresh.current) {
       hasTriggeredBackgroundRefresh.current = true;
-      logger.debug('🔄 [BACKGROUND REFRESH] Schema was loaded from cache, refreshing in background:', {
+      logger.info('🔄 [BACKGROUND REFRESH] Schema was loaded from cache, refreshing in background:', {
         baseId: values.baseId,
         tableName: values.tableName
       });
@@ -2063,7 +2063,7 @@ export function AirtableConfiguration({
 
     // Skip loading if we just restored from snapshot (everything is already loaded)
     if (hasRestoredSnapshot.current && !tableChanged) {
-      logger.debug('⚡ [INSTANT REOPEN] Skipping initial load - snapshot restored');
+      logger.info('⚡ [INSTANT REOPEN] Skipping initial load - snapshot restored');
       return;
     }
 
@@ -2196,7 +2196,7 @@ export function AirtableConfiguration({
     if (fieldName === 'tableName' && isAddAttachment) {
       // Clear attachment field when table changes
       setValue('attachmentField', '');
-      logger.debug('[AirtableConfig] Cleared attachmentField due to table change');
+      logger.info('[AirtableConfig] Cleared attachmentField due to table change');
 
       // Trigger reload of attachment field options
       if (value) {
@@ -2206,7 +2206,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        logger.debug('[AirtableConfig] Triggering reload of attachmentField for new table:', value);
+        logger.info('[AirtableConfig] Triggering reload of attachmentField for new table:', value);
 
         // Force refresh to get new attachment fields for the new table
         setTimeout(() => {
@@ -2389,7 +2389,7 @@ export function AirtableConfiguration({
       } else if (field.airtableFieldType === 'multipleAttachments' || field.type === 'file') {
         // Handle image/attachment fields
         // Note: AirtableImageField already converts Files to base64 before calling onChange
-        logger.debug('🖼️ [BUBBLE CREATION] Image/attachment field detected:', {
+        logger.info('🖼️ [BUBBLE CREATION] Image/attachment field detected:', {
           fieldName,
           value,
           valueType: typeof value,
@@ -2476,12 +2476,12 @@ export function AirtableConfiguration({
             };
           });
 
-          logger.debug('🖼️ [BUBBLE CREATION] Created image bubbles:', newBubbles);
+          logger.info('🖼️ [BUBBLE CREATION] Created image bubbles:', newBubbles);
         }
 
         // Don't clear the value for attachments as they might be used directly
       } else if (field.airtableFieldType === 'multipleRecordLinks' || field.airtableFieldType === 'singleRecordLink') {
-        logger.debug('🔵 [BUBBLE CREATION] Linked record field detected:', {
+        logger.info('🔵 [BUBBLE CREATION] Linked record field detected:', {
           fieldName,
           fieldType: field.airtableFieldType,
           value,
@@ -2597,7 +2597,7 @@ export function AirtableConfiguration({
     if (!values.tableName || !values.baseId) return;
     if (allDynamicFields.length === 0) return;
 
-    logger.debug(`🚀 [AUTO-LOAD] Checking ${allDynamicFields.length} fields for ${values.tableName}`);
+    logger.info(`🚀 [AUTO-LOAD] Checking ${allDynamicFields.length} fields for ${values.tableName}`);
 
     // Find all dropdown fields that haven't been auto-loaded yet
     const fieldsToAutoLoad = allDynamicFields.filter(field => {
@@ -2627,7 +2627,7 @@ export function AirtableConfiguration({
     });
 
     if (fieldsToAutoLoad.length > 0) {
-      logger.debug(`🚀 [AUTO-LOAD] Auto-loading ${fieldsToAutoLoad.length} fields: ${fieldsToAutoLoad.map(f => f.label).join(', ')}`);
+      logger.info(`🚀 [AUTO-LOAD] Auto-loading ${fieldsToAutoLoad.length} fields: ${fieldsToAutoLoad.map(f => f.label).join(', ')}`);
 
       // Mark these fields as auto-loaded
       setAutoLoadedFields(prev => {
@@ -2648,7 +2648,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        logger.debug(`🔄 [AUTO-LOAD] Loading ${field.label} (${field.dynamic})`);
+        logger.info(`🔄 [AUTO-LOAD] Loading ${field.label} (${field.dynamic})`);
 
         // Load the options silently in background (use cache, don't force refresh, silent mode)
         // This allows fields with cached labels to show instantly while options refresh
@@ -2693,7 +2693,7 @@ export function AirtableConfiguration({
         }
       });
 
-      logger.debug('[AirtableConfig] Table changed, invalidated cache for attachment fields');
+      logger.info('[AirtableConfig] Table changed, invalidated cache for attachment fields');
     }
      
   }, [values.tableName]);
@@ -2738,7 +2738,7 @@ export function AirtableConfiguration({
     }) || [];
 
     if (autoLoadFields.length > 0) {
-      logger.debug(`🚀 [AUTO-LOAD CONFIG] Auto-loading ${autoLoadFields.length} config fields: ${autoLoadFields.map((f: any) => f.label).join(', ')}`);
+      logger.info(`🚀 [AUTO-LOAD CONFIG] Auto-loading ${autoLoadFields.length} config fields: ${autoLoadFields.map((f: any) => f.label).join(', ')}`);
 
       // Mark as auto-loaded
       setAutoLoadedFields(prev => {
@@ -2758,7 +2758,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        logger.debug(`🔄 [AUTO-LOAD CONFIG] Loading ${field.label} (${field.dynamic})`);
+        logger.info(`🔄 [AUTO-LOAD CONFIG] Loading ${field.label} (${field.dynamic})`);
 
         // Load silently in background to allow cached labels to show instantly
         if (field.dependsOn === 'tableName') {
@@ -2784,7 +2784,7 @@ export function AirtableConfiguration({
     ) || [];
 
     if (loadOnMountFields.length > 0) {
-      logger.debug('🚀 [LOAD ON MOUNT] Loading fields on mount:', loadOnMountFields.map((f: any) => f.name));
+      logger.info('🚀 [LOAD ON MOUNT] Loading fields on mount:', loadOnMountFields.map((f: any) => f.name));
 
       loadOnMountFields.forEach((field: any) => {
         // Mark as loaded immediately to prevent duplicate loads
@@ -2797,7 +2797,7 @@ export function AirtableConfiguration({
           return newSet;
         });
 
-        logger.debug(`🔄 [LOAD ON MOUNT] Loading field: ${field.name}`);
+        logger.info(`🔄 [LOAD ON MOUNT] Loading field: ${field.name}`);
 
         // Load the field options silently to allow cached labels to show instantly
         loadOptions(field.name, undefined, undefined, false, true)
@@ -2825,7 +2825,7 @@ export function AirtableConfiguration({
 
     hasTriggeredParallelLoad.current = true;
 
-    logger.debug('🚀 [PARALLEL LOAD] Triggering instant parallel load for saved config', {
+    logger.info('🚀 [PARALLEL LOAD] Triggering instant parallel load for saved config', {
       baseId: values.baseId,
       tableName: values.tableName,
       savedFieldCount: Object.keys(values).filter(k => k.startsWith('airtable_field_')).length
@@ -2848,7 +2848,7 @@ export function AirtableConfiguration({
   useEffect(() => {
     if (!values.recordId || !allDynamicFields.length) return;
 
-    logger.debug('🟢 [LINKED FIELDS] Record selected, checking for linked fields to load');
+    logger.info('🟢 [LINKED FIELDS] Record selected, checking for linked fields to load');
 
     // Find linked fields that haven't been loaded yet
     const linkedFieldsToLoad = allDynamicFields.filter(field =>
@@ -2857,7 +2857,7 @@ export function AirtableConfiguration({
     );
 
     if (linkedFieldsToLoad.length > 0) {
-      logger.debug('🟢 [LINKED FIELDS] Loading options for linked fields:', linkedFieldsToLoad.map(f => f.name));
+      logger.info('🟢 [LINKED FIELDS] Loading options for linked fields:', linkedFieldsToLoad.map(f => f.name));
 
       // Mark fields as loaded
       setLoadedLinkedFields(prev => {
@@ -2875,7 +2875,7 @@ export function AirtableConfiguration({
           tableFields: airtableTableSchema?.fields || []
         };
 
-        logger.debug('🟢 [LINKED FIELDS] Loading with context:', {
+        logger.info('🟢 [LINKED FIELDS] Loading with context:', {
           fieldName: field.name,
           fieldType: field.airtableFieldType,
           extraOptions
@@ -2921,7 +2921,7 @@ export function AirtableConfiguration({
 
     if (!isDropdownField) return;
 
-    logger.debug('🔄 [DROPDOWN FIELDS] Loading options for field:', fieldName);
+    logger.info('🔄 [DROPDOWN FIELDS] Loading options for field:', fieldName);
 
     // Mark field as loaded first to prevent duplicate loads
     setLoadedDropdownFields(prev => new Set([...prev, fieldName]));
@@ -2932,7 +2932,7 @@ export function AirtableConfiguration({
         tableName: values.tableName
       };
 
-      logger.debug('🔄 [DROPDOWN FIELDS] Loading with context:', {
+      logger.info('🔄 [DROPDOWN FIELDS] Loading with context:', {
         fieldName,
         dynamicType: field.dynamic,
         extraOptions
@@ -2940,7 +2940,7 @@ export function AirtableConfiguration({
 
       // Load the options
       await loadOptions(fieldName, 'tableName', values.tableName, false, false, extraOptions);
-      logger.debug('✅ [DROPDOWN FIELDS] Field loaded:', fieldName);
+      logger.info('✅ [DROPDOWN FIELDS] Field loaded:', fieldName);
     } catch (error) {
       logger.error('❌ [DROPDOWN FIELDS] Error loading field:', fieldName, error);
     }
@@ -2959,7 +2959,7 @@ export function AirtableConfiguration({
 
     if (!hasSavedData) return;
 
-    logger.debug('⚡ [INSTANT DISPLAY] Initializing bubbles from saved label metadata');
+    logger.info('⚡ [INSTANT DISPLAY] Initializing bubbles from saved label metadata');
 
     dynamicFields.forEach(field => {
       const fieldName = field.name;
@@ -2990,7 +2990,7 @@ export function AirtableConfiguration({
           fieldName: field.name
         }));
 
-        logger.debug('⚡ [INSTANT DISPLAY] Loaded bubbles from saved labels:', {
+        logger.info('⚡ [INSTANT DISPLAY] Loaded bubbles from saved labels:', {
           fieldName: actualFieldName,
           bubbleCount: bubbles.length,
           bubbles
@@ -3026,11 +3026,11 @@ export function AirtableConfiguration({
       (Object.keys(values).some(key => key.startsWith('airtable_field_') && values[key]));
 
     if (!shouldInitialize) {
-      logger.debug('🟢 [BUBBLE INIT] No existing values to initialize');
+      logger.info('🟢 [BUBBLE INIT] No existing values to initialize');
       return;
     }
     
-    logger.debug('🟢 [BUBBLE INIT] Record selected, checking fields for existing values:', {
+    logger.info('🟢 [BUBBLE INIT] Record selected, checking fields for existing values:', {
       recordId: values.recordId,
       dynamicFieldsCount: dynamicFields.length,
       valuesKeys: Object.keys(values)
@@ -3043,7 +3043,7 @@ export function AirtableConfiguration({
       const altFieldName = `airtable_field_${field.label}`;
       const existingValue = values[fieldName] || values[altFieldName];
       
-      logger.debug('🟢 [BUBBLE INIT] Checking field:', {
+      logger.info('🟢 [BUBBLE INIT] Checking field:', {
         fieldName,
         altFieldName,
         fieldLabel: field.label,
@@ -3057,7 +3057,7 @@ export function AirtableConfiguration({
       const actualFieldName = values[fieldName] ? fieldName : altFieldName;
       
       if (existingValue && !fieldSuggestions[actualFieldName]?.length) {
-        logger.debug('🟢 [BUBBLE INIT] Found existing value for field:', {
+        logger.info('🟢 [BUBBLE INIT] Found existing value for field:', {
           fieldName,
           fieldType: field.airtableFieldType,
           existingValue,
@@ -3073,7 +3073,7 @@ export function AirtableConfiguration({
           
           // Look up names from dynamic options if available
           const options = dynamicOptions[fieldName] || [];
-          logger.debug('🟢 [BUBBLE INIT] Looking up names in options:', {
+          logger.info('🟢 [BUBBLE INIT] Looking up names in options:', {
             fieldName,
             recordIds,
             optionsCount: options.length,
@@ -3090,7 +3090,7 @@ export function AirtableConfiguration({
 
             // If we have saved bubble data, use it (preserves images and other rich data)
             if (savedBubble) {
-              logger.debug('🟢 [BUBBLE INIT] Using saved bubble metadata:', savedBubble);
+              logger.info('🟢 [BUBBLE INIT] Using saved bubble metadata:', savedBubble);
               return savedBubble;
             }
 
@@ -3108,7 +3108,7 @@ export function AirtableConfiguration({
               return opt.value === recordId;
             });
 
-            logger.debug('🟢 [BUBBLE INIT] Mapping record ID to bubble:', {
+            logger.info('🟢 [BUBBLE INIT] Mapping record ID to bubble:', {
               recordId,
               foundOption: !!option,
               optionLabel: option?.label,
@@ -3187,7 +3187,7 @@ export function AirtableConfiguration({
           const savedBubbles = values[bubbleMetadataKey] as any[] | undefined;
 
           if (savedBubbles && savedBubbles.length > 0) {
-            logger.debug('🖼️ [BUBBLE INIT] Restoring image bubbles from saved metadata:', savedBubbles);
+            logger.info('🖼️ [BUBBLE INIT] Restoring image bubbles from saved metadata:', savedBubbles);
             setFieldSuggestions(prev => ({
               ...prev,
               [actualFieldName]: savedBubbles
@@ -3207,7 +3207,7 @@ export function AirtableConfiguration({
                 type: bubble.type || 'application/octet-stream'
               }));
 
-              logger.debug('📸 [BUBBLE INIT] Setting uploadedFile value from bubbles:', fileObjects);
+              logger.info('📸 [BUBBLE INIT] Setting uploadedFile value from bubbles:', fileObjects);
               setValue(actualFieldName, fileObjects);
             }
           } else {
@@ -3245,7 +3245,7 @@ export function AirtableConfiguration({
   useEffect(() => {
     if (!dynamicFields.length) return;
     
-    logger.debug('🔄 [BUBBLE UPDATE] Checking if bubble labels need updating after options loaded');
+    logger.info('🔄 [BUBBLE UPDATE] Checking if bubble labels need updating after options loaded');
     
     // Check each dynamic field to see if we need to update bubble labels
     dynamicFields.forEach(field => {
@@ -3258,7 +3258,7 @@ export function AirtableConfiguration({
         const options = dynamicOptions[fieldName] || [];
         
         if (currentBubbles && options.length > 0) {
-          logger.debug('🔄 [BUBBLE UPDATE] Updating labels for field:', {
+          logger.info('🔄 [BUBBLE UPDATE] Updating labels for field:', {
             fieldName,
             bubblesCount: currentBubbles.length,
             optionsCount: options.length
@@ -3280,7 +3280,7 @@ export function AirtableConfiguration({
             });
             
             if (option) {
-              logger.debug('🔄 [BUBBLE UPDATE] Updating bubble label:', {
+              logger.info('🔄 [BUBBLE UPDATE] Updating bubble label:', {
                 oldLabel: bubble.label,
                 newLabel: option.label,
                 value: bubble.value
@@ -3326,7 +3326,7 @@ export function AirtableConfiguration({
       // For dynamic fields, respect Airtable visibility settings
       if (isDynamic) {
         if (field.hidden) {
-          logger.debug('👁️‍🗨️ [AirtableConfig] Hiding field marked as hidden in Airtable view:', {
+          logger.info('👁️‍🗨️ [AirtableConfig] Hiding field marked as hidden in Airtable view:', {
             fieldName: field.name,
             airtableFieldId: field.airtableFieldId,
             visibilityType: field.visibilityType
@@ -3341,7 +3341,7 @@ export function AirtableConfiguration({
     });
     
     return visibleFields.map((field, index) => {
-      logger.debug(`🎨 [RENDER] Rendering field ${field.name}:`, {
+      logger.info(`🎨 [RENDER] Rendering field ${field.name}:`, {
         fieldName: field.name,
         fieldType: field.type,
         dynamic: field.dynamic,
@@ -3768,7 +3768,7 @@ export function AirtableConfiguration({
           timestamp: Date.now()
         });
 
-        logger.debug('💾 [INSTANT REOPEN] Snapshot saved on form submit');
+        logger.info('💾 [INSTANT REOPEN] Snapshot saved on form submit');
       } catch (error) {
         logger.warn('[INSTANT REOPEN] Failed to save snapshot:', error);
       }
@@ -4028,7 +4028,7 @@ export function AirtableConfiguration({
                       );
 
                       // Debug: Log all fields being processed
-                      logger.debug('🔍 [RECORD SELECT] Processing field:', {
+                      logger.info('🔍 [RECORD SELECT] Processing field:', {
                         key,
                         fieldName,
                         fieldFound: !!field,
@@ -4049,7 +4049,7 @@ export function AirtableConfiguration({
                         );
 
                         if (hasAttachmentValue || field.airtableFieldType === 'multipleAttachments' || field.type === 'file') {
-                          logger.debug('🔍 [RECORD SELECT] Checking attachment field:', {
+                          logger.info('🔍 [RECORD SELECT] Checking attachment field:', {
                             key,
                             fieldName: actualFieldName,
                             fieldType: field.type,
@@ -4065,7 +4065,7 @@ export function AirtableConfiguration({
                           
                           // Look up names from dynamic options if available
                           const options = dynamicOptions[actualFieldName] || [];
-                          logger.debug('🟣 [RECORD SELECT] Looking up linked record names:', {
+                          logger.info('🟣 [RECORD SELECT] Looking up linked record names:', {
                             actualFieldName,
                             recordIds,
                             optionsAvailable: options.length > 0,
@@ -4082,7 +4082,7 @@ export function AirtableConfiguration({
 
                             // If we have saved bubble data, use it (preserves images and other rich data)
                             if (savedBubble) {
-                              logger.debug('🟣 [RECORD SELECT] Using saved bubble metadata:', savedBubble);
+                              logger.info('🟣 [RECORD SELECT] Using saved bubble metadata:', savedBubble);
                               return savedBubble;
                             }
 
@@ -4105,7 +4105,7 @@ export function AirtableConfiguration({
                               fieldName: field.name
                             };
 
-                            logger.debug('🟣 [RECORD SELECT] Created bubble for linked record:', bubble);
+                            logger.info('🟣 [RECORD SELECT] Created bubble for linked record:', bubble);
                             return bubble;
                           });
                           
@@ -4176,7 +4176,7 @@ export function AirtableConfiguration({
                         } else if ((field.airtableFieldType === 'multipleAttachments' || field.type === 'file' ||
                                    (Array.isArray(value) && value[0]?.url) || value?.url) && value) {
                           // For attachment/image fields, populate with the image URLs
-                          logger.debug('🖼️ [RECORD SELECT] Populating image field:', {
+                          logger.info('🖼️ [RECORD SELECT] Populating image field:', {
                             fieldName: actualFieldName,
                             fieldType: field.airtableFieldType,
                             fieldActualType: field.type,
@@ -4223,7 +4223,7 @@ export function AirtableConfiguration({
                             // Set the value to null so AirtableImageField uses persistedImages instead
                             setValue(actualFieldName, null);
 
-                            logger.debug('🖼️ [RECORD SELECT] Set multiple attachments and created bubbles:', { attachments, imageBubbles });
+                            logger.info('🖼️ [RECORD SELECT] Set multiple attachments and created bubbles:', { attachments, imageBubbles });
                           } else if (!Array.isArray(value) && value.url) {
                             // Single attachment
                             const attachment = {
@@ -4262,7 +4262,7 @@ export function AirtableConfiguration({
                             // Set the value to null so AirtableImageField uses persistedImages instead
                             setValue(actualFieldName, null);
 
-                            logger.debug('🖼️ [RECORD SELECT] Set single attachment and created bubble:', { attachment, imageBubble });
+                            logger.info('🖼️ [RECORD SELECT] Set single attachment and created bubble:', { attachment, imageBubble });
                           }
                         } else {
                           // For non-select fields, handle the value properly

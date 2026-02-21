@@ -28,11 +28,11 @@ export class GmailWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Gmail uses Google Cloud Pub/Sub for webhooks
     // This would integrate with Google Cloud API
-    logger.debug(`Registering Gmail webhook for ${registration.triggerType}`)
+    logger.info(`Registering Gmail webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Gmail webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Gmail webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -61,11 +61,11 @@ export class GmailWebhookHandler implements WebhookHandler {
 export class SlackWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Slack uses Events API for webhooks
-    logger.debug(`Registering Slack webhook for ${registration.triggerType}`)
+    logger.info(`Registering Slack webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Slack webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Slack webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -90,11 +90,11 @@ export class SlackWebhookHandler implements WebhookHandler {
 export class GithubWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // GitHub uses webhooks for repository events
-    logger.debug(`Registering GitHub webhook for ${registration.triggerType}`)
+    logger.info(`Registering GitHub webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering GitHub webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering GitHub webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -134,11 +134,11 @@ export class GithubWebhookHandler implements WebhookHandler {
 export class StripeWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Stripe uses webhooks for payment events
-    logger.debug(`Registering Stripe webhook for ${registration.triggerType}`)
+    logger.info(`Registering Stripe webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Stripe webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Stripe webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -164,11 +164,11 @@ export class StripeWebhookHandler implements WebhookHandler {
 export class ShopifyWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Shopify uses webhooks for store events
-    logger.debug(`Registering Shopify webhook for ${registration.triggerType}`)
+    logger.info(`Registering Shopify webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Shopify webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Shopify webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -194,11 +194,11 @@ export class ShopifyWebhookHandler implements WebhookHandler {
 export class HubspotWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // HubSpot uses webhooks for CRM events
-    logger.debug(`Registering HubSpot webhook for ${registration.triggerType}`)
+    logger.info(`Registering HubSpot webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering HubSpot webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering HubSpot webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -223,11 +223,11 @@ export class HubspotWebhookHandler implements WebhookHandler {
 export class NotionWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Notion uses webhooks for page/database changes
-    logger.debug(`Registering Notion webhook for ${registration.triggerType}`)
+    logger.info(`Registering Notion webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Notion webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Notion webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -252,11 +252,11 @@ export class NotionWebhookHandler implements WebhookHandler {
 export class AirtableWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Airtable uses webhooks for table changes
-    logger.debug(`Registering Airtable webhook for ${registration.triggerType}`)
+    logger.info(`Registering Airtable webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Airtable webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Airtable webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -280,11 +280,11 @@ export class AirtableWebhookHandler implements WebhookHandler {
 export class GoogleCalendarWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Google Calendar uses push notifications
-    logger.debug(`Registering Google Calendar webhook for ${registration.triggerType}`)
+    logger.info(`Registering Google Calendar webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Google Calendar webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Google Calendar webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -310,11 +310,11 @@ export class GoogleCalendarWebhookHandler implements WebhookHandler {
 export class DiscordWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Discord uses webhooks for server events
-    logger.debug(`Registering Discord webhook for ${registration.triggerType}`)
+    logger.info(`Registering Discord webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Discord webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Discord webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -340,11 +340,11 @@ export class DiscordWebhookHandler implements WebhookHandler {
 export class TeamsWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Microsoft Teams uses subscription-based webhooks
-    logger.debug(`Registering Teams webhook for ${registration.triggerType}`)
+    logger.info(`Registering Teams webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Teams webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Teams webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -379,11 +379,11 @@ export class TeamsWebhookHandler implements WebhookHandler {
 export class OutlookWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Outlook uses Microsoft Graph subscriptions
-    logger.debug(`Registering Outlook webhook for ${registration.triggerType}`)
+    logger.info(`Registering Outlook webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Outlook webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Outlook webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -418,11 +418,11 @@ export class OutlookWebhookHandler implements WebhookHandler {
 export class OneDriveWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // OneDrive uses Microsoft Graph subscriptions
-    logger.debug(`Registering OneDrive webhook for ${registration.triggerType}`)
+    logger.info(`Registering OneDrive webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering OneDrive webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering OneDrive webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -459,11 +459,11 @@ export class OneDriveWebhookHandler implements WebhookHandler {
 export class OneNoteWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // OneNote uses Microsoft Graph subscriptions
-    logger.debug(`Registering OneNote webhook for ${registration.triggerType}`)
+    logger.info(`Registering OneNote webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering OneNote webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering OneNote webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -499,11 +499,11 @@ export class OneNoteWebhookHandler implements WebhookHandler {
 export class GoogleSheetsWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Google Sheets uses Google Drive Watch API
-    logger.debug(`Registering Google Sheets webhook for ${registration.triggerType}`)
+    logger.info(`Registering Google Sheets webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Google Sheets webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Google Sheets webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -534,11 +534,11 @@ export class GoogleSheetsWebhookHandler implements WebhookHandler {
 export class GoogleDocsWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Google Docs uses Google Drive Watch API
-    logger.debug(`Registering Google Docs webhook for ${registration.triggerType}`)
+    logger.info(`Registering Google Docs webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Google Docs webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Google Docs webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -568,11 +568,11 @@ export class GoogleDocsWebhookHandler implements WebhookHandler {
 export class TrelloWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Trello uses REST API webhooks
-    logger.debug(`Registering Trello webhook for ${registration.triggerType}`)
+    logger.info(`Registering Trello webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Trello webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Trello webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {
@@ -609,11 +609,11 @@ export class TrelloWebhookHandler implements WebhookHandler {
 export class DropboxWebhookHandler implements WebhookHandler {
   async register(registration: WebhookRegistration): Promise<void> {
     // Dropbox uses webhooks for file events
-    logger.debug(`Registering Dropbox webhook for ${registration.triggerType}`)
+    logger.info(`Registering Dropbox webhook for ${registration.triggerType}`)
   }
 
   async unregister(registration: WebhookRegistration): Promise<void> {
-    logger.debug(`Unregistering Dropbox webhook for ${registration.triggerType}`)
+    logger.info(`Unregistering Dropbox webhook for ${registration.triggerType}`)
   }
 
   validatePayload(payload: any, headers: Record<string, string>): boolean {

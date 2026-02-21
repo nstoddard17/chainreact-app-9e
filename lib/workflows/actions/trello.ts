@@ -432,7 +432,7 @@ export async function createTrelloCard(
 
     // Handle file attachment if provided (after card creation)
     if (attachment) {
-      logger.debug('[Trello] Attachment data received:', {
+      logger.info('[Trello] Attachment data received:', {
         type: typeof attachment,
         hasMode: !!attachment.mode,
         mode: attachment.mode,
@@ -445,7 +445,7 @@ export async function createTrelloCard(
       try {
         // Check if it's a file upload with base64 data
         if (attachment.mode === 'upload' && attachment.file?.url?.startsWith('data:')) {
-          logger.debug('[Trello] ✅ Using NEW direct file upload to Trello method...');
+          logger.info('[Trello] ✅ Using NEW direct file upload to Trello method...');
 
           // Extract base64 data and metadata
           const base64Data = attachment.file.url;
@@ -457,7 +457,7 @@ export async function createTrelloCard(
             const buffer = Buffer.from(base64Content, 'base64');
             const fileName = attachment.file?.name || 'attachment';
 
-            logger.debug('[Trello] Uploading file directly to Trello:', {
+            logger.info('[Trello] Uploading file directly to Trello:', {
               fileName,
               mimeType,
               size: buffer.length
@@ -471,7 +471,7 @@ export async function createTrelloCard(
             try {
               // Try native FormData first (available in Node.js 18+)
               if (typeof FormData !== 'undefined') {
-                logger.debug('[Trello] Using native FormData');
+                logger.info('[Trello] Using native FormData');
                 form = new FormData();
                 // Create a Blob from the buffer
                 const blob = new Blob([buffer], { type: mimeType });
@@ -482,7 +482,7 @@ export async function createTrelloCard(
               }
             } catch (e) {
               // Fall back to form-data package
-              logger.debug('[Trello] Using form-data package');
+              logger.info('[Trello] Using form-data package');
               const FormDataPackage = require('form-data');
               form = new FormDataPackage();
 
@@ -498,7 +498,7 @@ export async function createTrelloCard(
               formHeaders = form.getHeaders();
             }
 
-            logger.debug('[Trello] Form headers for upload:', formHeaders);
+            logger.info('[Trello] Form headers for upload:', formHeaders);
 
             // Direct file upload to Trello
             // Note: We need to include name and mimeType as query parameters, not form fields
@@ -516,7 +516,7 @@ export async function createTrelloCard(
 
             if (attachmentResponse.ok) {
               const attachmentResult = await attachmentResponse.json();
-              logger.debug('[Trello] ✅ File uploaded directly to Trello:', {
+              logger.info('[Trello] ✅ File uploaded directly to Trello:', {
                 id: attachmentResult.id,
                 name: attachmentResult.name,
                 fileName: attachmentResult.fileName,
@@ -525,13 +525,13 @@ export async function createTrelloCard(
                 bytes: attachmentResult.bytes
               });
 
-              logger.debug('[Trello] File is now stored on Trello servers - no Supabase storage needed!');
+              logger.info('[Trello] File is now stored on Trello servers - no Supabase storage needed!');
             } else {
               const errorText = await attachmentResponse.text();
               logger.error('[Trello] Failed to upload file directly:', attachmentResponse.status, errorText);
 
               // Fallback to URL attachment if direct upload fails
-              logger.debug('[Trello] ⚠️ Direct upload failed! Attempting fallback to Supabase + URL attachment method...');
+              logger.info('[Trello] ⚠️ Direct upload failed! Attempting fallback to Supabase + URL attachment method...');
 
               // Upload to Supabase storage as fallback
               const { createClient } = require('@supabase/supabase-js');
@@ -545,7 +545,7 @@ export async function createTrelloCard(
               const bucketExists = buckets?.some(b => b.name === bucketName);
 
               if (!bucketExists) {
-                logger.debug('[Trello] Creating public bucket for FALLBACK attachments');
+                logger.info('[Trello] Creating public bucket for FALLBACK attachments');
                 await supabase.storage.createBucket(bucketName, {
                   public: true,
                   fileSizeLimit: 50 * 1024 * 1024 // 50MB limit
@@ -588,7 +588,7 @@ export async function createTrelloCard(
                 );
 
                 if (urlAttachResponse.ok) {
-                  logger.debug('[Trello] Fallback URL attachment successful');
+                  logger.info('[Trello] Fallback URL attachment successful');
                 } else {
                   logger.error('[Trello] Fallback also failed');
                 }
@@ -601,7 +601,7 @@ export async function createTrelloCard(
           const attachmentUrl = attachment.url;
           const fileName = attachment.name || 'URL Attachment';
 
-          logger.debug('[Trello] Adding URL attachment:', attachmentUrl);
+          logger.info('[Trello] Adding URL attachment:', attachmentUrl);
 
           const attachmentResponse = await fetch(
             `https://api.trello.com/1/cards/${newCard.id}/attachments?key=${process.env.TRELLO_CLIENT_ID}&token=${accessToken}`,
@@ -619,7 +619,7 @@ export async function createTrelloCard(
 
           if (attachmentResponse.ok) {
             const attachmentResult = await attachmentResponse.json();
-            logger.debug('[Trello] URL attachment added successfully:', attachmentResult.name);
+            logger.info('[Trello] URL attachment added successfully:', attachmentResult.name);
           } else {
             const errorText = await attachmentResponse.text();
             logger.error('[Trello] Failed to add URL attachment:', attachmentResponse.status, errorText);
@@ -747,11 +747,11 @@ export async function createTrelloBoard(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug("[Trello] createTrelloBoard called with config:", config)
+    logger.info("[Trello] createTrelloBoard called with config:", config)
 
     // Resolve any workflow variables in the config
     const resolvedConfig = resolveValue(config, input)
-    logger.debug("[Trello] Resolved config:", resolvedConfig)
+    logger.info("[Trello] Resolved config:", resolvedConfig)
 
     const { name, description, template, sourceBoardId, visibility } = resolvedConfig
 
@@ -779,7 +779,7 @@ export async function createTrelloBoard(
 
     // If copying from an existing board, use Trello's native idBoardSource
     if (sourceBoardId) {
-      logger.debug(`[Trello] Using native API to copy from board: ${sourceBoardId}`);
+      logger.info(`[Trello] Using native API to copy from board: ${sourceBoardId}`);
       boardData.idBoardSource = sourceBoardId;
       boardData.keepFromSource = "all"; // Copy everything: lists, cards, labels, members, etc.
       boardData.defaultLists = false; // Don't add default lists when copying

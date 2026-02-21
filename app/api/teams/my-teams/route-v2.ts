@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = await createSupabaseRouteHandlerClient()
-    logger.debug('[My Teams API v2] Starting', { elapsed: 0 })
+    logger.info('[My Teams API v2] Starting', { elapsed: 0 })
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Unauthorized", 401)
     }
 
-    logger.debug('[My Teams API v2] User authenticated', {
+    logger.info('[My Teams API v2] User authenticated', {
       userId: user.id,
       elapsed: Date.now() - startTime
     })
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       `)
       .eq('user_id', user.id)
 
-    logger.debug('[My Teams API v2] Executing query', {
+    logger.info('[My Teams API v2] Executing query', {
       elapsed: Date.now() - startTime
     })
 
@@ -69,13 +69,13 @@ export async function GET(request: NextRequest) {
       throw queryError
     }
 
-    logger.debug('[My Teams API v2] Query complete', {
+    logger.info('[My Teams API v2] Query complete', {
       membershipCount: memberships?.length || 0,
       elapsed: Date.now() - startTime
     })
 
     if (!memberships || memberships.length === 0) {
-      logger.debug('[My Teams API v2] No memberships found', {
+      logger.info('[My Teams API v2] No memberships found', {
         elapsed: Date.now() - startTime
       })
       return jsonResponse({ teams: [] })
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     // Now get member counts for each team in a single query
     const teamIds = memberships.map(m => m.team_id)
 
-    logger.debug('[My Teams API v2] Fetching member counts', {
+    logger.info('[My Teams API v2] Fetching member counts', {
       teamCount: teamIds.length,
       elapsed: Date.now() - startTime
     })
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       logger.warn('[My Teams API v2] Error fetching member counts, continuing without counts:', countError)
     }
 
-    logger.debug('[My Teams API v2] Member counts fetched', {
+    logger.info('[My Teams API v2] Member counts fetched', {
       totalMembers: memberCounts?.length || 0,
       elapsed: Date.now() - startTime
     })
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
       member_count: countMap.get(m.team_id) || 0
     }))
 
-    logger.debug('[My Teams API v2] Response ready', {
+    logger.info('[My Teams API v2] Response ready', {
       teamCount: teams.length,
       totalElapsed: Date.now() - startTime
     })

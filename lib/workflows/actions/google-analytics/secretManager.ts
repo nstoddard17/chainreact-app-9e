@@ -38,12 +38,12 @@ export async function getOrCreateApiSecret(
     const secretKey = `mp_secret_${propertyId}_${dataStreamId}`
 
     if (integration.metadata?.[secretKey]) {
-      logger.debug('[GA Secret Manager] Using existing API secret from metadata')
+      logger.info('[GA Secret Manager] Using existing API secret from metadata')
       // Decrypt and return existing secret
       return await decrypt(integration.metadata[secretKey])
     }
 
-    logger.debug('[GA Secret Manager] No existing secret found, creating new one via Admin API')
+    logger.info('[GA Secret Manager] No existing secret found, creating new one via Admin API')
 
     // Decrypt the access token
     const accessToken = await decrypt(integration.access_token)
@@ -68,7 +68,7 @@ export async function getOrCreateApiSecret(
       throw new Error('Failed to create API secret: No secret value returned')
     }
 
-    logger.debug('[GA Secret Manager] Successfully created new API secret')
+    logger.info('[GA Secret Manager] Successfully created new API secret')
 
     // Encrypt the secret
     const encryptedSecret = await encrypt(secretValue)
@@ -93,7 +93,7 @@ export async function getOrCreateApiSecret(
       throw new Error(`Failed to save API secret: ${error.message}`)
     }
 
-    logger.debug('[GA Secret Manager] API secret saved to database')
+    logger.info('[GA Secret Manager] API secret saved to database')
 
     return secretValue
   } catch (error: any) {
@@ -126,7 +126,7 @@ export async function getPropertyAndStreamIds(
   measurementId: string
 ): Promise<{ propertyId: string; dataStreamId: string }> {
   try {
-    logger.debug('[GA Secret Manager] Looking up property and stream IDs for measurement ID:', measurementId)
+    logger.info('[GA Secret Manager] Looking up property and stream IDs for measurement ID:', measurementId)
 
     // Decrypt the access token
     const accessToken = await decrypt(integration.access_token)
@@ -165,7 +165,7 @@ export async function getPropertyAndStreamIds(
             const streamName = stream.name // Format: properties/123456/dataStreams/789012
             const dataStreamId = streamName?.split('/')[3] || ''
 
-            logger.debug('[GA Secret Manager] Found matching property and stream:', {
+            logger.info('[GA Secret Manager] Found matching property and stream:', {
               propertyId,
               dataStreamId,
               measurementId

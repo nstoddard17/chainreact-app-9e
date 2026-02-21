@@ -97,7 +97,7 @@ export function MondayConfiguration({
 
     try {
       setLoadingColumns(true);
-      logger.debug('[MondayConfig] Loading columns for board:', boardId);
+      logger.info('[MondayConfig] Loading columns for board:', boardId);
 
       const response = await fetch('/api/integrations/monday/data', {
         method: 'POST',
@@ -116,7 +116,7 @@ export function MondayConfiguration({
       const data = await response.json();
       const columns = data.data || [];
 
-      logger.debug('[MondayConfig] Loaded columns:', columns.length);
+      logger.info('[MondayConfig] Loaded columns:', columns.length);
       setBoardColumns(columns);
 
       // Initialize column values if not already set

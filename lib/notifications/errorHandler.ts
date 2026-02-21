@@ -62,7 +62,7 @@ export async function sendWorkflowErrorNotifications(
 
   // Check if error notifications are enabled
   if (!workflow.settings?.error_notifications_enabled) {
-    logger.debug('Error notifications disabled for workflow:', workflow.id)
+    logger.info('Error notifications disabled for workflow:', workflow.id)
     return results
   }
 

@@ -50,7 +50,7 @@ export async function addMicrosoftExcelMultipleRows(
 ): Promise<{ success: boolean; output: AddMultipleRowsOutput; message: string }> {
   let { workbookId, worksheetName, hasHeaders, inputMode, rows, columnMapping } = config
 
-  logger.debug('[Microsoft Excel] Initial config:', {
+  logger.info('[Microsoft Excel] Initial config:', {
     workbookId,
     worksheetName,
     hasHeaders,
@@ -108,7 +108,7 @@ export async function addMicrosoftExcelMultipleRows(
       }
     }
 
-    logger.debug('[Microsoft Excel] Simple mode - collected rows:', {
+    logger.info('[Microsoft Excel] Simple mode - collected rows:', {
       rowCount: parsedRows.length
     })
   } else if (inputMode === 'json') {
@@ -133,7 +133,7 @@ export async function addMicrosoftExcelMultipleRows(
   // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
   // But we need: { "Name": "John" }
   if (Array.isArray(columnMapping)) {
-    logger.debug('[Microsoft Excel] Converting array format to object format');
+    logger.info('[Microsoft Excel] Converting array format to object format');
     const mappingObject: Record<string, any> = {};
     for (const item of columnMapping) {
       if (item && item.column && item.value !== undefined) {
@@ -143,7 +143,7 @@ export async function addMicrosoftExcelMultipleRows(
     columnMapping = mappingObject;
   }
 
-  logger.debug('[Microsoft Excel] Adding multiple rows:', {
+  logger.info('[Microsoft Excel] Adding multiple rows:', {
     workbookId,
     worksheetName,
     inputMode,
@@ -163,7 +163,7 @@ export async function addMicrosoftExcelMultipleRows(
     hasHeaders = 'yes'
   }
 
-  logger.debug('[Microsoft Excel] hasHeaders mode:', { hasHeaders })
+  logger.info('[Microsoft Excel] hasHeaders mode:', { hasHeaders })
 
   // Get Microsoft Excel integration
   const supabase = createAdminClient()
@@ -189,7 +189,7 @@ export async function addMicrosoftExcelMultipleRows(
     // Determine if we're using headers or column letters
     const useHeaders = hasHeaders === 'yes'
 
-    logger.debug('[Microsoft Excel] Processing mode:', {
+    logger.info('[Microsoft Excel] Processing mode:', {
       hasHeaders,
       useHeaders,
       rowCount: rows.length,
@@ -220,7 +220,7 @@ export async function addMicrosoftExcelMultipleRows(
       // Filter out empty headers
       columnKeys = headers.filter((h: any) => h && h.toString().trim())
 
-      logger.debug('[Microsoft Excel] Headers fetched:', {
+      logger.info('[Microsoft Excel] Headers fetched:', {
         rawHeaders: headers,
         columnKeys,
         headerCount: columnKeys.length
@@ -253,7 +253,7 @@ export async function addMicrosoftExcelMultipleRows(
       if (isOnlyHeaderRow) {
         // Only headers exist, start at row 2
         firstNewRowNumber = 2
-        logger.debug('[Microsoft Excel] Only header row exists, starting at row 2')
+        logger.info('[Microsoft Excel] Only header row exists, starting at row 2')
       } else {
         // Parse the address to get the actual last row number
         // Address format: "Sheet3!A1:B3" or "A1:B3"
@@ -271,7 +271,7 @@ export async function addMicrosoftExcelMultipleRows(
           firstNewRowNumber = rowIndex + rowCount + 1
         }
 
-        logger.debug('[Microsoft Excel] Used range data:', {
+        logger.info('[Microsoft Excel] Used range data:', {
           address: usedRangeData.address,
           rowIndex: usedRangeData.rowIndex,
           rowCount: usedRangeData.rowCount,
@@ -292,7 +292,7 @@ export async function addMicrosoftExcelMultipleRows(
         return a.localeCompare(b)
       })
 
-      logger.debug('[Microsoft Excel] No headers mode - using column letters:', {
+      logger.info('[Microsoft Excel] No headers mode - using column letters:', {
         columnKeys,
         columnCount: columnKeys.length
       })
@@ -314,7 +314,7 @@ export async function addMicrosoftExcelMultipleRows(
       // For no-headers mode, if usedRange fails (empty sheet), start at row 1
       if (!usedRangeResponse.ok) {
         firstNewRowNumber = 1
-        logger.debug('[Microsoft Excel] Empty worksheet (API error), starting at row 1')
+        logger.info('[Microsoft Excel] Empty worksheet (API error), starting at row 1')
       } else {
         const usedRangeData = await usedRangeResponse.json()
 
@@ -326,7 +326,7 @@ export async function addMicrosoftExcelMultipleRows(
 
         if (isEmptySheet) {
           firstNewRowNumber = 1
-          logger.debug('[Microsoft Excel] Empty worksheet (no data), starting at row 1')
+          logger.info('[Microsoft Excel] Empty worksheet (no data), starting at row 1')
         } else {
           // Parse the address to get the actual last row number
           // Address format: "Sheet3!A2:B3" or "A2:B3"
@@ -344,7 +344,7 @@ export async function addMicrosoftExcelMultipleRows(
             firstNewRowNumber = rowIndex + rowCount + 1
           }
 
-          logger.debug('[Microsoft Excel] Used range data:', {
+          logger.info('[Microsoft Excel] Used range data:', {
             address: usedRangeData.address,
             rowIndex: usedRangeData.rowIndex,
             rowCount: usedRangeData.rowCount,
@@ -367,7 +367,7 @@ export async function addMicrosoftExcelMultipleRows(
       })
     })
 
-    logger.debug('[Microsoft Excel] Row values prepared:', {
+    logger.info('[Microsoft Excel] Row values prepared:', {
       rowCount: rowValues.length,
       firstRowValues: rowValues[0],
       columnCount: columnKeys.length
@@ -389,7 +389,7 @@ export async function addMicrosoftExcelMultipleRows(
     const lastColumn = getColumnLetter(columnKeys.length)
     const rangeAddress = `A${firstNewRowNumber}:${lastColumn}${firstNewRowNumber + rows.length - 1}`
 
-    logger.debug('[Microsoft Excel] Range calculation:', {
+    logger.info('[Microsoft Excel] Range calculation:', {
       lastColumn,
       rangeAddress,
       rowValuesLength: rowValues.length,
@@ -421,7 +421,7 @@ export async function addMicrosoftExcelMultipleRows(
       throw new Error(`Failed to add rows: ${errorText}`)
     }
 
-    logger.debug('[Microsoft Excel] Successfully added multiple rows')
+    logger.info('[Microsoft Excel] Successfully added multiple rows')
 
     return {
       success: true,

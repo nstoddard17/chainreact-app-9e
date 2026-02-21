@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
           query = `'${folderId}' in parents and ${query}`
         }
 
-        logger.debug('[Google Drive API] Fetching files with query:', query)
+        logger.info('[Google Drive API] Fetching files with query:', query)
 
         const filesResponse = await drive.files.list({
           q: query,
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
           orderBy: 'name'
         })
 
-        logger.debug('[Google Drive API] Found files:', filesResponse.data.files?.length || 0)
+        logger.info('[Google Drive API] Found files:', filesResponse.data.files?.length || 0)
 
         const files = filesResponse.data.files || []
         return jsonResponse(files.map(file => ({
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { integrationId, dataType, options = {} } = body
 
-    logger.debug('[Google Drive API] POST request received:', {
+    logger.info('[Google Drive API] POST request received:', {
       integrationId,
       dataType,
       hasOptions: !!options,
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
           modifiedTime: file.modifiedTime
         }))
 
-        logger.debug(`[Google Drive API] Successfully fetched ${files.length} files`)
+        logger.info(`[Google Drive API] Successfully fetched ${files.length} files`)
 
         return jsonResponse({
           data: files,
@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
           modifiedTime: folder.modifiedTime
         }))
 
-        logger.debug(`[Google Drive API] Successfully fetched ${folders.length} folders`)
+        logger.info(`[Google Drive API] Successfully fetched ${folders.length} folders`)
 
         return jsonResponse({
           data: folders,
@@ -287,7 +287,7 @@ export async function POST(req: NextRequest) {
         // Combine folders first, then files (groups will be rendered in order they appear)
         const combined = [...folders, ...files]
 
-        logger.debug(`[Google Drive API] Successfully fetched ${folders.length} folders and ${files.length} files`)
+        logger.info(`[Google Drive API] Successfully fetched ${folders.length} folders and ${files.length} files`)
 
         return jsonResponse({
           data: combined,
@@ -404,7 +404,7 @@ export async function POST(req: NextRequest) {
         const totalCount = countResponse.data.files?.length || 0
         const hasMore = totalCount >= 100
 
-        logger.debug(`[Google Drive API] Search preview found ${totalCount}${hasMore ? '+' : ''} files`)
+        logger.info(`[Google Drive API] Search preview found ${totalCount}${hasMore ? '+' : ''} files`)
 
         // Build detailed preview text
         let previewText = ''
@@ -502,7 +502,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        logger.debug(`[Google Drive API] List files preview query: ${query.join(' and ')}`)
+        logger.info(`[Google Drive API] List files preview query: ${query.join(' and ')}`)
 
         // Get preview limit from config (default 10, max 100)
         const previewLimit = Math.min(listConfig.previewLimit || 10, 100)
@@ -537,7 +537,7 @@ export async function POST(req: NextRequest) {
         const totalCount = countResponse.data.files?.length || 0
         const hasMore = totalCount >= 100
 
-        logger.debug(`[Google Drive API] List preview found ${totalCount}${hasMore ? '+' : ''} files`)
+        logger.info(`[Google Drive API] List preview found ${totalCount}${hasMore ? '+' : ''} files`)
 
         // Build preview text
         let previewText = ''

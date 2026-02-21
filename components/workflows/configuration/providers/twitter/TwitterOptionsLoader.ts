@@ -37,7 +37,7 @@ export class TwitterOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
     if (pendingPromise) {
-      logger.debug(`🔄 [Twitter] Reusing pending request for ${fieldName}`);
+      logger.info(`🔄 [Twitter] Reusing pending request for ${fieldName}`);
       return pendingPromise;
     }
 
@@ -64,7 +64,7 @@ export class TwitterOptionsLoader implements ProviderOptionsLoader {
             return;
           }
 
-          logger.debug(`📡 [Twitter] Loading ${dataType}:`, { integrationId });
+          logger.info(`📡 [Twitter] Loading ${dataType}:`, { integrationId });
 
           // Make API request
           const response = await fetch('/api/integrations/twitter/data', {
@@ -84,7 +84,7 @@ export class TwitterOptionsLoader implements ProviderOptionsLoader {
           const responseData = await response.json();
           const result = responseData.data || [];
 
-          logger.debug(`✅ [Twitter] Loaded ${result.length} ${dataType}`);
+          logger.info(`✅ [Twitter] Loaded ${result.length} ${dataType}`);
 
           // Clean up pending promise
           pendingPromises.delete(requestKey);
@@ -124,6 +124,6 @@ export class TwitterOptionsLoader implements ProviderOptionsLoader {
     pendingPromises.clear();
     debounceTimers.forEach(timer => clearTimeout(timer));
     debounceTimers.clear();
-    logger.debug('🧹 [Twitter] Cache cleared');
+    logger.info('🧹 [Twitter] Cache cleared');
   }
 }

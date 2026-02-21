@@ -207,13 +207,13 @@ export default function AIAssistantContent() {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
-        logger.debug("No session found, skipping conversation load")
+        logger.info("No session found, skipping conversation load")
         setConversations([])
         setIsLoadingConversations(false)
         return
       }
 
-      logger.debug("Loading conversations...")
+      logger.info("Loading conversations...")
       const response = await fetch("/api/ai/conversations", {
         headers: {
           "Authorization": `Bearer ${session.access_token}`,
@@ -222,7 +222,7 @@ export default function AIAssistantContent() {
 
       if (response.ok) {
         const data = await response.json()
-        logger.debug(`Loaded ${data.conversations?.length || 0} conversations`)
+        logger.info(`Loaded ${data.conversations?.length || 0} conversations`)
         setConversations(data.conversations || [])
       } else {
         // Table might not exist yet - that's okay
@@ -234,7 +234,7 @@ export default function AIAssistantContent() {
       setConversations([])
     } finally {
       setIsLoadingConversations(false)
-      logger.debug("Conversation loading complete")
+      logger.info("Conversation loading complete")
     }
   }
 

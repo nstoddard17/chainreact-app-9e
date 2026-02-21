@@ -14,7 +14,7 @@ export async function onenoteCopyPage(
   const { sourcePageId, targetNotebookId, targetSectionId } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would copy OneNote page:", { sourcePageId, targetSectionId })
+    logger.info("[TEST MODE] Would copy OneNote page:", { sourcePageId, targetSectionId })
     return {
       success: true,
       output: {

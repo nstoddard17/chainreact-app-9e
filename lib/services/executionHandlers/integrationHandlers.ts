@@ -18,8 +18,8 @@ export class IntegrationNodeHandlers {
 
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
-    logger.debug(`🔌 Executing integration node: ${nodeType}`)
-    logger.debug(`📌 IntegrationHandlers - Context userId: ${context.userId}`)
+    logger.info(`🔌 Executing integration node: ${nodeType}`)
+    logger.info(`📌 IntegrationHandlers - Context userId: ${context.userId}`)
 
     // Gmail integrations
     if (nodeType.startsWith('gmail_')) {
@@ -70,12 +70,12 @@ export class IntegrationNodeHandlers {
         case 'microsoft-outlook_trigger_email_sent':
         case 'microsoft-outlook_trigger_email_flagged':
           // Email triggers - in production, webhooks provide real data
-          logger.debug(`📧 Outlook email trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
-          logger.debug('📧 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
+          logger.info(`📧 Outlook email trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
+          logger.info('📧 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
 
           // Check if we have real email data from webhook
           if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
-            logger.debug('📧 Fetching real email from Microsoft Graph API')
+            logger.info('📧 Fetching real email from Microsoft Graph API')
 
             try {
               // Fetch the actual email using Microsoft Graph API
@@ -97,7 +97,7 @@ export class IntegrationNodeHandlers {
               }
 
               const email = await response.json()
-              logger.debug('📧 Fetched email:', {
+              logger.info('📧 Fetched email:', {
                 subjectLength: email.subject?.length || 0,
                 hasFrom: !!email.from?.emailAddress?.address
               })
@@ -177,12 +177,12 @@ export class IntegrationNodeHandlers {
         case 'microsoft-outlook_trigger_deleted_calendar_event':
         case 'microsoft-outlook_trigger_calendar_event_start':
           // Calendar triggers - in production, webhooks provide real data
-          logger.debug(`📅 Outlook calendar trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
-          logger.debug('📅 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
+          logger.info(`📅 Outlook calendar trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
+          logger.info('📅 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
 
           // Check if we have real calendar data from webhook
           if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
-            logger.debug('📅 Fetching real calendar event from Microsoft Graph API')
+            logger.info('📅 Fetching real calendar event from Microsoft Graph API')
 
             try {
               const { getDecryptedAccessToken } = await import('@/lib/workflows/actions/core/getDecryptedAccessToken')
@@ -213,7 +213,7 @@ export class IntegrationNodeHandlers {
               }
 
               const event = await response.json()
-              logger.debug('📅 Fetched calendar event:', {
+              logger.info('📅 Fetched calendar event:', {
                 subjectLength: event.subject?.length || 0,
                 hasStart: !!event.start
               })
@@ -280,12 +280,12 @@ export class IntegrationNodeHandlers {
         case 'microsoft-outlook_trigger_new_contact':
         case 'microsoft-outlook_trigger_updated_contact':
           // Contact triggers - in production, webhooks provide real data
-          logger.debug(`👤 Outlook contact trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
-          logger.debug('👤 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
+          logger.info(`👤 Outlook contact trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
+          logger.info('👤 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
 
           // Check if we have real contact data from webhook
           if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
-            logger.debug('👤 Fetching real contact from Microsoft Graph API')
+            logger.info('👤 Fetching real contact from Microsoft Graph API')
 
             try {
               const { getDecryptedAccessToken } = await import('@/lib/workflows/actions/core/getDecryptedAccessToken')
@@ -306,7 +306,7 @@ export class IntegrationNodeHandlers {
               }
 
               const contact = await response.json()
-              logger.debug('👤 Fetched contact:', {
+              logger.info('👤 Fetched contact:', {
                 hasDisplayName: !!contact.displayName
               })
 
@@ -523,7 +523,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeWebhookCall(node: any, context: ExecutionContext) {
-    logger.debug("🌐 Executing webhook call")
+    logger.info("🌐 Executing webhook call")
     
     const url = node.data.config?.url
     const method = node.data.config?.method || 'POST'
@@ -569,7 +569,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeSendEmail(node: any, context: ExecutionContext) {
-    logger.debug("📧 Executing send email")
+    logger.info("📧 Executing send email")
     
     const to = node.data.config?.to
     const subject = node.data.config?.subject
@@ -599,12 +599,12 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeOneDriveUpload(node: any, context: ExecutionContext) {
-    logger.debug("☁️ Executing OneDrive upload")
+    logger.info("☁️ Executing OneDrive upload")
 
     const config = node.data.config || {}
 
-    logger.debug("📦 OneDrive config received:", JSON.stringify(config, null, 2))
-    logger.debug("📦 Node data:", JSON.stringify(node.data, null, 2))
+    logger.info("📦 OneDrive config received:", JSON.stringify(config, null, 2))
+    logger.info("📦 Node data:", JSON.stringify(node.data, null, 2))
 
     // Process OneDrive file upload
 
@@ -654,18 +654,18 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeDiscordAction(node: any, context: ExecutionContext) {
-    logger.debug("💬 Executing Discord action")
-    logger.debug(`   Node type: "${node.data.type}"`)
-    logger.debug(`   User ID: ${context.userId}`)
-    logger.debug(`🔍 [INTEGRATION DEBUG] Full context:`)
-    logger.debug(`   context.userId: ${context.userId}`)
-    logger.debug(`   context.data:`, JSON.stringify(context.data, null, 2))
+    logger.info("💬 Executing Discord action")
+    logger.info(`   Node type: "${node.data.type}"`)
+    logger.info(`   User ID: ${context.userId}`)
+    logger.info(`🔍 [INTEGRATION DEBUG] Full context:`)
+    logger.info(`   context.userId: ${context.userId}`)
+    logger.info(`   context.data:`, JSON.stringify(context.data, null, 2))
 
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    logger.debug(`🔍 [INTEGRATION DEBUG] Node config:`)
-    logger.debug(JSON.stringify(config, null, 2))
+    logger.info(`🔍 [INTEGRATION DEBUG] Node config:`)
+    logger.info(JSON.stringify(config, null, 2))
 
     // Import the actual Discord action handlers
     const { sendDiscordMessage } = await import("@/lib/workflows/actions/discord")
@@ -675,10 +675,10 @@ export class IntegrationNodeHandlers {
       case "discord_action_send_message":
       case "discord_action_send_channel_message": // This is the actual type used
       case "discord_send_channel_message":
-        logger.debug("📤 Sending Discord channel message...")
-        logger.debug(`   Channel ID: ${config.channelId || 'not set'}`)
-        logger.debug(`   Has message: ${!!config.message}`)
-        logger.debug(`🔍 [INTEGRATION DEBUG] About to call sendDiscordMessage with userId: ${context.userId}`)
+        logger.info("📤 Sending Discord channel message...")
+        logger.info(`   Channel ID: ${config.channelId || 'not set'}`)
+        logger.info(`   Has message: ${!!config.message}`)
+        logger.info(`🔍 [INTEGRATION DEBUG] About to call sendDiscordMessage with userId: ${context.userId}`)
 
         // Use the actual Discord message sending function
         const result = await sendDiscordMessage(
@@ -687,9 +687,9 @@ export class IntegrationNodeHandlers {
           context.data || {}
         )
 
-        logger.debug(`   Discord send result: ${result.success ? '✅ Success' : '❌ Failed'}`)
+        logger.info(`   Discord send result: ${result.success ? '✅ Success' : '❌ Failed'}`)
         if (!result.success) {
-          logger.debug(`   Error: ${result.message}`)
+          logger.info(`   Error: ${result.message}`)
           throw new Error(result.message || "Failed to send Discord message")
         }
 
@@ -750,7 +750,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeAirtableAction(node: any, context: ExecutionContext) {
-    logger.debug("📊 Executing Airtable action")
+    logger.info("📊 Executing Airtable action")
 
     const nodeType = node.data.type
     const config = node.data.config || {}
@@ -819,7 +819,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeNotionAction(node: any, context: ExecutionContext) {
-    logger.debug("📝 Executing Notion action")
+    logger.info("📝 Executing Notion action")
 
     const nodeType = node.data.type
     const config = node.data.config || {}
@@ -978,7 +978,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeDropboxUpload(node: any, context: ExecutionContext) {
-    logger.debug("📦 Executing Dropbox upload")
+    logger.info("📦 Executing Dropbox upload")
 
     const config = node.data.config || {}
 
@@ -996,7 +996,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeTrelloAction(node: any, context: ExecutionContext) {
-    logger.debug("📋 Executing Trello action")
+    logger.info("📋 Executing Trello action")
     const nodeType = node.data.type
     const config = node.data.config || {}
 
@@ -1068,7 +1068,7 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeHubSpotAction(node: any, context: ExecutionContext) {
-    logger.debug("🎯 Executing HubSpot action")
+    logger.info("🎯 Executing HubSpot action")
     const nodeType = node.data.type
     const config = node.data.config || {}
 
@@ -1160,12 +1160,12 @@ export class IntegrationNodeHandlers {
   }
 
   private async executeMicrosoftExcelAction(node: any, context: ExecutionContext) {
-    logger.debug("📊 Executing Microsoft Excel action")
+    logger.info("📊 Executing Microsoft Excel action")
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    logger.debug(`   Excel action type: ${nodeType}`)
-    logger.debug(`   Config:`, JSON.stringify(config, null, 2))
+    logger.info(`   Excel action type: ${nodeType}`)
+    logger.info(`   Config:`, JSON.stringify(config, null, 2))
 
     // Handle different Microsoft Excel action types
     switch (nodeType) {

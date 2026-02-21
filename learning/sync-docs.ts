@@ -69,11 +69,11 @@ async function updateChangelog(
  * Main function to run the synchronization process
  */
 async function syncDocs(): Promise<void> {
-  logger.debug('Starting documentation synchronization...');
+  logger.info('Starting documentation synchronization...');
   
   // TO BE IMPLEMENTED
   
-  logger.debug('Documentation synchronization completed.');
+  logger.info('Documentation synchronization completed.');
 }
 
 // Entry point (commented out until implementation is complete)

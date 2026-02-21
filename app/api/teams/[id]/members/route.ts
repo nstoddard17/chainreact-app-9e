@@ -197,7 +197,7 @@ export async function POST(
     }
 
     // Log the invitee profile for debugging
-    logger.debug("Invitee profile:", {
+    logger.info("Invitee profile:", {
       id: inviteeProfile.id,
       email: inviteeProfile.email,
       role: inviteeProfile.role,

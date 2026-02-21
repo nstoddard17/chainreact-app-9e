@@ -133,14 +133,14 @@ export function safeLog(level: 'info' | 'warn' | 'error', message: string, data?
   const logPrefix = `${timestamp} [${level}]`;
 
   if (!data) {
-    logger.debug(`${logPrefix} ${message}`);
+    logger.info(`${logPrefix} ${message}`);
     return;
   }
 
   // Automatically redact configuration
   const safeData = redactConfig(data);
 
-  logger.debug(`${logPrefix} ${message}`, safeData);
+  logger.info(`${logPrefix} ${message}`, safeData);
 }
 
 /**

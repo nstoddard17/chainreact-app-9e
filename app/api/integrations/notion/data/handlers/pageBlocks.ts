@@ -67,9 +67,9 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
       throw new Error(tokenResult.error || "Token validation failed")
     }
 
-    logger.debug("🔍 [Notion Page Blocks] Fetching blocks for page:", pageId)
-    logger.debug("📋 [Notion Page Blocks] Using workspace:", targetWorkspaceId)
-    logger.debug("🔑 [Notion Page Blocks] Original page ID:", options?.pageId)
+    logger.info("🔍 [Notion Page Blocks] Fetching blocks for page:", pageId)
+    logger.info("📋 [Notion Page Blocks] Using workspace:", targetWorkspaceId)
+    logger.info("🔑 [Notion Page Blocks] Original page ID:", options?.pageId)
 
     // First, check if this is a database page to get properties
     let pageProperties: any = {}
@@ -91,12 +91,12 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
         if (pageData.properties) {
           isDatabasePage = true
           pageProperties = pageData.properties
-          logger.debug("📊 [Notion Page Blocks] Page has database properties:", Object.keys(pageProperties))
+          logger.info("📊 [Notion Page Blocks] Page has database properties:", Object.keys(pageProperties))
           
           // If this is a database page, fetch the database schema to get property configurations
           if (pageData.parent?.type === 'database_id') {
             const databaseId = pageData.parent.database_id
-            logger.debug("🗄️ [Notion Page Blocks] Fetching database schema for:", databaseId)
+            logger.info("🗄️ [Notion Page Blocks] Fetching database schema for:", databaseId)
             
             const dbResponse = await fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
               method: "GET",
@@ -109,7 +109,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
             if (dbResponse.ok) {
               const dbData = await dbResponse.json()
               databaseSchema = dbData.properties
-              logger.debug("✅ [Notion Page Blocks] Got database schema with properties:", Object.keys(databaseSchema))
+              logger.info("✅ [Notion Page Blocks] Got database schema with properties:", Object.keys(databaseSchema))
             }
           }
         }
@@ -142,7 +142,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
       if (error.message?.includes("Cannot access")) {
         throw error
       }
-      logger.debug("⚠️ [Notion Page Blocks] Could not fetch page properties:", error)
+      logger.info("⚠️ [Notion Page Blocks] Could not fetch page properties:", error)
     }
 
     // Fetch all blocks from the page
@@ -177,7 +177,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
     const blocksData = await blocksResponse.json()
     const blocks = blocksData.results || []
     
-    logger.debug(`📦 [Notion Page Blocks] Found ${blocks.length} blocks`)
+    logger.info(`📦 [Notion Page Blocks] Found ${blocks.length} blocks`)
 
     // Transform blocks into our format
     const transformedBlocks: PageBlock[] = []
@@ -549,7 +549,7 @@ export const getNotionPageBlocks: NotionDataHandler<PageBlock> = async (
       }
     }
 
-    logger.debug(`✅ [Notion Page Blocks] Returning ${transformedBlocks.length} blocks`)
+    logger.info(`✅ [Notion Page Blocks] Returning ${transformedBlocks.length} blocks`)
     return transformedBlocks
 
   } catch (error: any) {

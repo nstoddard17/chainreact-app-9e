@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const minFrequency = parseInt(searchParams.get('min_frequency') || '3')
 
-    logger.debug('[Analytics API] Fetching template candidates', {
+    logger.info('[Analytics API] Fetching template candidates', {
       userId: user.id,
       minFrequency
     })

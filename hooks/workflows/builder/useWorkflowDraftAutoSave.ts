@@ -147,7 +147,7 @@ export function useWorkflowDraftAutoSave({
       const now = new Date()
       const daysDiff = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24)
       if (daysDiff > 7) {
-        logger.debug('[DraftAutoSave] Draft is too old, clearing')
+        logger.info('[DraftAutoSave] Draft is too old, clearing')
         window.localStorage.removeItem(key)
         return null
       }
@@ -172,7 +172,7 @@ export function useWorkflowDraftAutoSave({
       setRestoredDraft(null)
       currentDraftRef.current = {}
       lastSavedRef.current = ''
-      logger.debug('[DraftAutoSave] Draft cleared for flow:', flowId)
+      logger.info('[DraftAutoSave] Draft cleared for flow:', flowId)
     } catch (error) {
       logger.error('[DraftAutoSave] Failed to clear draft:', error)
     }
@@ -221,7 +221,7 @@ export function useWorkflowDraftAutoSave({
           lastSavedRef.current = serialized
           setHasDraft(true)
 
-          logger.debug('[DraftAutoSave] Draft saved for flow:', flowId, {
+          logger.info('[DraftAutoSave] Draft saved for flow:', flowId, {
             messagesCount: draftToSave.agentMessages?.length || 0,
             planNodesCount: draftToSave.buildMachine?.plan?.length || 0,
             nodeConfigsCount: Object.keys(draftToSave.nodeConfigs || {}).length,
@@ -261,7 +261,7 @@ export function useWorkflowDraftAutoSave({
         lastSavedRef.current = serialized
         setHasDraft(true)
 
-        logger.debug('[DraftAutoSave] Draft saved immediately for flow:', flowId, {
+        logger.info('[DraftAutoSave] Draft saved immediately for flow:', flowId, {
           providerSelectionsCount: Object.keys(draftToSave.providerSelections || {}).length,
         })
       } catch (error) {
@@ -283,7 +283,7 @@ export function useWorkflowDraftAutoSave({
       setRestoredDraft(draft)
       setHasDraft(true)
       currentDraftRef.current = draft
-      logger.debug('[DraftAutoSave] Draft restored for flow:', flowId)
+      logger.info('[DraftAutoSave] Draft restored for flow:', flowId)
     }
     setIsDraftLoaded(true)
   }, [enabled, flowId, loadDraft])
@@ -328,7 +328,7 @@ export function useWorkflowDraftAutoSave({
       currentDraftRef.current.pendingRequests = updatedRequests
       saveDraft({ pendingRequests: updatedRequests })
 
-      logger.debug('[DraftAutoSave] Added pending request:', request.id)
+      logger.info('[DraftAutoSave] Added pending request:', request.id)
     },
     [saveDraft]
   )
@@ -347,7 +347,7 @@ export function useWorkflowDraftAutoSave({
       currentDraftRef.current.pendingRequests = updatedRequests
       saveDraft({ pendingRequests: updatedRequests })
 
-      logger.debug('[DraftAutoSave] Updated pending request:', id, updates)
+      logger.info('[DraftAutoSave] Updated pending request:', id, updates)
     },
     [saveDraft]
   )
@@ -364,7 +364,7 @@ export function useWorkflowDraftAutoSave({
       currentDraftRef.current.pendingRequests = updatedRequests
       saveDraft({ pendingRequests: updatedRequests })
 
-      logger.debug('[DraftAutoSave] Completed pending request:', id)
+      logger.info('[DraftAutoSave] Completed pending request:', id)
     },
     [saveDraft]
   )

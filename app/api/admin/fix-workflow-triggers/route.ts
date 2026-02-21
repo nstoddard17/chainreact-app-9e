@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const workflowId = body.workflowId
 
-    logger.debug('🔧 Running workflow trigger fix...')
+    logger.info('🔧 Running workflow trigger fix...')
     const result = await fixWorkflowTriggerNodes(workflowId)
 
     return jsonResponse(result)

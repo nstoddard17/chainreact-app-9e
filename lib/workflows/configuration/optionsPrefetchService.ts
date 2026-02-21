@@ -205,7 +205,7 @@ class OptionsPrefetchService {
       timestamp: Date.now(),
       ttl,
     })
-    logger.debug(`[OptionsPrefetch] Cached ${data.length} items for ${key} (TTL: ${ttl / 1000}s)`)
+    logger.info(`[OptionsPrefetch] Cached ${data.length} items for ${key} (TTL: ${ttl / 1000}s)`)
   }
 
   /**
@@ -215,10 +215,10 @@ class OptionsPrefetchService {
     if (optionType || cacheKey) {
       const key = cacheKey || optionType
       this.cache.delete(key!)
-      logger.debug(`[OptionsPrefetch] Cleared cache for ${key}`)
+      logger.info(`[OptionsPrefetch] Cleared cache for ${key}`)
     } else {
       this.cache.clear()
-      logger.debug('[OptionsPrefetch] Cleared all cache')
+      logger.info('[OptionsPrefetch] Cleared all cache')
     }
   }
 
@@ -242,7 +242,7 @@ class OptionsPrefetchService {
     if (!forceRefresh) {
       const cached = this.getCached(optionType, cacheKey)
       if (cached) {
-        logger.debug(`[OptionsPrefetch] Cache hit for ${key}`)
+        logger.info(`[OptionsPrefetch] Cache hit for ${key}`)
         return cached
       }
     }
@@ -250,12 +250,12 @@ class OptionsPrefetchService {
     // Check if fetch is already in progress
     const pendingFetch = this.pendingFetches.get(key)
     if (pendingFetch) {
-      logger.debug(`[OptionsPrefetch] Returning pending fetch for ${key}`)
+      logger.info(`[OptionsPrefetch] Returning pending fetch for ${key}`)
       return pendingFetch
     }
 
     // Start new fetch
-    logger.debug(`[OptionsPrefetch] Fetching ${key}...`)
+    logger.info(`[OptionsPrefetch] Fetching ${key}...`)
     const fetchPromise = fetcher()
       .then((data) => {
         this.setCache(optionType, data, ttl, cacheKey)
@@ -295,7 +295,7 @@ class OptionsPrefetchService {
   ): Promise<void> {
     if (nodes.length === 0) return
 
-    logger.debug(`[OptionsPrefetch] Prefetching options for ${nodes.length} nodes`)
+    logger.info(`[OptionsPrefetch] Prefetching options for ${nodes.length} nodes`)
 
     // Group nodes by priority (index in array)
     for (let i = 0; i < nodes.length; i++) {
@@ -303,13 +303,13 @@ class OptionsPrefetchService {
       const requirements = NODE_FIELD_REQUIREMENTS[node.nodeType]
 
       if (!requirements) {
-        logger.debug(`[OptionsPrefetch] No field requirements for ${node.nodeType}`)
+        logger.info(`[OptionsPrefetch] No field requirements for ${node.nodeType}`)
         continue
       }
 
       // Check if provider is connected
       if (node.providerId && !isProviderConnected(node.providerId)) {
-        logger.debug(`[OptionsPrefetch] Skipping ${node.nodeType} - provider not connected`)
+        logger.info(`[OptionsPrefetch] Skipping ${node.nodeType} - provider not connected`)
         continue
       }
 
@@ -341,11 +341,11 @@ class OptionsPrefetchService {
       // First node - await all prefetches (user will configure it first)
       if (i === 0) {
         await Promise.all(prefetchPromises)
-        logger.debug(`[OptionsPrefetch] Completed prefetch for first node: ${node.nodeType}`)
+        logger.info(`[OptionsPrefetch] Completed prefetch for first node: ${node.nodeType}`)
       } else {
         // Background prefetch for other nodes - don't await
         Promise.all(prefetchPromises).then(() => {
-          logger.debug(`[OptionsPrefetch] Background prefetch complete for: ${node.nodeType}`)
+          logger.info(`[OptionsPrefetch] Background prefetch complete for: ${node.nodeType}`)
         })
       }
 
@@ -482,12 +482,12 @@ class OptionsPrefetchService {
     const nodeTypes = this.getNodeTypesForProvider(providerId).slice(0, maxNodes)
 
     if (nodeTypes.length === 0) {
-      logger.debug(`[OptionsPrefetch] No node types found for ${providerId}`)
+      logger.info(`[OptionsPrefetch] No node types found for ${providerId}`)
       this.prefetchStatus.set(prefetchKey, 'loaded')
       return
     }
 
-    logger.debug(`[OptionsPrefetch] Prefetching for ${nodeTypes.length} node types:`, nodeTypes)
+    logger.info(`[OptionsPrefetch] Prefetching for ${nodeTypes.length} node types:`, nodeTypes)
 
     try {
       // Collect all loadOnMount fields across node types
@@ -512,7 +512,7 @@ class OptionsPrefetchService {
       }
 
       if (fieldsToLoad.length === 0) {
-        logger.debug(`[OptionsPrefetch] No loadOnMount fields for ${providerId}`)
+        logger.info(`[OptionsPrefetch] No loadOnMount fields for ${providerId}`)
         this.prefetchStatus.set(prefetchKey, 'loaded')
         return
       }
@@ -526,14 +526,14 @@ class OptionsPrefetchService {
         }
       }
 
-      logger.debug(`[OptionsPrefetch] Loading ${uniqueFields.size} unique field types for ${providerId}`)
+      logger.info(`[OptionsPrefetch] Loading ${uniqueFields.size} unique field types for ${providerId}`)
 
       // Load all fields in parallel
       const loadPromises = Array.from(uniqueFields.values()).map(async (field) => {
         // Check if already cached
         const cacheKey = `${providerId}:${field.dynamic}`
         if (this.isCached(cacheKey)) {
-          logger.debug(`[OptionsPrefetch] Already cached: ${cacheKey}`)
+          logger.info(`[OptionsPrefetch] Already cached: ${cacheKey}`)
           return
         }
 
@@ -558,7 +558,7 @@ class OptionsPrefetchService {
             useConfigCacheStore.getState().set(storeCacheKey, result.options, getFieldTTL(field.fieldName))
           }
 
-          logger.debug(`[OptionsPrefetch] Loaded ${result.options.length} options for ${cacheKey}`)
+          logger.info(`[OptionsPrefetch] Loaded ${result.options.length} options for ${cacheKey}`)
         }
       })
 
@@ -621,7 +621,7 @@ class OptionsPrefetchService {
     const prefetchKey = `provider:${providerId}`
     const controller = this.abortControllers.get(prefetchKey)
     if (controller) {
-      logger.debug(`[OptionsPrefetch] Cancelling prefetch for ${providerId}`)
+      logger.info(`[OptionsPrefetch] Cancelling prefetch for ${providerId}`)
       controller.abort()
       this.abortControllers.delete(prefetchKey)
       this.prefetchStatus.set(prefetchKey, 'pending')
@@ -667,7 +667,7 @@ class OptionsPrefetchService {
     const fields = this.getLoadOnMountFields(nodeType)
     if (fields.length === 0) return
 
-    logger.debug(`[OptionsPrefetch] Prefetching ${fields.length} fields for ${nodeType}`)
+    logger.info(`[OptionsPrefetch] Prefetching ${fields.length} fields for ${nodeType}`)
 
     const independentFields = fields.filter(f => !f.dependsOn)
 

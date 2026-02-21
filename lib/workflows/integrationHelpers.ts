@@ -25,7 +25,7 @@ export async function getIntegrationById(
     process.env.SUPABASE_SECRET_KEY!
   )
 
-  logger.debug(`[getIntegrationById] Fetching integration ${integrationId}${options?.userId ? ` for user ${options.userId}` : ''}`)
+  logger.info(`[getIntegrationById] Fetching integration ${integrationId}${options?.userId ? ` for user ${options.userId}` : ''}`)
 
   let query = supabase
     .from("integrations")
@@ -52,6 +52,6 @@ export async function getIntegrationById(
     throw new Error(message)
   }
 
-  logger.debug(`[getIntegrationById] Found integration: provider=${integration.provider}, status=${integration.status}`)
+  logger.info(`[getIntegrationById] Found integration: provider=${integration.provider}, status=${integration.status}`)
   return integration
 }

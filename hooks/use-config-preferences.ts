@@ -35,12 +35,12 @@ export function useConfigPreferences({
 
   // Helper function to handle authentication failures
   const handleAuthFailure = useCallback(async (originalError: any) => {
-    logger.debug("🔄 Authentication failed in config preferences, attempting session refresh...")
+    logger.info("🔄 Authentication failed in config preferences, attempting session refresh...")
     
     try {
       const refreshSuccess = await refreshSession()
       if (refreshSuccess) {
-        logger.debug("✅ Session refreshed successfully in config preferences")
+        logger.info("✅ Session refreshed successfully in config preferences")
         return true
       } else {
         logger.error("❌ Session refresh failed in config preferences")
@@ -68,7 +68,7 @@ export function useConfigPreferences({
           setPreferences(data.preferences || {})
         } else if (response.status === 401) {
           // Authentication error, try to refresh session
-          logger.debug("🔐 Authentication error in config preferences, attempting session refresh...")
+          logger.info("🔐 Authentication error in config preferences, attempting session refresh...")
           const refreshSuccess = await handleAuthFailure(null)
           
           if (refreshSuccess) {
@@ -119,7 +119,7 @@ export function useConfigPreferences({
         setLastSaved(new Date())
       } else if (response.status === 401) {
         // Authentication error, try to refresh session
-        logger.debug("🔐 Authentication error in config preferences save, attempting session refresh...")
+        logger.info("🔐 Authentication error in config preferences save, attempting session refresh...")
         const refreshSuccess = await handleAuthFailure(null)
         
         if (refreshSuccess) {

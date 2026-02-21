@@ -35,7 +35,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.debug(`🔔 Activating Slack trigger for workflow ${workflowId}`, {
+    logger.info(`🔔 Activating Slack trigger for workflow ${workflowId}`, {
       triggerType,
       userId,
       config
@@ -56,7 +56,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       .eq('provider', 'slack')
       .single()
 
-    logger.debug(`🔍 Slack integration lookup by ID ${integrationId}:`, {
+    logger.info(`🔍 Slack integration lookup by ID ${integrationId}:`, {
       found: !!integration,
       integration,
       error: fetchError?.message,
@@ -115,14 +115,14 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
       if (upsertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${upsertError.message}`)
-        logger.debug(`✅ Slack trigger activated (without local record): ${triggerType}`)
+        logger.info(`✅ Slack trigger activated (without local record): ${triggerType}`)
         return
       }
       logger.error(`❌ Failed to store trigger resource:`, upsertError)
       throw new Error(`Failed to store trigger resource: ${upsertError.message}`)
     }
 
-    logger.debug(`✅ Slack trigger activated: ${triggerType}`)
+    logger.info(`✅ Slack trigger activated: ${triggerType}`)
   }
 
   /**
@@ -132,7 +132,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId } = context
 
-    logger.debug(`🛑 Deactivating Slack triggers for workflow ${workflowId}`)
+    logger.info(`🛑 Deactivating Slack triggers for workflow ${workflowId}`)
 
     // Mark triggers as deleted (no external cleanup needed)
     await getSupabase()
@@ -142,7 +142,7 @@ export class SlackTriggerLifecycle implements TriggerLifecycle {
       .eq('provider_id', 'slack')
       .eq('status', 'active')
 
-    logger.debug(`✅ Slack triggers deactivated`)
+    logger.info(`✅ Slack triggers deactivated`)
   }
 
   /**

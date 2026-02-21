@@ -100,7 +100,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.debug(`🔔 Activating Mailchimp trigger for workflow ${workflowId}`, {
+    logger.info(`🔔 Activating Mailchimp trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -111,7 +111,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
 
     // If no webhook events, use polling fallback
     if (!hasWebhookEvents) {
-      logger.debug(`📊 Trigger ${triggerType} will use polling (no webhook support)`, {
+      logger.info(`📊 Trigger ${triggerType} will use polling (no webhook support)`, {
         triggerType
       })
 
@@ -120,7 +120,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
       try {
         const { accessToken, dc } = await getMailchimpAuth(userId)
         initialSnapshot = await this.captureInitialSnapshot(triggerType, config, accessToken, dc)
-        logger.debug('[Mailchimp] Initial snapshot captured', { triggerType })
+        logger.info('[Mailchimp] Initial snapshot captured', { triggerType })
       } catch (snapshotError: any) {
         logger.warn('[Mailchimp] Failed to capture initial snapshot, will establish baseline on first poll', {
           error: snapshotError.message
@@ -179,7 +179,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
     // Include workflow ID and node ID in URL for routing
     const fullWebhookUrl = `${webhookUrl}?workflowId=${workflowId}&nodeId=${nodeId}`
 
-    logger.debug(`📤 Creating Mailchimp webhook`, {
+    logger.info(`📤 Creating Mailchimp webhook`, {
       audienceId,
       webhookUrl: fullWebhookUrl,
       events
@@ -218,7 +218,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
 
     const webhook = await response.json()
 
-    logger.debug(`✅ Created Mailchimp webhook`, {
+    logger.info(`✅ Created Mailchimp webhook`, {
       webhookId: webhook.id,
       audienceId
     })
@@ -281,7 +281,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId, userId, nodeId } = context
 
-    logger.debug(`🔕 Deactivating Mailchimp trigger for workflow ${workflowId}`)
+    logger.info(`🔕 Deactivating Mailchimp trigger for workflow ${workflowId}`)
 
     // Get trigger resource
     const { data: resource } = await getSupabase()
@@ -305,7 +305,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         .eq('workflow_id', workflowId)
         .eq('node_id', nodeId)
 
-      logger.debug('✅ Polling trigger deactivated')
+      logger.info('✅ Polling trigger deactivated')
       return
     }
 
@@ -340,7 +340,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
             error: errorData
           })
         } else {
-          logger.debug(`✅ Deleted Mailchimp webhook ${webhookId}`)
+          logger.info(`✅ Deleted Mailchimp webhook ${webhookId}`)
         }
       } catch (error: any) {
         logger.error('Error deleting Mailchimp webhook', { error: error.message })

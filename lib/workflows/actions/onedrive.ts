@@ -17,7 +17,7 @@ export async function uploadFileToOneDrive(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('📤 [OneDrive] Starting file upload with config:', {
+    logger.info('📤 [OneDrive] Starting file upload with config:', {
       fileName: config.fileName,
       sourceType: config.sourceType,
       folderId: config.folderId
@@ -48,7 +48,7 @@ export async function uploadFileToOneDrive(
             // Check if it's a temporary file object with filePath
             if (file.filePath && file.isTemporary) {
               // For temporary files, fetch directly from Supabase storage
-              logger.debug('📂 [OneDrive] Fetching temporary file from storage:', {
+              logger.info('📂 [OneDrive] Fetching temporary file from storage:', {
                 nodeId: file.nodeId || file.id,
                 filePath: file.filePath,
                 fileName: file.fileName,
@@ -77,7 +77,7 @@ export async function uploadFileToOneDrive(
             // If it's a file ID string or object with ID, use FileStorageService
             else if (typeof file === 'string' || file.id) {
               const fileId = typeof file === 'string' ? file : file.id
-              logger.debug('📁 [OneDrive] Fetching permanent file using FileStorageService:', fileId)
+              logger.info('📁 [OneDrive] Fetching permanent file using FileStorageService:', fileId)
 
               const { FileStorageService } = await import('@/lib/storage/fileStorage')
               const fileStorage = new FileStorageService()
@@ -115,7 +115,7 @@ export async function uploadFileToOneDrive(
           throw new Error('File URL is required')
         }
 
-        logger.debug('📥 [OneDrive] Downloading file from URL:', fileUrl)
+        logger.info('📥 [OneDrive] Downloading file from URL:', fileUrl)
         const urlResponse = await fetch(fileUrl)
         if (!urlResponse.ok) {
           throw new Error(`Failed to download file from URL: ${urlResponse.statusText}`)
@@ -211,7 +211,7 @@ export async function uploadFileToOneDrive(
     const fileSizeInBytes = fileContent.length
     const fileSizeInMB = fileSizeInBytes / (1024 * 1024)
 
-    logger.debug('📊 [OneDrive] File info:', {
+    logger.info('📊 [OneDrive] File info:', {
       name: actualFileName,
       originalName: originalFileName,
       userProvidedName: userProvidedFileName,
@@ -258,7 +258,7 @@ export async function uploadFileToOneDrive(
       uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(actualFileName)}:/content`
     }
 
-    logger.debug('🚀 [OneDrive] Uploading file to:', uploadUrl)
+    logger.info('🚀 [OneDrive] Uploading file to:', uploadUrl)
 
     // Upload file to OneDrive
     const uploadResponse = await fetch(uploadUrl, {
@@ -291,7 +291,7 @@ export async function uploadFileToOneDrive(
 
     const uploadResult = await uploadResponse.json()
 
-    logger.debug('✅ [OneDrive] File uploaded successfully:', {
+    logger.info('✅ [OneDrive] File uploaded successfully:', {
       id: uploadResult.id,
       name: uploadResult.name,
       size: uploadResult.size,

@@ -16,10 +16,10 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
     
-    logger.debug('🔧 Running migration to allow multiple Notion workspaces...')
+    logger.info('🔧 Running migration to allow multiple Notion workspaces...')
     
     // Step 1: Drop the existing unique constraint
-    logger.debug('📝 Dropping existing unique constraint...')
+    logger.info('📝 Dropping existing unique constraint...')
     const { error: dropError } = await supabase.rpc('exec_sql', { 
       sql: 'ALTER TABLE integrations DROP CONSTRAINT IF EXISTS integrations_user_id_provider_key;' 
     })
@@ -29,10 +29,10 @@ export async function POST(request: NextRequest) {
       return errorResponse(dropError.message , 500)
     }
     
-    logger.debug('✅ Existing constraint dropped successfully')
+    logger.info('✅ Existing constraint dropped successfully')
     
     // Step 2: Create new unique constraint that excludes Notion
-    logger.debug('📝 Creating new unique constraint (excluding Notion)...')
+    logger.info('📝 Creating new unique constraint (excluding Notion)...')
     const { error: createError } = await supabase.rpc('exec_sql', { 
       sql: `
         ALTER TABLE integrations 
@@ -47,10 +47,10 @@ export async function POST(request: NextRequest) {
       return errorResponse(createError.message , 500)
     }
     
-    logger.debug('✅ New constraint created successfully')
+    logger.info('✅ New constraint created successfully')
     
     // Step 3: Create workspace-specific constraint for Notion
-    logger.debug('📝 Creating Notion workspace constraint...')
+    logger.info('📝 Creating Notion workspace constraint...')
     const { error: notionError } = await supabase.rpc('exec_sql', { 
       sql: `
         ALTER TABLE integrations 
@@ -65,10 +65,10 @@ export async function POST(request: NextRequest) {
       return errorResponse(notionError.message , 500)
     }
     
-    logger.debug('✅ Notion workspace constraint created successfully')
+    logger.info('✅ Notion workspace constraint created successfully')
     
     // Step 4: Add index for better performance
-    logger.debug('📝 Adding performance index...')
+    logger.info('📝 Adding performance index...')
     const { error: indexError } = await supabase.rpc('exec_sql', { 
       sql: `
         CREATE INDEX IF NOT EXISTS idx_integrations_notion_workspace 
@@ -82,10 +82,10 @@ export async function POST(request: NextRequest) {
       return errorResponse(indexError.message , 500)
     }
     
-    logger.debug('✅ Performance index added successfully')
+    logger.info('✅ Performance index added successfully')
     
     // Step 5: Verify the changes
-    logger.debug('📝 Verifying constraints...')
+    logger.info('📝 Verifying constraints...')
     const { data: constraints, error: verifyError } = await supabase.rpc('exec_sql', { 
       sql: `
         SELECT 
@@ -103,9 +103,9 @@ export async function POST(request: NextRequest) {
       return errorResponse(verifyError.message , 500)
     }
     
-    logger.debug('✅ Constraints verified:', constraints)
+    logger.info('✅ Constraints verified:', constraints)
     
-    logger.debug('🎉 Migration completed successfully!')
+    logger.info('🎉 Migration completed successfully!')
     
     return jsonResponse({
       success: true,

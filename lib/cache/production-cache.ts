@@ -51,7 +51,7 @@ class ProductionCache {
 
   // Warm up cache with initial data to prevent cold start issues
   async warmup(): Promise<void> {
-    logger.debug('🔥 Warming up production cache...')
+    logger.info('🔥 Warming up production cache...')
 
     // Pre-cache critical paths
     const criticalPaths = [

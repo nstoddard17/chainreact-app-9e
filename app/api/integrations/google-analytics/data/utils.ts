@@ -37,7 +37,7 @@ export async function createGoogleAnalyticsAdminClient(integration: GoogleAnalyt
     try {
       const { credentials } = await oauth2Client.refreshAccessToken()
       oauth2Client.setCredentials(credentials)
-      logger.debug('🔄 Refreshed Google Analytics access token')
+      logger.info('🔄 Refreshed Google Analytics access token')
     } catch (error: any) {
       logger.error('Failed to refresh token:', {
         message: error?.message,
@@ -81,7 +81,7 @@ export async function createGoogleAnalyticsDataClient(integration: GoogleAnalyti
     try {
       const { credentials } = await oauth2Client.refreshAccessToken()
       oauth2Client.setCredentials(credentials)
-      logger.debug('🔄 Refreshed Google Analytics access token (data client)')
+      logger.info('🔄 Refreshed Google Analytics access token (data client)')
     } catch (error: any) {
       logger.error('Failed to refresh token (data client):', {
         message: error?.message,

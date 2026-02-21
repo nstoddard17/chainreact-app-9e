@@ -123,7 +123,7 @@ export async function GET() {
                 .map((p: any) => p.user_id)
         )
 
-        logger.debug('[Admin Users] Online users detected:', {
+        logger.info('[Admin Users] Online users detected:', {
             onlineCount: onlineUserIds.size,
             onlineUserIds: Array.from(onlineUserIds)
         })

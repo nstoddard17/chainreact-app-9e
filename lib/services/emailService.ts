@@ -106,7 +106,7 @@ export class EmailService {
         return false
       }
 
-      logger.debug('Email sent successfully via Resend:', result.id)
+      logger.info('Email sent successfully via Resend:', result.id)
       return true
     } catch (error) {
       logger.error('Failed to send email:', error)

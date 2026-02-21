@@ -192,7 +192,7 @@ export function useProviderPrefetch() {
    * Automatically cancels any previous prefetch.
    */
   const prefetchForProvider = useCallback((providerId: string) => {
-    logger.debug(`[useProviderPrefetch] Starting prefetch for ${providerId}`)
+    logger.info(`[useProviderPrefetch] Starting prefetch for ${providerId}`)
 
     // If switching providers, cancel the previous prefetch
     if (currentProvider && currentProvider !== providerId) {

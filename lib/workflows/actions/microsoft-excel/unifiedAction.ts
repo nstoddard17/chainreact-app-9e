@@ -14,7 +14,7 @@ export async function executeMicrosoftExcelUnifiedAction(
   try {
     const action = resolveValue(config.action, input)
 
-    logger.debug('🔄 [Microsoft Excel Unified Action] Received config:', {
+    logger.info('🔄 [Microsoft Excel Unified Action] Received config:', {
       action,
       configKeys: Object.keys(config),
       deleteSpecific: {
@@ -67,7 +67,7 @@ export async function executeMicrosoftExcelUnifiedAction(
           updateMultiple: config.updateMultiple
         }
 
-        logger.debug('🔄 Microsoft Excel Update - Unified Action Config:', {
+        logger.info('🔄 Microsoft Excel Update - Unified Action Config:', {
           originalConfig: config,
           mappedConfig: updateConfig
         })
@@ -98,7 +98,7 @@ export async function executeMicrosoftExcelUnifiedAction(
           deleteMultiple: config.deleteMultiple
         }
 
-        logger.debug('🗑️ [Excel Unified Action] Delete config being passed:', deleteConfig)
+        logger.info('🗑️ [Excel Unified Action] Delete config being passed:', deleteConfig)
         const deleteResult = await deleteMicrosoftExcelRow(deleteConfig, userId, input)
 
         // Add action type to the output

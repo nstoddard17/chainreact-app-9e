@@ -55,7 +55,7 @@ export async function POST(request: Request) {
 
     try {
       // Execute all nodes using the real executeAction function
-      logger.debug('[test-node] Executing real action:', {
+      logger.info('[test-node] Executing real action:', {
         nodeType,
         hasConfig: !!config,
         configKeys: Object.keys(config || {})
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         testResult.message = `✅ ${nodeComponent.title} executed successfully`
       }
 
-      logger.debug('[test-node] Execution completed:', {
+      logger.info('[test-node] Execution completed:', {
         success: testResult.success,
         hasOutput: !!testResult.output,
         outputKeys: testResult.output ? Object.keys(testResult.output) : []

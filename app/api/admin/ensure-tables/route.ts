@@ -42,7 +42,7 @@ export async function GET() {
         ALTER TABLE execution_progress ENABLE ROW LEVEL SECURITY;
       `
     }).catch(err => {
-      logger.debug('Table creation error (may already exist):', err)
+      logger.info('Table creation error (may already exist):', err)
       return { error: err }
     })
 

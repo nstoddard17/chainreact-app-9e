@@ -35,7 +35,7 @@ export async function listGumroadSales(
 
     const url = `https://api.gumroad.com/v2/sales?${params.toString()}`
 
-    logger.debug('[listGumroadSales] Fetching sales:', {
+    logger.info('[listGumroadSales] Fetching sales:', {
       productId,
       email,
       after,

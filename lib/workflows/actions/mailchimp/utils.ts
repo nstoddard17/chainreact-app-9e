@@ -79,7 +79,7 @@ export async function getMailchimpAuth(userId: string): Promise<{ accessToken: s
     throw new Error('Mailchimp integration is missing data center information. Please reconnect your Mailchimp account.')
   }
 
-  logger.debug('Retrieved Mailchimp auth', {
+  logger.info('Retrieved Mailchimp auth', {
     hasToken: !!accessToken,
     dc
   })

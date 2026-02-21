@@ -88,7 +88,7 @@ export async function setupGoogleDriveWatch(config: GoogleDriveWatchConfig): Pro
     // Check if token needs refresh
     const accessToken = decryptedAccessToken
     if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
-      logger.debug('Access token expired, refreshing...')
+      logger.info('Access token expired, refreshing...')
       // TODO: Implement token refresh for Google Drive
       // For now, throw an error
       throw new Error('Google Drive token expired - please reconnect the integration')
@@ -148,7 +148,7 @@ export async function setupGoogleDriveWatch(config: GoogleDriveWatchConfig): Pro
       throw new Error('Failed to create Google Drive watch - missing required data')
     }
 
-    logger.debug(`✅ ${(config.contextProvider === 'google-docs') ? 'Google Docs (via Drive)' : 'Google Drive'} watch created successfully:`, {
+    logger.info(`✅ ${(config.contextProvider === 'google-docs') ? 'Google Docs (via Drive)' : 'Google Drive'} watch created successfully:`, {
       channelId,
       resourceId: watchResponse.data.resourceId,
       expiration: new Date(parseInt(watchResponse.data.expiration)).toISOString()
@@ -214,7 +214,7 @@ export async function stopGoogleDriveWatch(userId: string, integrationId: string
       .single()
 
     if (error || !integration) {
-      logger.debug('Google Drive integration not found - watch may already be stopped')
+      logger.info('Google Drive integration not found - watch may already be stopped')
       return
     }
 
@@ -228,7 +228,7 @@ export async function stopGoogleDriveWatch(userId: string, integrationId: string
     // Decrypt the access token first
     const decryptedAccessToken = await decryptToken(integration.access_token)
     if (!decryptedAccessToken) {
-      logger.debug('Failed to decrypt Google Drive access token - watch may already be stopped')
+      logger.info('Failed to decrypt Google Drive access token - watch may already be stopped')
       return
     }
     oauth2Client.setCredentials({ access_token: decryptedAccessToken })
@@ -251,7 +251,7 @@ export async function stopGoogleDriveWatch(userId: string, integrationId: string
       .eq('channel_id', channelId)
       .eq('user_id', userId)
 
-    logger.debug('✅ Google Drive watch stopped successfully')
+    logger.info('✅ Google Drive watch stopped successfully')
   } catch (error) {
     logger.error('Failed to stop Google Drive watch:', error)
     // Don't throw - watch might already be stopped

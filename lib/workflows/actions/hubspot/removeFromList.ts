@@ -23,7 +23,7 @@ export async function hubspotRemoveFromList(
       throw new Error('List ID and contact ID are required')
     }
 
-    logger.debug('Removing contact from list:', { listId, contactId })
+    logger.info('Removing contact from list:', { listId, contactId })
 
     const response = await fetch(
       `https://api.hubapi.com/contacts/v1/lists/${listId}/remove`,

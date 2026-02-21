@@ -22,7 +22,7 @@ export async function enableGumroadProduct(
 
     const url = `https://api.gumroad.com/v2/products/${encodeURIComponent(productId)}/enable?access_token=${accessToken}`
 
-    logger.debug('[enableGumroadProduct] Enabling product:', { productId })
+    logger.info('[enableGumroadProduct] Enabling product:', { productId })
 
     const response = await fetch(url, {
       method: "PUT",

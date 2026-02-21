@@ -168,12 +168,12 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
     const cacheKey = integration.id
     const cached = modalCache.get(cacheKey)
     if (cached && (Date.now() - cached.timestamp) < MODAL_CACHE_DURATION) {
-      logger.debug('[Outlook API] Using cached recipients (within modal session)')
+      logger.info('[Outlook API] Using cached recipients (within modal session)')
       return cached.data
     }
 
-    logger.debug('[Outlook API] Fetching fresh recipients (contacts + people + recent)')
-    logger.debug('[Outlook API] Integration info:', {
+    logger.info('[Outlook API] Fetching fresh recipients (contacts + people + recent)')
+    logger.info('[Outlook API] Integration info:', {
       id: integration.id,
       provider: integration.provider,
       userId: integration.user_id,
@@ -190,7 +190,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
       : null
 
     if (!accessToken && integration.refresh_token) {
-      logger.debug('[Outlook API] Access token missing, attempting refresh before fetching recipients')
+      logger.info('[Outlook API] Access token missing, attempting refresh before fetching recipients')
       accessToken = await refreshOutlookAccessToken(integration)
     }
 
@@ -214,7 +214,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
       })
       if (meResponse.ok) {
         const meData = await meResponse.json()
-        logger.debug('[Outlook API] Authenticated as:', {
+        logger.info('[Outlook API] Authenticated as:', {
           email: meData.mail,
           userPrincipalName: meData.userPrincipalName,
           displayName: meData.displayName
@@ -256,7 +256,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         const contactsData = await contactsResponse.json()
         const contacts = contactsData.value || []
 
-        logger.debug(`[Outlook API] Contacts API response:`, {
+        logger.info(`[Outlook API] Contacts API response:`, {
           totalCount: contactsData['@odata.count'],
           valueLength: contacts.length,
           firstContact: contacts[0]
@@ -267,7 +267,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
           addRecipient(recipients, primaryEmail, contact.displayName, 'contact')
         })
 
-        logger.debug(`[Outlook API] Added ${contacts.length} contacts`)
+        logger.info(`[Outlook API] Added ${contacts.length} contacts`)
       } else {
         logger.warn(`[Outlook API] Contacts API returned status ${contactsResponse.status}`)
       }
@@ -292,7 +292,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
           })
         })
 
-        logger.debug(`[Outlook API] Added ${people.length} suggested people`)
+        logger.info(`[Outlook API] Added ${people.length} suggested people`)
       } else {
         logger.warn(`[Outlook API] People API returned status ${peopleResponse.status}`)
       }
@@ -322,7 +322,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
           })
         })
 
-        logger.debug(`[Outlook API] Added recipients from ${messages.length} sent messages`)
+        logger.info(`[Outlook API] Added recipients from ${messages.length} sent messages`)
       } else {
         logger.warn(`[Outlook API] Sent messages API returned status ${sentResponse.status}`)
       }
@@ -338,7 +338,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         const inboxData = await inboxResponse.json()
         const messages = inboxData.value || []
 
-        logger.debug(`[Outlook API] Inbox API response:`, {
+        logger.info(`[Outlook API] Inbox API response:`, {
           totalCount: inboxData['@odata.count'],
           valueLength: messages.length,
           firstMessage: messages[0] ? {
@@ -365,7 +365,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
           })
         })
 
-        logger.debug(`[Outlook API] Added participants from ${messages.length} inbox messages`)
+        logger.info(`[Outlook API] Added participants from ${messages.length} inbox messages`)
       } else {
         logger.warn(`[Outlook API] Inbox messages API returned status ${inboxResponse.status}`)
       }
@@ -376,7 +376,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
     // Convert to array and limit to 75 recipients (contacts + recents + suggested)
     const recipientArray = Array.from(recipients.values()).slice(0, 75)
 
-    logger.debug(`[Outlook API] Total recipients prepared: ${recipientArray.length}`)
+    logger.info(`[Outlook API] Total recipients prepared: ${recipientArray.length}`)
 
     // Cache for modal session
     modalCache.set(cacheKey, {

@@ -43,7 +43,7 @@ export const getHubSpotLineItems: HubSpotDataHandler<HubSpotLineItem> = async (i
       quantity: item.properties?.quantity ? Number(item.properties.quantity) : undefined
     }))
 
-    logger.debug(`✅ HubSpot line items fetched successfully: ${lineItems.length} items`)
+    logger.info(`✅ HubSpot line items fetched successfully: ${lineItems.length} items`)
     return lineItems
 
   } catch (error: any) {

@@ -22,7 +22,7 @@ export const getMailchimpCampaigns: MailchimpDataHandler<CampaignOption> = async
   integration: MailchimpIntegration,
   options: any = {}
 ): Promise<CampaignOption[]> => {
-  logger.debug("🔍 [Mailchimp] Fetching campaigns for integration:", {
+  logger.info("🔍 [Mailchimp] Fetching campaigns for integration:", {
     id: integration.id,
     hasToken: !!integration.access_token
   })
@@ -31,15 +31,15 @@ export const getMailchimpCampaigns: MailchimpDataHandler<CampaignOption> = async
     // Validate integration status
     validateMailchimpIntegration(integration)
 
-    logger.debug(`🔍 [Mailchimp] Validating token...`)
+    logger.info(`🔍 [Mailchimp] Validating token...`)
     const tokenResult = await validateMailchimpToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    logger.debug('🔍 [Mailchimp] Fetching campaigns from API...')
+    logger.info('🔍 [Mailchimp] Fetching campaigns from API...')
     const apiUrl = await buildMailchimpApiUrl(integration, '/campaigns')
 
     // Add query parameters - get campaigns for selection
@@ -66,7 +66,7 @@ export const getMailchimpCampaigns: MailchimpDataHandler<CampaignOption> = async
       }
     })
 
-    logger.debug(`✅ [Mailchimp] Campaigns fetched successfully: ${formattedCampaigns.length} campaigns`)
+    logger.info(`✅ [Mailchimp] Campaigns fetched successfully: ${formattedCampaigns.length} campaigns`)
     return formattedCampaigns
 
   } catch (error: any) {

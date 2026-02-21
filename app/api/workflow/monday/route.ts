@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const payload = await req.json()
 
     const modeLabel = testSessionId ? '🧪 TEST' : '🚀 PRODUCTION'
-    logger.debug(`${modeLabel} Monday.com webhook received`, {
+    logger.info(`${modeLabel} Monday.com webhook received`, {
       workflowId,
       testSessionId,
       event: payload.event
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     // Handle Monday.com challenge verification
     if (payload.challenge) {
-      logger.debug('✅ Monday.com webhook challenge accepted')
+      logger.info('✅ Monday.com webhook challenge accepted')
       return NextResponse.json({ challenge: payload.challenge })
     }
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (testSession.status !== 'listening') {
-        logger.debug(`ℹ️ Test session ${testSessionId} not listening (status: ${testSession.status})`)
+        logger.info(`ℹ️ Test session ${testSessionId} not listening (status: ${testSession.status})`)
         return NextResponse.json({ message: 'Test session not listening' }, { status: 200 })
       }
 
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (workflow.status !== 'active') {
-      logger.debug(`ℹ️ Workflow ${workflowId} not active, ignoring webhook`)
+      logger.info(`ℹ️ Workflow ${workflowId} not active, ignoring webhook`)
       return NextResponse.json({ message: 'Workflow not active' }, { status: 200 })
     }
 
@@ -186,7 +186,7 @@ export async function GET(req: NextRequest) {
   const challenge = searchParams.get('challenge')
 
   if (challenge) {
-    logger.debug('✅ Monday.com webhook verification challenge accepted')
+    logger.info('✅ Monday.com webhook verification challenge accepted')
     return NextResponse.json({ challenge })
   }
 

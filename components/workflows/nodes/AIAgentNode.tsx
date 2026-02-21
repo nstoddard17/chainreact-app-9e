@@ -59,7 +59,7 @@ export const AIAgentNode = memo(({ data, selected, id }: AIAgentNodeProps) => {
       ...config
     }))
     // In a real implementation, this would update the workflow state
-    logger.debug('AI Agent config saved:', config)
+    logger.info('AI Agent config saved:', config)
   }, [])
 
   const getStatusIcon = () => {

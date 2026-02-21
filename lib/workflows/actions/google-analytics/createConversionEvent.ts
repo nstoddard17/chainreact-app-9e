@@ -27,7 +27,7 @@ export async function createGoogleAnalyticsConversionEvent(
       }
     }
 
-    logger.debug(`[GA4 Create Conversion Event] Creating conversion for event "${eventName}" in property ${propertyId}`)
+    logger.info(`[GA4 Create Conversion Event] Creating conversion for event "${eventName}" in property ${propertyId}`)
 
     // Create the conversion event
     const response = await fetch(
@@ -63,7 +63,7 @@ export async function createGoogleAnalyticsConversionEvent(
 
     const result = await response.json()
 
-    logger.debug('[GA4 Create Conversion Event] Successfully created conversion event:', result.name)
+    logger.info('[GA4 Create Conversion Event] Successfully created conversion event:', result.name)
 
     return {
       success: true,

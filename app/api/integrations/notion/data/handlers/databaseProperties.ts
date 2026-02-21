@@ -29,7 +29,7 @@ export const getNotionDatabaseProperties: NotionDataHandler<NotionDatabaseProper
   const accessToken = resolveNotionAccessToken(integration, workspaceId)
   const apiUrl = `https://api.notion.com/v1/databases/${databaseId}`
 
-  logger.debug('[Notion] Fetching database properties', {
+  logger.info('[Notion] Fetching database properties', {
     integrationId: integration.id,
     databaseId,
     workspaceId: workspaceId || 'default'
@@ -40,7 +40,7 @@ export const getNotionDatabaseProperties: NotionDataHandler<NotionDatabaseProper
     const database = await response.json()
     const properties = database.properties || {}
 
-    logger.debug('[Notion] Database properties retrieved', {
+    logger.info('[Notion] Database properties retrieved', {
       databaseId,
       propertyCount: Object.keys(properties).length
     })

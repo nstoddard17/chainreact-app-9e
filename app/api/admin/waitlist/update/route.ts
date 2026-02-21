@@ -39,7 +39,7 @@ export async function PATCH(request: Request) {
     const supabaseAdmin = await createSupabaseServiceClient()
 
     // Check if user is admin using the service client
-    logger.debug("Checking admin status for user:", user.id)
+    logger.info("Checking admin status for user:", user.id)
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("user_profiles")
@@ -47,7 +47,7 @@ export async function PATCH(request: Request) {
       .eq("id", user.id)
       .single()
 
-    logger.debug("Profile fetch result:", { profile, profileError })
+    logger.info("Profile fetch result:", { profile, profileError })
 
     if (profileError) {
       logger.error("Error fetching profile:", profileError)
@@ -59,17 +59,17 @@ export async function PATCH(request: Request) {
       return errorResponse("User profile not found", 404)
     }
 
-    logger.debug("User admin status:", profile.admin)
+    logger.info("User admin status:", profile.admin)
 
     if (profile.admin !== true) {
-      logger.debug("User is not admin. Admin status:", profile.admin)
+      logger.info("User is not admin. Admin status:", profile.admin)
       return jsonResponse(
         { error: `Only admins can update waitlist entries.` },
         { status: 403 }
       )
     }
 
-    logger.debug("User confirmed as admin, proceeding with waitlist entry update")
+    logger.info("User confirmed as admin, proceeding with waitlist entry update")
 
     // Build update object with only provided fields
     const updateData: any = {
@@ -102,7 +102,7 @@ export async function PATCH(request: Request) {
       return errorResponse("Waitlist member not found", 404)
     }
 
-    logger.debug(`Successfully updated waitlist member (ID: ${id})`)
+    logger.info(`Successfully updated waitlist member (ID: ${id})`)
 
     return jsonResponse({
       success: true,

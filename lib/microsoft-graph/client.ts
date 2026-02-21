@@ -222,7 +222,7 @@ export class MicrosoftGraphClient {
   }
 
   private normalizeMailDelta(response: OutlookMailDeltaResponse): OutlookMailDeltaResponse {
-    logger.debug('📧 Normalizing mail delta response:', {
+    logger.info('📧 Normalizing mail delta response:', {
       messageCount: response.value.length,
       hasDeltaLink: !!response['@odata.deltaLink'],
       hasNextLink: !!response['@odata.nextLink']
@@ -231,7 +231,7 @@ export class MicrosoftGraphClient {
     return {
       ...response,
       value: response.value.map(message => {
-        logger.debug('📧 Processing mail message:', {
+        logger.info('📧 Processing mail message:', {
           id: message.id,
           subject: message.subject,
           receivedDateTime: message.receivedDateTime,

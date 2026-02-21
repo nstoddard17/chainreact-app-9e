@@ -410,7 +410,7 @@ export const microsoftExcelPollingHandler: PollingHandler = {
       return
     }
 
-    logger.debug('[Excel Poll] Completed polling', {
+    logger.info('[Excel Poll] Completed polling', {
       triggerId: trigger.id,
       workflowId: trigger.workflow_id
     })

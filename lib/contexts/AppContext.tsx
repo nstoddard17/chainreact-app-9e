@@ -49,7 +49,7 @@ export function AppContextProvider({
     type: 'personal' | 'team' | 'organization',
     id?: string | null
   ) => {
-    logger.debug('[AppContext] Setting workspace context:', { type, id })
+    logger.info('[AppContext] Setting workspace context:', { type, id })
 
     setWorkspaceType(type)
     setWorkspaceId(id || null)
@@ -68,7 +68,7 @@ export function AppContextProvider({
       return
     }
 
-    logger.debug('[AppContext] Auth ready, app context initialized')
+    logger.info('[AppContext] Auth ready, app context initialized')
     setIsReady(true)
   }, [authInitialized, user])
 

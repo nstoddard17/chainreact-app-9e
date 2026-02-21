@@ -59,7 +59,7 @@ function BetaSignupContent() {
       const decoded = atob(token)
       const [tokenEmail] = decoded.split(":")
 
-      logger.debug("Token validation:", { token, decoded, tokenEmail, urlEmail })
+      logger.info("Token validation:", { token, decoded, tokenEmail, urlEmail })
 
       if (tokenEmail === urlEmail) {
         // Token matches the email, check if this beta tester exists and has this token
@@ -93,7 +93,7 @@ function BetaSignupContent() {
           .eq("email", urlEmail)
           .single()
 
-        logger.debug("Beta tester query result:", { data, error })
+        logger.info("Beta tester query result:", { data, error })
 
         if (error) {
           logger.error("Database error:", error)
@@ -107,7 +107,7 @@ function BetaSignupContent() {
         }
 
         if (data) {
-          logger.debug("Beta tester data:", {
+          logger.info("Beta tester data:", {
             status: data.status,
             expires_at: data.expires_at,
             signup_token: data.signup_token,
@@ -222,7 +222,7 @@ function BetaSignupContent() {
         return
       }
     } catch (checkErr: any) {
-      logger.debug("Username pre-check error:", checkErr)
+      logger.info("Username pre-check error:", checkErr)
       // Continue with signup - database constraints will handle duplicates
     }
 
@@ -274,7 +274,7 @@ function BetaSignupContent() {
 
         while (!profileCreated && retryCount < maxRetries) {
           try {
-            logger.debug(`Attempting to create profile (attempt ${retryCount + 1}/${maxRetries})`)
+            logger.info(`Attempting to create profile (attempt ${retryCount + 1}/${maxRetries})`)
 
             // Use API endpoint with service role to bypass RLS
             const response = await fetch('/api/create-beta-profile', {
@@ -293,7 +293,7 @@ function BetaSignupContent() {
             const result = await response.json()
 
             if (response.ok && result.success) {
-              logger.debug("Profile created successfully:", result.profile)
+              logger.info("Profile created successfully:", result.profile)
               profileCreated = true
             } else {
               throw new Error(result.error || 'Failed to create profile')
@@ -381,7 +381,7 @@ function BetaSignupContent() {
             .single()
 
           if (!finalCheckError && finalProfileCheck && finalProfileCheck.username) {
-            logger.debug("Final profile check passed:", finalProfileCheck)
+            logger.info("Final profile check passed:", finalProfileCheck)
 
             toast({
               title: "Welcome to ChainReact Beta! 🎉",

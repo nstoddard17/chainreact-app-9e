@@ -19,7 +19,7 @@ export const getAirtableProjects: AirtableDataHandler<ProjectOption> = async (
 ): Promise<ProjectOption[]> => {
   const { baseId, tableName } = options
 
-  logger.debug("🔍 Airtable projects fetcher called with:", {
+  logger.info("🔍 Airtable projects fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -33,16 +33,16 @@ export const getAirtableProjects: AirtableDataHandler<ProjectOption> = async (
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !tableName) {
-      logger.debug('⚠️ Base ID or Table name missing, returning empty list')
+      logger.info('⚠️ Base ID or Table name missing, returning empty list')
       return []
     }
 
-    logger.debug('🔍 Fetching Airtable projects from API...')
+    logger.info('🔍 Fetching Airtable projects from API...')
 
     // Fetch records to extract unique projects
     const queryParams = new URLSearchParams()
@@ -59,7 +59,7 @@ export const getAirtableProjects: AirtableDataHandler<ProjectOption> = async (
     if (data.records && Array.isArray(data.records)) {
       // Log first record to see field structure
       if (data.records.length > 0) {
-        logger.debug('📊 [Airtable Projects] Sample record fields:', Object.keys(data.records[0].fields || {}))
+        logger.info('📊 [Airtable Projects] Sample record fields:', Object.keys(data.records[0].fields || {}))
       }
 
       data.records.forEach((record: any) => {
@@ -70,12 +70,12 @@ export const getAirtableProjects: AirtableDataHandler<ProjectOption> = async (
           )
 
           if (fieldName) {
-            logger.debug(`📊 [Airtable Projects] Found matching field '${fieldName}'`)
+            logger.info(`📊 [Airtable Projects] Found matching field '${fieldName}'`)
             const project = record.fields[fieldName]
 
             // Handle linked records (array of record IDs)
             if (Array.isArray(project)) {
-              logger.debug(`📊 [Airtable Projects] Field is array of linked records:`, project)
+              logger.info(`📊 [Airtable Projects] Field is array of linked records:`, project)
               // For linked records, we might get an array of IDs
               // We'll need to fetch the actual names from the linked table
               project.forEach(item => {
@@ -97,7 +97,7 @@ export const getAirtableProjects: AirtableDataHandler<ProjectOption> = async (
       label: name
     })).sort((a, b) => a.label.localeCompare(b.label))
 
-    logger.debug(`✅ Airtable projects fetched successfully: ${options.length} unique projects`)
+    logger.info(`✅ Airtable projects fetched successfully: ${options.length} unique projects`)
     return options
 
   } catch (error: any) {

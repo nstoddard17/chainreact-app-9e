@@ -51,7 +51,7 @@ export function useFieldLabels({ setValue }: UseFieldLabelsProps): UseFieldLabel
     // Save the label if provided
     if (label) {
       labelsRef.current[fieldName] = label
-      logger.debug('[useFieldLabels] Saved label:', { fieldName, value, label })
+      logger.info('[useFieldLabels] Saved label:', { fieldName, value, label })
     }
   }, [setValue])
 
@@ -61,7 +61,7 @@ export function useFieldLabels({ setValue }: UseFieldLabelsProps): UseFieldLabel
    */
   const recordLabel = useCallback((fieldName: string, label: string) => {
     labelsRef.current[fieldName] = label
-    logger.debug('[useFieldLabels] Recorded label:', { fieldName, label })
+    logger.info('[useFieldLabels] Recorded label:', { fieldName, label })
   }, [])
 
   /**

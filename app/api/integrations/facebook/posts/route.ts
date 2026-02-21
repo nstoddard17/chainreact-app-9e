@@ -7,12 +7,12 @@ import { logger } from '@/lib/utils/logger'
 
 // Function to list page posts using page access token
 async function listPagePosts(pageId: string, pageAccessToken: string) {
-  logger.debug(`📝 Fetching posts from page ${pageId}...`)
+  logger.info(`📝 Fetching posts from page ${pageId}...`)
   
   // Check if we have the app secret for appsecret_proof
   const appSecret = process.env.FACEBOOK_CLIENT_SECRET
   if (!appSecret) {
-    logger.debug('⚠️ FACEBOOK_CLIENT_SECRET not found, making request without appsecret_proof')
+    logger.info('⚠️ FACEBOOK_CLIENT_SECRET not found, making request without appsecret_proof')
     
     const response = await fetch(
       `https://graph.facebook.com/v17.0/${pageId}/posts?access_token=${pageAccessToken}`
@@ -27,7 +27,7 @@ async function listPagePosts(pageId: string, pageAccessToken: string) {
     const data = await response.json()
     const posts = data.data || []
     
-    logger.debug(`✅ Successfully fetched ${posts.length} posts`)
+    logger.info(`✅ Successfully fetched ${posts.length} posts`)
     return posts
   }
   
@@ -50,37 +50,37 @@ async function listPagePosts(pageId: string, pageAccessToken: string) {
   const data = await response.json()
   const posts = data.data || []
   
-  logger.debug(`✅ Successfully fetched ${posts.length} posts`)
+  logger.info(`✅ Successfully fetched ${posts.length} posts`)
   return posts
 }
 
 export async function POST(request: NextRequest) {
   try {
-    logger.debug('🔄 Facebook posts API called')
+    logger.info('🔄 Facebook posts API called')
     
     const body = await request.json()
     const { pageId, userId } = body
-    logger.debug('📝 Request body:', { pageId, userId })
+    logger.info('📝 Request body:', { pageId, userId })
 
     if (!pageId) {
-      logger.debug('❌ Missing pageId')
+      logger.info('❌ Missing pageId')
       return errorResponse('Missing pageId' , 400)
     }
 
     // Get user's Facebook integration
-    logger.debug('🔍 Getting Supabase client')
+    logger.info('🔍 Getting Supabase client')
     const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user } } = await supabase.auth.getUser()
     
-    logger.debug('👤 User:', user ? { id: user.id } : null)
+    logger.info('👤 User:', user ? { id: user.id } : null)
     
     if (!user) {
-      logger.debug('❌ No user found')
+      logger.info('❌ No user found')
       return errorResponse('Unauthorized' , 401)
     }
 
     // Get Facebook access token
-    logger.debug('🔍 Getting Facebook integration for user:', user.id)
+    logger.info('🔍 Getting Facebook integration for user:', user.id)
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('access_token, refresh_token, expires_at')
@@ -88,11 +88,11 @@ export async function POST(request: NextRequest) {
       .eq('provider', 'facebook')
       .single()
 
-    logger.debug('🔍 Integration result:', integration ? { hasToken: !!integration.access_token, expiresAt: integration.expires_at } : null)
-    logger.debug('🔍 Integration error:', integrationError)
+    logger.info('🔍 Integration result:', integration ? { hasToken: !!integration.access_token, expiresAt: integration.expires_at } : null)
+    logger.info('🔍 Integration error:', integrationError)
 
     if (!integration) {
-      logger.debug('❌ Facebook integration not found')
+      logger.info('❌ Facebook integration not found')
       return errorResponse('Facebook integration not found' , 404)
     }
 
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     let userAccessToken = integration.access_token
     
     if (integration.expires_at && new Date(integration.expires_at) <= new Date()) {
-      logger.debug('🔄 Token is expired, refreshing...')
+      logger.info('🔄 Token is expired, refreshing...')
       
       if (integration.refresh_token) {
         try {
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
           if (refreshResponse.ok) {
             const refreshData = await refreshResponse.json()
             userAccessToken = refreshData.access_token
-            logger.debug('✅ Token refreshed successfully')
+            logger.info('✅ Token refreshed successfully')
 
             // Update the token in the database
             await supabase
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
         : `Post ${post.id} (${new Date(post.created_time).toLocaleDateString()})`
     }))
 
-    logger.debug(`✅ Successfully formatted ${formattedPosts.length} posts`)
+    logger.info(`✅ Successfully formatted ${formattedPosts.length} posts`)
     return jsonResponse({ data: formattedPosts })
 
   } catch (error) {

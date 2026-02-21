@@ -87,25 +87,25 @@ export default function MemberManagement({ organizationId, userRole }: Props) {
 
   const fetchInvitations = async () => {
     try {
-      logger.debug('MemberManagement: Fetching invitations for organization:', organizationId)
-      logger.debug('MemberManagement: User role:', userRole)
+      logger.info('MemberManagement: Fetching invitations for organization:', organizationId)
+      logger.info('MemberManagement: User role:', userRole)
       
       const response = await fetch(`/api/organizations/${organizationId}/invitations`)
-      logger.debug('MemberManagement: Response status:', response.status)
+      logger.info('MemberManagement: Response status:', response.status)
       
       if (!response.ok) {
         const errorData = await response.json()
-        logger.debug('MemberManagement: Error response:', errorData)
+        logger.info('MemberManagement: Error response:', errorData)
         
         // Don't show error for non-admin users, just don't fetch invitations
         if (response.status === 403 && errorData.error === "Insufficient permissions") {
-          logger.debug('User is not admin, skipping invitations fetch')
+          logger.info('User is not admin, skipping invitations fetch')
           return
         }
         throw new Error(errorData.error || 'Failed to fetch invitations')
       }
       const data = await response.json()
-      logger.debug('MemberManagement: Invitations data:', data)
+      logger.info('MemberManagement: Invitations data:', data)
       setInvitations(data)
     } catch (error) {
       logger.error('Error fetching invitations:', error)

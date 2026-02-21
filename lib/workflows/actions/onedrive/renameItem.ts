@@ -58,7 +58,7 @@ export async function renameOnedriveItem(
     const oldItemDetails = await itemResponse.json()
     const oldName = oldItemDetails.name
 
-    logger.debug('[OneDrive] Renaming item:', {
+    logger.info('[OneDrive] Renaming item:', {
       id: targetItemId,
       oldName,
       newName

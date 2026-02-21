@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    logger.debug('[generate-signin-token] Generated magic link for cross-device sign-in:', {
+    logger.info('[generate-signin-token] Generated magic link for cross-device sign-in:', {
       userId,
       email: email.substring(0, 3) + '***'
     })

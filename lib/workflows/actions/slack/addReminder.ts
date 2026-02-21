@@ -131,7 +131,7 @@ export async function addSlackReminder(params: {
       const encryptionKey = process.env.ENCRYPTION_KEY!
       try {
         accessToken = decrypt(encryptedUserToken, encryptionKey)
-        logger.debug('[Slack Add Reminder] Using user token from metadata')
+        logger.info('[Slack Add Reminder] Using user token from metadata')
       } catch (e) {
         logger.error('[Slack Add Reminder] Failed to decrypt user token:', e)
       }
@@ -141,7 +141,7 @@ export async function addSlackReminder(params: {
     if (!accessToken && integration.access_token) {
       const { decryptToken } = await import('@/lib/integrations/tokenUtils')
       accessToken = await decryptToken(integration.access_token)
-      logger.debug('[Slack Add Reminder] Falling back to main access token')
+      logger.info('[Slack Add Reminder] Falling back to main access token')
     }
 
     if (!accessToken) {
@@ -166,7 +166,7 @@ export async function addSlackReminder(params: {
       reminderPayload.user = targetUserId
     }
 
-    logger.debug('[Slack Add Reminder] Creating reminder:', {
+    logger.info('[Slack Add Reminder] Creating reminder:', {
       text,
       time,
       timeType,

@@ -10,17 +10,17 @@ import { logger } from '@/lib/utils/logger'
 export const getTrelloCardTemplates: TrelloDataHandler<TrelloCardTemplate> = async (integration: TrelloIntegration, options: TrelloHandlerOptions = {}): Promise<TrelloCardTemplate[]> => {
   const { boardId, listId } = options
   
-  logger.debug(`🔍 Fetching trello-card-templates with options:`, options)
+  logger.info(`🔍 Fetching trello-card-templates with options:`, options)
   
   try {
     // Validate integration status
     validateTrelloIntegration(integration)
     
-    logger.debug(`🔍 Validating Trello token...`)
+    logger.info(`🔍 Validating Trello token...`)
     const tokenResult = await validateTrelloToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Trello token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Trello token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -28,13 +28,13 @@ export const getTrelloCardTemplates: TrelloDataHandler<TrelloCardTemplate> = asy
     
     if (boardId) {
       // Fetch cards from specific board
-      logger.debug('🔍 Fetching cards from specific board...')
+      logger.info('🔍 Fetching cards from specific board...')
       const cardsApiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/cards?fields=id,name,desc,idList,idBoard,labels,closed`)
       const cardsResponse = await makeTrelloApiRequest(cardsApiUrl, tokenResult.token!, tokenResult.key)
       cards = await parseTrelloApiResponse<any>(cardsResponse)
     } else {
       // Fetch cards from all boards
-      logger.debug('🔍 Fetching cards from all boards...')
+      logger.info('🔍 Fetching cards from all boards...')
       const cardsApiUrl = buildTrelloApiUrl('/1/members/me/cards?fields=id,name,desc,idList,idBoard,labels,closed')
       const cardsResponse = await makeTrelloApiRequest(cardsApiUrl, tokenResult.token!, tokenResult.key)
       cards = await parseTrelloApiResponse<any>(cardsResponse)
@@ -74,7 +74,7 @@ export const getTrelloCardTemplates: TrelloDataHandler<TrelloCardTemplate> = asy
       }
     }
     
-    logger.debug(`✅ Trello card templates fetched successfully: ${cardTemplates.length} cards`)
+    logger.info(`✅ Trello card templates fetched successfully: ${cardTemplates.length} cards`)
     return cardTemplates
     
   } catch (error: any) {

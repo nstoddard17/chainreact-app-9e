@@ -37,7 +37,7 @@ export async function createGoogleDocument(
       }
     }
 
-    logger.debug(`[Google Docs] Creating document: "${title}"`)
+    logger.info(`[Google Docs] Creating document: "${title}"`)
 
     // Setup OAuth2 client
     const oauth2Client = new google.auth.OAuth2()
@@ -52,7 +52,7 @@ export async function createGoogleDocument(
     // Step 1: Create the document based on content source
     if (contentSource === 'file_upload' && uploadedFile) {
       // Handle file upload - upload the file to Google Drive with the specified title
-      logger.debug('[Google Docs] Uploading file to Google Drive')
+      logger.info('[Google Docs] Uploading file to Google Drive')
 
       // uploadedFile should be an array with file object containing base64 data
       const fileArray = Array.isArray(uploadedFile) ? uploadedFile : [uploadedFile]
@@ -76,7 +76,7 @@ export async function createGoogleDocument(
       const base64Data = file.url.includes(',') ? file.url.split(',')[1] : file.url
       const fileBuffer = Buffer.from(base64Data, 'base64')
 
-      logger.debug(`[Google Docs] Uploading ${file.name} (${file.size} bytes, ${file.type})`)
+      logger.info(`[Google Docs] Uploading ${file.name} (${file.size} bytes, ${file.type})`)
 
       // Upload file to Google Drive with the user-specified title
       const uploadResponse = await drive.files.create({
@@ -95,7 +95,7 @@ export async function createGoogleDocument(
       documentId = uploadResponse.data.id!
       documentUrl = uploadResponse.data.webViewLink || `https://drive.google.com/file/d/${documentId}/view`
 
-      logger.debug(`[Google Docs] File uploaded successfully with ID: ${documentId}`)
+      logger.info(`[Google Docs] File uploaded successfully with ID: ${documentId}`)
     } else {
       // Create a new Google Docs document with manual content
       const createResponse = await docs.documents.create({
@@ -107,7 +107,7 @@ export async function createGoogleDocument(
       documentId = createResponse.data.documentId!
       documentUrl = `https://docs.google.com/document/d/${documentId}/edit`
 
-      logger.debug(`[Google Docs] Document created with ID: ${documentId}`)
+      logger.info(`[Google Docs] Document created with ID: ${documentId}`)
 
       // Add content if provided
       if (content && content.trim()) {
@@ -126,7 +126,7 @@ export async function createGoogleDocument(
             ],
           },
         })
-        logger.debug(`[Google Docs] Inserted ${content.length} characters of content`)
+        logger.info(`[Google Docs] Inserted ${content.length} characters of content`)
       }
 
       // Move to folder if specified (only needed for manual content, file upload handles this above)
@@ -136,14 +136,14 @@ export async function createGoogleDocument(
           addParents: folderId,
           fields: 'id, parents',
         })
-        logger.debug(`[Google Docs] Moved document to folder: ${folderId}`)
+        logger.info(`[Google Docs] Moved document to folder: ${folderId}`)
       }
     }
 
     // Step 2: Handle sharing if enabled
     const sharedWith: string[] = []
     if (enableSharing) {
-      logger.debug(`[Google Docs] Configuring sharing: ${shareType}`)
+      logger.info(`[Google Docs] Configuring sharing: ${shareType}`)
 
       if (shareType === 'anyone_with_link') {
         await drive.permissions.create({
@@ -153,7 +153,7 @@ export async function createGoogleDocument(
             type: 'anyone',
           },
         })
-        logger.debug('[Google Docs] Document shared with anyone with the link')
+        logger.info('[Google Docs] Document shared with anyone with the link')
       } else if (shareType === 'make_public') {
         await drive.permissions.create({
           fileId: documentId,
@@ -162,7 +162,7 @@ export async function createGoogleDocument(
             type: 'anyone',
           },
         })
-        logger.debug('[Google Docs] Document made public')
+        logger.info('[Google Docs] Document made public')
       } else if (shareType === 'specific_users' && emails) {
         const emailList = Array.isArray(emails)
           ? emails
@@ -190,7 +190,7 @@ export async function createGoogleDocument(
             })
 
             sharedWith.push(email)
-            logger.debug(`[Google Docs] Shared with ${email} as ${permission}`)
+            logger.info(`[Google Docs] Shared with ${email} as ${permission}`)
           }
         }
       }
@@ -203,13 +203,13 @@ export async function createGoogleDocument(
             copyRequiresWriterPermission: true,
           },
         })
-        logger.debug('[Google Docs] Download/print/copy disabled')
+        logger.info('[Google Docs] Download/print/copy disabled')
       }
     }
 
     const documentUrl = `https://docs.google.com/document/d/${documentId}/edit`
 
-    logger.debug(`[Google Docs] Document created successfully: ${documentUrl}`)
+    logger.info(`[Google Docs] Document created successfully: ${documentUrl}`)
 
     return {
       success: true,

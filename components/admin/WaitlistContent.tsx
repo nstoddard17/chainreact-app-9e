@@ -88,7 +88,7 @@ export default function WaitlistContent() {
         }
         setWaitlistMembers([])
       } else {
-        logger.debug(`Fetched ${result.data?.length || 0} waitlist members`)
+        logger.info(`Fetched ${result.data?.length || 0} waitlist members`)
         setWaitlistMembers(result.data || [])
       }
     } catch (err) {

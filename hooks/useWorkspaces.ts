@@ -87,7 +87,7 @@ export function useWorkspaces() {
       })
 
       setWorkspaces(options)
-      logger.debug('[useWorkspaces] Fetched workspaces:', {
+      logger.info('[useWorkspaces] Fetched workspaces:', {
         total: options.length,
         teams: teams.length,
         orgs: organizations.length

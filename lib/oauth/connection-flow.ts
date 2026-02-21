@@ -84,7 +84,7 @@ export class OAuthConnectionFlow {
           shop = `${shop}.myshopify.com`
         }
 
-        logger.debug('[OAuthConnectionFlow] Shopify shop entered:', shop)
+        logger.info('[OAuthConnectionFlow] Shopify shop entered:', shop)
       }
 
       // Step 1: Generate OAuth URL

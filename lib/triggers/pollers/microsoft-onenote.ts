@@ -175,7 +175,7 @@ export const microsoftOnenotePollingHandler: PollingHandler = {
 
       // Skip trigger on first poll (just capture baseline)
       if (!previousSnapshot) {
-        logger.debug('[OneNote Poll] First poll - captured baseline snapshot', {
+        logger.info('[OneNote Poll] First poll - captured baseline snapshot', {
           pageCount: Object.keys(snapshot.pageIds).length,
           triggerId: trigger.id
         })
@@ -184,7 +184,7 @@ export const microsoftOnenotePollingHandler: PollingHandler = {
 
       // If no new page found, nothing to do
       if (!newPageId) {
-        logger.debug('[OneNote Poll] No new pages detected', {
+        logger.info('[OneNote Poll] No new pages detected', {
           triggerId: trigger.id,
           workflowId: trigger.workflow_id
         })
@@ -197,7 +197,7 @@ export const microsoftOnenotePollingHandler: PollingHandler = {
 
       const pageData = formatPageOutput(newPage, config.notebookId, config.sectionId)
 
-      logger.debug('[OneNote Poll] New page detected, triggering workflow', {
+      logger.info('[OneNote Poll] New page detected, triggering workflow', {
         pageId: newPageId,
         pageTitle: newPage.title,
         workflowId: trigger.workflow_id
@@ -298,7 +298,7 @@ export const microsoftOnenotePollingHandler: PollingHandler = {
 
       // Skip trigger on first poll (just capture baseline)
       if (!previousSnapshot) {
-        logger.debug('[OneNote Poll] First poll - captured baseline for update detection', {
+        logger.info('[OneNote Poll] First poll - captured baseline for update detection', {
           pageCount: Object.keys(pageLastModified).length,
           triggerId: trigger.id
         })
@@ -307,7 +307,7 @@ export const microsoftOnenotePollingHandler: PollingHandler = {
 
       // If no updated page found, nothing to do
       if (!updatedPageId) {
-        logger.debug('[OneNote Poll] No page updates detected', {
+        logger.info('[OneNote Poll] No page updates detected', {
           triggerId: trigger.id,
           workflowId: trigger.workflow_id,
           watchingSpecificPage: !!config.pageId
@@ -321,7 +321,7 @@ export const microsoftOnenotePollingHandler: PollingHandler = {
 
       const pageData = formatPageOutput(updatedPage, config.notebookId, config.sectionId)
 
-      logger.debug('[OneNote Poll] Page update detected, triggering workflow', {
+      logger.info('[OneNote Poll] Page update detected, triggering workflow', {
         pageId: updatedPageId,
         pageTitle: updatedPage.title,
         previousModified: previousModifiedDateTime,
@@ -367,7 +367,7 @@ export const microsoftOnenotePollingHandler: PollingHandler = {
       return
     }
 
-    logger.debug('[OneNote Poll] Completed polling', {
+    logger.info('[OneNote Poll] Completed polling', {
       triggerId: trigger.id,
       workflowId: trigger.workflow_id
     })

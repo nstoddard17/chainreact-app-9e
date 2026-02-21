@@ -69,7 +69,7 @@ export function NotionDatabaseRowsField({
   // Update rows when dynamic options change
   useEffect(() => {
     const loadedRows = dynamicOptions?.[field.name] || []
-    logger.debug('NotionDatabaseRowsField - Loaded rows from dynamicOptions:', {
+    logger.info('NotionDatabaseRowsField - Loaded rows from dynamicOptions:', {
       fieldName: field.name,
       rowCount: loadedRows.length,
       firstRow: loadedRows[0],
@@ -93,7 +93,7 @@ export function NotionDatabaseRowsField({
     if (rows.length > 0) {
       // Use a small timeout to avoid immediate re-renders that could close the modal
       const timeoutId = setTimeout(() => {
-        logger.debug('Syncing rows to parent:', rows.length)
+        logger.info('Syncing rows to parent:', rows.length)
         onChange(rows)
       }, 100)
       return () => clearTimeout(timeoutId)

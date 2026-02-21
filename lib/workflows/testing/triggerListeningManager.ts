@@ -81,7 +81,7 @@ export class TriggerListeningManager {
     if (success) {
       this.listeners.set(listenerId, listener)
       this.notifyStatusChange(triggerNode.id, 'listening')
-      logger.debug(`🎧 Started listening for trigger: ${listener.triggerType}`)
+      logger.info(`🎧 Started listening for trigger: ${listener.triggerType}`)
       return true
     }
 
@@ -102,7 +102,7 @@ export class TriggerListeningManager {
     this.notifyStatusChange(listener.triggerNodeId, 'stopped')
     this.listeners.delete(listenerId)
 
-    logger.debug(`🛑 Stopped listening for trigger: ${listener.triggerType}`)
+    logger.info(`🛑 Stopped listening for trigger: ${listener.triggerType}`)
   }
 
   /**
@@ -247,7 +247,7 @@ export class TriggerListeningManager {
     // Register the webhook endpoint
     await this.registerTestWebhook(listener)
 
-    logger.debug(`🔗 Test webhook URL: ${webhookUrl}`)
+    logger.info(`🔗 Test webhook URL: ${webhookUrl}`)
     return true
   }
 
@@ -405,7 +405,7 @@ export class TriggerListeningManager {
    * Generic polling listener for unsupported triggers
    */
   private async setupPollingListener(listener: TriggerListener): Promise<boolean> {
-    logger.debug(`⚠️ Using polling fallback for ${listener.triggerType}`)
+    logger.info(`⚠️ Using polling fallback for ${listener.triggerType}`)
 
     // Poll every 15 seconds
     listener.pollInterval = setInterval(async () => {
@@ -549,7 +549,7 @@ export class TriggerListeningManager {
       this.onTriggerCallback(event)
     }
 
-    logger.debug(`⚡ Trigger fired: ${event.eventType}`, event.data)
+    logger.info(`⚡ Trigger fired: ${event.eventType}`, event.data)
   }
 
   /**

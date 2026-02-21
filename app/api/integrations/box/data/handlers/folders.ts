@@ -8,7 +8,7 @@ import { validateBoxIntegration, validateBoxToken, makeBoxApiRequest, parseBoxAp
 import { logger } from '@/lib/utils/logger'
 
 export const getBoxFolders: BoxDataHandler<BoxFolder> = async (integration: BoxIntegration, options: any = {}): Promise<BoxFolder[]> => {
-  logger.debug("🔍 Box folders fetcher called with integration:", {
+  logger.info("🔍 Box folders fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -19,15 +19,15 @@ export const getBoxFolders: BoxDataHandler<BoxFolder> = async (integration: BoxI
     // Validate integration status
     validateBoxIntegration(integration)
     
-    logger.debug(`🔍 Validating Box token...`)
+    logger.info(`🔍 Validating Box token...`)
     const tokenResult = await validateBoxToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Box token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Box token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    logger.debug('🔍 Fetching Box folders...')
+    logger.info('🔍 Fetching Box folders...')
     
     const { folderId = '0' } = options
     const queryParams = createFolderItemsQueryParams(options)
@@ -74,7 +74,7 @@ export const getBoxFolders: BoxDataHandler<BoxFolder> = async (integration: BoxI
       })
     }
     
-    logger.debug(`✅ Box folders fetched successfully: ${folders.length} folders`)
+    logger.info(`✅ Box folders fetched successfully: ${folders.length} folders`)
     return folders
     
   } catch (error: any) {
@@ -89,7 +89,7 @@ export const getBoxFolders: BoxDataHandler<BoxFolder> = async (integration: BoxI
     }
     
     // Return just the root folder as a fallback
-    logger.debug('🔄 Returning root folder as fallback...')
+    logger.info('🔄 Returning root folder as fallback...')
     return [
       {
         id: "0",

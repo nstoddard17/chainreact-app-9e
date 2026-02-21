@@ -116,10 +116,10 @@ export async function findAirtableRecord(
     if (returnFirst === 'newest' || returnFirst === 'oldest') {
       // Sorting disabled - would cause 422 error "Unknown field name"
       // TODO: Add config option for users to specify their created time field name
-      logger.debug('[findAirtableRecord] Skipping time-based sort - not supported by Airtable REST API')
+      logger.info('[findAirtableRecord] Skipping time-based sort - not supported by Airtable REST API')
     }
 
-    logger.debug('[findAirtableRecord] Searching with formula:', {
+    logger.info('[findAirtableRecord] Searching with formula:', {
       baseId,
       tableName,
       formula: finalFormula,

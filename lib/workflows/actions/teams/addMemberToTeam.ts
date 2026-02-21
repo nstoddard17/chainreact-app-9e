@@ -68,7 +68,7 @@ export async function addTeamsMemberToTeam(
         const searchResult = await userSearchResponse.json()
         if (searchResult.value && searchResult.value.length > 0) {
           resolvedUserId = searchResult.value[0].id
-          logger.debug('[Teams] Resolved user email to ID:', { email: userEmail, userId: resolvedUserId })
+          logger.info('[Teams] Resolved user email to ID:', { email: userEmail, userId: resolvedUserId })
         } else {
           // User not found in directory - they may need to be invited first
           return {

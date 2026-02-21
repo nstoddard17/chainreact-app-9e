@@ -28,7 +28,7 @@ export async function refundGumroadSale(
       requestBody.amount_cents = parseInt(amountCents)
     }
 
-    logger.debug('[refundGumroadSale] Refunding sale:', {
+    logger.info('[refundGumroadSale] Refunding sale:', {
       saleId,
       amountCents
     })

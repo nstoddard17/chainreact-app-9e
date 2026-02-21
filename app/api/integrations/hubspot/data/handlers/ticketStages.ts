@@ -16,7 +16,7 @@ import { logger } from '@/lib/utils/logger'
 export const getHubSpotTicketStages: HubSpotDataHandler<HubSpotTicketStage> = async (integration: HubSpotIntegration, options: HubSpotHandlerOptions = {}): Promise<HubSpotTicketStage[]> => {
   const { pipeline } = options
 
-  logger.debug("🔍 HubSpot ticket stages fetcher called with:", {
+  logger.info("🔍 HubSpot ticket stages fetcher called with:", {
     integrationId: integration.id,
     pipeline,
     hasToken: !!integration.access_token
@@ -26,11 +26,11 @@ export const getHubSpotTicketStages: HubSpotDataHandler<HubSpotTicketStage> = as
     // Validate integration status
     validateHubSpotIntegration(integration)
 
-    logger.debug(`🔍 Validating HubSpot token...`)
+    logger.info(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
@@ -38,7 +38,7 @@ export const getHubSpotTicketStages: HubSpotDataHandler<HubSpotTicketStage> = as
       throw new Error('Pipeline ID is required for fetching ticket stages')
     }
 
-    logger.debug('🔍 Fetching HubSpot ticket stages from API...')
+    logger.info('🔍 Fetching HubSpot ticket stages from API...')
     const apiUrl = buildHubSpotApiUrl(`/crm/v3/pipelines/tickets/${pipeline}`)
 
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
@@ -53,7 +53,7 @@ export const getHubSpotTicketStages: HubSpotDataHandler<HubSpotTicketStage> = as
     // Return the stages from the pipeline
     const stages = data.stages || []
 
-    logger.debug(`✅ HubSpot ticket stages fetched successfully: ${stages.length} stages`)
+    logger.info(`✅ HubSpot ticket stages fetched successfully: ${stages.length} stages`)
     return stages
 
   } catch (error: any) {

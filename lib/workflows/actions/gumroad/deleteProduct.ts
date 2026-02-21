@@ -22,7 +22,7 @@ export async function deleteGumroadProduct(
 
     const url = `https://api.gumroad.com/v2/products/${encodeURIComponent(productId)}?access_token=${accessToken}`
 
-    logger.debug('[deleteGumroadProduct] Deleting product:', { productId })
+    logger.info('[deleteGumroadProduct] Deleting product:', { productId })
 
     const response = await fetch(url, {
       method: "DELETE",

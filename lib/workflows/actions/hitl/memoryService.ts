@@ -471,7 +471,7 @@ export async function processConversationLearnings(
   const isMemoryEnabled = config.enableMemory === true || config.enableMemory === 'true'
 
   if (!isMemoryEnabled) {
-    logger.debug('[Memory] Learning disabled for this conversation')
+    logger.info('[Memory] Learning disabled for this conversation')
     return
   }
 

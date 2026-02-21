@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   const baseUrl = getBaseUrl()
   const provider = 'gumroad'
 
-  logger.debug(`🔍 ${provider} callback called:`, {
+  logger.info(`🔍 ${provider} callback called:`, {
     url: url.toString(),
     hasCode: !!code,
     hasState: !!state,
@@ -294,7 +294,7 @@ export async function GET(request: NextRequest) {
       // Don't fail the whole flow if permissions fail
     }
 
-    logger.debug(`✅ ${provider} integration successfully saved`)
+    logger.info(`✅ ${provider} integration successfully saved`)
 
     return createPopupResponse(
       'success',

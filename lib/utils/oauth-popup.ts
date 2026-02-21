@@ -86,7 +86,7 @@ export function sendOAuthComplete(success: boolean, error?: string, provider?: s
   
   // Try to send via postMessage first
   if (window.opener && !window.opener.closed) {
-    logger.debug('Sending OAuth complete via postMessage:', message)
+    logger.info('Sending OAuth complete via postMessage:', message)
     window.opener.postMessage(message, window.location.origin)
   }
   
@@ -97,7 +97,7 @@ export function sendOAuthComplete(success: boolean, error?: string, provider?: s
     ...message,
     timestamp: new Date().toISOString()
   }))
-  logger.debug('Stored OAuth response in localStorage with key:', storageKey)
+  logger.info('Stored OAuth response in localStorage with key:', storageKey)
   
   // Close the popup after a short delay
   setTimeout(() => {

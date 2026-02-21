@@ -160,7 +160,7 @@ export async function createOutlookCalendarEvent(
     if (timeZone === 'user-timezone' || !timeZone) {
       // Use Intl API to get the user's timezone
       eventTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      logger.debug(`[Outlook Calendar] Auto-detected user timezone: ${eventTimeZone}`)
+      logger.info(`[Outlook Calendar] Auto-detected user timezone: ${eventTimeZone}`)
     }
 
     // Parse dates and times with proper validation

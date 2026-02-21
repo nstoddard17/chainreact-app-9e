@@ -13,7 +13,7 @@ export default function ProfileDebug() {
   const { user, profile, initialize } = useAuthStore()
 
   const refreshProfile = async () => {
-    logger.debug("🔄 Manually refreshing profile...")
+    logger.info("🔄 Manually refreshing profile...")
     await initialize()
   }
 
@@ -21,46 +21,46 @@ export default function ProfileDebug() {
     if (!user?.id) return
     
     try {
-      logger.debug("🔍 Checking database profile for user:", user.id)
+      logger.info("🔍 Checking database profile for user:", user.id)
       
       // Try with role column
-      logger.debug("1. Trying query with role column...")
+      logger.info("1. Trying query with role column...")
       const { data: withRole, error: withRoleError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
         .single()
       
-      logger.debug("With role column:", { data: withRole, error: withRoleError })
+      logger.info("With role column:", { data: withRole, error: withRoleError })
       
       // Try without role column
-      logger.debug("2. Trying query without role column...")
+      logger.info("2. Trying query without role column...")
       const { data: withoutRole, error: withoutRoleError } = await supabase
         .from('user_profiles')
         .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, created_at, updated_at')
         .eq('id', user.id)
         .single()
       
-      logger.debug("Without role column:", { data: withoutRole, error: withoutRoleError })
+      logger.info("Without role column:", { data: withoutRole, error: withoutRoleError })
       
       // Try minimal query
-      logger.debug("3. Trying minimal query...")
+      logger.info("3. Trying minimal query...")
       const { data: minimal, error: minimalError } = await supabase
         .from('user_profiles')
         .select('id, full_name, username')
         .eq('id', user.id)
         .single()
       
-      logger.debug("Minimal query:", { data: minimal, error: minimalError })
+      logger.info("Minimal query:", { data: minimal, error: minimalError })
       
       // Try without single() to see if it's a single record issue
-      logger.debug("4. Trying without single()...")
+      logger.info("4. Trying without single()...")
       const { data: multiple, error: multipleError } = await supabase
         .from('user_profiles')
         .select('id, full_name, username')
         .eq('id', user.id)
       
-      logger.debug("Multiple records query:", { data: multiple, error: multipleError })
+      logger.info("Multiple records query:", { data: multiple, error: multipleError })
       
       alert(`Check console for detailed database profile results. 
       

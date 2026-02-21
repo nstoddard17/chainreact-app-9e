@@ -43,7 +43,7 @@ export function NotionDeletableBlocksField({
   loadOptions,
   setFieldValue
 }: NotionDeletableBlocksFieldProps) {
-  logger.debug('🗑️ [NotionDeletableBlocksField] Component rendering with:', {
+  logger.info('🗑️ [NotionDeletableBlocksField] Component rendering with:', {
     hasValue: !!value,
     valueKeys: Object.keys(value || {}),
     page: values?.page,
@@ -89,7 +89,7 @@ export function NotionDeletableBlocksField({
 
   // Fetch blocks when page changes
   useEffect(() => {
-    logger.debug('🗑️ [NotionDeletableBlocksField] useEffect triggered with:', {
+    logger.info('🗑️ [NotionDeletableBlocksField] useEffect triggered with:', {
       page: values.page,
       workspace: values.workspace,
       lastFetchedPage: lastFetchedPageRef.current,
@@ -99,14 +99,14 @@ export function NotionDeletableBlocksField({
 
     const fetchBlocks = async () => {
       if (!values.page || !values.workspace) {
-        logger.debug('🗑️ [NotionDeletableBlocksField] Missing page or workspace, skipping fetch')
+        logger.info('🗑️ [NotionDeletableBlocksField] Missing page or workspace, skipping fetch')
         setBlocks([])
         return
       }
 
       // Prevent duplicate fetches
       if (lastFetchedPageRef.current === values.page && blocks.length > 0) {
-        logger.debug('🗑️ [NotionDeletableBlocksField] Already fetched for this page, skipping')
+        logger.info('🗑️ [NotionDeletableBlocksField] Already fetched for this page, skipping')
         return
       }
 
@@ -116,12 +116,12 @@ export function NotionDeletableBlocksField({
       try {
         const integration = getIntegrationByProvider('notion')
         if (!integration) {
-          logger.debug('🗑️ [NotionDeletableBlocksField] No Notion integration found')
+          logger.info('🗑️ [NotionDeletableBlocksField] No Notion integration found')
           setBlocks([])
           return
         }
 
-        logger.debug('🗑️ [NotionDeletableBlocksField] Fetching deletable blocks for page:', values.page)
+        logger.info('🗑️ [NotionDeletableBlocksField] Fetching deletable blocks for page:', values.page)
 
         const response = await fetch('/api/integrations/notion/data', {
           method: 'POST',
@@ -144,7 +144,7 @@ export function NotionDeletableBlocksField({
         const result = await response.json()
         const data = result.data || result
 
-        logger.debug('🗑️ [NotionDeletableBlocksField] Received blocks:', data)
+        logger.info('🗑️ [NotionDeletableBlocksField] Received blocks:', data)
 
         if (Array.isArray(data)) {
           setBlocks(data)

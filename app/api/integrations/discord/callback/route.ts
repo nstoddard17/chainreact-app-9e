@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 
   // If we have a guild_id, this is a bot OAuth flow (not user integration)
   if (guildId) {
-    logger.debug("Bot OAuth detected by guild_id:", guildId)
+    logger.info("Bot OAuth detected by guild_id:", guildId)
     return createBotCallbackResponse("success", guildId, baseUrl)
   }
 
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       if (scopes.includes("bot")) {
         // This shouldn't happen here since we check guild_id above,
         // but handle it just in case
-        logger.debug("Bot OAuth detected by scope")
+        logger.info("Bot OAuth detected by scope")
         throw new Error("Bot OAuth should be handled separately")
       }
 

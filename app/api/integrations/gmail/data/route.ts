@@ -49,17 +49,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { integrationId, dataType, options = {} } = body
 
-    logger.debug('🔍 [Gmail Data API] Request:', { integrationId, dataType, options })
+    logger.info('🔍 [Gmail Data API] Request:', { integrationId, dataType, options })
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      logger.debug('❌ [Gmail Data API] Missing required parameters')
+      logger.info('❌ [Gmail Data API] Missing required parameters')
       return errorResponse('Missing required parameters: integrationId and dataType' , 400)
     }
 
     // Check if data type is supported
     if (!isGmailDataTypeSupported(dataType)) {
-      logger.debug('❌ [Gmail Data API] Unsupported data type:', dataType)
+      logger.info('❌ [Gmail Data API] Unsupported data type:', dataType)
       return jsonResponse({
         error: `Data type '${dataType}' not supported. Available types: ${getAvailableGmailDataTypes().join(', ')}`
       }, { status: 400 })
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     if (cached) {
       // If we have a cached result and it's still fresh, return it
       if (cached.result && (now - cached.timestamp) < CACHE_RESULT_TTL_MS) {
-        logger.debug(`⚡ [Gmail Data API] Returning cached result for: ${dataType}`)
+        logger.info(`⚡ [Gmail Data API] Returning cached result for: ${dataType}`)
         return jsonResponse({
           data: cached.result,
           meta: {
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
       // If there's a request in flight within the dedup window, wait for it
       if ((now - cached.timestamp) < DEDUP_WINDOW_MS) {
-        logger.debug(`⏳ [Gmail Data API] Waiting for in-flight request: ${dataType}`)
+        logger.info(`⏳ [Gmail Data API] Waiting for in-flight request: ${dataType}`)
         try {
           const result = await cached.promise
           return jsonResponse({
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
           })
         } catch (error) {
           // If the previous request failed, continue with a new request
-          logger.debug(`⚠️ [Gmail Data API] Previous request failed, making new request: ${dataType}`)
+          logger.info(`⚠️ [Gmail Data API] Previous request failed, making new request: ${dataType}`)
         }
       }
     }
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
     // If not found and this is a cross-provider request (e.g., gmail-contacts from Google Drive),
     // find the user's Gmail integration by user_id
     if (integrationError || !integration) {
-      logger.debug('🔍 [Gmail Data API] Gmail integration not found by ID, trying to find by user_id...')
+      logger.info('🔍 [Gmail Data API] Gmail integration not found by ID, trying to find by user_id...')
 
       // First get the original integration to find the user_id
       const { data: originalIntegration } = await getSupabase()
@@ -143,11 +143,11 @@ export async function POST(req: NextRequest) {
           .maybeSingle()
 
         if (gmailIntegration) {
-          logger.debug('✅ [Gmail Data API] Found Gmail integration for user:', { userId: originalIntegration.user_id })
+          logger.info('✅ [Gmail Data API] Found Gmail integration for user:', { userId: originalIntegration.user_id })
           integration = gmailIntegration
           integrationError = null
         } else {
-          logger.debug('❌ [Gmail Data API] No Gmail integration found for user')
+          logger.info('❌ [Gmail Data API] No Gmail integration found for user')
           return errorResponse('Gmail integration not found. Please connect your Gmail account first.', 404, {
             needsConnection: true,
             provider: 'gmail'
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status - allow 'connected' status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      logger.debug('⚠️ [Gmail Data API] Integration not connected:', integration.status)
+      logger.info('⚠️ [Gmail Data API] Integration not connected:', integration.status)
       return errorResponse('Gmail integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Execute the handler with caching
-    logger.debug(`🚀 [Gmail Data API] Executing handler for: ${dataType}`)
+    logger.info(`🚀 [Gmail Data API] Executing handler for: ${dataType}`)
     const startTime = Date.now()
 
     // Create a promise for the handler execution
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
     }
 
     const duration = Date.now() - startTime
-    logger.debug(`✅ [Gmail Data API] Handler completed in ${duration}ms, returned ${Array.isArray(result) ? result.length : 'non-array'} items`)
+    logger.info(`✅ [Gmail Data API] Handler completed in ${duration}ms, returned ${Array.isArray(result) ? result.length : 'non-array'} items`)
 
     return jsonResponse({
       data: result,

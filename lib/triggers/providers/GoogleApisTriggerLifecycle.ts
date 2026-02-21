@@ -44,7 +44,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, nodeId, triggerType, providerId, config, testMode } = context
 
     const modeLabel = testMode ? '🧪 TEST' : '🔔 PRODUCTION'
-    logger.debug(`${modeLabel} Activating Google API trigger for workflow ${workflowId}`, {
+    logger.info(`${modeLabel} Activating Google API trigger for workflow ${workflowId}`, {
       triggerType,
       providerId,
       config,
@@ -200,14 +200,14 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       if (insertError) {
         if (insertError.code === '23503') {
           logger.warn(`ƒsÿ‹,? Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-          logger.debug(`ƒo. Google Sheets watch created (without local record): ${watch.channelId}`)
+          logger.info(`ƒo. Google Sheets watch created (without local record): ${watch.channelId}`)
           return
         }
         logger.error(`ƒ?O Failed to store trigger resource:`, insertError)
         throw new Error(`Failed to store trigger resource: ${insertError.message}`)
       }
 
-      logger.debug(`ƒo. Google Sheets watch created: ${watch.channelId}`)
+      logger.info(`ƒo. Google Sheets watch created: ${watch.channelId}`)
       return
     }
 
@@ -220,7 +220,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       ? `chainreact-test-${testMode.testSessionId}-${Date.now()}`
       : `chainreact-${workflowId}-${Date.now()}`
 
-    logger.debug(`📤 Creating Google push notification`, {
+    logger.info(`📤 Creating Google push notification`, {
       api,
       resourceId,
       channelId,
@@ -274,7 +274,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       test_session_id: testMode?.testSessionId ?? null
     }
 
-    logger.debug(`📝 Storing trigger resource:`, resourceData)
+    logger.info(`📝 Storing trigger resource:`, resourceData)
 
     const { error: insertError } = await getSupabase().from('trigger_resources').insert(resourceData)
 
@@ -283,14 +283,14 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       // The watch was already created successfully with Google, so we can continue
       if (insertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-        logger.debug(`✅ Google ${api} push notification created (without local record): ${channelData.id}`)
+        logger.info(`✅ Google ${api} push notification created (without local record): ${channelData.id}`)
         return // Don't throw - the watch is active, just not tracked locally
       }
       logger.error(`❌ Failed to store trigger resource:`, insertError)
       throw new Error(`Failed to store trigger resource: ${insertError.message}`)
     }
 
-    logger.debug(`✅ Google ${api} push notification created: ${channelData.id}`)
+    logger.info(`✅ Google ${api} push notification created: ${channelData.id}`)
     // Note: trigger_resources is the source of truth for Gmail triggers
     // Gmail processor has been updated to fall back to trigger_resources if no webhook_configs found
   }
@@ -314,7 +314,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       ? config.labelIds
       : ['INBOX']
 
-    logger.debug(`📧 Creating Gmail watch with Pub/Sub topic: ${pubsubTopic}`, {
+    logger.info(`📧 Creating Gmail watch with Pub/Sub topic: ${pubsubTopic}`, {
       labelIds,
       labelFilterAction: 'include'
     })
@@ -328,7 +328,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       }
     })
 
-    logger.debug(`✅ Gmail watch created - historyId: ${response.data.historyId}`, {
+    logger.info(`✅ Gmail watch created - historyId: ${response.data.historyId}`, {
       watchingFolders: labelIds.join(', ')
     })
 
@@ -393,7 +393,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, nodeId, testSessionId } = context
 
     const modeLabel = testSessionId ? '🧪 TEST' : nodeId ? '🗑️ NODE' : '🛑 PRODUCTION'
-    logger.debug(`${modeLabel} Deactivating Google API triggers for workflow ${workflowId}${nodeId ? ` node ${nodeId}` : ''}`)
+    logger.info(`${modeLabel} Deactivating Google API triggers for workflow ${workflowId}${nodeId ? ` node ${nodeId}` : ''}`)
 
     // Build query based on whether we're deactivating test or production triggers
     let query = getSupabase()
@@ -418,7 +418,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
 
     if (!resources || resources.length === 0) {
       const suffix = nodeId ? ` (node ${nodeId})` : testSessionId ? ` (session ${testSessionId})` : ''
-      logger.debug(`ℹ️ No active Google API subscriptions for workflow ${workflowId}${suffix}`)
+      logger.info(`ℹ️ No active Google API subscriptions for workflow ${workflowId}${suffix}`)
       return
     }
 
@@ -507,7 +507,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        logger.debug(`✅ Stopped Google ${api} subscription: ${channelId}`)
+        logger.info(`✅ Stopped Google ${api} subscription: ${channelId}`)
       } catch (error) {
         logger.error(`❌ Failed to stop subscription ${resource.external_id}:`, error)
         await getSupabase()

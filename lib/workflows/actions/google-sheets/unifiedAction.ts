@@ -13,7 +13,7 @@ export async function executeGoogleSheetsUnifiedAction(
   try {
     const action = resolveValue(config.action, input)
     
-    logger.debug('🔄 [Google Sheets Unified Action] Received config:', {
+    logger.info('🔄 [Google Sheets Unified Action] Received config:', {
       action,
       configKeys: Object.keys(config),
       deleteSpecific: {
@@ -67,7 +67,7 @@ export async function executeGoogleSheetsUnifiedAction(
           updateMultiple: config.updateMultiple
         }
         
-        logger.debug('🔄 Google Sheets Update - Unified Action Config:', {
+        logger.info('🔄 Google Sheets Update - Unified Action Config:', {
           originalConfig: config,
           mappedConfig: updateConfig
         })

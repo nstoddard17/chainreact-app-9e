@@ -11,7 +11,7 @@ export async function onenoteListNotebooks(
   const { orderBy = "displayName asc" } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would list OneNote notebooks")
+    logger.info("[TEST MODE] Would list OneNote notebooks")
     return {
       success: true,
       output: {

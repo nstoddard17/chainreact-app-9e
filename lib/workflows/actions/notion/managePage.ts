@@ -294,7 +294,7 @@ export async function executeNotionManagePage(
 
       case 'update':
         // Debug log to see what data we receive
-        logger.debug('📝 Notion Update - Config received:', {
+        logger.info('📝 Notion Update - Config received:', {
           hasPageFields: !!config.pageFields,
           pageFieldsKeys: config.pageFields ? Object.keys(config.pageFields) : [],
           pageFieldsData: config.pageFields
@@ -307,13 +307,13 @@ export async function executeNotionManagePage(
 
         // Separate block content from page properties
         for (const [key, value] of Object.entries(pageFieldsData)) {
-          logger.debug(`📝 Processing field ${key}:`, value);
+          logger.info(`📝 Processing field ${key}:`, value);
 
           // Check if this is block content
           if (key === 'todo-items' && value && typeof value === 'object') {
             // Handle todo list blocks
             const todoData = value as any;
-            logger.debug('📝 Processing todo-items:', todoData);
+            logger.info('📝 Processing todo-items:', todoData);
             if (todoData.items && Array.isArray(todoData.items)) {
               todoData.items.forEach((item: any) => {
                 const todoBlock = {
@@ -329,14 +329,14 @@ export async function executeNotionManagePage(
                     checked: item.checked || false
                   }
                 };
-                logger.debug('📝 Adding todo block:', todoBlock);
+                logger.info('📝 Adding todo block:', todoBlock);
                 blockContent.push(todoBlock);
               });
             }
           } else if (key.includes('-content') && value) {
             // Handle other content blocks (text, toggle, etc.)
             const blockId = key.replace('-content', '');
-            logger.debug(`📝 Processing content block ${blockId}:`, value);
+            logger.info(`📝 Processing content block ${blockId}:`, value);
             // Determine block type from the ID pattern
             if (typeof value === 'string' && value.trim()) {
               // Add as a paragraph block
@@ -352,12 +352,12 @@ export async function executeNotionManagePage(
                   }]
                 }
               };
-              logger.debug('📝 Adding paragraph block:', paragraphBlock);
+              logger.info('📝 Adding paragraph block:', paragraphBlock);
               blockContent.push(paragraphBlock);
             }
           } else {
             // Regular page property
-            logger.debug(`📝 Adding as page property ${key}:`, value);
+            logger.info(`📝 Adding as page property ${key}:`, value);
             pageProperties[key] = value;
           }
         }
@@ -369,7 +369,7 @@ export async function executeNotionManagePage(
         }
 
         // Debug log the extracted content
-        logger.debug('📝 Notion Update - Extracted content:', {
+        logger.info('📝 Notion Update - Extracted content:', {
           blockContentCount: blockContent.length,
           blockContent: blockContent,
           pagePropertiesKeys: Object.keys(pageProperties),
@@ -399,20 +399,20 @@ export async function executeNotionManagePage(
           // Read explicit block deletions from config (from NotionDeletableBlocksField)
           if (config.blocksToDelete?.selectedBlockIds && Array.isArray(config.blocksToDelete.selectedBlockIds)) {
             blocksToDelete.push(...config.blocksToDelete.selectedBlockIds);
-            logger.debug(`🗑️ Explicit block deletions from config: ${blocksToDelete.length} blocks`);
+            logger.info(`🗑️ Explicit block deletions from config: ${blocksToDelete.length} blocks`);
           }
 
           // Process todo items
           if (pageFieldsData['todo-items'] && pageFieldsData['todo-items'].items) {
             const todoItems = pageFieldsData['todo-items'].items;
-            logger.debug('📝 Processing todo items for update:', todoItems);
+            logger.info('📝 Processing todo items for update:', todoItems);
 
             for (const item of todoItems) {
               // Use blockId if available, otherwise fallback to id
               const blockId = item.blockId || item.id;
               if (blockId && !blockId.startsWith('new-')) {
                 // Existing block - update it
-                logger.debug(`🔄 Updating existing todo block ${blockId}`);
+                logger.info(`🔄 Updating existing todo block ${blockId}`);
                 blockUpdates.push({
                   block_id: blockId,
                   to_do: {
@@ -427,7 +427,7 @@ export async function executeNotionManagePage(
                 });
               } else {
                 // New block - add it
-                logger.debug(`➕ Adding new todo block`);
+                logger.info(`➕ Adding new todo block`);
                 blocksToAdd.push({
                   object: 'block',
                   type: 'to_do',
@@ -462,7 +462,7 @@ export async function executeNotionManagePage(
               for (const originalId of originalIds) {
                 if (!currentIds.has(originalId)) {
                   blocksToDelete.push(originalId);
-                  logger.debug(`🗑️ Marking todo block for deletion: ${originalId}`);
+                  logger.info(`🗑️ Marking todo block for deletion: ${originalId}`);
                 }
               }
             }
@@ -478,7 +478,7 @@ export async function executeNotionManagePage(
 
               if (blockId && blockId.length === 32) { // Notion block IDs are 32 chars without dashes
                 // This is an existing block - update it
-                logger.debug(`🔄 Updating content block ${blockId} (original: ${blockIdWithDashes})`);
+                logger.info(`🔄 Updating content block ${blockId} (original: ${blockIdWithDashes})`);
                 blockUpdates.push({
                   block_id: blockId,
                   paragraph: {
@@ -499,7 +499,7 @@ export async function executeNotionManagePage(
           for (const update of blockUpdates) {
             try {
               const { block_id, ...blockContent } = update;
-              logger.debug(`🔄 Updating block ${block_id}`);
+              logger.info(`🔄 Updating block ${block_id}`);
               const updateBlockConfig = {
                 block_id: block_id,
                 block_content: blockContent
@@ -513,7 +513,7 @@ export async function executeNotionManagePage(
 
           // Add new blocks if any
           if (blocksToAdd.length > 0) {
-            logger.debug(`➕ Adding ${blocksToAdd.length} new blocks`);
+            logger.info(`➕ Adding ${blocksToAdd.length} new blocks`);
             const appendConfig = {
               page_id: config.page,
               blocks: blocksToAdd
@@ -523,7 +523,7 @@ export async function executeNotionManagePage(
 
           // Delete removed blocks if any
           if (blocksToDelete.length > 0) {
-            logger.debug(`🗑️ Deleting ${blocksToDelete.length} blocks`);
+            logger.info(`🗑️ Deleting ${blocksToDelete.length} blocks`);
             for (const blockId of blocksToDelete) {
               try {
                 await notionDeleteBlock({ block_id: blockId }, context);
@@ -533,7 +533,7 @@ export async function executeNotionManagePage(
             }
           }
 
-          logger.debug(`✅ Updated ${updatedCount} blocks, added ${blocksToAdd.length} blocks`);
+          logger.info(`✅ Updated ${updatedCount} blocks, added ${blocksToAdd.length} blocks`);
 
           return {
             success: true,

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const { integrationId, dataType, options = {} } = await req.json()
 
     // Log request to debug spamming issue
-    logger.debug(`📥 [OneDrive API] Request received:`, {
+    logger.info(`📥 [OneDrive API] Request received:`, {
       timestamp: new Date().toISOString(),
       dataType,
       integrationId: `${integrationId?.substring(0, 8) }...`,
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [OneDrive API] Processing request:`, {
+    logger.info(`🔍 [OneDrive API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -88,9 +88,9 @@ export async function POST(req: NextRequest) {
 
     try {
       if (integration.access_token) {
-        logger.debug(`🔑 [OneDrive API] Attempting to decrypt access token...`)
+        logger.info(`🔑 [OneDrive API] Attempting to decrypt access token...`)
         decryptedAccessToken = safeDecrypt(integration.access_token)
-        logger.debug(`✅ [OneDrive API] Access token decrypted, length: ${decryptedAccessToken?.length}`)
+        logger.info(`✅ [OneDrive API] Access token decrypted, length: ${decryptedAccessToken?.length}`)
       }
       if (integration.refresh_token) {
         decryptedRefreshToken = safeDecrypt(integration.refresh_token)
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
       refresh_token: decryptedRefreshToken
     }
 
-    logger.debug(`🔐 [OneDrive API] Token validation:`, {
+    logger.info(`🔐 [OneDrive API] Token validation:`, {
       hasAccessToken: !!decryptedIntegration.access_token,
       accessTokenLength: decryptedIntegration.access_token?.length,
       isValidJWT: decryptedIntegration.access_token?.includes('.'),
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler with decrypted integration
     const data = await handler(decryptedIntegration as OneDriveIntegration, options)
 
-    logger.debug(`✅ [OneDrive API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [OneDrive API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

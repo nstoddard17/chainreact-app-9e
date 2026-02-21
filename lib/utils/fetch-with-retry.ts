@@ -64,7 +64,7 @@ export async function fetchWithRetry(
       : controller.signal
 
     try {
-      logger.debug(`[FetchWithRetry] Attempt ${attempt + 1}/${opts.maxRetries + 1}`, {
+      logger.info(`[FetchWithRetry] Attempt ${attempt + 1}/${opts.maxRetries + 1}`, {
         url: url.toString(),
         method: init?.method || 'GET'
       })

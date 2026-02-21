@@ -8,7 +8,7 @@ import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest
 import { logger } from '@/lib/utils/logger'
 
 export const getHubSpotDepartments: HubSpotDataHandler<HubSpotDepartment> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotDepartment[]> => {
-  logger.debug("🔍 HubSpot departments fetcher called with integration:", {
+  logger.info("🔍 HubSpot departments fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -19,20 +19,20 @@ export const getHubSpotDepartments: HubSpotDataHandler<HubSpotDepartment> = asyn
     // Validate integration status
     validateHubSpotIntegration(integration)
     
-    logger.debug(`🔍 Validating HubSpot token...`)
+    logger.info(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    logger.debug('🔍 Using predefined HubSpot departments list...')
+    logger.info('🔍 Using predefined HubSpot departments list...')
     // Departments are typically custom properties that vary by organization
     // We'll provide a standard list of common departments
     const departments = getDefaultDepartments()
     
-    logger.debug(`✅ HubSpot departments fetched successfully: ${departments.length} departments`)
+    logger.info(`✅ HubSpot departments fetched successfully: ${departments.length} departments`)
     return departments
     
   } catch (error: any) {

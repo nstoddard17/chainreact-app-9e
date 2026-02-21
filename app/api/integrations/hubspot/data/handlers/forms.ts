@@ -22,7 +22,7 @@ export interface HubSpotForm {
 }
 
 export const getHubSpotForms: HubSpotDataHandler<HubSpotForm> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotForm[]> => {
-  logger.debug("🔍 HubSpot forms fetcher called", {
+  logger.info("🔍 HubSpot forms fetcher called", {
     integrationId: integration.id
   })
 
@@ -51,7 +51,7 @@ export const getHubSpotForms: HubSpotDataHandler<HubSpotForm> = async (integrati
       updatedAt: form.updatedAt
     }))
 
-    logger.debug(`✅ Fetched ${forms.length} forms`)
+    logger.info(`✅ Fetched ${forms.length} forms`)
     return forms
 
   } catch (error: any) {

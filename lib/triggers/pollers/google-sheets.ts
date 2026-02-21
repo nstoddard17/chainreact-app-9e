@@ -182,7 +182,7 @@ export const googleSheetsPollingHandler: PollingHandler = {
 
         // Skip if no previous snapshot (first poll establishes baseline)
         if (!previousSnapshot) {
-          logger.debug('[Google Sheets Poll] First poll - baseline established', { triggerId: trigger.id })
+          logger.info('[Google Sheets Poll] First poll - baseline established', { triggerId: trigger.id })
           return
         }
 
@@ -222,7 +222,7 @@ export const googleSheetsPollingHandler: PollingHandler = {
             body: JSON.stringify(executionPayload)
           })
 
-          logger.debug('[Google Sheets Poll] Triggered workflow for new worksheet', {
+          logger.info('[Google Sheets Poll] Triggered workflow for new worksheet', {
             triggerId: trigger.id,
             worksheetName: newSheet.title
           })
@@ -235,7 +235,7 @@ export const googleSheetsPollingHandler: PollingHandler = {
 
     // Handle new row and updated row triggers (both require sheetName)
     if (!config.sheetName) {
-      logger.debug('[Google Sheets Poll] No sheet name configured, skipping', { triggerId: trigger.id })
+      logger.info('[Google Sheets Poll] No sheet name configured, skipping', { triggerId: trigger.id })
       return
     }
 
@@ -283,7 +283,7 @@ export const googleSheetsPollingHandler: PollingHandler = {
 
       // Skip if no previous snapshot (first poll establishes baseline)
       if (!previousSnapshot) {
-        logger.debug('[Google Sheets Poll] First poll - baseline established', { triggerId: trigger.id })
+        logger.info('[Google Sheets Poll] First poll - baseline established', { triggerId: trigger.id })
         return
       }
 
@@ -329,7 +329,7 @@ export const googleSheetsPollingHandler: PollingHandler = {
           body: JSON.stringify(executionPayload)
         })
 
-        logger.debug('[Google Sheets Poll] Triggered workflow for new row', {
+        logger.info('[Google Sheets Poll] Triggered workflow for new row', {
           triggerId: trigger.id,
           rowNumber: rowIndex
         })
@@ -376,7 +376,7 @@ export const googleSheetsPollingHandler: PollingHandler = {
           body: JSON.stringify(executionPayload)
         })
 
-        logger.debug('[Google Sheets Poll] Triggered workflow for updated row', {
+        logger.info('[Google Sheets Poll] Triggered workflow for updated row', {
           triggerId: trigger.id,
           rowNumber: rowIndex
         })
@@ -385,7 +385,7 @@ export const googleSheetsPollingHandler: PollingHandler = {
       logger.error('[Google Sheets Poll] Error polling for row changes', { error, triggerId: trigger.id })
     }
 
-    logger.debug('[Google Sheets Poll] Completed polling', {
+    logger.info('[Google Sheets Poll] Completed polling', {
       triggerId: trigger.id,
       workflowId: trigger.workflow_id
     })

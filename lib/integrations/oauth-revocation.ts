@@ -323,7 +323,7 @@ export async function revokeOAuthToken(
       .replace('{refresh_token}', refreshToken || '')
 
     // Make the revocation request
-    logger.debug(`Revoking ${provider} OAuth token...`, {
+    logger.info(`Revoking ${provider} OAuth token...`, {
       endpoint,
       method: config.method,
       auth: config.auth,

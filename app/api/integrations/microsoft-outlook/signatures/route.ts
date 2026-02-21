@@ -49,14 +49,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    logger.debug('🔍 [OUTLOOK SIGNATURES] POST endpoint called')
+    logger.info('🔍 [OUTLOOK SIGNATURES] POST endpoint called')
     const body = await request.json()
     const { userId, name, content, isDefault } = body
 
-    logger.debug('🔍 [OUTLOOK SIGNATURES] Request body:', { userId, name, hasContent: !!content, isDefault })
+    logger.info('🔍 [OUTLOOK SIGNATURES] Request body:', { userId, name, hasContent: !!content, isDefault })
 
     if (!userId || !name || !content) {
-      logger.debug('❌ [SIGNATURES] Missing required fields')
+      logger.info('❌ [SIGNATURES] Missing required fields')
       return errorResponse('Missing required fields: userId, name, and content are required', 400)
     }
 
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (userError || !userData) {
-      logger.debug('❌ [SIGNATURES] User not found:', userError)
+      logger.info('❌ [SIGNATURES] User not found:', userError)
       return errorResponse('User not found', 404)
     }
 
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (integrationError || !integration) {
-      logger.debug('❌ [OUTLOOK SIGNATURES] Outlook integration not connected')
+      logger.info('❌ [OUTLOOK SIGNATURES] Outlook integration not connected')
       return errorResponse('Microsoft Outlook integration not connected', 401)
     }
 
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     // TODO: Create a custom_signatures table to store user-created signatures
 
     // For now, return success but note that Outlook signatures must be managed in Outlook
-    logger.debug('⚠️ [OUTLOOK SIGNATURES] Outlook API does not support signature creation')
+    logger.info('⚠️ [OUTLOOK SIGNATURES] Outlook API does not support signature creation')
 
     return jsonResponse({
       success: true,

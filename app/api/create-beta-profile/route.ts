@@ -89,11 +89,11 @@ export async function POST(request: Request) {
 
         // Don't throw error if update fails - it's not critical for signup
         if (error) {
-          logger.debug('Note: Could not update beta tester status (non-critical):', error.message)
+          logger.info('Note: Could not update beta tester status (non-critical):', error.message)
         }
       } catch (err) {
         // Log but don't fail the signup
-        logger.debug('Note: Beta tester status update skipped (non-critical):', err)
+        logger.info('Note: Beta tester status update skipped (non-critical):', err)
       }
     }
 

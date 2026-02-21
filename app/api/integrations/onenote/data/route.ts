@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       , 400)
     }
 
-    logger.debug(`🔍 [OneNote API] Looking for integration:`, {
+    logger.info(`🔍 [OneNote API] Looking for integration:`, {
       integrationId,
       dataType,
       options
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`✅ [OneNote API] Found integration with provider: ${integration.provider}`)
+    logger.info(`✅ [OneNote API] Found integration with provider: ${integration.provider}`)
 
     // Validate integration status - accept both 'connected' and 'active'
     if (integration.status !== 'connected' && integration.status !== 'active') {
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [OneNote API] Processing request:`, {
+    logger.info(`🔍 [OneNote API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const result = await handler(integration as OneNoteIntegration, options)
 
-    logger.debug(`✅ [OneNote API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [OneNote API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: result.data?.length || 0,
       hasError: !!result.error

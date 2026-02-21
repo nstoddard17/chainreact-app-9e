@@ -38,7 +38,7 @@ export async function createShopifyProductVariant(
     const productGid = toProductGid(productId)
     const numericProductId = extractNumericId(productGid)
 
-    logger.debug('[Shopify GraphQL] Creating product variant:', { productId: productGid, option1, option2, option3 })
+    logger.info('[Shopify GraphQL] Creating product variant:', { productId: productGid, option1, option2, option3 })
 
     // 4. Build GraphQL mutation for creating variant
     const mutation = `
@@ -94,7 +94,7 @@ export async function createShopifyProductVariant(
     // Note: Inventory quantity in GraphQL is handled differently
     // It requires inventoryItem and location IDs which we may not have
     if (inventoryQuantity > 0) {
-      logger.debug('[Shopify GraphQL] Note: Inventory quantity will be set to default location')
+      logger.info('[Shopify GraphQL] Note: Inventory quantity will be set to default location')
     }
 
     const variables = {

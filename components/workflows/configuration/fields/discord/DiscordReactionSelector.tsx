@@ -25,7 +25,7 @@ export function DiscordReactionSelector({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  logger.debug('🔍 [DiscordReactionSelector] Component rendered with props:', {
+  logger.info('🔍 [DiscordReactionSelector] Component rendered with props:', {
     channelId,
     messageId,
     selectedEmoji
@@ -36,7 +36,7 @@ export function DiscordReactionSelector({
   // Get Discord integration using the same method as ConfigurationForm
   const discordIntegration = getIntegrationByProvider('discord');
   
-  logger.debug('🔍 [DiscordReactionSelector] Integration check:', {
+  logger.info('🔍 [DiscordReactionSelector] Integration check:', {
     integrationsCount: integrations.length,
     discordIntegration: discordIntegration ? 'FOUND' : 'NOT FOUND',
     discordIntegrationId: discordIntegration?.id
@@ -44,7 +44,7 @@ export function DiscordReactionSelector({
 
   // Load reactions when channelId or messageId changes
   useEffect(() => {
-    logger.debug('🔍 [DiscordReactionSelector] useEffect triggered:', {
+    logger.info('🔍 [DiscordReactionSelector] useEffect triggered:', {
       channelId: !!channelId,
       messageId: !!messageId,
       discordIntegration: !!discordIntegration,
@@ -63,7 +63,7 @@ export function DiscordReactionSelector({
       setIsLoading(true);
       setError(null);
       
-      logger.debug('🔍 Loading reactions for message:', messageId, 'in channel:', channelId);
+      logger.info('🔍 Loading reactions for message:', messageId, 'in channel:', channelId);
       
       const reactionsData = await loadIntegrationData(
         'discord_reactions', 
@@ -71,9 +71,9 @@ export function DiscordReactionSelector({
         { channelId, messageId }
       );
       
-      logger.debug('🔍 Raw API response:', reactionsData);
-      logger.debug('🔍 reactionsData.data:', reactionsData.data);
-      logger.debug('🔍 Direct reactionsData:', reactionsData);
+      logger.info('🔍 Raw API response:', reactionsData);
+      logger.info('🔍 reactionsData.data:', reactionsData.data);
+      logger.info('🔍 Direct reactionsData:', reactionsData);
       
       // Try different ways to access the reaction data
       let rawReactions = reactionsData;
@@ -84,14 +84,14 @@ export function DiscordReactionSelector({
         rawReactions = reactionsData.reactions;
       }
       
-      logger.debug('🔍 Raw reactions array:', rawReactions);
+      logger.info('🔍 Raw reactions array:', rawReactions);
       
       // Ensure we have an array
       const reactionsArray = Array.isArray(rawReactions) ? rawReactions : [rawReactions].filter(Boolean);
       
       // Format reaction data
       const formattedReactions = reactionsArray.map((reaction: any, index: number) => {
-        logger.debug(`🔍 Processing reaction ${index}:`, reaction);
+        logger.info(`🔍 Processing reaction ${index}:`, reaction);
         return {
           value: reaction.value || reaction.id || reaction.emoji,
           emoji: reaction.emoji,
@@ -100,7 +100,7 @@ export function DiscordReactionSelector({
         };
       });
       
-      logger.debug('✅ Final formatted reactions:', formattedReactions);
+      logger.info('✅ Final formatted reactions:', formattedReactions);
       setReactions(formattedReactions);
       
     } catch (err: any) {
@@ -189,7 +189,7 @@ export function DiscordReactionSelector({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  logger.debug('🔍 [DiscordReactionSelector] X button clicked for reaction:', reaction.emoji);
+                  logger.info('🔍 [DiscordReactionSelector] X button clicked for reaction:', reaction.emoji);
                   onSelect(reaction.value || reaction.emoji);
                 }}
                 className="ml-1 w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center text-xs transition-colors"

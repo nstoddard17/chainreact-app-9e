@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     const isConfirmed = !!user.email_confirmed_at
 
-    logger.debug('[check-confirmation] Status check:', {
+    logger.info('[check-confirmation] Status check:', {
       userId: user.id,
       email: user.email,
       confirmed: isConfirmed,

@@ -13,7 +13,7 @@ import { logger } from '@/lib/utils/logger'
 export const getSlackUsers: SlackDataHandler<SlackUser> = async (integration: SlackIntegration) => {
   try {
     validateSlackIntegration(integration)
-    logger.debug("👥 [Slack Users] Fetching users")
+    logger.info("👥 [Slack Users] Fetching users")
 
     const response = await makeSlackApiRequest(
       "https://slack.com/api/users.list",
@@ -69,7 +69,7 @@ export const getSlackUsers: SlackDataHandler<SlackUser> = async (integration: Sl
         }
       }))
 
-    logger.debug(`✅ [Slack Users] Retrieved ${users.length} users`)
+    logger.info(`✅ [Slack Users] Retrieved ${users.length} users`)
     return users
 
   } catch (error: any) {

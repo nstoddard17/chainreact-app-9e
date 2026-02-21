@@ -37,7 +37,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, nodeId, triggerType, config, testMode } = context
 
     const modeLabel = testMode ? '🧪 TEST' : '🔔 PRODUCTION'
-    logger.debug(`${modeLabel} Activating Microsoft Graph trigger for workflow ${workflowId}`, {
+    logger.info(`${modeLabel} Activating Microsoft Graph trigger for workflow ${workflowId}`, {
       triggerType,
       configKeys: Object.keys(config || {}),
       testSessionId: testMode?.testSessionId
@@ -50,7 +50,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     let accessToken: string
     try {
       accessToken = await this.graphAuth.getValidAccessToken(userId, provider)
-      logger.debug(`✅ Retrieved valid Microsoft Graph access token for provider: ${provider}`)
+      logger.info(`✅ Retrieved valid Microsoft Graph access token for provider: ${provider}`)
     } catch (error) {
       logger.error('❌ Failed to get valid Microsoft Graph token:', error)
       throw new Error(`Microsoft ${provider} integration not connected or token expired. Please reconnect your Microsoft ${provider} account.`)
@@ -71,7 +71,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Test the token by calling appropriate endpoint to verify permissions
-    logger.debug('🧪 Testing token permissions...')
+    logger.info('🧪 Testing token permissions...')
     try {
       const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
         headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -80,7 +80,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       if (!meResponse.ok) {
         logger.error('❌ /me call failed:', meResponse.status, meResponse.statusText)
       } else {
-        logger.debug('✅ /me call succeeded')
+        logger.info('✅ /me call succeeded')
       }
 
       // Test provider-specific permissions
@@ -95,7 +95,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           logger.error('   Error details:', errorText)
           throw new Error(`Token lacks Mail.Read permission. Status: ${messagesResponse.status}. Please reconnect Microsoft Outlook integration.`)
         } else {
-          logger.debug('✅ /me/messages call succeeded - token has mail read permission')
+          logger.info('✅ /me/messages call succeeded - token has mail read permission')
         }
       }
       if (provider === 'onedrive') {
@@ -109,7 +109,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           logger.error('   Error details:', errorText)
           throw new Error(`Token lacks OneDrive permissions. Status: ${driveResponse.status}. Please reconnect Microsoft OneDrive integration.`)
         } else {
-          logger.debug('✅ /me/drive call succeeded - token has OneDrive permissions')
+          logger.info('✅ /me/drive call succeeded - token has OneDrive permissions')
         }
       }
       // Add other providers (Teams) here as needed
@@ -118,7 +118,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       throw testError
     }
 
-    logger.debug(`📤 Creating Microsoft Graph subscription`, {
+    logger.info(`📤 Creating Microsoft Graph subscription`, {
       resource,
       changeType,
       workflowId
@@ -163,14 +163,14 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
       // The subscription was already created successfully with Microsoft Graph, so we can continue
       if (insertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-        logger.debug(`✅ Microsoft Graph subscription created (without local record): ${subscription.id}`)
+        logger.info(`✅ Microsoft Graph subscription created (without local record): ${subscription.id}`)
         return
       }
       logger.error(`❌ Failed to store trigger resource:`, insertError)
       throw new Error(`Failed to store trigger resource: ${insertError.message}`)
     }
 
-    logger.debug(`✅ Microsoft Graph subscription created and saved to trigger_resources: ${subscription.id}`)
+    logger.info(`✅ Microsoft Graph subscription created and saved to trigger_resources: ${subscription.id}`)
 
     if (triggerType.startsWith('microsoft_excel_') && config?.workbookId && config?.tableName) {
       try {
@@ -228,7 +228,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, nodeId, testSessionId } = context
 
     const modeLabel = testSessionId ? '🧪 TEST' : nodeId ? '🗑️ NODE' : '🛑 PRODUCTION'
-    logger.debug(`${modeLabel} Deactivating Microsoft Graph triggers for workflow ${workflowId}${nodeId ? ` node ${nodeId}` : ''}`)
+    logger.info(`${modeLabel} Deactivating Microsoft Graph triggers for workflow ${workflowId}${nodeId ? ` node ${nodeId}` : ''}`)
 
     // Build query based on whether we're deactivating test or production triggers
     let query = getSupabase()
@@ -253,7 +253,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
 
     if (!resources || resources.length === 0) {
       const suffix = nodeId ? ` (node ${nodeId})` : testSessionId ? ` (session ${testSessionId})` : ''
-      logger.debug(`ℹ️ No active Microsoft Graph subscriptions for workflow ${workflowId}${suffix}`)
+      logger.info(`ℹ️ No active Microsoft Graph subscriptions for workflow ${workflowId}${suffix}`)
       return
     }
 
@@ -261,7 +261,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
     let accessToken: string
     try {
       accessToken = await this.graphAuth.getValidAccessToken(userId)
-      logger.debug('✅ Retrieved valid Microsoft Graph access token for deactivation')
+      logger.info('✅ Retrieved valid Microsoft Graph access token for deactivation')
     } catch (error) {
       logger.warn(`⚠️ Failed to get valid Microsoft Graph token, deleting subscription records without API cleanup`, error)
       // Delete even if we can't clean up in Microsoft Graph
@@ -282,7 +282,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           resource.external_id,
           accessToken
         )
-        logger.debug(`✅ Deleted Microsoft Graph subscription from API: ${resource.external_id}`)
+        logger.info(`✅ Deleted Microsoft Graph subscription from API: ${resource.external_id}`)
       } catch (error) {
         logger.warn(`⚠️ Failed to delete subscription from Microsoft Graph API (will delete from DB anyway): ${resource.external_id}`, error)
         // Continue to delete from database even if API call fails
@@ -296,7 +296,7 @@ export class MicrosoftGraphTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        logger.debug(`✅ Deleted trigger resource from database: ${resource.id}`)
+        logger.info(`✅ Deleted trigger resource from database: ${resource.id}`)
       } catch (dbError) {
         logger.error(`❌ Failed to delete from database: ${resource.id}`, dbError)
         // If we can't delete from DB, mark as error as last resort

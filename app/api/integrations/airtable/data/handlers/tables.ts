@@ -10,7 +10,7 @@ import { logger } from '@/lib/utils/logger'
 export const getAirtableTables: AirtableDataHandler<AirtableTable> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableTable[]> => {
   const { baseId } = options
   
-  logger.debug("🔍 Airtable tables fetcher called with:", {
+  logger.info("🔍 Airtable tables fetcher called with:", {
     integrationId: integration.id,
     baseId,
     hasToken: !!integration.access_token
@@ -20,11 +20,11 @@ export const getAirtableTables: AirtableDataHandler<AirtableTable> = async (inte
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    logger.debug(`🔍 Validating Airtable token...`)
+    logger.info(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -32,15 +32,15 @@ export const getAirtableTables: AirtableDataHandler<AirtableTable> = async (inte
       throw new Error('Base ID is required for fetching tables')
     }
     
-    logger.debug('🔍 Fetching Airtable tables from API...')
+    logger.info('🔍 Fetching Airtable tables from API...')
     const apiUrl = buildAirtableApiUrl(`/v0/meta/bases/${baseId}/tables`)
     
     const response = await makeAirtableApiRequest(apiUrl, tokenResult.token!)
     
     const tables = await parseAirtableApiResponse<AirtableTable>(response)
     
-    logger.debug(`✅ Airtable tables fetched successfully: ${tables.length} tables from base "${baseId}"`)
-    logger.debug(`🔍 Available tables:`, tables.map(t => ({ id: t.id, name: t.name })))
+    logger.info(`✅ Airtable tables fetched successfully: ${tables.length} tables from base "${baseId}"`)
+    logger.info(`🔍 Available tables:`, tables.map(t => ({ id: t.id, name: t.name })))
     return tables
     
   } catch (error: any) {

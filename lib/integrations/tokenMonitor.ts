@@ -299,7 +299,7 @@ async function checkNotionTokenHealth(accessToken: string) {
 }
 
 export async function checkTokenHealth(integrationIds?: string[]) {
-  logger.debug("Starting token health check...")
+  logger.info("Starting token health check...")
   const supabase = createAdminClient()
 
   let query = supabase.from("integrations").select("id, provider, user_id, refresh_token, access_token, status, consecutive_failures")
@@ -366,7 +366,7 @@ export async function checkTokenHealth(integrationIds?: string[]) {
   const healthy = results.filter((r) => r.status === "healthy").length
   const unhealthy = results.length - healthy
 
-  logger.debug(`Token health check complete: ${healthy} healthy, ${unhealthy} unhealthy`)
+  logger.info(`Token health check complete: ${healthy} healthy, ${unhealthy} unhealthy`)
 
   return { healthy, unhealthy, results }
 }

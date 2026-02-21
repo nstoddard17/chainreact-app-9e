@@ -245,10 +245,10 @@ export function OrganizationSwitcher() {
       // Only dispatch event for actual workspace switches, not initial load
       // This prevents race conditions with workflows page initial fetch
       if (!isInitialLoadRef.current) {
-        logger.debug('[OrganizationSwitcher] Workspace changed, dispatching organization-changed event')
+        logger.info('[OrganizationSwitcher] Workspace changed, dispatching organization-changed event')
         window.dispatchEvent(new CustomEvent('organization-changed', { detail: currentOrg }))
       } else {
-        logger.debug('[OrganizationSwitcher] Initial load, skipping organization-changed event dispatch')
+        logger.info('[OrganizationSwitcher] Initial load, skipping organization-changed event dispatch')
         isInitialLoadRef.current = false
       }
     }
@@ -269,7 +269,7 @@ export function OrganizationSwitcher() {
         ? 'personal'
         : (org.team_count > 0 ? 'organization' : 'team')
 
-      logger.debug('[OrganizationSwitcher] Switching workspace (unified view - no filtering):', {
+      logger.info('[OrganizationSwitcher] Switching workspace (unified view - no filtering):', {
         orgId: org.id,
         workspaceType,
         isWorkspace

@@ -196,7 +196,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     if (useTemplateCache && parsed.data.flow.nodes.length === 0) {
       const promptHash = generatePromptHash(parsed.data.prompt)
 
-      logger.debug('[API /edits] Checking template cache', { promptHash })
+      logger.info('[API /edits] Checking template cache', { promptHash })
 
       const { data: cachedTemplate, error: cacheError } = await supabase
         .from('templates')
@@ -221,7 +221,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
 
       if (!cacheError && cachedTemplate) {
         const duration = Date.now() - startTime
-        logger.debug('[API /edits] Template cache HIT', {
+        logger.info('[API /edits] Template cache HIT', {
           flowId,
           duration,
           templateId: cachedTemplate.id,
@@ -255,7 +255,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
         })
       }
 
-      logger.debug('[API /edits] Template cache MISS', { promptHash })
+      logger.info('[API /edits] Template cache MISS', { promptHash })
     }
 
     // STEP 2: Run the planner (LLM or pattern-based)
@@ -268,7 +268,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     })
 
     const duration = Date.now() - startTime
-    logger.debug('[API /edits] Planning complete', {
+    logger.info('[API /edits] Planning complete', {
       flowId,
       duration,
       editCount: result.edits.length,
@@ -324,7 +324,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
                 error: saveError.message,
               })
             } else {
-              logger.debug('[API /edits] Saved plan as template', {
+              logger.info('[API /edits] Saved plan as template', {
                 templateId: savedTemplate.id,
                 templateName: savedTemplate.name,
                 promptHash: templateData.promptHash,

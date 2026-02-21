@@ -106,7 +106,7 @@ export function usePageLoadingDetector() {
     const handleLoad = () => {
       if (loadStartTime.current) {
         const loadTime = Date.now() - loadStartTime.current
-        logger.debug(`✅ Page loaded in ${loadTime}ms: ${pathname}`)
+        logger.info(`✅ Page loaded in ${loadTime}ms: ${pathname}`)
         loadStartTime.current = null
       }
 

@@ -126,7 +126,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
 
   createOrganization: async (data: Partial<Organization>) => {
     try {
-      logger.debug('Starting organization creation with data:', data)
+      logger.info('Starting organization creation with data:', data)
 
       const response = await fetchWithTimeout(
         '/api/organizations',
@@ -146,7 +146,7 @@ export const useOrganizationStore = create<OrganizationState & OrganizationActio
       }
 
       const organization = await response.json()
-      logger.debug('Organization created successfully:', organization)
+      logger.info('Organization created successfully:', organization)
 
       set((state) => ({
         organizations: [organization, ...state.organizations],

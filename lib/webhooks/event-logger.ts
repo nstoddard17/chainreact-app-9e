@@ -56,7 +56,7 @@ export async function logWebhookEvent(logData: WebhookEventLog): Promise<void> {
       logger.error(`[Webhook] ${logData.provider} error`, context)
     } else if (shouldLogWebhookDebug) {
       const label = logData.status === 'success' ? 'success' : 'info'
-      logger.debug(`[Webhook] ${logData.provider} ${label}`, {
+      logger.info(`[Webhook] ${logData.provider} ${label}`, {
         requestId: logData.requestId,
         service: logData.service,
         processingTime: logData.processingTime,
@@ -67,7 +67,7 @@ export async function logWebhookEvent(logData: WebhookEventLog): Promise<void> {
   } catch (error) {
     // Fallback to console logging if database fails
     logger.error('Failed to log webhook event:', error)
-    logger.debug('Webhook event data:', logData)
+    logger.info('Webhook event data:', logData)
   }
 }
 

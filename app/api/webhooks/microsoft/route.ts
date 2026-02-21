@@ -483,7 +483,7 @@ async function processNotifications(
               }
             }
           } catch (cleanupError) {
-            logger.debug('Could not clean up orphaned subscription (will auto-expire):', subId)
+            logger.info('Could not clean up orphaned subscription (will auto-expire):', subId)
           }
 
           continue
@@ -582,7 +582,7 @@ async function processNotifications(
         const allowedTypes = configuredChangeType.split(',').map((t: string) => t.trim())
 
         if (!allowedTypes.includes(changeType)) {
-          logger.debug('⏭️ Skipping notification - changeType not configured:', {
+          logger.info('⏭️ Skipping notification - changeType not configured:', {
             received: changeType,
             configured: configuredChangeType,
             subscriptionId: subId
@@ -595,7 +595,7 @@ async function processNotifications(
       if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId) {
         const changedItemId = change?.resourceData?.id
         if (changedItemId && changedItemId !== triggerConfig.workbookId) {
-          logger.debug('[Microsoft Excel] Skipping notification - workbook mismatch', {
+          logger.info('[Microsoft Excel] Skipping notification - workbook mismatch', {
             changedItemId,
             expectedWorkbookId: triggerConfig.workbookId,
             subscriptionId: subId
@@ -737,7 +737,7 @@ async function processNotifications(
               }
             }
           } else {
-            logger.debug('[Microsoft Excel] No new worksheets detected')
+            logger.info('[Microsoft Excel] No new worksheets detected')
           }
 
           continue
@@ -990,7 +990,7 @@ async function processNotifications(
       }
 
       // OneDrive triggers (file created/modified)
-      logger.debug('🔍 Checking OneDrive trigger conditions:', {
+      logger.info('🔍 Checking OneDrive trigger conditions:', {
         triggerType,
         startsWithOneDrive: triggerType?.startsWith('onedrive_'),
         userId: !!userId,
@@ -1000,7 +1000,7 @@ async function processNotifications(
       })
 
       if (triggerType?.startsWith('onedrive_') && userId) {
-        logger.debug('✅ OneDrive trigger detected, fetching item data...')
+        logger.info('✅ OneDrive trigger detected, fetching item data...')
         const onedriveData = await fetchOneDriveItemData(
           userId,
           change?.resourceData?.id || null,
@@ -1010,7 +1010,7 @@ async function processNotifications(
         )
 
         if (!onedriveData) {
-          logger.debug('Skipping OneDrive notification - no matching item or filtered out:', {
+          logger.info('Skipping OneDrive notification - no matching item or filtered out:', {
             subscriptionId: subId,
             triggerType,
             changeType
@@ -1037,7 +1037,7 @@ async function processNotifications(
             }
           }
 
-          logger.debug('Calling execution API for OneDrive trigger:', executionUrl)
+          logger.info('Calling execution API for OneDrive trigger:', executionUrl)
 
           const response = await fetch(executionUrl, {
             method: 'POST',
@@ -1090,7 +1090,7 @@ async function processNotifications(
             if (messageResponse.ok) {
               const message = await messageResponse.json()
 
-              logger.debug('✅ Fetched full Teams message data')
+              logger.info('✅ Fetched full Teams message data')
 
               // Update the resourceData with the full message
               change.resourceData = {
@@ -1156,7 +1156,7 @@ async function processNotifications(
           const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
 
           // Debug log: Show what filters we're checking
-          logger.debug('🔍 Filter check details:', {
+          logger.info('🔍 Filter check details:', {
                 triggerType,
                 hasFilterConfig: !!filterConfig,
                 filterConfigDetails: filterConfig ? {
@@ -1236,14 +1236,14 @@ async function processNotifications(
                       ? (await folderResponse.json()).displayName
                       : email.parentFolderId
 
-                    logger.debug('⏭️ Skipping email - not in configured folder:', {
+                    logger.info('⏭️ Skipping email - not in configured folder:', {
                       expectedFolderId: configFolderId,
                       actualFolderId: email.parentFolderId,
                       actualFolderName: folderName,
                       subscriptionId: subId
                     })
                   } catch (folderError) {
-                    logger.debug('⏭️ Skipping email - not in configured folder:', {
+                    logger.info('⏭️ Skipping email - not in configured folder:', {
                       expectedFolderId: configFolderId,
                       actualFolderId: email.parentFolderId,
                       subscriptionId: subId
@@ -1268,7 +1268,7 @@ async function processNotifications(
 
                 if (!isMatch) {
                   // SECURITY: Don't log actual subject content (PII)
-                  logger.debug('⏭️ Skipping email - subject does not match filter:', {
+                  logger.info('⏭️ Skipping email - subject does not match filter:', {
                     expectedLength: configSubject.length,
                     receivedLength: emailSubject.length,
                     exactMatch,
@@ -1285,7 +1285,7 @@ async function processNotifications(
 
                 if (emailFrom !== configFrom) {
                   // SECURITY: Don't log actual email addresses (PII)
-                  logger.debug('⏭️ Skipping email - from address does not match filter:', {
+                  logger.info('⏭️ Skipping email - from address does not match filter:', {
                     hasExpected: !!configFrom,
                     hasReceived: !!emailFrom,
                     subscriptionId: subId
@@ -1302,7 +1302,7 @@ async function processNotifications(
                   .filter(Boolean)
                 const emailTo = email.toRecipients?.map((r: any) => r.emailAddress?.address?.toLowerCase().trim()) || []
 
-                logger.debug('dY"? Checking recipient filter:', {
+                logger.info('dY"? Checking recipient filter:', {
                   configTo: configToList,
                   emailTo,
                   supportsRecipient: filterConfig.supportsRecipient,
@@ -1314,7 +1314,7 @@ async function processNotifications(
                 )
 
                 if (!hasMatch) {
-                  logger.debug('??-?,? Skipping email - to address does not match filter:', {
+                  logger.info('??-?,? Skipping email - to address does not match filter:', {
                     configTo: configToList,
                     emailTo,
                     hasMatch,
@@ -1322,9 +1322,9 @@ async function processNotifications(
                   })
                   continue
                 }
-                logger.debug('?o. Recipient filter passed')
+                logger.info('?o. Recipient filter passed')
               } else {
-                logger.debug('⏭️ Recipient filter not applicable:', {
+                logger.info('⏭️ Recipient filter not applicable:', {
                   supportsRecipient: filterConfig?.supportsRecipient,
                   hasToConfig: !!triggerConfig.to,
                   triggerType,
@@ -1338,7 +1338,7 @@ async function processNotifications(
                 const emailImportance = (email.importance || 'normal').toLowerCase()
 
                 if (emailImportance !== configImportance) {
-                  logger.debug('⏭️ Skipping email - importance does not match filter:', {
+                  logger.info('⏭️ Skipping email - importance does not match filter:', {
                     expected: configImportance,
                     received: emailImportance,
                     subscriptionId: subId
@@ -1352,7 +1352,7 @@ async function processNotifications(
                 const flagStatus = email.flag?.flagStatus || 'notFlagged'
                 // Only trigger if the email is now flagged
                 if (flagStatus !== 'flagged' && flagStatus !== 'complete') {
-                  logger.debug('⏭️ Skipping email - not flagged:', {
+                  logger.info('⏭️ Skipping email - not flagged:', {
                     flagStatus,
                     subscriptionId: subId
                   })
@@ -1373,7 +1373,7 @@ async function processNotifications(
                   })
 
                   if (!hasMatchingAttachment) {
-                    logger.debug('⏭️ Skipping email - no matching attachment extensions:', {
+                    logger.info('⏭️ Skipping email - no matching attachment extensions:', {
                       allowedExtensions,
                       attachmentCount: email.attachments.length,
                       subscriptionId: subId
@@ -1388,7 +1388,7 @@ async function processNotifications(
                 const hasAttachment = email.hasAttachments === true
 
                 if (expectsAttachment !== hasAttachment) {
-                  logger.debug('⏭️ Skipping email - attachment filter mismatch:', {
+                  logger.info('⏭️ Skipping email - attachment filter mismatch:', {
                     expected: expectsAttachment ? 'has attachment' : 'no attachment',
                     actual: hasAttachment ? 'has attachment' : 'no attachment',
                     subscriptionId: subId
@@ -1397,7 +1397,7 @@ async function processNotifications(
                 }
               }
 
-              logger.debug('✅ Email matches all filters, proceeding with workflow execution')
+              logger.info('✅ Email matches all filters, proceeding with workflow execution')
         } catch (filterError) {
           logger.error('❌ Error checking email filters, skipping execution:', filterError)
           continue
@@ -1421,7 +1421,7 @@ async function processNotifications(
 
         if (changeType === 'deleted') {
           await cancelScheduledTrigger(workflowId, triggerNodeId, eventId)
-          logger.debug('?o. Cancelled scheduled calendar start trigger (event deleted)', {
+          logger.info('?o. Cancelled scheduled calendar start trigger (event deleted)', {
             workflowId,
             eventId,
             subscriptionId: subId
@@ -1456,7 +1456,7 @@ async function processNotifications(
             const eventCalendarId = event.calendar?.id || resource?.match(/\/calendars\/([^\/]+)\//)?.[1]
             if (eventCalendarId && eventCalendarId !== triggerConfig.calendarId) {
               await cancelScheduledTrigger(workflowId, triggerNodeId, eventId)
-              logger.debug('??-?,? Calendar start trigger skipped - not in configured calendar:', {
+              logger.info('??-?,? Calendar start trigger skipped - not in configured calendar:', {
                 expected: triggerConfig.calendarId,
                 actual: eventCalendarId,
                 subscriptionId: subId
@@ -1477,7 +1477,7 @@ async function processNotifications(
 
           await upsertScheduledTrigger(workflowId, userId, triggerNodeId, eventId, scheduledFor, payload)
 
-          logger.debug('?o. Scheduled calendar event start trigger', {
+          logger.info('?o. Scheduled calendar event start trigger', {
             workflowId,
             eventId,
             scheduledFor,
@@ -1525,7 +1525,7 @@ async function processNotifications(
                   resource?.match(/\/calendars\/([^\/]+)\//)?.[1]
 
                 if (eventCalendarId && eventCalendarId !== triggerConfig.calendarId) {
-                  logger.debug('⏭️ Skipping calendar event - not in configured calendar:', {
+                  logger.info('⏭️ Skipping calendar event - not in configured calendar:', {
                     expected: triggerConfig.calendarId,
                     actual: eventCalendarId,
                     subscriptionId: subId
@@ -1533,7 +1533,7 @@ async function processNotifications(
                   continue
                 }
 
-                logger.debug('✅ Calendar event matches filter (or no calendar filter set)')
+                logger.info('✅ Calendar event matches filter (or no calendar filter set)')
               } else {
                 logger.warn('⚠️ Failed to fetch calendar event details for filtering, allowing execution:', eventResponse.status)
               }
@@ -1578,7 +1578,7 @@ async function processNotifications(
 
                 // Use "contains" matching for flexibility
                 if (!contactCompany.includes(configCompany)) {
-                  logger.debug('⏭️ Skipping contact - company name does not match filter:', {
+                  logger.info('⏭️ Skipping contact - company name does not match filter:', {
                     hasExpected: !!configCompany,
                     hasActual: !!contactCompany,
                     subscriptionId: subId
@@ -1586,7 +1586,7 @@ async function processNotifications(
                   continue
                 }
 
-                logger.debug('✅ Contact matches company name filter')
+                logger.info('✅ Contact matches company name filter')
               } else {
                 logger.warn('⚠️ Failed to fetch contact details for filtering, allowing execution:', contactResponse.status)
               }
@@ -1610,7 +1610,7 @@ async function processNotifications(
           .maybeSingle()
 
         if (activeTestSession) {
-          logger.debug('⏭️ Skipping production execution - active test session exists:', {
+          logger.info('⏭️ Skipping production execution - active test session exists:', {
             workflowId,
             testSessionId: activeTestSession.id,
             subscriptionId: subId
@@ -1618,7 +1618,7 @@ async function processNotifications(
           continue
         }
 
-        logger.debug('🚀 Triggering workflow execution:', {
+        logger.info('🚀 Triggering workflow execution:', {
           workflowId,
           userId,
           subscriptionId: subId,
@@ -1646,9 +1646,9 @@ async function processNotifications(
             }
           }
 
-          logger.debug('📤 Calling execution API:', executionUrl)
+          logger.info('📤 Calling execution API:', executionUrl)
           // SECURITY: Don't log full execution payload (contains resource data/PII)
-          logger.debug('📦 Execution payload metadata:', {
+          logger.info('📦 Execution payload metadata:', {
             workflowId: executionPayload.workflowId,
             testMode: executionPayload.testMode,
             executionMode: executionPayload.executionMode,
@@ -1667,7 +1667,7 @@ async function processNotifications(
 
           if (response.ok) {
             const result = await response.json()
-            logger.debug('✅ Workflow execution triggered:', {
+            logger.info('✅ Workflow execution triggered:', {
               workflowId,
               executionId: result?.executionId,
               status: result?.status
@@ -1690,7 +1690,7 @@ async function processNotifications(
     }
   }
 
-  logger.debug('✅ All notifications processed')
+  logger.info('✅ All notifications processed')
 }
 
 export async function POST(request: NextRequest) {
@@ -1714,13 +1714,13 @@ export async function POST(request: NextRequest) {
     // Handle validation request from Microsoft (either via validationToken query or text/plain body)
     if (validationToken || headers['content-type']?.includes('text/plain')) {
       const token = validationToken || body
-      logger.debug(`🔍 Validation request received${isTestMode ? ' (TEST MODE)' : ''}`)
+      logger.info(`🔍 Validation request received${isTestMode ? ' (TEST MODE)' : ''}`)
       return new NextResponse(token, { status: 200, headers: { 'Content-Type': 'text/plain' } })
     }
 
     // Handle empty body (some Microsoft notifications are empty)
     if (!body || body.length === 0) {
-      logger.debug('⚠️ Empty webhook payload received, skipping')
+      logger.info('⚠️ Empty webhook payload received, skipping')
       return jsonResponse({ success: true, empty: true })
     }
 
@@ -1793,7 +1793,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
   const supabase = getSupabase()
   const startTime = Date.now()
 
-  logger.debug('🧪 [Test Webhook] Received notification for test session:', {
+  logger.info('🧪 [Test Webhook] Received notification for test session:', {
     testSessionId,
     notificationCount: notifications.length,
     notificationTypes: notifications.map(n => ({
@@ -1859,7 +1859,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       if (triggerType?.startsWith('microsoft_excel_') && triggerConfig?.workbookId) {
         const changedItemId = notification?.resourceData?.id
         if (changedItemId && changedItemId !== triggerConfig.workbookId) {
-          logger.debug('[Microsoft Excel] Skipping test notification - workbook mismatch', {
+          logger.info('[Microsoft Excel] Skipping test notification - workbook mismatch', {
             changedItemId,
             expectedWorkbookId: triggerConfig.workbookId,
             subscriptionId
@@ -1911,7 +1911,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
           const hasRowIdDiff = !!newRowId
           const hasCountDiff = currentSnapshot.rowCount > previousSnapshot.rowCount
 
-          logger.debug('[Test Webhook] Excel snapshot diff results', {
+          logger.info('[Test Webhook] Excel snapshot diff results', {
             newRowId: newRowId || null,
             changedRowId: changedRowId || null,
             previousRowCount: previousSnapshot.rowCount,
@@ -2056,7 +2056,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
           if (triggerConfig.calendarId) {
             const eventCalendarId = event.calendar?.id || resource?.match(/\/calendars\/([^\/]+)\//)?.[1]
             if (eventCalendarId && eventCalendarId !== triggerConfig.calendarId) {
-              logger.debug('dY? [Test Webhook] Calendar start trigger skipped - not in configured calendar')
+              logger.info('dY? [Test Webhook] Calendar start trigger skipped - not in configured calendar')
               continue
             }
           }
@@ -2079,7 +2079,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
             })
             .eq('id', testSessionId)
 
-          logger.debug(`dY? [Test Webhook] Calendar start trigger data stored for session ${testSessionId}`)
+          logger.info(`dY? [Test Webhook] Calendar start trigger data stored for session ${testSessionId}`)
           continue
         } catch (calendarError) {
           logger.error('dY? [Test Webhook] Error handling calendar start trigger:', calendarError)
@@ -2120,7 +2120,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
           const email = await emailResponse.json()
           const filterConfig = TRIGGER_FILTER_CONFIG[triggerType || '']
 
-          logger.debug('🧪 [Test Webhook] Filter check details:', {
+          logger.info('🧪 [Test Webhook] Filter check details:', {
                 triggerType,
                 hasFilterConfig: !!filterConfig,
                 configuredFilters: {
@@ -2137,7 +2137,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
                 const senderEmail = email.from?.emailAddress?.address?.toLowerCase().trim() || ''
                 const configSender = triggerConfig.from.toLowerCase().trim()
                 if (senderEmail !== configSender) {
-                  logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - sender doesn't match filter`)
+                  logger.info(`🧪 [Test Webhook] ⏭️ Skipping - sender doesn't match filter`)
                   continue
                 }
               }
@@ -2156,7 +2156,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
                   recipientEmails.some((addr: string) => addr === configRecipient)
                 )
                 if (!hasMatchingRecipient) {
-                  logger.debug(`dY? [Test Webhook] ??-?,? Skipping - recipient doesn't match filter`)
+                  logger.info(`dY? [Test Webhook] ??-?,? Skipping - recipient doesn't match filter`)
                   continue
                 }
               }
@@ -2172,12 +2172,12 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
 
                 if (isExactMatch) {
                   if (emailSubject !== configSubject) {
-                    logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - subject doesn't match (exact)`)
+                    logger.info(`🧪 [Test Webhook] ⏭️ Skipping - subject doesn't match (exact)`)
                     continue
                   }
                 } else {
                   if (!emailSubject.includes(configSubject)) {
-                    logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - subject doesn't match (contains)`)
+                    logger.info(`🧪 [Test Webhook] ⏭️ Skipping - subject doesn't match (contains)`)
                     continue
                   }
                 }
@@ -2188,12 +2188,12 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
                 const emailHasAttachments = email.hasAttachments === true
                 const configRequiresAttachment = triggerConfig.hasAttachment === true || triggerConfig.hasAttachment === 'true'
                 if (configRequiresAttachment && !emailHasAttachments) {
-                  logger.debug(`🧪 [Test Webhook] ⏭️ Skipping - no attachments`)
+                  logger.info(`🧪 [Test Webhook] ⏭️ Skipping - no attachments`)
                   continue
                 }
               }
 
-          logger.debug('🧪 [Test Webhook] ✅ Email passed all filters')
+          logger.info('🧪 [Test Webhook] ✅ Email passed all filters')
         } catch (filterError) {
           logger.error('🧪 [Test Webhook] Error checking email filters, skipping:', filterError)
           continue
@@ -2201,7 +2201,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
       }
 
       // OneDrive triggers (file created/modified)
-      logger.debug('🧪 [Test Webhook] Checking OneDrive trigger conditions:', {
+      logger.info('🧪 [Test Webhook] Checking OneDrive trigger conditions:', {
         triggerType,
         startsWithOneDrive: triggerType?.startsWith('onedrive_'),
         userId: !!userId,
@@ -2211,7 +2211,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
 
       if (triggerType?.startsWith('onedrive_') && userId) {
         try {
-          logger.debug('🧪 [Test Webhook] OneDrive trigger detected, fetching item data...')
+          logger.info('🧪 [Test Webhook] OneDrive trigger detected, fetching item data...')
           const onedriveData = await fetchOneDriveItemData(
             userId,
             notification?.resourceData?.id || null,
@@ -2221,7 +2221,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
           )
 
           if (!onedriveData) {
-            logger.debug('[Test Webhook] OneDrive trigger skipped - no matching item')
+            logger.info('[Test Webhook] OneDrive trigger skipped - no matching item')
             continue
           }
 
@@ -2233,7 +2233,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
             })
             .eq('id', testSessionId)
 
-          logger.debug(`[Test Webhook] OneDrive trigger data stored for session ${testSessionId}`)
+          logger.info(`[Test Webhook] OneDrive trigger data stored for session ${testSessionId}`)
           continue
         } catch (onedriveError) {
           logger.error('[Test Webhook] Error handling OneDrive trigger:', onedriveError)
@@ -2265,7 +2265,7 @@ async function handleTestModeWebhook(testSessionId: string, notifications: any[]
         })
         .eq('id', testSessionId)
 
-      logger.debug(`🧪 [Test Webhook] Trigger data stored for session ${testSessionId}`)
+      logger.info(`🧪 [Test Webhook] Trigger data stored for session ${testSessionId}`)
     }
 
     const processingTime = Date.now() - startTime
@@ -2302,7 +2302,7 @@ async function fetchOneDriveItemData(
   triggerType: string,
   changeType: string
 ): Promise<Record<string, any> | null> {
-  logger.debug('📂 [OneDrive] fetchOneDriveItemData called:', {
+  logger.info('📂 [OneDrive] fetchOneDriveItemData called:', {
     userId: userId.substring(0, 8) + '...',
     itemId,
     triggerType,
@@ -2314,12 +2314,12 @@ async function fetchOneDriveItemData(
     const { MicrosoftGraphAuth } = await import('@/lib/microsoft-graph/auth')
     const graphAuth = new MicrosoftGraphAuth()
     const accessToken = await graphAuth.getValidAccessToken(userId, 'onedrive')
-    logger.debug('📂 [OneDrive] Got access token')
+    logger.info('📂 [OneDrive] Got access token')
 
     // If we don't have a specific item ID, or it's "root", we need to fetch recent changes
     // This happens when subscribing to /me/drive/root
     if (!itemId || itemId === 'root') {
-      logger.debug('📂 [OneDrive] No item ID, fetching delta...')
+      logger.info('📂 [OneDrive] No item ID, fetching delta...')
       // Fetch recent items using delta query
       const deltaResponse = await fetch(
         'https://graph.microsoft.com/v1.0/me/drive/root/delta?$top=10&$select=id,name,size,file,folder,parentReference,createdDateTime,lastModifiedDateTime,webUrl,@microsoft.graph.downloadUrl',
@@ -2339,27 +2339,27 @@ async function fetchOneDriveItemData(
 
       const deltaData = await deltaResponse.json()
       const items = Array.isArray(deltaData?.value) ? deltaData.value : []
-      logger.debug('📂 [OneDrive] Delta returned items:', {
+      logger.info('📂 [OneDrive] Delta returned items:', {
         count: items.length,
         names: items.slice(0, 5).map((i: any) => i.name)
       })
 
       if (items.length === 0) {
-        logger.debug('📂 [OneDrive] No items in delta response')
+        logger.info('📂 [OneDrive] No items in delta response')
         return null
       }
 
       // Find the most recently changed item that matches our filters
       for (const item of items) {
-        logger.debug('📂 [OneDrive] Checking item:', { name: item.name, id: item.id })
+        logger.info('📂 [OneDrive] Checking item:', { name: item.name, id: item.id })
         const matchResult = matchesOneDriveFilters(item, triggerConfig, triggerType, changeType)
         if (matchResult) {
-          logger.debug('📂 [OneDrive] ✅ Found matching item:', { name: item.name })
+          logger.info('📂 [OneDrive] ✅ Found matching item:', { name: item.name })
           return formatOneDriveItem(item)
         }
       }
 
-      logger.debug('📂 [OneDrive] No items matched filters after checking all delta items')
+      logger.info('📂 [OneDrive] No items matched filters after checking all delta items')
       return null
     }
 
@@ -2406,7 +2406,7 @@ function matchesOneDriveFilters(
   const isFile = !!item.file
   const isFolder = !!item.folder
 
-  logger.debug('📂 [OneDrive] matchesOneDriveFilters:', {
+  logger.info('📂 [OneDrive] matchesOneDriveFilters:', {
     itemName: item.name,
     isFile,
     isFolder,
@@ -2425,7 +2425,7 @@ function matchesOneDriveFilters(
     const isRecentlyModified = modifiedAt && (now - modifiedAt.getTime()) < 5 * 60 * 1000
 
     if (!isRecentlyModified) {
-      logger.debug('📂 [OneDrive] Item not recently modified, skipping:', {
+      logger.info('📂 [OneDrive] Item not recently modified, skipping:', {
         itemName: item.name,
         modifiedAt: modifiedAt?.toISOString(),
         minutesAgo: modifiedAt ? Math.round((now - modifiedAt.getTime()) / 60000) : 'N/A'
@@ -2437,11 +2437,11 @@ function matchesOneDriveFilters(
   // Check watchType filter
   const watchType = triggerConfig?.watchType || 'any'
   if (watchType === 'files' && !isFile) {
-    logger.debug('📂 [OneDrive] watchType=files but item is folder, skipping')
+    logger.info('📂 [OneDrive] watchType=files but item is folder, skipping')
     return false
   }
   if (watchType === 'folders' && !isFolder) {
-    logger.debug('📂 [OneDrive] watchType=folders but item is file, skipping')
+    logger.info('📂 [OneDrive] watchType=folders but item is file, skipping')
     return false
   }
 
@@ -2451,7 +2451,7 @@ function matchesOneDriveFilters(
     const includeSubfolders = triggerConfig?.includeSubfolders !== false
 
     if (!includeSubfolders && parentFolderId !== triggerConfig.folderId) {
-      logger.debug('📂 [OneDrive] Item not in configured folder (no subfolders), skipping')
+      logger.info('📂 [OneDrive] Item not in configured folder (no subfolders), skipping')
       return false
     }
 
@@ -2460,7 +2460,7 @@ function matchesOneDriveFilters(
       const parentPath = item.parentReference?.path || ''
       // This is a simple check - might need enhancement for deeply nested folders
       if (!parentPath.includes(triggerConfig.folderId) && parentFolderId !== triggerConfig.folderId) {
-        logger.debug('📂 [OneDrive] Item not in configured folder tree, skipping')
+        logger.info('📂 [OneDrive] Item not in configured folder tree, skipping')
         return false
       }
     }
@@ -2474,7 +2474,7 @@ function matchesOneDriveFilters(
 
     const fileTypeMatches = checkFileTypeMatch(triggerConfig.fileType, mimeType, extension)
     if (!fileTypeMatches) {
-      logger.debug('📂 [OneDrive] fileType filter not matched, skipping')
+      logger.info('📂 [OneDrive] fileType filter not matched, skipping')
       return false
     }
   }
@@ -2496,7 +2496,7 @@ function matchesOneDriveFilters(
         Math.abs(modifiedAt.getTime() - createdAt.getTime()) < 30 * 1000
 
       if (!isNew && !isJustCreated) {
-        logger.debug('📂 [OneDrive] new_file trigger but item is not new, skipping')
+        logger.info('📂 [OneDrive] new_file trigger but item is not new, skipping')
         return false
       }
     }
@@ -2504,11 +2504,11 @@ function matchesOneDriveFilters(
 
   // Check sharedOnly filter
   if (triggerConfig?.sharedOnly && !item.shared) {
-    logger.debug('📂 [OneDrive] sharedOnly filter not matched, skipping')
+    logger.info('📂 [OneDrive] sharedOnly filter not matched, skipping')
     return false
   }
 
-  logger.debug('📂 [OneDrive] ✅ Item matches all filters:', { itemName: item.name })
+  logger.info('📂 [OneDrive] ✅ Item matches all filters:', { itemName: item.name })
   return true
 }
 
@@ -2596,7 +2596,7 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const validationToken = url.searchParams.get('validationToken') || url.searchParams.get('validationtoken')
   if (validationToken) {
-    logger.debug('🔍 Validation request (GET) received')
+    logger.info('🔍 Validation request (GET) received')
     return new NextResponse(validationToken, { status: 200, headers: { 'Content-Type': 'text/plain' } })
   }
 

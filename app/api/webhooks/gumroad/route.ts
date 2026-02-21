@@ -39,7 +39,7 @@ const EVENT_TO_TRIGGER_MAP: Record<string, string> = {
  * POST handler - receives webhook notifications from Gumroad
  */
 export async function POST(req: NextRequest) {
-  logger.debug('🔔 Gumroad webhook received at', new Date().toISOString())
+  logger.info('🔔 Gumroad webhook received at', new Date().toISOString())
 
   try {
     // Gumroad sends form-encoded data, not JSON
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       payload[key] = value
     })
 
-    logger.debug('📦 Gumroad webhook payload:', {
+    logger.info('📦 Gumroad webhook payload:', {
       id: payload.id,
       product_id: payload.product_id,
       email: payload.email,
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       return jsonResponse({ success: true, message: 'Unknown event type' })
     }
 
-    logger.debug(`📋 Event type determined: ${eventType}`)
+    logger.info(`📋 Event type determined: ${eventType}`)
 
     // Map event type to trigger type
     const triggerType = EVENT_TO_TRIGGER_MAP[eventType]
@@ -94,11 +94,11 @@ export async function POST(req: NextRequest) {
     const { data: triggerResources } = await query
 
     if (!triggerResources || triggerResources.length === 0) {
-      logger.debug(`ℹ️ No active workflows found for trigger type: ${triggerType}`)
+      logger.info(`ℹ️ No active workflows found for trigger type: ${triggerType}`)
       return jsonResponse({ success: true, processed: 0 })
     }
 
-    logger.debug(`📋 Found ${triggerResources.length} workflow(s) to execute`)
+    logger.info(`📋 Found ${triggerResources.length} workflow(s) to execute`)
 
     // Build trigger data from Gumroad payload
     const triggerData = buildTriggerData(payload, eventType)
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       // Filter by product ID if specified in trigger config
       const productFilter = resource.config?.product
       if (productFilter && payload.product_id !== productFilter) {
-        logger.debug(`⏭️ Skipping workflow ${resource.workflow_id} - product filter mismatch`)
+        logger.info(`⏭️ Skipping workflow ${resource.workflow_id} - product filter mismatch`)
         continue
       }
 
@@ -122,22 +122,22 @@ export async function POST(req: NextRequest) {
           const isDowngrade = payload.variant_name && payload.variant_name.includes('downgrade')
 
           if (updateType === 'upgrade' && !isUpgrade) {
-            logger.debug(`⏭️ Skipping workflow ${resource.workflow_id} - not an upgrade`)
+            logger.info(`⏭️ Skipping workflow ${resource.workflow_id} - not an upgrade`)
             continue
           }
           if (updateType === 'downgrade' && !isDowngrade) {
-            logger.debug(`⏭️ Skipping workflow ${resource.workflow_id} - not a downgrade`)
+            logger.info(`⏭️ Skipping workflow ${resource.workflow_id} - not a downgrade`)
             continue
           }
         }
       }
 
-      logger.debug(`⚡ Executing workflow ${resource.workflow_id}`)
+      logger.info(`⚡ Executing workflow ${resource.workflow_id}`)
       await executeWorkflow(resource.workflow_id, resource.user_id, triggerData)
       executed++
     }
 
-    logger.debug(`✅ Executed ${executed} workflow(s)`)
+    logger.info(`✅ Executed ${executed} workflow(s)`)
     return jsonResponse({ success: true, processed: executed })
 
   } catch (error: any) {
@@ -272,7 +272,7 @@ function buildTriggerData(payload: Record<string, any>, eventType: string): Reco
  */
 async function executeWorkflow(workflowId: string, userId: string, triggerData: any): Promise<void> {
   try {
-    logger.debug(`🚀 Executing workflow ${workflowId}`)
+    logger.info(`🚀 Executing workflow ${workflowId}`)
 
     // Get workflow details
     const { data: workflow, error: workflowError } = await getSupabase()
@@ -287,7 +287,7 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
       return
     }
 
-    logger.debug(`⚡ Executing workflow "${workflow.name}"`)
+    logger.info(`⚡ Executing workflow "${workflow.name}"`)
 
     // Import workflow execution service
     const { WorkflowExecutionService } = await import('@/lib/services/workflowExecutionService')
@@ -303,7 +303,7 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
       true // skipTriggers = true (already triggered by webhook)
     )
 
-    logger.debug(`✅ Workflow execution completed:`, {
+    logger.info(`✅ Workflow execution completed:`, {
       success: !!executionResult.results,
       executionId: executionResult.executionId,
       resultsCount: executionResult.results?.length || 0

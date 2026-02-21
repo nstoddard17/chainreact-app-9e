@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     
     if (action === 'reconnect') {
       // Force a reconnection
-      logger.debug('Manual Discord Gateway reconnection requested')
+      logger.info('Manual Discord Gateway reconnection requested')
       await discordGateway.reconnect()
       
       return jsonResponse({ 
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     
     if (action === 'disconnect') {
       // Disconnect the gateway
-      logger.debug('Manual Discord Gateway disconnection requested')
+      logger.info('Manual Discord Gateway disconnection requested')
       discordGateway.disconnect()
       
       return jsonResponse({ 

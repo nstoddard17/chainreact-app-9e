@@ -98,7 +98,7 @@ export async function createGoogleSpreadsheet(
       timeZone = 'America/New_York'
     } = resolvedConfig
 
-    logger.debug('[Create Spreadsheet] Config:', {
+    logger.info('[Create Spreadsheet] Config:', {
       title,
       description,
       template,
@@ -202,7 +202,7 @@ export async function createGoogleSpreadsheet(
             values: dataToAdd
           }
         })
-        logger.debug('[Create Spreadsheet] Added initial data:', {
+        logger.info('[Create Spreadsheet] Added initial data:', {
           rows: dataToAdd.length,
           columns: dataToAdd[0]?.length || 0
         })

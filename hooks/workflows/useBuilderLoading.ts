@@ -69,7 +69,7 @@ export function useBuilderLoading(options?: UseBuilderLoadingOptions) {
       const isReady = !next.auth && !next.integrations && !next.workflow
       const isInitializing = next.auth || next.integrations || next.workflow
 
-      logger.debug('[useBuilderLoading] State update:', {
+      logger.info('[useBuilderLoading] State update:', {
         key,
         loading,
         isReady,
@@ -130,7 +130,7 @@ export function useBuilderLoading(options?: UseBuilderLoadingOptions) {
   // Call onReady when ready
   useEffect(() => {
     if (state.isReady && !state.isInitializing) {
-      logger.debug('[useBuilderLoading] Builder is ready!')
+      logger.info('[useBuilderLoading] Builder is ready!')
       options?.onReady?.()
     }
   }, [state.isReady, state.isInitializing, options])

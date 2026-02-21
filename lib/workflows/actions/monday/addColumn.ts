@@ -73,7 +73,7 @@ export async function addMondayColumn(
     }
 
     // Log the request for debugging
-    logger.debug('[Monday.com] Creating column', {
+    logger.info('[Monday.com] Creating column', {
       boardId,
       columnTitle,
       columnType,

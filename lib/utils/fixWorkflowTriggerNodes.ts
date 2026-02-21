@@ -50,7 +50,7 @@ const TRIGGER_TYPE_MAPPING: Record<string, { providerId: string, type: string }>
 
 export async function fixWorkflowTriggerNodes(workflowId?: string) {
   try {
-    logger.debug('🔧 Starting workflow trigger node fix...')
+    logger.info('🔧 Starting workflow trigger node fix...')
 
     const supabase = getSupabaseClient()
     if (!supabase) {
@@ -75,7 +75,7 @@ export async function fixWorkflowTriggerNodes(workflowId?: string) {
     }
 
     if (!triggerNodes || triggerNodes.length === 0) {
-      logger.debug('No trigger nodes found')
+      logger.info('No trigger nodes found')
       return { success: true, fixed: 0 }
     }
 
@@ -99,10 +99,10 @@ export async function fixWorkflowTriggerNodes(workflowId?: string) {
       let newProviderId: string | null = null
 
       if (mapping) {
-        logger.debug(`  🔧 Fixing trigger node ${node.id}:`)
-        logger.debug(`     Title: ${title}`)
-        logger.debug(`     Old type: ${node.node_type || 'undefined'}`)
-        logger.debug(`     New type: ${mapping.type}`)
+        logger.info(`  🔧 Fixing trigger node ${node.id}:`)
+        logger.info(`     Title: ${title}`)
+        logger.info(`     Old type: ${node.node_type || 'undefined'}`)
+        logger.info(`     New type: ${mapping.type}`)
 
         newType = mapping.type
         if (!providerId && mapping.providerId) {
@@ -119,10 +119,10 @@ export async function fixWorkflowTriggerNodes(workflowId?: string) {
         }
 
         if (newType) {
-          logger.debug(`  🔧 Guessing type for trigger node ${node.id}:`)
-          logger.debug(`     Title: ${title}`)
-          logger.debug(`     Provider: ${providerId}`)
-          logger.debug(`     Guessed type: ${newType}`)
+          logger.info(`  🔧 Guessing type for trigger node ${node.id}:`)
+          logger.info(`     Title: ${title}`)
+          logger.info(`     Provider: ${providerId}`)
+          logger.info(`     Guessed type: ${newType}`)
         } else {
           logger.warn(`  ⚠️ Could not determine type for trigger node:`, {
             nodeId: node.id,
@@ -149,14 +149,14 @@ export async function fixWorkflowTriggerNodes(workflowId?: string) {
           logger.error(`Failed to update node ${node.id}:`, updateError)
           results.push({ nodeId: node.id, workflowId: node.workflow_id, success: false, error: updateError })
         } else {
-          logger.debug(`  ✅ Fixed node: ${node.id}`)
+          logger.info(`  ✅ Fixed node: ${node.id}`)
           fixedCount++
           results.push({ nodeId: node.id, workflowId: node.workflow_id, success: true })
         }
       }
     }
 
-    logger.debug(`\n✅ Fixed ${fixedCount} trigger nodes`)
+    logger.info(`\n✅ Fixed ${fixedCount} trigger nodes`)
 
     return {
       success: true,
@@ -175,7 +175,7 @@ export async function fixWorkflowTriggerNodes(workflowId?: string) {
 if (require.main === module) {
   const workflowId = process.argv[2]
   fixWorkflowTriggerNodes(workflowId).then(result => {
-    logger.debug('\n📊 Fix Results:', JSON.stringify(result, null, 2))
+    logger.info('\n📊 Fix Results:', JSON.stringify(result, null, 2))
     process.exit(result.success ? 0 : 1)
   })
 }

@@ -32,7 +32,7 @@ export async function createGoogleSheetsRow(
       }
     })
 
-    logger.debug("Resolved create row values:", {
+    logger.info("Resolved create row values:", {
       spreadsheetId,
       sheetName,
       insertPosition,
@@ -70,10 +70,10 @@ export async function createGoogleSheetsRow(
     const headerData = await headerResponse.json()
     const headers = headerData.values?.[0] || []
 
-    logger.debug("📊 Raw headers from Google Sheets:", headers)
-    logger.debug("📊 Headers with indices:")
+    logger.info("📊 Raw headers from Google Sheets:", headers)
+    logger.info("📊 Headers with indices:")
     headers.forEach((h: string, i: number) => {
-      logger.debug(`  [${i}] "${h}" (length: ${h.length})`);
+      logger.info(`  [${i}] "${h}" (length: ${h.length})`);
     })
 
     let finalRowValues: any[]
@@ -86,7 +86,7 @@ export async function createGoogleSheetsRow(
         return value !== undefined && value !== null && value !== '' ? value : ''
       })
 
-      logger.debug("📊 Using newRow_ fields from GoogleSheetsAddRowFields:", {
+      logger.info("📊 Using newRow_ fields from GoogleSheetsAddRowFields:", {
         headers,
         newRowFields,
         finalRowValues
@@ -110,12 +110,12 @@ export async function createGoogleSheetsRow(
         finalRowValues.push('')
       }
 
-      logger.debug("📊 Using simple values array:", finalRowValues)
+      logger.info("📊 Using simple values array:", finalRowValues)
     } else if (Object.keys(fieldMapping).length > 0) {
       // Use old fieldMapping approach for backward compatibility
       const rowValues: any[] = new Array(headers.length).fill(undefined)
 
-      logger.debug("🔍 Processing fieldMapping entries:")
+      logger.info("🔍 Processing fieldMapping entries:")
       for (const [columnIdentifier, value] of Object.entries(fieldMapping)) {
         const resolvedValue = value !== undefined && value !== null && value !== '' ? resolveValue(value, input) : ''
 
@@ -123,22 +123,22 @@ export async function createGoogleSheetsRow(
         // and NOT a word like "Address" or "RSVP"
         if (/^[A-Z]$/i.test(columnIdentifier)) {
           const index = columnIdentifier.toUpperCase().charCodeAt(0) - 65
-          logger.debug(`  Letter column "${columnIdentifier}" -> index ${index} -> value: "${resolvedValue}"`)
+          logger.info(`  Letter column "${columnIdentifier}" -> index ${index} -> value: "${resolvedValue}"`)
           if (index < headers.length) {
             rowValues[index] = resolvedValue
           }
         } else {
           // Find by header name - exact match
           const headerIndex = headers.findIndex((h: string) => h === columnIdentifier)
-          logger.debug(`  Named column "${columnIdentifier}" -> index ${headerIndex} -> value: "${resolvedValue}"`)
+          logger.info(`  Named column "${columnIdentifier}" -> index ${headerIndex} -> value: "${resolvedValue}"`)
           if (headerIndex >= 0) {
             rowValues[headerIndex] = resolvedValue
           } else {
-            logger.debug(`    ⚠️ Column "${columnIdentifier}" not found in headers!`)
+            logger.info(`    ⚠️ Column "${columnIdentifier}" not found in headers!`)
             // Try trimmed match
             const trimmedIndex = headers.findIndex((h: string) => h.trim() === columnIdentifier.trim())
             if (trimmedIndex >= 0) {
-              logger.debug(`    ✓ Found with trimmed match at index ${trimmedIndex}`)
+              logger.info(`    ✓ Found with trimmed match at index ${trimmedIndex}`)
               rowValues[trimmedIndex] = resolvedValue
             }
           }
@@ -151,15 +151,15 @@ export async function createGoogleSheetsRow(
       throw new Error('Either row fields, values array, or field mapping is required')
     }
     
-    logger.debug("📊 Final row values by position:")
+    logger.info("📊 Final row values by position:")
     finalRowValues.forEach((value, index) => {
       const header = headers[index] || `Column ${index}`
-      logger.debug(`  [${index}] ${header}: "${value}"`);
+      logger.info(`  [${index}] ${header}: "${value}"`);
     })
 
     // Only log mapping details if using fieldMapping approach
     if (Object.keys(fieldMapping).length > 0) {
-      logger.debug("🔍 Google Sheets Create Row - Column Mapping Summary:", {
+      logger.info("🔍 Google Sheets Create Row - Column Mapping Summary:", {
         headersLength: headers.length,
         fieldMappingKeys: Object.keys(fieldMapping),
         finalRowValuesLength: finalRowValues.length,
@@ -169,19 +169,19 @@ export async function createGoogleSheetsRow(
       // Log each mapping explicitly
       Object.entries(fieldMapping).forEach(([column, value]) => {
         const headerIndex = headers.findIndex((h: string) => h === column)
-        logger.debug(`  Column "${column}" -> Index ${headerIndex} -> Value: "${value}"`)
+        logger.info(`  Column "${column}" -> Index ${headerIndex} -> Value: "${value}"`)
         if (headerIndex === -1) {
-          logger.debug(`    ⚠️ WARNING: Column "${column}" not found in headers!`)
+          logger.info(`    ⚠️ WARNING: Column "${column}" not found in headers!`)
           // Try case-insensitive match
           const caseInsensitiveIndex = headers.findIndex((h: string) => h.toLowerCase() === column.toLowerCase())
           if (caseInsensitiveIndex >= 0) {
-            logger.debug(`    ℹ️ Found case-insensitive match at index ${caseInsensitiveIndex}`)
+            logger.info(`    ℹ️ Found case-insensitive match at index ${caseInsensitiveIndex}`)
           }
         }
       })
 
-      logger.debug("📊 Headers from sheet:", headers)
-      logger.debug("📊 Field names from UI:", Object.keys(fieldMapping))
+      logger.info("📊 Headers from sheet:", headers)
+      logger.info("📊 Field names from UI:", Object.keys(fieldMapping))
     }
 
     // Get sheet metadata if we need to insert at beginning or specific row

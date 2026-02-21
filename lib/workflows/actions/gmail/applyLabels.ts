@@ -70,7 +70,7 @@ export async function applyGmailLabels(
               }
             })
             labelId = newLabel.data.id
-            logger.debug(`Created new label: ${labelName} (${labelId})`)
+            logger.info(`Created new label: ${labelName} (${labelId})`)
           } catch (error) {
             logger.warn(`Failed to create label ${labelName}:`, error)
             continue

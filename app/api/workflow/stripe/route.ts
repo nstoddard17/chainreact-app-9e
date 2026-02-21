@@ -19,7 +19,7 @@ export async function POST(
     const body = await request.text()
     const signature = request.headers.get('stripe-signature')
     
-    logger.debug('🔍 Debug - signature:', signature ? 'present' : 'missing')
+    logger.info('🔍 Debug - signature:', signature ? 'present' : 'missing')
     if (!signature && !isTestMode) {
       logger.error('❌ Missing Stripe signature')
       return errorResponse('Missing signature' , 400)
@@ -34,14 +34,14 @@ export async function POST(
 
     // For testing purposes, allow requests without signature verification
     const isTestMode = process.env.NODE_ENV === 'development' || webhookSecret === 'whsec_test_secret_for_testing'
-    logger.debug('🔍 Debug - NODE_ENV:', process.env.NODE_ENV)
-    logger.debug('🔍 Debug - webhookSecret:', webhookSecret ? `${webhookSecret.substring(0, 20) }...` : 'undefined')
-    logger.debug('🔍 Debug - isTestMode:', isTestMode)
+    logger.info('🔍 Debug - NODE_ENV:', process.env.NODE_ENV)
+    logger.info('🔍 Debug - webhookSecret:', webhookSecret ? `${webhookSecret.substring(0, 20) }...` : 'undefined')
+    logger.info('🔍 Debug - isTestMode:', isTestMode)
 
     let event
     try {
       if (isTestMode) {
-        logger.debug('🧪 Test mode: Skipping signature verification')
+        logger.info('🧪 Test mode: Skipping signature verification')
         event = JSON.parse(body)
       } else {
         // Parse the signature header
@@ -76,7 +76,7 @@ export async function POST(
       return errorResponse('Invalid webhook payload' , 400)
     }
 
-    logger.debug(`🔔 Received Stripe webhook: ${event.type}`)
+    logger.info(`🔔 Received Stripe webhook: ${event.type}`)
 
     // Log webhook for debugging
     await getSupabase()
@@ -137,13 +137,13 @@ export async function POST(
       }
     }
 
-    logger.debug(`📋 Found ${matchingWorkflows.length} matching workflows for event ${event.type}`)
+    logger.info(`📋 Found ${matchingWorkflows.length} matching workflows for event ${event.type}`)
 
     // Process each matching workflow
     const results = []
     for (const workflow of matchingWorkflows) {
       try {
-        logger.debug(`🚀 Executing workflow: ${workflow.name} (${workflow.id})`)
+        logger.info(`🚀 Executing workflow: ${workflow.name} (${workflow.id})`)
         
         // Extract relevant data from the Stripe event
         const eventData = extractStripeEventData(event)
@@ -158,7 +158,7 @@ export async function POST(
           result
         })
 
-        logger.debug(`✅ Workflow ${workflow.name} executed successfully`)
+        logger.info(`✅ Workflow ${workflow.name} executed successfully`)
       } catch (error) {
         logger.error(`❌ Error executing workflow ${workflow.name}:`, error)
         results.push({
@@ -274,7 +274,7 @@ async function executeWorkflow(workflow: any, eventData: any) {
   // 3. Pass the event data to the trigger node
   // 4. Execute subsequent nodes in the workflow
   
-  logger.debug(`🔄 Executing workflow ${workflow.id} with event data:`, eventData)
+  logger.info(`🔄 Executing workflow ${workflow.id} with event data:`, eventData)
   
   // For now, just return success
   return {

@@ -64,14 +64,14 @@ export function useAirtableFieldHandler({
    * Handle baseId changes - clear everything
    */
   const handleBaseIdChange = useCallback(async (value: any) => {
-    logger.debug('🔍 Airtable baseId changed:', value);
+    logger.info('🔍 Airtable baseId changed:', value);
 
     // Mark dependent fields as manually cleared to prevent restoration from initialData
     const fieldsToMark = ['tableName', 'recordId', 'filterField', 'filterValue'];
     fieldsToMark.forEach(field => {
       clearedFieldsRef?.current.add(field);
     });
-    logger.debug('🚫 [Airtable] Marked fields as cleared:', fieldsToMark);
+    logger.info('🚫 [Airtable] Marked fields as cleared:', fieldsToMark);
 
     // Clear ALL dependent fields - set to empty string to override any saved values
     setValue('tableName', '', { shouldValidate: false });
@@ -111,7 +111,7 @@ export function useAirtableFieldHandler({
    * Handle tableName changes - clear everything except baseId
    */
   const handleTableNameChange = useCallback(async (value: any) => {
-    logger.debug('🔍 Airtable tableName changed:', value);
+    logger.info('🔍 Airtable tableName changed:', value);
     
     // Clear dependent fields (everything except baseId)
     setValue('recordId', '');
@@ -151,7 +151,7 @@ export function useAirtableFieldHandler({
   const handleFilterFieldChange = useCallback(async (value: any) => {
     if (nodeInfo?.type !== 'airtable_action_list_records') return;
     
-    logger.debug('🔍 Airtable filterField changed:', value);
+    logger.info('🔍 Airtable filterField changed:', value);
     
     // Clear filterValue
     setValue('filterValue', '');
@@ -184,7 +184,7 @@ export function useAirtableFieldHandler({
    */
   const handleRecordIdChange = useCallback((value: any) => {
     if (value && selectedRecord?.fields) {
-      logger.debug('🔍 Airtable recordId changed, populating dynamic fields');
+      logger.info('🔍 Airtable recordId changed, populating dynamic fields');
       
       // Populate dynamic fields from selected record
       Object.entries(selectedRecord.fields).forEach(([fieldName, fieldValue]) => {

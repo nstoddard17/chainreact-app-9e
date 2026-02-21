@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   // Listen for connection close
   request.signal.addEventListener('abort', () => {
     connectionClosed = true;
-    logger.debug("Client connection aborted for confirm action");
+    logger.info("Client connection aborted for confirm action");
   });
 
   try {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     // Early exit if connection closed
     if (connectionClosed) {
-      logger.debug("Connection closed early, aborting confirmation");
+      logger.info("Connection closed early, aborting confirmation");
       return new Response(null, { status: 499 }); // Client Closed Request
     }
 
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     // Check again if connection closed before executing action
     if (connectionClosed) {
-      logger.debug("Connection closed before action execution");
+      logger.info("Connection closed before action execution");
       return new Response(null, { status: 499 }); // Client Closed Request
     }
 

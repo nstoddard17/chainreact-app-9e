@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Failed to fetch notifications", 500)
     }
 
-    logger.debug("Notifications API response:", {
+    logger.info("Notifications API response:", {
       userId: user.id,
       unreadOnly,
       count: notifications?.length || 0,

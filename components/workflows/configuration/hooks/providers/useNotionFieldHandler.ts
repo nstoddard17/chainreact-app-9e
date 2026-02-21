@@ -31,17 +31,17 @@ export function useNotionFieldHandler({
    */
   const handlePageSelection = useCallback((value: any) => {
     if (values.operation === 'update' && value) {
-      logger.debug('🔍 [Notion] Page selected for update, loading title...');
+      logger.info('🔍 [Notion] Page selected for update, loading title...');
 
       // Look for the selected page in dynamic options
       setTimeout(() => {
         const pages = dynamicOptions?.page || [];
-        logger.debug('🔍 [Notion] Looking for page in options:', { value, pages });
+        logger.info('🔍 [Notion] Looking for page in options:', { value, pages });
         const selectedPage = pages.find((p: any) => p.value === value);
 
         if (selectedPage) {
           const title = selectedPage.label || selectedPage.title || selectedPage.name;
-          logger.debug('✅ [Notion] Setting title from selected page:', title);
+          logger.info('✅ [Notion] Setting title from selected page:', title);
           setValue('title', title);
         }
       }, 100);
@@ -52,12 +52,12 @@ export function useNotionFieldHandler({
    * Auto-populate title and description when database is selected for update_database operation
    */
   const handleDatabaseSelection = useCallback(async (value: any) => {
-    logger.debug('🔍 [Notion] handleDatabaseSelection called with:', { value, operation: values.operation });
+    logger.info('🔍 [Notion] handleDatabaseSelection called with:', { value, operation: values.operation });
 
     // Check for both 'update_database' and 'update' since the dropdown shows "Update Database"
     if ((values.operation === 'update_database' || values.operation === 'update') && value) {
-      logger.debug('🔍 [Notion] Database selected for update operation:', value);
-      logger.debug('🔍 [Notion] Current dynamic options:', dynamicOptions);
+      logger.info('🔍 [Notion] Database selected for update operation:', value);
+      logger.info('🔍 [Notion] Current dynamic options:', dynamicOptions);
 
       // Try multiple times with delays to ensure options are loaded
       const attempts = [0, 100, 500, 1000];
@@ -66,13 +66,13 @@ export function useNotionFieldHandler({
         await new Promise(resolve => setTimeout(resolve, delay));
 
         const databases = dynamicOptions?.database || [];
-        logger.debug(`🔍 [Notion] Attempt after ${delay}ms - Available databases:`, databases);
+        logger.info(`🔍 [Notion] Attempt after ${delay}ms - Available databases:`, databases);
 
         const selectedDatabase = databases.find((db: any) => db.value === value);
 
         if (selectedDatabase) {
           const title = selectedDatabase.label || selectedDatabase.title || selectedDatabase.name;
-          logger.debug('✅ [Notion] Found database, setting title:', title);
+          logger.info('✅ [Notion] Found database, setting title:', title);
           setValue('title', title);
 
           // Also set description if it exists on the database object
@@ -86,7 +86,7 @@ export function useNotionFieldHandler({
       }
 
       // If still not found after all attempts, try API
-      logger.debug('⚠️ [Notion] Database not found in options after multiple attempts, trying API');
+      logger.info('⚠️ [Notion] Database not found in options after multiple attempts, trying API');
 
       try {
         const response = await fetch('/api/integrations/notion/data', {
@@ -107,17 +107,17 @@ export function useNotionFieldHandler({
           const result = await response.json();
           const metadata = result.data || {};
 
-          logger.debug('✅ [Notion] Database metadata from API:', metadata);
+          logger.info('✅ [Notion] Database metadata from API:', metadata);
 
           // Set title from metadata
           if (metadata.title) {
-            logger.debug('✅ [Notion] Setting title from API metadata:', metadata.title);
+            logger.info('✅ [Notion] Setting title from API metadata:', metadata.title);
             setValue('title', metadata.title);
           }
 
           // Set description if available
           if (metadata.description) {
-            logger.debug('✅ [Notion] Setting description from API metadata:', metadata.description);
+            logger.info('✅ [Notion] Setting description from API metadata:', metadata.description);
             setValue('description', metadata.description);
           }
         }
@@ -126,7 +126,7 @@ export function useNotionFieldHandler({
       }
     } else if ((values.operation === 'update_database' || values.operation === 'update') && !value) {
       // Clear title and description when database is deselected
-      logger.debug('🔍 [Notion] Clearing title and description - no database selected');
+      logger.info('🔍 [Notion] Clearing title and description - no database selected');
       setValue('title', '');
       setValue('description', '');
     }
@@ -136,7 +136,7 @@ export function useNotionFieldHandler({
    * Main Notion field change handler
    */
   const handleFieldChange = useCallback(async (fieldName: string, value: any): Promise<boolean> => {
-    logger.debug('🚀 [NotionFieldHandler] Called with:', {
+    logger.info('🚀 [NotionFieldHandler] Called with:', {
       fieldName,
       value,
       provider: nodeInfo?.providerId,
@@ -145,29 +145,29 @@ export function useNotionFieldHandler({
 
     // Only handle Notion provider
     if (nodeInfo?.providerId !== 'notion') {
-      logger.debug('❌ [NotionFieldHandler] Not Notion provider, skipping');
+      logger.info('❌ [NotionFieldHandler] Not Notion provider, skipping');
       return false;
     }
 
-    logger.debug('✅ [NotionFieldHandler] Processing Notion field change:', { fieldName, value, operation: values.operation });
+    logger.info('✅ [NotionFieldHandler] Processing Notion field change:', { fieldName, value, operation: values.operation });
 
     // Handle page selection for update operation
     if (fieldName === 'page') {
-      logger.debug('📄 [NotionFieldHandler] Handling page selection');
+      logger.info('📄 [NotionFieldHandler] Handling page selection');
       handlePageSelection(value);
       return true;
     }
 
     // Handle database selection for update_database operation
     if (fieldName === 'database') {
-      logger.debug('🗄️ [NotionFieldHandler] Handling database selection');
+      logger.info('🗄️ [NotionFieldHandler] Handling database selection');
       await handleDatabaseSelection(value);
       return true;
     }
 
     // Handle workspace changes - clear dependent fields
     if (fieldName === 'workspace') {
-      logger.debug('🔍 [Notion] Workspace changed, clearing dependent fields');
+      logger.info('🔍 [Notion] Workspace changed, clearing dependent fields');
 
       // Clear all dependent fields
       setValue('page', '');
@@ -185,7 +185,7 @@ export function useNotionFieldHandler({
       // Load pages/databases based on current operation
       if (value) {
         // The auto-loading is handled by NotionConfiguration component's useEffects
-        logger.debug('🔍 [Notion] Workspace selected, auto-loading will trigger from NotionConfiguration');
+        logger.info('🔍 [Notion] Workspace selected, auto-loading will trigger from NotionConfiguration');
       }
 
       return true;
@@ -193,7 +193,7 @@ export function useNotionFieldHandler({
 
     // Handle operation changes - clear relevant fields
     if (fieldName === 'operation') {
-      logger.debug('🔍 [Notion] Operation changed to:', value);
+      logger.info('🔍 [Notion] Operation changed to:', value);
 
       // Clear fields that might not be relevant for the new operation
       setValue('title', '');
@@ -206,7 +206,7 @@ export function useNotionFieldHandler({
 
       // Auto-load users when "Get User Details" is selected
       if (value === 'get' && nodeInfo?.type === 'notion_action_manage_users' && values.workspace) {
-        logger.debug('🔍 [Notion] Auto-loading users for Get User Details operation');
+        logger.info('🔍 [Notion] Auto-loading users for Get User Details operation');
 
         // Set loading state
         setLoadingFields(prev => {

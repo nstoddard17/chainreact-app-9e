@@ -61,7 +61,7 @@ export async function resolveNodeAIFields(
     try {
       // Check if field is AI-controlled
       if (isAIControlledField(fieldValue)) {
-        logger.debug(`[AI Field] Resolving AI field: ${fieldName}`)
+        logger.info(`[AI Field] Resolving AI field: ${fieldName}`)
         
         const { fieldName: targetField, instructions } = parseAIFieldMarker(fieldValue)
         
@@ -88,12 +88,12 @@ export async function resolveNodeAIFields(
           userApiKey
         )
         
-        logger.debug(`[AI Field] Generated value for ${fieldName}:`, generatedValue)
+        logger.info(`[AI Field] Generated value for ${fieldName}:`, generatedValue)
         resolvedConfig[fieldName] = generatedValue
         
       } else if (typeof fieldValue === 'string' && containsAIVariables(fieldValue)) {
         // Resolve AI variables in text
-        logger.debug(`[AI Variables] Resolving variables in ${fieldName}`)
+        logger.info(`[AI Variables] Resolving variables in ${fieldName}`)
         
         const resolvedText = await resolveAIVariables(
           fieldValue,
@@ -101,7 +101,7 @@ export async function resolveNodeAIFields(
           userApiKey
         )
         
-        logger.debug(`[AI Variables] Resolved text:`, resolvedText)
+        logger.info(`[AI Variables] Resolved text:`, resolvedText)
         resolvedConfig[fieldName] = resolvedText
         
       } else {

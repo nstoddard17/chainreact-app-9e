@@ -17,7 +17,7 @@ export async function POST(
     const body = await request.json().catch(() => ({}))
     const { testModeConfig, timeout = 30 * 60 * 1000 } = body // Accept test mode config and custom timeout
 
-    logger.debug('Starting test session with config:', { testModeConfig, timeout })
+    logger.info('Starting test session with config:', { testModeConfig, timeout })
 
     const supabase = await createSupabaseRouteHandlerClient()
 
@@ -126,7 +126,7 @@ export async function POST(
     // Use TEST MODE to ensure isolated webhook URL that won't trigger production workflows
     const { triggerLifecycleManager } = await import('@/lib/triggers')
 
-    logger.debug('🧪 Registering trigger for live test mode with isolated webhook...')
+    logger.info('🧪 Registering trigger for live test mode with isolated webhook...')
     const result = await triggerLifecycleManager.activateWorkflowTriggers(
       workflowId,
       user.id,
@@ -144,7 +144,7 @@ export async function POST(
       return errorResponse('Failed to register webhook with external service', 500, { details: result.errors })
     }
 
-    logger.debug('✅ Test trigger registered successfully with isolated webhook')
+    logger.info('✅ Test trigger registered successfully with isolated webhook')
 
     return jsonResponse({
       success: true,
@@ -199,11 +199,11 @@ export async function DELETE(
     const { triggerLifecycleManager } = await import('@/lib/triggers')
 
     if (testSessionId) {
-      logger.debug(`🧪 Deactivating test trigger for session ${testSessionId}...`)
+      logger.info(`🧪 Deactivating test trigger for session ${testSessionId}...`)
       await triggerLifecycleManager.deactivateWorkflowTriggers(workflowId, user.id, testSessionId)
-      logger.debug('✅ Test trigger deactivated (production triggers unaffected)')
+      logger.info('✅ Test trigger deactivated (production triggers unaffected)')
     } else {
-      logger.debug('⚠️ No active test session found to deactivate')
+      logger.info('⚠️ No active test session found to deactivate')
     }
 
     // Update test session to stopped

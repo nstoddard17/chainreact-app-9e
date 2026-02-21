@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       if (response.ok) {
         const data = await response.json()
         const flows = data.data || []
-        logger.debug(`[MANYCHAT FLOWS] Fetched ${flows.length} flows`)
+        logger.info(`[MANYCHAT FLOWS] Fetched ${flows.length} flows`)
         return NextResponse.json({ flows })
       }
     } catch (apiError: any) {
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Return empty array with helper message if API not available
-    logger.debug('[MANYCHAT FLOWS] Flow listing API not available, returning helper message')
+    logger.info('[MANYCHAT FLOWS] Flow listing API not available, returning helper message')
     return NextResponse.json({
       flows: [],
       message: 'Flow listing requires manual configuration. Please enter the flow namespace manually.',

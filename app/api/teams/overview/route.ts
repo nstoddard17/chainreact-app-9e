@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Unauthorized", 401)
     }
 
-    logger.debug('[Teams Overview API] Fetching teams and invitations for user:', {
+    logger.info('[Teams Overview API] Fetching teams and invitations for user:', {
       userId: user.id,
       elapsed: Date.now() - startTime
     })
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    logger.debug('[Teams Overview API] Successfully fetched overview:', {
+    logger.info('[Teams Overview API] Successfully fetched overview:', {
       teamsCount: teams.length,
       invitationsCount: invitations.length,
       totalElapsed: Date.now() - startTime

@@ -60,7 +60,7 @@ export class ExecutionProgressTracker {
     totalNodes: number
   ): Promise<void> {
     try {
-      logger.debug('🔄 ExecutionProgressTracker.initialize called', {
+      logger.info('🔄 ExecutionProgressTracker.initialize called', {
         executionId,
         workflowId,
         userId,
@@ -92,10 +92,10 @@ export class ExecutionProgressTracker {
 
         // Check if this is a table doesn't exist error
         if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-          logger.debug('⚠️ execution_progress table does not exist. Please create it using the SQL script.')
-          logger.debug('Continuing without progress tracking...')
+          logger.info('⚠️ execution_progress table does not exist. Please create it using the SQL script.')
+          logger.info('Continuing without progress tracking...')
         } else {
-          logger.debug('Will continue without progress tracking due to error:', error.message)
+          logger.info('Will continue without progress tracking due to error:', error.message)
         }
 
         return
@@ -103,7 +103,7 @@ export class ExecutionProgressTracker {
 
       if (data) {
         this.progressId = data.id
-        logger.debug('✅ Execution progress tracker initialized:', this.progressId)
+        logger.info('✅ Execution progress tracker initialized:', this.progressId)
       }
 
       // Also check if this execution is part of a test session
@@ -125,10 +125,10 @@ export class ExecutionProgressTracker {
             })
             .eq('id', testSession.id)
 
-          logger.debug('📝 Updated test session status to executing:', testSession.id)
+          logger.info('📝 Updated test session status to executing:', testSession.id)
         }
       } catch (testSessionError) {
-        logger.debug('Test session check skipped:', testSessionError)
+        logger.info('Test session check skipped:', testSessionError)
       }
     } catch (error) {
       logger.error('Error initializing execution progress:', error)
@@ -144,7 +144,7 @@ export class ExecutionProgressTracker {
       return
     }
 
-    logger.debug('Updating execution progress:', update)
+    logger.info('Updating execution progress:', update)
 
     try {
       const updateData: any = {
@@ -251,7 +251,7 @@ export class ExecutionProgressTracker {
       currentNodeName: nodeName || 'Paused for human input',
     })
 
-    logger.debug(`⏸️  Execution paused${nodeId ? ` at node ${nodeId}` : ''}`)
+    logger.info(`⏸️  Execution paused${nodeId ? ` at node ${nodeId}` : ''}`)
   }
 
   /**
@@ -260,7 +260,7 @@ export class ExecutionProgressTracker {
    */
   async resume(executionId: string): Promise<boolean> {
     try {
-      logger.debug('🔄 ExecutionProgressTracker.resume called', { executionId })
+      logger.info('🔄 ExecutionProgressTracker.resume called', { executionId })
 
       // Find the existing progress record
       const { data, error } = await this.supabase
@@ -299,7 +299,7 @@ export class ExecutionProgressTracker {
         currentNodeName: 'Resuming execution...',
       })
 
-      logger.debug('✅ Execution progress tracker resumed:', this.progressId)
+      logger.info('✅ Execution progress tracker resumed:', this.progressId)
       return true
     } catch (error) {
       logger.error('Error resuming execution progress:', error)
@@ -317,7 +317,7 @@ export class ExecutionProgressTracker {
       progressPercentage: 100,
     })
 
-    logger.debug(`✅ Execution ${success ? 'completed' : 'failed'}`)
+    logger.info(`✅ Execution ${success ? 'completed' : 'failed'}`)
   }
 
   /**

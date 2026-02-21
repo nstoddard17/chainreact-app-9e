@@ -41,7 +41,7 @@ export async function sendManyChatMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Send Message] Config:', config)
+    logger.info('[ManyChat Send Message] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -87,7 +87,7 @@ export async function sendManyChatFlow(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Send Flow] Config:', config)
+    logger.info('[ManyChat Send Flow] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -132,7 +132,7 @@ export async function setManyChatCustomField(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Set Custom Field] Config:', config)
+    logger.info('[ManyChat Set Custom Field] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -180,7 +180,7 @@ export async function getManyChatSubscriber(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Get Subscriber] Config:', config)
+    logger.info('[ManyChat Get Subscriber] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -230,7 +230,7 @@ export async function addManyChatTag(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Add Tag] Config:', config)
+    logger.info('[ManyChat Add Tag] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -275,7 +275,7 @@ export async function removeManyChatTag(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Remove Tag] Config:', config)
+    logger.info('[ManyChat Remove Tag] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -320,7 +320,7 @@ export async function subscribeManyChatSequence(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Subscribe Sequence] Config:', config)
+    logger.info('[ManyChat Subscribe Sequence] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -365,7 +365,7 @@ export async function unsubscribeManyChatSequence(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Unsubscribe Sequence] Config:', config)
+    logger.info('[ManyChat Unsubscribe Sequence] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -410,7 +410,7 @@ export async function findManyChatUser(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Find User] Config:', config)
+    logger.info('[ManyChat Find User] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -475,7 +475,7 @@ export async function findByManyChatCustomField(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Find by Custom Field] Config:', config)
+    logger.info('[ManyChat Find by Custom Field] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -523,7 +523,7 @@ export async function createManyChatSubscriber(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Create Subscriber] Config:', config)
+    logger.info('[ManyChat Create Subscriber] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -567,7 +567,7 @@ export async function sendManyChatContent(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Send Content] Config:', config)
+    logger.info('[ManyChat Send Content] Config:', config)
 
     const client = await getManyChatClient(userId)
 
@@ -622,7 +622,7 @@ export async function sendManyChatDynamicMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('[ManyChat Send Dynamic Message] Config:', config)
+    logger.info('[ManyChat Send Dynamic Message] Config:', config)
 
     const client = await getManyChatClient(userId)
 

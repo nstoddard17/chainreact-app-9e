@@ -17,7 +17,7 @@ export async function uploadGoogleDriveFile(
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
-  logger.debug('🚀 [uploadGoogleDriveFile] Starting with config:', {
+  logger.info('🚀 [uploadGoogleDriveFile] Starting with config:', {
     config,
     userId,
     hasInput: !!input
@@ -56,7 +56,7 @@ export async function uploadGoogleDriveFile(
     
     const uploadedFiles = processedUploadedFiles || [];
     
-    logger.debug('📋 [uploadGoogleDriveFile] Resolved config:', {
+    logger.info('📋 [uploadGoogleDriveFile] Resolved config:', {
       sourceType,
       uploadedFiles,
       fileName,
@@ -67,12 +67,12 @@ export async function uploadGoogleDriveFile(
       originalUploadedFiles: resolvedConfig.uploadedFiles
     });
 
-    logger.debug('🔐 [uploadGoogleDriveFile] Getting access token for userId:', userId);
+    logger.info('🔐 [uploadGoogleDriveFile] Getting access token for userId:', userId);
     
     let accessToken;
     try {
       accessToken = await getDecryptedAccessToken(userId, "google-drive")
-      logger.debug('✅ [uploadGoogleDriveFile] Got access token');
+      logger.info('✅ [uploadGoogleDriveFile] Got access token');
     } catch (error: any) {
       logger.error('❌ [uploadGoogleDriveFile] Failed to get access token:', error);
       throw new Error(`Failed to get Google Drive access token: ${error.message}`);
@@ -191,7 +191,7 @@ export async function uploadGoogleDriveFile(
       // 2. Array of objects with {nodeId, filePath, isTemporary} for temp files
       // 3. Single object/string (convert to array)
       
-      logger.debug('📁 [uploadGoogleDriveFile] Processing uploaded files:', {
+      logger.info('📁 [uploadGoogleDriveFile] Processing uploaded files:', {
         uploadedFiles,
         uploadedFilesType: typeof uploadedFiles,
         isArray: Array.isArray(uploadedFiles)
@@ -204,7 +204,7 @@ export async function uploadGoogleDriveFile(
         filesToProcess = Array.isArray(uploadedFiles) ? uploadedFiles : [uploadedFiles];
       }
       
-      logger.debug('📁 [uploadGoogleDriveFile] Files to process:', filesToProcess);
+      logger.info('📁 [uploadGoogleDriveFile] Files to process:', filesToProcess);
       
       for (const fileRef of filesToProcess) {
         try {
@@ -218,7 +218,7 @@ export async function uploadGoogleDriveFile(
             nodeId = fileRef.nodeId;
             filePath = fileRef.filePath;
             isTemp = fileRef.isTemporary || false;
-            logger.debug('📝 [uploadGoogleDriveFile] Processing temporary file object:', {
+            logger.info('📝 [uploadGoogleDriveFile] Processing temporary file object:', {
               nodeId,
               filePath,
               isTemp
@@ -226,7 +226,7 @@ export async function uploadGoogleDriveFile(
           } else if (typeof fileRef === 'string') {
             // Simple node ID format
             nodeId = fileRef;
-            logger.debug('📝 [uploadGoogleDriveFile] Processing node ID string:', nodeId);
+            logger.info('📝 [uploadGoogleDriveFile] Processing node ID string:', nodeId);
           } else {
             logger.warn('Invalid file reference format:', fileRef);
             continue;
@@ -238,7 +238,7 @@ export async function uploadGoogleDriveFile(
           if (isTemp && filePath) {
             // For temporary files, we need to fetch directly from storage using the path
             // Since there's no database record yet
-            logger.debug('📂 [uploadGoogleDriveFile] Fetching temporary file from storage:', {
+            logger.info('📂 [uploadGoogleDriveFile] Fetching temporary file from storage:', {
               nodeId,
               filePath,
               isTemp
@@ -260,12 +260,12 @@ export async function uploadGoogleDriveFile(
               continue;
             }
             
-            logger.debug('✅ [uploadGoogleDriveFile] Successfully downloaded file from storage');
+            logger.info('✅ [uploadGoogleDriveFile] Successfully downloaded file from storage');
             
             const buffer = await fileData.arrayBuffer();
             const bufferData = Buffer.from(buffer);
             
-            logger.debug('📊 [uploadGoogleDriveFile] File buffer created:', {
+            logger.info('📊 [uploadGoogleDriveFile] File buffer created:', {
               bufferSize: bufferData.length,
               fileName: fileName || filePath.split('/').pop()
             });
@@ -293,7 +293,7 @@ export async function uploadGoogleDriveFile(
       }
     }
 
-    logger.debug('📊 [uploadGoogleDriveFile] Files ready for upload:', {
+    logger.info('📊 [uploadGoogleDriveFile] Files ready for upload:', {
       count: filesToUpload.length,
       files: filesToUpload.map(f => ({ name: f.name, size: f.data?.length || 0 }))
     });
@@ -308,10 +308,10 @@ export async function uploadGoogleDriveFile(
     }
 
     // Upload each file
-    logger.debug('🚀 [uploadGoogleDriveFile] Starting file uploads to Google Drive...');
+    logger.info('🚀 [uploadGoogleDriveFile] Starting file uploads to Google Drive...');
     for (const file of filesToUpload) {
       try {
-        logger.debug('📤 [uploadGoogleDriveFile] Uploading file:', file.name);
+        logger.info('📤 [uploadGoogleDriveFile] Uploading file:', file.name);
         // Prepare file metadata
         const fileMetadata: any = {
           name: file.name,
@@ -346,7 +346,7 @@ export async function uploadGoogleDriveFile(
         }
 
         // Upload file
-        logger.debug('🚀 [uploadGoogleDriveFile] Calling Google Drive API to create file:', {
+        logger.info('🚀 [uploadGoogleDriveFile] Calling Google Drive API to create file:', {
           fileName: fileMetadata.name,
           mimeType: uploadMimeType,
           dataSize: file.data?.length || 0,
@@ -380,7 +380,7 @@ export async function uploadGoogleDriveFile(
         }
 
         const uploadedFile = uploadResponse.data
-        logger.debug('✅ [uploadGoogleDriveFile] File uploaded successfully:', {
+        logger.info('✅ [uploadGoogleDriveFile] File uploaded successfully:', {
           fileId: uploadedFile.id,
           fileName: uploadedFile.name,
           webViewLink: uploadedFile.webViewLink

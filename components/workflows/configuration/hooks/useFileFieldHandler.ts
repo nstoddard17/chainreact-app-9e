@@ -76,16 +76,16 @@ export function useFileFieldHandler({
 
     if (value instanceof FileList && value.length > 0) {
       file = value[0]; // Get the first file from FileList
-      logger.debug('📸 Detected FileList with file:', file.name);
+      logger.info('📸 Detected FileList with file:', file.name);
     } else if (value instanceof File) {
       file = value;
-      logger.debug('📸 Detected File object:', file.name);
+      logger.info('📸 Detected File object:', file.name);
     } else if (Array.isArray(value) && value.length > 0 && value[0] instanceof File) {
       file = value[0]; // Handle array of File objects
-      logger.debug('📸 Detected File array with file:', file.name);
+      logger.info('📸 Detected File array with file:', file.name);
     } else if (typeof value === 'string' && value.startsWith('data:')) {
       isDataUrl = true;
-      logger.debug('📸 Detected data URL');
+      logger.info('📸 Detected data URL');
     }
 
     return { file, isDataUrl };
@@ -130,7 +130,7 @@ export function useFileFieldHandler({
     }
 
     if (!value) {
-      logger.debug('📸 File field cleared');
+      logger.info('📸 File field cleared');
       // Clear image preview
       setImagePreview(null);
       
@@ -151,13 +151,13 @@ export function useFileFieldHandler({
       return true;
     }
 
-    logger.debug('📸 File field changed:', fieldName, value);
+    logger.info('📸 File field changed:', fieldName, value);
 
     // Process the file value
     const { file, isDataUrl } = processFileValue(value);
 
     if (file || isDataUrl) {
-      logger.debug('📸 Processing file upload:', file ? file.name : 'data URL');
+      logger.info('📸 Processing file upload:', file ? file.name : 'data URL');
       
       // Store the previous bubble(s) before replacing
       const previousBubbles = fieldSuggestions[fieldName] || [];
@@ -208,13 +208,13 @@ export function useFileFieldHandler({
         url: newImageBubble.fullUrl
       });
       
-      logger.debug('📸 Created new image bubble for uploaded file:', newImageBubble);
+      logger.info('📸 Created new image bubble for uploaded file:', newImageBubble);
       return true;
     }
 
     // If value is empty (user cleared the file), handle it
     if (!value || (value instanceof FileList && value.length === 0)) {
-      logger.debug('📸 File field cleared');
+      logger.info('📸 File field cleared');
       setImagePreview(null);
       return true;
     }

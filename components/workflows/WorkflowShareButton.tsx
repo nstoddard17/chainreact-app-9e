@@ -32,7 +32,7 @@ export function WorkflowShareButton({ workflowId, workflowName }: WorkflowShareB
 
   const handleInvite = () => {
     // TODO: Implement invite logic
-    logger.debug('Inviting user to workflow', { email: inviteEmail, workflowId })
+    logger.info('Inviting user to workflow', { email: inviteEmail, workflowId })
     setInviteEmail('')
   }
 

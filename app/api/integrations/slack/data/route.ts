@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Log integration status for debugging
-    logger.debug('🔍 [Slack API] Integration status check:', {
+    logger.info('🔍 [Slack API] Integration status check:', {
       integrationId,
       status: integration.status,
       hasAccessToken: !!integration.access_token,
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     try {
       decryptedAccessToken = await decryptToken(integration.access_token)
       
-      logger.debug('🔐 [Slack API] Token decryption result:', {
+      logger.info('🔐 [Slack API] Token decryption result:', {
         integrationId,
         originalTokenLength: integration.access_token?.length,
         decryptedTokenLength: decryptedAccessToken?.length,
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Slack API] Processing request:`, {
+    logger.info(`🔍 [Slack API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integrationWithDecryptedTokens, options)
 
-    logger.debug(`✅ [Slack API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Slack API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

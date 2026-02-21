@@ -58,13 +58,13 @@ function resolveStringTemplate(
   
   return template.replace(regex, (match, path) => {
     const trimmedPath = path.trim()
-    logger.debug(`🔧 Legacy resolveValue attempting to resolve: "${match}"`)
+    logger.info(`🔧 Legacy resolveValue attempting to resolve: "${match}"`)
     
     // First try to get the value from the context using the dot path
     const value = getValueByPath(context, trimmedPath)
     
     if (value !== undefined) {
-      logger.debug(`✅ Found in context:`, value)
+      logger.info(`✅ Found in context:`, value)
       return typeof value === 'object' 
         ? JSON.stringify(value) 
         : String(value)
@@ -72,26 +72,26 @@ function resolveStringTemplate(
     
     // If not found in context and we have a DataFlowManager, try that
     if (dataFlowManager && dataFlowManager.resolveVariable) {
-      logger.debug(`🔧 Trying DataFlowManager for: "${match}"`)
+      logger.info(`🔧 Trying DataFlowManager for: "${match}"`)
       try {
         const dataFlowValue = dataFlowManager.resolveVariable(match)
         
         if (dataFlowValue !== match) { // If it resolved to something different
-          logger.debug(`✅ DataFlowManager resolved:`, dataFlowValue)
+          logger.info(`✅ DataFlowManager resolved:`, dataFlowValue)
           return typeof dataFlowValue === 'object' 
             ? JSON.stringify(dataFlowValue) 
             : String(dataFlowValue)
         } 
-          logger.debug(`⚠️ DataFlowManager could not resolve: "${match}"`)
+          logger.info(`⚠️ DataFlowManager could not resolve: "${match}"`)
         
       } catch (error) {
         logger.error(`❌ DataFlowManager error for "${match}":`, error)
       }
     } else {
-      logger.debug(`⚠️ No DataFlowManager available for: "${match}"`)
+      logger.info(`⚠️ No DataFlowManager available for: "${match}"`)
     }
     
-    logger.debug(`❌ Could not resolve: "${match}"`)
+    logger.info(`❌ Could not resolve: "${match}"`)
     // Return the original placeholder if not found
     return match
   })

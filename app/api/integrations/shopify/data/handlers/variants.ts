@@ -16,7 +16,7 @@ export const getShopifyVariants: ShopifyDataHandler<ShopifyVariant[]> = async (
     const productId = options?.product_id || options?.productId
 
     if (!productId) {
-      logger.debug('[Shopify] No product_id provided for variants, returning empty array')
+      logger.info('[Shopify] No product_id provided for variants, returning empty array')
       return []
     }
 
@@ -52,7 +52,7 @@ export const getShopifyVariants: ShopifyDataHandler<ShopifyVariant[]> = async (
       }
     })
 
-    logger.debug(`✅ [Shopify] Fetched ${variants.length} variants for product ${productId}`)
+    logger.info(`✅ [Shopify] Fetched ${variants.length} variants for product ${productId}`)
     return variants
 
   } catch (error: any) {

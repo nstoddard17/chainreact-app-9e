@@ -93,7 +93,7 @@ export function GoogleSheetsConfiguration({
   
   // Wrap setValue to capture column_ and newRow_ fields
   const setValueWithColumnTracking = React.useCallback((key: string, value: any) => {
-    logger.debug(`🔧 [GoogleSheets] Setting value: ${key} = ${value}`);
+    logger.info(`🔧 [GoogleSheets] Setting value: ${key} = ${value}`);
     
     // Always set in the main values
     setValue(key, value);
@@ -104,12 +104,12 @@ export function GoogleSheetsConfiguration({
         ...prev,
         [key]: value
       }));
-      logger.debug(`🔧 [GoogleSheets] Tracked column field: ${key} = ${value}`);
+      logger.info(`🔧 [GoogleSheets] Tracked column field: ${key} = ${value}`);
     }
     
     // For newRow_ fields, just ensure they're set in main values (no separate tracking needed)
     if (key.startsWith('newRow_')) {
-      logger.debug(`🔧 [GoogleSheets] Set newRow field: ${key} = ${value}`);
+      logger.info(`🔧 [GoogleSheets] Set newRow field: ${key} = ${value}`);
     }
   }, [setValue]);
   
@@ -167,7 +167,7 @@ export function GoogleSheetsConfiguration({
     dependsOnValue?: any,
     forceReload?: boolean
   ) => {
-    logger.debug('🔍 [GoogleSheetsConfig] handleDynamicLoad called:', {
+    logger.info('🔍 [GoogleSheetsConfig] handleDynamicLoad called:', {
       fieldName,
       dependsOn,
       dependsOnValue,
@@ -206,7 +206,7 @@ export function GoogleSheetsConfiguration({
     setShowPreviewData(true);
     
     try {
-      logger.debug('📊 Loading Google Sheets preview data...', {
+      logger.info('📊 Loading Google Sheets preview data...', {
         spreadsheetId,
         sheetName,
         hasHeaders
@@ -248,7 +248,7 @@ export function GoogleSheetsConfiguration({
       }
       
       const result = await response.json();
-      logger.debug('📊 Sheet data loaded:', result);
+      logger.info('📊 Sheet data loaded:', result);
       
       // Format the data for display - transform to match expected format
       if (result.data && Array.isArray(result.data)) {
@@ -277,7 +277,7 @@ export function GoogleSheetsConfiguration({
     // Check if we have saved columnMapping data (indicates this is an edit of existing config)
     const hasSavedData = values.columnMapping && typeof values.columnMapping === 'object' && Object.keys(values.columnMapping).length > 0;
     
-    logger.debug('📊 [GoogleSheets] Checking restoration conditions:', {
+    logger.info('📊 [GoogleSheets] Checking restoration conditions:', {
       hasSavedData,
       action: values.action,
       hasColumnMapping: !!values.columnMapping,
@@ -294,12 +294,12 @@ export function GoogleSheetsConfiguration({
     }
     
     // Restore the saved columnMapping data
-    logger.debug('📊 [GoogleSheets] Initializing newRow fields from saved columnMapping:', values.columnMapping);
+    logger.info('📊 [GoogleSheets] Initializing newRow fields from saved columnMapping:', values.columnMapping);
     
     // Convert saved columnMapping back to individual newRow_ fields
     Object.entries(values.columnMapping).forEach(([columnName, value]) => {
       const fieldName = `newRow_${columnName}`;
-      logger.debug(`  - Restoring ${fieldName} = "${value}"`);
+      logger.info(`  - Restoring ${fieldName} = "${value}"`);
       setValue(fieldName, value);
     });
     
@@ -317,7 +317,7 @@ export function GoogleSheetsConfiguration({
     if (previousUpdateModeRef.current && previousUpdateModeRef.current !== values.updateMode) {
       if (values.updateMode === 'simple') {
         // Switched to simple mode - clear visual mode fields
-        logger.debug('🔄 Switched to Simple mode - clearing visual fields');
+        logger.info('🔄 Switched to Simple mode - clearing visual fields');
         // Clear column_ fields
         Object.keys(values).forEach(key => {
           if (key.startsWith('column_')) {
@@ -328,7 +328,7 @@ export function GoogleSheetsConfiguration({
         setGoogleSheetsSelectedRows(new Set());
       } else if (values.updateMode === 'visual') {
         // Switched to visual mode - clear simple mode fields
-        logger.debug('🔄 Switched to Visual mode - clearing simple fields');
+        logger.info('🔄 Switched to Visual mode - clearing simple fields');
         setValue('rowNumber', '');
         setValue('values', '');
         setValue('rowSelection', '');
@@ -351,7 +351,7 @@ export function GoogleSheetsConfiguration({
     if (previousRowSelectionRef.current && previousRowSelectionRef.current !== values.rowSelection) {
       // Clear rowNumber when switching away from "specific"
       if (values.rowSelection === 'last' || values.rowSelection === 'first_data') {
-        logger.debug('🔄 Switched row selection to automated - clearing rowNumber');
+        logger.info('🔄 Switched row selection to automated - clearing rowNumber');
         setValue('rowNumber', '');
       }
     }
@@ -371,7 +371,7 @@ export function GoogleSheetsConfiguration({
       const needsPreviewLoad = !showPreviewData && !loadingPreview;
 
       if (needsPreviewLoad) {
-        logger.debug('📊 [GoogleSheets] Auto-loading preview for Add Row action', {
+        logger.info('📊 [GoogleSheets] Auto-loading preview for Add Row action', {
           spreadsheetId: values.spreadsheetId,
           sheetName: values.sheetName,
           showPreviewData,
@@ -428,7 +428,7 @@ export function GoogleSheetsConfiguration({
     if (values.action === 'update') {
       // Set the row number for update
       setValue('updateRowNumber', row.rowNumber);
-      logger.debug('📊 Row selected for update:', row);
+      logger.info('📊 Row selected for update:', row);
       
       // Optionally populate field values with row data
       if (row.fields) {
@@ -457,7 +457,7 @@ export function GoogleSheetsConfiguration({
       if (field.dependsOn) {
         const dependencyValue = values[field.dependsOn];
         if (!dependencyValue) {
-          logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden - depends on "${field.dependsOn}" which has no value`);
+          logger.info(`📋 [GoogleSheets] Field "${field.name}" hidden - depends on "${field.dependsOn}" which has no value`);
           return false; // Hide field if dependency has no value
         }
       }
@@ -465,7 +465,7 @@ export function GoogleSheetsConfiguration({
       // Check if field should be shown based on showIf condition
       if (field.showIf && typeof field.showIf === 'function') {
         const shouldShow = field.showIf(values);
-        logger.debug(`📋 [GoogleSheets] Field "${field.name}" showIf evaluated:`, shouldShow, 'with values:', values);
+        logger.info(`📋 [GoogleSheets] Field "${field.name}" showIf evaluated:`, shouldShow, 'with values:', values);
         return shouldShow;
       }
       
@@ -473,7 +473,7 @@ export function GoogleSheetsConfiguration({
       if (field.hidden && field.showIf) {
         if (typeof field.showIf === 'function') {
           const shouldShow = field.showIf(values);
-          logger.debug(`📋 [GoogleSheets] Hidden field "${field.name}" showIf evaluated:`, shouldShow);
+          logger.info(`📋 [GoogleSheets] Hidden field "${field.name}" showIf evaluated:`, shouldShow);
           return shouldShow;
         }
       }
@@ -499,7 +499,7 @@ export function GoogleSheetsConfiguration({
                 const conditionMet = shouldExist ? doesExist : !doesExist;
 
                 if (conditionMet) {
-                  logger.debug(`📋 [GoogleSheets] Field "${field.name}" condition met - ${depField} existence check`);
+                  logger.info(`📋 [GoogleSheets] Field "${field.name}" condition met - ${depField} existence check`);
                   return true; // Condition met
                 }
               }
@@ -510,7 +510,7 @@ export function GoogleSheetsConfiguration({
                 const conditionMet = depValue !== expectedValue;
 
                 if (conditionMet) {
-                  logger.debug(`📋 [GoogleSheets] Field "${field.name}" condition met - ${depField} !== ${expectedValue} (value: ${depValue})`);
+                  logger.info(`📋 [GoogleSheets] Field "${field.name}" condition met - ${depField} !== ${expectedValue} (value: ${depValue})`);
                   return true; // Condition met
                 }
               }
@@ -521,7 +521,7 @@ export function GoogleSheetsConfiguration({
                 const conditionMet = depValue === expectedValue;
 
                 if (conditionMet) {
-                  logger.debug(`📋 [GoogleSheets] Field "${field.name}" condition met - ${depField} === ${expectedValue} (value: ${depValue})`);
+                  logger.info(`📋 [GoogleSheets] Field "${field.name}" condition met - ${depField} === ${expectedValue} (value: ${depValue})`);
                   return true; // Condition met
                 }
               }
@@ -534,23 +534,23 @@ export function GoogleSheetsConfiguration({
         if (condition.$or && Array.isArray(condition.$or)) {
           for (const orCondition of condition.$or) {
             if (evaluateCondition(orCondition)) {
-              logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden - $or condition met`);
+              logger.info(`📋 [GoogleSheets] Field "${field.name}" hidden - $or condition met`);
               return false; // Hide field when any $or condition is met
             }
           }
           // None of the $or conditions were met, show the field
-          logger.debug(`📋 [GoogleSheets] Field "${field.name}" shown - no $or conditions met`);
+          logger.info(`📋 [GoogleSheets] Field "${field.name}" shown - no $or conditions met`);
           return true;
         }
 
         // Handle single condition (no $or)
         if (evaluateCondition(condition)) {
-          logger.debug(`📋 [GoogleSheets] Field "${field.name}" hidden by condition`);
+          logger.info(`📋 [GoogleSheets] Field "${field.name}" hidden by condition`);
           return false; // Hide field when condition is met
         }
 
         // If we get here, condition was not met, so show the field
-        logger.debug(`📋 [GoogleSheets] Field "${field.name}" shown - hidden condition not met`);
+        logger.info(`📋 [GoogleSheets] Field "${field.name}" shown - hidden condition not met`);
         return true;
       }
 
@@ -565,7 +565,7 @@ export function GoogleSheetsConfiguration({
   const visibleFields = getVisibleFields();
 
   // Debug log visible fields for troubleshooting
-  logger.debug('📊 [GoogleSheets] visibleFields:', visibleFields.map((f: any) => ({
+  logger.info('📊 [GoogleSheets] visibleFields:', visibleFields.map((f: any) => ({
     name: f.name,
     type: f.type,
     label: f.label
@@ -575,7 +575,7 @@ export function GoogleSheetsConfiguration({
   const renderFields = (fields: any[]) => {
     return fields.map((field, index) => {
       // Debug log each field being rendered
-      logger.debug(`📊 [GoogleSheets] Rendering field: ${field.name} (type: ${field.type})`);
+      logger.info(`📊 [GoogleSheets] Rendering field: ${field.name} (type: ${field.type})`);
 
       // Special handling for Google Sheets data preview field
       if (field.type === 'google_sheets_data_preview') {
@@ -799,11 +799,11 @@ export function GoogleSheetsConfiguration({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    logger.debug('🎯 [GoogleSheets] Form submission started');
-    logger.debug('🎯 [GoogleSheets] Current form values:', values);
-    logger.debug('🎯 [GoogleSheets] All form value keys:', Object.keys(values));
-    logger.debug('🎯 [GoogleSheets] Action:', values.action);
-    logger.debug('🎯 [GoogleSheets] Selected rows:', googleSheetsSelectedRows);
+    logger.info('🎯 [GoogleSheets] Form submission started');
+    logger.info('🎯 [GoogleSheets] Current form values:', values);
+    logger.info('🎯 [GoogleSheets] All form value keys:', Object.keys(values));
+    logger.info('🎯 [GoogleSheets] Action:', values.action);
+    logger.info('🎯 [GoogleSheets] Selected rows:', googleSheetsSelectedRows);
     
     // Validate only visible required fields
     const requiredFields = visibleFields.filter(f => f.required);
@@ -859,10 +859,10 @@ export function GoogleSheetsConfiguration({
     const isUpdateAction = values.action === 'update' || nodeInfo?.type === 'google_sheets_action_update_row';
 
     if (isUpdateAction) {
-      logger.debug('🔄 Processing update action with values:', values);
-      logger.debug('🔄 All value keys:', Object.keys(values));
-      logger.debug('🔄 Column fields from values:', Object.keys(values).filter(k => k.startsWith('column_')));
-      logger.debug('🔄 Tracked column values:', columnUpdateValues);
+      logger.info('🔄 Processing update action with values:', values);
+      logger.info('🔄 All value keys:', Object.keys(values));
+      logger.info('🔄 Column fields from values:', Object.keys(values).filter(k => k.startsWith('column_')));
+      logger.info('🔄 Tracked column values:', columnUpdateValues);
       
       const updateMapping: Record<string, any> = {};
       
@@ -876,25 +876,25 @@ export function GoogleSheetsConfiguration({
         }
       });
       
-      logger.debug('🔄 Combined column values:', allColumnValues);
+      logger.info('🔄 Combined column values:', allColumnValues);
       
       // Process all column fields
       Object.keys(allColumnValues).forEach(key => {
         if (key.startsWith('column_')) {
           const columnName = key.replace('column_', '');
           const value = allColumnValues[key];
-          logger.debug(`  - Processing ${key}: "${value}" (type: ${typeof value})`);
+          logger.info(`  - Processing ${key}: "${value}" (type: ${typeof value})`);
           // Only include fields that have been modified (not empty)
           if (value !== undefined && value !== '') {
             updateMapping[columnName] = value;
-            logger.debug(`    ✓ Added to updateMapping: ${columnName} = "${value}"`);
+            logger.info(`    ✓ Added to updateMapping: ${columnName} = "${value}"`);
           } else {
-            logger.debug(`    ✗ Skipped (empty or undefined)`);
+            logger.info(`    ✗ Skipped (empty or undefined)`);
           }
         }
       });
       
-      logger.debug('🔄 Final updateMapping:', updateMapping);
+      logger.info('🔄 Final updateMapping:', updateMapping);
 
       // Only add updateMapping if we have column updates from the UI
       // If user is using the automation mode (values field), don't add empty updateMapping
@@ -918,7 +918,7 @@ export function GoogleSheetsConfiguration({
       delete submissionValues.updateMode;
       delete submissionValues.updateRowPreview;
 
-      logger.debug('🔄 Final update submission values:', {
+      logger.info('🔄 Final update submission values:', {
         updateMapping: submissionValues.updateMapping,
         rowNumber: submissionValues.rowNumber,
         values: submissionValues.values,
@@ -928,9 +928,9 @@ export function GoogleSheetsConfiguration({
     
     // For add action, convert newRow_ fields to columnMapping
     if (values.action === 'add') {
-      logger.debug('➕ Processing add action with values:', values);
-      logger.debug('➕ All value keys:', Object.keys(values));
-      logger.debug('➕ NewRow fields from values:', Object.keys(values).filter(k => k.startsWith('newRow_')));
+      logger.info('➕ Processing add action with values:', values);
+      logger.info('➕ All value keys:', Object.keys(values));
+      logger.info('➕ NewRow fields from values:', Object.keys(values).filter(k => k.startsWith('newRow_')));
       
       const columnMapping: Record<string, any> = {};
       
@@ -939,14 +939,14 @@ export function GoogleSheetsConfiguration({
         if (key.startsWith('newRow_')) {
           const columnName = key.replace('newRow_', '');
           const value = values[key];
-          logger.debug(`  - Processing ${key}: "${value}" (type: ${typeof value})`);
+          logger.info(`  - Processing ${key}: "${value}" (type: ${typeof value})`);
           // Include all fields (even empty ones might be intentional)
           columnMapping[columnName] = value || '';
-          logger.debug(`    ✓ Added to columnMapping: ${columnName} = "${value}"`);
+          logger.info(`    ✓ Added to columnMapping: ${columnName} = "${value}"`);
         }
       });
       
-      logger.debug('➕ Final columnMapping:', columnMapping);
+      logger.info('➕ Final columnMapping:', columnMapping);
       
       // Add columnMapping to submission values
       submissionValues.columnMapping = columnMapping;
@@ -958,7 +958,7 @@ export function GoogleSheetsConfiguration({
         }
       });
       
-      logger.debug('➕ Submitting add with full config:', {
+      logger.info('➕ Submitting add with full config:', {
         columnMapping,
         rowPosition: submissionValues.rowPosition,
         rowNumber: submissionValues.rowNumber,
@@ -976,7 +976,7 @@ export function GoogleSheetsConfiguration({
           submissionValues.rowNumber = selectedRow.rowNumber;
           submissionValues.updateRowNumber = selectedRow.rowNumber; // Also set this for compatibility
           submissionValues.findRowBy = 'row_number';
-          logger.debug('📊 Selected row for update:', {
+          logger.info('📊 Selected row for update:', {
             rowId: selectedRowId,
             rowNumber: selectedRow.rowNumber,
             rowData: selectedRow
@@ -991,7 +991,7 @@ export function GoogleSheetsConfiguration({
         }
       });
       
-      logger.debug('📊 Final submission values after cleanup:', {
+      logger.info('📊 Final submission values after cleanup:', {
         columnMapping: submissionValues.columnMapping,
         rowNumber: submissionValues.rowNumber,
         findRowBy: submissionValues.findRowBy,
@@ -1024,7 +1024,7 @@ export function GoogleSheetsConfiguration({
       confirmedValues.deleteRowBy = values.deleteRowNumber ? 'row_number' : 'column_value';
     }
     
-    logger.debug('🗑️ [GoogleSheets] Delete confirmation - mapped values:', {
+    logger.info('🗑️ [GoogleSheets] Delete confirmation - mapped values:', {
       deleteRowBy: confirmedValues.deleteRowBy,
       deleteColumn: confirmedValues.deleteColumn,
       deleteValue: confirmedValues.deleteValue,

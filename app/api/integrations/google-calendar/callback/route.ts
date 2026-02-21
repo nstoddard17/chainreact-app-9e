@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
         if (userInfoResponse.ok) {
           const userInfo = await userInfoResponse.json()
-          logger.debug('✅ Google Calendar user info fetched:', {
+          logger.info('✅ Google Calendar user info fetched:', {
             email: userInfo.email,
             name: userInfo.name,
           })

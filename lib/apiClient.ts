@@ -21,20 +21,20 @@ class ApiClient {
       const hostname = window.location.hostname
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
         const url = `${window.location.protocol}//${window.location.host}`
-        logger.debug('🔧 [ApiClient] Using window.location for baseUrl:', url)
+        logger.info('🔧 [ApiClient] Using window.location for baseUrl:', url)
         return url
       }
     }
     
     // Otherwise use the standard function
     const url = getApiBaseUrl()
-    logger.debug('🔧 [ApiClient] Getting dynamic baseUrl:', url)
+    logger.info('🔧 [ApiClient] Getting dynamic baseUrl:', url)
     return url
   }
 
   private async getAuthHeaders(): Promise<Record<string, string>> {
     try {
-      logger.debug("🔍 Getting auth headers...")
+      logger.info("🔍 Getting auth headers...")
       
       // First validate user authentication
       const supabase = createClient()
@@ -49,14 +49,14 @@ class ApiClient {
 
       // Then get session for access token
       const { data: { session } } = await supabase.auth.getSession()
-      logger.debug("🔍 Session data:", session ? { 
+      logger.info("🔍 Session data:", session ? { 
         hasAccessToken: !!session.access_token, 
         tokenLength: session.access_token?.length || 0,
         expiresAt: session.expires_at 
       } : null)
       
       if (session?.access_token) {
-        logger.debug("✅ Auth token found, returning Authorization header")
+        logger.info("✅ Auth token found, returning Authorization header")
         return {
           "Authorization": `Bearer ${session.access_token}`,
         }
@@ -66,7 +66,7 @@ class ApiClient {
     } catch (error) {
       logger.error("❌ Failed to get auth token:", error)
     }
-    logger.debug("❌ Returning empty auth headers")
+    logger.info("❌ Returning empty auth headers")
     return {}
   }
 
@@ -83,7 +83,7 @@ class ApiClient {
 
       // Get authentication headers
       const authHeaders = await this.getAuthHeaders()
-      logger.debug("🔍 Auth headers retrieved:", authHeaders)
+      logger.info("🔍 Auth headers retrieved:", authHeaders)
 
       const config: RequestInit = {
         ...options,
@@ -95,15 +95,15 @@ class ApiClient {
         credentials: "include", // Include cookies for authentication
       }
 
-      logger.debug(`🌐 API Request: ${config.method || "GET"} ${url}`)
+      logger.info(`🌐 API Request: ${config.method || "GET"} ${url}`)
       if (config.headers) {
         const headersObj = config.headers as Record<string, string>
-        logger.debug(`🌐 API Request Headers:`, Object.fromEntries(Object.entries(headersObj).filter(([key]) => key.toLowerCase() !== 'authorization')))
-        logger.debug(`🔍 Has Authorization header:`, !!headersObj['Authorization'])
+        logger.info(`🌐 API Request Headers:`, Object.fromEntries(Object.entries(headersObj).filter(([key]) => key.toLowerCase() !== 'authorization')))
+        logger.info(`🔍 Has Authorization header:`, !!headersObj['Authorization'])
       }
       if (config.body) {
         const bodyLength = typeof config.body === 'string' ? config.body.length : JSON.stringify(config.body).length
-        logger.debug(`🌐 API Request Body length:`, bodyLength)
+        logger.info(`🌐 API Request Body length:`, bodyLength)
       }
 
       let response: Response;
@@ -182,9 +182,9 @@ class ApiClient {
 
       // Log successful API responses without sensitive data
       if (endpoint.includes('gmail') || endpoint.includes('recipients') || endpoint.includes('contacts')) {
-        logger.debug(`✅ API Response: ${endpoint} - ${Array.isArray(data.data) ? data.data.length : 'Unknown'} items`)
+        logger.info(`✅ API Response: ${endpoint} - ${Array.isArray(data.data) ? data.data.length : 'Unknown'} items`)
       } else {
-        logger.debug(`✅ API Response: ${endpoint}`)
+        logger.info(`✅ API Response: ${endpoint}`)
       }
 
       return {

@@ -115,7 +115,7 @@ export function GmailEmailField({
 
   // Handle dropdown opening to load data
   const handleDropdownOpen = (isOpen: boolean) => {
-    logger.debug('📧 [GmailEmailField] Dropdown opened:', {
+    logger.info('📧 [GmailEmailField] Dropdown opened:', {
       isOpen,
       fieldName: field.name,
       fieldDynamic: field.dynamic,
@@ -126,7 +126,7 @@ export function GmailEmailField({
     });
 
     if (isOpen && field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading) {
-      logger.debug('📧 [GmailEmailField] Calling onDynamicLoad for:', field.name);
+      logger.info('📧 [GmailEmailField] Calling onDynamicLoad for:', field.name);
       onDynamicLoad(field.name);
     }
   };
@@ -152,7 +152,7 @@ export function GmailEmailField({
       }
     }
 
-    logger.debug('📧 [GmailEmailField] Variable dropped:', {
+    logger.info('📧 [GmailEmailField] Variable dropped:', {
       fieldName: field.name,
       droppedText,
       alias,
@@ -174,7 +174,7 @@ export function GmailEmailField({
       // Add the variable to the current values
       onChange(value ? `${value}, ${droppedText}` : droppedText)
 
-      logger.debug('✅ [GmailEmailField] Variable accepted:', {
+      logger.info('✅ [GmailEmailField] Variable accepted:', {
         fieldName: field.name,
         variable: droppedText,
         alias,

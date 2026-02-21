@@ -48,7 +48,7 @@ async function fetchUserProfile(userId: string): Promise<UserProfileContext> {
       .single()
 
     if (error || !profile) {
-      logger.debug(`[AI Agent] Could not fetch user profile: ${error?.message || 'not found'}`)
+      logger.info(`[AI Agent] Could not fetch user profile: ${error?.message || 'not found'}`)
       return {}
     }
 
@@ -609,7 +609,7 @@ export async function executeAIAgentAction(
     // Step 1: Analyze workflow context
     const workflowContext = analyzeWorkflowContext(context, config)
 
-    logger.debug('[AI Agent] Workflow context analyzed', {
+    logger.info('[AI Agent] Workflow context analyzed', {
       needsContentGeneration: workflowContext.needsContentGeneration,
       needsRouting: workflowContext.needsRouting,
       outputPathCount: workflowContext.outputPaths?.length || 0
@@ -617,7 +617,7 @@ export async function executeAIAgentAction(
 
     // Step 1.5: Fetch user profile for signature
     const userProfile = await fetchUserProfile(context.userId)
-    logger.debug('[AI Agent] User profile fetched', {
+    logger.info('[AI Agent] User profile fetched', {
       hasName: !!(userProfile.fullName || userProfile.firstName),
       hasSignatureConfig: !!config.includeSignature
     })
@@ -627,7 +627,7 @@ export async function executeAIAgentAction(
     const { prompt: builtPrompt, taskType: configuredTaskType } = buildPromptFromActionType(config)
     const userPrompt = await resolveValue(builtPrompt, input, context.userId, context)
 
-    logger.debug('[AI Agent] Action type processed', {
+    logger.info('[AI Agent] Action type processed', {
       actionType: config.actionType || 'custom',
       configuredTaskType,
       promptLength: userPrompt.length
@@ -642,7 +642,7 @@ export async function executeAIAgentAction(
         ? configuredTaskType
         : detectedContext.taskType
     }
-    logger.debug('[AI Agent] Smart context detected', {
+    logger.info('[AI Agent] Smart context detected', {
       taskType: smartContext.taskType,
       inputType: smartContext.inputContext.type,
       outputType: smartContext.outputRequirements.type,
@@ -658,7 +658,7 @@ export async function executeAIAgentAction(
 
     // Step 3.5: Extract email subject for reply context
     const originalEmailSubject = extractEmailSubject(input) || smartContext.inputContext.subject || null
-    logger.debug('[AI Agent] Email subject extracted', { originalEmailSubject })
+    logger.info('[AI Agent] Email subject extracted', { originalEmailSubject })
 
     // Step 4: Build intelligent system prompt based on context
     const systemPrompt = buildAutonomousSystemPrompt(workflowContext, config, userProfile, smartContext)
@@ -1223,7 +1223,7 @@ function parseAutonomousResponse(
 
   // Build signature only if needed
   const signature = shouldAddSignature ? buildSignature(config, userProfile || {}) : ''
-  logger.debug('[AI Agent] Signature decision', {
+  logger.info('[AI Agent] Signature decision', {
     shouldAddSignature,
     hasSignature: !!signature,
     signatureType: config.includeSignature,
@@ -1314,7 +1314,7 @@ function parseAutonomousResponse(
     // Create formatted_output with subject header for Discord/Slack/Teams
     result.data.formatted_output = `**${replySubject}**\n\n${result.data.output}`
 
-    logger.debug('[AI Agent] Email reply subject set', { email_subject: replySubject })
+    logger.info('[AI Agent] Email reply subject set', { email_subject: replySubject })
   } else {
     // No email context - formatted_output is same as output
     result.data.formatted_output = result.data.output

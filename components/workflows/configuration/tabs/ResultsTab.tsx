@@ -89,12 +89,12 @@ export function ResultsTab({
 
       try {
         setIsLoadingLatest(true)
-        logger.debug('[ResultsTab] Fetching latest execution for node:', currentNodeId)
+        logger.info('[ResultsTab] Fetching latest execution for node:', currentNodeId)
 
         const snapshot = await builder.actions.getNodeSnapshot(currentNodeId)
 
         if (snapshot?.snapshot) {
-          logger.debug('[ResultsTab] Got latest execution snapshot:', snapshot.snapshot)
+          logger.info('[ResultsTab] Got latest execution snapshot:', snapshot.snapshot)
 
           // Extract output data from snapshot
           const output = snapshot.snapshot.output || snapshot.snapshot.data || {}
@@ -110,7 +110,7 @@ export function ResultsTab({
           })
         }
       } catch (error: any) {
-        logger.debug('[ResultsTab] No execution history found:', error.message)
+        logger.info('[ResultsTab] No execution history found:', error.message)
         // Don't show error - it's normal if there's no execution history yet
       } finally {
         setIsLoadingLatest(false)

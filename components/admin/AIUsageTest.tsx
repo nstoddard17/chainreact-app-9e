@@ -104,10 +104,10 @@ export default function AIUsageTest() {
       // Step 1: Get the selected user's current balance
       const selectedUser = users.find(u => u.id === selectedUserId)
       const userBalanceBefore = selectedUser?.current_month_cost || 0
-      logger.debug('📊 User balance before test:', userBalanceBefore)
+      logger.info('📊 User balance before test:', userBalanceBefore)
 
       // Step 2: Make the AI request with test user ID
-      logger.debug('🚀 Making AI request for user:', selectedUser?.email)
+      logger.info('🚀 Making AI request for user:', selectedUser?.email)
       const aiResponse = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
@@ -129,7 +129,7 @@ export default function AIUsageTest() {
       }
 
       const aiData = await aiResponse.json()
-      logger.debug('✅ AI Response received:', aiData)
+      logger.info('✅ AI Response received:', aiData)
 
       // Extract the response content
       const responseContent = aiData.content || aiData.choices?.[0]?.message?.content || 'No response'
@@ -148,7 +148,7 @@ export default function AIUsageTest() {
 
       // Step 3: Calculate expected cost
       const expectedCost = calculateExpectedCost(model, aiData.usage)
-      logger.debug('💰 Expected cost calculation:', {
+      logger.info('💰 Expected cost calculation:', {
         model,
         promptTokens: aiData.usage.prompt_tokens,
         completionTokens: aiData.usage.completion_tokens,
@@ -157,7 +157,7 @@ export default function AIUsageTest() {
       })
 
       // Step 4: Verify in database (wait a moment for the record to be saved)
-      logger.debug('⏳ Waiting for database write...')
+      logger.info('⏳ Waiting for database write...')
       await new Promise(resolve => setTimeout(resolve, 2000))
 
       // Step 5: Reload users to check if the balance increased
@@ -181,8 +181,8 @@ export default function AIUsageTest() {
         result.databaseVerified = false
       }
 
-      logger.debug('📊 User balance after test:', result.userBalanceAfter)
-      logger.debug('💸 Balance increase:', (result.userBalanceAfter || 0) - userBalanceBefore)
+      logger.info('📊 User balance after test:', result.userBalanceAfter)
+      logger.info('💸 Balance increase:', (result.userBalanceAfter || 0) - userBalanceBefore)
 
       setTestResult(result)
 
@@ -194,7 +194,7 @@ export default function AIUsageTest() {
           difference: Math.abs(expectedCost - aiData.usage.cost_usd)
         })
       } else {
-        logger.debug('✅ Cost calculation verified!')
+        logger.info('✅ Cost calculation verified!')
       }
 
     } catch (err: any) {

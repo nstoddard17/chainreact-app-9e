@@ -63,7 +63,7 @@ export async function runGoogleAnalyticsPivotReport(context: ExecutionContext): 
     limit = 100
   } = context.config
 
-  logger.debug('[Google Analytics] Running pivot report:', {
+  logger.info('[Google Analytics] Running pivot report:', {
     propertyId,
     dateRange,
     metrics,
@@ -87,7 +87,7 @@ export async function runGoogleAnalyticsPivotReport(context: ExecutionContext): 
 
   // Check test mode
   if (context.testMode) {
-    logger.debug('[Google Analytics] Test mode - returning mock pivot report data')
+    logger.info('[Google Analytics] Test mode - returning mock pivot report data')
     return {
       success: true,
       output: {
@@ -203,7 +203,7 @@ export async function runGoogleAnalyticsPivotReport(context: ExecutionContext): 
       return rowData
     }) || []
 
-    logger.debug('[Google Analytics] Pivot report completed with', pivotData.length, 'rows')
+    logger.info('[Google Analytics] Pivot report completed with', pivotData.length, 'rows')
 
     return {
       success: true,

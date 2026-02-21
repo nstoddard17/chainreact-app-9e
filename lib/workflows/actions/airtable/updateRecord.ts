@@ -94,11 +94,11 @@ export async function updateAirtableRecord(
         const schemaResult = await schemaResponse.json()
         tableSchema = schemaResult.tables?.find((t: any) => t.name === tableName)
         if (tableSchema) {
-          logger.debug(`📊 [Airtable] Retrieved table schema with ${tableSchema.fields?.length || 0} fields`)
+          logger.info(`📊 [Airtable] Retrieved table schema with ${tableSchema.fields?.length || 0} fields`)
         }
       }
     } catch (error) {
-      logger.debug('📊 [Airtable] Could not fetch table schema, proceeding without field type information')
+      logger.info('📊 [Airtable] Could not fetch table schema, proceeding without field type information')
     }
 
     const resolvedFields: Record<string, any> = {}
@@ -124,7 +124,7 @@ export async function updateAirtableRecord(
       if (typeof value === 'string') {
         date = new Date(value)
         if (isNaN(date.getTime())) {
-          logger.debug(`📊 [Airtable] Invalid date value for field "${fieldInfo.name}": ${value}`)
+          logger.info(`📊 [Airtable] Invalid date value for field "${fieldInfo.name}": ${value}`)
           return value
         }
       } else if (value instanceof Date) {
@@ -139,11 +139,11 @@ export async function updateAirtableRecord(
         const month = String(date.getMonth() + 1).padStart(2, '0')
         const day = String(date.getDate()).padStart(2, '0')
         const formatted = `${year}-${month}-${day}`
-        logger.debug(`📊 [Airtable] Formatted date field "${fieldInfo.name}": ${formatted}`)
+        logger.info(`📊 [Airtable] Formatted date field "${fieldInfo.name}": ${formatted}`)
         return formatted
       } else if (fieldType === 'dateTime') {
         const formatted = date.toISOString()
-        logger.debug(`📊 [Airtable] Formatted datetime field "${fieldInfo.name}": ${formatted}`)
+        logger.info(`📊 [Airtable] Formatted datetime field "${fieldInfo.name}": ${formatted}`)
         return formatted
       }
 
@@ -174,7 +174,7 @@ export async function updateAirtableRecord(
       // Don't unwrap arrays for linked record fields
       if (Array.isArray(resolved) && resolved.length === 1 && !shouldStayArray) {
         resolved = resolved[0]
-        logger.debug(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
+        logger.info(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
       }
 
       const normalizedFieldName = fieldName.replace(/_/g, ' ').toLowerCase()
@@ -237,24 +237,24 @@ export async function updateAirtableRecord(
                 if (Array.isArray(existingAttachments) && existingAttachments.length > 0) {
                   // Merge existing attachments with new ones
                   resolvedFields[fieldName] = [...existingAttachments, ...attachments]
-                  logger.debug(`📎 [Airtable] Appending ${attachments.length} attachment(s) to ${existingAttachments.length} existing attachment(s) for field "${fieldName}"`)
+                  logger.info(`📎 [Airtable] Appending ${attachments.length} attachment(s) to ${existingAttachments.length} existing attachment(s) for field "${fieldName}"`)
                 } else {
                   resolvedFields[fieldName] = attachments
                 }
               } else {
                 // If we can't fetch the current record, just use the new attachments
                 resolvedFields[fieldName] = attachments
-                logger.debug(`📎 [Airtable] Could not fetch existing attachments, using new attachments only for field "${fieldName}"`)
+                logger.info(`📎 [Airtable] Could not fetch existing attachments, using new attachments only for field "${fieldName}"`)
               }
             } catch (fetchError) {
               // If fetching fails, just use the new attachments
               resolvedFields[fieldName] = attachments
-              logger.debug(`📎 [Airtable] Error fetching existing attachments, using new attachments only for field "${fieldName}"`)
+              logger.info(`📎 [Airtable] Error fetching existing attachments, using new attachments only for field "${fieldName}"`)
             }
           } else {
             // Replace mode - just use the new attachments
             resolvedFields[fieldName] = attachments
-            logger.debug(`📎 [Airtable] Replacing existing attachments with ${attachments.length} new attachment(s) for field "${fieldName}"`)
+            logger.info(`📎 [Airtable] Replacing existing attachments with ${attachments.length} new attachment(s) for field "${fieldName}"`)
           }
           continue
         }
@@ -278,15 +278,15 @@ export async function updateAirtableRecord(
     }
 
     if (Object.keys(resolvedFields).length === 0) {
-      logger.debug('📊 [Airtable] No fields to update for record', recordId)
+      logger.info('📊 [Airtable] No fields to update for record', recordId)
     }
 
     if (attachmentErrors.length > 0) {
-      logger.debug(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
+      logger.info(`📊 [Airtable] Encountered attachment issues with: ${[...new Set(attachmentErrors)].join(', ')}`)
     }
 
     if (skippedFields.length > 0) {
-      logger.debug(`📊 [Airtable] Skipped fields during update: ${skippedFields.join(', ')}`)
+      logger.info(`📊 [Airtable] Skipped fields during update: ${skippedFields.join(', ')}`)
     }
 
     const response = await fetch(

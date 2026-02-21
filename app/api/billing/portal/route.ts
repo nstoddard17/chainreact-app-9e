@@ -17,7 +17,7 @@ function getBaseUrlFromRequest(request: NextRequest): string {
   if (host) {
     // Check if it's localhost - if so, ALWAYS use localhost regardless of env vars
     if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      logger.debug("[Portal API] Detected localhost, using local URL")
+      logger.info("[Portal API] Detected localhost, using local URL")
       return `http://${host}`
     }
     

@@ -374,7 +374,7 @@ export const useAIStore = create<AIState & AIActions>((set, get) => ({
 
       if (result.success) {
         // Could store patterns for future reference
-        logger.debug("Data patterns detected:", result.patterns)
+        logger.info("Data patterns detected:", result.patterns)
       }
     } catch (error: any) {
       set({ error: error.message })

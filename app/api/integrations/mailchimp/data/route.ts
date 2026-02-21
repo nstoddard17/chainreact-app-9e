@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Mailchimp API] Processing request:`, {
+    logger.info(`🔍 [Mailchimp API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as MailchimpIntegration, options)
 
-    logger.debug(`✅ [Mailchimp API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Mailchimp API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

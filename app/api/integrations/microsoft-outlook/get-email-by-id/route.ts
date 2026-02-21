@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Debug: Log what we receive
-    logger.debug('[Outlook Get Email By ID] Request received', {
+    logger.info('[Outlook Get Email By ID] Request received', {
       emailIdLength: emailId?.length,
       emailIdStart: emailId?.substring(0, 30),
       emailIdEnd: emailId?.substring(emailId.length - 30)

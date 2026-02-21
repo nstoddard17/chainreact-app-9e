@@ -18,7 +18,7 @@ interface TrelloMember {
 export const getTrelloBoardMembers: TrelloDataHandler<TrelloMember> = async (integration: TrelloIntegration, options: TrelloHandlerOptions = {}): Promise<TrelloMember[]> => {
   const { boardId } = options
 
-  logger.debug("🔍 Trello board members fetcher called with:", {
+  logger.info("🔍 Trello board members fetcher called with:", {
     integrationId: integration.id,
     boardId,
     hasToken: !!integration.access_token
@@ -28,27 +28,27 @@ export const getTrelloBoardMembers: TrelloDataHandler<TrelloMember> = async (int
     // Validate integration status
     validateTrelloIntegration(integration)
 
-    logger.debug(`🔍 Validating Trello token...`)
+    logger.info(`🔍 Validating Trello token...`)
     const tokenResult = await validateTrelloToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ Trello token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Trello token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!boardId) {
-      logger.debug('⚠️ No board ID provided, returning empty members array')
+      logger.info('⚠️ No board ID provided, returning empty members array')
       return []
     }
 
-    logger.debug('🔍 Fetching Trello board members from API...')
+    logger.info('🔍 Fetching Trello board members from API...')
     const apiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/members?fields=id,username,fullName,initials,avatarUrl`)
 
     const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!, tokenResult.key)
 
     const members = await parseTrelloApiResponse<TrelloMember>(response)
 
-    logger.debug(`✅ Trello board members fetched successfully: ${members.length} members`)
+    logger.info(`✅ Trello board members fetched successfully: ${members.length} members`)
     return members
 
   } catch (error: any) {

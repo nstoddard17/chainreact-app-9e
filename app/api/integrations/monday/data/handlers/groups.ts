@@ -54,7 +54,7 @@ export const getMondayGroups: MondayDataHandler<MondayGroup> = async (
       position: group.position
     }))
 
-    logger.debug(`✅ [Monday Groups] Fetched ${groups.length} groups for board ${boardId}`)
+    logger.info(`✅ [Monday Groups] Fetched ${groups.length} groups for board ${boardId}`)
 
     return groups
 

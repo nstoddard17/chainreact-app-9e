@@ -21,7 +21,7 @@ export const getRecentEmails: GmailDataHandler = async (
 ) => {
   const { searchQuery = '', limit = 50 } = options
 
-  logger.debug('[Gmail Recent Emails] Fetching emails:', {
+  logger.info('[Gmail Recent Emails] Fetching emails:', {
     searchQuery,
     limit,
     fullOptions: JSON.stringify(options)
@@ -59,7 +59,7 @@ export const getRecentEmails: GmailDataHandler = async (
 
     const listData = await listResponse.json()
     const messages = listData.messages || []
-    logger.debug(`[Gmail Recent Emails] Found ${messages.length} messages`)
+    logger.info(`[Gmail Recent Emails] Found ${messages.length} messages`)
 
     if (messages.length === 0) {
       return []
@@ -148,7 +148,7 @@ export const getRecentEmails: GmailDataHandler = async (
     const emailResults = await Promise.all(emailPromises)
     const emails = emailResults.filter(email => email !== null)
 
-    logger.debug(`[Gmail Recent Emails] Returning ${emails.length} formatted emails`)
+    logger.info(`[Gmail Recent Emails] Returning ${emails.length} formatted emails`)
     return emails
   } catch (error: any) {
     logger.error('[Gmail Recent Emails] Error fetching emails:', error)

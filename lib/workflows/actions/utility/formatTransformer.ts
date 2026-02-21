@@ -173,7 +173,7 @@ export async function formatTransformer(
       preserveVariables = true
     } = resolvedConfig
 
-    logger.debug('[FormatTransformer] Starting transformation:', {
+    logger.info('[FormatTransformer] Starting transformation:', {
       sourceFormat,
       targetFormat,
       contentLength: content?.length || 0,
@@ -202,7 +202,7 @@ export async function formatTransformer(
     const upstreamAttachments = findUpstreamAttachments(input)
 
     if (input.testMode) {
-      logger.debug('[FormatTransformer] Test mode - simulating transformation')
+      logger.info('[FormatTransformer] Test mode - simulating transformation')
       const testOutput: Record<string, any> = {
         transformedContent: 'Sample transformed content',
         originalFormat: sourceFormat === 'auto' ? 'html' : sourceFormat,
@@ -223,7 +223,7 @@ export async function formatTransformer(
     // Auto-detect source format if needed
     const detectedFormat = sourceFormat === 'auto' ? detectFormat(content) : sourceFormat
 
-    logger.debug('[FormatTransformer] Detected format:', detectedFormat)
+    logger.info('[FormatTransformer] Detected format:', detectedFormat)
 
     let transformedContent: string = content
 
@@ -291,7 +291,7 @@ export async function formatTransformer(
     // If preserveVariables is false, we could strip {{...}} patterns
     // But by default we keep them as the formatter already does this
 
-    logger.debug('[FormatTransformer] Transformation successful:', {
+    logger.info('[FormatTransformer] Transformation successful:', {
       originalFormat: detectedFormat,
       targetFormat,
       originalLength: content.length,

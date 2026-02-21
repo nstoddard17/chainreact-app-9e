@@ -88,7 +88,7 @@ export function MicrosoftExcelConfiguration({
 
   // Wrap setValue to capture column_ and newRow_ fields
   const setValueWithColumnTracking = React.useCallback((key: string, value: any) => {
-    logger.debug(`🔧 [Excel] Setting value: ${key} = ${value}`);
+    logger.info(`🔧 [Excel] Setting value: ${key} = ${value}`);
 
     // Always set in the main values
     setValue(key, value);
@@ -99,12 +99,12 @@ export function MicrosoftExcelConfiguration({
         ...prev,
         [key]: value
       }));
-      logger.debug(`🔧 [Excel] Tracked column field: ${key} = ${value}`);
+      logger.info(`🔧 [Excel] Tracked column field: ${key} = ${value}`);
     }
 
     // For newRow_ fields, just ensure they're set in main values (no separate tracking needed)
     if (key.startsWith('newRow_')) {
-      logger.debug(`🔧 [Excel] Set newRow field: ${key} = ${value}`);
+      logger.info(`🔧 [Excel] Set newRow field: ${key} = ${value}`);
     }
   }, [setValue]);
 
@@ -181,7 +181,7 @@ export function MicrosoftExcelConfiguration({
 
           // Store the column order
           setColumnOrder(columns);
-          logger.debug('📊 [Excel] Stored column order:', columns);
+          logger.info('📊 [Excel] Stored column order:', columns);
 
           columns.forEach(col => {
             if (!values[`newRow_${col}`]) {
@@ -195,7 +195,7 @@ export function MicrosoftExcelConfiguration({
           const rowToSelect = data.find((row: any) => row.rowNumber === values.updateRowNumber);
           if (rowToSelect) {
             setSelectedRow(rowToSelect);
-            logger.debug('📊 [Excel] Restored selected row:', rowToSelect);
+            logger.info('📊 [Excel] Restored selected row:', rowToSelect);
           }
         }
       }
@@ -222,7 +222,7 @@ export function MicrosoftExcelConfiguration({
       e.preventDefault();
     }
 
-    logger.debug('🔧 [Excel] handleSubmit called with values:', values);
+    logger.info('🔧 [Excel] handleSubmit called with values:', values);
 
     // Validate required fields
     const validationErrors: Record<string, string> = {};
@@ -330,7 +330,7 @@ export function MicrosoftExcelConfiguration({
         finalValues.updateRowNumber = values.updateRowNumber; // Keep both for compatibility
       }
 
-      logger.debug('🔧 [Excel] Prepared update mapping:', { updateMapping, rowNumber: finalValues.rowNumber, columnFields: Object.keys(finalValues).filter(k => k.startsWith('column_')) });
+      logger.info('🔧 [Excel] Prepared update mapping:', { updateMapping, rowNumber: finalValues.rowNumber, columnFields: Object.keys(finalValues).filter(k => k.startsWith('column_')) });
     }
 
     // Add new row values for add action (both unified and dedicated action types)
@@ -347,7 +347,7 @@ export function MicrosoftExcelConfiguration({
           const value = values[fieldKey];
           newRowValues[columnName] = value !== undefined ? value : '';
         });
-        logger.debug('🔧 [Excel] Prepared column mapping in order:', { columnOrder, newRowValues });
+        logger.info('🔧 [Excel] Prepared column mapping in order:', { columnOrder, newRowValues });
       } else {
         // Fallback: iterate over values (may not preserve order)
         Object.entries(values).forEach(([key, value]) => {
@@ -356,13 +356,13 @@ export function MicrosoftExcelConfiguration({
             newRowValues[columnName] = value;
           }
         });
-        logger.debug('🔧 [Excel] Prepared column mapping (unordered fallback):', newRowValues);
+        logger.info('🔧 [Excel] Prepared column mapping (unordered fallback):', newRowValues);
       }
 
       finalValues.columnMapping = newRowValues;
     }
 
-    logger.debug('🔧 [Excel] Final values to submit:', finalValues);
+    logger.info('🔧 [Excel] Final values to submit:', finalValues);
     await onSubmit(finalValues);
   }, [values, columnUpdateValues, onSubmit, columnOrder]);
 
@@ -383,7 +383,7 @@ export function MicrosoftExcelConfiguration({
       rowNumber: values.deleteRowNumber
     };
 
-    logger.debug('🗑️ [Excel] Delete confirmation - mapped values:', {
+    logger.info('🗑️ [Excel] Delete confirmation - mapped values:', {
       deleteBy: confirmedValues.deleteBy,
       rowNumber: confirmedValues.rowNumber,
       startRow: confirmedValues.startRow,

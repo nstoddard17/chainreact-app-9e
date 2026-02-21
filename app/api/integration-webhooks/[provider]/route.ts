@@ -30,7 +30,7 @@ export async function POST(
       payload = body
     }
 
-    logger.debug(`📥 Received webhook from ${provider}:`, {
+    logger.info(`📥 Received webhook from ${provider}:`, {
       headers: Object.keys(headers),
       payloadKeys: typeof payload === 'object' ? Object.keys(payload) : 'raw body',
       timestamp: new Date().toISOString()
@@ -49,7 +49,7 @@ export async function POST(
     }
 
     if (!webhooks || webhooks.length === 0) {
-      logger.debug(`No active webhooks found for provider: ${provider}`)
+      logger.info(`No active webhooks found for provider: ${provider}`)
       return jsonResponse({ message: 'No active webhooks' }, { status: 200 })
     }
 

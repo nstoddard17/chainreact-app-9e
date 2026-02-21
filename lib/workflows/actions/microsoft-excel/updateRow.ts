@@ -11,7 +11,7 @@ export async function updateMicrosoftExcelRow(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('📊 [Excel Update Row] Starting with config:', config);
+    logger.info('📊 [Excel Update Row] Starting with config:', config);
 
     // Resolve configuration with workflow variables
     const resolvedConfig = resolveValue(config, input)
@@ -36,14 +36,14 @@ export async function updateMicrosoftExcelRow(
           updateMapping[columnName] = value;
         }
       }
-      logger.debug('📊 [Excel Update Row] Extracted column fields:', updateMapping);
+      logger.info('📊 [Excel Update Row] Extracted column fields:', updateMapping);
     }
 
     // Transform updateMapping from array format to object format if needed
     // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
     // But we need: { "Name": "John" }
     if (Array.isArray(updateMapping)) {
-      logger.debug('📊 [Excel Update Row] Converting array format to object format');
+      logger.info('📊 [Excel Update Row] Converting array format to object format');
       const mappingObject: Record<string, any> = {};
       for (const item of updateMapping) {
         if (item && item.column && item.value !== undefined) {
@@ -53,7 +53,7 @@ export async function updateMicrosoftExcelRow(
       updateMapping = mappingObject;
     }
 
-    logger.debug('📊 [Excel Update Row] Resolved config:', {
+    logger.info('📊 [Excel Update Row] Resolved config:', {
       workbookId,
       worksheetName,
       rowNumber,
@@ -170,8 +170,8 @@ export async function updateMicrosoftExcelRow(
         const headers = allRows[0] || []
 
         // Prepare updates for each column
-        logger.debug('📊 [Excel Update Row] Processing updateMapping:', updateMapping);
-        logger.debug('📊 [Excel Update Row] Headers found:', headers);
+        logger.info('📊 [Excel Update Row] Processing updateMapping:', updateMapping);
+        logger.info('📊 [Excel Update Row] Headers found:', headers);
 
         for (const [column, value] of Object.entries(updateMapping)) {
           const columnIndex = headers.findIndex((h: string) => h === column)
@@ -187,7 +187,7 @@ export async function updateMicrosoftExcelRow(
           const cellRef = `${columnLetter}${row}`
           const cellAddress = `${worksheetName}!${cellRef}` // For logging purposes
 
-          logger.debug(`📊 [Excel Update Row] Updating cell ${cellAddress} with value:`, value);
+          logger.info(`📊 [Excel Update Row] Updating cell ${cellAddress} with value:`, value);
 
           // Update the cell
           const updateResponse = await fetch(
@@ -208,7 +208,7 @@ export async function updateMicrosoftExcelRow(
             const error = await updateResponse.text()
             logger.error(`❌ Failed to update cell ${cellAddress}:`, error)
           } else {
-            logger.debug(`✅ Successfully updated cell ${cellAddress}`);
+            logger.info(`✅ Successfully updated cell ${cellAddress}`);
             updatedRanges.push(cellAddress)
           }
         }

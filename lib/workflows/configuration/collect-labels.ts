@@ -51,7 +51,7 @@ export function collectFieldLabelsFromCache(
         if (label) {
           const labelKey = getLabelKey(fieldName)
           labels[labelKey] = label
-          logger.debug('[collectFieldLabels] Found cached label:', {
+          logger.info('[collectFieldLabels] Found cached label:', {
             fieldName,
             value,
             label,
@@ -63,7 +63,7 @@ export function collectFieldLabelsFromCache(
       }
     }
 
-    logger.debug('[collectFieldLabels] Collected labels:', {
+    logger.info('[collectFieldLabels] Collected labels:', {
       providerId,
       nodeType,
       labelCount: Object.keys(labels).length,
@@ -126,7 +126,7 @@ export function loadLabelsIntoCache(
       // Save back to localStorage
       window.localStorage.setItem(cacheKey, JSON.stringify(cache))
 
-      logger.debug('[loadLabelsIntoCache] Loaded label into cache:', {
+      logger.info('[loadLabelsIntoCache] Loaded label into cache:', {
         fieldName,
         value: fieldValue,
         label: labelValue

@@ -9,7 +9,7 @@ import { logger } from '@/lib/utils/logger'
 
 // Import execution functions from the main execute route
 async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[], context: any): Promise<any> {
-  logger.debug(`Executing node: ${node.id} (${node.data.type})`)
+  logger.info(`Executing node: ${node.id} (${node.data.type})`)
 
   try {
     let nodeResult
@@ -28,7 +28,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       
       // AI Agent
       case "ai_agent":
-        logger.debug(`Using executeAction for AI agent node: ${node.id}`)
+        logger.info(`Using executeAction for AI agent node: ${node.id}`)
         nodeResult = await executeAction({
           node,
           input: context.data,
@@ -40,7 +40,7 @@ async function executeNodeAdvanced(node: any, allNodes: any[], connections: any[
       // Actions - use the generic executeAction for most
       default:
         if (node.data.type && node.data.type.includes('_action_')) {
-          logger.debug(`Using generic executeAction for node type: ${node.data.type}`)
+          logger.info(`Using generic executeAction for node type: ${node.data.type}`)
           nodeResult = await executeAction({
             node,
             input: context.data,
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
     const requestData = await request.json()
     const { workflowId, nodeId: targetNodeId, input: triggerData, workflowData: providedWorkflowData } = requestData
 
-    logger.debug('Received test request:', {
+    logger.info('Received test request:', {
       workflowId,
       targetNodeId,
       triggerData,
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
     let workflowData
     if (providedWorkflowData && providedWorkflowData.nodes && providedWorkflowData.edges) {
       workflowData = providedWorkflowData
-      logger.debug('Using provided workflow data from request')
+      logger.info('Using provided workflow data from request')
     } else {
       // Fetch workflow nodes and edges from normalized tables
       const [nodesResult, edgesResult] = await Promise.all([
@@ -208,7 +208,7 @@ export async function POST(request: Request) {
           targetHandle: e.target_port_id || 'target'
         }))
       }
-      logger.debug('Using workflow data from normalized tables')
+      logger.info('Using workflow data from normalized tables')
     }
 
     const { nodes, edges } = workflowData
@@ -228,13 +228,13 @@ export async function POST(request: Request) {
     const targetNode = nodes.find((node: any) => node.id === actualTargetNodeId)
     
     if (!targetNode) {
-      logger.debug('Available node IDs:', nodes.map((n: any) => n.id))
-      logger.debug('Looking for target node ID:', actualTargetNodeId)
+      logger.info('Available node IDs:', nodes.map((n: any) => n.id))
+      logger.info('Looking for target node ID:', actualTargetNodeId)
       return errorResponse("Target node not found" , 400)
     }
 
     // Build execution path from trigger to target node
-    logger.debug('🔍 [Test API] Building execution path:', {
+    logger.info('🔍 [Test API] Building execution path:', {
       triggerNodeId: triggerNode.id,
       targetNodeId: actualTargetNodeId,
       nodesCount: nodes.length,
@@ -244,7 +244,7 @@ export async function POST(request: Request) {
 
     const executionPath = buildExecutionPath(triggerNode.id, actualTargetNodeId, edges)
 
-    logger.debug('🔍 [Test API] Execution path result:', {
+    logger.info('🔍 [Test API] Execution path result:', {
       pathLength: executionPath.length,
       path: executionPath
     });
@@ -253,7 +253,7 @@ export async function POST(request: Request) {
       return errorResponse("No execution path found from trigger to target node" , 400)
     }
 
-    logger.debug("Execution path:", executionPath)
+    logger.info("Execution path:", executionPath)
 
     // Initialize execution context
     const context = {
@@ -286,7 +286,7 @@ export async function POST(request: Request) {
         continue
       }
 
-      logger.debug(`Executing node ${i + 1}/${executionPath.length}: ${node.data.type} (${nodeId})`)
+      logger.info(`Executing node ${i + 1}/${executionPath.length}: ${node.data.type} (${nodeId})`)
 
       try {
         // Execute the node
@@ -327,7 +327,7 @@ export async function POST(request: Request) {
           }
         }
 
-        logger.debug(`Node ${nodeId} executed successfully`)
+        logger.info(`Node ${nodeId} executed successfully`)
 
       } catch (error: any) {
         logger.error(`Error executing node ${nodeId}:`, error)

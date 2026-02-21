@@ -22,7 +22,7 @@ export function getShopDomain(integration: ShopifyIntegration, selectedShop?: st
     if (storeExists) {
       return selectedShop
     }
-    logger.debug(`Requested shop ${selectedShop} not found in stores list, falling back to default`)
+    logger.info(`Requested shop ${selectedShop} not found in stores list, falling back to default`)
   }
 
   // Try active_store from metadata
@@ -78,7 +78,7 @@ export async function makeShopifyGraphQLRequest(
 
   const url = `https://${shopDomain}/admin/api/2024-10/graphql.json`
 
-  logger.debug('[Shopify GraphQL] Making request:', {
+  logger.info('[Shopify GraphQL] Making request:', {
     url,
     query: query.substring(0, 100) + '...',
     variables
@@ -143,7 +143,7 @@ export async function makeShopifyRequest(
 
   const url = `https://${shopDomain}/admin/api/2024-01/${endpoint}`
 
-  logger.debug('[Shopify REST] Making request:', { url, method: options.method || 'GET' })
+  logger.info('[Shopify REST] Making request:', { url, method: options.method || 'GET' })
 
   const response = await fetch(url, {
     ...options,

@@ -146,7 +146,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         )
       }
 
-      logger.debug('✅ All trigger resources activated successfully')
+      logger.info('✅ All trigger resources activated successfully')
       logger.info(`✅ Workflow activated: ${workflow.name} (${workflow.id})`)
 
       return jsonResponse({

@@ -38,7 +38,7 @@ export class GoogleSheetsOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const pendingPromise = pendingPromises.get(requestKey);
       if (pendingPromise) {
-        logger.debug(`🔄 [GoogleSheets] Reusing pending request for ${fieldName}`);
+        logger.info(`🔄 [GoogleSheets] Reusing pending request for ${fieldName}`);
         return pendingPromise;
       }
     }

@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         session.user_id,
         sessionId
       )
-      logger.debug('[test-trigger-stream] Test trigger deactivated after timeout', {
+      logger.info('[test-trigger-stream] Test trigger deactivated after timeout', {
         sessionId,
         workflowId: session.workflow_id
       })

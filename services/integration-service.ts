@@ -69,11 +69,11 @@ export class IntegrationService {
       IntegrationService.sessionCache &&
       now - IntegrationService.sessionCache.timestamp < IntegrationService.SESSION_CACHE_TTL
     ) {
-      logger.debug('[IntegrationService] Using cached session')
+      logger.info('[IntegrationService] Using cached session')
       return IntegrationService.sessionCache.session
     }
 
-    logger.debug('[IntegrationService] Fetching fresh session')
+    logger.info('[IntegrationService] Fetching fresh session')
     const sessionData = await SessionManager.getSecureUserAndSession()
     IntegrationService.sessionCache = { session: sessionData, timestamp: now }
     return sessionData
@@ -138,7 +138,7 @@ export class IntegrationService {
         timeoutMs: 45000,
         useExponentialBackoff: true,
         onRetry: (attempt) => {
-          logger.debug(`[IntegrationService] Retrying... (attempt ${attempt})`)
+          logger.info(`[IntegrationService] Retrying... (attempt ${attempt})`)
         }
       })
 
@@ -314,7 +314,7 @@ export class IntegrationService {
       forceRefresh,
     }
 
-    logger.debug(`🔍 [Integration Service] Loading data:`, {
+    logger.info(`🔍 [Integration Service] Loading data:`, {
       dataType,
       integrationId,
       params,
@@ -521,7 +521,7 @@ export class IntegrationService {
   ): Promise<any> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
-    logger.debug('📡 [IntegrationService] loadIntegrationData called:', { dataType, integrationId, params })
+    logger.info('📡 [IntegrationService] loadIntegrationData called:', { dataType, integrationId, params })
 
     // Validate dataType - must contain underscore or dash to be a valid resource type
     // Field names like "sourceFolderId" or "destinationFolderId" should not reach here
@@ -595,7 +595,7 @@ export class IntegrationService {
       provider = dataType.split(/[-_]/)[0]
     }
 
-    logger.debug('🌐 [IntegrationService] Fetching from:', `/api/integrations/${provider}/data`, { body })
+    logger.info('🌐 [IntegrationService] Fetching from:', `/api/integrations/${provider}/data`, { body })
 
     const response = await fetch(`/api/integrations/${provider}/data`, {
       method: 'POST',
@@ -627,7 +627,7 @@ export class IntegrationService {
       })
       throw new Error(`Failed to parse response for ${dataType}: ${parseError.message}`)
     }
-    logger.debug('✅ [IntegrationService] Response for', dataType, ':', {
+    logger.info('✅ [IntegrationService] Response for', dataType, ':', {
       dataType,
       hasData: !!data.data,
       dataLength: data.data?.length || data?.length || 0,
@@ -639,7 +639,7 @@ export class IntegrationService {
 
     // Special logging for Slack files
     if (dataType === 'slack_files') {
-      logger.debug('📎 [IntegrationService] Slack files API response:', {
+      logger.info('📎 [IntegrationService] Slack files API response:', {
         rawData: data,
         hasDataProperty: 'data' in data,
         dataValue: data.data,

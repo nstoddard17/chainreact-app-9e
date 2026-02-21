@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     const propertiesData = await propertiesResponse.json()
     
-    logger.debug('All HubSpot contact properties:', propertiesData.results.map((p: any) => ({
+    logger.info('All HubSpot contact properties:', propertiesData.results.map((p: any) => ({
       name: p.name,
       label: p.label,
       type: p.type,

@@ -36,7 +36,7 @@ export async function createShopifyFulfillment(
     const orderGid = toOrderGid(orderId)
     const numericOrderId = extractNumericId(orderGid)
 
-    logger.debug('[Shopify GraphQL] Creating fulfillment for order:', { orderId: orderGid })
+    logger.info('[Shopify GraphQL] Creating fulfillment for order:', { orderId: orderGid })
 
     // 4. Query for fulfillment orders
     const fulfillmentOrderQuery = `

@@ -26,7 +26,7 @@ export async function renameMicrosoftExcelWorksheet(
   const { workbookId, worksheetName, newWorksheetName } = config
   const { userId } = context
 
-  logger.debug('[Microsoft Excel] Renaming worksheet:', { workbookId, worksheetName, newWorksheetName })
+  logger.info('[Microsoft Excel] Renaming worksheet:', { workbookId, worksheetName, newWorksheetName })
 
   try {
     // Get Microsoft Excel integration
@@ -77,7 +77,7 @@ export async function renameMicrosoftExcelWorksheet(
 
     const result = await renameResponse.json()
 
-    logger.debug('[Microsoft Excel] Successfully renamed worksheet')
+    logger.info('[Microsoft Excel] Successfully renamed worksheet')
 
     return {
       success: true,

@@ -19,7 +19,7 @@ export const getShopifyStores: ShopifyDataHandler<ShopifyStore[]> = async (
     if (stores.length === 0) {
       const legacyShop = metadata?.shop || integration.shop_domain
       if (legacyShop) {
-        logger.debug('[Shopify] Using legacy single shop format')
+        logger.info('[Shopify] Using legacy single shop format')
         return [{
           shop: legacyShop,
           name: legacyShop,
@@ -39,7 +39,7 @@ export const getShopifyStores: ShopifyDataHandler<ShopifyStore[]> = async (
       id: store.id // Keep the numeric ID for reference
     }))
 
-    logger.debug(`✅ [Shopify] Returning ${mappedStores.length} connected stores`)
+    logger.info(`✅ [Shopify] Returning ${mappedStores.length} connected stores`)
     return mappedStores
 
   } catch (error: any) {

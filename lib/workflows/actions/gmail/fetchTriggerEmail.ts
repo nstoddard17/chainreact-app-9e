@@ -59,7 +59,7 @@ export async function fetchGmailTriggerEmail(
     }
 
     query = queryParts.join(' ')
-    logger.debug(`Fetching latest Gmail email with query: "${query}"`)
+    logger.info(`Fetching latest Gmail email with query: "${query}"`)
 
     // Search for the latest email matching criteria
     const searchParams = new URLSearchParams({

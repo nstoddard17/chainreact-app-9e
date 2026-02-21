@@ -98,14 +98,14 @@ export async function executeIfThenCondition(
       finalResult = evaluateCondition(resolvedField, operator, resolvedValue)
       evaluatedExpression = `${field} ${operator} ${value || ''}`
 
-      logger.debug(`Simple condition evaluated: ${evaluatedExpression} => ${finalResult}`, {
+      logger.info(`Simple condition evaluated: ${evaluatedExpression} => ${finalResult}`, {
         resolvedField,
         resolvedValue
       })
     }
     // Legacy support for conditionGroups
     else if (conditionGroups.length > 0) {
-      logger.debug("Using legacy conditionGroups format")
+      logger.info("Using legacy conditionGroups format")
 
       // Evaluate each condition group
       const groupResults = conditionGroups.map((group: any) => {
@@ -124,7 +124,7 @@ export async function executeIfThenCondition(
           // Evaluate the condition
           const result = evaluateCondition(resolvedField, operator, resolvedValue)
 
-          logger.debug(`Condition evaluated: ${field} ${operator} ${value} => ${result}`, {
+          logger.info(`Condition evaluated: ${field} ${operator} ${value} => ${result}`, {
             resolvedField,
             resolvedValue
           })
@@ -143,12 +143,12 @@ export async function executeIfThenCondition(
     }
     // No conditions defined - default to true
     else {
-      logger.debug("No conditions defined, defaulting to true")
+      logger.info("No conditions defined, defaulting to true")
       finalResult = true
       evaluatedExpression = "No conditions (default: true)"
     }
 
-    logger.debug(`Final condition result: ${finalResult} (expression: ${evaluatedExpression})`)
+    logger.info(`Final condition result: ${finalResult} (expression: ${evaluatedExpression})`)
 
     // For if/then nodes, we always return success: true
     // The conditionMet field indicates whether the condition was true or false

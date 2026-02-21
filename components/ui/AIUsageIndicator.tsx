@@ -32,7 +32,7 @@ const MIN_REFRESH_INTERVAL = 30 * 1000 // Minimum 30 seconds between fetches
 
 // Export a function to invalidate cache when AI actions occur
 export const refreshAIUsage = () => {
-  logger.debug('🔄 AI usage cache invalidated - will refresh on next render')
+  logger.info('🔄 AI usage cache invalidated - will refresh on next render')
   cachedUsageData = null
   lastFetchTime = 0
 }
@@ -79,7 +79,7 @@ export function AIUsageIndicator() {
     // Prevent fetching if we just fetched recently
     const now = Date.now()
     if (now - lastFetchTime < MIN_REFRESH_INTERVAL) {
-      logger.debug('Skipping AI usage fetch - too soon since last fetch')
+      logger.info('Skipping AI usage fetch - too soon since last fetch')
       return
     }
 

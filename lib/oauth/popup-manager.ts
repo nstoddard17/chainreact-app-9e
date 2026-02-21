@@ -259,14 +259,14 @@ export class OAuthPopupManager {
     try {
       broadcastChannel = new BroadcastChannel('oauth_channel')
       broadcastChannel.onmessage = (event) => {
-        logger.debug(`📡 OAuth response received via BroadcastChannel for ${provider}:`, event.data)
+        logger.info(`📡 OAuth response received via BroadcastChannel for ${provider}:`, event.data)
         // Check if this response is for our provider
         if (event.data?.provider?.toLowerCase() === provider.toLowerCase()) {
           handleOAuthResponse(event.data)
         }
       }
     } catch (e) {
-      logger.debug('BroadcastChannel not available, falling back to postMessage and localStorage')
+      logger.info('BroadcastChannel not available, falling back to postMessage and localStorage')
     }
 
     // Add popup close detection (manual close by user)
@@ -458,11 +458,11 @@ export class OAuthPopupManager {
         ]
         
         if (!allowedOrigins.includes(event.origin)) {
-          logger.debug('[PopupManager] Ignoring message from unexpected origin:', event.origin)
+          logger.info('[PopupManager] Ignoring message from unexpected origin:', event.origin)
           return
         }
         
-        logger.debug('[PopupManager] Processing message from:', event.origin)
+        logger.info('[PopupManager] Processing message from:', event.origin)
         messageReceived = true
         
         if (event.data.type === "oauth-success") {

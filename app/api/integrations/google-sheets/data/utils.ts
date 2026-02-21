@@ -39,7 +39,7 @@ export async function createGoogleSheetsClient(integration: GoogleSheetsIntegrat
       const { credentials } = await oauth2Client.refreshAccessToken()
       oauth2Client.setCredentials(credentials)
       // Note: You should update the database with new tokens here
-      logger.debug('🔄 Refreshed Google Sheets access token')
+      logger.info('🔄 Refreshed Google Sheets access token')
     } catch (error) {
       logger.error('Failed to refresh token:', error)
       throw new Error('Authentication expired. Please reconnect your Google account.')
@@ -79,7 +79,7 @@ export async function createGoogleDriveClient(integration: GoogleSheetsIntegrati
       const { credentials } = await oauth2Client.refreshAccessToken()
       oauth2Client.setCredentials(credentials)
       // Note: You should update the database with new tokens here
-      logger.debug('🔄 Refreshed Google Drive access token')
+      logger.info('🔄 Refreshed Google Drive access token')
     } catch (error) {
       logger.error('Failed to refresh token:', error)
       throw new Error('Authentication expired. Please reconnect your Google account.')

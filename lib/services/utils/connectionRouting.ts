@@ -27,7 +27,7 @@ export function filterConnectionsForNode(
   if (nodeType === 'path') {
     const includesHandles = outgoingConnections.some(conn => hasCustomHandle(conn.sourceHandle))
     if (!includesHandles) {
-      logger.debug(`🛤️ Path node ${sourceNode.id} using legacy routing (no handle metadata)`)
+      logger.info(`🛤️ Path node ${sourceNode.id} using legacy routing (no handle metadata)`)
       return outgoingConnections
     }
 
@@ -35,7 +35,7 @@ export function filterConnectionsForNode(
     const matched = outgoingConnections.filter(conn => conn.sourceHandle === pathTaken)
 
     if (matched.length === 0) {
-      logger.debug(`🛤️ Path node ${sourceNode.id} found no connections for handle "${pathTaken}"`)
+      logger.info(`🛤️ Path node ${sourceNode.id} found no connections for handle "${pathTaken}"`)
     }
 
     return matched
@@ -65,7 +65,7 @@ export function filterConnectionsForNode(
     }
 
     if (selectedPaths.length === 0) {
-      logger.debug(`🤖 AI router node ${sourceNode.id} did not return selected paths; executing all handles`)
+      logger.info(`🤖 AI router node ${sourceNode.id} did not return selected paths; executing all handles`)
       return outgoingConnections
     }
 
@@ -73,7 +73,7 @@ export function filterConnectionsForNode(
     const matched = outgoingConnections.filter(conn => conn.sourceHandle && selectedSet.has(conn.sourceHandle))
 
     if (matched.length === 0) {
-      logger.debug(`🤖 AI router node ${sourceNode.id} selected ${selectedPaths.join(', ')} but no matching connections found`)
+      logger.info(`🤖 AI router node ${sourceNode.id} selected ${selectedPaths.join(', ')} but no matching connections found`)
     }
 
     return matched

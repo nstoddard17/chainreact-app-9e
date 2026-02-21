@@ -12,7 +12,7 @@ export const getStripePaymentIntents: StripeDataHandler<StripePaymentIntent> = a
   integration: StripeIntegration,
   options: any = {}
 ): Promise<StripePaymentIntent[]> => {
-  logger.debug('[Stripe Payment Intents] Fetching payment intents', {
+  logger.info('[Stripe Payment Intents] Fetching payment intents', {
     integrationId: integration.id,
     hasToken: !!integration.access_token
   })
@@ -63,7 +63,7 @@ export const getStripePaymentIntents: StripeDataHandler<StripePaymentIntent> = a
       }
     })
 
-    logger.debug('[Stripe Payment Intents] Fetched successfully', {
+    logger.info('[Stripe Payment Intents] Fetched successfully', {
       count: paymentIntents.length
     })
 

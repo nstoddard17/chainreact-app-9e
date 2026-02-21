@@ -26,7 +26,7 @@ export async function updateGmailSignature(
       }
     }
 
-    logger.debug('[Gmail Update Signature] Updating signature')
+    logger.info('[Gmail Update Signature] Updating signature')
 
     // If sendAsEmail is not provided, get the primary email address
     let targetEmail = sendAsEmail
@@ -72,7 +72,7 @@ export async function updateGmailSignature(
 
     const result = await response.json()
 
-    logger.debug('[Gmail Update Signature] Successfully updated signature')
+    logger.info('[Gmail Update Signature] Successfully updated signature')
 
     return {
       success: true,

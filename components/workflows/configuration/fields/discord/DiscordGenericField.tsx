@@ -44,7 +44,7 @@ function DiscordGenericFieldComponent({
   
   // Debug logging for authorFilter
   if (field.name === 'authorFilter') {
-    logger.debug('🎯 [DiscordGenericField] Rendering authorFilter:', {
+    logger.info('🎯 [DiscordGenericField] Rendering authorFilter:', {
       value,
       isLoading,
       optionsLength: options?.length || 0,
@@ -70,7 +70,7 @@ function DiscordGenericFieldComponent({
     const isDependentField = ['filterAuthor', 'channelId', 'messageId'].includes(field.name);
     
     if (field.name === 'messageId') {
-      logger.debug('🔍 [DiscordGenericField] messageId field detected:', {
+      logger.info('🔍 [DiscordGenericField] messageId field detected:', {
         isDependentField,
         fieldDynamic: field.dynamic,
         hasOnDynamicLoad: !!onDynamicLoad,
@@ -82,12 +82,12 @@ function DiscordGenericFieldComponent({
     }
     
     if (field.name === 'filterAuthor') {
-      logger.debug('🔍 [DiscordGenericField] filterAuthor - skipping auto-load, waiting for form to trigger based on guildId');
+      logger.info('🔍 [DiscordGenericField] filterAuthor - skipping auto-load, waiting for form to trigger based on guildId');
     }
     
     // Skip auto-load if we have a saved value (even for non-dependent fields when reopening)
     if (value) {
-      logger.debug(`📌 [DiscordGenericField] Skipping auto-load for ${field.name} - has saved value:`, value);
+      logger.info(`📌 [DiscordGenericField] Skipping auto-load for ${field.name} - has saved value:`, value);
       return;
     }
     
@@ -101,7 +101,7 @@ function DiscordGenericFieldComponent({
   const handleFieldOpen = (open: boolean) => {
     // Skip loading if we have a saved value - just show the saved value
     if (value) {
-      logger.debug(`📌 [DiscordGenericField] Not loading on dropdown open - using saved value for ${field.name}:`, value);
+      logger.info(`📌 [DiscordGenericField] Not loading on dropdown open - using saved value for ${field.name}:`, value);
       return;
     }
     
@@ -114,7 +114,7 @@ function DiscordGenericFieldComponent({
     if (open && field.dynamic && onDynamicLoad && !isLoading) {
       // Only force load if user explicitly opens and we don't have real options yet
       if (hasOnlyPlaceholder && !hasAttemptedLoad.current) {
-        logger.debug(`📥 [DiscordGenericField] User opened dropdown - loading real options for ${field.name}`);
+        logger.info(`📥 [DiscordGenericField] User opened dropdown - loading real options for ${field.name}`);
         hasAttemptedLoad.current = true;
         onDynamicLoad(field.name);
       }
@@ -140,12 +140,12 @@ function DiscordGenericFieldComponent({
 
     // Special filtering for messageId in remove reaction actions - only show messages with reactions
     if (field.name === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction') {
-      logger.debug('🔍 [DiscordGenericField] Processing messages for remove reaction action');
-      logger.debug('🔍 [DiscordGenericField] Total messages before filtering:', uniqueOptions.length);
+      logger.info('🔍 [DiscordGenericField] Processing messages for remove reaction action');
+      logger.info('🔍 [DiscordGenericField] Total messages before filtering:', uniqueOptions.length);
       
       if (uniqueOptions.length > 0) {
         const firstMessage = uniqueOptions[0];
-        logger.debug('🔍 [DiscordGenericField] First message detailed breakdown:', {
+        logger.info('🔍 [DiscordGenericField] First message detailed breakdown:', {
           id: firstMessage.id,
           value: firstMessage.value,
           label: firstMessage.label,
@@ -159,11 +159,11 @@ function DiscordGenericFieldComponent({
       // Filter to only show messages that have reactions
       const messagesWithReactions = uniqueOptions.filter(message => {
         const hasReactions = message.reactions && Array.isArray(message.reactions) && message.reactions.length > 0;
-        logger.debug(`🔍 [DiscordGenericField] Message ${message.id}: ${hasReactions ? 'HAS reactions' : 'no reactions'} (${message.reactions?.length || 0})`);
+        logger.info(`🔍 [DiscordGenericField] Message ${message.id}: ${hasReactions ? 'HAS reactions' : 'no reactions'} (${message.reactions?.length || 0})`);
         return hasReactions;
       });
 
-      logger.debug(`🔍 [DiscordGenericField] Filtered ${uniqueOptions.length} messages down to ${messagesWithReactions.length} messages with reactions`);
+      logger.info(`🔍 [DiscordGenericField] Filtered ${uniqueOptions.length} messages down to ${messagesWithReactions.length} messages with reactions`);
       uniqueOptions = messagesWithReactions;
     }
     
@@ -202,7 +202,7 @@ function DiscordGenericFieldComponent({
     });
     
     if (!matchingOption) {
-      logger.debug(`📌 [DiscordGenericField] Using saved value for ${field.name}:`, value);
+      logger.info(`📌 [DiscordGenericField] Using saved value for ${field.name}:`, value);
       
       // Determine the display label based on available data
       let displayLabel = 'Selected';
@@ -237,7 +237,7 @@ function DiscordGenericFieldComponent({
         name: displayLabel
       }, ...processedOptions];
     } else {
-      logger.debug(`✅ [DiscordGenericField] Found matching option for ${field.name}:`, matchingOption);
+      logger.info(`✅ [DiscordGenericField] Found matching option for ${field.name}:`, matchingOption);
     }
   }
 
@@ -292,7 +292,7 @@ function DiscordGenericFieldComponent({
       
       // Load if channel changed or if we don't have data yet
       if (channelId !== lastLoadedChannelId.current && needsLoad) {
-        logger.debug('📥 [DiscordGenericField] Auto-triggering author filter load for new channel:', {
+        logger.info('📥 [DiscordGenericField] Auto-triggering author filter load for new channel:', {
           fieldName: field.name,
           channelId,
           lastLoadedChannelId: lastLoadedChannelId.current,
@@ -312,7 +312,7 @@ function DiscordGenericFieldComponent({
   const handleValueChange = (newValue: string) => {
     // Don't clear the value if we're still loading options
     if (isLoading && !newValue && value) {
-      logger.debug(`🛡️ [DiscordGenericField] Preventing value clear for ${field.name} while loading`);
+      logger.info(`🛡️ [DiscordGenericField] Preventing value clear for ${field.name} while loading`);
       return;
     }
     // For authorFilter, empty string means "any user"

@@ -70,7 +70,7 @@ export function AIFieldWrapper({
   const supportsAI = !isRecordIdField && !isReadOnly && !isNonEditable && !!onAIToggle &&
     (field.supportsAI === true || field.supportsAI === undefined); // undefined = legacy behavior
 
-  logger.debug('🎯 [AIFieldWrapper] Rendering:', {
+  logger.info('🎯 [AIFieldWrapper] Rendering:', {
     fieldName: field.name,
     fieldSupportsAI: field.supportsAI,
     isAIEnabled,

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const accessToken = await getDecryptedAccessToken(user.id, "hubspot")
 
     // First, let's fetch ALL contact properties to see what's available
-    logger.debug("Fetching all HubSpot contact properties...")
+    logger.info("Fetching all HubSpot contact properties...")
 
     const allPropertiesResponse = await fetch(
       "https://api.hubapi.com/crm/v3/properties/contacts",
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     }
 
     const allPropertiesData = await allPropertiesResponse.json()
-    logger.debug(`Found ${allPropertiesData.results.length} total contact properties`)
+    logger.info(`Found ${allPropertiesData.results.length} total contact properties`)
 
     // Try to fetch the views to see configured columns
     const viewsResponse = await fetch(
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     if (!viewsResponse.ok) {
       // If views API is not available, return ALL properties with metadata
-      logger.debug("Views API not available, returning all properties with metadata")
+      logger.info("Views API not available, returning all properties with metadata")
 
       // Since we already fetched all properties above, use that data
       const allProperties = allPropertiesData.results

@@ -16,7 +16,7 @@ export async function duplicateAirtableRecord(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug("📋 [Airtable] Duplicating record...");
+    logger.info("📋 [Airtable] Duplicating record...");
 
     // Validate config
     if (!config || typeof config !== 'object') {
@@ -48,7 +48,7 @@ export async function duplicateAirtableRecord(
       return { success: false, message };
     }
 
-    logger.debug(`📋 [Airtable] Fetching source record ${recordId} from ${tableName}...`);
+    logger.info(`📋 [Airtable] Fetching source record ${recordId} from ${tableName}...`);
 
     // Step 1: Fetch the source record
     const fetchResponse = await fetch(
@@ -74,7 +74,7 @@ export async function duplicateAirtableRecord(
     const sourceRecord = await fetchResponse.json();
     const sourceFields = sourceRecord.fields || {};
 
-    logger.debug(`📋 [Airtable] Source record fetched. Fields: ${Object.keys(sourceFields).join(', ')}`);
+    logger.info(`📋 [Airtable] Source record fetched. Fields: ${Object.keys(sourceFields).join(', ')}`);
 
     // Fetch table schema to get field types and date formats
     let tableSchema: any = null
@@ -92,11 +92,11 @@ export async function duplicateAirtableRecord(
         const schemaResult = await schemaResponse.json()
         tableSchema = schemaResult.tables?.find((t: any) => t.name === tableName)
         if (tableSchema) {
-          logger.debug(`📊 [Airtable] Retrieved table schema with ${tableSchema.fields?.length || 0} fields`)
+          logger.info(`📊 [Airtable] Retrieved table schema with ${tableSchema.fields?.length || 0} fields`)
         }
       }
     } catch (error) {
-      logger.debug('📊 [Airtable] Could not fetch table schema, proceeding without field type information')
+      logger.info('📊 [Airtable] Could not fetch table schema, proceeding without field type information')
     }
 
     // Helper function to format date/datetime values based on field schema
@@ -115,7 +115,7 @@ export async function duplicateAirtableRecord(
       if (typeof value === 'string') {
         date = new Date(value)
         if (isNaN(date.getTime())) {
-          logger.debug(`📊 [Airtable] Invalid date value for field "${fieldInfo.name}": ${value}`)
+          logger.info(`📊 [Airtable] Invalid date value for field "${fieldInfo.name}": ${value}`)
           return value
         }
       } else if (value instanceof Date) {
@@ -130,11 +130,11 @@ export async function duplicateAirtableRecord(
         const month = String(date.getMonth() + 1).padStart(2, '0')
         const day = String(date.getDate()).padStart(2, '0')
         const formatted = `${year}-${month}-${day}`
-        logger.debug(`📊 [Airtable] Formatted date field "${fieldInfo.name}": ${formatted}`)
+        logger.info(`📊 [Airtable] Formatted date field "${fieldInfo.name}": ${formatted}`)
         return formatted
       } else if (fieldType === 'dateTime') {
         const formatted = date.toISOString()
-        logger.debug(`📊 [Airtable] Formatted datetime field "${fieldInfo.name}": ${formatted}`)
+        logger.info(`📊 [Airtable] Formatted datetime field "${fieldInfo.name}": ${formatted}`)
         return formatted
       }
 
@@ -162,7 +162,7 @@ export async function duplicateAirtableRecord(
                 url: att.url,
                 filename: att.filename
               }));
-              logger.debug(`📎 [Airtable] Cleaned attachment field: ${fieldName} (${fieldValue.length} attachments)`);
+              logger.info(`📎 [Airtable] Cleaned attachment field: ${fieldName} (${fieldValue.length} attachments)`);
             }
           }
           // Format date/datetime fields based on schema
@@ -171,9 +171,9 @@ export async function duplicateAirtableRecord(
           }
 
           newFields[fieldName] = fieldValue;
-          logger.debug(`✅ [Airtable] Copying field: ${fieldName}`);
+          logger.info(`✅ [Airtable] Copying field: ${fieldName}`);
         } else {
-          logger.debug(`⚠️ [Airtable] Field not found in source record: ${fieldName}`);
+          logger.info(`⚠️ [Airtable] Field not found in source record: ${fieldName}`);
         }
       });
     }
@@ -197,14 +197,14 @@ export async function duplicateAirtableRecord(
       // Don't unwrap arrays for linked record fields
       if (Array.isArray(resolved) && resolved.length === 1 && !shouldStayArray) {
         resolved = resolved[0]
-        logger.debug(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
+        logger.info(`📊 [Airtable] Unwrapped single-element array for field "${fieldName}"`)
       }
 
       newFields[fieldName] = resolved;
-      logger.debug(`🔄 [Airtable] Overriding field: ${fieldName} = ${JSON.stringify(resolved)}`);
+      logger.info(`🔄 [Airtable] Overriding field: ${fieldName} = ${JSON.stringify(resolved)}`);
     });
 
-    logger.debug(`📋 [Airtable] Creating duplicate with ${Object.keys(newFields).length} fields...`);
+    logger.info(`📋 [Airtable] Creating duplicate with ${Object.keys(newFields).length} fields...`);
 
     // Step 3: Create the new record
     const createResponse = await fetch(
@@ -230,7 +230,7 @@ export async function duplicateAirtableRecord(
 
     const newRecord = await createResponse.json();
 
-    logger.debug(`✅ [Airtable] Record duplicated successfully. New ID: ${newRecord.id}`);
+    logger.info(`✅ [Airtable] Record duplicated successfully. New ID: ${newRecord.id}`);
 
     return {
       success: true,

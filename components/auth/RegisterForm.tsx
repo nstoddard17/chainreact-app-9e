@@ -46,7 +46,7 @@ function RegisterFormContent() {
         // If there's a session but user is on the register page, they likely want to create a new account
         // Sign out to clear any stale tokens and prevent refresh token race conditions
         if (session) {
-          logger.debug('[RegisterForm] Clearing existing session on register page visit')
+          logger.info('[RegisterForm] Clearing existing session on register page visit')
           await supabase.auth.signOut({ scope: 'local' })
 
           // Clear localStorage auth data
@@ -63,7 +63,7 @@ function RegisterFormContent() {
         }
       } catch (error) {
         // Ignore errors - this is just cleanup
-        logger.debug('[RegisterForm] Error clearing stale session:', error)
+        logger.info('[RegisterForm] Error clearing stale session:', error)
       }
     }
 

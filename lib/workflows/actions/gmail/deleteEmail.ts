@@ -47,7 +47,7 @@ export async function deleteGmailEmail(
       }
     }
 
-    logger.debug(`[Gmail Delete] ${permanentDelete ? 'Permanently deleting' : 'Moving to trash'} ${messageIds.length} email(s)`)
+    logger.info(`[Gmail Delete] ${permanentDelete ? 'Permanently deleting' : 'Moving to trash'} ${messageIds.length} email(s)`)
 
     // Delete emails
     const results = []
@@ -93,7 +93,7 @@ export async function deleteGmailEmail(
 
     const successCount = results.filter(r => r.success).length
 
-    logger.debug(`[Gmail Delete] Successfully ${permanentDelete ? 'permanently deleted' : 'moved to trash'} ${successCount}/${messageIds.length} email(s)`)
+    logger.info(`[Gmail Delete] Successfully ${permanentDelete ? 'permanently deleted' : 'moved to trash'} ${successCount}/${messageIds.length} email(s)`)
 
     return {
       success: successCount > 0,

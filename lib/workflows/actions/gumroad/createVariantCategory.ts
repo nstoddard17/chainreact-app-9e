@@ -31,7 +31,7 @@ export async function createGumroadVariantCategory(
       title: title
     }
 
-    logger.debug('[createGumroadVariantCategory] Creating variant category:', {
+    logger.info('[createGumroadVariantCategory] Creating variant category:', {
       productId,
       title
     })

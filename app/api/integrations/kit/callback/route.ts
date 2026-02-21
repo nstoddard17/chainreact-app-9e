@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json()
-    logger.debug('Kit token data:', JSON.stringify(tokenData))
+    logger.info('Kit token data:', JSON.stringify(tokenData))
     
     if (!tokenData.access_token) {
       return createPopupResponse('error', provider, 'No access token in response', baseUrl)
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
 
       if (accountResponse.ok) {
         accountInfo = await accountResponse.json()
-        logger.debug('Kit account info:', JSON.stringify(accountInfo))
+        logger.info('Kit account info:', JSON.stringify(accountInfo))
       } else {
         logger.warn('Could not fetch Kit account information:', await accountResponse.text())
       }

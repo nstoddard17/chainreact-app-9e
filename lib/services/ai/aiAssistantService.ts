@@ -33,7 +33,7 @@ export class AIAssistantService {
   }
 
   async processMessage(request: NextRequest): Promise<AIAssistantResponse> {
-    logger.debug("🤖 Starting AI Assistant message processing")
+    logger.info("🤖 Starting AI Assistant message processing")
 
     try {
       // 1. Validate OpenAI configuration
@@ -58,7 +58,7 @@ export class AIAssistantService {
         }
       }
 
-      logger.debug("📝 Processing message:", `${message.substring(0, 100)}...`)
+      logger.info("📝 Processing message:", `${message.substring(0, 100)}...`)
 
       // 3. Authenticate user
       const authResult = await this.authService.authenticateRequest(request)
@@ -73,7 +73,7 @@ export class AIAssistantService {
       }
 
       const user = authResult.user
-      logger.debug("✅ User authenticated:", user.id)
+      logger.info("✅ User authenticated:", user.id)
 
       // 3.5. Get or create conversation context
       const conversationContext = conversationStateManager.getContext(user.id, existingConversationId)
@@ -106,7 +106,7 @@ export class AIAssistantService {
 
       // Check if this is an answer to a pending question
       if (selectedOptionId && conversationStateManager.isWaitingForResponse(conversationId)) {
-        logger.debug("🔄 Processing answer to clarifying question")
+        logger.info("🔄 Processing answer to clarifying question")
 
         try {
           const { intent, parameters } = await clarificationService.processAnswer(
@@ -140,7 +140,7 @@ export class AIAssistantService {
       let intent
       try {
         intent = await this.intentService.analyzeIntent(message, integrations, 15000)
-        logger.debug("🧠 Intent analysis completed:", {
+        logger.info("🧠 Intent analysis completed:", {
           intent: intent.intent,
           action: intent.action,
           specifiedIntegration: intent.specifiedIntegration
@@ -165,7 +165,7 @@ export class AIAssistantService {
       )
 
       if (clarificationResult.needsClarification) {
-        logger.debug("❓ Clarification needed:", clarificationResult.reason)
+        logger.info("❓ Clarification needed:", clarificationResult.reason)
 
         const pendingQuestion = conversationStateManager.getPendingQuestion(conversationId)
 
@@ -189,7 +189,7 @@ export class AIAssistantService {
       let result
       try {
         result = await this.actionService.executeAction(intent, integrations, user.id, this.authService.getSupabaseAdmin())
-        logger.debug("✅ Action execution completed")
+        logger.info("✅ Action execution completed")
       } catch (actionError: any) {
         logger.error("❌ Action execution failed:", actionError)
         // Fallback response
@@ -216,7 +216,7 @@ export class AIAssistantService {
       // Add assistant response to history
       conversationStateManager.addTurn(conversationId, 'assistant', result.content, result.metadata)
 
-      logger.debug("✅ AI Assistant processing completed successfully")
+      logger.info("✅ AI Assistant processing completed successfully")
       return {
         content: result.content,
         metadata: result.metadata,

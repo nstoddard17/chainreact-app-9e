@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    logger.debug(`[AllConnections] Fetching all connections for provider: ${provider}`, {
+    logger.info(`[AllConnections] Fetching all connections for provider: ${provider}`, {
       userId: user.id,
       provider
     })
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     // If query fails due to missing columns, try without them (backward compatibility)
     if (integrationsError && integrationsError.message?.includes('column')) {
-      logger.debug('[AllConnections] New columns not available, using legacy query', {
+      logger.info('[AllConnections] New columns not available, using legacy query', {
         error: integrationsError.message
       })
 
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!integrations || integrations.length === 0) {
-      logger.debug('[AllConnections] No connections found', { provider })
+      logger.info('[AllConnections] No connections found', { provider })
       return NextResponse.json({ connections: [] })
     }
 
@@ -337,7 +337,7 @@ export async function GET(request: NextRequest) {
       access_type: (integration as any).access_type ?? 'owned',
     }))
 
-    logger.debug(`[AllConnections] Found ${connections.length} accessible connections`, {
+    logger.info(`[AllConnections] Found ${connections.length} accessible connections`, {
       provider,
       connectionIds: connections.map(c => c.id)
     })

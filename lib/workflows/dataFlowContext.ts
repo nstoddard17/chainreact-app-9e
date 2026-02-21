@@ -122,7 +122,7 @@ export class DataFlowManager {
    * Resolve a variable reference (e.g., "{{node1.subject}}" or "{{var.customField}}")
    */
   resolveVariable(reference: string): any {
-    logger.debug(`🔧 DataFlowManager resolving variable: "${reference}"`)
+    logger.info(`🔧 DataFlowManager resolving variable: "${reference}"`)
     
     if (!reference || typeof reference !== 'string') {
       return reference
@@ -137,13 +137,13 @@ export class DataFlowManager {
       const nodeTitle = humanReadableMatch[1].trim()
       const fieldLabel = humanReadableMatch[2].trim()
       
-      logger.debug(`🔍 Human-readable format detected: nodeTitle="${nodeTitle}", fieldLabel="${fieldLabel}"`)
-      logger.debug(`📝 Available node metadata:`, Object.keys(this.context.nodeMetadata).map(id => ({
+      logger.info(`🔍 Human-readable format detected: nodeTitle="${nodeTitle}", fieldLabel="${fieldLabel}"`)
+      logger.info(`📝 Available node metadata:`, Object.keys(this.context.nodeMetadata).map(id => ({
         id,
         title: this.context.nodeMetadata[id].title,
         type: this.context.nodeMetadata[id].type
       })))
-      logger.debug(`📦 Available node outputs:`, Object.keys(this.context.nodeOutputs).map(id => ({
+      logger.info(`📦 Available node outputs:`, Object.keys(this.context.nodeOutputs).map(id => ({
         id,
         success: this.context.nodeOutputs[id]?.success,
         dataKeys: this.context.nodeOutputs[id]?.data ? Object.keys(this.context.nodeOutputs[id].data) : []
@@ -153,11 +153,11 @@ export class DataFlowManager {
       const nodeId = Object.keys(this.context.nodeMetadata).find(id => {
         const metadata = this.context.nodeMetadata[id]
         const titleMatch = metadata.title === nodeTitle
-        logger.debug(`🔍 Checking node ${id}: title="${metadata.title}" vs looking for="${nodeTitle}" match=${titleMatch}`)
+        logger.info(`🔍 Checking node ${id}: title="${metadata.title}" vs looking for="${nodeTitle}" match=${titleMatch}`)
         return titleMatch
       })
       
-      logger.debug(`🎯 Found nodeId for title "${nodeTitle}": ${nodeId}`)
+      logger.info(`🎯 Found nodeId for title "${nodeTitle}": ${nodeId}`)
       
       // If no exact title match, try multiple fallback strategies
       let fallbackNodeId = nodeId
@@ -168,7 +168,7 @@ export class DataFlowManager {
           this.context.nodeMetadata[id].type === nodeTitle
         )
         if (fallbackNodeId) {
-          logger.debug(`🔄 Fallback 1: Looking for node by type "${nodeTitle}", found: ${fallbackNodeId}`)
+          logger.info(`🔄 Fallback 1: Looking for node by type "${nodeTitle}", found: ${fallbackNodeId}`)
         }
 
         // Strategy 2: Look for AI agent by type
@@ -176,7 +176,7 @@ export class DataFlowManager {
           fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id =>
             this.context.nodeMetadata[id].type === "ai_agent"
           )
-          logger.debug(`🔄 Fallback 2: Looking for ai_agent type, found: ${fallbackNodeId}`)
+          logger.info(`🔄 Fallback 2: Looking for ai_agent type, found: ${fallbackNodeId}`)
         }
 
         // Strategy 3: Look for partial title matches (case-insensitive)
@@ -186,7 +186,7 @@ export class DataFlowManager {
             return metadata.title.toLowerCase().includes(nodeTitle.toLowerCase()) ||
                    nodeTitle.toLowerCase().includes(metadata.title.toLowerCase())
           })
-          logger.debug(`🔄 Fallback 3: Looking for partial title match, found: ${fallbackNodeId}`)
+          logger.info(`🔄 Fallback 3: Looking for partial title match, found: ${fallbackNodeId}`)
         }
 
         // Strategy 4: If looking for AI-related fields, find any AI agent node
@@ -194,18 +194,18 @@ export class DataFlowManager {
           fallbackNodeId = Object.keys(this.context.nodeMetadata).find(id =>
             this.context.nodeMetadata[id].type === "ai_agent"
           )
-          logger.debug(`🔄 Fallback 4: Looking for any ai_agent for AI output, found: ${fallbackNodeId}`)
+          logger.info(`🔄 Fallback 4: Looking for any ai_agent for AI output, found: ${fallbackNodeId}`)
         }
 
         // Strategy 5: Check if nodeTitle exists as a key in nodeOutputs directly
         // This handles HITL resumed workflows where outputs are stored by type
         if (!fallbackNodeId && this.context.nodeOutputs[nodeTitle]) {
-          logger.debug(`🔄 Fallback 5: Found "${nodeTitle}" directly in nodeOutputs`)
+          logger.info(`🔄 Fallback 5: Found "${nodeTitle}" directly in nodeOutputs`)
           const output = this.context.nodeOutputs[nodeTitle]
           if (output && output.data) {
             const result = this.getNestedValue(output.data, fieldLabel)
             if (result !== null && result !== undefined) {
-              logger.debug(`✅ Resolved from direct nodeOutputs key: ${result}`)
+              logger.info(`✅ Resolved from direct nodeOutputs key: ${result}`)
               return result
             }
           }
@@ -217,43 +217,43 @@ export class DataFlowManager {
         const metadata = this.context.nodeMetadata[fallbackNodeId]
         
         if (output && output.success && metadata.outputSchema) {
-          logger.debug(`📋 Output schema for ${fallbackNodeId}:`, metadata.outputSchema)
-          logger.debug(`💾 Actual output data:`, output.data)
+          logger.info(`📋 Output schema for ${fallbackNodeId}:`, metadata.outputSchema)
+          logger.info(`💾 Actual output data:`, output.data)
           
           // Find the field by label in the output schema
           const field = metadata.outputSchema.find(f => {
             const labelMatch = f.label === fieldLabel
             const nameMatch = f.name === fieldLabel
-            logger.debug(`🔍 Checking field: name="${f.name}" label="${f.label}" vs looking for="${fieldLabel}" labelMatch=${labelMatch} nameMatch=${nameMatch}`)
+            logger.info(`🔍 Checking field: name="${f.name}" label="${f.label}" vs looking for="${fieldLabel}" labelMatch=${labelMatch} nameMatch=${nameMatch}`)
             return labelMatch || nameMatch
           })
           
-          logger.debug(`🎯 Found field for label "${fieldLabel}":`, field)
+          logger.info(`🎯 Found field for label "${fieldLabel}":`, field)
           
           if (field) {
             // Use the field name to get the actual value
             const result = this.getNestedValue(output.data, field.name)
-            logger.debug(`✅ Resolved value:`, result)
+            logger.info(`✅ Resolved value:`, result)
             return result
           } 
-            logger.debug(`⚠️ Field not found in schema, trying fallback approaches...`)
+            logger.info(`⚠️ Field not found in schema, trying fallback approaches...`)
             // Fallback: try to get the value directly if it's a simple structure
             if (output.data && typeof output.data === 'object') {
               // For AI Agent with nested output structure
               if (output.data.output !== undefined && (fieldLabel === "AI Agent Output" || fieldLabel === "output")) {
-                logger.debug(`✅ Found AI Agent output using fallback:`, output.data.output)
+                logger.info(`✅ Found AI Agent output using fallback:`, output.data.output)
                 return output.data.output
               }
               // Try direct property access
               const fallbackResult = output.data[fieldLabel] || output.data
-              logger.debug(`✅ Fallback result:`, fallbackResult)
+              logger.info(`✅ Fallback result:`, fallbackResult)
               return fallbackResult
             }
-            logger.debug(`✅ Returning raw output data:`, output.data)
+            logger.info(`✅ Returning raw output data:`, output.data)
             return output.data
           
         } 
-          logger.debug(`❌ No valid output or metadata found for nodeId: ${fallbackNodeId}`)
+          logger.info(`❌ No valid output or metadata found for nodeId: ${fallbackNodeId}`)
         
       }
     }
@@ -263,23 +263,23 @@ export class DataFlowManager {
     const parsedReference = parseVariableReference(normalizedReference)
     if (parsedReference && parsedReference.kind === 'node' && parsedReference.nodeId) {
       const output = this.getNodeOutput(parsedReference.nodeId)
-      logger.debug(`📎 Resolving node output reference: nodeId="${parsedReference.nodeId}", field="${parsedReference.fieldPath.join('.') || '(all)'}"`)
-      logger.debug(`📎 Node output found:`, output ? 'yes' : 'no')
+      logger.info(`📎 Resolving node output reference: nodeId="${parsedReference.nodeId}", field="${parsedReference.fieldPath.join('.') || '(all)'}"`)
+      logger.info(`📎 Node output found:`, output ? 'yes' : 'no')
       if (output) {
-        logger.debug(`📎 Output success:`, output.success)
-        logger.debug(`📎 Output data keys:`, output.data ? Object.keys(output.data) : 'no data')
+        logger.info(`📎 Output success:`, output.success)
+        logger.info(`📎 Output data keys:`, output.data ? Object.keys(output.data) : 'no data')
       }
 
       if (output && output.success) {
         if (parsedReference.fieldPath.length > 0) {
           const fieldValue = this.getNestedValue(output.data, parsedReference.fieldPath.join('.'))
-          logger.debug(`📎 Field value for "${parsedReference.fieldPath.join('.')}":`, fieldValue ? 'found' : 'not found')
+          logger.info(`📎 Field value for "${parsedReference.fieldPath.join('.')}":`, fieldValue ? 'found' : 'not found')
           return fieldValue
         }
         return output.data
       }
       if (output) {
-        logger.debug(`📎 Returning null - output not successful`)
+        logger.info(`📎 Returning null - output not successful`)
       }
     }
 

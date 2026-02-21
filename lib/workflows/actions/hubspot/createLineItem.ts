@@ -27,7 +27,7 @@ export async function hubspotCreateLineItem(
       throw new Error('Deal ID and Product ID are required')
     }
 
-    logger.debug('Creating line item:', { dealId, productId, quantity })
+    logger.info('Creating line item:', { dealId, productId, quantity })
 
     // Build properties object
     const properties: any = {

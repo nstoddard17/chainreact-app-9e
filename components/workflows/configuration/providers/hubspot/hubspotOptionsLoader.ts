@@ -50,7 +50,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, searchQuery } = params
     
-    logger.debug('🔍 HubSpot options loader called with params:', { 
+    logger.info('🔍 HubSpot options loader called with params:', { 
       fieldName, 
       integrationId,
       integrationIdType: typeof integrationId,
@@ -148,7 +148,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
         options
       }
       
-      logger.debug('📡 [HubSpot Loader] Making API request:', {
+      logger.info('📡 [HubSpot Loader] Making API request:', {
         integrationId,
         dataType,
         fieldName,
@@ -204,7 +204,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       }
       
       const result = await response.json()
-      logger.debug('✅ [HubSpot Loader] API response:', {
+      logger.info('✅ [HubSpot Loader] API response:', {
         dataType,
         dataLength: result.data?.length || 0,
         success: result.success

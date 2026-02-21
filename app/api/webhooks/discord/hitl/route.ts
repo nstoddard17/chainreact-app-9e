@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     // Ignore bot messages (prevent loops)
     if (message.author?.bot) {
-      logger.debug('🤖 [HITL Webhook] Ignoring bot message')
+      logger.info('🤖 [HITL Webhook] Ignoring bot message')
       return NextResponse.json({ ok: true, message: 'Bot message ignored' })
     }
 

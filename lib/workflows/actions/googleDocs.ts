@@ -51,7 +51,7 @@ export async function createGoogleDocument(
     // Step 1: Create the document based on content source
     if (contentSource === 'file_upload' && uploadedFile) {
       // Handle file upload - upload the file to Google Drive with the specified title
-      logger.debug('[Google Docs] Uploading file to Google Drive')
+      logger.info('[Google Docs] Uploading file to Google Drive')
 
       // uploadedFile should be an array with file object containing base64 data
       const fileArray = Array.isArray(uploadedFile) ? uploadedFile : [uploadedFile]
@@ -69,7 +69,7 @@ export async function createGoogleDocument(
       const base64Data = file.url.includes(',') ? file.url.split(',')[1] : file.url
       const fileBuffer = Buffer.from(base64Data, 'base64')
 
-      logger.debug(`[Google Docs] Uploading ${file.name} (${file.size} bytes, ${file.type})`)
+      logger.info(`[Google Docs] Uploading ${file.name} (${file.size} bytes, ${file.type})`)
 
       // Convert Buffer to Stream for Google Drive API
       const { Readable } = require('stream')
@@ -99,7 +99,7 @@ export async function createGoogleDocument(
       documentId = uploadResponse.data.id!
       documentUrl = uploadResponse.data.webViewLink || `https://drive.google.com/file/d/${documentId}/view`
 
-      logger.debug(`[Google Docs] File uploaded successfully with ID: ${documentId}`)
+      logger.info(`[Google Docs] File uploaded successfully with ID: ${documentId}`)
     } else {
       // Create a new Google Docs document with manual content
       const createResponse = await docs.documents.create({
@@ -111,7 +111,7 @@ export async function createGoogleDocument(
       documentId = createResponse.data.documentId!
       documentUrl = `https://docs.google.com/document/d/${documentId}/edit`
 
-      logger.debug(`[Google Docs] Document created with ID: ${documentId}`)
+      logger.info(`[Google Docs] Document created with ID: ${documentId}`)
 
       // Add content if provided
       if (content) {
@@ -151,7 +151,7 @@ export async function createGoogleDocument(
           const emailList = emails.split(',').map((e: string) => e.trim()).filter(Boolean)
           
           if (emailList.length === 0) {
-            logger.debug('No valid email addresses provided for sharing')
+            logger.info('No valid email addresses provided for sharing')
           } else {
             for (const email of emailList) {
               try {
@@ -176,7 +176,7 @@ export async function createGoogleDocument(
                 
                 await drive.permissions.create(permissionRequest)
                 shareResults.sharedWith.push(email)
-                logger.debug(`Successfully shared with ${email}`)
+                logger.info(`Successfully shared with ${email}`)
               } catch (error: any) {
                 logger.error(`Failed to share with ${email}:`, error)
                 shareResults.errors.push(`Failed to share with ${email}: ${error.message}`)
@@ -196,7 +196,7 @@ export async function createGoogleDocument(
               }
             })
             shareResults.sharedWith.push('anyone with link')
-            logger.debug('Successfully shared with anyone with link')
+            logger.info('Successfully shared with anyone with link')
           } catch (error: any) {
             logger.error('Failed to share with anyone with link:', error)
             shareResults.errors.push(`Failed to share with anyone with link: ${error.message}`)
@@ -214,7 +214,7 @@ export async function createGoogleDocument(
               }
             })
             shareResults.sharedWith.push('public')
-            logger.debug('Successfully made document public')
+            logger.info('Successfully made document public')
           } catch (error: any) {
             logger.error('Failed to make document public:', error)
             shareResults.errors.push(`Failed to make document public: ${error.message}`)
@@ -232,7 +232,7 @@ export async function createGoogleDocument(
                 viewersCanCopyContent: false
               }
             })
-            logger.debug('Successfully set download/print/copy restrictions')
+            logger.info('Successfully set download/print/copy restrictions')
           } catch (error: any) {
             logger.error('Failed to set download restrictions:', error)
             shareResults.errors.push(`Failed to set download restrictions: ${error.message}`)
@@ -243,7 +243,7 @@ export async function createGoogleDocument(
         if (expirationDate && shareType !== 'anyone_with_link') {
           // Note: Expiration dates require Google Workspace and specific API setup
           // For now, we'll log this as a limitation
-          logger.debug('Note: Expiration dates require Google Workspace Enterprise features')
+          logger.info('Note: Expiration dates require Google Workspace Enterprise features')
           // We could potentially store the expiration date in metadata for manual handling
         }
       } catch (shareError: any) {
@@ -300,7 +300,7 @@ export async function updateGoogleDocument(
     const searchText = resolveValue(config.searchText, input)
     const content = resolveValue(config.content, input)
 
-    logger.debug('Google Docs Update - Resolved config:', {
+    logger.info('Google Docs Update - Resolved config:', {
       documentId,
       insertLocation,
       searchText,
@@ -580,7 +580,7 @@ export async function shareGoogleDocument(
             
             sharedEmails.push(email)
             permissionIds.push(permission.data.id || '')
-            logger.debug(`Ownership transferred to ${email}`)
+            logger.info(`Ownership transferred to ${email}`)
           } else {
             // Regular permission sharing
             const actualRole = permission === 'owner' ? 'writer' : permission // Can't share as owner without transfer
@@ -623,7 +623,7 @@ export async function shareGoogleDocument(
         
         permissionIds.push(publicPermissionResult.data.id || '')
         
-        logger.debug(`Document made public with ${publicRole} permission`)
+        logger.info(`Document made public with ${publicRole} permission`)
       } catch (error: any) {
         logger.error('Failed to make document public:', error)
         errors.push(`Public sharing: ${error.message}`)

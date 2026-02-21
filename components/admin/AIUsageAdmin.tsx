@@ -144,7 +144,7 @@ export default function AIUsageAdmin() {
 
       if (response.ok) {
         const data = await response.json()
-        logger.debug('Balance updated:', data)
+        logger.info('Balance updated:', data)
         await fetchUsageData()
         setBalanceDialogOpen(false)
         setSelectedUser(null)

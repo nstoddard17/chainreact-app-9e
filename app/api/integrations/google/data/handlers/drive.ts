@@ -12,31 +12,31 @@ import { logger } from '@/lib/utils/logger'
  */
 export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async (integration: GoogleIntegration) => {
   try {
-    logger.debug("📁 [Google Drive] Starting to fetch folders", {
+    logger.info("📁 [Google Drive] Starting to fetch folders", {
       integrationId: integration.id,
       provider: integration.provider,
       status: integration.status,
       hasAccessToken: !!integration.access_token
     })
 
-    logger.debug("📁 [Google Drive] Validating integration...")
+    logger.info("📁 [Google Drive] Validating integration...")
     validateGoogleIntegration(integration)
-    logger.debug("📁 [Google Drive] Integration validated successfully")
+    logger.info("📁 [Google Drive] Integration validated successfully")
 
-    logger.debug("📁 [Google Drive] Decrypting access token...")
+    logger.info("📁 [Google Drive] Decrypting access token...")
     const accessToken = getGoogleAccessToken(integration)
-    logger.debug("📁 [Google Drive] Access token decrypted successfully")
+    logger.info("📁 [Google Drive] Access token decrypted successfully")
 
-    logger.debug("📁 [Google Drive] Making API request to Google Drive...")
+    logger.info("📁 [Google Drive] Making API request to Google Drive...")
     const response = await makeGoogleApiRequest(
       "https://www.googleapis.com/drive/v3/files?q=mimeType='application/vnd.google-apps.folder' and trashed=false&pageSize=100&fields=files(id,name,parents,createdTime,modifiedTime,webViewLink,owners,shared)&orderBy=name",
       accessToken
     )
 
-    logger.debug("📁 [Google Drive] Parsing response...")
+    logger.info("📁 [Google Drive] Parsing response...")
     const data = await response.json()
 
-    logger.debug("📁 [Google Drive] Mapping folders...", {
+    logger.info("📁 [Google Drive] Mapping folders...", {
       filesCount: data.files?.length || 0
     })
 
@@ -52,7 +52,7 @@ export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async
       shared: folder.shared
     }))
 
-    logger.debug(`✅ [Google Drive] Retrieved ${folders.length} folders`)
+    logger.info(`✅ [Google Drive] Retrieved ${folders.length} folders`)
     return folders
 
   } catch (error: any) {
@@ -73,7 +73,7 @@ export const getGoogleDriveFolders: GoogleDataHandler<GoogleDriveFolder> = async
 export const getGoogleDriveFiles: GoogleDataHandler<GoogleDriveFile> = async (integration: GoogleIntegration, options?: any) => {
   try {
     validateGoogleIntegration(integration)
-    logger.debug("📄 [Google Drive] Fetching files")
+    logger.info("📄 [Google Drive] Fetching files")
 
     // Build query based on options
     let query = "trashed=false"
@@ -113,7 +113,7 @@ export const getGoogleDriveFiles: GoogleDataHandler<GoogleDriveFile> = async (in
       shared: file.shared
     }))
 
-    logger.debug(`✅ [Google Drive] Retrieved ${files.length} files`)
+    logger.info(`✅ [Google Drive] Retrieved ${files.length} files`)
     return files
 
   } catch (error: any) {
@@ -128,7 +128,7 @@ export const getGoogleDriveFiles: GoogleDataHandler<GoogleDriveFile> = async (in
 export const getGoogleDocsDocuments: GoogleDataHandler<GoogleDriveFile> = async (integration: GoogleIntegration, options?: any) => {
   try {
     validateGoogleIntegration(integration)
-    logger.debug("📝 [Google Docs] Fetching documents")
+    logger.info("📝 [Google Docs] Fetching documents")
 
     // Query specifically for Google Docs documents
     let query = "mimeType='application/vnd.google-apps.document' and trashed=false"
@@ -160,7 +160,7 @@ export const getGoogleDocsDocuments: GoogleDataHandler<GoogleDriveFile> = async 
       shared: doc.shared
     }))
 
-    logger.debug(`✅ [Google Docs] Retrieved ${documents.length} documents`)
+    logger.info(`✅ [Google Docs] Retrieved ${documents.length} documents`)
     return documents
 
   } catch (error: any) {
@@ -181,7 +181,7 @@ export const getGoogleDocsContent: GoogleDataHandler<any> = async (integration: 
       throw new Error("Document ID is required")
     }
     
-    logger.debug("📄 [Google Docs] Fetching document content:", { documentId, previewOnly })
+    logger.info("📄 [Google Docs] Fetching document content:", { documentId, previewOnly })
 
     const accessToken = getGoogleAccessToken(integration)
     

@@ -103,7 +103,7 @@ export async function createShopifyOrder(
     const billingCountry = config.billing_country ? await resolveValue(config.billing_country, input) : undefined
     const billingZip = config.billing_zip ? await resolveValue(config.billing_zip, input) : undefined
 
-    logger.debug('[Shopify GraphQL] Creating order:', { email, lineItemCount: lineItems.length })
+    logger.info('[Shopify GraphQL] Creating order:', { email, lineItemCount: lineItems.length })
 
     // 3. Build GraphQL mutation
     const mutation = `

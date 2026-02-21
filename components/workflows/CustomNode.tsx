@@ -442,7 +442,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       return missingFields.length > 0
     } catch (error) {
       // Path 3: Error fallback - use simple check (less accurate but safe)
-      logger.debug('[CustomNode] Visibility check error, using simple fallback', { type, error })
+      logger.info('[CustomNode] Visibility check error, using simple fallback', { type, error })
       return component.configSchema.some((field: any) => {
         if (!field.required) return false
         const value = config[field.name]
@@ -1659,7 +1659,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                         logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
                         setLogoLoadFailed(true)
                       }}
-                      onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
+                      onLoad={() => logger.info(`Successfully loaded logo for ${providerId}`)}
                     />
                   ) : (
                     component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })
@@ -2047,7 +2047,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
                     setLogoLoadFailed(true)
                   }}
-                  onLoad={() => logger.debug(`Successfully loaded logo for ${providerId}`)}
+                  onLoad={() => logger.info(`Successfully loaded logo for ${providerId}`)}
                 />
               ) : (
                 component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })

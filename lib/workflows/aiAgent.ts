@@ -99,7 +99,7 @@ async function fetchUserProfile(userId: string): Promise<UserProfileContext> {
       .single()
 
     if (error || !profile) {
-      logger.debug(`⚠️ Could not fetch user profile for AI context: ${error?.message || 'not found'}`)
+      logger.info(`⚠️ Could not fetch user profile for AI context: ${error?.message || 'not found'}`)
       return {}
     }
 
@@ -237,7 +237,7 @@ export async function fetchMemory(
   // Determine which integrations to fetch memory from
   let integrationsToFetch: string[] = []
   
-  logger.debug("🧠 Memory config:", JSON.stringify(memoryConfig, null, 2))
+  logger.info("🧠 Memory config:", JSON.stringify(memoryConfig, null, 2))
   
   switch (memoryConfig.memory) {
     case 'none':
@@ -268,7 +268,7 @@ export async function fetchMemory(
   // Filter out 'ai' from integrations list since it doesn't need external credentials
   integrationsToFetch = integrationsToFetch.filter(integration => integration !== 'ai')
   
-  logger.debug("🔍 Integrations to fetch from:", integrationsToFetch)
+  logger.info("🔍 Integrations to fetch from:", integrationsToFetch)
 
   try {
     // Fetch data from specified integrations
@@ -276,7 +276,7 @@ export async function fetchMemory(
       try {
         const credentials = await getIntegrationCredentials(userId, integration)
         if (!credentials) {
-          logger.debug(`⚠️ Skipping ${integration} - not connected`)
+          logger.info(`⚠️ Skipping ${integration} - not connected`)
           continue
         }
 
@@ -416,7 +416,7 @@ export async function fetchMemory(
             break
         }
       } catch (error) {
-        logger.debug(`⚠️ Skipping ${integration} - not available:`, error.message)
+        logger.info(`⚠️ Skipping ${integration} - not available:`, error.message)
       }
     }
   } catch (error) {
@@ -433,32 +433,32 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
   try {
     const { userId, config, input, workflowContext } = params
 
-    logger.debug("🤖 AI Agent execution started:")
-    logger.debug("📋 Config keys:", Object.keys(config || {}))
-    logger.debug("📥 Input data keys:", Object.keys(input || {}))
-    logger.debug("👤 User ID:", userId)
-    logger.debug("🔧 Workflow context:", workflowContext ? "present" : "missing")
+    logger.info("🤖 AI Agent execution started:")
+    logger.info("📋 Config keys:", Object.keys(config || {}))
+    logger.info("📥 Input data keys:", Object.keys(input || {}))
+    logger.info("👤 User ID:", userId)
+    logger.info("🔧 Workflow context:", workflowContext ? "present" : "missing")
 
     // Check if chains are configured and use chain execution engine
     if (config.chainsLayout?.chains && config.chainsLayout.chains.length > 0) {
-      logger.debug("🔗 Chains detected, using chain execution engine")
+      logger.info("🔗 Chains detected, using chain execution engine")
       const { executeAIAgentWithChains } = await import('./ai/aiAgentWithChains')
       return await executeAIAgentWithChains(params)
     }
 
-    logger.debug("📝 No chains configured, using standard AI agent execution")
+    logger.info("📝 No chains configured, using standard AI agent execution")
     
     // Check AI usage limits before execution
     const { checkUsageLimit, trackUsage } = await import("@/lib/usageTracking")
     const usageCheck = await checkUsageLimit(userId, "ai_agent")
     if (!usageCheck.allowed) {
-      logger.debug("❌ AI usage limit exceeded for user:", userId)
+      logger.info("❌ AI usage limit exceeded for user:", userId)
       return {
         success: false,
         error: `AI usage limit exceeded. You've used ${usageCheck.current}/${usageCheck.limit} AI agent executions this month. Please upgrade your plan for more AI usage.`
       }
     }
-    logger.debug("✅ Usage limit check passed")
+    logger.info("✅ Usage limit check passed")
     
     // 1. First process the variable filtering, then resolve templated values
     // Extract and process selected variables before resolving config
@@ -488,10 +488,10 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       })
     }
     
-    logger.debug("🔍 Filtered input keys:", Object.keys(filteredInput))
-    logger.debug("🔍 Selected variables count:", Object.keys(selectedVariables).length)
-    logger.debug("🔍 Use static values count:", Object.keys(useStaticValues).length)
-    logger.debug("🔍 Variable values count:", Object.keys(variableValues).length)
+    logger.info("🔍 Filtered input keys:", Object.keys(filteredInput))
+    logger.info("🔍 Selected variables count:", Object.keys(selectedVariables).length)
+    logger.info("🔍 Use static values count:", Object.keys(useStaticValues).length)
+    logger.info("🔍 Variable values count:", Object.keys(variableValues).length)
 
     // Now resolve templated values with the filtered input available
     const resolvedConfig = resolveValue(config, {
@@ -500,7 +500,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       dataFlowManager: input.dataFlowManager,
       nodeOutputs: input.nodeOutputs
     }, config.triggerOutputs)
-    logger.debug("🔧 Resolved config keys:", Object.keys(resolvedConfig || {}))
+    logger.info("🔧 Resolved config keys:", Object.keys(resolvedConfig || {}))
     
     // 2. Extract parameters
     const {
@@ -541,7 +541,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
 
     // 4.5 Fetch user profile for personalization
     const userProfile = await fetchUserProfile(userId)
-    logger.debug("👤 User profile for AI context:", userProfile)
+    logger.info("👤 User profile for AI context:", userProfile)
 
     // 5. Build the AI prompt (including tone setting)
     const tone = resolvedConfig.tone || 'professional'
@@ -588,7 +588,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
         
         // If it's wrapped in a "response" object, extract the content
         if (parsed.response && typeof parsed.response === 'object') {
-          logger.debug("🔄 Unwrapping nested response object")
+          logger.info("🔄 Unwrapping nested response object")
           
           // For Discord messages, extract the content
           if (parsed.response.content) {
@@ -603,13 +603,13 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
           
           // Convert discord_message to email format if needed
           if (parsed.discord_message && !parsed.email_body) {
-            logger.debug("🔄 Converting discord_message to email format")
+            logger.info("🔄 Converting discord_message to email format")
             dynamicOutputs.email_body = parsed.discord_message
             dynamicOutputs.email_subject = "Re: Your Message"
           }
         }
         
-        logger.debug("🎯 Parsed dynamic AI outputs:", dynamicOutputs)
+        logger.info("🎯 Parsed dynamic AI outputs:", dynamicOutputs)
       }
       
       // Final fallback: if we have any message-like content but no email_body, create one
@@ -617,16 +617,16 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
         if (dynamicOutputs.discord_message) {
           dynamicOutputs.email_body = dynamicOutputs.discord_message
           dynamicOutputs.email_subject = "Re: Your Message"
-          logger.debug("🔄 Final fallback: Using discord_message as email_body")
+          logger.info("🔄 Final fallback: Using discord_message as email_body")
         } else if (dynamicOutputs.slack_message) {
           dynamicOutputs.email_body = dynamicOutputs.slack_message  
           dynamicOutputs.email_subject = "Re: Your Message"
-          logger.debug("🔄 Final fallback: Using slack_message as email_body")
+          logger.info("🔄 Final fallback: Using slack_message as email_body")
         }
       }
       
     } catch (error) {
-      logger.debug("📝 JSON parsing failed, using raw output")
+      logger.info("📝 JSON parsing failed, using raw output")
       // If JSON parsing fails, try to extract content as plain text
       if (finalOutput.includes('"content":') || finalOutput.includes('"discord_message":') || finalOutput.includes('"email_body":')) {
         try {
@@ -637,7 +637,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
             dynamicOutputs.discord_message = message;
             dynamicOutputs.email_body = message;
             dynamicOutputs.email_subject = "Re: Your Message";
-            logger.debug("🔄 Extracted discord_message content:", message);
+            logger.info("🔄 Extracted discord_message content:", message);
           } else {
             // Try other content patterns
             contentMatch = finalOutput.match(/"content":\s*"([^"]+)"/);
@@ -646,11 +646,11 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
               dynamicOutputs.discord_message = message;
               dynamicOutputs.email_body = message;
               dynamicOutputs.email_subject = "Re: Your Message";
-              logger.debug("🔄 Extracted content from malformed JSON:", message);
+              logger.info("🔄 Extracted content from malformed JSON:", message);
             }
           }
         } catch (e) {
-          logger.debug("📝 Content extraction also failed");
+          logger.info("📝 Content extraction also failed");
         }
       }
     }
@@ -666,7 +666,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
       }
     }
 
-    logger.debug("🧹 Cleaned AI outputs - removed placeholders and sign-offs")
+    logger.info("🧹 Cleaned AI outputs - removed placeholders and sign-offs")
 
     // Build and append signature if configured
     const signature = buildSignature(resolvedConfig, userProfile)
@@ -674,7 +674,7 @@ export async function executeAIAgent(params: AIAgentParams): Promise<AIAgentResu
 
     // Append signature to message fields
     if (signature) {
-      logger.debug("✍️ Appending signature to message outputs")
+      logger.info("✍️ Appending signature to message outputs")
       for (const field of messageFields) {
         if (cleanedDynamicOutputs[field] && typeof cleanedDynamicOutputs[field] === 'string') {
           cleanedDynamicOutputs[field] = cleanedDynamicOutputs[field] + signature
@@ -1007,9 +1007,9 @@ async function getAIDecision(
   reasoning: string
 }> {
   try {
-    logger.debug("🤖 Making OpenAI API call...")
-    logger.debug("📝 Prompt:", prompt)
-    logger.debug("🎯 Context:", JSON.stringify(context, null, 2))
+    logger.info("🤖 Making OpenAI API call...")
+    logger.info("📝 Prompt:", prompt)
+    logger.info("🎯 Context:", JSON.stringify(context, null, 2))
     
     // Import OpenAI (dynamic import to avoid issues)
     const { OpenAI } = await import('openai')
@@ -1018,9 +1018,9 @@ async function getAIDecision(
     let apiKey = process.env.OPENAI_API_KEY
     if (config?.apiSource === 'custom' && config?.customApiKey) {
       apiKey = config.customApiKey
-      logger.debug("🔑 Using custom API key")
+      logger.info("🔑 Using custom API key")
     } else {
-      logger.debug("🔑 Using ChainReact API key")
+      logger.info("🔑 Using ChainReact API key")
     }
     
     if (!apiKey) {
@@ -1062,7 +1062,7 @@ async function getAIDecision(
     }
     
     const actualModel = modelMapping[model] || 'gpt-4o-mini'
-    logger.debug(`🤖 Using model: ${actualModel} (from config: ${model})`)
+    logger.info(`🤖 Using model: ${actualModel} (from config: ${model})`)
     
     const completion = await openai.chat.completions.create({
       model: actualModel,
@@ -1081,7 +1081,7 @@ async function getAIDecision(
     })
 
     const aiResponse = completion.choices[0]?.message?.content?.trim()
-    logger.debug("✅ OpenAI API response:", aiResponse)
+    logger.info("✅ OpenAI API response:", aiResponse)
 
     return {
       action: "analyze_and_respond",

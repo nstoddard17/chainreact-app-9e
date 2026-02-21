@@ -182,7 +182,7 @@ async function executeNotionManageUsersInternal(
           }));
         }
       } catch (activityError) {
-        logger.debug('Could not fetch user activity:', activityError);
+        logger.info('Could not fetch user activity:', activityError);
         // Activity is optional, so we don't throw here
       }
 

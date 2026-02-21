@@ -41,7 +41,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (
     const cacheKey = `${integration.id}_${requestedWorkspace || 'all'}`
     const cached = pageCache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        logger.debug('[Notion Pages] Returning cached result', {
+        logger.info('[Notion Pages] Returning cached result', {
             integrationId: integration.id,
             workspace: requestedWorkspace || 'all'
         })
@@ -91,7 +91,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (
             const data = await response.json()
             const pages = (data.results || []).filter((item: any) => item.object === 'page')
 
-            logger.debug('[Notion Pages] Workspace pages fetched', {
+            logger.info('[Notion Pages] Workspace pages fetched', {
                 workspaceId,
                 workspaceName,
                 count: pages.length
@@ -114,7 +114,7 @@ export const getNotionPages: NotionDataHandler<NotionPage> = async (
 
     pageCache.set(cacheKey, { data: allPages, timestamp: Date.now() })
 
-    logger.debug('[Notion Pages] Total pages returned', {
+    logger.info('[Notion Pages] Total pages returned', {
         integrationId: integration.id,
         workspace: requestedWorkspace || 'all',
         count: allPages.length
@@ -230,7 +230,7 @@ export const getNotionArchivedPages: NotionDataHandler<NotionPage> = async (
     const cacheKey = `archived_${integration.id}_${requestedWorkspace || 'all'}`
     const cached = pageCache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        logger.debug('[Notion Archived Pages] Returning cached result', {
+        logger.info('[Notion Archived Pages] Returning cached result', {
             integrationId: integration.id,
             workspace: requestedWorkspace || 'all'
         })
@@ -283,7 +283,7 @@ export const getNotionArchivedPages: NotionDataHandler<NotionPage> = async (
             const data = await response.json()
             const pages = (data.results || []).filter((item: any) => item.object === 'page')
 
-            logger.debug('[Notion Archived Pages] Workspace pages fetched', {
+            logger.info('[Notion Archived Pages] Workspace pages fetched', {
                 workspaceId,
                 workspaceName,
                 totalCount: pages.length
@@ -295,7 +295,7 @@ export const getNotionArchivedPages: NotionDataHandler<NotionPage> = async (
                 .map((page: any) => transformArchivedPage(page, workspaceName, workspaceId))
                 .filter((page): page is NotionPage => Boolean(page))
 
-            logger.debug('[Notion Archived Pages] Archived pages found', {
+            logger.info('[Notion Archived Pages] Archived pages found', {
                 workspaceId,
                 archivedCount: transformedPages.length
             })
@@ -312,7 +312,7 @@ export const getNotionArchivedPages: NotionDataHandler<NotionPage> = async (
 
     pageCache.set(cacheKey, { data: allPages, timestamp: Date.now() })
 
-    logger.debug('[Notion Archived Pages] Total archived pages returned', {
+    logger.info('[Notion Archived Pages] Total archived pages returned', {
         integrationId: integration.id,
         workspace: requestedWorkspace || 'all',
         count: allPages.length

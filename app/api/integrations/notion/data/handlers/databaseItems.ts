@@ -41,11 +41,11 @@ async function fetchDatabaseItems(
     options?.databaseID
 
   if (!databaseId) {
-    logger.debug('[Notion Database Items] Missing databaseId; returning empty list')
+    logger.info('[Notion Database Items] Missing databaseId; returning empty list')
     return []
   }
 
-  logger.debug('[Notion Database Items] Fetching items', {
+  logger.info('[Notion Database Items] Fetching items', {
     integrationId: integration.id,
     databaseId,
     workspaceId: workspaceId || 'default',
@@ -73,7 +73,7 @@ async function fetchDatabaseItems(
     archivedOnly ? page.archived === true : page.archived !== true
   )
 
-  logger.debug('[Notion Database Items] Items fetched', {
+  logger.info('[Notion Database Items] Items fetched', {
     total: entries.length,
     returned: filteredEntries.length,
     archivedOnly

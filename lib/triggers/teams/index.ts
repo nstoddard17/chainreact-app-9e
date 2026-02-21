@@ -26,7 +26,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, nodeId, triggerType, config, testMode } = context
 
     const modeLabel = testMode ? '🧪 TEST' : '🚀 PRODUCTION'
-    logger.debug(`${modeLabel} [Teams Trigger] Activating trigger:`, { workflowId, triggerType, nodeId })
+    logger.info(`${modeLabel} [Teams Trigger] Activating trigger:`, { workflowId, triggerType, nodeId })
 
     try {
       const supabase = createAdminClient()
@@ -49,12 +49,12 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
 
       if (triggerType === 'teams_trigger_new_chat') {
         const appAccessToken = await this.getAppOnlyAccessToken()
-        logger.debug('[Teams Trigger] Using app-only token for new chat subscription')
+        logger.info('[Teams Trigger] Using app-only token for new chat subscription')
         accessToken = appAccessToken
       }
       if (triggerType === 'teams_trigger_new_chat_message' && !config?.chatId) {
         const appAccessToken = await this.getAppOnlyAccessToken()
-        logger.debug('[Teams Trigger] Using app-only token for all-chats subscription')
+        logger.info('[Teams Trigger] Using app-only token for all-chats subscription')
         accessToken = appAccessToken
       }
 
@@ -83,7 +83,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         includeResourceData
       }
 
-      logger.debug('[Teams Trigger] Creating subscription:', {
+      logger.info('[Teams Trigger] Creating subscription:', {
         resource,
         changeType: subscriptionPayload.changeType,
         webhookUrl,
@@ -110,7 +110,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
           const graphSubscription = await this.findGraphSubscription(accessToken, resource, webhookUrl)
 
           if (graphSubscription?.id) {
-            logger.debug('[Teams Trigger] Reusing existing test subscription:', {
+            logger.info('[Teams Trigger] Reusing existing test subscription:', {
               subscriptionId: existingSubscription.external_id,
               resource
             })
@@ -134,7 +134,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
           }
         }
 
-        logger.debug('[Teams Trigger] Removing stale test subscription record:', {
+        logger.info('[Teams Trigger] Removing stale test subscription record:', {
           subscriptionId: existingSubscription.external_id,
           resource,
           isExpired
@@ -151,7 +151,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         const graphSubscription = await this.findGraphSubscription(accessToken, resource, webhookUrl)
 
         if (graphSubscription) {
-          logger.debug('[Teams Trigger] Reusing Graph subscription without local record:', {
+          logger.info('[Teams Trigger] Reusing Graph subscription without local record:', {
             subscriptionId: graphSubscription.id,
             resource
           })
@@ -205,7 +205,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
 
       const subscription = await response.json()
 
-      logger.debug('[Teams Trigger] Subscription created:', {
+      logger.info('[Teams Trigger] Subscription created:', {
         id: subscription.id,
         expirationDateTime: subscription.expirationDateTime,
         includeResourceData
@@ -251,7 +251,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         throw new Error(`Failed to store trigger resource: ${insertError.message}`)
       }
 
-      logger.debug(`✅ ${modeLabel} [Teams Trigger] Trigger activation complete - subscription: ${subscription.id}`)
+      logger.info(`✅ ${modeLabel} [Teams Trigger] Trigger activation complete - subscription: ${subscription.id}`)
     } catch (error: any) {
       logger.error('[Teams Trigger] Error activating trigger:', error)
       throw error
@@ -265,7 +265,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, testSessionId } = context
 
     const modeLabel = testSessionId ? '🧪 TEST' : '🛑 PRODUCTION'
-    logger.debug(`${modeLabel} [Teams Trigger] Deactivating trigger:`, { workflowId, testSessionId })
+    logger.info(`${modeLabel} [Teams Trigger] Deactivating trigger:`, { workflowId, testSessionId })
 
     try {
       const supabase = createAdminClient()
@@ -294,7 +294,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
       }
 
       if (!resources || resources.length === 0) {
-        logger.debug(`[Teams Trigger] No trigger resources found for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
+        logger.info(`[Teams Trigger] No trigger resources found for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
         return
       }
 
@@ -346,7 +346,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
             if (!response.ok && response.status !== 404) {
               logger.warn(`[Teams Trigger] Failed to delete subscription from Graph API: ${resource.external_id}`, await response.text())
             } else {
-              logger.debug(`[Teams Trigger] Subscription deleted from Graph API: ${resource.external_id}`)
+              logger.info(`[Teams Trigger] Subscription deleted from Graph API: ${resource.external_id}`)
             }
           } catch (apiError) {
             logger.warn(`[Teams Trigger] Error calling Graph API to delete subscription: ${resource.external_id}`, apiError)
@@ -362,11 +362,11 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         if (deleteError) {
           logger.error(`[Teams Trigger] Failed to delete trigger resource from database: ${resource.id}`, deleteError)
         } else {
-          logger.debug(`[Teams Trigger] Trigger resource deleted from database: ${resource.id}`)
+          logger.info(`[Teams Trigger] Trigger resource deleted from database: ${resource.id}`)
         }
       }
 
-      logger.debug(`✅ ${modeLabel} [Teams Trigger] Trigger deactivation complete`)
+      logger.info(`✅ ${modeLabel} [Teams Trigger] Trigger deactivation complete`)
     } catch (error: any) {
       logger.error('[Teams Trigger] Error deactivating trigger:', error)
       // Don't throw - we want to clean up even if Graph API call fails
@@ -514,7 +514,7 @@ export class TeamsTriggerLifecycle implements TriggerLifecycle {
         .eq('provider', 'teams')
         .eq('external_id', subscriptionId)
 
-      logger.debug('[Teams Trigger] Subscription renewed:', subscriptionId)
+      logger.info('[Teams Trigger] Subscription renewed:', subscriptionId)
     } catch (error: any) {
       logger.error('[Teams Trigger] Error renewing subscription:', error)
       throw error

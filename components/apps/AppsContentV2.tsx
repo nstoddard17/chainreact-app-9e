@@ -72,7 +72,7 @@ export function AppsContentV2() {
   // Debug: Log integrations when they change
   useEffect(() => {
     if (integrations.length > 0) {
-      logger.debug('[AppsContentV2] Integrations loaded:', {
+      logger.info('[AppsContentV2] Integrations loaded:', {
         count: integrations.length,
         providers: integrations.map(i => ({ provider: i.provider, status: i.status }))
       })
@@ -153,7 +153,7 @@ export function AppsContentV2() {
   }
 
   const handleConnect = async (providerId: string) => {
-    logger.debug('[AppsContentV2] handleConnect called', {
+    logger.info('[AppsContentV2] handleConnect called', {
       providerId,
       selectedWorkspaceType,
       selectedWorkspaceId,
@@ -168,11 +168,11 @@ export function AppsContentV2() {
     setLocalLoading(prev => ({ ...prev, [providerId]: true }))
 
     try {
-      logger.debug('[AppsContentV2] Calling connectIntegration...')
+      logger.info('[AppsContentV2] Calling connectIntegration...')
       await connectIntegration(providerId, selectedWorkspaceType, selectedWorkspaceId)
-      logger.debug('[AppsContentV2] connectIntegration completed')
+      logger.info('[AppsContentV2] connectIntegration completed')
     } catch (error: any) {
-      logger.debug('[AppsContentV2] connectIntegration error:', error?.message)
+      logger.info('[AppsContentV2] connectIntegration error:', error?.message)
       const isCancellation = error?.message?.toLowerCase().includes('cancel')
       if (!isCancellation) {
         logger.error("Connection error:", error)

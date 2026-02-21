@@ -21,7 +21,7 @@ export async function findOnedriveItemById(
       throw new Error("Item ID is required")
     }
 
-    logger.debug('[OneDrive] Finding item by ID:', { itemId, includeMetadata })
+    logger.info('[OneDrive] Finding item by ID:', { itemId, includeMetadata })
 
     // Build URL with optional metadata expansion
     let itemUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}`

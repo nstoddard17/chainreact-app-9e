@@ -120,7 +120,7 @@ export async function copyOnedriveItem(
 
     payload.name = targetName
 
-    logger.debug('[OneDrive] Copying item:', {
+    logger.info('[OneDrive] Copying item:', {
       sourceId: sourceItemId,
       sourceName,
       targetName,
@@ -152,7 +152,7 @@ export async function copyOnedriveItem(
     // If user doesn't want to wait, return success immediately
     // The copy was accepted by OneDrive and will complete in the background
     if (!waitForCompletion) {
-      logger.debug('[OneDrive] Copy initiated, not waiting for completion')
+      logger.info('[OneDrive] Copy initiated, not waiting for completion')
       return {
         success: true,
         output: {
@@ -223,7 +223,7 @@ export async function copyOnedriveItem(
     // This prevents blocking downstream nodes in the workflow
     if (!copyResult) {
       const elapsedSeconds = Math.round((Date.now() - startTime) / 1000)
-      logger.debug(`[OneDrive] Copy still in progress after ${elapsedSeconds}s, returning success anyway`)
+      logger.info(`[OneDrive] Copy still in progress after ${elapsedSeconds}s, returning success anyway`)
       return {
         success: true,
         output: {

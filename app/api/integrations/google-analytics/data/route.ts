@@ -24,17 +24,17 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { integrationId, dataType, options = {} } = body
 
-    logger.debug('🔍 [Google Analytics Data API] Request:', { integrationId, dataType, options })
+    logger.info('🔍 [Google Analytics Data API] Request:', { integrationId, dataType, options })
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      logger.debug('❌ [Google Analytics Data API] Missing required parameters')
+      logger.info('❌ [Google Analytics Data API] Missing required parameters')
       return errorResponse('Missing required parameters: integrationId and dataType', 400)
     }
 
     // Check if data type is supported
     if (!isGoogleAnalyticsDataTypeSupported(dataType)) {
-      logger.debug('❌ [Google Analytics Data API] Unsupported data type:', dataType)
+      logger.info('❌ [Google Analytics Data API] Unsupported data type:', dataType)
       return jsonResponse(
         {
           error: `Data type '${dataType}' not supported. Available types: ${getAvailableGoogleAnalyticsDataTypes().join(', ')}`
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      logger.debug('⚠️ [Google Analytics Data API] Integration not connected:', integration.status)
+      logger.info('⚠️ [Google Analytics Data API] Integration not connected:', integration.status)
       return errorResponse('Google Analytics integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
@@ -73,13 +73,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Execute the handler
-    logger.debug(`🚀 [Google Analytics Data API] Executing handler for: ${dataType}`)
+    logger.info(`🚀 [Google Analytics Data API] Executing handler for: ${dataType}`)
     const startTime = Date.now()
 
     const result = await handler(integration as GoogleAnalyticsIntegration, options)
 
     const duration = Date.now() - startTime
-    logger.debug(
+    logger.info(
       `✅ [Google Analytics Data API] Handler completed in ${duration}ms, returned ${
         Array.isArray(result) ? result.length : 'non-array'
       } items`

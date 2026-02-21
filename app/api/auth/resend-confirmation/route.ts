@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     // Build confirmation URL that goes directly to our email-confirmed page
     const confirmationUrl = `${baseUrl}/auth/email-confirmed?token=${encodeURIComponent(confirmationToken)}&userId=${userId}`
 
-    logger.debug('[resend-confirmation] Generated custom confirmation URL')
+    logger.info('[resend-confirmation] Generated custom confirmation URL')
 
     // Send email via Resend using existing WelcomeEmail template
     const emailResult = await sendWelcomeEmail(
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
 
     // Log the resend attempt for monitoring (PII masked)
     const { maskEmail } = await import('@/lib/utils/logging')
-    logger.debug(`Confirmation email resent to: ${maskEmail(email)} from IP: ${clientIp}`)
+    logger.info(`Confirmation email resent to: ${maskEmail(email)} from IP: ${clientIp}`)
 
     return jsonResponse(
       { message: 'Confirmation email has been resent. Please check your inbox.' },

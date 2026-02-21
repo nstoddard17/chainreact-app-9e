@@ -555,7 +555,7 @@ export function storeExecutionLog(workflowId: string, entry: ExecutionLogEntry) 
   // Check if we're in a browser environment
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
     // Server-side execution - log to console and backend logger
-    logger.debug('Execution log (server-side):', entry)
+    logger.info('Execution log (server-side):', entry)
 
     // Try to get execution context from the entry to log to backend logger
     // We need to find a way to pass the session ID here

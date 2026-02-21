@@ -74,7 +74,7 @@ export const getDiscordMembers: DiscordDataHandler<DiscordMember> = async (integ
         })
         .filter(Boolean) // Remove any null entries from failed mappings
       
-      logger.debug(`✅ [Discord Members] Successfully loaded ${processedMembers.length} members for guild ${guildId}`)
+      logger.info(`✅ [Discord Members] Successfully loaded ${processedMembers.length} members for guild ${guildId}`)
       return processedMembers
     } catch (innerError: any) {
       // Handle specific Discord API errors from the fetch call

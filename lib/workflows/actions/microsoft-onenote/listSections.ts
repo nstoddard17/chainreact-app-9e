@@ -12,7 +12,7 @@ export async function onenoteListSections(
   const { notebookId, orderBy = "displayName asc" } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would list sections for notebook:", { notebookId })
+    logger.info("[TEST MODE] Would list sections for notebook:", { notebookId })
     return {
       success: true,
       output: {

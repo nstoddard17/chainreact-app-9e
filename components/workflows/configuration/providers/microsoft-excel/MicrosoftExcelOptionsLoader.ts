@@ -43,7 +43,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, dependsOnValue, forceRefresh, signal, integrationId, extraOptions, formValues } = params;
 
-    logger.debug(`[ExcelOptionsLoader] loadOptions called:`, {
+    logger.info(`[ExcelOptionsLoader] loadOptions called:`, {
       fieldName,
       dependsOnValue,
       formValues,
@@ -122,14 +122,14 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = requestCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        logger.debug(`[ExcelOptionsLoader] Using cached data for ${dataType}`);
+        logger.info(`[ExcelOptionsLoader] Using cached data for ${dataType}`);
         return cached.data;
       }
 
       // Check if there's already a pending request for this exact data
       const pending = pendingRequests.get(cacheKey);
       if (pending) {
-        logger.debug(`[ExcelOptionsLoader] Reusing pending request for ${dataType}`);
+        logger.info(`[ExcelOptionsLoader] Reusing pending request for ${dataType}`);
         return pending;
       }
     }
@@ -165,7 +165,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
         options: {}
       };
 
-      logger.debug(`[ExcelOptionsLoader] executeRequest:`, {
+      logger.info(`[ExcelOptionsLoader] executeRequest:`, {
         dataType,
         dependsOnValue,
         allValues,
@@ -218,7 +218,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
         requestBody.options.workbookId = allValues.workbookId;
       }
 
-      logger.debug(`[ExcelOptionsLoader] Final request body:`, {
+      logger.info(`[ExcelOptionsLoader] Final request body:`, {
         dataType,
         requestBody,
         allValuesProvided: allValues
@@ -268,7 +268,7 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
       // Cache successful results
       if (cacheKey && result.length > 0) {
         requestCache.set(cacheKey, { data: result, timestamp: Date.now() });
-        logger.debug(`[ExcelOptionsLoader] Cached ${result.length} items for ${dataType}`);
+        logger.info(`[ExcelOptionsLoader] Cached ${result.length} items for ${dataType}`);
       }
 
       return result;
@@ -284,6 +284,6 @@ export class MicrosoftExcelOptionsLoader implements ProviderOptionsLoader {
     // Clear the cache when reset is called
     requestCache.clear();
     pendingRequests.clear();
-    logger.debug('[ExcelOptionsLoader] Cache cleared');
+    logger.info('[ExcelOptionsLoader] Cache cleared');
   }
 }

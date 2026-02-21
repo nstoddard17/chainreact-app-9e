@@ -13,7 +13,7 @@ const channelMembersCache = new Map<string, { data: any[], timestamp: number }>(
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 export const getDiscordChannelMembers: DiscordDataHandler = async (integration: DiscordIntegration, options: any = {}) => {
-  logger.debug("📍 [Discord Channel Members] Handler called with options:", options)
+  logger.info("📍 [Discord Channel Members] Handler called with options:", options)
   const { channelId } = options
   
   if (!channelId) {
@@ -25,11 +25,11 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
   const cacheKey = `channel_members_${channelId}`
   const cached = channelMembersCache.get(cacheKey)
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    logger.debug(`📦 [Discord Channel Members] Using cached data for channel ${channelId} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
+    logger.info(`📦 [Discord Channel Members] Using cached data for channel ${channelId} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`)
     return cached.data
   }
   
-  logger.debug("✅ [Discord Channel Members] Loading members for channel:", channelId)
+  logger.info("✅ [Discord Channel Members] Loading members for channel:", channelId)
 
   try {
     // Use bot token for fetching channel members (bot must be in the guild)
@@ -79,7 +79,7 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
     };
 
     if (!membersResponse || membersResponse.length === 0) {
-      logger.debug(`⚠️ [Discord Channel Members] No members found for channel ${channelId}, returning "Anyone" option only`)
+      logger.info(`⚠️ [Discord Channel Members] No members found for channel ${channelId}, returning "Anyone" option only`)
       // Return just the "Anyone" option so the field isn't completely empty
       return [anyoneOption]
     }
@@ -101,7 +101,7 @@ export const getDiscordChannelMembers: DiscordDataHandler = async (integration: 
 
     // Cache the result
     channelMembersCache.set(cacheKey, { data: members, timestamp: Date.now() })
-    logger.debug(`✅ [Discord Channel Members] Cached and returning ${members.length} members for channel ${channelId}`)
+    logger.info(`✅ [Discord Channel Members] Cached and returning ${members.length} members for channel ${channelId}`)
     
     // Clean up old cache entries if cache is getting large
     if (channelMembersCache.size > 20) {

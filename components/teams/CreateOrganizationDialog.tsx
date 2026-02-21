@@ -58,13 +58,13 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
     setLoading(true)
 
     try {
-      logger.debug('Dialog: Starting organization creation...')
+      logger.info('Dialog: Starting organization creation...')
       const result = await createOrganization({
         name: name.trim(),
         slug: slug.trim(),
         description: description.trim(),
       })
-      logger.debug('Dialog: Organization created successfully:', result)
+      logger.info('Dialog: Organization created successfully:', result)
 
       // Show success message
       toast.success(`Organization "${result.name}" created successfully!`)

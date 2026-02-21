@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
         if (!avatarUrl && userInfo.avatarHash) {
           avatarUrl = `https://trello-members.s3.amazonaws.com/${userInfo.id}/${userInfo.avatarHash}/170.png`
         }
-        logger.debug('Trello member info fetched:', { username, hasAvatar: !!avatarUrl })
+        logger.info('Trello member info fetched:', { username, hasAvatar: !!avatarUrl })
       }
     } catch (memberError) {
       logger.warn('Failed to fetch Trello member info:', memberError)

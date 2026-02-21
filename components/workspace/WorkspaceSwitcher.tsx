@@ -39,7 +39,7 @@ export default function WorkspaceSwitcher({ className }: WorkspaceSwitcherProps)
   })
 
   const handleWorkspaceChange = async (value: string) => {
-    logger.debug('[WorkspaceSwitcher] Switching workspace to:', value)
+    logger.info('[WorkspaceSwitcher] Switching workspace to:', value)
     setSwitching(true)
 
     try {

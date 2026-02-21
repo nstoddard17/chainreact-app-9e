@@ -22,7 +22,7 @@ export async function POST() {
       return errorResponse(error.message , 500)
     }
 
-    logger.debug(`Cleaned up ${data?.length || 0} stale presence records`)
+    logger.info(`Cleaned up ${data?.length || 0} stale presence records`)
     
     return jsonResponse({ 
       success: true, 

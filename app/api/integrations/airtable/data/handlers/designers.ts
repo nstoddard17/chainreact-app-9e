@@ -19,7 +19,7 @@ export const getAirtableDesigners: AirtableDataHandler<DesignerOption> = async (
 ): Promise<DesignerOption[]> => {
   const { baseId, tableName } = options
 
-  logger.debug("🔍 Airtable designers fetcher called with:", {
+  logger.info("🔍 Airtable designers fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -33,16 +33,16 @@ export const getAirtableDesigners: AirtableDataHandler<DesignerOption> = async (
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !tableName) {
-      logger.debug('⚠️ Base ID or Table name missing, returning empty list')
+      logger.info('⚠️ Base ID or Table name missing, returning empty list')
       return []
     }
 
-    logger.debug('🔍 Fetching Airtable designers from API...')
+    logger.info('🔍 Fetching Airtable designers from API...')
 
     // Fetch records to extract unique designers
     const queryParams = new URLSearchParams()
@@ -80,11 +80,11 @@ export const getAirtableDesigners: AirtableDataHandler<DesignerOption> = async (
       label: name
     })).sort((a, b) => a.label.localeCompare(b.label))
 
-    logger.debug(`✅ Airtable designers fetched successfully: ${options.length} unique designers`)
+    logger.info(`✅ Airtable designers fetched successfully: ${options.length} unique designers`)
 
     // If no options found, return some test data to verify the UI is working
     if (options.length === 0) {
-      logger.debug('⚠️ No designers found in records, returning test data');
+      logger.info('⚠️ No designers found in records, returning test data');
       return [
         { value: 'john-doe', label: 'John Doe' },
         { value: 'jane-smith', label: 'Jane Smith' },

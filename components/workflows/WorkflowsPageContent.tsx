@@ -158,7 +158,7 @@ function WorkflowsContentInner() {
   const CACHE_DURATION = 30000 // 30 seconds cache
 
   useEffect(() => {
-    logger.debug('🎯 [WorkflowsContent] Component mounted - v4')
+    logger.info('🎯 [WorkflowsContent] Component mounted - v4')
   }, [])
 
   // REMOVED: Duplicate fetchWorkflows call on mount
@@ -321,14 +321,14 @@ function WorkflowsContentInner() {
         if (now - statsLastFetchRef.current > CACHE_DURATION) {
           promises.push(fetchExecutionStats())
         } else {
-          logger.debug('[WorkflowsPageContent] Using cached execution stats')
+          logger.info('[WorkflowsPageContent] Using cached execution stats')
         }
 
         // Only fetch folders if cache is stale
         if (now - foldersLastFetchRef.current > CACHE_DURATION) {
           promises.push(fetchFolders())
         } else {
-          logger.debug('[WorkflowsPageContent] Using cached folders')
+          logger.info('[WorkflowsPageContent] Using cached folders')
         }
 
         // Only fetch if we have uncached data
@@ -380,7 +380,7 @@ function WorkflowsContentInner() {
       }
     } catch (error: any) {
       // Downgrade to debug level since this is non-critical and may happen during prefetch
-      logger.debug('Failed to fetch execution stats (non-critical):', error)
+      logger.info('Failed to fetch execution stats (non-critical):', error)
       // Don't throw - allow page to load without stats
     }
   }
@@ -2624,7 +2624,7 @@ function WorkflowsContentInner() {
                         onClick={(e) => {
                           e.stopPropagation()
                           // Single click: navigate into folder
-                          logger.debug('[Folders] Clicking folder:', folder.name, folder.id)
+                          logger.info('[Folders] Clicking folder:', folder.name, folder.id)
                           setCurrentFolderId(folder.id)
                           setSelectedFolderFilter(folder.id)
                           // If clicking trash folder, switch to workflows tab to show trashed workflows
@@ -2810,7 +2810,7 @@ function WorkflowsContentInner() {
                           onClick={(e) => {
                             e.stopPropagation()
                             // Single click: navigate into folder
-                            logger.debug('[Folders List] Clicking folder:', folder.name, folder.id)
+                            logger.info('[Folders List] Clicking folder:', folder.name, folder.id)
                             setCurrentFolderId(folder.id)
                             setSelectedFolderFilter(folder.id)
                             // If clicking trash folder, switch to workflows tab to show trashed workflows

@@ -395,7 +395,7 @@ export function useWorkflowSaveActions({
       const isActivating = workflow.status !== 'active'
       const endpoint = isActivating ? 'activate' : 'deactivate'
 
-      logger.debug(`${isActivating ? 'Activating' : 'Deactivating'} workflow:`, {
+      logger.info(`${isActivating ? 'Activating' : 'Deactivating'} workflow:`, {
         workflowId: workflow.id,
         currentStatus: workflow.status
       })
@@ -413,7 +413,7 @@ export function useWorkflowSaveActions({
       }
 
       const data = await response.json()
-      logger.debug(`${endpoint} result:`, data)
+      logger.info(`${endpoint} result:`, data)
 
       // Update local state
       setCurrentWorkflow({

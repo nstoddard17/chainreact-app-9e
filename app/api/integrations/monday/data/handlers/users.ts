@@ -46,7 +46,7 @@ export const getMondayUsers: MondayDataHandler<MondayUser> = async (integration:
       title: user.title
     }))
 
-    logger.debug(`✅ [Monday Users] Fetched ${users.length} users`)
+    logger.info(`✅ [Monday Users] Fetched ${users.length} users`)
 
     return users
 

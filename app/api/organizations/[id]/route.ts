@@ -258,7 +258,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       }
     } catch (error) {
       // Table might not exist, ignore error
-      logger.debug("Audit logs table not found, skipping deletion")
+      logger.info("Audit logs table not found, skipping deletion")
     }
 
     // 4. Finally, delete the organization (teams will cascade delete)

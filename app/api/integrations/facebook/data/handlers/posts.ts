@@ -12,11 +12,11 @@ export const getFacebookPosts: FacebookDataHandler<FacebookPost> = async (integr
     const { pageId } = options
 
     if (!pageId) {
-      logger.debug('❌ [Facebook Posts] No pageId provided')
+      logger.info('❌ [Facebook Posts] No pageId provided')
       return []
     }
 
-    logger.debug("🔍 [Facebook Posts] Fetching posts for page:", {
+    logger.info("🔍 [Facebook Posts] Fetching posts for page:", {
       integrationId: integration.id,
       pageId,
       hasToken: !!integration.access_token
@@ -26,13 +26,13 @@ export const getFacebookPosts: FacebookDataHandler<FacebookPost> = async (integr
     const tokenResult = await validateFacebookToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ [Facebook Posts] Token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ [Facebook Posts] Token validation failed: ${tokenResult.error}`)
       return []
     }
 
     // Fetch posts from the page
     // Request message, created_time, type, and other relevant fields
-    logger.debug("🔍 [Facebook Posts] Making Facebook API call")
+    logger.info("🔍 [Facebook Posts] Making Facebook API call")
     const response = await makeFacebookApiRequest(
       `https://graph.facebook.com/v19.0/${pageId}/posts?fields=id,message,created_time,type&limit=50`,
       tokenResult.token!
@@ -40,7 +40,7 @@ export const getFacebookPosts: FacebookDataHandler<FacebookPost> = async (integr
 
     if (!response.ok) {
       if (response.status === 401) {
-        logger.debug("❌ [Facebook Posts] API returned 401 - token may be invalid")
+        logger.info("❌ [Facebook Posts] API returned 401 - token may be invalid")
         return []
       }
       const errorData = await response.json().catch(() => ({}))
@@ -49,7 +49,7 @@ export const getFacebookPosts: FacebookDataHandler<FacebookPost> = async (integr
     }
 
     const data = await response.json()
-    logger.debug("✅ [Facebook Posts] API response:", {
+    logger.info("✅ [Facebook Posts] API response:", {
       postCount: data.data?.length || 0
     })
 
@@ -60,7 +60,7 @@ export const getFacebookPosts: FacebookDataHandler<FacebookPost> = async (integr
       type: post.type || 'status',
     }))
 
-    logger.debug(`✅ [Facebook Posts] Processed ${posts.length} posts`)
+    logger.info(`✅ [Facebook Posts] Processed ${posts.length} posts`)
     return posts
   } catch (error: any) {
     logger.error("❌ [Facebook Posts] Error fetching posts:", error)

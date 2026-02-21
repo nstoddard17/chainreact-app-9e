@@ -170,9 +170,9 @@ export async function GET(request: NextRequest) {
     // Store the integration data - support multiple Notion workspaces in a single record
     const supabase = createAdminClient()
     
-    logger.debug(`🔍 Checking for existing Notion integration for user: ${userId}`)
-    logger.debug(`🔍 Workspace name: ${workspaceName}`)
-    logger.debug(`🔍 Workspace ID: ${workspaceId}`)
+    logger.info(`🔍 Checking for existing Notion integration for user: ${userId}`)
+    logger.info(`🔍 Workspace name: ${workspaceName}`)
+    logger.info(`🔍 Workspace ID: ${workspaceId}`)
     
     // Get existing Notion integration for this user
     const { data: existingIntegrations, error: queryError } = await supabase
@@ -185,7 +185,7 @@ export async function GET(request: NextRequest) {
       logger.error('🔍 Error querying existing integrations:', queryError)
     }
     
-    logger.debug(`🔍 Found ${existingIntegrations?.length || 0} existing Notion integrations`)
+    logger.info(`🔍 Found ${existingIntegrations?.length || 0} existing Notion integrations`)
     
     // Prepare workspace data
     const workspaceData = {
@@ -242,7 +242,7 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      logger.debug(`🔍 Updating existing integration with ${Object.keys(existingWorkspaces).length} workspaces`)
+      logger.info(`🔍 Updating existing integration with ${Object.keys(existingWorkspaces).length} workspaces`)
       const { error } = await supabase
         .from('integrations')
         .update(integrationData)
@@ -252,7 +252,7 @@ export async function GET(request: NextRequest) {
       if (error) {
         logger.error('🔍 Error updating integration:', error)
       } else {
-        logger.debug('🔍 Successfully updated integration with multiple workspaces')
+        logger.info('🔍 Successfully updated integration with multiple workspaces')
       }
     } else {
       // Create new integration with this workspace
@@ -281,7 +281,7 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      logger.debug(`🔍 Creating new integration with workspace: ${workspaceName}`)
+      logger.info(`🔍 Creating new integration with workspace: ${workspaceName}`)
       const { error } = await supabase
         .from('integrations')
         .insert(integrationData)
@@ -290,7 +290,7 @@ export async function GET(request: NextRequest) {
       if (error) {
         logger.error('🔍 Error creating new integration:', error)
       } else {
-        logger.debug('🔍 Successfully created new integration')
+        logger.info('🔍 Successfully created new integration')
       }
     }
 

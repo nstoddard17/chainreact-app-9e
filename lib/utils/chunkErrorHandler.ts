@@ -70,7 +70,7 @@ class ChunkErrorHandler {
       // Increment retry count
       this.retryCount.set(chunkId, retries + 1)
 
-      logger.debug(`Retrying chunk ${chunkId} (attempt ${retries + 1}/${this.config.maxRetries})`)
+      logger.info(`Retrying chunk ${chunkId} (attempt ${retries + 1}/${this.config.maxRetries})`)
 
       // First retry: silent, immediate
       // This handles most transient errors during navigation
@@ -113,7 +113,7 @@ class ChunkErrorHandler {
     // Only show if we've had multiple chunk errors (indicates real problem, not transient nav issue)
     const totalErrors = Array.from(this.retryCount.values()).reduce((sum, count) => sum + count, 0)
     if (totalErrors < 2) {
-      logger.debug('Single chunk error - silently reloading without prompt')
+      logger.info('Single chunk error - silently reloading without prompt')
       this.attemptSoftReload()
       return
     }

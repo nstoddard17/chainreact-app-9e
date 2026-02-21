@@ -33,7 +33,7 @@ export async function listGoogleSheetsRows(
     const range = resolveValue(config.range, input)
     const formula = resolveValue(config.formula, input)
 
-    logger.debug("Resolved list rows values:", {
+    logger.info("Resolved list rows values:", {
       spreadsheetId,
       sheetName,
       keywordSearch,

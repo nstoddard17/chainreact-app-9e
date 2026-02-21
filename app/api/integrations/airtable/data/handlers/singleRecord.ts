@@ -10,7 +10,7 @@ import { logger } from '@/lib/utils/logger'
 export const getAirtableSingleRecord: AirtableDataHandler<AirtableRecord> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableRecord> => {
   const { baseId, tableName, recordId } = options
   
-  logger.debug("🔍 Airtable single record fetcher called with:", {
+  logger.info("🔍 Airtable single record fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -22,11 +22,11 @@ export const getAirtableSingleRecord: AirtableDataHandler<AirtableRecord> = asyn
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    logger.debug(`🔍 Validating Airtable token...`)
+    logger.info(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -42,7 +42,7 @@ export const getAirtableSingleRecord: AirtableDataHandler<AirtableRecord> = asyn
       throw new Error('Record ID is required for fetching a record')
     }
     
-    logger.debug('🔍 Fetching single Airtable record from API...')
+    logger.info('🔍 Fetching single Airtable record from API...')
     
     const apiUrl = buildAirtableApiUrl(`/v0/${baseId}/${encodeURIComponent(tableName)}/${recordId}`)
     
@@ -55,7 +55,7 @@ export const getAirtableSingleRecord: AirtableDataHandler<AirtableRecord> = asyn
     
     const record = await response.json()
     
-    logger.debug(`✅ Airtable record fetched successfully: ${record.id}`)
+    logger.info(`✅ Airtable record fetched successfully: ${record.id}`)
     return record as AirtableRecord
     
   } catch (error: any) {

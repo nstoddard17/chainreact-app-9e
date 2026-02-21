@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const retentionDays = Number(process.env.TEST_SESSION_RETENTION_DAYS || DEFAULT_RETENTION_DAYS)
     const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString()
 
-    logger.debug('Starting cleanup of workflow_test_sessions...', { retentionDays, cutoff })
+    logger.info('Starting cleanup of workflow_test_sessions...', { retentionDays, cutoff })
 
     const supabase = await createSupabaseServiceClient()
     const { data: deleted, error } = await supabase
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const deletedCount = deleted?.length || 0
-    logger.debug('Cleanup completed', { deletedCount })
+    logger.info('Cleanup completed', { deletedCount })
 
     return jsonResponse({
       success: true,

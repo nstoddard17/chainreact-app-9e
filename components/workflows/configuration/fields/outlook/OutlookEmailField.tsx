@@ -109,7 +109,7 @@ export function OutlookEmailField({
 
   // Handle dropdown opening to load data (same as Gmail)
   const handleDropdownOpen = (isOpen: boolean) => {
-    logger.debug('📧 [OutlookEmailField] Dropdown opened:', {
+    logger.info('📧 [OutlookEmailField] Dropdown opened:', {
       isOpen,
       fieldName: field.name,
       fieldDynamic: field.dynamic,
@@ -120,7 +120,7 @@ export function OutlookEmailField({
     });
 
     if (isOpen && field.dynamic && suggestions.length === 0 && onDynamicLoad && !isLoading) {
-      logger.debug('📧 [OutlookEmailField] Calling onDynamicLoad for:', field.name);
+      logger.info('📧 [OutlookEmailField] Calling onDynamicLoad for:', field.name);
       onDynamicLoad(field.name);
     }
   };
@@ -146,7 +146,7 @@ export function OutlookEmailField({
       }
     }
 
-    logger.debug('📧 [OutlookEmailField] Variable dropped:', {
+    logger.info('📧 [OutlookEmailField] Variable dropped:', {
       fieldName: field.name,
       droppedText,
       alias,
@@ -168,7 +168,7 @@ export function OutlookEmailField({
       // Add the variable to the current values
       onChange(value ? `${value}, ${droppedText}` : droppedText)
 
-      logger.debug('✅ [OutlookEmailField] Variable accepted:', {
+      logger.info('✅ [OutlookEmailField] Variable accepted:', {
         fieldName: field.name,
         variable: droppedText,
         alias,

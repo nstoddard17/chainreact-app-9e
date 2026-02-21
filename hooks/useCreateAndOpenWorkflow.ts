@@ -40,7 +40,7 @@ export function useCreateAndOpenWorkflow() {
       // Set workspace context
       setWorkspaceContext(wsType, wsId)
 
-      logger.debug('[useCreateAndOpenWorkflow] Creating workflow', {
+      logger.info('[useCreateAndOpenWorkflow] Creating workflow', {
         workspaceType: wsType,
         workspaceId: wsId,
         hasPrompt: !!options.prompt,
@@ -68,7 +68,7 @@ export function useCreateAndOpenWorkflow() {
         throw new Error('No workflow ID returned')
       }
 
-      logger.debug('[useCreateAndOpenWorkflow] Workflow created', { flowId })
+      logger.info('[useCreateAndOpenWorkflow] Workflow created', { flowId })
 
       // Build the URL - always open AI panel for new workflows
       let url = `/workflows/builder/${flowId}?openPanel=true`

@@ -50,7 +50,7 @@ export function validateMailchimpIntegration(integration: MailchimpIntegration):
  */
 async function fetchMailchimpMetadata(accessToken: string): Promise<{ dc?: string; api_endpoint?: string } | null> {
   try {
-    logger.debug('🔍 [Mailchimp] Attempting to fetch metadata on-demand...')
+    logger.info('🔍 [Mailchimp] Attempting to fetch metadata on-demand...')
     const metadataResponse = await fetch('https://login.mailchimp.com/oauth2/metadata', {
       headers: {
         Authorization: `OAuth ${accessToken}`,
@@ -63,7 +63,7 @@ async function fetchMailchimpMetadata(accessToken: string): Promise<{ dc?: strin
     }
 
     const metadataData = await metadataResponse.json()
-    logger.debug('✅ [Mailchimp] Successfully fetched metadata on-demand:', { dc: metadataData.dc })
+    logger.info('✅ [Mailchimp] Successfully fetched metadata on-demand:', { dc: metadataData.dc })
     return {
       dc: metadataData.dc,
       api_endpoint: metadataData.api_endpoint,
@@ -80,7 +80,7 @@ async function fetchMailchimpMetadata(accessToken: string): Promise<{ dc?: strin
 export async function getMailchimpServerPrefix(integration: MailchimpIntegration): Promise<string> {
   // Try to get from metadata first (OAuth flow)
   if (integration.metadata?.dc) {
-    logger.debug(`📍 [Mailchimp] Using server prefix from metadata: ${integration.metadata.dc}`)
+    logger.info(`📍 [Mailchimp] Using server prefix from metadata: ${integration.metadata.dc}`)
     return integration.metadata.dc
   }
 
@@ -88,7 +88,7 @@ export async function getMailchimpServerPrefix(integration: MailchimpIntegration
   if (integration.metadata?.api_endpoint) {
     const match = integration.metadata.api_endpoint.match(/https:\/\/([^.]+)\.api\.mailchimp\.com/)
     if (match && match[1]) {
-      logger.debug(`📍 [Mailchimp] Extracted server prefix from api_endpoint: ${match[1]}`)
+      logger.info(`📍 [Mailchimp] Extracted server prefix from api_endpoint: ${match[1]}`)
       return match[1]
     }
   }
@@ -103,13 +103,13 @@ export async function getMailchimpServerPrefix(integration: MailchimpIntegration
       const potentialPrefix = tokenParts[tokenParts.length - 1]
       // Validate it looks like a server prefix (us1, us2, etc.)
       if (potentialPrefix.match(/^[a-z]{2}\d+$/)) {
-        logger.debug(`📍 [Mailchimp] Extracted server prefix from token: ${potentialPrefix}`)
+        logger.info(`📍 [Mailchimp] Extracted server prefix from token: ${potentialPrefix}`)
         return potentialPrefix
       }
     }
 
     // If we couldn't extract from token format, try fetching metadata on-demand
-    logger.debug('🔍 [Mailchimp] Server prefix not in metadata, attempting to fetch...')
+    logger.info('🔍 [Mailchimp] Server prefix not in metadata, attempting to fetch...')
     const metadata = await fetchMailchimpMetadata(decryptedToken)
     if (metadata?.dc) {
       return metadata.dc

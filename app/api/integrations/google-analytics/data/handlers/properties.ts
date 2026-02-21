@@ -46,7 +46,7 @@ export const getGoogleAnalyticsProperties: GoogleAnalyticsDataHandler<GoogleAnal
       }
     }
 
-    logger.debug(`✅ [Google Analytics] Fetched ${properties.length} properties${options?.accountId ? ` for account ${options.accountId}` : ''}`)
+    logger.info(`✅ [Google Analytics] Fetched ${properties.length} properties${options?.accountId ? ` for account ${options.accountId}` : ''}`)
     return properties
 
   } catch (error: any) {

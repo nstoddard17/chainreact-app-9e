@@ -77,7 +77,7 @@ export class GmailService {
           })
           .eq('id', integrationId);
         
-        logger.debug(`Marked Gmail integration ${integrationId} for reauthorization due to refresh failure`);
+        logger.info(`Marked Gmail integration ${integrationId} for reauthorization due to refresh failure`);
       } catch (updateError) {
         logger.error('Failed to update integration status:', updateError);
       }

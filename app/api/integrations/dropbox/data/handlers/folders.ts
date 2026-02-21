@@ -8,7 +8,7 @@ import { validateDropboxIntegration, validateDropboxToken, makeDropboxApiRequest
 import { logger } from '@/lib/utils/logger'
 
 export const getDropboxFolders: DropboxDataHandler<DropboxFolder> = async (integration: DropboxIntegration, options: any = {}): Promise<DropboxFolder[]> => {
-  logger.debug("🔍 Dropbox folders fetcher called with integration:", {
+  logger.info("🔍 Dropbox folders fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -19,15 +19,15 @@ export const getDropboxFolders: DropboxDataHandler<DropboxFolder> = async (integ
     // Validate integration status
     validateDropboxIntegration(integration)
     
-    logger.debug(`🔍 Validating Dropbox token...`)
+    logger.info(`🔍 Validating Dropbox token...`)
     const tokenResult = await validateDropboxToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Dropbox token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Dropbox token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    logger.debug('🔍 Fetching Dropbox folders...')
+    logger.info('🔍 Fetching Dropbox folders...')
     
     const apiUrl = buildDropboxApiUrl('/files/list_folder')
     const requestBody = createListFolderRequestBody(options)
@@ -78,7 +78,7 @@ export const getDropboxFolders: DropboxDataHandler<DropboxFolder> = async (integ
       path_display: ""
     })
     
-    logger.debug(`✅ Dropbox folders fetched successfully: ${folders.length} folders`)
+    logger.info(`✅ Dropbox folders fetched successfully: ${folders.length} folders`)
     return folders
     
   } catch (error: any) {
@@ -93,7 +93,7 @@ export const getDropboxFolders: DropboxDataHandler<DropboxFolder> = async (integ
     }
     
     // Return just the root folder as a fallback
-    logger.debug('🔄 Returning root folder as fallback...')
+    logger.info('🔄 Returning root folder as fallback...')
     return [
       {
         id: "",

@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { integrationId, dataType, options = {} } = body
 
-    logger.debug('[Google Docs API] POST request received:', {
+    logger.info('[Google Docs API] POST request received:', {
       integrationId,
       dataType,
       hasOptions: !!options,
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       try {
         const { credentials } = await oauth2Client.refreshAccessToken()
         oauth2Client.setCredentials(credentials)
-        logger.debug('🔄 [Google Docs] Refreshed access token')
+        logger.info('🔄 [Google Docs] Refreshed access token')
       } catch (error: any) {
         logger.error('[Google Docs] Failed to refresh token:', {
           message: error?.message,
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
         owners: file.owners
       }))
 
-      logger.debug(`[Google Docs API] Successfully fetched ${documents.length} documents`)
+      logger.info(`[Google Docs API] Successfully fetched ${documents.length} documents`)
 
       return jsonResponse({
         data: documents,

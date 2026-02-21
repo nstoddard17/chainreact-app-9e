@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Discord API] Processing request:`, {
+    logger.info(`🔍 [Discord API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as DiscordIntegration, options)
 
-    logger.debug(`✅ [Discord API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Discord API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

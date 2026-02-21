@@ -20,7 +20,7 @@ const getSupabase = () => createClient(
 )
 
 export async function POST(req: NextRequest) {
-  logger.debug('🚀 [Google Data API] POST handler invoked')
+  logger.info('🚀 [Google Data API] POST handler invoked')
 
   try {
     let requestBody
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     const { integrationId, dataType, options = {} } = requestBody
 
-    logger.debug(`🔍 [Google Data API] Request received:`, {
+    logger.info(`🔍 [Google Data API] Request received:`, {
       integrationId,
       dataType,
       options,
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     let integration = integrationData
 
     // Log the actual provider for debugging
-    logger.debug('📊 [Google API] Integration provider check:', {
+    logger.info('📊 [Google API] Integration provider check:', {
       integrationId,
       actualProvider: integration.provider,
       dataType,
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Google API] Processing request:`, {
+    logger.info(`🔍 [Google API] Processing request:`, {
       integrationId,
       dataType,
       provider: integration.provider,
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
                           handlerError.message?.includes('401')
 
         if (is401Error && retryCount === 0 && integration.refresh_token) {
-          logger.debug('🔄 [Google API] Token expired, attempting refresh...')
+          logger.info('🔄 [Google API] Token expired, attempting refresh...')
 
           // Attempt to refresh the token
           const refreshResult = await refreshTokenForProvider(
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
           )
 
           if (refreshResult.success && refreshResult.accessToken) {
-            logger.debug('✅ [Google API] Token refreshed successfully, retrying request')
+            logger.info('✅ [Google API] Token refreshed successfully, retrying request')
 
             // Update the integration in database with new tokens
             const encryptionKey = process.env.ENCRYPTION_KEY!
@@ -230,7 +230,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    logger.debug(`✅ [Google API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Google API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

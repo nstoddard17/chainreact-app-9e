@@ -25,17 +25,17 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
     const cacheKey = integration.id
     const cached = modalCache.get(cacheKey)
     if (cached && (Date.now() - cached.timestamp) < MODAL_CACHE_DURATION) {
-      logger.debug("📦 [Gmail API] Using cached recipients (within modal session)")
+      logger.info("📦 [Gmail API] Using cached recipients (within modal session)")
       return cached.data
     }
 
-    logger.debug("🚀 [Gmail API] Fetching fresh enhanced recipients")
+    logger.info("🚀 [Gmail API] Fetching fresh enhanced recipients")
 
     // Get decrypted access token
     const accessToken = getGmailAccessToken(integration)
 
     if (integration.scopes && Array.isArray(integration.scopes)) {
-      logger.debug("🔍 [Gmail API] Integration scopes:", integration.scopes);
+      logger.info("🔍 [Gmail API] Integration scopes:", integration.scopes);
     }
 
     // Use a Map to store unique recipients (email as key)
@@ -44,7 +44,7 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
     // First, try to fetch Google Contacts (requires contacts.readonly scope)
     let contactsFetched = false
     try {
-      logger.debug("📇 [Gmail API] Attempting to fetch Google Contacts...")
+      logger.info("📇 [Gmail API] Attempting to fetch Google Contacts...")
 
       // Try to get contacts from People API
       const contactsResponse = await fetch(
@@ -81,18 +81,18 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
           }
         })
 
-        logger.debug(`✅ [Gmail API] Found ${connections.length} contacts from Google Contacts`)
+        logger.info(`✅ [Gmail API] Found ${connections.length} contacts from Google Contacts`)
         const rawPreview = connections.slice(0, 10).map((person: any) => ({
           names: person.names?.map((n: any) => n.displayName).filter(Boolean) || [],
           emails: person.emailAddresses?.map((e: any) => e.value).filter(Boolean) || [],
         }))
-        logger.debug("👥 [Gmail API] Contacts raw preview:", rawPreview)
+        logger.info("👥 [Gmail API] Contacts raw preview:", rawPreview)
 
         const contactPreview = Array.from(recipients.values()).slice(0, 10).map(contact => ({
           email: contact.email,
           name: contact.name
         }))
-        logger.debug("📬 [Gmail API] Contacts returned:", contactPreview)
+        logger.info("📬 [Gmail API] Contacts returned:", contactPreview)
         contactsFetched = true
       } else if (contactsResponse.status === 403) {
         let errorDetails: any = null
@@ -110,31 +110,31 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
           ? errorDetails
           : errorDetails?.error?.message || errorDetails?.error || JSON.stringify(errorDetails)
 
-        logger.debug("⚠️ [Gmail API] Contacts request forbidden", {
+        logger.info("⚠️ [Gmail API] Contacts request forbidden", {
           message: errorMessage,
           status: contactsResponse.status,
           scopes: integration.scopes,
         })
 
         if (errorMessage?.toLowerCase().includes('insufficient authentication scopes')) {
-          logger.debug("⚠️ [Gmail API] Contacts scope missing from token - prompt user to reconnect Gmail")
+          logger.info("⚠️ [Gmail API] Contacts scope missing from token - prompt user to reconnect Gmail")
         } else if (errorMessage?.toLowerCase().includes('googleapis.com has not been used') ||
                    errorMessage?.toLowerCase().includes('api has not been used before')) {
-          logger.debug("⚠️ [Gmail API] People API not enabled for this Google project")
+          logger.info("⚠️ [Gmail API] People API not enabled for this Google project")
         }
 
-        logger.debug("⚠️ [Gmail API] No contacts permission - falling back to recent recipients only")
+        logger.info("⚠️ [Gmail API] No contacts permission - falling back to recent recipients only")
       } else {
-        logger.debug(`⚠️ [Gmail API] Could not fetch contacts: ${contactsResponse.status}`)
+        logger.info(`⚠️ [Gmail API] Could not fetch contacts: ${contactsResponse.status}`)
       }
     } catch (contactError: any) {
-      logger.debug("⚠️ [Gmail API] Could not access Google Contacts:", contactError.message)
+      logger.info("⚠️ [Gmail API] Could not access Google Contacts:", contactError.message)
       // Continue to fetch recent recipients as fallback
     }
 
     // Fetch recent recipients from both sent and received emails
     try {
-      logger.debug("📧 [Gmail API] Fetching recent email recipients from sent and received...")
+      logger.info("📧 [Gmail API] Fetching recent email recipients from sent and received...")
 
       // Track frequency across all messages
       const recentRecipientFrequency = new Map<string, number>()
@@ -164,7 +164,7 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
       ]
 
       if (allMessages.length > 0) {
-        logger.debug(`📧 [Gmail API] Processing ${Math.min(30, allMessages.length)} messages (sent + received)...`)
+        logger.info(`📧 [Gmail API] Processing ${Math.min(30, allMessages.length)} messages (sent + received)...`)
 
         // Process messages in batches to avoid rate limiting
         const batchSize = 5
@@ -240,7 +240,7 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
             })
           })
 
-        logger.debug(`✅ [Gmail API] Found ${recentRecipientFrequency.size} unique recipients from sent and received emails`)
+        logger.info(`✅ [Gmail API] Found ${recentRecipientFrequency.size} unique recipients from sent and received emails`)
 
         // Sort recipients: Contacts first, then by email frequency
         const recipientArray = Array.from(recipients.values())
@@ -262,7 +262,7 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
           name: recipient.name
         }))
 
-        logger.debug(`✅ [Gmail API] Returning ${finalRecipients.length} enhanced recipients (contacts: ${contactsFetched})`)
+        logger.info(`✅ [Gmail API] Returning ${finalRecipients.length} enhanced recipients (contacts: ${contactsFetched})`)
 
         // Cache for modal session
         modalCache.set(cacheKey, {
@@ -276,7 +276,7 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
       logger.error("❌ [Gmail API] Failed to get recent recipients:", recentError)
       // If we have contacts, return them even if recent recipients failed
       if (recipients.size > 0) {
-        logger.debug("⚠️ [Gmail API] Returning contacts only due to recent recipients error")
+        logger.info("⚠️ [Gmail API] Returning contacts only due to recent recipients error")
         return Array.from(recipients.values()).slice(0, 50)
       }
       throw recentError
@@ -284,7 +284,7 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
 
     // Convert to array and return (limit to 50 for performance)
     const finalRecipients = Array.from(recipients.values()).slice(0, 50)
-    logger.debug(`✅ [Gmail API] Total enhanced recipients: ${finalRecipients.length}`)
+    logger.info(`✅ [Gmail API] Total enhanced recipients: ${finalRecipients.length}`)
 
     // Cache for modal session
     modalCache.set(cacheKey, {

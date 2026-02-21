@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       return errorResponse('Unauthorized' , 401)
     }
 
-    logger.debug('🔄 Starting Microsoft Graph subscription renewal cron job')
+    logger.info('🔄 Starting Microsoft Graph subscription renewal cron job')
 
     // Clean up expired subscriptions
     await subscriptionManager.cleanupExpiredSubscriptions()
@@ -30,11 +30,11 @@ export async function POST(req: NextRequest) {
     const subscriptions = await subscriptionManager.getSubscriptionsNeedingRenewal()
     
     if (subscriptions.length === 0) {
-      logger.debug('✅ No Microsoft Graph subscriptions need renewal')
+      logger.info('✅ No Microsoft Graph subscriptions need renewal')
       return jsonResponse({ message: 'No subscriptions need renewal' })
     }
 
-    logger.debug(`🔄 Found ${subscriptions.length} subscriptions that need renewal`)
+    logger.info(`🔄 Found ${subscriptions.length} subscriptions that need renewal`)
 
     // Group subscriptions by user ID to minimize token fetching
     const userSubscriptions: Record<string, any[]> = {}
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
         .single()
 
       if (!integration) {
-        logger.debug(`❌ No Microsoft integration found for user ${userId}`)
+        logger.info(`❌ No Microsoft integration found for user ${userId}`)
         results.failed += subs.length
         subs.forEach(sub => {
           results.errors.push(`No Microsoft integration found for user ${userId}, subscription ${sub.id}`)
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         try {
           await subscriptionManager.renewSubscription(sub.id, integration.access_token)
           results.renewed++
-          logger.debug(`✅ Renewed subscription ${sub.id} for user ${userId}`)
+          logger.info(`✅ Renewed subscription ${sub.id} for user ${userId}`)
         } catch (error: any) {
           results.failed++
           const errorMessage = `Failed to renew subscription ${sub.id} for user ${userId}: ${error.message}`
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    logger.debug(`🏁 Microsoft Graph subscription renewal complete: ${results.renewed} renewed, ${results.failed} failed`)
+    logger.info(`🏁 Microsoft Graph subscription renewal complete: ${results.renewed} renewed, ${results.failed} failed`)
 
     return jsonResponse({
       success: true,

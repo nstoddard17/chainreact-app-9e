@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
     const triggerType = triggerMapping[eventType]
 
     if (!triggerType) {
-      logger.debug('[Monday Webhook] Ignoring event type', { eventType })
+      logger.info('[Monday Webhook] Ignoring event type', { eventType })
       const response = NextResponse.json({ received: true, ignored: true, eventType })
       return addCorsHeaders(response, request, { allowCredentials: true })
     }
@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
       return addCorsHeaders(response, request, { allowCredentials: true })
     }
 
-    logger.debug('[Monday Webhook] Stored event', { id: data.id })
+    logger.info('[Monday Webhook] Stored event', { id: data.id })
 
     await triggerWorkflowsForEvent(triggerType, transformedPayload, data.id, workflowId, nodeId)
 
@@ -270,7 +270,7 @@ async function triggerWorkflowsForEvent(
 
   try {
     if (workflowId && nodeId) {
-      logger.debug(`[Monday Webhook] Triggering workflow ${workflowId}`)
+      logger.info(`[Monday Webhook] Triggering workflow ${workflowId}`)
 
       const { data: workflow } = await supabase
         .from('workflows')
@@ -280,7 +280,7 @@ async function triggerWorkflowsForEvent(
         .single()
 
       if (!workflow) {
-        logger.debug(`[Monday Webhook] Workflow ${workflowId} not found or inactive`)
+        logger.info(`[Monday Webhook] Workflow ${workflowId} not found or inactive`)
         return
       }
 
@@ -293,7 +293,7 @@ async function triggerWorkflowsForEvent(
         created_at: new Date().toISOString()
       })
 
-      logger.debug(`[Monday Webhook] Queued execution for workflow ${workflowId}`)
+      logger.info(`[Monday Webhook] Queued execution for workflow ${workflowId}`)
       return
     }
 
@@ -303,7 +303,7 @@ async function triggerWorkflowsForEvent(
       .eq('status', 'active')
       .contains('nodes', [{ type: triggerType }])
 
-    logger.debug(`[Monday Webhook] Found ${workflows?.length || 0} matching workflows`)
+    logger.info(`[Monday Webhook] Found ${workflows?.length || 0} matching workflows`)
 
     if (workflows && workflows.length > 0) {
       const executions = workflows.map(workflow => ({
@@ -316,7 +316,7 @@ async function triggerWorkflowsForEvent(
       }))
 
       await supabase.from('workflow_execution_sessions').insert(executions)
-      logger.debug(`[Monday Webhook] Queued ${executions.length} executions`)
+      logger.info(`[Monday Webhook] Queued ${executions.length} executions`)
     }
   } catch (error: any) {
     logger.error('[Monday Webhook] Failed to trigger workflows:', error)

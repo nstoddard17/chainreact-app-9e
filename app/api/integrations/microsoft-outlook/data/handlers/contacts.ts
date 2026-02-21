@@ -25,7 +25,7 @@ export async function getOutlookContacts(
   options: ContactsOptions = {}
 ): Promise<OutlookContact[]> {
   try {
-    logger.debug('[Outlook API] Fetching contacts for selection')
+    logger.info('[Outlook API] Fetching contacts for selection')
 
     // Get decrypted access token
     if (!integration.access_token) {
@@ -65,7 +65,7 @@ export async function getOutlookContacts(
     const data = await response.json()
     const contacts = data.value || []
 
-    logger.debug(`[Outlook API] Found ${contacts.length} contacts`)
+    logger.info(`[Outlook API] Found ${contacts.length} contacts`)
 
     // Map contacts to the format expected by the UI
     let contactOptions: OutlookContact[] = contacts.map((contact: any) => {

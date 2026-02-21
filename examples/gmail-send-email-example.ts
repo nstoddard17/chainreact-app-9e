@@ -7,7 +7,7 @@ import { logger } from '@/lib/utils/logger'
  * Example of sending an email using the Gmail action system
  */
 async function sendEmailExample() {
-  logger.debug("Starting Gmail send email example...")
+  logger.info("Starting Gmail send email example...")
   
   // User ID from your authentication system
   const userId = "user_123456" 
@@ -33,9 +33,9 @@ async function sendEmailExample() {
   
   // Check the result
   if (result.success) {
-    logger.debug("Email sent successfully!")
-    logger.debug("Message ID:", result.output?.messageId)
-    logger.debug("Thread ID:", result.output?.threadId)
+    logger.info("Email sent successfully!")
+    logger.info("Message ID:", result.output?.messageId)
+    logger.info("Thread ID:", result.output?.threadId)
   } else {
     logger.error("Failed to send email:", result.error)
   }

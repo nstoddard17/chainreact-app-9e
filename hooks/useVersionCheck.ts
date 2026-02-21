@@ -44,7 +44,7 @@ export function useVersionCheck() {
 
       // Compare versions
       if (version !== currentVersionRef.current) {
-        logger.debug('[VersionCheck] New version detected', {
+        logger.info('[VersionCheck] New version detected', {
           current: currentVersionRef.current,
           new: version
         })
@@ -58,14 +58,14 @@ export function useVersionCheck() {
       }
     } catch (error) {
       // Silently fail - don't disrupt user experience
-      logger.debug('[VersionCheck] Failed to check version', { error })
+      logger.info('[VersionCheck] Failed to check version', { error })
     }
   }, [])
 
   // Handle navigation - reload if new version is available
   const handleNavigation = useCallback(() => {
     if (hasNewVersionRef.current) {
-      logger.debug('[VersionCheck] Applying update on navigation')
+      logger.info('[VersionCheck] Applying update on navigation')
       // Force a hard reload to get new assets
       window.location.reload()
     }
@@ -120,7 +120,7 @@ export function useVersionCheck() {
       if (link && link.href && link.href.startsWith(window.location.origin)) {
         if (hasNewVersionRef.current) {
           e.preventDefault()
-          logger.debug('[VersionCheck] Redirecting to new version', { href: link.href })
+          logger.info('[VersionCheck] Redirecting to new version', { href: link.href })
           window.location.href = link.href
         }
       }
@@ -153,7 +153,7 @@ export function useVersionCheck() {
         message.includes('Loading CSS chunk')
 
       if (isChunkError) {
-        logger.debug('[VersionCheck] Chunk load error detected, reloading', { message })
+        logger.info('[VersionCheck] Chunk load error detected, reloading', { message })
         // Clear the error to prevent console spam
         event.preventDefault()
         // Force reload to get new chunks
@@ -170,7 +170,7 @@ export function useVersionCheck() {
         reason.includes('ChunkLoadError')
 
       if (isChunkError) {
-        logger.debug('[VersionCheck] Chunk load error in promise, reloading', { reason })
+        logger.info('[VersionCheck] Chunk load error in promise, reloading', { reason })
         event.preventDefault()
         window.location.reload()
       }

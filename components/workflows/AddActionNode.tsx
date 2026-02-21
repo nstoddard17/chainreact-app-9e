@@ -40,7 +40,7 @@ export function AddActionNode({ data }: NodeProps) {
                 }`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  logger.debug('AddActionNode button clicked', {
+                  logger.info('AddActionNode button clicked', {
                     isChainPlaceholder,
                     hasOnClick: !!nodeData?.onClick
                   })

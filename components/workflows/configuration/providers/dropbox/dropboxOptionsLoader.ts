@@ -31,7 +31,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
   }): Promise<{ value: string; label: string }[]> {
     const { fieldName, providerId, integrationId, forceRefresh } = params;
 
-    logger.debug('[DropboxOptionsLoader] Loading options for:', {
+    logger.info('[DropboxOptionsLoader] Loading options for:', {
       fieldName,
       providerId,
       integrationId,
@@ -127,7 +127,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
 
         const result = await response.json()
 
-        logger.debug('[DropboxOptionsLoader] API Response:', {
+        logger.info('[DropboxOptionsLoader] API Response:', {
           success: result.success,
           hasData: !!result.data,
           dataLength: result.data?.length
@@ -158,7 +158,7 @@ export class DropboxOptionsLoader implements ProviderOptionsLoader {
           label: folder.name || folder.path_display || 'Dropbox (Root)'
         }))
 
-        logger.debug(`[DropboxOptionsLoader] Successfully loaded ${options.length} folders`)
+        logger.info(`[DropboxOptionsLoader] Successfully loaded ${options.length} folders`)
         return options
       } catch (error) {
         logger.error('[DropboxOptionsLoader] Error fetching folders:', error)

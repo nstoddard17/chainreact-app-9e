@@ -55,7 +55,7 @@ export class AIActionExecutionService {
     supabaseAdmin: any,
     timeout: number = 25000
   ): Promise<ActionExecutionResult> {
-    logger.debug("🎯 Starting action execution:", {
+    logger.info("🎯 Starting action execution:", {
       intent: intent.intent,
       action: intent.action,
       specifiedIntegration: intent.specifiedIntegration
@@ -84,7 +84,7 @@ export class AIActionExecutionService {
 
       const result = await Promise.race([actionPromise, timeoutPromise])
       
-      logger.debug("✅ Action execution completed successfully")
+      logger.info("✅ Action execution completed successfully")
       return result
     } catch (error: any) {
       logger.error("❌ Action execution failed:", error)

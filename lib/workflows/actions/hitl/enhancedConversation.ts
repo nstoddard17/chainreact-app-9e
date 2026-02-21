@@ -643,7 +643,7 @@ export async function processEnhancedConversation(
     // Get connected storage providers
     const storageProviders = await getConnectedStorageIntegrations(userId)
 
-    logger.debug('🔌 [HITL AI] Storage providers', { providers: storageProviders })
+    logger.info('🔌 [HITL AI] Storage providers', { providers: storageProviders })
 
     // Build enhanced system prompt
     // IMPORTANT: Always include contextData and initial message context

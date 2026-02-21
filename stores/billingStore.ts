@@ -81,7 +81,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
     if (!force && state.plans.length > 0 && state.lastFetchTime &&
         (Date.now() - state.lastFetchTime) < PLANS_CACHE_DURATION) {
-      logger.debug("Using cached plans")
+      logger.info("Using cached plans")
       return
     }
 
@@ -114,7 +114,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     try {
       const supabase = createClient()
       if (!supabase) {
-        logger.debug("Supabase client not available for subscription fetch")
+        logger.info("Supabase client not available for subscription fetch")
         return
       }
 
@@ -124,7 +124,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       } = await supabase.auth.getUser()
 
       if (userError || !user) {
-        logger.debug("User not authenticated for subscription fetch")
+        logger.info("User not authenticated for subscription fetch")
         return
       }
 
@@ -157,7 +157,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     try {
       const supabase = createClient()
       if (!supabase) {
-        logger.debug("Supabase client not available for usage fetch")
+        logger.info("Supabase client not available for usage fetch")
         return
       }
 
@@ -167,7 +167,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       } = await supabase.auth.getUser()
 
       if (userError || !user) {
-        logger.debug("User not authenticated for usage fetch")
+        logger.info("User not authenticated for usage fetch")
         return
       }
 
@@ -214,14 +214,14 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
     const CACHE_DURATION = 30000 // 30 seconds
 
     if (!force && state.lastFetchTime && (now - state.lastFetchTime) < CACHE_DURATION && state.plans.length > 0) {
-      logger.debug("Using cached billing data")
+      logger.info("Using cached billing data")
       return
     }
 
     // Fetch all data in parallel for better performance
     const supabase = createClient()
     if (!supabase) {
-      logger.debug("Supabase client not available")
+      logger.info("Supabase client not available")
       return
     }
 
@@ -254,11 +254,11 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
 
   createCheckoutSession: async (planId: string, billingCycle: string) => {
     try {
-      logger.debug("Creating checkout session for plan:", planId, "billing cycle:", billingCycle)
+      logger.info("Creating checkout session for plan:", planId, "billing cycle:", billingCycle)
 
       // Get the current session token
       const supabase = createClient()
-      logger.debug("Getting session...")
+      logger.info("Getting session...")
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError || !session) {
@@ -266,7 +266,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         throw new Error("No active session found. Please sign in again.")
       }
       
-      logger.debug("Session obtained, making API request...")
+      logger.info("Session obtained, making API request...")
       
       // Use fetchWithTimeout for better timeout handling
       const response = await fetchWithTimeout(
@@ -282,7 +282,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         30000 // 30 second timeout for checkout (longer than usual)
       )
 
-      logger.debug("Checkout response status:", response.status)
+      logger.info("Checkout response status:", response.status)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -291,7 +291,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       }
 
       const data = await response.json()
-      logger.debug("Checkout response data:", data)
+      logger.info("Checkout response data:", data)
 
       if (!data.url) {
         throw new Error("No checkout URL returned from the server")

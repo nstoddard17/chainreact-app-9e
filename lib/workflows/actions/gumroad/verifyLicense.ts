@@ -34,7 +34,7 @@ export async function verifyGumroadLicense(
       increment_uses_count: incrementUsesCount
     }
 
-    logger.debug('[verifyGumroadLicense] Verifying license:', {
+    logger.info('[verifyGumroadLicense] Verifying license:', {
       productId,
       licenseKey: licenseKey.substring(0, 8) + '...', // Log only first 8 chars for security
       incrementUsesCount

@@ -35,7 +35,7 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.debug(`🔔 Activating Trello trigger for workflow ${workflowId}`, {
+    logger.info(`🔔 Activating Trello trigger for workflow ${workflowId}`, {
       triggerType,
       boardId: config.boardId,
       listId: config.listId
@@ -78,7 +78,7 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
     // Get webhook callback URL
     const webhookUrl = getWebhookUrl('/api/webhooks/trello')
 
-    logger.debug(`📤 Creating Trello webhook`, {
+    logger.info(`📤 Creating Trello webhook`, {
       boardId,
       webhookUrl,
       description: `ChainReact workflow ${workflowId}`
@@ -108,7 +108,7 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
 
     const webhook = await response.json()
 
-    logger.debug(`✅ Trello webhook created:`, {
+    logger.info(`✅ Trello webhook created:`, {
       id: webhook.id,
       idModel: webhook.idModel,
       callbackURL: webhook.callbackURL,
@@ -142,14 +142,14 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
       // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
       if (insertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-        logger.debug(`✅ Trello webhook created (without local record): ${webhook.id}`)
+        logger.info(`✅ Trello webhook created (without local record): ${webhook.id}`)
         return
       }
       logger.error(`❌ Failed to store trigger resource:`, insertError)
       throw new Error(`Failed to store trigger resource: ${insertError.message}`)
     }
 
-    logger.debug(`✅ Trello trigger activated: ${triggerType} (webhook ${webhook.id})`)
+    logger.info(`✅ Trello trigger activated: ${triggerType} (webhook ${webhook.id})`)
   }
 
   /**
@@ -159,7 +159,7 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId, userId } = context
 
-    logger.debug(`🛑 Deactivating Trello triggers for workflow ${workflowId}`)
+    logger.info(`🛑 Deactivating Trello triggers for workflow ${workflowId}`)
 
     // Get all Trello triggers for this workflow
     const { data: triggers } = await getSupabase()
@@ -169,7 +169,7 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
       .eq('provider', 'trello')
 
     if (!triggers || triggers.length === 0) {
-      logger.debug(`No Trello triggers found for workflow ${workflowId}`)
+      logger.info(`No Trello triggers found for workflow ${workflowId}`)
       return
     }
 
@@ -216,7 +216,7 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
 
       if (webhookId) {
         try {
-          logger.debug(`🗑️ Deleting Trello webhook: ${webhookId}`)
+          logger.info(`🗑️ Deleting Trello webhook: ${webhookId}`)
 
           const response = await fetch(
             `https://api.trello.com/1/webhooks/${webhookId}?key=${apiKey}&token=${accessToken}`,
@@ -229,7 +229,7 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
             const errorText = await response.text()
             logger.warn(`Failed to delete Trello webhook ${webhookId}: ${response.status} ${errorText}`)
           } else {
-            logger.debug(`✅ Deleted Trello webhook: ${webhookId}`)
+            logger.info(`✅ Deleted Trello webhook: ${webhookId}`)
           }
         } catch (error) {
           logger.error(`Error deleting Trello webhook ${webhookId}:`, error)
@@ -244,7 +244,7 @@ export class TrelloTriggerLifecycle implements TriggerLifecycle {
       .eq('workflow_id', workflowId)
       .eq('provider', 'trello')
 
-    logger.debug(`✅ Trello triggers deactivated for workflow ${workflowId}`)
+    logger.info(`✅ Trello triggers deactivated for workflow ${workflowId}`)
   }
 
   /**

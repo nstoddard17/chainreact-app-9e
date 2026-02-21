@@ -864,7 +864,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     hasRestoredFromDraftRef.current = true
-    logger.debug('[DraftRestore] Restoring workflow draft state...', { chatPersistenceEnabled })
+    logger.info('[DraftRestore] Restoring workflow draft state...', { chatPersistenceEnabled })
 
     // Restore agent messages ONLY for unsaved workflows
     // For saved workflows, messages come from the database via useChatPersistence
@@ -938,7 +938,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     console.log('[DraftRestore] Draft restored successfully')
-    logger.debug('[DraftRestore] Draft restored successfully')
+    logger.info('[DraftRestore] Draft restored successfully')
   }, [isDraftLoaded, restoredDraft, chatPersistenceEnabled])
 
   // Auto-save draft when relevant state changes (debounced via hook)
@@ -993,7 +993,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       buildMachine.progress.done === buildMachine.progress.total
 
     if (isSetupComplete && hasDraft) {
-      logger.debug('[DraftAutoSave] Guided setup complete, clearing local draft')
+      logger.info('[DraftAutoSave] Guided setup complete, clearing local draft')
       clearDraft()
     }
   }, [buildMachine.state, buildMachine.plan.length, buildMachine.progress.done, buildMachine.progress.total, hasDraft, clearDraft])
@@ -1651,13 +1651,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       // This would call the same API that useDynamicOptions uses
       // For now, we'll use a placeholder - the actual implementation
       // will be handled by the configuration components
-      logger.debug('[Prefetch] Would prefetch:', { optionType, providerId })
+      logger.info('[Prefetch] Would prefetch:', { optionType, providerId })
       return []
     }
 
     // Start prefetching in background (don't await)
     optionsPrefetchService.prefetchForNodes(nodesToPrefetch, loadOptionsFn, isProviderConnected)
-      .then(() => logger.debug('[Prefetch] Background prefetch complete for plan'))
+      .then(() => logger.info('[Prefetch] Background prefetch complete for plan'))
       .catch(err => logger.warn('[Prefetch] Background prefetch failed:', err))
 
     const assistantLocalId = generateLocalId()
@@ -3180,7 +3180,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const config = node.data?.config || {}
 
     try {
-      logger.debug('[WorkflowBuilder] Testing node:', { nodeId, nodeType: node.data?.type })
+      logger.info('[WorkflowBuilder] Testing node:', { nodeId, nodeType: node.data?.type })
 
       // Set node to running state
       setNodeState(reactFlowInstanceRef.current, nodeId, 'running')
@@ -3227,7 +3227,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         }
       }
 
-      logger.debug('[WorkflowBuilder] Collected test data from upstream nodes:', {
+      logger.info('[WorkflowBuilder] Collected test data from upstream nodes:', {
         upstreamNodeCount: upstreamNodeIds.length,
         testDataKeys: Object.keys(testData)
       })
@@ -3251,7 +3251,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         throw new Error(result.error || 'Failed to test node')
       }
 
-      logger.debug('[WorkflowBuilder] Test completed:', result)
+      logger.info('[WorkflowBuilder] Test completed:', result)
 
       // Update node with test results
       const testMetadata = {
@@ -3436,7 +3436,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     const nodesToTest = getDownstreamNodes(nodeId)
-    logger.debug('[WorkflowBuilder] Testing flow from node:', nodeId, 'Total nodes:', nodesToTest.length)
+    logger.info('[WorkflowBuilder] Testing flow from node:', nodeId, 'Total nodes:', nodesToTest.length)
 
     // Sort nodes in execution order (topological sort)
     const sortedNodeIds: string[] = []
@@ -3467,7 +3467,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       const node = builder.nodes.find((n: any) => n.id === nId)
       if (!node) continue
 
-      logger.debug('[WorkflowBuilder] Testing node in flow:', node.data?.title || node.data?.type)
+      logger.info('[WorkflowBuilder] Testing node in flow:', node.data?.title || node.data?.type)
 
       // Set node to running state
       setNodeState(reactFlowInstanceRef.current, nId, 'running')
@@ -3787,7 +3787,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // Lazy load integrations when panel opens (only if not already loaded)
     // Use workspace context to filter integrations to this workflow's workspace
     if (integrations.length === 0 && workspaceContext) {
-      logger.debug('[WorkflowBuilder] Lazy-loading workspace-filtered integrations:', {
+      logger.info('[WorkflowBuilder] Lazy-loading workspace-filtered integrations:', {
         workspaceType: workspaceContext.type,
         workspaceId: workspaceContext.id
       })

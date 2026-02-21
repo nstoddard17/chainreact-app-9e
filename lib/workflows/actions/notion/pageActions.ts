@@ -382,7 +382,7 @@ export async function executeNotionUpdatePage(
       // Read explicit block deletions from config (from NotionDeletableBlocksField)
       if (config.blocksToDelete?.selectedBlockIds && Array.isArray(config.blocksToDelete.selectedBlockIds)) {
         blocksToDelete.push(...config.blocksToDelete.selectedBlockIds);
-        logger.debug(`🗑️ Explicit block deletions from config: ${blocksToDelete.length} blocks`);
+        logger.info(`🗑️ Explicit block deletions from config: ${blocksToDelete.length} blocks`);
       }
 
       // Process todo items
@@ -441,7 +441,7 @@ export async function executeNotionUpdatePage(
           for (const originalId of originalIds) {
             if (!currentIds.has(originalId)) {
               blocksToDelete.push(originalId);
-              logger.debug(`🗑️ Marking todo block for deletion: ${originalId}`);
+              logger.info(`🗑️ Marking todo block for deletion: ${originalId}`);
             }
           }
         }
@@ -488,7 +488,7 @@ export async function executeNotionUpdatePage(
 
       // Delete removed blocks if any
       if (blocksToDelete.length > 0) {
-        logger.debug(`🗑️ Deleting ${blocksToDelete.length} blocks`);
+        logger.info(`🗑️ Deleting ${blocksToDelete.length} blocks`);
         for (const blockId of blocksToDelete) {
           try {
             await notionDeleteBlock({ block_id: blockId }, context);

@@ -217,7 +217,7 @@ export async function createHubSpotContact(
         // Handle based on strategy
         if (duplicateHandling === 'update' && existingContactId) {
           // Update the existing contact
-          logger.debug(`Updating existing contact ${existingContactId} (duplicate handling: update)`)
+          logger.info(`Updating existing contact ${existingContactId} (duplicate handling: update)`)
 
           const updateResponse = await fetch(
             `https://api.hubapi.com/crm/v3/objects/contacts/${existingContactId}`,
@@ -242,7 +242,7 @@ export async function createHubSpotContact(
           wasUpdate = true
         } else if (duplicateHandling === 'skip' && existingContactId) {
           // Skip creation and return existing contact
-          logger.debug(`Skipping creation, returning existing contact ${existingContactId} (duplicate handling: skip)`)
+          logger.info(`Skipping creation, returning existing contact ${existingContactId} (duplicate handling: skip)`)
 
           if (!result) {
             // Fetch the existing contact details
@@ -284,8 +284,8 @@ export async function createHubSpotContact(
       result = await response.json()
     }
     
-    logger.debug('HubSpot API response:', result)
-    logger.debug('Created contact properties:', result.properties)
+    logger.info('HubSpot API response:', result)
+    logger.info('Created contact properties:', result.properties)
 
     // Check if we should associate with existing company or create new one
     let companyId = null
@@ -295,7 +295,7 @@ export async function createHubSpotContact(
     if (associatedCompanyId && typeof associatedCompanyId === 'string' && !associatedCompanyId.match(/^\d+$/)) {
       companyName = associatedCompanyId
       try {
-        logger.debug('Creating company record for:', companyName)
+        logger.info('Creating company record for:', companyName)
         
         // Prepare company properties
         const companyProperties: Record<string, any> = {
@@ -304,13 +304,13 @@ export async function createHubSpotContact(
         
         // Add company-specific fields if provided
         if (company_fields && Array.isArray(company_fields)) {
-          logger.debug('Processing company-specific fields:', company_fields)
-          logger.debug('Company field values:', company_field_values)
+          logger.info('Processing company-specific fields:', company_fields)
+          logger.info('Company field values:', company_field_values)
           
           company_fields.forEach(fieldName => {
             if (company_field_values[fieldName] !== undefined && company_field_values[fieldName] !== null && company_field_values[fieldName] !== '') {
               companyProperties[fieldName] = company_field_values[fieldName]
-              logger.debug(`Added company field ${fieldName} with value:`, company_field_values[fieldName])
+              logger.info(`Added company field ${fieldName} with value:`, company_field_values[fieldName])
             }
           })
         }
@@ -340,7 +340,7 @@ export async function createHubSpotContact(
         if (companyResponse.ok) {
           const companyResult = await companyResponse.json()
           companyId = companyResult.id
-          logger.debug('Created company with ID:', companyId)
+          logger.info('Created company with ID:', companyId)
           
           // Associate contact with company
           const associationResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/${result.id}/associations/companies/${companyId}/contact_to_company`, {
@@ -352,7 +352,7 @@ export async function createHubSpotContact(
           })
           
           if (associationResponse.ok) {
-            logger.debug('Successfully associated contact with company')
+            logger.info('Successfully associated contact with company')
           } else {
             logger.warn('Failed to associate contact with company:', associationResponse.status)
           }
@@ -375,7 +375,7 @@ export async function createHubSpotContact(
         })
 
         if (associationResponse.ok) {
-          logger.debug('Successfully associated contact with existing company')
+          logger.info('Successfully associated contact with existing company')
         } else {
           logger.warn('Failed to associate contact with existing company:', associationResponse.status)
         }

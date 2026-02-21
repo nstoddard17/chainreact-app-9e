@@ -14,7 +14,7 @@ export async function listGumroadProducts(
 
     const url = `https://api.gumroad.com/v2/products?access_token=${accessToken}`
 
-    logger.debug('[listGumroadProducts] Fetching all products')
+    logger.info('[listGumroadProducts] Fetching all products')
 
     const response = await fetch(url, {
       method: "GET",

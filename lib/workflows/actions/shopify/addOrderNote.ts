@@ -30,7 +30,7 @@ export async function addShopifyOrderNote(
     const orderGid = toOrderGid(orderId)
     const numericId = extractNumericId(orderGid)
 
-    logger.debug('[Shopify GraphQL] Adding order note:', { orderId: orderGid, append })
+    logger.info('[Shopify GraphQL] Adding order note:', { orderId: orderGid, append })
 
     // 4. If appending, first get the existing note
     let finalNote = note

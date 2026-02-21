@@ -67,7 +67,7 @@ export async function requireAdmin(): Promise<AdminAuthResult | AdminAuthError> 
       }
     }
 
-    logger.debug('[Admin Auth] Admin access granted', { userId: user.id })
+    logger.info('[Admin Auth] Admin access granted', { userId: user.id })
 
     return {
       isAdmin: true,

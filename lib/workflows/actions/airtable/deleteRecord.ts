@@ -34,7 +34,7 @@ export async function deleteAirtableRecord(
         return { success: false, message: "Record ID is required for single record deletion" }
       }
 
-      logger.debug('[deleteAirtableRecord] Deleting single record:', {
+      logger.info('[deleteAirtableRecord] Deleting single record:', {
         baseId,
         tableName,
         recordId
@@ -153,7 +153,7 @@ export async function deleteAirtableRecord(
         url.searchParams.append('filterByFormula', finalFormula)
       }
 
-      logger.debug('[deleteAirtableRecord] Finding records to delete:', {
+      logger.info('[deleteAirtableRecord] Finding records to delete:', {
         baseId,
         tableName,
         formula: finalFormula,
@@ -210,7 +210,7 @@ export async function deleteAirtableRecord(
         const deleteUrl = new URL(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`)
         recordIds.forEach((id: string) => deleteUrl.searchParams.append('records[]', id))
 
-        logger.debug('[deleteAirtableRecord] Deleting batch:', {
+        logger.info('[deleteAirtableRecord] Deleting batch:', {
           batchNumber: Math.floor(i / batchSize) + 1,
           recordIds
         })

@@ -229,7 +229,7 @@ export async function applyEmailMetaVariables(
     resolvedBody = resolvedBody.replace(regex, value)
   }
 
-  logger.debug('📧 [Meta Variables] Resolved:', {
+  logger.info('📧 [Meta Variables] Resolved:', {
     hasRecipient: !!metaVars.recipient_email,
     hasSender: !!metaVars.sender_email,
     recipientName: metaVars.recipient_name,

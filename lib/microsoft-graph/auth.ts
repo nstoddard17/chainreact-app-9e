@@ -191,17 +191,17 @@ export class MicrosoftGraphAuth {
 
     if (now + buffer >= expiresAt) {
       // Token is expired or will expire soon, refresh it
-      logger.debug('🔄 Refreshing expired Microsoft token for user:', userId, 'provider:', integration.provider)
-      logger.debug('🔍 Current scopes:', integration.scopes)
+      logger.info('🔄 Refreshing expired Microsoft token for user:', userId, 'provider:', integration.provider)
+      logger.info('🔍 Current scopes:', integration.scopes)
 
       const newTokenInfo = await this.refreshAccessToken(refreshToken)
       await this.storeTokens(userId, newTokenInfo, integration.provider)
 
-      logger.debug('✅ Token refreshed successfully. New scopes:', newTokenInfo.scope)
+      logger.info('✅ Token refreshed successfully. New scopes:', newTokenInfo.scope)
       return newTokenInfo.accessToken
     }
 
-    logger.debug('✅ Using existing valid token. Scopes:', integration.scopes?.join(', '))
+    logger.info('✅ Using existing valid token. Scopes:', integration.scopes?.join(', '))
     return accessToken
   }
 

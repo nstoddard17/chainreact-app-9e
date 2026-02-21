@@ -8,7 +8,7 @@ import { validateBlackbaudIntegration, validateBlackbaudToken, makeBlackbaudApiR
 import { logger } from '@/lib/utils/logger'
 
 export const getBlackbaudConstituents: BlackbaudDataHandler<BlackbaudConstituent> = async (integration: BlackbaudIntegration, options: any = {}): Promise<BlackbaudConstituent[]> => {
-  logger.debug("🔍 Blackbaud constituents fetcher called with integration:", {
+  logger.info("🔍 Blackbaud constituents fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -19,15 +19,15 @@ export const getBlackbaudConstituents: BlackbaudDataHandler<BlackbaudConstituent
     // Validate integration status
     validateBlackbaudIntegration(integration)
     
-    logger.debug(`🔍 Validating Blackbaud subscription key...`)
+    logger.info(`🔍 Validating Blackbaud subscription key...`)
     const tokenResult = await validateBlackbaudToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Blackbaud token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Blackbaud token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    logger.debug('🔍 Fetching Blackbaud constituents...')
+    logger.info('🔍 Fetching Blackbaud constituents...')
     
     const { limit = 100, offset = 0 } = options
     const apiUrl = buildBlackbaudApiUrl('/constituent/v1/constituents')
@@ -71,7 +71,7 @@ export const getBlackbaudConstituents: BlackbaudDataHandler<BlackbaudConstituent
       gender: constituent.gender
     }))
     
-    logger.debug(`✅ Blackbaud constituents fetched successfully: ${constituents.length} constituents`)
+    logger.info(`✅ Blackbaud constituents fetched successfully: ${constituents.length} constituents`)
     return constituents
     
   } catch (error: any) {

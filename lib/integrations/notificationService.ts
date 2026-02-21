@@ -84,7 +84,7 @@ async function createNotification(
       return false
     }
 
-    logger.debug('[NotificationService] Created notification:', { userId, type, title })
+    logger.info('[NotificationService] Created notification:', { userId, type, title })
     return true
   } catch (error: any) {
     logger.error('[NotificationService] Error creating notification:', error)

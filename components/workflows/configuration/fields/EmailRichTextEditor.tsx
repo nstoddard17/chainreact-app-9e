@@ -1067,7 +1067,7 @@ export function EmailRichTextEditor({
 
   // Initialize editor content and sync with value prop
   useEffect(() => {
-    logger.debug('📧 [EmailRichTextEditor] Value prop changed:', {
+    logger.info('📧 [EmailRichTextEditor] Value prop changed:', {
       value: value?.substring(0, 100) + (value?.length > 100 ? '...' : ''),
       length: value?.length,
       hasEditorRef: !!editorRef.current,
@@ -1077,7 +1077,7 @@ export function EmailRichTextEditor({
     if (editorRef.current) {
       // Only update if the content is different to prevent cursor jumps
       if (editorRef.current.innerHTML !== value && !editorRef.current.contains(document.activeElement)) {
-        logger.debug('📧 [EmailRichTextEditor] Updating editor content')
+        logger.info('📧 [EmailRichTextEditor] Updating editor content')
         // Convert backend format to display format with styled pills
         const displayHtml = convertBackendToDisplayFormat(value || '')
         editorRef.current.innerHTML = displayHtml
@@ -1104,7 +1104,7 @@ export function EmailRichTextEditor({
         
         // Check if integration needs connection
         if (data.needsConnection) {
-          logger.debug(`🔍 [SIGNATURES] ${integrationProvider} integration not connected for user`)
+          logger.info(`🔍 [SIGNATURES] ${integrationProvider} integration not connected for user`)
           // Still set empty signatures array - the UI will handle showing no signatures available
           return
         }

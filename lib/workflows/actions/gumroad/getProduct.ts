@@ -23,7 +23,7 @@ export async function getGumroadProduct(
     // Gumroad API uses query parameter authentication
     const url = `https://api.gumroad.com/v2/products/${encodeURIComponent(productId)}?access_token=${accessToken}`
 
-    logger.debug('[getGumroadProduct] Fetching product:', { productId })
+    logger.info('[getGumroadProduct] Fetching product:', { productId })
 
     const response = await fetch(url, {
       method: "GET",

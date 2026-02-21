@@ -42,7 +42,7 @@ export async function inviteUsersToChannel(params: {
       ? await getSlackToken(workspace, true, useUserToken)
       : await getSlackToken(userId, false, useUserToken)
 
-    logger.debug('[Slack Invite Users] Inviting users to channel:', {
+    logger.info('[Slack Invite Users] Inviting users to channel:', {
       channel,
       userCount: userIds.length,
       sendNotification: sendInviteNotification
@@ -78,13 +78,13 @@ export async function inviteUsersToChannel(params: {
     if (result.ok) {
       // All users were invited successfully
       invitedUsers.push(...userIds)
-      logger.debug('[Slack Invite Users] Successfully invited all users')
+      logger.info('[Slack Invite Users] Successfully invited all users')
     } else {
       // Handle specific errors
       if (result.error === 'already_in_channel') {
         // All users already in channel
         alreadyInChannel.push(...userIds)
-        logger.debug('[Slack Invite Users] Users already in channel')
+        logger.info('[Slack Invite Users] Users already in channel')
       } else if (result.error === 'cant_invite_self') {
         // Can't invite the bot itself
         failedUsers.push({ userId: 'self', error: 'Cannot invite the bot itself' })
@@ -100,7 +100,7 @@ export async function inviteUsersToChannel(params: {
         throw new Error('Cannot invite users to this channel. The bot may lack permissions.')
       } else {
         // If bulk invite fails, try inviting users one by one
-        logger.debug('[Slack Invite Users] Bulk invite failed, trying individual invites:', result.error)
+        logger.info('[Slack Invite Users] Bulk invite failed, trying individual invites:', result.error)
 
         for (const uid of userIds) {
           const singleResult = await callSlackApi('conversations.invite', {
@@ -125,7 +125,7 @@ export async function inviteUsersToChannel(params: {
 
     // Send welcome message if configured and at least one user was invited
     if (customWelcomeMessage && invitedUsers.length > 0) {
-      logger.debug('[Slack Invite Users] Sending welcome message')
+      logger.info('[Slack Invite Users] Sending welcome message')
 
       await callSlackApi('chat.postMessage', {
         channel: channel,

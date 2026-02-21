@@ -12,7 +12,7 @@ export async function onenoteDeletePage(
   const { pageId } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would delete OneNote page:", { pageId })
+    logger.info("[TEST MODE] Would delete OneNote page:", { pageId })
     return {
       success: true,
       output: {

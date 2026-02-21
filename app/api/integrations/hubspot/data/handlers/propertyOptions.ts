@@ -30,7 +30,7 @@ async function getContactPropertyOptions(
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    logger.debug(`🔍 Fetching options for property: ${propertyName}`)
+    logger.info(`🔍 Fetching options for property: ${propertyName}`)
     const apiUrl = buildHubSpotApiUrl(`/crm/v3/properties/contacts/${propertyName}`)
 
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
@@ -41,7 +41,7 @@ async function getContactPropertyOptions(
 
       // Return empty array if property doesn't exist
       if (response.status === 404) {
-        logger.debug(`⚠️ Property ${propertyName} not found, returning empty options`)
+        logger.info(`⚠️ Property ${propertyName} not found, returning empty options`)
         return []
       }
 
@@ -57,11 +57,11 @@ async function getContactPropertyOptions(
         value: opt.value
       }))
 
-      logger.debug(`✅ Found ${options.length} options for ${propertyName}`)
+      logger.info(`✅ Found ${options.length} options for ${propertyName}`)
       return options
     }
 
-    logger.debug(`⚠️ Property ${propertyName} is not an enumeration, returning empty options`)
+    logger.info(`⚠️ Property ${propertyName} is not an enumeration, returning empty options`)
     return []
 
   } catch (error: any) {
@@ -78,7 +78,7 @@ export const getHubSpotLeadStatusOptions: HubSpotDataHandler<PropertyOption> = a
   integration: HubSpotIntegration,
   options: any = {}
 ): Promise<PropertyOption[]> => {
-  logger.debug("🔍 HubSpot lead status options fetcher called")
+  logger.info("🔍 HubSpot lead status options fetcher called")
 
   const statusOptions = await getContactPropertyOptions(integration, 'hs_lead_status')
 
@@ -106,7 +106,7 @@ export const getHubSpotContentTopicsOptions: HubSpotDataHandler<PropertyOption> 
   integration: HubSpotIntegration,
   options: any = {}
 ): Promise<PropertyOption[]> => {
-  logger.debug("🔍 HubSpot content topics options fetcher called")
+  logger.info("🔍 HubSpot content topics options fetcher called")
 
   const topicsOptions = await getContactPropertyOptions(integration, 'favorite_content_topics')
 
@@ -134,7 +134,7 @@ export const getHubSpotPreferredChannelsOptions: HubSpotDataHandler<PropertyOpti
   integration: HubSpotIntegration,
   options: any = {}
 ): Promise<PropertyOption[]> => {
-  logger.debug("🔍 HubSpot preferred channels options fetcher called")
+  logger.info("🔍 HubSpot preferred channels options fetcher called")
 
   const channelsOptions = await getContactPropertyOptions(integration, 'preferred_channels')
 

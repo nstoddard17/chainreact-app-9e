@@ -393,7 +393,7 @@ async function loadAIMemory(
 
   // Handle external providers (Google Docs, Notion, etc.)
   if (!memoryStorageDocument) {
-    logger.debug('[HITL] No external memory document configured')
+    logger.info('[HITL] No external memory document configured')
     return null
   }
 
@@ -502,7 +502,7 @@ export async function executeHITL(
     if (config.autoDetectContext) {
       // Auto-detect: format the previous node's output nicely
       contextText = formatPreviousNodeContext(input)
-      logger.debug('[HITL] Auto-detected context', { contextLength: contextText.length })
+      logger.info('[HITL] Auto-detected context', { contextLength: contextText.length })
     } else {
       // Manual mode: use contextData field with variable resolution
       const resolvedContextData = config.contextData
@@ -530,7 +530,7 @@ export async function executeHITL(
     let nodeContext: string | undefined
     try {
       nodeContext = await buildNodeContext(context?.workflowId)
-      logger.debug('[HITL] Loaded node context for AI', {
+      logger.info('[HITL] Loaded node context for AI', {
         workflowId: context?.workflowId,
         contextLength: nodeContext?.length
       })

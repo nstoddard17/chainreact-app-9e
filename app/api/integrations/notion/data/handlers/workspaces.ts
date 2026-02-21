@@ -10,7 +10,7 @@ import { logger } from '@/lib/utils/logger'
 export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (
   integration: NotionIntegration
 ): Promise<NotionWorkspace[]> => {
-  logger.debug('[Notion Workspaces] Fetching workspaces from metadata')
+  logger.info('[Notion Workspaces] Fetching workspaces from metadata')
 
   try {
     validateNotionIntegration(integration)
@@ -34,7 +34,7 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (
 
     // If still no workspaces, fetch from Notion API directly
     if (Object.keys(workspaces).length === 0) {
-      logger.debug('[Notion Workspaces] No workspace in metadata, fetching from Notion API')
+      logger.info('[Notion Workspaces] No workspace in metadata, fetching from Notion API')
 
       try {
         const accessToken = resolveNotionAccessToken(integration)
@@ -62,7 +62,7 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (
                 owner_type: userData.bot.owner?.type || 'workspace',
               }
             }
-            logger.debug('[Notion Workspaces] Got workspace from API', {
+            logger.info('[Notion Workspaces] Got workspace from API', {
               workspaceName: userData.bot.workspace_name
             })
           }
@@ -88,7 +88,7 @@ export const getNotionWorkspaces: NotionDataHandler<NotionWorkspace> = async (
       object: workspace.object || 'workspace'
     }))
 
-    logger.debug('[Notion Workspaces] Found workspaces', { count: workspaceArray.length })
+    logger.info('[Notion Workspaces] Found workspaces', { count: workspaceArray.length })
 
     return workspaceArray
   } catch (error: any) {

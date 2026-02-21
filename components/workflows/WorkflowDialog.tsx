@@ -124,7 +124,7 @@ export default function WorkflowDialog({
               workspaceType as 'personal' | 'team' | 'organization',
               workspaceId || null
             )
-            logger.debug("✅ [WorkflowDialog] Default workspace updated:", {
+            logger.info("✅ [WorkflowDialog] Default workspace updated:", {
               workspaceType,
               workspaceId: workspaceId || null
             })
@@ -135,7 +135,7 @@ export default function WorkflowDialog({
           }
         }
 
-        logger.debug("🌐 [WorkflowDialog] Creating workflow with workspace context:", {
+        logger.info("🌐 [WorkflowDialog] Creating workflow with workspace context:", {
           workspaceType,
           workspaceId: workspaceId || null
         })
@@ -147,7 +147,7 @@ export default function WorkflowDialog({
           throw new Error("Workflow created but no ID returned")
         }
 
-        logger.debug("✅ [WorkflowDialog] New workflow created:", {
+        logger.info("✅ [WorkflowDialog] New workflow created:", {
           id: newWorkflow.id,
           name: newWorkflow.name,
           user_id: newWorkflow.user_id,
@@ -161,7 +161,7 @@ export default function WorkflowDialog({
 
         // Add a small delay to ensure the database has propagated the new workflow
         setTimeout(() => {
-          logger.debug("🚀 [WorkflowDialog] Navigating to workflow builder:", newWorkflow.id)
+          logger.info("🚀 [WorkflowDialog] Navigating to workflow builder:", newWorkflow.id)
           // Navigate to the workflow builder for new workflows
           router.push(`/workflows/builder/${newWorkflow.id}`)
         }, 100)

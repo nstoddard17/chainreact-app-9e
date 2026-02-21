@@ -10,7 +10,7 @@ import { logger } from '@/lib/utils/logger'
 export const getTrelloLists: TrelloDataHandler<TrelloList> = async (integration: TrelloIntegration, options: TrelloHandlerOptions = {}): Promise<TrelloList[]> => {
   const { boardId } = options
   
-  logger.debug("🔍 Trello lists fetcher called with:", {
+  logger.info("🔍 Trello lists fetcher called with:", {
     integrationId: integration.id,
     boardId,
     hasToken: !!integration.access_token
@@ -20,27 +20,27 @@ export const getTrelloLists: TrelloDataHandler<TrelloList> = async (integration:
     // Validate integration status
     validateTrelloIntegration(integration)
     
-    logger.debug(`🔍 Validating Trello token...`)
+    logger.info(`🔍 Validating Trello token...`)
     const tokenResult = await validateTrelloToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Trello token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Trello token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
     if (!boardId) {
-      logger.debug('⚠️ No board ID provided, returning empty lists array')
+      logger.info('⚠️ No board ID provided, returning empty lists array')
       return []
     }
     
-    logger.debug('🔍 Fetching Trello lists from API...')
+    logger.info('🔍 Fetching Trello lists from API...')
     const apiUrl = buildTrelloApiUrl(`/1/boards/${boardId}/lists?fields=id,name,closed`)
     
     const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!, tokenResult.key)
     
     const lists = await parseTrelloApiResponse<TrelloList>(response)
     
-    logger.debug(`✅ Trello lists fetched successfully: ${lists.length} lists`)
+    logger.info(`✅ Trello lists fetched successfully: ${lists.length} lists`)
     return lists
     
   } catch (error: any) {

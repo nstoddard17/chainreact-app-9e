@@ -42,7 +42,7 @@ export const getGoogleAnalyticsConversionEvents: GoogleAnalyticsDataHandler<Goog
       }
     }
 
-    logger.debug(`✅ [Google Analytics] Fetched ${conversionEvents.length} conversion events for property ${options.propertyId}`)
+    logger.info(`✅ [Google Analytics] Fetched ${conversionEvents.length} conversion events for property ${options.propertyId}`)
     return conversionEvents
 
   } catch (error: any) {

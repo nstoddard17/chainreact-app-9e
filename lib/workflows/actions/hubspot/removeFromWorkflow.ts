@@ -24,7 +24,7 @@ export async function hubspotRemoveFromWorkflow(
       throw new Error('Workflow ID and contact email are required')
     }
 
-    logger.debug('Unenrolling contact from workflow:', { workflowId, contactEmail })
+    logger.info('Unenrolling contact from workflow:', { workflowId, contactEmail })
 
     const response = await fetch(
       `https://api.hubapi.com/automation/v2/workflows/${workflowId}/enrollments/contacts/${contactEmail}`,

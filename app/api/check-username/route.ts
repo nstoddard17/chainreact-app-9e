@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         return jsonResponse({ available: true })
       }
       // For any other error, log it but assume available
-      logger.debug('Username check error:', error)
+      logger.info('Username check error:', error)
       return jsonResponse({ available: true })
     }
 

@@ -33,7 +33,7 @@ export function getCachedDataSourceId(databaseId: string): string | undefined {
   const now = Date.now()
   if (now - entry.timestamp > CACHE_TTL) {
     cache.delete(databaseId)
-    logger.debug('Data source cache entry expired')
+    logger.info('Data source cache entry expired')
     return undefined
   }
 
@@ -49,7 +49,7 @@ export function cacheDataSourceId(databaseId: string, dataSourceId: string): voi
     timestamp: Date.now()
   })
 
-  logger.debug('Cached data source mapping')
+  logger.info('Cached data source mapping')
 }
 
 /**
@@ -64,7 +64,7 @@ export function clearCacheEntry(databaseId: string): void {
  */
 export function clearCache(): void {
   cache.clear()
-  logger.debug('Cleared data source cache')
+  logger.info('Cleared data source cache')
 }
 
 /**

@@ -58,7 +58,7 @@ class DiscordInviteTracker {
   private setupEventListeners() {
     // Bot is ready
     this.client.once("ready", async () => {
-      logger.debug(`Discord Invite Tracker Bot logged in as ${this.client.user?.tag}`)
+      logger.info(`Discord Invite Tracker Bot logged in as ${this.client.user?.tag}`)
       await this.cacheAllInvites()
       this.isInitialized = true
     })
@@ -168,7 +168,7 @@ class DiscordInviteTracker {
 
       if (usedInvite) {
         const normalizedCode = normalizeInviteCode(usedInvite.code) || usedInvite.code
-        logger.debug(`Member ${member.user.tag} joined using invite ${normalizedCode}`)
+        logger.info(`Member ${member.user.tag} joined using invite ${normalizedCode}`)
 
         // Check for role assignment based on invite
         await this.assignRoleBasedOnInvite(member, normalizedCode)
@@ -177,7 +177,7 @@ class DiscordInviteTracker {
         await this.triggerMemberJoinWorkflow(member, usedInvite)
       } else {
         // Check if it's a vanity URL or direct invite
-        logger.debug(`Member ${member.user.tag} joined but couldn't determine invite used`)
+        logger.info(`Member ${member.user.tag} joined but couldn't determine invite used`)
 
         // Still trigger workflow but without invite data
         await this.triggerMemberJoinWorkflow(member, null)
@@ -208,7 +208,7 @@ class DiscordInviteTracker {
 
         try {
           await member.roles.add(roleId)
-          logger.debug(`Assigned role ${roleId} to ${member.user.tag} via hardcoded config`)
+          logger.info(`Assigned role ${roleId} to ${member.user.tag} via hardcoded config`)
         } catch (error) {
           logger.error(`Failed to assign role ${roleId}:`, error)
         }
@@ -226,7 +226,7 @@ class DiscordInviteTracker {
       if (mapping) {
         try {
           await member.roles.add(mapping.role_id)
-          logger.debug(`Assigned role ${mapping.role_id} to ${member.user.tag} based on invite ${inviteCode}`)
+          logger.info(`Assigned role ${mapping.role_id} to ${member.user.tag} based on invite ${inviteCode}`)
         } catch (error) {
           logger.error(`Failed to assign role ${mapping.role_id}:`, error)
         }
@@ -269,7 +269,7 @@ class DiscordInviteTracker {
         return
       }
 
-      logger.debug('[Discord] Evaluating member join workflows', {
+      logger.info('[Discord] Evaluating member join workflows', {
         workflowsCount: workflows?.length || 0,
         guildId: member.guild.id
       })
@@ -326,7 +326,7 @@ class DiscordInviteTracker {
 
         // Check if guild matches (if specified in trigger config)
         if (triggerNode.data?.guildId && triggerNode.data.guildId !== member.guild.id) {
-          logger.debug('[Discord] Skipping workflow due to guild mismatch', {
+          logger.info('[Discord] Skipping workflow due to guild mismatch', {
             workflowId: workflow.id,
             expected: triggerNode.data.guildId,
             actual: member.guild.id
@@ -337,7 +337,7 @@ class DiscordInviteTracker {
         // Check invite filter if specified
         const filterCode = normalizeInviteCode(triggerNode.data?.inviteFilter)
         if (filterCode && filterCode !== inviteCode) {
-          logger.debug('[Discord] Skipping workflow due to invite filter mismatch', {
+          logger.info('[Discord] Skipping workflow due to invite filter mismatch', {
             workflowId: workflow.id,
             expected: filterCode,
             actual: inviteCode
@@ -348,7 +348,7 @@ class DiscordInviteTracker {
         // Check channel filter if specified
         const channelFilter = triggerNode.data?.channelFilter
         if (channelFilter && channelFilter !== triggerData.inviteChannelId) {
-          logger.debug('[Discord] Skipping workflow due to channel filter mismatch', {
+          logger.info('[Discord] Skipping workflow due to channel filter mismatch', {
             workflowId: workflow.id,
             expected: channelFilter,
             actual: triggerData.inviteChannelId
@@ -376,7 +376,7 @@ class DiscordInviteTracker {
           )
 
           await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerData)
-          logger.debug('[Discord] Workflow triggered successfully for member join', {
+          logger.info('[Discord] Workflow triggered successfully for member join', {
             workflowId: workflow.id,
             memberId: member.id,
             inviteCode
@@ -392,7 +392,7 @@ class DiscordInviteTracker {
 
   async initialize() {
     if (this.isInitialized) {
-      logger.debug("Discord Invite Tracker already initialized")
+      logger.info("Discord Invite Tracker already initialized")
       return
     }
 

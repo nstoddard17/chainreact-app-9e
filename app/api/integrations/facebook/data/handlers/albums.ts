@@ -20,11 +20,11 @@ export const getFacebookAlbums: FacebookDataHandler<FacebookAlbum> = async (inte
     const { pageId } = options
 
     if (!pageId) {
-      logger.debug('❌ [Facebook Albums] No pageId provided')
+      logger.info('❌ [Facebook Albums] No pageId provided')
       return []
     }
 
-    logger.debug("🔍 [Facebook Albums] Fetching albums for page:", {
+    logger.info("🔍 [Facebook Albums] Fetching albums for page:", {
       integrationId: integration.id,
       pageId,
       hasToken: !!integration.access_token
@@ -34,13 +34,13 @@ export const getFacebookAlbums: FacebookDataHandler<FacebookAlbum> = async (inte
     const tokenResult = await validateFacebookToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ [Facebook Albums] Token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ [Facebook Albums] Token validation failed: ${tokenResult.error}`)
       return []
     }
 
     // Fetch albums from the page
     // Request id, name, count (photo count), created_time
-    logger.debug("🔍 [Facebook Albums] Making Facebook API call")
+    logger.info("🔍 [Facebook Albums] Making Facebook API call")
     const response = await makeFacebookApiRequest(
       `https://graph.facebook.com/v19.0/${pageId}/albums?fields=id,name,count,created_time&limit=100`,
       tokenResult.token!
@@ -48,7 +48,7 @@ export const getFacebookAlbums: FacebookDataHandler<FacebookAlbum> = async (inte
 
     if (!response.ok) {
       if (response.status === 401) {
-        logger.debug("❌ [Facebook Albums] API returned 401 - token may be invalid")
+        logger.info("❌ [Facebook Albums] API returned 401 - token may be invalid")
         return []
       }
       const errorData = await response.json().catch(() => ({}))
@@ -57,7 +57,7 @@ export const getFacebookAlbums: FacebookDataHandler<FacebookAlbum> = async (inte
     }
 
     const data = await response.json()
-    logger.debug("✅ [Facebook Albums] API response:", {
+    logger.info("✅ [Facebook Albums] API response:", {
       albumCount: data.data?.length || 0
     })
 
@@ -87,7 +87,7 @@ export const getFacebookAlbums: FacebookDataHandler<FacebookAlbum> = async (inte
       ...albums
     ]
 
-    logger.debug(`✅ [Facebook Albums] Processed ${albumsWithDefault.length} albums (including Timeline Photos)`)
+    logger.info(`✅ [Facebook Albums] Processed ${albumsWithDefault.length} albums (including Timeline Photos)`)
     return albumsWithDefault
   } catch (error: any) {
     logger.error("❌ [Facebook Albums] Error fetching albums:", error)

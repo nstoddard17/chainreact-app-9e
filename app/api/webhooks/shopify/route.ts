@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const shopifyDomain = request.headers.get('x-shopify-shop-domain')
     const shopifyHmac = request.headers.get('x-shopify-hmac-sha256')
 
-    logger.debug('[Shopify Webhook] Received webhook:', {
+    logger.info('[Shopify Webhook] Received webhook:', {
       requestId,
       topic: shopifyTopic,
       domain: shopifyDomain,
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Topic not handled' })
     }
 
-    logger.debug('[Shopify Webhook] Mapped topic to trigger:', {
+    logger.info('[Shopify Webhook] Mapped topic to trigger:', {
       topic: shopifyTopic,
       triggerType,
     })
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!triggerResources || triggerResources.length === 0) {
-      logger.debug('[Shopify Webhook] No active trigger resources found', {
+      logger.info('[Shopify Webhook] No active trigger resources found', {
         triggerType,
         workflowId,
       })
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     for (const resource of triggerResources) {
       // Apply trigger config filters
       if (!shouldProcessWebhook(resource.trigger_type, resource.config || {}, triggerOutput)) {
-        logger.debug('[Shopify Webhook] Skipping workflow due to filter:', {
+        logger.info('[Shopify Webhook] Skipping workflow due to filter:', {
           workflowId: resource.workflow_id,
           triggerType: resource.trigger_type,
         })
@@ -258,7 +258,7 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
       targetHandle: e.target_port_id || 'target',
     }))
 
-    logger.debug(`[Shopify Webhook] Loaded ${nodes.length} nodes and ${edges.length} edges for workflow ${workflowId}`)
+    logger.info(`[Shopify Webhook] Loaded ${nodes.length} nodes and ${edges.length} edges for workflow ${workflowId}`)
 
     const { WorkflowExecutionService } = await import('@/lib/services/workflowExecutionService')
     const workflowExecutionService = new WorkflowExecutionService()
@@ -409,7 +409,7 @@ function shouldProcessWebhook(triggerType: string, config: any, output: any): bo
       if (config.minimum_value) {
         const minValue = parseFloat(config.minimum_value)
         if (output.total_price < minValue) {
-          logger.debug('[Shopify Webhook] Cart below minimum value:', {
+          logger.info('[Shopify Webhook] Cart below minimum value:', {
             cartValue: output.total_price,
             minimumValue: minValue,
           })
@@ -423,7 +423,7 @@ function shouldProcessWebhook(triggerType: string, config: any, output: any): bo
       if (config.threshold) {
         const threshold = parseInt(config.threshold)
         if (!isNaN(threshold) && output.quantity >= threshold) {
-          logger.debug('[Shopify Webhook] Inventory not below threshold:', {
+          logger.info('[Shopify Webhook] Inventory not below threshold:', {
             quantity: output.quantity,
             threshold,
           })
@@ -432,7 +432,7 @@ function shouldProcessWebhook(triggerType: string, config: any, output: any): bo
       }
       // Filter by location if specified
       if (config.location_id && output.location_id !== config.location_id) {
-        logger.debug('[Shopify Webhook] Location mismatch:', {
+        logger.info('[Shopify Webhook] Location mismatch:', {
           expected: config.location_id,
           received: output.location_id,
         })

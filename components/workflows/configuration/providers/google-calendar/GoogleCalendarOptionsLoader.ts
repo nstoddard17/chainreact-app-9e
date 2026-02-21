@@ -33,7 +33,7 @@ export class GoogleCalendarOptionsLoader implements ProviderOptionsLoader {
   async loadOptions(params: LoadOptionsParams): Promise<SelectOption[]> {
     const { fieldName, resourceType, integrationId, dependsOnValue } = params;
 
-    logger.debug('🗓️ [GoogleCalendar] Loading options:', {
+    logger.info('🗓️ [GoogleCalendar] Loading options:', {
       fieldName,
       resourceType,
       integrationId,

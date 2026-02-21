@@ -34,7 +34,7 @@ export function useIntegrationMigration() {
         const data = await response.json()
         
         if (data.hasOrphaned) {
-          logger.debug('🔄 Found orphaned integrations, attempting migration...')
+          logger.info('🔄 Found orphaned integrations, attempting migration...')
           
           // Attempt automatic migration
           const migrateResponse = await fetch('/api/integrations/migrate-user-id', {
@@ -44,7 +44,7 @@ export function useIntegrationMigration() {
 
           if (migrateResponse.ok) {
             const migrateData = await migrateResponse.json()
-            logger.debug(`✅ Successfully migrated ${migrateData.migrated} integrations`)
+            logger.info(`✅ Successfully migrated ${migrateData.migrated} integrations`)
             
             // Refresh integrations if any were migrated
             if (migrateData.migrated > 0) {

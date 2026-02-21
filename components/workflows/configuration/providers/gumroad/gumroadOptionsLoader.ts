@@ -31,7 +31,7 @@ export class GumroadOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
     if (pendingPromise) {
-      logger.debug(`🔄 [Gumroad] Reusing pending request for ${fieldName}`);
+      logger.info(`🔄 [Gumroad] Reusing pending request for ${fieldName}`);
       return pendingPromise;
     }
 
@@ -88,7 +88,7 @@ export class GumroadOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cache.get(cacheKey);
       if (cached) {
-        logger.debug(`✅ [Gumroad] Returning cached products (${cached.length} items)`);
+        logger.info(`✅ [Gumroad] Returning cached products (${cached.length} items)`);
         return cached;
       }
     }
@@ -98,7 +98,7 @@ export class GumroadOptionsLoader implements ProviderOptionsLoader {
       return [];
     }
 
-    logger.debug(`🔍 [Gumroad] Loading products for integration ${integrationId}`);
+    logger.info(`🔍 [Gumroad] Loading products for integration ${integrationId}`);
 
     try {
       const response = await fetch('/api/integrations/gumroad/data', {
@@ -128,7 +128,7 @@ export class GumroadOptionsLoader implements ProviderOptionsLoader {
       const data = await response.json();
       const products = data.data || [];
 
-      logger.debug(`✅ [Gumroad] Loaded ${products.length} products`);
+      logger.info(`✅ [Gumroad] Loaded ${products.length} products`);
 
       // Products are already formatted by the handler with value and label
       const formattedProducts = products.map((product: any) => ({

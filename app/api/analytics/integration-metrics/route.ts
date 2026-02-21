@@ -48,7 +48,7 @@ export async function GET() {
       !internalIntegrationIds.includes(integration.id)
     )
 
-    logger.debug(`🔍 Integration Metrics Debug:
+    logger.info(`🔍 Integration Metrics Debug:
       - Total available integrations: ${availableIntegrations.length}
       - External integrations (excluding internal): ${externalIntegrations.length}
       - Internal integrations filtered out: ${internalIntegrationIds.join(', ')}
@@ -127,7 +127,7 @@ export async function GET() {
       !configuredProviderIds.includes(providerId)
     ).length
     
-    logger.debug(`🔍 Disconnected Count Debug:
+    logger.info(`🔍 Disconnected Count Debug:
       - Available external provider IDs: ${availableProviderIds.join(', ')}
       - Configured provider IDs: ${configuredProviderIds.join(', ')}
       - Disconnected count: ${disconnectedCount}
@@ -146,13 +146,13 @@ export async function GET() {
     });
 
     if (expiringForDebug.length > 0) {
-      logger.debug(`Found ${expiringForDebug.length} expiring integrations:`, expiringForDebug.map((e: Integration) => e.provider));
+      logger.info(`Found ${expiringForDebug.length} expiring integrations:`, expiringForDebug.map((e: Integration) => e.provider));
     }
 
     // Update expired integrations in the database
     let updatedCount = 0
     if (integrationsToUpdate.length > 0) {
-      logger.debug(
+      logger.info(
         `Found ${integrationsToUpdate.length} integrations with outdated status that need updating`,
       )
 
@@ -169,7 +169,7 @@ export async function GET() {
           logger.error(`Failed to update integration ${item.id} (${item.provider}):`, updateError)
         } else {
           updatedCount++
-          logger.debug(`✅ Updated ${item.provider} status from ${item.oldStatus} to ${item.newStatus}`)
+          logger.info(`✅ Updated ${item.provider} status from ${item.oldStatus} to ${item.newStatus}`)
         }
       }
     }

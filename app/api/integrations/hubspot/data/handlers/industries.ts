@@ -8,7 +8,7 @@ import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest
 import { logger } from '@/lib/utils/logger'
 
 export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotIndustry[]> => {
-  logger.debug("🔍 HubSpot industries fetcher called with integration:", {
+  logger.info("🔍 HubSpot industries fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -19,15 +19,15 @@ export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (
     // Validate integration status
     validateHubSpotIntegration(integration)
     
-    logger.debug(`🔍 Validating HubSpot token...`)
+    logger.info(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    logger.debug('🔍 Fetching HubSpot industries from API...')
+    logger.info('🔍 Fetching HubSpot industries from API...')
     // HubSpot v3 API endpoint for getting industry property with its options
     const apiUrl = buildHubSpotApiUrl('/crm/v3/properties/companies/industry')
 
@@ -39,7 +39,7 @@ export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (
 
       // If the property doesn't exist or there's an issue, return a default list
       if (response.status === 404 || response.status === 400) {
-        logger.debug('⚠️ Using default industries list')
+        logger.info('⚠️ Using default industries list')
         return getDefaultIndustries()
       }
 
@@ -54,7 +54,7 @@ export const getHubSpotIndustries: HubSpotDataHandler<HubSpotIndustry> = async (
       value: opt.value
     })) || getDefaultIndustries()
     
-    logger.debug(`✅ HubSpot industries fetched successfully: ${industries.length} industries`)
+    logger.info(`✅ HubSpot industries fetched successfully: ${industries.length} industries`)
     return industries
     
   } catch (error: any) {

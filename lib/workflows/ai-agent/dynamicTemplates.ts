@@ -394,7 +394,7 @@ export async function loadDynamicTemplates(): Promise<WorkflowTemplate[]> {
       return []
     }
 
-    logger.debug(`[DynamicTemplates] Loaded ${data.length} active templates`)
+    logger.info(`[DynamicTemplates] Loaded ${data.length} active templates`)
 
     // Convert to WorkflowTemplate format
     return data.map((template: any) => ({

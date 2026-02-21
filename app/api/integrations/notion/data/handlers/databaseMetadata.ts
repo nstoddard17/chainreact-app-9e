@@ -9,8 +9,8 @@ import { makeNotionApiRequest, validateNotionIntegration, resolveNotionAccessTok
 import { logger } from '@/lib/utils/logger'
 
 export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: NotionIntegration, context?: any): Promise<any> => {
-  logger.debug("🔍 Notion database metadata fetcher called")
-  logger.debug("🔍 Context:", context)
+  logger.info("🔍 Notion database metadata fetcher called")
+  logger.info("🔍 Context:", context)
 
   try {
     validateNotionIntegration(integration)
@@ -27,7 +27,7 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
       }
     }
 
-    logger.debug(`🔍 Fetching metadata for database: ${databaseId}`)
+    logger.info(`🔍 Fetching metadata for database: ${databaseId}`)
 
     // Get the database details
     const databaseResponse = await makeNotionApiRequest(
@@ -50,7 +50,7 @@ export const getNotionDatabaseMetadata: NotionDataHandler = async (integration: 
     const title = database.title?.[0]?.plain_text || ''
     const description = database.description?.[0]?.plain_text || ''
 
-    logger.debug(`✅ Database metadata retrieved - Title: "${title}", Description: "${description}"`)
+    logger.info(`✅ Database metadata retrieved - Title: "${title}", Description: "${description}"`)
 
     return {
       title,

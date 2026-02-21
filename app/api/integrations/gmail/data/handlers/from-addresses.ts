@@ -31,11 +31,11 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
     const cacheKey = integration.id
     const cached = modalCache.get(cacheKey)
     if (cached && (Date.now() - cached.timestamp) < MODAL_CACHE_DURATION) {
-      logger.debug("📦 [Gmail From Addresses] Using cached from addresses")
+      logger.info("📦 [Gmail From Addresses] Using cached from addresses")
       return cached.data
     }
 
-    logger.debug("🚀 [Gmail From Addresses] Fetching fresh from addresses")
+    logger.info("🚀 [Gmail From Addresses] Fetching fresh from addresses")
 
     const accessToken = getGmailAccessToken(integration)
     const fromAddresses: FromAddress[] = []
@@ -43,7 +43,7 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
 
     // 1. Fetch user's Gmail profile to get primary email
     try {
-      logger.debug("👤 [Gmail From Addresses] Fetching user profile...")
+      logger.info("👤 [Gmail From Addresses] Fetching user profile...")
 
       const profileResponse = await makeGmailApiRequest(
         'https://gmail.googleapis.com/gmail/v1/users/me/profile',
@@ -63,7 +63,7 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
             group: 'Your Email Addresses'
           })
           seenEmails.add(primaryEmail)
-          logger.debug(`✅ [Gmail From Addresses] Primary email: ${primaryEmail}`)
+          logger.info(`✅ [Gmail From Addresses] Primary email: ${primaryEmail}`)
         }
       }
     } catch (profileError: any) {
@@ -72,7 +72,7 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
 
     // 2. Fetch send-as aliases from Gmail settings
     try {
-      logger.debug("📧 [Gmail From Addresses] Fetching send-as aliases...")
+      logger.info("📧 [Gmail From Addresses] Fetching send-as aliases...")
 
       const sendAsResponse = await makeGmailApiRequest(
         'https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs',
@@ -108,7 +108,7 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
           }
         })
 
-        logger.debug(`✅ [Gmail From Addresses] Found ${sendAsAddresses.length} send-as aliases`)
+        logger.info(`✅ [Gmail From Addresses] Found ${sendAsAddresses.length} send-as aliases`)
       }
     } catch (sendAsError: any) {
       logger.warn("⚠️ [Gmail From Addresses] Could not fetch send-as aliases:", sendAsError.message)
@@ -116,7 +116,7 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
 
     // 3. Fetch recent "From" addresses from sent emails (last 20 messages)
     try {
-      logger.debug("📨 [Gmail From Addresses] Fetching recent sent emails...")
+      logger.info("📨 [Gmail From Addresses] Fetching recent sent emails...")
 
       const sentResponse = await makeGmailApiRequest(
         'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=SENT&maxResults=20',
@@ -128,7 +128,7 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
         const sentMessages = sentData.messages || []
 
         if (sentMessages.length > 0) {
-          logger.debug(`📨 [Gmail From Addresses] Processing ${sentMessages.length} sent messages...`)
+          logger.info(`📨 [Gmail From Addresses] Processing ${sentMessages.length} sent messages...`)
 
           // Track frequency of from addresses
           const fromFrequency = new Map<string, { email: string; name?: string; count: number }>()
@@ -205,14 +205,14 @@ export const getGmailFromAddresses: GmailDataHandler<FromAddress> = async (integ
             }
           })
 
-          logger.debug(`✅ [Gmail From Addresses] Found ${recentFroms.length} recent from addresses`)
+          logger.info(`✅ [Gmail From Addresses] Found ${recentFroms.length} recent from addresses`)
         }
       }
     } catch (recentError: any) {
       logger.warn("⚠️ [Gmail From Addresses] Could not fetch recent senders:", recentError.message)
     }
 
-    logger.debug(`✅ [Gmail From Addresses] Total: ${fromAddresses.length} from addresses`)
+    logger.info(`✅ [Gmail From Addresses] Total: ${fromAddresses.length} from addresses`)
 
     // Cache for modal session
     modalCache.set(cacheKey, {

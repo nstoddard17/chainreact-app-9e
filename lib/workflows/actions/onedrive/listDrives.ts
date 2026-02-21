@@ -17,7 +17,7 @@ export async function listOnedriveDrives(
     const driveType = context.dataFlowManager.resolveVariable(config.driveType) || 'all'
     const siteId = context.dataFlowManager.resolveVariable(config.siteId)
 
-    logger.debug('[OneDrive] Listing drives:', { driveType, siteId })
+    logger.info('[OneDrive] Listing drives:', { driveType, siteId })
 
     // Build drives URL
     let drivesUrl: string

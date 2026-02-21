@@ -49,7 +49,7 @@ export class FallbackHandler {
    * Handle fallback generation when AI fails or context is insufficient
    */
   static async handleFallback(context: FallbackContext): Promise<FallbackResult> {
-    logger.debug(`🔄 Handling fallback for field: ${context.field.name}`);
+    logger.info(`🔄 Handling fallback for field: ${context.field.name}`);
     
     const strategies = this.getFallbackStrategies(context);
     
@@ -61,7 +61,7 @@ export class FallbackHandler {
       
       const result = await this.executeStrategy(strategy, context);
       if (result.success) {
-        logger.debug(`✅ Fallback successful using strategy: ${strategy.type}`);
+        logger.info(`✅ Fallback successful using strategy: ${strategy.type}`);
         return result;
       }
     }

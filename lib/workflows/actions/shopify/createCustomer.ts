@@ -38,7 +38,7 @@ export async function createShopifyCustomer(
     const tags = config.tags ? await resolveValue(config.tags, input) : undefined
     const sendWelcomeEmail = config.send_welcome_email ?? false
 
-    logger.debug('[Shopify GraphQL] Creating customer:', { email, selectedStore })
+    logger.info('[Shopify GraphQL] Creating customer:', { email, selectedStore })
 
     // 3. Build GraphQL mutation
     const mutation = `

@@ -22,7 +22,7 @@ export const getShopifyLocations: ShopifyDataHandler<ShopifyLocation[]> = async 
       active: location.active !== false
     }))
 
-    logger.debug(`✅ [Shopify] Fetched ${locations.length} locations`)
+    logger.info(`✅ [Shopify] Fetched ${locations.length} locations`)
     return locations
 
   } catch (error: any) {

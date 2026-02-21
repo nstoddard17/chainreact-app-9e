@@ -12,26 +12,26 @@ async function fetchGmailMessages(integrationId?: string) {
     return errorResponse("Unauthorized" , 401)
   }
 
-  logger.debug('📨 Gmail messages: Looking for integration, integrationId:', integrationId, 'userId:', user.id)
+  logger.info('📨 Gmail messages: Looking for integration, integrationId:', integrationId, 'userId:', user.id)
 
   // Get Gmail integration - try integrationId first, then fall back to user/provider lookup
   let integration = null
   
   if (integrationId) {
-    logger.debug('📨 Gmail messages: Trying to find integration by ID...')
+    logger.info('📨 Gmail messages: Trying to find integration by ID...')
     const { data: integrationById, error: byIdError } = await supabase
       .from('integrations')
       .select('*')
       .eq('id', integrationId)
       .eq('user_id', user.id) // Security: ensure user owns this integration
       .single()
-    logger.debug('📨 Gmail messages: Integration by ID result:', integrationById, 'error:', byIdError)
+    logger.info('📨 Gmail messages: Integration by ID result:', integrationById, 'error:', byIdError)
     integration = integrationById
   }
   
   // Fallback to finding by user and provider if integrationId lookup failed
   if (!integration) {
-    logger.debug('📨 Gmail messages: Trying to find integration by user/provider...')
+    logger.info('📨 Gmail messages: Trying to find integration by user/provider...')
     const { data: integrationByProvider, error: byProviderError } = await supabase
       .from('integrations')
       .select('*')
@@ -39,19 +39,19 @@ async function fetchGmailMessages(integrationId?: string) {
       .eq('provider', 'gmail')
       .eq('status', 'connected')
       .single()
-    logger.debug('📨 Gmail messages: Integration by provider result:', integrationByProvider, 'error:', byProviderError)
+    logger.info('📨 Gmail messages: Integration by provider result:', integrationByProvider, 'error:', byProviderError)
     integration = integrationByProvider
   }
 
   if (!integration) {
-    logger.debug('❌ Gmail messages: No integration found!')
+    logger.info('❌ Gmail messages: No integration found!')
     return jsonResponse({ 
       success: false, 
       error: "Integration not found: gmail" 
     }, { status: 404 })
   }
 
-  logger.debug('✅ Gmail messages: Integration found:', integration.id, 'status:', integration.status)
+  logger.info('✅ Gmail messages: Integration found:', integration.id, 'status:', integration.status)
 
   // Use access token directly from integration record
   const accessToken = integration.access_token
@@ -63,7 +63,7 @@ async function fetchGmailMessages(integrationId?: string) {
     }, { status: 500 })
   }
 
-  logger.debug('🔑 Gmail messages: Using access token from integration record')
+  logger.info('🔑 Gmail messages: Using access token from integration record')
 
   // Fetch Gmail messages
   const allMailResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=100", {

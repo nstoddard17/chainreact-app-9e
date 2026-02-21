@@ -45,7 +45,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
     if (pendingPromise) {
-      logger.debug(`🔄 [Discord] Reusing pending request for ${fieldName}`);
+      logger.info(`🔄 [Discord] Reusing pending request for ${fieldName}`);
       return pendingPromise;
     }
     
@@ -129,7 +129,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
   private async loadCommands(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { dependsOnValue: guildId, integrationId, signal, forceRefresh } = params
     if (!guildId) {
-      logger.debug('🔍 [Discord] Cannot load commands without guildId')
+      logger.info('🔍 [Discord] Cannot load commands without guildId')
       return []
     }
 
@@ -139,7 +139,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Discord] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Discord] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -147,10 +147,10 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Discord] Cache HIT for command:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Discord] Cache HIT for command:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Discord] Cache MISS for command:`, { cacheKey });
+      logger.info(`❌ [Discord] Cache MISS for command:`, { cacheKey });
     }
 
     try {
@@ -179,7 +179,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
       // Store in cache
       const ttl = getFieldTTL('command');
       cacheStore.set(cacheKey, formattedCommands, ttl);
-      logger.debug(`💾 [Discord] Cached ${formattedCommands.length} options for command (TTL: ${ttl / 1000}s)`);
+      logger.info(`💾 [Discord] Cached ${formattedCommands.length} options for command (TTL: ${ttl / 1000}s)`);
 
       return formattedCommands
     } catch (error) {
@@ -198,7 +198,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { integrationId, forceRefresh, signal } = params;
 
     if (!integrationId) {
-      logger.debug('🔍 [Discord] Cannot load guilds without integrationId');
+      logger.info('🔍 [Discord] Cannot load guilds without integrationId');
       return [];
     }
 
@@ -208,21 +208,21 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Discord] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Discord] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     } else {
       // Try cache first
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Discord] Cache HIT for guildId:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Discord] Cache HIT for guildId:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Discord] Cache MISS for guildId:`, { cacheKey });
+      logger.info(`❌ [Discord] Cache MISS for guildId:`, { cacheKey });
     }
 
     // If there's already a guild loading in progress and we're not forcing refresh, return it
     if (!forceRefresh && DiscordOptionsLoader.guildLoadingPromise) {
-      logger.debug('🔄 [Discord] Reusing existing guild loading promise');
+      logger.info('🔄 [Discord] Reusing existing guild loading promise');
       return DiscordOptionsLoader.guildLoadingPromise;
     }
 
@@ -250,7 +250,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         const guilds = result.data || [];
 
         if (!guilds || guilds.length === 0) {
-          logger.debug('🔍 [Discord] No guilds found - bot may not be in any servers');
+          logger.info('🔍 [Discord] No guilds found - bot may not be in any servers');
           return [];
         }
 
@@ -262,7 +262,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         // Store in cache
         const ttl = getFieldTTL('guildId');
         cacheStore.set(cacheKey, formattedGuilds, ttl);
-        logger.debug(`💾 [Discord] Cached ${formattedGuilds.length} options for guildId (TTL: ${ttl / 1000}s)`);
+        logger.info(`💾 [Discord] Cached ${formattedGuilds.length} options for guildId (TTL: ${ttl / 1000}s)`);
 
         return formattedGuilds;
       } catch (error: any) {
@@ -270,7 +270,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
 
         // Handle authentication errors
         if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-          logger.debug('🔄 [Discord] Authentication error detected, may need to refresh integration');
+          logger.info('🔄 [Discord] Authentication error detected, may need to refresh integration');
           // Could trigger integration refresh here if needed
         }
 
@@ -290,14 +290,14 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: guildId, integrationId, forceRefresh, signal } = params;
 
     if (!guildId || !integrationId) {
-      logger.debug('🔍 [Discord] Cannot load channels without guildId and integrationId');
+      logger.info('🔍 [Discord] Cannot load channels without guildId and integrationId');
       return [];
     }
 
     // If there's already a channel loading in progress for this guild and we're not forcing refresh, return it
     const existingPromise = DiscordOptionsLoader.channelLoadingPromises.get(guildId);
     if (!forceRefresh && existingPromise) {
-      logger.debug('🔄 [Discord] Reusing existing channel loading promise for guild:', guildId);
+      logger.info('🔄 [Discord] Reusing existing channel loading promise for guild:', guildId);
       return existingPromise;
     }
 
@@ -348,7 +348,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
         logger.error('❌ [Discord] Error loading channels for guild', guildId, ':', error);
 
         if (error.message?.includes('authentication') || error.message?.includes('expired')) {
-          logger.debug('🔄 [Discord] Authentication error detected');
+          logger.info('🔄 [Discord] Authentication error detected');
         }
 
         return [];
@@ -370,7 +370,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: channelId, integrationId, signal, nodeType, extraOptions } = params;
 
     if (!channelId || !integrationId) {
-      logger.debug('🔍 [Discord] Cannot load messages without channelId and integrationId');
+      logger.info('🔍 [Discord] Cannot load messages without channelId and integrationId');
       return [];
     }
 
@@ -434,7 +434,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: guildId, integrationId, signal } = params;
     
     if (!guildId || !integrationId) {
-      logger.debug('🔍 [Discord] Cannot load members without guildId and integrationId');
+      logger.info('🔍 [Discord] Cannot load members without guildId and integrationId');
       return [];
     }
 
@@ -484,7 +484,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: guildId, integrationId, signal } = params;
     
     if (!guildId || !integrationId) {
-      logger.debug('🔍 [Discord] Cannot load roles without guildId and integrationId');
+      logger.info('🔍 [Discord] Cannot load roles without guildId and integrationId');
       return [];
     }
 
@@ -523,7 +523,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: guildId, integrationId, signal } = params;
     
     if (!guildId || !integrationId) {
-      logger.debug('🔍 [Discord] Cannot load categories without guildId and integrationId');
+      logger.info('🔍 [Discord] Cannot load categories without guildId and integrationId');
       return [];
     }
 
@@ -568,7 +568,7 @@ export class DiscordOptionsLoader implements ProviderOptionsLoader {
     const cacheStore = useConfigCacheStore.getState();
     cacheStore.invalidateProvider('discord');
 
-    logger.debug('🧹 [Discord] Cache cleared');
+    logger.info('🧹 [Discord] Cache cleared');
   }
 
   getFieldDependencies(fieldName: string): string[] {

@@ -83,7 +83,7 @@ export function usePageDataPreloader(
     if (loaderName === 'integrations') {
       const integrationStore = useIntegrationStore.getState()
       if (integrationStore.lastFetchTime && (now - integrationStore.lastFetchTime) < CACHE_THRESHOLD) {
-        logger.debug('usePageDataPreloader', 'Skipping integrations load - data is fresh')
+        logger.info('usePageDataPreloader', 'Skipping integrations load - data is fresh')
         return true
       }
     }
@@ -92,12 +92,12 @@ export function usePageDataPreloader(
       const workflowStore = useWorkflowStore.getState()
       // Skip if we have fresh data OR if we have workflows in the store already
       if (workflowStore.lastFetchTime && (now - workflowStore.lastFetchTime) < CACHE_THRESHOLD) {
-        logger.debug('usePageDataPreloader', 'Skipping workflows load - data is fresh')
+        logger.info('usePageDataPreloader', 'Skipping workflows load - data is fresh')
         return true
       }
       // Also skip if we have workflows in the store (user just came from builder)
       if (workflowStore.workflows && workflowStore.workflows.length > 0) {
-        logger.debug('usePageDataPreloader', 'Skipping workflows load - workflows already in store')
+        logger.info('usePageDataPreloader', 'Skipping workflows load - workflows already in store')
         return true
       }
     }

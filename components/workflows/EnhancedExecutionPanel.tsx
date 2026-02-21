@@ -76,31 +76,31 @@ export function EnhancedExecutionPanel({
   useEffect(() => {
     stepExecutionController.setCallbacks({
       onNodeStart: (nodeId, nodeName) => {
-        logger.debug(`🚀 Starting node: ${nodeName}`)
+        logger.info(`🚀 Starting node: ${nodeName}`)
         onNodeHighlight?.(nodeId)
         updateExecutionStatus()
       },
       onNodeComplete: (nodeId, status, result) => {
-        logger.debug(`✅ Node complete: ${nodeId}`, status, result)
+        logger.info(`✅ Node complete: ${nodeId}`, status, result)
         setCurrentNodeData(result)
         updateExecutionStatus()
       },
       onNodeError: (nodeId, error) => {
-        logger.debug(`❌ Node error: ${nodeId}`, error)
+        logger.info(`❌ Node error: ${nodeId}`, error)
         updateExecutionStatus()
       },
       onExecutionComplete: (history) => {
-        logger.debug('🎉 Execution complete!', history)
+        logger.info('🎉 Execution complete!', history)
         setListenerStatus('idle')
         updateExecutionStatus()
       },
       onExecutionPaused: (nodeId) => {
-        logger.debug('⏸️ Execution paused at:', nodeId)
+        logger.info('⏸️ Execution paused at:', nodeId)
         updateExecutionStatus()
       },
       onWaitingForUser: async (nodeId, message) => {
         // This would typically show a modal or prompt
-        logger.debug(`⏳ Waiting for user action: ${message}`)
+        logger.info(`⏳ Waiting for user action: ${message}`)
         return 'continue' // Default action
       }
     })
@@ -108,11 +108,11 @@ export function EnhancedExecutionPanel({
     // Set up trigger listener callbacks
     triggerListeningManager.setCallbacks(
       (event) => {
-        logger.debug('⚡ Trigger event received:', event)
+        logger.info('⚡ Trigger event received:', event)
         setListenerStatus('triggered')
       },
       (nodeId, status) => {
-        logger.debug(`🎧 Listener status change: ${nodeId} - ${status}`)
+        logger.info(`🎧 Listener status change: ${nodeId} - ${status}`)
         setListenerStatus(status as any)
       }
     )

@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid trigger configuration", 400)
     }
 
-    logger.debug(`🧪 Testing trigger for workflow ${effectiveWorkflowId}`, {
+    logger.info(`🧪 Testing trigger for workflow ${effectiveWorkflowId}`, {
       nodeId,
       providerId,
       triggerType
@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('🧪 [test-trigger] ✅ Trigger activated successfully!')
-      logger.debug(`✅ Trigger activated for testing, waiting for SSE clients...`)
+      logger.info(`✅ Trigger activated for testing, waiting for SSE clients...`)
 
       const { data: triggerResource } = await supabase
         .from('trigger_resources')

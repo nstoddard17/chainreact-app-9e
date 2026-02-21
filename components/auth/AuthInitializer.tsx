@@ -34,7 +34,7 @@ export default function AuthInitializer() {
   useEffect(() => {
     if (!hydrateStarted.current) {
       hydrateStarted.current = true
-      logger.debug("🔄 Setting hydrated state...")
+      logger.info("🔄 Setting hydrated state...")
       setHydrated()
     }
   }, [setHydrated])
@@ -43,7 +43,7 @@ export default function AuthInitializer() {
   useEffect(() => {
     if (hydrated && !initialized && !initStarted.current) {
       initStarted.current = true
-      logger.debug("🔄 Initializing auth...")
+      logger.info("🔄 Initializing auth...")
       initialize()
     }
   }, [hydrated, initialized, initialize])

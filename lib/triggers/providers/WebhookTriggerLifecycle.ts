@@ -39,7 +39,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.debug(`🔔 Activating webhook trigger for workflow ${workflowId}`, {
+    logger.info(`🔔 Activating webhook trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -81,7 +81,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
       // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
       if (insertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-        logger.debug(`✅ Webhook trigger activated (without local record)`, { webhookUrl, webhookId })
+        logger.info(`✅ Webhook trigger activated (without local record)`, { webhookUrl, webhookId })
         return
       }
       logger.error(`❌ Failed to store trigger resource:`, insertError)
@@ -112,7 +112,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
       }
     }
 
-    logger.debug(`✅ Webhook trigger activated`, {
+    logger.info(`✅ Webhook trigger activated`, {
       webhookUrl,
       webhookId
     })
@@ -125,7 +125,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId } = context
 
-    logger.debug(`🛑 Deactivating webhook triggers for workflow ${workflowId}`)
+    logger.info(`🛑 Deactivating webhook triggers for workflow ${workflowId}`)
 
     // Mark trigger_resources as deleted
     await getSupabase()
@@ -143,7 +143,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
       .eq('provider_id', 'webhook')
       .eq('status', 'active')
 
-    logger.debug(`✅ Webhook triggers deactivated`)
+    logger.info(`✅ Webhook triggers deactivated`)
   }
 
   /**
@@ -153,7 +153,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
   async onDelete(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId } = context
 
-    logger.debug(`🗑️ Deleting webhook triggers for workflow ${workflowId}`)
+    logger.info(`🗑️ Deleting webhook triggers for workflow ${workflowId}`)
 
     // Delete from trigger_resources
     await getSupabase()
@@ -169,7 +169,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
       .eq('workflow_id', workflowId)
       .eq('provider_id', 'webhook')
 
-    logger.debug(`✅ Webhook triggers deleted`)
+    logger.info(`✅ Webhook triggers deleted`)
   }
 
   /**

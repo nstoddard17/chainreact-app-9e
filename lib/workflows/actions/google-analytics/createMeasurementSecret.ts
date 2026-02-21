@@ -26,7 +26,7 @@ export async function createGoogleAnalyticsMeasurementSecret(
       }
     }
 
-    logger.debug(`[GA4 Create Measurement Secret] Creating secret for property ${propertyId}, stream ${dataStreamId}`)
+    logger.info(`[GA4 Create Measurement Secret] Creating secret for property ${propertyId}, stream ${dataStreamId}`)
 
     // Build the parent resource name
     const parent = `properties/${propertyId}/dataStreams/${dataStreamId}`
@@ -53,7 +53,7 @@ export async function createGoogleAnalyticsMeasurementSecret(
 
     const result = await response.json()
 
-    logger.debug('[GA4 Create Measurement Secret] Successfully created secret:', result.name)
+    logger.info('[GA4 Create Measurement Secret] Successfully created secret:', result.name)
 
     return {
       success: true,

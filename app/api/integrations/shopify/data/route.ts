@@ -24,11 +24,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { integrationId, dataType, options = {} } = body
 
-    logger.debug('🔍 [Shopify Data API] Request:', { integrationId, dataType, options })
+    logger.info('🔍 [Shopify Data API] Request:', { integrationId, dataType, options })
 
     // Validate required parameters
     if (!integrationId || !dataType) {
-      logger.debug('❌ [Shopify Data API] Missing required parameters')
+      logger.info('❌ [Shopify Data API] Missing required parameters')
       return errorResponse('Missing required parameters: integrationId and dataType', 400)
     }
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     // Check if data type is supported
     if (!isShopifyDataTypeSupported(dataType)) {
-      logger.debug('❌ [Shopify Data API] Unsupported data type:', dataType)
+      logger.info('❌ [Shopify Data API] Unsupported data type:', dataType)
       return jsonResponse(
         {
           error: `Data type '${dataType}' not supported. Available types: ${getAvailableShopifyDataTypes().join(', ')}`
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     // Validate integration status
     if (integration.status !== 'connected' && integration.status !== 'active') {
-      logger.debug('⚠️ [Shopify Data API] Integration not connected:', integration.status)
+      logger.info('⚠️ [Shopify Data API] Integration not connected:', integration.status)
       return errorResponse('Shopify integration is not connected. Please reconnect your account.', 400, {
         needsReconnection: true,
         currentStatus: integration.status
@@ -76,13 +76,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Execute the handler
-    logger.debug(`🚀 [Shopify Data API] Executing handler for: ${dataType}`)
+    logger.info(`🚀 [Shopify Data API] Executing handler for: ${dataType}`)
     const startTime = Date.now()
 
     const result = await handler(integration as ShopifyIntegration, options)
 
     const duration = Date.now() - startTime
-    logger.debug(
+    logger.info(
       `✅ [Shopify Data API] Handler completed in ${duration}ms, returned ${
         Array.isArray(result) ? result.length : 'non-array'
       } items`

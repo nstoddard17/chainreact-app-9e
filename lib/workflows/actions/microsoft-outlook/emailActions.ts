@@ -273,7 +273,7 @@ export async function moveOutlookEmail(
     // However, some IDs from webhooks may have different formats
     const endpoint = `https://graph.microsoft.com/v1.0/me/messages/${emailId}/move`
 
-    logger.debug('[Outlook] Move email request', {
+    logger.info('[Outlook] Move email request', {
       emailId: emailId.substring(0, 50) + '...',
       destinationFolderId: destinationFolderId.substring(0, 50) + '...',
       endpoint

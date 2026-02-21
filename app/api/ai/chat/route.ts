@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       // TODO: Add proper admin check here
       // For now, we'll allow any authenticated user to test
       // In production, you should verify the user has admin role
-      logger.debug(`Admin test mode: User ${user.id} testing as ${testUserId}`)
+      logger.info(`Admin test mode: User ${user.id} testing as ${testUserId}`)
       userId = testUserId
     } else {
       // Normal mode - use authenticated user
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (existingRequest) {
-      logger.debug('Request already processed:', requestId)
+      logger.info('Request already processed:', requestId)
       return jsonResponse({
         requestId,
         cached: true,

@@ -16,7 +16,7 @@ export async function onenoteUpdatePage(
   const { pageId, updateMode = "append", content, target, position = "after" } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would update OneNote page:", { pageId, updateMode, target })
+    logger.info("[TEST MODE] Would update OneNote page:", { pageId, updateMode, target })
     return {
       success: true,
       output: {

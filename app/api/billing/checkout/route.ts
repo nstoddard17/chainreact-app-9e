@@ -14,7 +14,7 @@ function getBaseUrlFromRequest(request: NextRequest): string {
   if (host) {
     // Check if it's localhost - if so, ALWAYS use localhost regardless of env vars
     if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      logger.debug("[Checkout API] Detected localhost, using local URL")
+      logger.info("[Checkout API] Detected localhost, using local URL")
       return `http://${host}`
     }
     
@@ -44,41 +44,41 @@ function getBaseUrlFromRequest(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
-  logger.debug("[Checkout API] Request received")
+  logger.info("[Checkout API] Request received")
   try {
     // Dynamically determine the base URL
     const baseUrl = getBaseUrlFromRequest(request)
-    logger.debug("[Checkout API] Detected base URL:", baseUrl)
+    logger.info("[Checkout API] Detected base URL:", baseUrl)
     
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SECRET_KEY!
     )
-    logger.debug("[Checkout API] Supabase client created")
+    logger.info("[Checkout API] Supabase client created")
 
     // Get the user from the Authorization header
     const authHeader = request.headers.get("authorization")
-    logger.debug("[Checkout API] Auth header present:", !!authHeader)
+    logger.info("[Checkout API] Auth header present:", !!authHeader)
     const token = authHeader?.replace("Bearer ", "")
     
     if (!token) {
-      logger.debug("[Checkout API] No token found")
+      logger.info("[Checkout API] No token found")
       return errorResponse("Unauthorized" , 401)
     }
 
-    logger.debug("[Checkout API] Verifying user...")
+    logger.info("[Checkout API] Verifying user...")
     // Verify the user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
     
     if (authError || !user) {
-      logger.debug("[Checkout API] Auth error:", authError)
+      logger.info("[Checkout API] Auth error:", authError)
       return errorResponse("Unauthorized" , 401)
     }
-    logger.debug("[Checkout API] User verified:", user.id)
+    logger.info("[Checkout API] User verified:", user.id)
 
-    logger.debug("[Checkout API] Parsing request body...")
+    logger.info("[Checkout API] Parsing request body...")
     const { planId, billingCycle } = await request.json()
-    logger.debug("[Checkout API] Plan ID:", planId, "Billing cycle:", billingCycle)
+    logger.info("[Checkout API] Plan ID:", planId, "Billing cycle:", billingCycle)
 
     // Validate input
     if (!planId || !billingCycle) {
@@ -91,25 +91,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the plan from the database
-    logger.debug("[Checkout API] Fetching plan from database...")
+    logger.info("[Checkout API] Fetching plan from database...")
     const { data: plan, error: planError } = await supabase
       .from("plans")
       .select("*")
       .eq("id", planId)
       .single()
-    logger.debug("[Checkout API] Plan fetched:", plan?.name, "Error:", planError)
+    logger.info("[Checkout API] Plan fetched:", plan?.name, "Error:", planError)
 
     if (planError || !plan) {
       return errorResponse("Plan not found" , 404)
     }
 
     // Check if Stripe is configured
-    logger.debug("[Checkout API] Checking Stripe configuration...")
+    logger.info("[Checkout API] Checking Stripe configuration...")
     if (!process.env.STRIPE_CLIENT_SECRET) {
-      logger.debug("[Checkout API] Stripe not configured")
+      logger.info("[Checkout API] Stripe not configured")
       return errorResponse("STRIPE_NOT_CONFIGURED" , 503)
     }
-    logger.debug("[Checkout API] Stripe configured, initializing client...")
+    logger.info("[Checkout API] Stripe configured, initializing client...")
 
     // Initialize Stripe with error handling
     let stripe: Stripe
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET, {
         apiVersion: "2024-12-18.acacia",
       })
-      logger.debug("[Checkout API] Stripe client initialized")
+      logger.info("[Checkout API] Stripe client initialized")
     } catch (stripeInitError) {
       logger.error("[Checkout API] Failed to initialize Stripe:", stripeInitError)
       return errorResponse("Failed to initialize payment processor" , 500)
@@ -135,10 +135,10 @@ export async function POST(request: NextRequest) {
 
     if (existingSubscription?.stripe_customer_id) {
       stripeCustomerId = existingSubscription.stripe_customer_id
-      logger.debug("[Checkout API] Using existing Stripe customer:", stripeCustomerId)
+      logger.info("[Checkout API] Using existing Stripe customer:", stripeCustomerId)
     } else {
       // Create a new Stripe customer
-      logger.debug("[Checkout API] Creating new Stripe customer...")
+      logger.info("[Checkout API] Creating new Stripe customer...")
       try {
         const customer = await stripe.customers.create({
           email: user.email,
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
           },
         })
         stripeCustomerId = customer.id
-        logger.debug("[Checkout API] Created Stripe customer:", stripeCustomerId)
+        logger.info("[Checkout API] Created Stripe customer:", stripeCustomerId)
       } catch (customerError) {
         logger.error("[Checkout API] Failed to create Stripe customer:", customerError)
         return errorResponse("Failed to create customer account" , 500)
@@ -181,13 +181,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Stripe checkout session
-    logger.debug("[Checkout API] Creating Stripe session with price ID:", priceId)
-    logger.debug("[Checkout API] User ID:", user.id)
-    logger.debug("[Checkout API] User Email:", user.email)
-    logger.debug("[Checkout API] Plan ID:", planId)
-    logger.debug("[Checkout API] Billing Cycle:", billingCycle)
-    logger.debug("[Checkout API] Success URL:", `${baseUrl}/settings?tab=billing&success=true`)
-    logger.debug("[Checkout API] Cancel URL:", `${baseUrl}/settings?tab=billing&canceled=true`)
+    logger.info("[Checkout API] Creating Stripe session with price ID:", priceId)
+    logger.info("[Checkout API] User ID:", user.id)
+    logger.info("[Checkout API] User Email:", user.email)
+    logger.info("[Checkout API] Plan ID:", planId)
+    logger.info("[Checkout API] Billing Cycle:", billingCycle)
+    logger.info("[Checkout API] Success URL:", `${baseUrl}/settings?tab=billing&success=true`)
+    logger.info("[Checkout API] Cancel URL:", `${baseUrl}/settings?tab=billing&canceled=true`)
     
     let session
     try {
@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
       return errorResponse(sessionError.message || "Failed to create checkout session" , 500)
     }
 
-    logger.debug("[Checkout API] Session created, URL:", session.url)
+    logger.info("[Checkout API] Session created, URL:", session.url)
     return jsonResponse({ url: session.url })
   } catch (error: any) {
     logger.error("[Checkout API] Error:", error)

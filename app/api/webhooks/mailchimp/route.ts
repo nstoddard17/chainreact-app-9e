@@ -28,13 +28,13 @@ export async function POST(request: NextRequest) {
   const supabase = getSupabase()
 
   try {
-    logger.debug('[Mailchimp Webhook] Received webhook event')
+    logger.info('[Mailchimp Webhook] Received webhook event')
 
     // Mailchimp sends data as form-encoded
     const formData = await request.formData()
     const eventType = formData.get('type') as string
 
-    logger.debug(`[Mailchimp Webhook] Event type: ${eventType}`)
+    logger.info(`[Mailchimp Webhook] Event type: ${eventType}`)
 
     // Extract workflow and node IDs from query params
     const { searchParams } = new URL(request.url)
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       payload[key] = value
     })
 
-    logger.debug('[Mailchimp Webhook] Payload:', JSON.stringify(payload, null, 2))
+    logger.info('[Mailchimp Webhook] Payload:', JSON.stringify(payload, null, 2))
 
     // Map Mailchimp event to trigger type
     const triggerMapping: Record<string, string> = {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const triggerType = triggerMapping[eventType]
 
     if (!triggerType) {
-      logger.debug(`[Mailchimp Webhook] Ignoring event type: ${eventType}`)
+      logger.info(`[Mailchimp Webhook] Ignoring event type: ${eventType}`)
       return jsonResponse({ received: true, ignored: true })
     }
 
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('Failed to store webhook', 500)
     }
 
-    logger.debug(`[Mailchimp Webhook] Stored event: ${data.id}`)
+    logger.info(`[Mailchimp Webhook] Stored event: ${data.id}`)
 
     // Trigger workflows
     await triggerWorkflowsForEvent(triggerType, transformedPayload, data.id, workflowId, nodeId)
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
 // Handle GET requests for webhook verification
 export async function GET(request: NextRequest) {
-  logger.debug('[Mailchimp Webhook] Received verification request')
+  logger.info('[Mailchimp Webhook] Received verification request')
 
   // Mailchimp doesn't use verification challenges like some providers
   // Just return 200 OK
@@ -184,7 +184,7 @@ async function triggerWorkflowsForEvent(
   try {
     // If workflow ID provided, trigger that specific workflow
     if (workflowId && nodeId) {
-      logger.debug(`[Mailchimp Webhook] Triggering workflow ${workflowId}`)
+      logger.info(`[Mailchimp Webhook] Triggering workflow ${workflowId}`)
 
       // Check if workflow is active
       const { data: workflow } = await supabase
@@ -195,7 +195,7 @@ async function triggerWorkflowsForEvent(
         .single()
 
       if (!workflow) {
-        logger.debug(`[Mailchimp Webhook] Workflow ${workflowId} not found or inactive`)
+        logger.info(`[Mailchimp Webhook] Workflow ${workflowId} not found or inactive`)
         return
       }
 
@@ -209,7 +209,7 @@ async function triggerWorkflowsForEvent(
         created_at: new Date().toISOString()
       })
 
-      logger.debug(`✅ [Mailchimp Webhook] Queued execution for workflow ${workflowId}`)
+      logger.info(`✅ [Mailchimp Webhook] Queued execution for workflow ${workflowId}`)
     } else {
       // Find all matching workflows
       const { data: workflows } = await supabase
@@ -218,7 +218,7 @@ async function triggerWorkflowsForEvent(
         .eq('status', 'active')
         .contains('nodes', [{ type: triggerType }])
 
-      logger.debug(`[Mailchimp Webhook] Found ${workflows?.length || 0} matching workflows`)
+      logger.info(`[Mailchimp Webhook] Found ${workflows?.length || 0} matching workflows`)
 
       // Queue executions for each matching workflow
       if (workflows && workflows.length > 0) {
@@ -232,7 +232,7 @@ async function triggerWorkflowsForEvent(
         }))
 
         await supabase.from('workflow_execution_sessions').insert(executions)
-        logger.debug(`✅ [Mailchimp Webhook] Queued ${executions.length} executions`)
+        logger.info(`✅ [Mailchimp Webhook] Queued ${executions.length} executions`)
       }
     }
   } catch (error: any) {

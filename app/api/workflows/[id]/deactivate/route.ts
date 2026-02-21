@@ -87,7 +87,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
       const webhookManager = new TriggerWebhookManager()
       await webhookManager.unregisterWorkflowWebhooks(workflow.id)
-      logger.debug('✅ Unregistered legacy webhooks')
+      logger.info('✅ Unregistered legacy webhooks')
     } catch (webhookError: any) {
       logger.error('❌ Failed to unregister legacy webhooks:', webhookError)
       errors.push(`Webhook cleanup: ${webhookError.message}`)
@@ -97,7 +97,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     try {
       const { triggerLifecycleManager } = await import('@/lib/triggers')
       await triggerLifecycleManager.deactivateWorkflowTriggers(workflow.id, user.id)
-      logger.debug('✅ Deactivated trigger resources')
+      logger.info('✅ Deactivated trigger resources')
     } catch (triggerError: any) {
       logger.error('❌ Failed to deactivate trigger resources:', triggerError)
       errors.push(`Trigger cleanup: ${triggerError.message}`)

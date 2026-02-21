@@ -14,11 +14,11 @@ export async function GET(request: NextRequest) {
       return errorResponse('Unauthorized' , 401)
     }
 
-    logger.debug('Starting cleanup of expired workflow files...')
+    logger.info('Starting cleanup of expired workflow files...')
     
     const cleanedCount = await FileStorageService.cleanupExpiredFiles()
     
-    logger.debug(`Cleanup completed. Removed ${cleanedCount} expired files.`)
+    logger.info(`Cleanup completed. Removed ${cleanedCount} expired files.`)
     
     return jsonResponse({
       success: true,

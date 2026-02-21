@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { integrationId, baseId, tableName } = body;
     
-    logger.debug('Metadata API called with:', { integrationId, baseId, tableName });
+    logger.info('Metadata API called with:', { integrationId, baseId, tableName });
 
     if (!integrationId || !baseId || !tableName) {
       return errorResponse('Integration ID, base ID, and table name are required' , 400);
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     try {
       const { safeDecrypt } = await import('../../../../../lib/security/encryption');
       accessToken = safeDecrypt(integration.access_token);
-      logger.debug('Access token decrypted successfully');
+      logger.info('Access token decrypted successfully');
     } catch (decryptError: any) {
       logger.error('Failed to decrypt access token:', decryptError);
       return errorResponse('Failed to decrypt access token', 200, {
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch table metadata from Airtable API
     const metaUrl = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`;
-    logger.debug('Fetching metadata from Airtable:', metaUrl);
+    logger.info('Fetching metadata from Airtable:', metaUrl);
     const metaResponse = await fetch(metaUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     const metaData = await metaResponse.json();
     
-    logger.debug('Airtable metadata response received:', {
+    logger.info('Airtable metadata response received:', {
       hasData: !!metaData,
       tableCount: metaData.tables?.length || 0,
       baseId,
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (!table) {
-      logger.debug('Table not found in metadata, available tables:', 
+      logger.info('Table not found in metadata, available tables:', 
         metaData.tables?.map((t: any) => ({ name: t.name, id: t.id })));
       return jsonResponse({ 
         fields: null,
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
       type: f.type,
       id: f.id
     }));
-    logger.debug('Table fields found:', fieldTypes);
+    logger.info('Table fields found:', fieldTypes);
 
     // Return the table with its fields including all metadata
     return jsonResponse({

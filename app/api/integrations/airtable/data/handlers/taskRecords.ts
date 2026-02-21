@@ -10,7 +10,7 @@ import { logger } from '@/lib/utils/logger'
 export const getAirtableTaskRecords: AirtableDataHandler<AirtableTaskRecord> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableTaskRecord[]> => {
   const { baseId } = options
   
-  logger.debug("🔍 Airtable task records fetcher called with:", {
+  logger.info("🔍 Airtable task records fetcher called with:", {
     integrationId: integration.id,
     baseId,
     hasToken: !!integration.access_token
@@ -20,11 +20,11 @@ export const getAirtableTaskRecords: AirtableDataHandler<AirtableTaskRecord> = a
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    logger.debug(`🔍 Validating Airtable token...`)
+    logger.info(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -32,7 +32,7 @@ export const getAirtableTaskRecords: AirtableDataHandler<AirtableTaskRecord> = a
       throw new Error('Base ID is required for fetching task records')
     }
     
-    logger.debug('🔍 Fetching Airtable task records from API...')
+    logger.info('🔍 Fetching Airtable task records from API...')
     
     // Try common task table names
     const possibleTableNames = ['Tasks', 'To Do', 'Task List', 'Action Items', 'Work Items', 'Issues']
@@ -45,21 +45,21 @@ export const getAirtableTaskRecords: AirtableDataHandler<AirtableTaskRecord> = a
         
         if (response.ok) {
           const tableRecords = await parseAirtableApiResponse<AirtableTaskRecord>(response)
-          logger.debug(`✅ Found task table: ${tableName} with ${tableRecords.length} records`)
+          logger.info(`✅ Found task table: ${tableName} with ${tableRecords.length} records`)
           records = tableRecords
           break
         }
       } catch (error) {
-        logger.debug(`❌ Table ${tableName} not found, trying next...`)
+        logger.info(`❌ Table ${tableName} not found, trying next...`)
         continue
       }
     }
     
     if (records.length === 0) {
-      logger.debug('📝 No task table found, returning empty array')
+      logger.info('📝 No task table found, returning empty array')
     }
     
-    logger.debug(`✅ Airtable task records fetched successfully: ${records.length} records`)
+    logger.info(`✅ Airtable task records fetched successfully: ${records.length} records`)
     return records
     
   } catch (error: any) {

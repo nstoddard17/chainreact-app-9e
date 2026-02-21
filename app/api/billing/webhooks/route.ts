@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
     }
 
     default:
-      logger.debug(`Unhandled event type ${event.type}`)
+      logger.info(`Unhandled event type ${event.type}`)
   }
 
   return jsonResponse({ received: true })

@@ -13,7 +13,7 @@ export async function getGoogleDriveFile(
   userId: string,
   input: Record<string, any>
 ): Promise<ActionResult> {
-  logger.debug('🚀 [getGoogleDriveFile] Starting with config:', {
+  logger.info('🚀 [getGoogleDriveFile] Starting with config:', {
     config,
     userId,
     hasInput: !!input
@@ -33,17 +33,17 @@ export async function getGoogleDriveFile(
       }
     }
 
-    logger.debug('📋 [getGoogleDriveFile] Resolved config:', {
+    logger.info('📋 [getGoogleDriveFile] Resolved config:', {
       fileId,
       folderId: resolvedConfig.folderId
     });
 
-    logger.debug('🔐 [getGoogleDriveFile] Getting access token for userId:', userId);
+    logger.info('🔐 [getGoogleDriveFile] Getting access token for userId:', userId);
     
     let accessToken;
     try {
       accessToken = await getDecryptedAccessToken(userId, "google-drive")
-      logger.debug('✅ [getGoogleDriveFile] Got access token');
+      logger.info('✅ [getGoogleDriveFile] Got access token');
     } catch (error: any) {
       logger.error('❌ [getGoogleDriveFile] Failed to get access token:', error);
       throw new Error(`Failed to get Google Drive access token: ${error.message}`);
@@ -54,7 +54,7 @@ export async function getGoogleDriveFile(
     oauth2Client.setCredentials({ access_token: accessToken })
     const drive = google.drive({ version: 'v3', auth: oauth2Client })
 
-    logger.debug('📁 [getGoogleDriveFile] Fetching file metadata for:', fileId);
+    logger.info('📁 [getGoogleDriveFile] Fetching file metadata for:', fileId);
     
     // Get file metadata
     const metadataResponse = await drive.files.get({
@@ -64,14 +64,14 @@ export async function getGoogleDriveFile(
 
     const fileMetadata = metadataResponse.data
     
-    logger.debug('✅ [getGoogleDriveFile] Got file metadata:', {
+    logger.info('✅ [getGoogleDriveFile] Got file metadata:', {
       name: fileMetadata.name,
       mimeType: fileMetadata.mimeType,
       size: fileMetadata.size
     });
 
     // Download the file as binary data for use as attachment
-    logger.debug('📥 [getGoogleDriveFile] Downloading file for attachment use');
+    logger.info('📥 [getGoogleDriveFile] Downloading file for attachment use');
     
     let fileBuffer: Buffer;
     let finalFileName = fileMetadata.name || 'file';
@@ -89,7 +89,7 @@ export async function getGoogleDriveFile(
       if (googleDocsMimeTypes[fileMetadata.mimeType || '']) {
         // Export Google Docs files to standard formats
         const exportConfig = googleDocsMimeTypes[fileMetadata.mimeType || ''];
-        logger.debug('📝 [getGoogleDriveFile] Exporting Google Docs file as:', exportConfig.exportType);
+        logger.info('📝 [getGoogleDriveFile] Exporting Google Docs file as:', exportConfig.exportType);
         
         const contentResponse = await drive.files.export({
           fileId: fileId,
@@ -113,7 +113,7 @@ export async function getGoogleDriveFile(
         fileBuffer = Buffer.from(contentResponse.data as ArrayBuffer)
       }
       
-      logger.debug('✅ [getGoogleDriveFile] Downloaded file:', {
+      logger.info('✅ [getGoogleDriveFile] Downloaded file:', {
         fileName: finalFileName,
         size: fileBuffer.length,
         mimeType: finalMimeType

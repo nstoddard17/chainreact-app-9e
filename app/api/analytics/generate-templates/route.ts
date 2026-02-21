@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    logger.debug('[Analytics API] Fetching pending templates', {
+    logger.info('[Analytics API] Fetching pending templates', {
       userId: user.id
     })
 

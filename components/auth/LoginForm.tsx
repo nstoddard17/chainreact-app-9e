@@ -42,7 +42,7 @@ function LoginFormContent() {
         // If there's a session but user is on the login page, they likely want to log in fresh
         // Sign out to clear any stale tokens and prevent refresh token race conditions
         if (session) {
-          logger.debug('[LoginForm] Clearing existing session on login page visit')
+          logger.info('[LoginForm] Clearing existing session on login page visit')
           await supabase.auth.signOut({ scope: 'local' })
 
           // Clear localStorage auth data
@@ -59,7 +59,7 @@ function LoginFormContent() {
         }
       } catch (error) {
         // Ignore errors - this is just cleanup
-        logger.debug('[LoginForm] Error clearing stale session:', error)
+        logger.info('[LoginForm] Error clearing stale session:', error)
       }
     }
 

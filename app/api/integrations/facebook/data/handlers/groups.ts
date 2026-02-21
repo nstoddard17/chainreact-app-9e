@@ -18,7 +18,7 @@ interface FacebookGroup {
 
 export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (integration: FacebookIntegration, options: any = {}) => {
   try {
-    logger.debug("🔍 Facebook groups fetcher called with:", {
+    logger.info("🔍 Facebook groups fetcher called with:", {
       integrationId: integration.id,
       hasToken: !!integration.access_token
     })
@@ -27,14 +27,14 @@ export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (inte
     const tokenResult = await validateFacebookToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Facebook token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Facebook token validation failed: ${tokenResult.error}`)
       return []
     }
 
     // Facebook API endpoint for groups the user is a member of
     // Note: As of API v19.0, the /me/groups endpoint requires special permissions
     // that are not available to most apps. We'll return a helpful message instead.
-    logger.debug("🔍 Attempting to fetch Facebook groups")
+    logger.info("🔍 Attempting to fetch Facebook groups")
     
     try {
       const response = await makeFacebookApiRequest(
@@ -51,7 +51,7 @@ export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (inte
       }
 
       const data = await response.json()
-      logger.debug("🔍 Facebook groups API response:", {
+      logger.info("🔍 Facebook groups API response:", {
         hasData: !!data.data,
         groupCount: data.data?.length || 0,
         sample: data.data?.[0]
@@ -67,7 +67,7 @@ export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (inte
           description: group.description
         }))
         
-        logger.debug(`✅ Processed ${groups.length} Facebook groups:`, groups)
+        logger.info(`✅ Processed ${groups.length} Facebook groups:`, groups)
         return groups
       }
       

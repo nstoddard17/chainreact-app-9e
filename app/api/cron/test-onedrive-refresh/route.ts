@@ -39,9 +39,9 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    logger.debug(`🔍 Testing OneDrive refresh token for user ${onedriveIntegration.user_id}`)
-    logger.debug(`📋 Client ID: ${clientId.substring(0, 10)}...`)
-    logger.debug(`🔑 Has refresh token: ${!!onedriveIntegration.refresh_token}`)
+    logger.info(`🔍 Testing OneDrive refresh token for user ${onedriveIntegration.user_id}`)
+    logger.info(`📋 Client ID: ${clientId.substring(0, 10)}...`)
+    logger.info(`🔑 Has refresh token: ${!!onedriveIntegration.refresh_token}`)
 
     const response = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
       method: "POST",
@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
     })
 
     const data = await response.json()
-    logger.debug(`📊 Response status: ${response.status}`)
-    logger.debug(`📊 Response data:`, data)
+    logger.info(`📊 Response status: ${response.status}`)
+    logger.info(`📊 Response data:`, data)
 
     return jsonResponse({
       success: true,

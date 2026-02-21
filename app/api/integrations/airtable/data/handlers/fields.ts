@@ -70,7 +70,7 @@ function isFieldEditable(field: any): boolean {
 export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableFieldOption[]> => {
   const { baseId, tableName, filterReadOnly = false } = options
 
-  logger.debug("🔍 Airtable fields fetcher called with:", {
+  logger.info("🔍 Airtable fields fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -82,11 +82,11 @@ export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async
     // Validate integration status
     validateAirtableIntegration(integration)
 
-    logger.debug(`🔍 Validating Airtable token...`)
+    logger.info(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
@@ -94,7 +94,7 @@ export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async
       throw new Error('Base ID and table name are required for fetching fields')
     }
 
-    logger.debug('🔍 Fetching Airtable table schema from API...')
+    logger.info('🔍 Fetching Airtable table schema from API...')
     const apiUrl = buildAirtableApiUrl(`/v0/meta/bases/${baseId}/tables`)
 
     const response = await makeAirtableApiRequest(apiUrl, tokenResult.token!)
@@ -108,7 +108,7 @@ export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async
 
     if (!table) {
       // Log available tables for debugging
-      logger.debug(`🔍 Available tables in base "${baseId}":`, tables.map((t: any) => ({ id: t.id, name: t.name })))
+      logger.info(`🔍 Available tables in base "${baseId}":`, tables.map((t: any) => ({ id: t.id, name: t.name })))
       const availableTableNames = tables.map((t: any) => t?.name).filter(Boolean).join(', ') || 'none'
       throw new Error(`Table "${tableName}" not found in base "${baseId}". Available tables: ${availableTableNames}`)
     }
@@ -148,12 +148,12 @@ export const getAirtableFields: AirtableDataHandler<AirtableFieldOption> = async
 
       const filteredCount = originalCount - fields.length
       if (filteredCount > 0) {
-        logger.debug(`🔍 Filtered out ${filteredCount} non-editable fields (formula, computed, locked, hidden, AI, etc.)`)
+        logger.info(`🔍 Filtered out ${filteredCount} non-editable fields (formula, computed, locked, hidden, AI, etc.)`)
       }
     }
 
-    logger.debug(`✅ Airtable fields fetched successfully: ${fields.length} fields from table "${tableName}"`)
-    logger.debug(`🔍 [Fields Handler] Sample field data:`, {
+    logger.info(`✅ Airtable fields fetched successfully: ${fields.length} fields from table "${tableName}"`)
+    logger.info(`🔍 [Fields Handler] Sample field data:`, {
       sampleField: fields[0],
       allFieldNames: fields.map(f => f.label).slice(0, 5),
       hasType: fields.filter(f => f.type).length,

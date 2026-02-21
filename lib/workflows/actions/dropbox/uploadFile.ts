@@ -20,7 +20,7 @@ export async function uploadDropboxFile(
   context: any
 ): Promise<ActionResult> {
   try {
-    logger.debug('[Dropbox Upload] Starting upload with config:', {
+    logger.info('[Dropbox Upload] Starting upload with config:', {
       fileName: config.fileName,
       sourceType: config.sourceType,
       path: config.path
@@ -69,7 +69,7 @@ export async function uploadDropboxFile(
           throw new Error('No file uploaded')
         }
 
-        logger.debug('[Dropbox Upload] Processing uploaded file:', {
+        logger.info('[Dropbox Upload] Processing uploaded file:', {
           type: typeof fileInfo,
           hasFilePath: !!fileInfo.filePath,
           hasContent: !!fileInfo.content,
@@ -178,7 +178,7 @@ export async function uploadDropboxFile(
     // Add filename to path
     const fullPath = destinationPath ? `${destinationPath}/${actualFileName}` : `/${actualFileName}`
 
-    logger.debug('[Dropbox Upload] Uploading to path:', fullPath)
+    logger.info('[Dropbox Upload] Uploading to path:', fullPath)
 
     // Check if folder exists, create if it doesn't and path is specified
     if (destinationPath && destinationPath !== '') {
@@ -197,7 +197,7 @@ export async function uploadDropboxFile(
 
         if (!checkFolderResponse.ok) {
           // Folder doesn't exist, create it
-          logger.debug('[Dropbox Upload] Folder does not exist, creating:', destinationPath)
+          logger.info('[Dropbox Upload] Folder does not exist, creating:', destinationPath)
 
           const createFolderResponse = await fetch('https://api.dropboxapi.com/2/files/create_folder_v2', {
             method: 'POST',
@@ -216,7 +216,7 @@ export async function uploadDropboxFile(
             logger.error('[Dropbox Upload] Failed to create folder:', errorData)
             // Continue with upload anyway - folder might exist but we can't access metadata
           } else {
-            logger.debug('[Dropbox Upload] Folder created successfully')
+            logger.info('[Dropbox Upload] Folder created successfully')
           }
         }
       } catch (error) {
@@ -247,7 +247,7 @@ export async function uploadDropboxFile(
 
     const uploadResult = await uploadResponse.json()
 
-    logger.debug('[Dropbox Upload] File uploaded successfully:', uploadResult)
+    logger.info('[Dropbox Upload] File uploaded successfully:', uploadResult)
 
     return {
       success: true,

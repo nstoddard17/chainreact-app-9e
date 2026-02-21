@@ -57,7 +57,7 @@ export async function handleFiles(integration: BoxIntegration, options: any = {}
       }
     }))
 
-    logger.debug(`✅ [Box] Fetched ${formattedFiles.length} files from folder ${folderId}`)
+    logger.info(`✅ [Box] Fetched ${formattedFiles.length} files from folder ${folderId}`)
 
     return formattedFiles
   } catch (error: any) {

@@ -68,7 +68,7 @@ export function MicrosoftExcelMultipleRowsFields({
       // Determine if worksheet has headers based on user selection
       const hasHeaders = values.hasHeaders !== 'no';
 
-      logger.debug('📊 [MicrosoftExcelMultipleRowsFields] Fetching worksheet columns', {
+      logger.info('📊 [MicrosoftExcelMultipleRowsFields] Fetching worksheet columns', {
         workbookId: values.workbookId,
         worksheetName: values.worksheetName,
         hasHeaders,
@@ -109,7 +109,7 @@ export function MicrosoftExcelMultipleRowsFields({
         } else {
           setColumns(columnNames);
         }
-        logger.debug('📊 [MicrosoftExcelMultipleRowsFields] Fetch complete', {
+        logger.info('📊 [MicrosoftExcelMultipleRowsFields] Fetch complete', {
           columnCount: columnNames.length,
           columns: columnNames,
           hasHeaders

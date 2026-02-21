@@ -56,7 +56,7 @@ export async function handleFiles(integration: DropboxIntegration, options: any 
       }
     }))
 
-    logger.debug(`✅ [Dropbox] Fetched ${formattedFiles.length} files from path '${path}'`)
+    logger.info(`✅ [Dropbox] Fetched ${formattedFiles.length} files from path '${path}'`)
 
     return formattedFiles
   } catch (error: any) {

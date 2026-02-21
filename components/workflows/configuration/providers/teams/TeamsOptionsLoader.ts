@@ -39,7 +39,7 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
       logger.error('[TeamsOptionsLoader] No integration ID provided');
       return [];
     }
-    logger.debug(`[TeamsOptionsLoader] Loading ${fieldName} for provider ${providerId}`, {
+    logger.info(`[TeamsOptionsLoader] Loading ${fieldName} for provider ${providerId}`, {
       integrationId,
       dependsOn,
       dependsOnValue,
@@ -56,7 +56,7 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
       case 'channelId':
         // Channels depend on teamId
         if (!dependsOnValue || dependsOnValue === '') {
-          logger.debug('[TeamsOptionsLoader] No teamId provided for channels', {
+          logger.info('[TeamsOptionsLoader] No teamId provided for channels', {
             hasDependencyValue: !!dependsOnValue,
             dependsOnValue
           });
@@ -98,7 +98,7 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
       }
 
       const data = await response.json();
-      logger.debug(`[TeamsOptionsLoader] Loaded ${data.length} options for ${fieldName}`);
+      logger.info(`[TeamsOptionsLoader] Loaded ${data.length} options for ${fieldName}`);
 
       // Ensure we return the expected format
       if (Array.isArray(data)) {
@@ -111,7 +111,7 @@ export class TeamsOptionsLoader implements ProviderOptionsLoader {
       return [];
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        logger.debug(`[TeamsOptionsLoader] Request aborted for ${fieldName}`);
+        logger.info(`[TeamsOptionsLoader] Request aborted for ${fieldName}`);
         return [];
       }
 

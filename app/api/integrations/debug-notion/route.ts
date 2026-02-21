@@ -26,11 +26,11 @@ export async function POST(request: NextRequest) {
       return errorResponse(error.message , 500)
     }
 
-    logger.debug(`🔍 Found ${integrations?.length || 0} Notion integrations for user ${userId}`)
+    logger.info(`🔍 Found ${integrations?.length || 0} Notion integrations for user ${userId}`)
     
     if (integrations && integrations.length > 0) {
       integrations.forEach((integration, index) => {
-        logger.debug(`🔍 Integration ${index + 1}:`, {
+        logger.info(`🔍 Integration ${index + 1}:`, {
           id: integration.id,
           status: integration.status,
           workspace_name: integration.metadata?.workspace_name,

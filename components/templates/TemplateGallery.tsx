@@ -154,7 +154,7 @@ const getTemplateWorkflowData = (
 
   if (preferDraft && Array.isArray(draftNodes) && draftNodes.length > 0) {
     const connections = Array.isArray(draftConnections) ? draftConnections : []
-    logger.debug('Using draft nodes/connections:', draftNodes.length, connections.length)
+    logger.info('Using draft nodes/connections:', draftNodes.length, connections.length)
     return {
       nodes: draftNodes,
       connections,
@@ -163,7 +163,7 @@ const getTemplateWorkflowData = (
 
   // Try direct nodes/connections first
   if (template.nodes && template.connections) {
-    logger.debug('Using direct nodes/connections:', template.nodes.length, template.connections.length)
+    logger.info('Using direct nodes/connections:', template.nodes.length, template.connections.length)
     return {
       nodes: template.nodes,
       connections: template.connections
@@ -174,14 +174,14 @@ const getTemplateWorkflowData = (
   if (template.workflow_json) {
     const nodes = template.workflow_json.nodes || []
     const connections = template.workflow_json.connections || template.workflow_json.edges || []
-    logger.debug('Using workflow_json:', nodes.length, connections.length)
+    logger.info('Using workflow_json:', nodes.length, connections.length)
     return {
       nodes,
       connections
     }
   }
 
-  logger.debug('No workflow data found for template')
+  logger.info('No workflow data found for template')
   return { nodes: [], connections: [] }
 }
 
@@ -358,14 +358,14 @@ export function TemplateGallery() {
   const handleCopyTemplate = async (templateId: string) => {
     try {
       setCopying(templateId)
-      logger.debug(`Copying template ${templateId}...`)
+      logger.info(`Copying template ${templateId}...`)
 
       const response = await fetch(`/api/templates/${templateId}/copy`, {
         method: "POST",
       })
 
       const data = await response.json()
-      logger.debug("Copy response:", data)
+      logger.info("Copy response:", data)
 
       if (!response.ok) {
         logger.error("Copy failed with status:", response.status, data)
@@ -373,7 +373,7 @@ export function TemplateGallery() {
       }
 
       if (data.workflow && data.workflow.id) {
-        logger.debug(`Workflow created with ID: ${data.workflow.id}, adding to store...`)
+        logger.info(`Workflow created with ID: ${data.workflow.id}, adding to store...`)
 
         // Add the workflow to the store immediately to avoid cache issues
         addWorkflowToStore(data.workflow)
@@ -383,7 +383,7 @@ export function TemplateGallery() {
           description: "Template copied to your workflows",
         })
 
-        logger.debug(`Navigating to workflow builder...`)
+        logger.info(`Navigating to workflow builder...`)
         router.push(`/workflows/builder/${data.workflow.id}?editTemplate=${templateId}`)
       } else {
         logger.error("No workflow ID in response:", data)

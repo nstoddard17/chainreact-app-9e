@@ -33,7 +33,7 @@ export async function listGumroadSubscribers(
 
     const url = `https://api.gumroad.com/v2/products/${encodeURIComponent(productId)}/subscribers?${params.toString()}`
 
-    logger.debug('[listGumroadSubscribers] Fetching subscribers:', {
+    logger.info('[listGumroadSubscribers] Fetching subscribers:', {
       productId,
       email
     })

@@ -32,7 +32,7 @@ export async function updateShopifyOrderStatus(
     const orderGid = toOrderGid(orderId)
     const numericId = extractNumericId(orderGid)
 
-    logger.debug('[Shopify GraphQL] Updating order status:', { orderId: orderGid, action })
+    logger.info('[Shopify GraphQL] Updating order status:', { orderId: orderGid, action })
 
     let result: any
     let statusMessage = ''

@@ -205,7 +205,7 @@ export function VariablePicker({
     // Context-aware filtering for AI agent nodes
     if (node.title === "AI Agent" || node.title.toLowerCase().includes("ai agent")) {
       const relevantOutputs = getRelevantAIAgentOutputs(currentNodeType || '');
-      logger.debug(`🎯 [CONTEXT-AWARE] AI Agent filtering in VariablePicker for ${currentNodeType}:`, {
+      logger.info(`🎯 [CONTEXT-AWARE] AI Agent filtering in VariablePicker for ${currentNodeType}:`, {
         currentNodeType,
         relevantOutputs,
         availableOutputs: node.outputs.map((o: any) => o.name),
@@ -217,7 +217,7 @@ export function VariablePicker({
         relevantOutputs.includes(output.name)
       );
       
-      logger.debug(`🎯 [CONTEXT-AWARE] After filtering:`, {
+      logger.info(`🎯 [CONTEXT-AWARE] After filtering:`, {
         filteredOutputsCount: aiNodeOutputs.length,
         filteredOutputs: aiNodeOutputs.map((o: any) => o.name)
       });
@@ -238,7 +238,7 @@ export function VariablePicker({
     if (handleChange) {
       // INSERT THE TEMPLATE VARIABLE FOR RUNTIME RESOLUTION
       // Do NOT try to resolve it at design time - that should happen during workflow execution
-      logger.debug(`🎯 VariablePicker handleVariableSelect inserting template variable: ${variable}`)
+      logger.info(`🎯 VariablePicker handleVariableSelect inserting template variable: ${variable}`)
       handleChange(variable)
     }
     // Keep the popover open after selecting a variable
@@ -268,7 +268,7 @@ export function VariablePicker({
     // INSERT THE TEMPLATE VARIABLE FOR RUNTIME RESOLUTION
     // Do NOT try to resolve it at design time - that should happen during workflow execution
     
-    logger.debug(`🎯 VariablePicker inserting template variable: ${variable}`)
+    logger.info(`🎯 VariablePicker inserting template variable: ${variable}`)
     
     // If there's already text, insert the variable at cursor position or append
     if (value && handleChange) {

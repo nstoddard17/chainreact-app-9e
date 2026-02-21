@@ -100,7 +100,7 @@ export async function addAirtableAttachment(
       // IMPORTANT: If fileUrl is a data URL (base64), upload to Supabase first
       // Airtable requires public URLs, not data URLs
       if (fileUrl.startsWith('data:')) {
-        logger.debug('[addAirtableAttachment] Detected data URL, uploading to Supabase first')
+        logger.info('[addAirtableAttachment] Detected data URL, uploading to Supabase first')
 
         try {
           // Extract MIME type and base64 data from data URL
@@ -120,7 +120,7 @@ export async function addAirtableAttachment(
             mimeType
           )
 
-          logger.debug('[addAirtableAttachment] Uploaded data URL to Supabase:', {
+          logger.info('[addAirtableAttachment] Uploaded data URL to Supabase:', {
             originalSize: fileUrl.length,
             publicUrl,
             filePath
@@ -147,7 +147,7 @@ export async function addAirtableAttachment(
     // NOTE: Airtable's API does NOT accept contentType in the attachment object
     // It auto-detects from the URL/filename. We only use contentType for data URL conversion.
 
-    logger.debug('[addAirtableAttachment] Processing attachment:', {
+    logger.info('[addAirtableAttachment] Processing attachment:', {
       baseId,
       tableName,
       recordId,
@@ -161,7 +161,7 @@ export async function addAirtableAttachment(
     // If preserveExisting is true, fetch the current record to get existing attachments
     let existingAttachments: any[] = []
     if (preserveExisting) {
-      logger.debug('[addAirtableAttachment] Fetching existing attachments')
+      logger.info('[addAirtableAttachment] Fetching existing attachments')
 
       const getResponse = await fetch(
         `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${recordId}`,
@@ -184,7 +184,7 @@ export async function addAirtableAttachment(
             url: att.url,
             filename: att.filename
           }))
-          logger.debug('[addAirtableAttachment] Found existing attachments:', existingAttachments.length)
+          logger.info('[addAirtableAttachment] Found existing attachments:', existingAttachments.length)
         }
       } else {
         logger.warn('[addAirtableAttachment] Could not fetch existing record, will replace attachments')
@@ -222,7 +222,7 @@ export async function addAirtableAttachment(
     // Find the newly added attachment (it will be the last one if we preserved existing)
     const newAttachment = updatedAttachments[updatedAttachments.length - 1] || {}
 
-    logger.debug('[addAirtableAttachment] Attachment added successfully:', {
+    logger.info('[addAirtableAttachment] Attachment added successfully:', {
       recordId: result.id,
       totalAttachments: updatedAttachments.length,
       newAttachmentId: newAttachment.id

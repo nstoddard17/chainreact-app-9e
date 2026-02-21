@@ -38,7 +38,7 @@ export const getStripeAccounts: StripeDataHandler<StripeAccount> = async (
       apiVersion: '2024-11-20.acacia'
     })
 
-    logger.debug("💳 [Stripe Accounts] Fetching account info")
+    logger.info("💳 [Stripe Accounts] Fetching account info")
 
     // Get account information
     const account = await stripe.accounts.retrieve()
@@ -60,7 +60,7 @@ export const getStripeAccounts: StripeDataHandler<StripeAccount> = async (
       email: account.email || undefined
     }]
 
-    logger.debug(`✅ [Stripe Accounts] Retrieved account: ${displayLabel} (integration: ${integration.id})`)
+    logger.info(`✅ [Stripe Accounts] Retrieved account: ${displayLabel} (integration: ${integration.id})`)
     return accounts
 
   } catch (error: any) {

@@ -37,11 +37,11 @@ export async function generateAIFieldValue(
   // Check cache first
   const cacheKey = `${fieldName}-${JSON.stringify(context.triggerData || {}).substring(0, 100)}`
   if (fieldValueCache.has(cacheKey)) {
-    logger.debug(`📦 Using cached value for field: ${fieldName}`)
+    logger.info(`📦 Using cached value for field: ${fieldName}`)
     return fieldValueCache.get(cacheKey)
   }
 
-  logger.debug(`🤖 Generating AI value for field: ${fieldName}`)
+  logger.info(`🤖 Generating AI value for field: ${fieldName}`)
 
   try {
     // Determine field type and requirements
@@ -411,5 +411,5 @@ function getDefaultValue(fieldName: string): any {
  */
 export function clearFieldValueCache(): void {
   fieldValueCache.clear()
-  logger.debug('🧹 Field value cache cleared')
+  logger.info('🧹 Field value cache cleared')
 }

@@ -35,7 +35,7 @@ export async function DELETE(request: NextRequest) {
     const subscriptionId = searchParams.get('subscriptionId')
     const orphanedOnly = searchParams.get('orphanedOnly') === 'true'
 
-    logger.debug('🧹 Starting Microsoft Graph subscription cleanup for user:', {
+    logger.info('🧹 Starting Microsoft Graph subscription cleanup for user:', {
       userId: user.id,
       subscriptionId,
       orphanedOnly
@@ -61,7 +61,7 @@ export async function DELETE(request: NextRequest) {
 
     // If deleting specific subscription
     if (subscriptionId) {
-      logger.debug(`🗑️ Deleting specific subscription: ${subscriptionId}`)
+      logger.info(`🗑️ Deleting specific subscription: ${subscriptionId}`)
 
       const deleteResponse = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${subscriptionId}`, {
         method: 'DELETE',
@@ -71,7 +71,7 @@ export async function DELETE(request: NextRequest) {
       })
 
       if (deleteResponse.ok || deleteResponse.status === 204) {
-        logger.debug(`✅ Deleted subscription: ${subscriptionId}`)
+        logger.info(`✅ Deleted subscription: ${subscriptionId}`)
         return jsonResponse({
           success: true,
           message: `Deleted subscription ${subscriptionId}`,
@@ -95,7 +95,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // List all subscriptions
-    logger.debug('📋 Fetching all Microsoft Graph subscriptions...')
+    logger.info('📋 Fetching all Microsoft Graph subscriptions...')
     const listResponse = await fetch('https://graph.microsoft.com/v1.0/subscriptions', {
       method: 'GET',
       headers: {
@@ -119,16 +119,16 @@ export async function DELETE(request: NextRequest) {
     // If orphanedOnly, filter to only orphaned subscriptions
     if (orphanedOnly) {
       subscriptions = subscriptions.filter((sub: any) => !trackedIds.has(sub.id))
-      logger.debug(`📊 Found ${subscriptions.length} orphaned subscription(s) to delete`)
+      logger.info(`📊 Found ${subscriptions.length} orphaned subscription(s) to delete`)
     } else {
-      logger.debug(`📊 Found ${subscriptions.length} subscription(s) to delete`)
+      logger.info(`📊 Found ${subscriptions.length} subscription(s) to delete`)
     }
 
     // Delete each subscription
     const results = []
     for (const subscription of subscriptions) {
       try {
-        logger.debug(`🗑️ Deleting subscription: ${subscription.id}`)
+        logger.info(`🗑️ Deleting subscription: ${subscription.id}`)
 
         const deleteResponse = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${subscription.id}`, {
           method: 'DELETE',
@@ -138,7 +138,7 @@ export async function DELETE(request: NextRequest) {
         })
 
         if (deleteResponse.ok || deleteResponse.status === 404) {
-          logger.debug(`✅ Deleted subscription: ${subscription.id}`)
+          logger.info(`✅ Deleted subscription: ${subscription.id}`)
           results.push({
             id: subscription.id,
             status: 'deleted',
@@ -166,7 +166,7 @@ export async function DELETE(request: NextRequest) {
     // Clean up orphaned trigger_resources records (only if not orphanedOnly mode)
     let triggerResourcesDeleted = 0
     if (!orphanedOnly && triggerResources && triggerResources.length > 0) {
-      logger.debug('🧹 Cleaning up orphaned trigger_resources records...')
+      logger.info('🧹 Cleaning up orphaned trigger_resources records...')
       const { error: deleteError } = await supabase
         .from('trigger_resources')
         .delete()
@@ -178,7 +178,7 @@ export async function DELETE(request: NextRequest) {
         logger.error('❌ Failed to clean up trigger_resources:', deleteError)
       } else {
         triggerResourcesDeleted = triggerResources.length
-        logger.debug(`✅ Cleaned up ${triggerResourcesDeleted} trigger_resources record(s)`)
+        logger.info(`✅ Cleaned up ${triggerResourcesDeleted} trigger_resources record(s)`)
       }
     }
 

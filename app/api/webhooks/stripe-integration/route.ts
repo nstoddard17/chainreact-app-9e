@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
       ? resources
       : resources.filter((r: any) => r.workflow_id === workflowId)
 
-    logger.debug('[Stripe Integration Webhook] Resolved workflow resources', {
+    logger.info('[Stripe Integration Webhook] Resolved workflow resources', {
       workflowId,
       workflowResourcesCount: workflowResources.length,
       workflowTriggerTypes: workflowResources.map((r: any) => r.trigger_type),
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
       return jsonResponse({ received: true, skipped: true, reason: 'event_not_configured' })
     }
 
-    logger.debug('[Stripe Integration Webhook] Matching trigger resources', {
+    logger.info('[Stripe Integration Webhook] Matching trigger resources', {
       workflowId,
       eventType: event.type,
       matchingResourceIds: matchingResources.map((r: any) => r.id),

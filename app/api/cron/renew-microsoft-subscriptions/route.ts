@@ -16,12 +16,12 @@ export async function POST(request: NextRequest) {
       return errorResponse('Unauthorized' , 401)
     }
 
-    logger.debug('🔄 Starting Microsoft Graph subscription renewal process')
+    logger.info('🔄 Starting Microsoft Graph subscription renewal process')
 
     // Get subscriptions that need renewal (expiring within 24 hours)
     const subscriptionsNeedingRenewal = await subscriptionManager.getSubscriptionsNeedingRenewal()
     
-    logger.debug(`📊 Found ${subscriptionsNeedingRenewal.length} subscriptions needing renewal`)
+    logger.info(`📊 Found ${subscriptionsNeedingRenewal.length} subscriptions needing renewal`)
 
     const results = {
       total: subscriptionsNeedingRenewal.length,
@@ -33,14 +33,14 @@ export async function POST(request: NextRequest) {
     // Process each subscription
     for (const subscription of subscriptionsNeedingRenewal) {
       try {
-        logger.debug(`🔄 Renewing subscription: ${subscription.id}`)
+        logger.info(`🔄 Renewing subscription: ${subscription.id}`)
         
         // Note: In production, you should refresh the access token here
         // For now, we'll use the stored token (which may be expired)
         await subscriptionManager.renewSubscription(subscription.id, subscription.accessToken)
         
         results.renewed++
-        logger.debug(`✅ Successfully renewed subscription: ${subscription.id}`)
+        logger.info(`✅ Successfully renewed subscription: ${subscription.id}`)
         
       } catch (error: any) {
         results.failed++
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         
         // If token is expired, mark subscription for cleanup
         if (error.message.includes('401')) {
-          logger.debug(`🗑️ Marking expired subscription for cleanup: ${subscription.id}`)
+          logger.info(`🗑️ Marking expired subscription for cleanup: ${subscription.id}`)
           // You might want to delete or mark as expired
         }
       }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     // Clean up expired subscriptions
     await subscriptionManager.cleanupExpiredSubscriptions()
 
-    logger.debug('✅ Microsoft Graph subscription renewal process completed:', results)
+    logger.info('✅ Microsoft Graph subscription renewal process completed:', results)
 
     return jsonResponse({
       success: true,

@@ -18,7 +18,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       process.env.SUPABASE_SECRET_KEY!
     )
 
-    logger.debug(`🔍 Looking for integration: userId="${userId}", provider="${provider}"`)
+    logger.info(`🔍 Looking for integration: userId="${userId}", provider="${provider}"`)
 
     // Map provider variations to database values
     // Google services can have different provider names but use the same OAuth integration
@@ -37,7 +37,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
     // Get possible provider values for this provider
     const possibleProviders = providerMapping[provider] || [provider];
 
-    logger.debug(`🔍 Searching for integration with providers: ${possibleProviders.join(', ')}`);
+    logger.info(`🔍 Searching for integration with providers: ${possibleProviders.join(', ')}`);
 
     // First, let's see what integrations exist for this user
     const { data: allUserIntegrations, error: allError } = await supabase
@@ -45,7 +45,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       .select("id, provider, status")
       .eq("user_id", userId)
 
-    logger.debug(`📋 All integrations for user ${userId}:`, allUserIntegrations)
+    logger.info(`📋 All integrations for user ${userId}:`, allUserIntegrations)
 
     // Get the user's integration - try all possible provider values
     const { data: integrations, error } = await supabase
@@ -73,7 +73,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       throw new Error(`No integration found for ${provider}. Available integrations: ${allUserIntegrations?.map(i => i.provider).join(', ') || 'none'}`)
     }
 
-    logger.debug(`✅ Found integration for ${provider} with actual provider: ${integration.provider}`)
+    logger.info(`✅ Found integration for ${provider} with actual provider: ${integration.provider}`)
 
     // Check if token needs refresh
     const shouldRefresh = TokenRefreshService.shouldRefreshToken(integration, {
@@ -83,7 +83,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
     let accessToken = integration.access_token
 
     if (shouldRefresh.shouldRefresh && integration.refresh_token) {
-      logger.debug(`Refreshing token for ${provider}: ${shouldRefresh.reason}`)
+      logger.info(`Refreshing token for ${provider}: ${shouldRefresh.reason}`)
       
       const refreshResult = await TokenRefreshService.refreshTokenForProvider(
         integration.provider,
@@ -93,7 +93,7 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
 
       if (refreshResult.success && refreshResult.accessToken) {
         accessToken = refreshResult.accessToken
-        logger.debug(`Token refresh successful for ${provider}`)
+        logger.info(`Token refresh successful for ${provider}`)
       } else {
         logger.error(`Token refresh failed for ${provider}:`, refreshResult.error)
         throw new Error(`Failed to refresh ${provider} token: ${refreshResult.error}`)
@@ -110,23 +110,23 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
       throw new Error("Encryption secret not configured. Please set ENCRYPTION_KEY environment variable.")
     }
 
-    logger.debug(`Attempting to decrypt access token for ${provider}`)
+    logger.info(`Attempting to decrypt access token for ${provider}`)
     // SECURITY: Never log token values, previews, or metadata
-    logger.debug(`Token format check:`, {
+    logger.info(`Token format check:`, {
       hasColon: accessToken.includes(':'),
       isEncrypted: accessToken.includes(':')
     })
 
     // If the token doesn't have the expected format, it's stored as plain text
     if (!accessToken.includes(':')) {
-      logger.debug(`Token for ${provider} is stored as plain text, returning as-is`)
+      logger.info(`Token for ${provider} is stored as plain text, returning as-is`)
       return accessToken
     }
     
     // Only attempt decryption if the token appears to be encrypted
     try {
       const decryptedToken = decrypt(accessToken, secret)
-      logger.debug(`Successfully decrypted access token for ${provider}`)
+      logger.info(`Successfully decrypted access token for ${provider}`)
       return decryptedToken
     } catch (decryptError: any) {
       logger.error(`Decryption failed for ${provider}:`, {

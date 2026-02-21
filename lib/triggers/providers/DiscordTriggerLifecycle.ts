@@ -30,7 +30,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.debug(`🔔 Activating Discord trigger for workflow ${workflowId}`, {
+    logger.info(`🔔 Activating Discord trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -64,13 +64,13 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
         // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
         if (upsertError.code === '23503') {
           logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${upsertError.message}`)
-          logger.debug(`✅ Discord ${triggerType} trigger activated (passive listener, without local record)`)
+          logger.info(`✅ Discord ${triggerType} trigger activated (passive listener, without local record)`)
           return
         }
         logger.error(`❌ Failed to store trigger resource:`, upsertError)
         throw new Error(`Failed to store trigger resource: ${upsertError.message}`)
       }
-      logger.debug(`✅ Discord ${triggerType} trigger activated (passive listener)`)
+      logger.info(`✅ Discord ${triggerType} trigger activated (passive listener)`)
     }
   }
 
@@ -95,7 +95,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
       throw new Error('Guild ID and command name are required for Discord slash commands')
     }
 
-    logger.debug(`📤 Registering Discord slash command: /${command} in guild ${guildId}`)
+    logger.info(`📤 Registering Discord slash command: /${command} in guild ${guildId}`)
 
     // Check if command already exists
     const listUrl = `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
@@ -136,7 +136,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
         throw new Error(`Failed to update Discord command: ${updateResponse.status}`)
       }
 
-      logger.debug(`✅ Updated existing Discord slash command: ${commandId}`)
+      logger.info(`✅ Updated existing Discord slash command: ${commandId}`)
     } else {
       // Create new command
       const createResponse = await fetch(listUrl, {
@@ -160,7 +160,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
 
       const created = await createResponse.json()
       commandId = created.id
-      logger.debug(`✅ Created new Discord slash command: ${commandId}`)
+      logger.info(`✅ Created new Discord slash command: ${commandId}`)
     }
 
     // Store in trigger_resources table using upsert to handle re-activation
@@ -192,7 +192,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
       // The slash command was already created successfully with Discord, so we can continue
       if (upsertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${upsertError.message}`)
-        logger.debug(`✅ Discord slash command created (without local record): ${commandId}`)
+        logger.info(`✅ Discord slash command created (without local record): ${commandId}`)
         return
       }
       logger.error(`❌ Failed to store trigger resource:`, upsertError)
@@ -207,7 +207,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId } = context
 
-    logger.debug(`🛑 Deactivating Discord triggers for workflow ${workflowId}`)
+    logger.info(`🛑 Deactivating Discord triggers for workflow ${workflowId}`)
 
     // Get all Discord triggers for this workflow
     const { data: resources } = await getSupabase()
@@ -218,7 +218,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No active Discord triggers for workflow ${workflowId}`)
+      logger.info(`ℹ️ No active Discord triggers for workflow ${workflowId}`)
       return
     }
 
@@ -246,7 +246,7 @@ export class DiscordTriggerLifecycle implements TriggerLifecycle {
             throw new Error(`Failed to delete command: ${response.status}`)
           }
 
-          logger.debug(`✅ Deleted Discord slash command: ${resource.external_id}`)
+          logger.info(`✅ Deleted Discord slash command: ${resource.external_id}`)
         }
 
         // Mark as deleted in trigger_resources

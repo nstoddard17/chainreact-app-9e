@@ -31,7 +31,7 @@ export async function updateShopifyInventory(
     const inventoryItemGid = toInventoryItemGid(inventoryItemId)
     const locationGid = toLocationGid(locationId)
 
-    logger.debug('[Shopify GraphQL] Updating inventory:', {
+    logger.info('[Shopify GraphQL] Updating inventory:', {
       inventoryItemId: inventoryItemGid,
       locationId: locationGid,
       adjustmentType,

@@ -38,7 +38,7 @@ export const getSlackEmojiCatalog: SlackDataHandler<SlackEmojiCatalogItem> = asy
   const standardEmojis = buildStandardEmojiCatalog()
 
   try {
-    logger.debug('😄 [Slack Emoji] Fetching emoji catalog')
+    logger.info('😄 [Slack Emoji] Fetching emoji catalog')
 
     const response = await makeSlackApiRequest(
       'https://slack.com/api/emoji.list',
@@ -103,7 +103,7 @@ export const getSlackEmojiCatalog: SlackDataHandler<SlackEmojiCatalogItem> = asy
 
     const allEmojis = [...standardEmojis, ...customEmojis].sort((a, b) => a.name.localeCompare(b.name))
 
-    logger.debug(`✅ [Slack Emoji] Retrieved ${allEmojis.length} emoji`)
+    logger.info(`✅ [Slack Emoji] Retrieved ${allEmojis.length} emoji`)
 
     return allEmojis
   } catch (error: any) {

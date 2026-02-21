@@ -79,9 +79,9 @@ export function getProviderWebhookUrls(req?: Request): Record<string, string> {
  * Log webhook URL configuration for debugging
  */
 export function logWebhookConfig(): void {
-  logger.debug('🔧 Webhook Configuration:')
-  logger.debug(`   NODE_ENV: ${process.env.NODE_ENV}`)
-  logger.debug(`   NEXT_PUBLIC_WEBHOOK_HTTPS_URL: ${process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || 'not set'}`)
-  logger.debug(`   NEXT_PUBLIC_URL: ${process.env.NEXT_PUBLIC_URL || 'not set'}`)
-  logger.debug(`   Computed base URL: ${getWebhookBaseUrl()}`)
+  logger.info('🔧 Webhook Configuration:')
+  logger.info(`   NODE_ENV: ${process.env.NODE_ENV}`)
+  logger.info(`   NEXT_PUBLIC_WEBHOOK_HTTPS_URL: ${process.env.NEXT_PUBLIC_WEBHOOK_HTTPS_URL || 'not set'}`)
+  logger.info(`   NEXT_PUBLIC_URL: ${process.env.NEXT_PUBLIC_URL || 'not set'}`)
+  logger.info(`   Computed base URL: ${getWebhookBaseUrl()}`)
 }

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Unauthorized", 401)
     }
 
-    logger.debug('[Teams API] Fetching teams for user:', { userId: user.id })
+    logger.info('[Teams API] Fetching teams for user:', { userId: user.id })
 
     // Get organization_id from query params (optional)
     const { searchParams } = new URL(request.url)
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     // Filter by organization if specified
     if (organizationId) {
-      logger.debug('[Teams API] Filtering by organization:', organizationId)
+      logger.info('[Teams API] Filtering by organization:', organizationId)
       query = query.eq('organization_id', organizationId)
     }
 
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       throw error
     }
 
-    logger.debug('[Teams API] Successfully fetched teams:', { count: teams?.length || 0 })
+    logger.info('[Teams API] Successfully fetched teams:', { count: teams?.length || 0 })
     return jsonResponse({ teams: teams || [] })
   } catch (error: any) {
     logger.error('[Teams API] Error fetching teams:', {

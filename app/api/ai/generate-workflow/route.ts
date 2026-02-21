@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
             parentAIAgentId: parentAIAgentId,
             parentChainIndex: chainIndex
           };
-          logger.debug(`Setting chain metadata for ${node.id}:`, { parentAIAgentId, chainIndex });
+          logger.info(`Setting chain metadata for ${node.id}:`, { parentAIAgentId, chainIndex });
         }
       }
       

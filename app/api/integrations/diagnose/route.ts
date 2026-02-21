@@ -291,7 +291,7 @@ export async function GET(request: NextRequest) {
     for (const integration of integrations || []) {
       const { provider } = integration
 
-      logger.debug(`Processing integration: ${provider}`)
+      logger.info(`Processing integration: ${provider}`)
 
       // Check token validity based on database information only
       const tokenCheck = checkTokenExpiry(integration)

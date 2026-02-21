@@ -89,17 +89,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    logger.debug("=== Workflow Execution Started (Refactored) ===")
+    logger.info("=== Workflow Execution Started (Refactored) ===")
 
     // Check if request has a body
     const contentLength = request.headers.get('content-length')
-    logger.debug(`📊 [Execute Route] Request content-length: ${contentLength}`)
+    logger.info(`📊 [Execute Route] Request content-length: ${contentLength}`)
 
     // Try to parse the JSON body with better error handling
     let body
     try {
       const text = await request.text()
-      logger.debug(`📊 [Execute Route] Request body text length: ${text.length}`)
+      logger.info(`📊 [Execute Route] Request body text length: ${text.length}`)
 
       if (!text || text.length === 0) {
         throw new Error("Empty request body received")
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Log the workflow data to see what nodes we're getting
-    logger.debug("📊 [Execute Route] Workflow data received:", {
+    logger.info("📊 [Execute Route] Workflow data received:", {
       workflowId,
       hasWorkflowData: !!workflowData,
       nodesCount: workflowData?.nodes?.length || 0,
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
                              executionMode === 'live' ? false :
                              testMode
 
-    logger.debug("Execution parameters:", {
+    logger.info("Execution parameters:", {
       workflowId,
       testMode,
       executionMode,
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
       targetHandle: e.target_port_id || 'target'
     }))
 
-    logger.debug("Workflow found:", {
+    logger.info("Workflow found:", {
       id: workflow.id,
       name: workflow.name,
       nodesCount: dbNodes.length
@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
 
     if (userIdFromHeader) {
       // Webhook-triggered execution - use user ID from header
-      logger.debug("Using user ID from x-user-id header:", userIdFromHeader)
+      logger.info("Using user ID from x-user-id header:", userIdFromHeader)
       userId = userIdFromHeader
 
       // Verify the user exists and owns the workflow
@@ -295,7 +295,7 @@ export async function POST(request: NextRequest) {
       userId = user.id
     }
 
-    logger.debug("User authenticated:", userId)
+    logger.info("User authenticated:", userId)
 
     // Parse workflow data - use provided data or fall back to normalized tables
     const allNodes = workflowData?.nodes || dbNodes
@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
     // Log Google Calendar node config if present
     const calendarNode = allNodes.find((n: any) => n.data?.type === 'google_calendar_action_create_event')
     if (calendarNode) {
-      logger.debug('📅 [Execute Route] Google Calendar node config received:', {
+      logger.info('📅 [Execute Route] Google Calendar node config received:', {
         nodeId: calendarNode.id,
         hasConfig: !!calendarNode.data?.config,
         configKeys: Object.keys(calendarNode.data?.config || {}),
@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
     // Log Google Sheets node config if present
     const sheetsNode = allNodes.find((n: any) => n.data?.type === 'google_sheets_unified_action')
     if (sheetsNode) {
-      logger.debug('📊 [Execute Route] Google Sheets node config received:', {
+      logger.info('📊 [Execute Route] Google Sheets node config received:', {
         nodeId: sheetsNode.id,
         hasConfig: !!sheetsNode.data?.config,
         configKeys: Object.keys(sheetsNode.data?.config || {}),
@@ -345,7 +345,7 @@ export async function POST(request: NextRequest) {
       }
       // Skip trigger nodes if requested (for Run Once Live mode)
       if (skipTriggers && node.data?.isTrigger) {
-        logger.debug(`Skipping trigger node: ${node.id} (${node.data?.type})`)
+        logger.info(`Skipping trigger node: ${node.id} (${node.data?.type})`)
         return false
       }
       return true
@@ -358,7 +358,7 @@ export async function POST(request: NextRequest) {
       return sourceNode && targetNode
     })
     
-    logger.debug("Workflow structure:", {
+    logger.info("Workflow structure:", {
       originalNodesCount: allNodes.length,
       filteredNodesCount: nodes.length,
       skippedUINodes: allNodes.length - nodes.length,
@@ -374,7 +374,7 @@ export async function POST(request: NextRequest) {
     // Find trigger nodes (unless we're skipping them)
     if (!skipTriggers) {
       const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
-      logger.debug("Trigger nodes found:", triggerNodes.length)
+      logger.info("Trigger nodes found:", triggerNodes.length)
 
       if (triggerNodes.length === 0) {
         logger.error("No trigger nodes found")
@@ -383,7 +383,7 @@ export async function POST(request: NextRequest) {
     } else {
       // When skipping triggers, ensure we have at least one action node
       const actionNodes = nodes.filter((node: any) => !node.data?.isTrigger)
-      logger.debug("Action nodes found (triggers skipped):", actionNodes.length)
+      logger.info("Action nodes found (triggers skipped):", actionNodes.length)
 
       if (actionNodes.length === 0) {
         logger.error("No action nodes found")
@@ -392,7 +392,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Execute the workflow using the new service or advanced engine based on mode
-    logger.debug("Starting workflow execution with effectiveTestMode:", effectiveTestMode, "executionMode:", executionMode)
+    logger.info("Starting workflow execution with effectiveTestMode:", effectiveTestMode, "executionMode:", executionMode)
 
     // Use advanced execution engine for live mode to enable parallel processing
     if (executionMode === 'live' || executionMode === 'sequential') {
@@ -425,7 +425,7 @@ export async function POST(request: NextRequest) {
 
       const isPaused = typeof executionResult === 'object' && executionResult !== null && 'paused' in executionResult && (executionResult as any).paused
 
-      logger.debug("Advanced workflow execution completed", {
+      logger.info("Advanced workflow execution completed", {
         paused: !!isPaused,
         executionMode,
         sessionId: executionSession.id
@@ -466,7 +466,7 @@ export async function POST(request: NextRequest) {
       // Find the trigger node that was skipped to determine what mock data to provide
       const triggerNode = allNodes.find((n: any) => n.data?.isTrigger)
       if (triggerNode) {
-        logger.debug('📦 Generating mock trigger data for:', triggerNode.data?.type)
+        logger.info('📦 Generating mock trigger data for:', triggerNode.data?.type)
         effectiveInputData = generateMockTriggerData(triggerNode.data?.type, userId)
       }
     }
@@ -491,7 +491,7 @@ export async function POST(request: NextRequest) {
         conversationId: (executionResult as any).conversationId
       })
     } else {
-      logger.debug("Workflow execution completed successfully")
+      logger.info("Workflow execution completed successfully")
     }
 
     const responsePayload: Record<string, any> = {
@@ -521,7 +521,7 @@ export async function POST(request: NextRequest) {
 
     // Check if we have intercepted actions (sandbox mode)
     if (executionResult && typeof executionResult === 'object' && 'interceptedActions' in executionResult) {
-      logger.debug(`Returning ${executionResult.interceptedActions.length} intercepted actions to frontend`)
+      logger.info(`Returning ${executionResult.interceptedActions.length} intercepted actions to frontend`)
       responsePayload.results = executionResult.results
       responsePayload.interceptedActions = executionResult.interceptedActions
       return jsonResponse(responsePayload)

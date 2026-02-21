@@ -39,7 +39,7 @@ export async function hubspotUpdateProduct(
       throw new Error('At least one field must be provided to update')
     }
 
-    logger.debug('Updating HubSpot product:', { productId, properties })
+    logger.info('Updating HubSpot product:', { productId, properties })
 
     const response = await fetch(`https://api.hubapi.com/crm/v3/objects/products/${productId}`, {
       method: 'PATCH',

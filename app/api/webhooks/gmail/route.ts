@@ -8,11 +8,11 @@ import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
-  logger.debug('🔔🔔🔔 GMAIL WEBHOOK ENDPOINT HIT! 🔔🔔🔔')
+  logger.info('🔔🔔🔔 GMAIL WEBHOOK ENDPOINT HIT! 🔔🔔🔔')
 
   // Log headers to debug
   const headers = Object.fromEntries(request.headers.entries())
-  logger.debug('📋 Request headers:', headers)
+  logger.info('📋 Request headers:', headers)
 
   // Define requestId before try block so it's accessible in catch
   const requestId = crypto.randomUUID()
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
   try {
 
-    logger.debug(`📨 [${requestId}] Gmail webhook request received at ${new Date().toISOString()}`)
+    logger.info(`📨 [${requestId}] Gmail webhook request received at ${new Date().toISOString()}`)
 
     // Log incoming webhook
     await logWebhookEvent({
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Parse the request body
     const body = await request.text()
-    logger.debug(`📝 [${requestId}] Raw body received:`, body.substring(0, 500)) // Log first 500 chars
+    logger.info(`📝 [${requestId}] Raw body received:`, body.substring(0, 500)) // Log first 500 chars
 
     // Check if body is empty or invalid
     if (!body || body.trim() === '') {
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const parsedBody = JSON.parse(body)
-      logger.debug(`📦 [${requestId}] Parsed body structure:`, {
+      logger.info(`📦 [${requestId}] Parsed body structure:`, {
         hasMessage: !!parsedBody.message,
         hasMessageData: !!parsedBody.message?.data,
         messageKeys: parsedBody.message ? Object.keys(parsedBody.message) : [],
@@ -54,11 +54,11 @@ export async function POST(request: NextRequest) {
 
       // Check if this is a Pub/Sub message
       if (parsedBody.message && parsedBody.message.data) {
-        logger.debug(`[${requestId}] Received Pub/Sub message from Gmail`)
+        logger.info(`[${requestId}] Received Pub/Sub message from Gmail`)
 
         // Decode the Pub/Sub message data (base64 encoded)
         const decodedData = Buffer.from(parsedBody.message.data, 'base64').toString()
-        logger.debug(`🔓 [${requestId}] Decoded Pub/Sub data:`, decodedData)
+        logger.info(`🔓 [${requestId}] Decoded Pub/Sub data:`, decodedData)
 
         const gmailNotification = JSON.parse(decodedData)
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
           publishTime: parsedBody.message.publishTime
         }
 
-        logger.debug(`[${requestId}] 📧 Gmail notification received:`, {
+        logger.info(`[${requestId}] 📧 Gmail notification received:`, {
           emailAddress: eventData.emailAddress,
           historyId: eventData.historyId,
           messageId: parsedBody.message.messageId,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         })
 
         // SECURITY: Don't log email addresses (PII)
-        logger.debug(`[${requestId}] 🔍 Processing Gmail webhook, historyId: ${eventData.historyId}`)
+        logger.info(`[${requestId}] 🔍 Processing Gmail webhook, historyId: ${eventData.historyId}`)
       } else {
         // Direct webhook call (for testing or fallback)
         eventData = parsedBody
@@ -170,11 +170,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const token = searchParams.get('token')
 
-  logger.debug('🔍 Gmail webhook GET request received, token:', token)
+  logger.info('🔍 Gmail webhook GET request received, token:', token)
 
   // If this is a verification request from Google, echo back the challenge token
   if (token) {
-    logger.debug('✅ Responding to Google Pub/Sub verification with token:', token)
+    logger.info('✅ Responding to Google Pub/Sub verification with token:', token)
     return new Response(token, { status: 200 })
   }
 

@@ -172,7 +172,7 @@ export function Combobox({
     }
 
     const searchLower = inputValue.toLowerCase()
-    logger.debug('🔍 Combobox filtering:', { inputValue, searchLower, totalOptions: localOptions.length })
+    logger.info('🔍 Combobox filtering:', { inputValue, searchLower, totalOptions: localOptions.length })
 
     const filtered = localOptions.filter(option => {
       // Include group name in search text to allow filtering by group
@@ -185,13 +185,13 @@ export function Combobox({
       const matches = searchText.includes(searchLower)
 
       if (matches) {
-        logger.debug('🎯 Match found:', { searchText: searchText.substring(0, 50), searchLower })
+        logger.info('🎯 Match found:', { searchText: searchText.substring(0, 50), searchLower })
       }
 
       return matches
     })
 
-    logger.debug('🔍 Filtered results:', filtered.length)
+    logger.info('🔍 Filtered results:', filtered.length)
     return filtered
   }, [localOptions, inputValue])
 
@@ -376,7 +376,7 @@ export function Combobox({
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(true);
-        logger.debug('🎯 [Combobox] Drag over detected!', { buttonId, targetClass: target.className });
+        logger.info('🎯 [Combobox] Drag over detected!', { buttonId, targetClass: target.className });
         if (onDragOver) onDragOver(e as any);
       }
     };
@@ -409,7 +409,7 @@ export function Combobox({
         e.preventDefault();
         e.stopPropagation();
         const droppedText = e.dataTransfer?.getData('text/plain') || '';
-        logger.debug('💧 [Combobox] Drop detected!', { buttonId, droppedText });
+        logger.info('💧 [Combobox] Drop detected!', { buttonId, droppedText });
         setIsDragOver(false);
         if (onDrop) onDrop(e as any);
       }
@@ -769,7 +769,7 @@ export function MultiCombobox({
 
     // Debug logging
     if (placeholder?.toLowerCase().includes('task')) {
-      logger.debug('🔍 [MultiCombobox] Tasks field debug:', {
+      logger.info('🔍 [MultiCombobox] Tasks field debug:', {
         placeholder,
         value,
         valueLength: value.length,
@@ -865,7 +865,7 @@ export function MultiCombobox({
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(true);
-        logger.debug('🎯 [MultiCombobox] Drag over detected via global listener');
+        logger.info('🎯 [MultiCombobox] Drag over detected via global listener');
         if (onDragOver) onDragOver(e as any);
       }
     };
@@ -877,7 +877,7 @@ export function MultiCombobox({
         e.preventDefault();
         e.stopPropagation();
         const droppedText = e.dataTransfer?.getData('text/plain') || '';
-        logger.debug('💧 [MultiCombobox] Drop detected via global listener:', droppedText);
+        logger.info('💧 [MultiCombobox] Drop detected via global listener:', droppedText);
         setIsDragOver(false);
         if (onDrop) onDrop(e as any);
       }
@@ -1045,7 +1045,7 @@ export function MultiCombobox({
                     return false;
                   }));
 
-                  logger.debug(`🔍 [Checkmark] ${option.label}:`, {
+                  logger.info(`🔍 [Checkmark] ${option.label}:`, {
                     optionValue: option.value,
                     value,
                     selectedValues,
@@ -1150,8 +1150,8 @@ export function HierarchicalCombobox({
 
   // Debug logging
   React.useEffect(() => {
-    logger.debug('🔍 HierarchicalCombobox received options:', options)
-    logger.debug('🔍 Options structure:', JSON.stringify(options, null, 2))
+    logger.info('🔍 HierarchicalCombobox received options:', options)
+    logger.info('🔍 Options structure:', JSON.stringify(options, null, 2))
   }, [options])
 
   const selectedOption = options.flatMap(option => 

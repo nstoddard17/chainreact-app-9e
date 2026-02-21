@@ -29,7 +29,7 @@ export async function DELETE(request: Request) {
     const supabaseAdmin = await createSupabaseServiceClient()
 
     // Check if user is admin using the service client
-    logger.debug("Checking admin status for user:", user.id, user.email)
+    logger.info("Checking admin status for user:", user.id, user.email)
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("user_profiles")
@@ -37,7 +37,7 @@ export async function DELETE(request: Request) {
       .eq("id", user.id)
       .single()
 
-    logger.debug("Profile fetch result:", { profile, profileError })
+    logger.info("Profile fetch result:", { profile, profileError })
 
     if (profileError) {
       logger.error("Error fetching profile:", profileError)
@@ -49,17 +49,17 @@ export async function DELETE(request: Request) {
       return errorResponse("User profile not found" , 404)
     }
 
-    logger.debug("User admin status:", profile.admin)
+    logger.info("User admin status:", profile.admin)
 
     if (profile.admin !== true) {
-      logger.debug("User is not admin. Admin status:", profile.admin)
+      logger.info("User is not admin. Admin status:", profile.admin)
       return jsonResponse(
         { error: `Only admins can delete beta testers.` },
         { status: 403 }
       )
     }
 
-    logger.debug("User confirmed as admin, proceeding with beta tester deletion")
+    logger.info("User confirmed as admin, proceeding with beta tester deletion")
 
     // First, get the beta tester details for logging
     const { data: tester, error: fetchError } = await supabaseAdmin
@@ -84,7 +84,7 @@ export async function DELETE(request: Request) {
       return errorResponse(error.message || "Failed to delete beta tester" , 500)
     }
 
-    logger.debug(`Successfully deleted beta tester (ID: ${testerId})`)
+    logger.info(`Successfully deleted beta tester (ID: ${testerId})`)
 
     return jsonResponse({
       success: true,

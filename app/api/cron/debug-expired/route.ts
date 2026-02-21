@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Failed to create database client" , 500)
     }
 
-    logger.debug("🔍 Debugging expired integrations...")
+    logger.info("🔍 Debugging expired integrations...")
 
     // Get ALL integrations to see their current status
     const { data: allIntegrations, error: allError } = await supabase

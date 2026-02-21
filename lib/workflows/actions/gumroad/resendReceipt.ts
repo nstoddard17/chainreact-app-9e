@@ -22,7 +22,7 @@ export async function resendGumroadReceipt(
 
     const url = `https://api.gumroad.com/v2/sales/${encodeURIComponent(saleId)}/resend_receipt?access_token=${accessToken}`
 
-    logger.debug('[resendGumroadReceipt] Resending receipt for sale:', { saleId })
+    logger.info('[resendGumroadReceipt] Resending receipt for sale:', { saleId })
 
     const response = await fetch(url, {
       method: "POST",

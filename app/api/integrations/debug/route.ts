@@ -6,7 +6,7 @@ import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
-    logger.debug("Debug endpoint called")
+    logger.info("Debug endpoint called")
 
     const supabase = createClient()
     if (!supabase) {

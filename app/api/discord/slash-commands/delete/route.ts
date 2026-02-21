@@ -70,7 +70,7 @@ export async function DELETE(request: NextRequest) {
     // First, fetch all commands for this guild to find the command ID
     const listUrl = `https://discord.com/api/v10/applications/${clientId}/guilds/${guildId}/commands`;
 
-    logger.debug('[Discord Slash Commands] Fetching commands to find command ID', {
+    logger.info('[Discord Slash Commands] Fetching commands to find command ID', {
       url: listUrl,
       commandName
     });
@@ -114,7 +114,7 @@ export async function DELETE(request: NextRequest) {
     // Delete the command
     const deleteUrl = `https://discord.com/api/v10/applications/${clientId}/guilds/${guildId}/commands/${commandToDelete.id}`;
 
-    logger.debug('[Discord Slash Commands] Deleting command', {
+    logger.info('[Discord Slash Commands] Deleting command', {
       url: deleteUrl,
       commandId: commandToDelete.id,
       commandName

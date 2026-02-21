@@ -90,7 +90,7 @@ export function useFieldChangeHandler({
 
     nodeInfo.configSchema.forEach((field: any) => {
       if (field.dependsOn === parentFieldName) {
-        logger.debug('🔍 Clearing dependent field:', field.name);
+        logger.info('🔍 Clearing dependent field:', field.name);
         setValue(field.name, '');
       }
     });
@@ -111,7 +111,7 @@ export function useFieldChangeHandler({
     );
 
     for (const field of dependentFields) {
-      logger.debug('🔍 Loading options for dependent field:', field.name);
+      logger.info('🔍 Loading options for dependent field:', field.name);
       
       // Set loading state
       setLoadingFields((prev: Set<string>) => {
@@ -195,11 +195,11 @@ export function useFieldChangeHandler({
 
     // Handle guildId (server) changes
     if (fieldName === 'guildId') {
-      logger.debug('🔍 Discord guildId changed:', value);
+      logger.info('🔍 Discord guildId changed:', value);
       
       // Only proceed if value actually changed
       if (value === values.guildId) {
-        logger.debug('📌 Discord guildId unchanged, skipping field operations');
+        logger.info('📌 Discord guildId unchanged, skipping field operations');
         return true;
       }
       
@@ -229,7 +229,7 @@ export function useFieldChangeHandler({
       
       if (value) {
         // Always check bot status when a guild is selected (for both actions and triggers)
-        logger.debug('🤖 Checking bot status for guild:', value);
+        logger.info('🤖 Checking bot status for guild:', value);
         discordState?.checkBotStatus(value);
         
         // Don't load channels immediately - they will be loaded after bot status is confirmed
@@ -249,7 +249,7 @@ export function useFieldChangeHandler({
 
     // Handle channelId changes
     if (fieldName === 'channelId') {
-      logger.debug('🔍 Discord channelId changed:', value);
+      logger.info('🔍 Discord channelId changed:', value);
       
       // Check for messageId field
       const hasMessageField = nodeInfo.configSchema?.some((field: any) => field.name === 'messageId');
@@ -334,7 +334,7 @@ export function useFieldChangeHandler({
 
     // Handle messageId changes for remove reaction action
     if (fieldName === 'messageId' && nodeInfo?.type === 'discord_action_remove_reaction') {
-      logger.debug('🔍 Discord messageId changed for remove reaction:', value);
+      logger.info('🔍 Discord messageId changed for remove reaction:', value);
       
       // Clear emoji field
       setValue('emoji', '');
@@ -358,7 +358,7 @@ export function useFieldChangeHandler({
 
     // Handle spreadsheetId changes
     if (fieldName === 'spreadsheetId') {
-      logger.debug('🔍 Google Sheets spreadsheetId changed:', value);
+      logger.info('🔍 Google Sheets spreadsheetId changed:', value);
       
       // Clear preview data for update action
       if (values.action === 'update') {
@@ -388,7 +388,7 @@ export function useFieldChangeHandler({
 
     // Handle sheetName changes
     if (fieldName === 'sheetName') {
-      logger.debug('🔍 Google Sheets sheetName changed:', value);
+      logger.info('🔍 Google Sheets sheetName changed:', value);
       
       // Clear preview data for update action
       if (values.action === 'update') {
@@ -468,7 +468,7 @@ export function useFieldChangeHandler({
 
     // Handle baseId changes
     if (fieldName === 'baseId') {
-      logger.debug('🔍 Airtable baseId changed:', value);
+      logger.info('🔍 Airtable baseId changed:', value);
       
       // Clear ALL dependent fields
       setValue('tableName', '');
@@ -518,7 +518,7 @@ export function useFieldChangeHandler({
 
     // Handle tableName changes
     if (fieldName === 'tableName') {
-      logger.debug('🔍 Airtable tableName changed:', value);
+      logger.info('🔍 Airtable tableName changed:', value);
       
       // Clear dependent fields (everything except baseId)
       setValue('recordId', '');
@@ -565,7 +565,7 @@ export function useFieldChangeHandler({
 
     // Handle filterField changes
     if (fieldName === 'filterField' && nodeInfo?.type === 'airtable_action_list_records') {
-      logger.debug('🔍 Airtable filterField changed:', value);
+      logger.info('🔍 Airtable filterField changed:', value);
       
       // Clear filterValue
       setValue('filterValue', '');
@@ -597,7 +597,7 @@ export function useFieldChangeHandler({
 
     // Handle recordId change (from manual input or selection)
     if (fieldName === 'recordId' && value && selectedRecord?.fields) {
-      logger.debug('🔍 Airtable recordId changed, populating dynamic fields');
+      logger.info('🔍 Airtable recordId changed, populating dynamic fields');
       
       // Populate dynamic fields from selected record
       Object.entries(selectedRecord.fields).forEach(([fieldName, fieldValue]) => {
@@ -637,14 +637,14 @@ export function useFieldChangeHandler({
   const handleOneDriveFieldChange = useCallback(async (fieldName: string, value: any): Promise<boolean> => {
     // Log all OneDrive field changes for debugging
     if (nodeInfo?.providerId === 'onedrive') {
-      logger.debug('🔍 [OneDrive] Field change detected:', { fieldName, value, nodeType: nodeInfo?.type });
+      logger.info('🔍 [OneDrive] Field change detected:', { fieldName, value, nodeType: nodeInfo?.type });
     }
 
     if (nodeInfo?.providerId !== 'onedrive') return false;
 
     // Handle uploadedFiles changes to auto-fill fileName
     if (fieldName === 'uploadedFiles' && value) {
-      logger.debug('📎 [OneDrive] uploadedFiles changed, attempting auto-fill:', {
+      logger.info('📎 [OneDrive] uploadedFiles changed, attempting auto-fill:', {
         value,
         isArray: Array.isArray(value),
         isFileList: value instanceof FileList,
@@ -659,28 +659,28 @@ export function useFieldChangeHandler({
       if (value instanceof FileList && value.length > 0) {
         const file = value[0];
         autoFillName = file.name || '';
-        logger.debug('📎 [OneDrive] Extracted from FileList:', { name: file.name, result: autoFillName });
+        logger.info('📎 [OneDrive] Extracted from FileList:', { name: file.name, result: autoFillName });
       }
       // Handle array of File objects
       else if (Array.isArray(value) && value.length > 0) {
         const file = value[0];
         autoFillName = file.fileName || file.name || '';
-        logger.debug('📎 [OneDrive] Extracted from array:', { fileName: file.fileName, name: file.name, result: autoFillName });
+        logger.info('📎 [OneDrive] Extracted from array:', { fileName: file.fileName, name: file.name, result: autoFillName });
       }
       // Handle single File object
       else if (value.name) {
         autoFillName = value.name || '';
-        logger.debug('📎 [OneDrive] Extracted from single file:', { name: value.name, result: autoFillName });
+        logger.info('📎 [OneDrive] Extracted from single file:', { name: value.name, result: autoFillName });
       }
       // Handle object with fileName or name property
       else if (value.fileName) {
         autoFillName = value.fileName || '';
-        logger.debug('📎 [OneDrive] Extracted from object with fileName:', { fileName: value.fileName, result: autoFillName });
+        logger.info('📎 [OneDrive] Extracted from object with fileName:', { fileName: value.fileName, result: autoFillName });
       }
 
       // Auto-fill fileName with the uploaded file's name
       if (autoFillName) {
-        logger.debug('✨ [OneDrive] Auto-filling fileName with:', autoFillName);
+        logger.info('✨ [OneDrive] Auto-filling fileName with:', autoFillName);
         setValue('fileName', autoFillName);
       } else {
         logger.warn('⚠️ [OneDrive] Could not extract fileName from uploaded file:', value);
@@ -691,14 +691,14 @@ export function useFieldChangeHandler({
 
     // Handle folderId changes for OneDrive
     if (fieldName === 'folderId') {
-      logger.debug('🔍 OneDrive folderId changed:', value);
+      logger.info('🔍 OneDrive folderId changed:', value);
 
       // Clear the fileId field
       setValue('fileId', '');
 
       if (value) {
         // Reset options first
-        logger.debug('📁 OneDrive folder selected, loading files...');
+        logger.info('📁 OneDrive folder selected, loading files...');
         resetOptions('fileId');
 
         // Set loading state for fileId
@@ -760,7 +760,7 @@ export function useFieldChangeHandler({
     // These fields (like HubSpot selectedProperties) should only load once on mount, not when the user changes the value
     // This prevents infinite loops where changing the field value triggers a reload which triggers another change
     if (changedField?.loadOnMount === true) {
-      logger.debug(`⏭️ Field ${fieldName} has loadOnMount=true, will handle dependent fields but won't reload parent`);
+      logger.info(`⏭️ Field ${fieldName} has loadOnMount=true, will handle dependent fields but won't reload parent`);
     }
 
     // Create a unique key for this field change
@@ -768,14 +768,14 @@ export function useFieldChangeHandler({
 
     // Check if this exact change is already being processed
     if (processingFieldChanges.current.has(changeKey)) {
-      logger.debug(`🚫 Already processing change for ${fieldName} = ${value}, skipping duplicate call`);
+      logger.info(`🚫 Already processing change for ${fieldName} = ${value}, skipping duplicate call`);
       return true;
     }
 
     // Mark this change as being processed
     processingFieldChanges.current.add(changeKey);
 
-    logger.debug('🔍 Generic dependent field change:', {
+    logger.info('🔍 Generic dependent field change:', {
       fieldName,
       value,
       dependentFields: dependentFields.map((f: any) => f.name),
@@ -785,12 +785,12 @@ export function useFieldChangeHandler({
 
     // Clear all dependent fields
     dependentFields.forEach((depField: any) => {
-      logger.debug(`🧹 Clearing dependent field: ${depField.name}`);
+      logger.info(`🧹 Clearing dependent field: ${depField.name}`);
       setValue(depField.name, '');
 
       // Skip special field types that handle their own rendering/data (no API loading needed)
       if (depField.type === 'dynamic_fields' || depField.type === 'dynamic_properties') {
-        logger.debug(`⏭️ Skipping special field type: ${depField.name} (type: ${depField.type})`);
+        logger.info(`⏭️ Skipping special field type: ${depField.name} (type: ${depField.type})`);
         return;
       }
 
@@ -817,7 +817,7 @@ export function useFieldChangeHandler({
 
         // Check if already loading
         if (activelyLoadingFields.current.has(depField.name)) {
-          logger.debug(`⏭️ Skipping ${depField.name} - already loading`);
+          logger.info(`⏭️ Skipping ${depField.name} - already loading`);
           return false;
         }
 
@@ -828,7 +828,7 @@ export function useFieldChangeHandler({
         const mergedFormValues = { ...values, [fieldName]: value };
         const isVisible = FieldVisibilityEngine.isFieldVisible(depField, mergedFormValues, nodeInfo);
         if (!isVisible) {
-          logger.debug(`⏭️ Skipping ${depField.name} - field is hidden`);
+          logger.info(`⏭️ Skipping ${depField.name} - field is hidden`);
           return false;
         }
 
@@ -837,7 +837,7 @@ export function useFieldChangeHandler({
 
       // If no fields to load, skip the setTimeout entirely
       if (fieldsToLoad.length === 0) {
-        logger.debug(`⏭️ No dependent fields to load - all already loading or not dynamic`);
+        logger.info(`⏭️ No dependent fields to load - all already loading or not dynamic`);
         return true;
       }
 
@@ -976,7 +976,7 @@ export function useFieldChangeHandler({
     const currentValue = values[fieldName];
     const hasChanged = value !== currentValue;
 
-    logger.debug('🔍 handleFieldChange called:', {
+    logger.info('🔍 handleFieldChange called:', {
       fieldName,
       value,
       currentValue,
@@ -989,7 +989,7 @@ export function useFieldChangeHandler({
 
     // Skip if value hasn't changed (prevents unnecessary resets)
     if (!hasChanged) {
-      logger.debug('⏭️ Skipping field change - value unchanged:', fieldName);
+      logger.info('⏭️ Skipping field change - value unchanged:', fieldName);
       return;
     }
 
@@ -997,7 +997,7 @@ export function useFieldChangeHandler({
     // This allows the field to be reloaded if needed after a manual change
     if (loadedFieldsWithValues?.current) {
       if (loadedFieldsWithValues.current.has(fieldName)) {
-        logger.debug(`🔄 [handleFieldChange] Clearing tracking for manually changed field: ${fieldName}`);
+        logger.info(`🔄 [handleFieldChange] Clearing tracking for manually changed field: ${fieldName}`);
         loadedFieldsWithValues.current.delete(fieldName);
       }
 
@@ -1005,7 +1005,7 @@ export function useFieldChangeHandler({
       if (nodeInfo?.configSchema) {
         nodeInfo.configSchema.forEach((field: any) => {
           if (field.dependsOn === fieldName && loadedFieldsWithValues.current.has(field.name)) {
-            logger.debug(`🔄 [handleFieldChange] Clearing tracking for dependent field: ${field.name}`);
+            logger.info(`🔄 [handleFieldChange] Clearing tracking for dependent field: ${field.name}`);
             loadedFieldsWithValues.current.delete(field.name);
           }
         });
@@ -1014,7 +1014,7 @@ export function useFieldChangeHandler({
 
     // Special logging for uploadedFiles field
     if (fieldName === 'uploadedFiles') {
-      logger.debug('📎 [useFieldChangeHandler] uploadedFiles being set:', {
+      logger.info('📎 [useFieldChangeHandler] uploadedFiles being set:', {
         value,
         hasValue: value !== null && value !== undefined,
         isArray: Array.isArray(value),
@@ -1027,7 +1027,7 @@ export function useFieldChangeHandler({
     // This allows it to be restored from initialData next time the modal opens
     if (value !== '' && value !== null && value !== undefined && clearedFieldsRef?.current) {
       if (clearedFieldsRef.current.has(fieldName)) {
-        logger.debug(`✅ [handleFieldChange] Removing ${fieldName} from cleared fields (user manually set value)`);
+        logger.info(`✅ [handleFieldChange] Removing ${fieldName} from cleared fields (user manually set value)`);
         clearedFieldsRef.current.delete(fieldName);
       }
     }
@@ -1040,7 +1040,7 @@ export function useFieldChangeHandler({
     if (nodeInfo?.configSchema) {
       nodeInfo.configSchema.forEach((field: any) => {
         if (field.reloadOnChange && Array.isArray(field.reloadOnChange) && field.reloadOnChange.includes(fieldName)) {
-          logger.debug(`🔄 [handleFieldChange] Reloading ${field.name} because ${fieldName} changed`);
+          logger.info(`🔄 [handleFieldChange] Reloading ${field.name} because ${fieldName} changed`);
           // Reload the field with its current dependency value
           const dependencyValue = field.dependsOn ? values[field.dependsOn] : undefined;
           if (dependencyValue) {
@@ -1054,7 +1054,7 @@ export function useFieldChangeHandler({
     handleProviderFieldChange(fieldName, value).then(handled => {
       // Log if field was handled by a provider
       if (handled) {
-        logger.debug('✅ Field handled by provider logic:', fieldName);
+        logger.info('✅ Field handled by provider logic:', fieldName);
       }
     });
   }, [handleProviderFieldChange, setValue, nodeInfo, values, loadedFieldsWithValues, clearedFieldsRef, loadOptions]);

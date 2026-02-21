@@ -143,7 +143,7 @@ class ProviderRegistryImpl implements IProviderRegistry {
     
     if (!exists) {
       providerLoaders.push(loader);
-      logger.debug(`✅ [Registry] Registered loader for ${providerId}: ${loader.constructor.name}`);
+      logger.info(`✅ [Registry] Registered loader for ${providerId}: ${loader.constructor.name}`);
     }
   }
 
@@ -151,21 +151,21 @@ class ProviderRegistryImpl implements IProviderRegistry {
    * Get a loader that can handle the specific field for a provider
    */
   getLoader(providerId: string, fieldName: string): ProviderOptionsLoader | null {
-    logger.debug(`🔍 [Registry] Looking for loader:`, { providerId, fieldName });
+    logger.info(`🔍 [Registry] Looking for loader:`, { providerId, fieldName });
 
     const providerLoaders = this.loaders.get(providerId);
 
     if (!providerLoaders) {
       logger.warn(`❌ [Registry] No loaders registered for provider: ${providerId}`);
-      logger.debug(`[Registry] Available providers:`, Array.from(this.loaders.keys()));
+      logger.info(`[Registry] Available providers:`, Array.from(this.loaders.keys()));
       return null;
     }
 
-    logger.debug(`[Registry] Found ${providerLoaders.length} loader(s) for ${providerId}`);
+    logger.info(`[Registry] Found ${providerLoaders.length} loader(s) for ${providerId}`);
 
     // Find the first loader that can handle this field
     for (const loader of providerLoaders) {
-      logger.debug(`[Registry] Checking ${loader.constructor.name} for field: ${fieldName}`);
+      logger.info(`[Registry] Checking ${loader.constructor.name} for field: ${fieldName}`);
       if (loader.canHandle(fieldName, providerId)) {
         logger.info(`✅ [Registry] Found loader: ${loader.constructor.name} for ${providerId}.${fieldName}`);
         return loader;

@@ -12,11 +12,11 @@ export const getFacebookConversations: FacebookDataHandler<FacebookConversation>
     const { pageId } = options
 
     if (!pageId) {
-      logger.debug('❌ [Facebook Conversations] No pageId provided')
+      logger.info('❌ [Facebook Conversations] No pageId provided')
       return []
     }
 
-    logger.debug("🔍 [Facebook Conversations] Fetching conversations for page:", {
+    logger.info("🔍 [Facebook Conversations] Fetching conversations for page:", {
       integrationId: integration.id,
       pageId,
       hasToken: !!integration.access_token
@@ -26,13 +26,13 @@ export const getFacebookConversations: FacebookDataHandler<FacebookConversation>
     const tokenResult = await validateFacebookToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ [Facebook Conversations] Token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ [Facebook Conversations] Token validation failed: ${tokenResult.error}`)
       return []
     }
 
     // Fetch conversations from the page
     // Request id, participants, updated_time, message_count
-    logger.debug("🔍 [Facebook Conversations] Making Facebook API call")
+    logger.info("🔍 [Facebook Conversations] Making Facebook API call")
     const response = await makeFacebookApiRequest(
       `https://graph.facebook.com/v19.0/${pageId}/conversations?fields=id,participants,updated_time,message_count&limit=50`,
       tokenResult.token!
@@ -40,7 +40,7 @@ export const getFacebookConversations: FacebookDataHandler<FacebookConversation>
 
     if (!response.ok) {
       if (response.status === 401) {
-        logger.debug("❌ [Facebook Conversations] API returned 401 - token may be invalid")
+        logger.info("❌ [Facebook Conversations] API returned 401 - token may be invalid")
         return []
       }
       const errorData = await response.json().catch(() => ({}))
@@ -49,7 +49,7 @@ export const getFacebookConversations: FacebookDataHandler<FacebookConversation>
     }
 
     const data = await response.json()
-    logger.debug("✅ [Facebook Conversations] API response:", {
+    logger.info("✅ [Facebook Conversations] API response:", {
       conversationCount: data.data?.length || 0
     })
 
@@ -60,7 +60,7 @@ export const getFacebookConversations: FacebookDataHandler<FacebookConversation>
       message_count: conv.message_count,
     }))
 
-    logger.debug(`✅ [Facebook Conversations] Processed ${conversations.length} conversations`)
+    logger.info(`✅ [Facebook Conversations] Processed ${conversations.length} conversations`)
     return conversations
   } catch (error: any) {
     logger.error("❌ [Facebook Conversations] Error fetching conversations:", error)

@@ -53,7 +53,7 @@ export const getNotionPageBlocksSelectable: NotionDataHandler<SelectableBlock> =
       throw new Error(tokenResult.error || "Token validation failed")
     }
 
-    logger.debug("📋 [Notion Selectable Blocks] Fetching blocks for page:", pageId)
+    logger.info("📋 [Notion Selectable Blocks] Fetching blocks for page:", pageId)
 
     // Fetch all blocks from the page
     const blocksResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
@@ -82,7 +82,7 @@ export const getNotionPageBlocksSelectable: NotionDataHandler<SelectableBlock> =
     const blocksData = await blocksResponse.json()
     const blocks = blocksData.results || []
 
-    logger.debug(`📋 [Notion Selectable Blocks] Found ${blocks.length} blocks`)
+    logger.info(`📋 [Notion Selectable Blocks] Found ${blocks.length} blocks`)
 
     // Transform blocks into selectable format
     const selectableBlocks: SelectableBlock[] = []
@@ -156,7 +156,7 @@ export const getNotionPageBlocksSelectable: NotionDataHandler<SelectableBlock> =
       })
     }
 
-    logger.debug(`📋 [Notion Selectable Blocks] Returning ${selectableBlocks.length} selectable blocks`)
+    logger.info(`📋 [Notion Selectable Blocks] Returning ${selectableBlocks.length} selectable blocks`)
 
     return selectableBlocks
 

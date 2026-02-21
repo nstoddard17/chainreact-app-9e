@@ -22,7 +22,7 @@ export async function getGumroadSubscriber(
 
     const url = `https://api.gumroad.com/v2/subscribers/${encodeURIComponent(subscriberId)}?access_token=${accessToken}`
 
-    logger.debug('[getGumroadSubscriber] Fetching subscriber:', { subscriberId })
+    logger.info('[getGumroadSubscriber] Fetching subscriber:', { subscriberId })
 
     const response = await fetch(url, {
       method: "GET",

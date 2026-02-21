@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     // Check if we have a recent cached result
     const cachedResult = requestResults.get(requestKey)
     if (cachedResult && Date.now() - cachedResult.timestamp < CACHE_TTL) {
-      logger.debug(`✨ [Trello API] Using cached result for ${dataType}`)
+      logger.info(`✨ [Trello API] Using cached result for ${dataType}`)
       return jsonResponse({
         data: cachedResult.data,
         success: true,
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     // Check if there's already an active request for this exact same data
     const activeRequest = activeRequests.get(requestKey)
     if (activeRequest) {
-      logger.debug(`⏳ [Trello API] Waiting for existing request: ${dataType}`)
+      logger.info(`⏳ [Trello API] Waiting for existing request: ${dataType}`)
       try {
         const data = await activeRequest
         return jsonResponse({
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    logger.debug(`🔍 [Trello API] Processing request:`, {
+    logger.info(`🔍 [Trello API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      logger.debug(`✅ [Trello API] Successfully processed ${dataType}:`, {
+      logger.info(`✅ [Trello API] Successfully processed ${dataType}:`, {
         integrationId,
         resultCount: data?.length || 0
       })

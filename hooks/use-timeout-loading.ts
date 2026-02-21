@@ -62,7 +62,7 @@ export function useTimeoutLoading({
   const loadData = useCallback(async (forceRefresh = forceRefreshOnMount) => {
     // Prevent duplicate concurrent loads
     if (loadingRef.current) {
-      logger.debug('⏳ Load already in progress, skipping...')
+      logger.info('⏳ Load already in progress, skipping...')
       return
     }
 
@@ -90,7 +90,7 @@ export function useTimeoutLoading({
 
           // Only force reload once to prevent loops
           if (attemptCountRef.current === 1) {
-            logger.debug('🔄 Attempting force reload...')
+            logger.info('🔄 Attempting force reload...')
             loadFunction(true).catch(error => {
               logger.error('Force reload failed:', error)
               if (onError && isMountedRef.current) {
@@ -100,7 +100,7 @@ export function useTimeoutLoading({
               loadingRef.current = false
             })
           } else {
-            logger.debug('⏹️ Stopping reload attempts to prevent loop')
+            logger.info('⏹️ Stopping reload attempts to prevent loop')
             // Just clear loading state and continue
             if (onError && isMountedRef.current) {
               onError(new Error('Loading timeout - data may be incomplete'))

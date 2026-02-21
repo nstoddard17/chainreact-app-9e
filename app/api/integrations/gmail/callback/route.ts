@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
         if (userinfoResponse.ok) {
           const userinfo = await userinfoResponse.json()
-          logger.debug('Gmail userinfo fetched:', { email: userinfo.email, id: userinfo.id, hasPicture: !!userinfo.picture })
+          logger.info('Gmail userinfo fetched:', { email: userinfo.email, id: userinfo.id, hasPicture: !!userinfo.picture })
 
           return {
             email: userinfo.email,

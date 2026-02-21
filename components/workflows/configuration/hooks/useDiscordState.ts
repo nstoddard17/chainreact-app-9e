@@ -79,12 +79,12 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
       // If bot is now connected with permissions, automatically load channels
       // BUT only if we don't already have a saved channel value
       if (newBotStatus.isInGuild && newBotStatus.hasPermissions && !values.channelId) {
-        logger.debug('🔍 Bot connected with permissions, loading channels for guild:', guildId);
+        logger.info('🔍 Bot connected with permissions, loading channels for guild:', guildId);
         // Let the useDynamicOptions hook handle all loading state management
         // Use ref to avoid re-creating this callback when loadOptions changes
         loadOptionsRef.current('channelId', 'guildId', guildId)
           .then(() => {
-            logger.debug('✅ Channels loaded successfully after bot connection');
+            logger.info('✅ Channels loaded successfully after bot connection');
             // Clear any rate limit errors
             setRateLimitInfo({ isRateLimited: false });
           })
@@ -103,7 +103,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
               // Auto-retry after the rate limit expires
               if (channelError.retryAfter) {
                 setTimeout(() => {
-                  logger.debug('🔄 Retrying channel load after rate limit...');
+                  logger.info('🔄 Retrying channel load after rate limit...');
                   setRateLimitInfo({ isRateLimited: false });
                   loadOptionsRef.current('channelId', 'guildId', guildId);
                 }, (channelError.retryAfter + 1) * 1000);
@@ -113,7 +113,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
             }
           });
       } else if (newBotStatus.isInGuild && newBotStatus.hasPermissions && values.channelId) {
-        logger.debug('📌 Bot connected but skipping channel load - using saved channel value:', values.channelId);
+        logger.info('📌 Bot connected but skipping channel load - using saved channel value:', values.channelId);
       }
     } catch (error) {
       logger.error("Error checking Discord bot status:", error);
@@ -181,7 +181,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     }
 
     try {
-      logger.debug('🔍 Loading reactions for message:', messageId, 'in channel:', channelId);
+      logger.info('🔍 Loading reactions for message:', messageId, 'in channel:', channelId);
       
       // Load reactions using the integration service directly
       const reactionsData = await loadIntegrationData('discord_reactions', discordIntegration.id, {
@@ -201,7 +201,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
       // Update selected emoji reactions state
       setSelectedEmojiReactions(formattedReactions);
       
-      logger.debug('✅ Loaded', formattedReactions.length, 'reactions for message');
+      logger.info('✅ Loaded', formattedReactions.length, 'reactions for message');
     } catch (error: any) {
       logger.error('Failed to load reactions:', error);
       setSelectedEmojiReactions([]);
@@ -210,7 +210,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
   
   // Function to invite bot to Discord server
   const handleInviteBot = useCallback((guildId?: string) => {
-    logger.debug('🔍 Discord invite bot called:', { 
+    logger.info('🔍 Discord invite bot called:', { 
       discordClientId: discordClientId ? 'Present' : 'Missing',
       isDiscordBotConfigured,
       guildId 
@@ -224,7 +224,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
     // Use helper function to get the invite URL
     const inviteUrl = getDiscordBotInviteUrl(discordClientId, guildId);
     
-    logger.debug('🔍 Opening Discord OAuth popup with URL:', inviteUrl);
+    logger.info('🔍 Opening Discord OAuth popup with URL:', inviteUrl);
     
     // Set loading state
     setIsBotConnectionInProgress(true);
@@ -256,7 +256,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
           clearInterval(interval);
           setIsBotConnectionInProgress(false);
           
-          logger.debug('🔍 Discord OAuth popup closed, checking bot status...');
+          logger.info('🔍 Discord OAuth popup closed, checking bot status...');
 
           // Check bot status after popup closes
           if (guildId) {
@@ -286,7 +286,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
             // Additional checks with delays to handle Discord's eventual consistency
             setTimeout(async () => {
               if (!botStatus?.isInGuild) {
-                logger.debug('🔍 Bot not detected yet, checking again...');
+                logger.info('🔍 Bot not detected yet, checking again...');
                 await checkBotStatus(guildId);
 
                 // Try loading channels again if bot is now detected
@@ -303,7 +303,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
 
             setTimeout(async () => {
               if (!botStatus?.isInGuild) {
-                logger.debug('🔍 Final bot status check...');
+                logger.info('🔍 Final bot status check...');
                 await checkBotStatus(guildId);
               }
               // Clear loading state after final check
@@ -318,7 +318,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
         if (pollCount >= maxPolls) {
           clearInterval(interval);
           setIsBotConnectionInProgress(false);
-          logger.debug('Discord OAuth timeout - exceeded maximum wait time');
+          logger.info('Discord OAuth timeout - exceeded maximum wait time');
           popup.close();
           
         }
@@ -336,10 +336,10 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
   
   // Function to connect Discord integration
   const handleConnectDiscord = useCallback(async () => {
-    logger.debug('Starting Discord connection...');
+    logger.info('Starting Discord connection...');
     const result = await connectIntegration('discord');
     if (result) {
-      logger.debug('Discord connected successfully!');
+      logger.info('Discord connected successfully!');
       // The integration data will be updated automatically via the store
     }
   }, [connectIntegration]);
@@ -353,7 +353,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
         const response = await fetch('/api/discord/config');
         const data = await response.json();
         
-        logger.debug('🔍 Discord configuration check on mount:', data);
+        logger.info('🔍 Discord configuration check on mount:', data);
         
         if (data.configured && data.clientId) {
           setIsDiscordBotConfigured(true);
@@ -383,7 +383,7 @@ export function useDiscordState({ nodeInfo, values, loadOptions }: UseDiscordSta
 
     // Check guild-level bot status when guild ID changes
     if (values.guildId && previousGuildIdRef.current !== values.guildId) {
-      logger.debug('🔍 Guild ID changed from', previousGuildIdRef.current, 'to', values.guildId, '- checking bot status');
+      logger.info('🔍 Guild ID changed from', previousGuildIdRef.current, 'to', values.guildId, '- checking bot status');
       previousGuildIdRef.current = values.guildId;
       checkBotStatus(values.guildId);
     }

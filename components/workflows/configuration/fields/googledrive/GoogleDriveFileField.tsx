@@ -83,16 +83,16 @@ export function GoogleDriveFileField({
   }, [value, sourceType]); // Removed uploadedFile from dependencies to prevent loops
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    logger.debug('🎯 [GoogleDriveFileField] handleFileUpload triggered');
+    logger.info('🎯 [GoogleDriveFileField] handleFileUpload triggered');
     const files = event.target.files;
-    logger.debug('📁 [GoogleDriveFileField] Files selected:', files);
+    logger.info('📁 [GoogleDriveFileField] Files selected:', files);
     if (!files || files.length === 0) {
-      logger.debug('⚠️ [GoogleDriveFileField] No files selected');
+      logger.info('⚠️ [GoogleDriveFileField] No files selected');
       return;
     }
 
     const file = files[0];
-    logger.debug('📄 [GoogleDriveFileField] File details:', {
+    logger.info('📄 [GoogleDriveFileField] File details:', {
       name: file.name,
       size: file.size,
       type: file.type,
@@ -112,7 +112,7 @@ export function GoogleDriveFileField({
 
     // If there's already an uploaded file, remove it first to prevent orphaned files
     if (uploadedFile) {
-      logger.debug('🔄 [GoogleDriveFileField] Removing previous file before uploading new one');
+      logger.info('🔄 [GoogleDriveFileField] Removing previous file before uploading new one');
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
@@ -149,7 +149,7 @@ export function GoogleDriveFileField({
       if (actualNodeId === 'pending-action' || actualNodeId.startsWith('pending-') || !actualNodeId) {
         // Generate a UUID for pending nodes
         actualNodeId = crypto.randomUUID();
-        logger.debug('📝 [GoogleDriveFileField] Generated UUID for pending node:', actualNodeId);
+        logger.info('📝 [GoogleDriveFileField] Generated UUID for pending node:', actualNodeId);
       }
       
       // Use workflow ID from URL first, then prop, then generate if needed
@@ -157,12 +157,12 @@ export function GoogleDriveFileField({
       if (!actualWorkflowId || actualWorkflowId === 'undefined' || actualWorkflowId === 'null' || actualWorkflowId === '') {
         // For new workflows that haven't been saved yet, generate a UUID
         actualWorkflowId = crypto.randomUUID();
-        logger.debug('📝 [GoogleDriveFileField] Generated UUID for workflow:', actualWorkflowId);
+        logger.info('📝 [GoogleDriveFileField] Generated UUID for workflow:', actualWorkflowId);
       } else {
-        logger.debug('📝 [GoogleDriveFileField] Using workflow ID:', actualWorkflowId, 'from:', workflowIdFromUrl ? 'URL' : 'prop');
+        logger.info('📝 [GoogleDriveFileField] Using workflow ID:', actualWorkflowId, 'from:', workflowIdFromUrl ? 'URL' : 'prop');
       }
       
-      logger.debug('📤 [GoogleDriveFileField] Uploading with IDs:', {
+      logger.info('📤 [GoogleDriveFileField] Uploading with IDs:', {
         actualNodeId,
         actualWorkflowId,
         originalNodeId: nodeId,
@@ -190,7 +190,7 @@ export function GoogleDriveFileField({
       }
 
       const data = await response.json();
-      logger.debug('✅ [GoogleDriveFileField] Upload successful:', data);
+      logger.info('✅ [GoogleDriveFileField] Upload successful:', data);
       
       // Store the actual node ID as the value (since we use node_id as file identifier)
       // For temporary files, we store the file path as well
@@ -217,10 +217,10 @@ export function GoogleDriveFileField({
       };
       
       setUploadedFile(fileInfo);
-      logger.debug('📝 [GoogleDriveFileField] Updated uploadedFile state:', fileInfo);
+      logger.info('📝 [GoogleDriveFileField] Updated uploadedFile state:', fileInfo);
 
       // Also update the fileName field if it exists
-      logger.debug('🔄 [GoogleDriveFileField] Attempting to update fileName field:', {
+      logger.info('🔄 [GoogleDriveFileField] Attempting to update fileName field:', {
         hasSetFieldValue: !!setFieldValue,
         currentFileName: parentValues?.fileName,
         newFileName: file.name
@@ -228,13 +228,13 @@ export function GoogleDriveFileField({
       
       // Always update fileName field when a new file is uploaded
       if (setFieldValue) {
-        logger.debug('🚀 [GoogleDriveFileField] Calling setFieldValue with fileName:', file.name);
+        logger.info('🚀 [GoogleDriveFileField] Calling setFieldValue with fileName:', file.name);
         setFieldValue('fileName', file.name);
         // Also store file metadata in parent values for persistence
         setFieldValue('fileSize', file.size);
         setFieldValue('fileType', file.type);
       } else {
-        logger.debug('⚠️ [GoogleDriveFileField] No setFieldValue function available');
+        logger.info('⚠️ [GoogleDriveFileField] No setFieldValue function available');
       }
       
       // Reset the file input to allow selecting the same file again
@@ -374,7 +374,7 @@ export function GoogleDriveFileField({
     }
     const fileInputId = `file-input-${idForInput}`;
     
-    logger.debug('📌 [GoogleDriveFileField] Rendering file upload field:', {
+    logger.info('📌 [GoogleDriveFileField] Rendering file upload field:', {
       fieldName: field.name,
       fileInputId,
       sourceType,
@@ -430,9 +430,9 @@ export function GoogleDriveFileField({
               type="button"
               variant="outline"
               onClick={() => {
-                logger.debug('🖱️ [GoogleDriveFileField] Button clicked, attempting to trigger file input:', fileInputId);
+                logger.info('🖱️ [GoogleDriveFileField] Button clicked, attempting to trigger file input:', fileInputId);
                 const fileInput = document.getElementById(fileInputId);
-                logger.debug('🔍 [GoogleDriveFileField] File input element found:', !!fileInput);
+                logger.info('🔍 [GoogleDriveFileField] File input element found:', !!fileInput);
                 if (fileInput) {
                   (fileInput as HTMLInputElement).click();
                 } else {

@@ -8,7 +8,7 @@ export async function GET() {
     const clientId = process.env.DISCORD_CLIENT_ID || process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
     const botToken = process.env.DISCORD_BOT_TOKEN;
     
-    logger.debug('🔍 Discord config check:', {
+    logger.info('🔍 Discord config check:', {
       clientId: clientId ? 'Present' : 'Missing',
       botToken: botToken ? 'Present' : 'Missing',
       env_DISCORD_CLIENT_ID: !!process.env.DISCORD_CLIENT_ID,

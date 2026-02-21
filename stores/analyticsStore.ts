@@ -199,7 +199,7 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
         selectedPeriod: period,
       })
 
-      logger.debug("[AnalyticsStore] Dashboard fetched successfully", {
+      logger.info("[AnalyticsStore] Dashboard fetched successfully", {
         executionCount: response.data.overview.total,
         workflowCount: response.data.topWorkflows.length,
       })

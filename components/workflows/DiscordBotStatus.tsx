@@ -131,7 +131,7 @@ export default function DiscordBotStatus({ guildId, className = '' }: DiscordBot
         // Try to detect successful authorization by checking URL
         try {
           if (popup.location && popup.location.href.includes('discord.com/oauth2/authorized')) {
-            logger.debug('🎉 Bot authorization detected!')
+            logger.info('🎉 Bot authorization detected!')
             popup.close()
             clearInterval(checkClosed)
             setIsBotConnectionInProgress(false)

@@ -45,7 +45,7 @@ export const getHubSpotOwners: HubSpotDataHandler<HubSpotOwner> = async (integra
       userId: owner.userId
     }))
 
-    logger.debug(`✅ Fetched ${owners.length} owners`)
+    logger.info(`✅ Fetched ${owners.length} owners`)
     return owners
 
   } catch (error: any) {

@@ -41,7 +41,7 @@ export const getGoogleAnalyticsMeasurementIds: GoogleAnalyticsDataHandler<Google
       }
     }
 
-    logger.debug(`✅ [Google Analytics] Fetched ${measurementIds.length} measurement IDs for property ${options.propertyId}`)
+    logger.info(`✅ [Google Analytics] Fetched ${measurementIds.length} measurement IDs for property ${options.propertyId}`)
     return measurementIds
 
   } catch (error: any) {

@@ -41,7 +41,7 @@ export const getGoogleAnalyticsAccounts: GoogleAnalyticsDataHandler<GoogleAnalyt
     // Convert map to array
     accounts.push(...accountMap.values())
 
-    logger.debug(`✅ [Google Analytics] Fetched ${accounts.length} accounts`)
+    logger.info(`✅ [Google Analytics] Fetched ${accounts.length} accounts`)
     return accounts
 
   } catch (error: any) {

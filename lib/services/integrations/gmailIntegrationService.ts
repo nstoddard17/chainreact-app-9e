@@ -9,8 +9,8 @@ export class GmailIntegrationService {
 
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
-    logger.debug(`📧 GmailIntegrationService - nodeType: ${nodeType}`)
-    logger.debug(`📌 GmailIntegrationService - Context userId: ${context.userId}`)
+    logger.info(`📧 GmailIntegrationService - nodeType: ${nodeType}`)
+    logger.info(`📌 GmailIntegrationService - Context userId: ${context.userId}`)
 
     switch (nodeType) {
       case "gmail_action_send_email":
@@ -38,8 +38,8 @@ export class GmailIntegrationService {
   }
 
   private async executeSendEmail(node: any, context: ExecutionContext) {
-    logger.debug("📧 Executing Gmail send email")
-    logger.debug("📧 [GmailIntegrationService] Raw node data keys:", Object.keys(node.data || {}))
+    logger.info("📧 Executing Gmail send email")
+    logger.info("📧 [GmailIntegrationService] Raw node data keys:", Object.keys(node.data || {}))
 
     // CRITICAL DEBUG - will show in console
     console.error('[DEBUG] GmailIntegrationService.executeSendEmail called')
@@ -50,7 +50,7 @@ export class GmailIntegrationService {
     console.error('[DEBUG] config.to BEFORE resolve:', config.to)
     
     // Debug raw config
-    logger.debug('📧 [GmailIntegrationService] Raw config:', {
+    logger.info('📧 [GmailIntegrationService] Raw config:', {
       sourceType: config.sourceType,
       uploadedFiles: config.uploadedFiles,
       fileUrl: config.fileUrl,
@@ -85,7 +85,7 @@ export class GmailIntegrationService {
     }
     
     // Debug resolved config
-    logger.debug('📧 [GmailIntegrationService] Resolved config:', {
+    logger.info('📧 [GmailIntegrationService] Resolved config:', {
       sourceType: resolvedConfig.sourceType,
       uploadedFiles: resolvedConfig.uploadedFiles,
       fileUrl: resolvedConfig.fileUrl,
@@ -132,7 +132,7 @@ export class GmailIntegrationService {
   }
 
   private async executeSearchEmail(node: any, context: ExecutionContext) {
-    logger.debug("🔍 Executing Gmail search email")
+    logger.info("🔍 Executing Gmail search email")
     
     const config = node.data.config || {}
     const query = this.resolveValue(config.query, context)
@@ -171,7 +171,7 @@ export class GmailIntegrationService {
   }
 
   private async executeFetchMessage(node: any, context: ExecutionContext) {
-    logger.debug("📨 Executing Gmail fetch message")
+    logger.info("📨 Executing Gmail fetch message")
     
     const config = node.data.config || {}
     const messageId = this.resolveValue(config.messageId || config.message_id, context)
@@ -208,7 +208,7 @@ export class GmailIntegrationService {
   }
 
   private async executeAddLabel(node: any, context: ExecutionContext) {
-    logger.debug("🏷️ Executing Gmail add label")
+    logger.info("🏷️ Executing Gmail add label")
     
     const config = node.data.config || {}
     const messageId = this.resolveValue(config.messageId || config.message_id, context)
@@ -250,7 +250,7 @@ export class GmailIntegrationService {
   }
 
   private async executeRemoveLabel(node: any, context: ExecutionContext) {
-    logger.debug("🏷️ Executing Gmail remove label")
+    logger.info("🏷️ Executing Gmail remove label")
     
     const config = node.data.config || {}
     const messageId = this.resolveValue(config.messageId || config.message_id, context)
@@ -292,7 +292,7 @@ export class GmailIntegrationService {
   }
 
   private async executeMarkRead(node: any, context: ExecutionContext) {
-    logger.debug("👁️ Executing Gmail mark read")
+    logger.info("👁️ Executing Gmail mark read")
     
     const config = node.data.config || {}
     const messageId = this.resolveValue(config.messageId || config.message_id, context)
@@ -332,7 +332,7 @@ export class GmailIntegrationService {
   }
 
   private async executeMarkUnread(node: any, context: ExecutionContext) {
-    logger.debug("👁️ Executing Gmail mark unread")
+    logger.info("👁️ Executing Gmail mark unread")
     
     const config = node.data.config || {}
     const messageId = this.resolveValue(config.messageId || config.message_id, context)
@@ -372,7 +372,7 @@ export class GmailIntegrationService {
   }
 
   private async executeArchive(node: any, context: ExecutionContext) {
-    logger.debug("📦 Executing Gmail archive")
+    logger.info("📦 Executing Gmail archive")
     
     const config = node.data.config || {}
     const messageId = this.resolveValue(config.messageId || config.message_id, context)
@@ -412,7 +412,7 @@ export class GmailIntegrationService {
   }
 
   private async executeDelete(node: any, context: ExecutionContext) {
-    logger.debug("🗑️ Executing Gmail delete")
+    logger.info("🗑️ Executing Gmail delete")
     
     const config = node.data.config || {}
     const messageId = this.resolveValue(config.messageId || config.message_id, context)
@@ -465,7 +465,7 @@ export class GmailIntegrationService {
         const [, nodeId, fieldPath] = singleMatch
         const resolved = this.resolveVariablePath(nodeId, fieldPath, context.data)
         if (resolved !== undefined) {
-          logger.debug(`✅ Resolved ${value} to:`, resolved)
+          logger.info(`✅ Resolved ${value} to:`, resolved)
           return resolved
         }
       }
@@ -475,7 +475,7 @@ export class GmailIntegrationService {
       resolvedValue = resolvedValue.replace(/{{([^.]+)\.([^}]+)}}/g, (match, nodeId, fieldPath) => {
         const resolved = this.resolveVariablePath(nodeId, fieldPath, context.data)
         if (resolved !== undefined) {
-          logger.debug(`✅ Resolved ${match} to:`, resolved)
+          logger.info(`✅ Resolved ${match} to:`, resolved)
           return String(resolved)
         }
         logger.warn(`⚠️ Could not resolve variable: ${match}`)

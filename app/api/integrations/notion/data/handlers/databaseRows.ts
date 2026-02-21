@@ -9,8 +9,8 @@ import { makeNotionApiRequest, validateNotionIntegration, resolveNotionAccessTok
 import { logger } from '@/lib/utils/logger'
 
 export const getNotionDatabaseRows: NotionDataHandler = async (integration: NotionIntegration, context?: any): Promise<any[]> => {
-  logger.debug("🔍 Notion database rows fetcher called")
-  logger.debug("🔍 Context:", context)
+  logger.info("🔍 Notion database rows fetcher called")
+  logger.info("🔍 Context:", context)
 
   try {
     validateNotionIntegration(integration)
@@ -23,7 +23,7 @@ export const getNotionDatabaseRows: NotionDataHandler = async (integration: Noti
       throw new Error("Database ID is required to fetch rows")
     }
 
-    logger.debug(`🔍 Fetching database schema for database: ${databaseId}`)
+    logger.info(`🔍 Fetching database schema for database: ${databaseId}`)
 
     // First, get the database schema to understand all properties
     const databaseResponse = await makeNotionApiRequest(
@@ -44,7 +44,7 @@ export const getNotionDatabaseRows: NotionDataHandler = async (integration: Noti
     const properties = database.properties || {}
     const databaseTitle = database.title?.[0]?.plain_text || 'Untitled Database'
 
-    logger.debug(`✅ Database "${databaseTitle}" has ${Object.keys(properties).length} properties`)
+    logger.info(`✅ Database "${databaseTitle}" has ${Object.keys(properties).length} properties`)
 
     // Query the database to get all rows (pages)
     const queryResponse = await makeNotionApiRequest(
@@ -70,7 +70,7 @@ export const getNotionDatabaseRows: NotionDataHandler = async (integration: Noti
     const queryData = await queryResponse.json()
     const rows = queryData.results || []
 
-    logger.debug(`✅ Found ${rows.length} rows in database`)
+    logger.info(`✅ Found ${rows.length} rows in database`)
 
     // Transform each row into a field group for editing
     const rowFields = rows.map((row: any, index: number) => {
@@ -243,7 +243,7 @@ export const getNotionDatabaseRows: NotionDataHandler = async (integration: Noti
       }
     })
 
-    logger.debug(`✅ Returning ${rowFields.length} rows with their properties`)
+    logger.info(`✅ Returning ${rowFields.length} rows with their properties`)
 
     return rowFields
 

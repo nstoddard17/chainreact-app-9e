@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Gumroad API] Processing request:`, {
+    logger.info(`🔍 [Gumroad API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as GumroadIntegration, options)
 
-    logger.debug(`✅ [Gumroad API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Gumroad API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

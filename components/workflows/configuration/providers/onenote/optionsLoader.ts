@@ -22,10 +22,10 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, dependsOnValue } = params
     
-    logger.debug('[OneNote Options Loader] Loading options for field:', fieldName, 'with params:', params)
+    logger.info('[OneNote Options Loader] Loading options for field:', fieldName, 'with params:', params)
     
     if (!integrationId) {
-      logger.debug('[OneNote Options Loader] No integration ID provided')
+      logger.info('[OneNote Options Loader] No integration ID provided')
       return []
     }
     
@@ -40,7 +40,7 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
       case 'sourceSectionId': {
         const notebookId = dependsOnValue
         if (!notebookId) {
-          logger.debug('[OneNote Options Loader] No notebook selected for sections')
+          logger.info('[OneNote Options Loader] No notebook selected for sections')
           return []
         }
         return loadSections(integrationId, notebookId)
@@ -50,14 +50,14 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
       case 'sourcePageId': {
         const sectionId = dependsOnValue
         if (!sectionId) {
-          logger.debug('[OneNote Options Loader] No section selected for pages')
+          logger.info('[OneNote Options Loader] No section selected for pages')
           return []
         }
         return loadPages(integrationId, sectionId)
       }
         
       default:
-        logger.debug('[OneNote Options Loader] Unknown field:', fieldName)
+        logger.info('[OneNote Options Loader] Unknown field:', fieldName)
         return []
     }
   },
@@ -77,7 +77,7 @@ export const onenoteOptionsLoader: ProviderOptionsLoader = {
 
 async function loadNotebooks(integrationId: string) {
   try {
-    logger.debug('[OneNote Options Loader] Loading notebooks for integration:', integrationId)
+    logger.info('[OneNote Options Loader] Loading notebooks for integration:', integrationId)
     
     const response = await fetch('/api/integrations/onenote/data', {
       method: 'POST',
@@ -97,7 +97,7 @@ async function loadNotebooks(integrationId: string) {
       
       // Check if it's an authentication error
       if (response.status === 401 || result.needsReconnection) {
-        logger.debug('[OneNote Options Loader] Authentication error - token may be expired')
+        logger.info('[OneNote Options Loader] Authentication error - token may be expired')
         // Return a special option to indicate reconnection is needed
         return [{
           value: '__reconnect__',
@@ -126,9 +126,9 @@ async function loadNotebooks(integrationId: string) {
     }
     
     if (!result.data || !Array.isArray(result.data)) {
-      logger.debug('[OneNote Options Loader] No notebooks data received')
+      logger.info('[OneNote Options Loader] No notebooks data received')
       if (result.error) {
-        logger.debug('[OneNote Options Loader] Error message:', result.error)
+        logger.info('[OneNote Options Loader] Error message:', result.error)
         // Check if the error indicates authentication issues
         if (result.error.includes('authentication') || result.error.includes('expired')) {
           return [{
@@ -149,7 +149,7 @@ async function loadNotebooks(integrationId: string) {
       icon: '📓'
     }))
     
-    logger.debug('[OneNote Options Loader] Loaded notebooks:', options.length)
+    logger.info('[OneNote Options Loader] Loaded notebooks:', options.length)
     
     // If no notebooks found, provide a helpful message
     if (options.length === 0) {
@@ -170,7 +170,7 @@ async function loadNotebooks(integrationId: string) {
 
 async function loadSections(integrationId: string, notebookId: string) {
   try {
-    logger.debug('[OneNote Options Loader] Loading sections for notebook:', notebookId)
+    logger.info('[OneNote Options Loader] Loading sections for notebook:', notebookId)
     
     const response = await fetch('/api/integrations/onenote/data', {
       method: 'POST',
@@ -203,7 +203,7 @@ async function loadSections(integrationId: string, notebookId: string) {
     }
     
     if (!result.data || !Array.isArray(result.data)) {
-      logger.debug('[OneNote Options Loader] No sections data received')
+      logger.info('[OneNote Options Loader] No sections data received')
       return []
     }
     
@@ -214,7 +214,7 @@ async function loadSections(integrationId: string, notebookId: string) {
       icon: '📁'
     }))
     
-    logger.debug('[OneNote Options Loader] Loaded sections:', options.length)
+    logger.info('[OneNote Options Loader] Loaded sections:', options.length)
     return options
   } catch (error) {
     logger.error('[OneNote Options Loader] Error loading sections:', error)
@@ -224,7 +224,7 @@ async function loadSections(integrationId: string, notebookId: string) {
 
 async function loadPages(integrationId: string, sectionId: string) {
   try {
-    logger.debug('[OneNote Options Loader] Loading pages for section:', sectionId)
+    logger.info('[OneNote Options Loader] Loading pages for section:', sectionId)
     
     const response = await fetch('/api/integrations/onenote/data', {
       method: 'POST',
@@ -257,7 +257,7 @@ async function loadPages(integrationId: string, sectionId: string) {
     }
     
     if (!result.data || !Array.isArray(result.data)) {
-      logger.debug('[OneNote Options Loader] No pages data received')
+      logger.info('[OneNote Options Loader] No pages data received')
       return []
     }
     
@@ -271,7 +271,7 @@ async function loadPages(integrationId: string, sectionId: string) {
         undefined
     }))
     
-    logger.debug('[OneNote Options Loader] Loaded pages:', options.length)
+    logger.info('[OneNote Options Loader] Loaded pages:', options.length)
     return options
   } catch (error) {
     logger.error('[OneNote Options Loader] Error loading pages:', error)

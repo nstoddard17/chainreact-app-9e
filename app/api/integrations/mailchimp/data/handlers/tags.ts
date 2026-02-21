@@ -20,7 +20,7 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
   // Support both audienceId and audience_id (field name varies by context)
   const audienceId = options.audienceId || options.audience_id
 
-  logger.debug("🔍 [Mailchimp] Fetching tags:", {
+  logger.info("🔍 [Mailchimp] Fetching tags:", {
     integrationId: integration.id,
     audienceId,
     options
@@ -34,15 +34,15 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
     // Validate integration status
     validateMailchimpIntegration(integration)
 
-    logger.debug(`🔍 [Mailchimp] Validating token...`)
+    logger.info(`🔍 [Mailchimp] Validating token...`)
     const tokenResult = await validateMailchimpToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    logger.debug('🔍 [Mailchimp] Fetching tags from API...')
+    logger.info('🔍 [Mailchimp] Fetching tags from API...')
     const apiUrl = await buildMailchimpApiUrl(integration, `/lists/${audienceId}/tag-search`)
 
     // Add query parameters - we need to search with an empty string to get all tags
@@ -65,7 +65,7 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
       member_count: tag.member_count
     }))
 
-    logger.debug(`✅ [Mailchimp] Tags fetched successfully: ${tags.length} tags`)
+    logger.info(`✅ [Mailchimp] Tags fetched successfully: ${tags.length} tags`)
     return tags
 
   } catch (error: any) {
@@ -81,7 +81,7 @@ export const getMailchimpTags: MailchimpDataHandler<MailchimpTag> = async (
 
     // If tag-search doesn't work, return empty array (some accounts may not have this feature)
     if (error.message?.includes('404') || error.message?.includes('not found')) {
-      logger.debug('⚠️ [Mailchimp] Tag search not available for this account')
+      logger.info('⚠️ [Mailchimp] Tag search not available for this account')
       return []
     }
 

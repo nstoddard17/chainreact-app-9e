@@ -11,7 +11,7 @@ const getSupabase = () => createClient(
 )
 
 export async function POST() {
-  logger.debug('🧹 Starting Microsoft Graph cleanup...')
+  logger.info('🧹 Starting Microsoft Graph cleanup...')
   const supabase = getSupabase()
 
   try {
@@ -27,7 +27,7 @@ export async function POST() {
     if (queueError) {
       logger.error('❌ Error cleaning queue:', queueError)
     } else {
-      logger.debug(`✅ Deleted ${deletedQueue?.length || 0} old queue items`)
+      logger.info(`✅ Deleted ${deletedQueue?.length || 0} old queue items`)
     }
 
     // Clean up old dedup entries (older than 24 hours)
@@ -42,7 +42,7 @@ export async function POST() {
     if (dedupError) {
       logger.error('❌ Error cleaning dedup:', dedupError)
     } else {
-      logger.debug(`✅ Deleted ${deletedDedup?.length || 0} old dedup entries`)
+      logger.info(`✅ Deleted ${deletedDedup?.length || 0} old dedup entries`)
     }
 
     // Clean up old events (older than 30 days)
@@ -57,7 +57,7 @@ export async function POST() {
     if (eventsError) {
       logger.error('❌ Error cleaning events:', eventsError)
     } else {
-      logger.debug(`✅ Deleted ${deletedEvents?.length || 0} old events`)
+      logger.info(`✅ Deleted ${deletedEvents?.length || 0} old events`)
     }
 
     // Get current stats

@@ -30,7 +30,7 @@ export async function fetchEmailsWithRateLimiting(
     logPrefix = '[Gmail]'
   } = options
 
-  logger.debug(`${logPrefix} Fetching ${messageIds.length} message(s) in batches of ${batchSize}...`)
+  logger.info(`${logPrefix} Fetching ${messageIds.length} message(s) in batches of ${batchSize}...`)
 
   const emails = []
 
@@ -39,7 +39,7 @@ export async function fetchEmailsWithRateLimiting(
     const batchNumber = Math.floor(i / batchSize) + 1
     const totalBatches = Math.ceil(messageIds.length / batchSize)
 
-    logger.debug(`${logPrefix} Fetching batch ${batchNumber}/${totalBatches} (${batchIds.length} messages)`)
+    logger.info(`${logPrefix} Fetching batch ${batchNumber}/${totalBatches} (${batchIds.length} messages)`)
 
     // Fetch messages in parallel within each batch
     const batchPromises = batchIds.map(async (messageId) => {
@@ -73,7 +73,7 @@ export async function fetchEmailsWithRateLimiting(
     const batchResults = await Promise.all(batchPromises)
     emails.push(...batchResults.filter((email): email is NonNullable<typeof email> => email !== null))
 
-    logger.debug(`${logPrefix} Batch ${batchNumber}/${totalBatches} complete. Total emails fetched: ${emails.length}/${messageIds.length}`)
+    logger.info(`${logPrefix} Batch ${batchNumber}/${totalBatches} complete. Total emails fetched: ${emails.length}/${messageIds.length}`)
 
     // Add delay between batches to avoid rate limiting (except for the last batch)
     if (i + batchSize < messageIds.length) {
@@ -82,7 +82,7 @@ export async function fetchEmailsWithRateLimiting(
   }
 
   const failedCount = messageIds.length - emails.length
-  logger.debug(`${logPrefix} Finished fetching all message details: ${emails.length}/${messageIds.length} emails (${failedCount} failed)`)
+  logger.info(`${logPrefix} Finished fetching all message details: ${emails.length}/${messageIds.length} emails (${failedCount} failed)`)
 
   return emails
 }

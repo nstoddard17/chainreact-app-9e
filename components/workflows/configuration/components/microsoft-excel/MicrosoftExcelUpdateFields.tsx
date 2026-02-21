@@ -33,7 +33,7 @@ export function MicrosoftExcelUpdateFields({
     const hasColumnValues = Object.keys(values).some(key => key.startsWith('column_'));
     if (hasColumnValues && !hasExistingValuesRef.current) {
       hasExistingValuesRef.current = true;
-      logger.debug('📊 [Excel Update] Detected existing column_ values, will not overwrite');
+      logger.info('📊 [Excel Update] Detected existing column_ values, will not overwrite');
     }
   }, []); // Run only once on mount
 
@@ -47,11 +47,11 @@ export function MicrosoftExcelUpdateFields({
 
       // If we have existing saved values, don't overwrite them
       if (hasExistingValuesRef.current) {
-        logger.debug('📊 [Excel Update] Skipping initialization, using saved values');
+        logger.info('📊 [Excel Update] Skipping initialization, using saved values');
         return;
       }
 
-      logger.debug('📊 [Excel Update] Initializing with current Excel values');
+      logger.info('📊 [Excel Update] Initializing with current Excel values');
       Object.entries(selectedRow.fields).forEach(([columnName, currentValue]) => {
         const fieldKey = `column_${columnName}`;
         setValue(fieldKey, String(currentValue ?? ''));

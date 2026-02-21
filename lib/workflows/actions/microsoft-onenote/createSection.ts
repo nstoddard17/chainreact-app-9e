@@ -13,7 +13,7 @@ export async function onenoteCreateSection(
   const { notebookId, displayName } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would create OneNote section:", { notebookId, displayName })
+    logger.info("[TEST MODE] Would create OneNote section:", { notebookId, displayName })
     return {
       success: true,
       output: {

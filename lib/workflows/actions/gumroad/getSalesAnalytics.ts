@@ -33,7 +33,7 @@ export async function getGumroadSalesAnalytics(
 
     const url = `https://api.gumroad.com/v2/sales?${params.toString()}`
 
-    logger.debug('[getGumroadSalesAnalytics] Fetching sales analytics:', {
+    logger.info('[getGumroadSalesAnalytics] Fetching sales analytics:', {
       productId,
       after,
       before,

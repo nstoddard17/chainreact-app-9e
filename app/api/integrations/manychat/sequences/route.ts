@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       if (response.ok) {
         const data = await response.json()
         const sequences = data.data || []
-        logger.debug(`[MANYCHAT SEQUENCES] Fetched ${sequences.length} sequences`)
+        logger.info(`[MANYCHAT SEQUENCES] Fetched ${sequences.length} sequences`)
         return NextResponse.json({ sequences })
       }
     } catch (apiError: any) {
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Return empty array with helper message if API not available
-    logger.debug('[MANYCHAT SEQUENCES] Sequence listing API not available, returning helper message')
+    logger.info('[MANYCHAT SEQUENCES] Sequence listing API not available, returning helper message')
     return NextResponse.json({
       sequences: [],
       message: 'Sequence listing requires manual configuration. Please enter the sequence ID manually.',

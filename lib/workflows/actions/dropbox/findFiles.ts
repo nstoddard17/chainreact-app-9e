@@ -187,7 +187,7 @@ export async function findDropboxFiles(
     // Validate and cap limit
     const actualLimit = Math.min(Math.max(1, limit), 1000)
 
-    logger.debug('[Dropbox Find Files] Search parameters:', {
+    logger.info('[Dropbox Find Files] Search parameters:', {
       path,
       searchQuery,
       fileType,
@@ -253,7 +253,7 @@ export async function findDropboxFiles(
       allFiles = listData.entries
     }
 
-    logger.debug(`[Dropbox Find Files] Found ${allFiles.length} files before filtering`)
+    logger.info(`[Dropbox Find Files] Found ${allFiles.length} files before filtering`)
 
     // Apply filters
     let filteredFiles = allFiles.filter(file => {
@@ -283,7 +283,7 @@ export async function findDropboxFiles(
       return true
     })
 
-    logger.debug(`[Dropbox Find Files] ${filteredFiles.length} files after filtering`)
+    logger.info(`[Dropbox Find Files] ${filteredFiles.length} files after filtering`)
 
     // Sort files
     filteredFiles = sortFiles(filteredFiles, sortBy)

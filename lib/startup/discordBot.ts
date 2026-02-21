@@ -11,7 +11,7 @@ let isDiscordBotInitialized = false
 export async function initializeDiscordBot(): Promise<void> {
   // Prevent multiple initializations
   if (isDiscordBotInitialized) {
-    logger.debug('Discord bot already initialized, skipping...')
+    logger.info('Discord bot already initialized, skipping...')
     return
   }
 
@@ -34,7 +34,7 @@ export async function initializeDiscordBot(): Promise<void> {
     // Set up event listeners (only once)
     discordGateway.on('ready', (data) => {
       // Bot is ready and online
-      logger.debug('Discord bot is ready and online')
+      logger.info('Discord bot is ready and online')
       
       // Set bot to always be online
       discordGateway.updatePresence({
@@ -54,7 +54,7 @@ export async function initializeDiscordBot(): Promise<void> {
     
     discordGateway.on('resumed', () => {
       // Session resumed
-      logger.debug('Discord bot session resumed')
+      logger.info('Discord bot session resumed')
       
       // Ensure bot stays online after resume
       discordGateway.updatePresence({

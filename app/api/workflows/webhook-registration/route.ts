@@ -8,7 +8,7 @@ import { logger } from '@/lib/utils/logger'
 const webhookManager = new TriggerWebhookManager()
 
 export async function POST(request: Request) {
-  logger.debug('🚨🚨🚨 WEBHOOK REGISTRATION API CALLED! 🚨🚨🚨')
+  logger.info('🚨🚨🚨 WEBHOOK REGISTRATION API CALLED! 🚨🚨🚨')
   
   const supabase = await createSupabaseRouteHandlerClient()
   
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const webhookUrl = webhookManager.getWebhookUrl(workflowId, providerId)
 
     // Register the webhook
-    logger.debug('🔧 About to call webhookManager.registerWebhook with:', {
+    logger.info('🔧 About to call webhookManager.registerWebhook with:', {
       workflowId,
       userId: user.id,
       triggerType,
@@ -57,13 +57,13 @@ export async function POST(request: Request) {
         config: config || {},
         webhookUrl
       })
-      logger.debug('🎉 webhookManager.registerWebhook completed, webhookId:', webhookId)
+      logger.info('🎉 webhookManager.registerWebhook completed, webhookId:', webhookId)
     } catch (error) {
       logger.error('❌ Error in webhookManager.registerWebhook:', error)
       throw error
     }
 
-    logger.debug(`✅ Webhook registered successfully:`, {
+    logger.info(`✅ Webhook registered successfully:`, {
       workflowId,
       triggerType,
       providerId,

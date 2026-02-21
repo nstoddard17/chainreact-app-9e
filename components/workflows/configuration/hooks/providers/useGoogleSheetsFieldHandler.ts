@@ -84,7 +84,7 @@ export function useGoogleSheetsFieldHandler({
    * Handle spreadsheetId changes
    */
   const handleSpreadsheetIdChange = useCallback(async (value: any) => {
-    logger.debug('🔍 Google Sheets spreadsheetId change handler called:', {
+    logger.info('🔍 Google Sheets spreadsheetId change handler called:', {
       newValue: value,
       previousValue: previousSpreadsheetIdRef.current,
       isProcessing: isProcessingRef.current,
@@ -93,20 +93,20 @@ export function useGoogleSheetsFieldHandler({
 
     // Prevent concurrent processing
     if (isProcessingRef.current) {
-      logger.debug('⏭️ Already processing spreadsheetId change, skipping');
+      logger.info('⏭️ Already processing spreadsheetId change, skipping');
       return;
     }
 
     // Only process if the value actually changed from the previous value
     if (value === previousSpreadsheetIdRef.current) {
-      logger.debug('✅ Google Sheets spreadsheetId unchanged, skipping reset');
+      logger.info('✅ Google Sheets spreadsheetId unchanged, skipping reset');
       return;
     }
 
     // Mark as processing
     isProcessingRef.current = true;
 
-    logger.debug('🔄 Google Sheets spreadsheetId actually changed, proceeding with reset');
+    logger.info('🔄 Google Sheets spreadsheetId actually changed, proceeding with reset');
 
     // Update the ref to track the new value
     previousSpreadsheetIdRef.current = value;
@@ -123,7 +123,7 @@ export function useGoogleSheetsFieldHandler({
     // Also clear all fields that depend on sheetName (cascading clear)
     const sheetDependentFields = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'sheetName') || [];
     for (const depField of sheetDependentFields) {
-      logger.debug(`🧹 [Google Sheets] Clearing cascading dependent field: ${depField.name}`);
+      logger.info(`🧹 [Google Sheets] Clearing cascading dependent field: ${depField.name}`);
       setValue(depField.name, '');
       if (depField.dynamic || depField.dynamicOptions) {
         resetOptions(depField.name);
@@ -133,7 +133,7 @@ export function useGoogleSheetsFieldHandler({
     // Clear fields that depend on filterColumn (second-level dependencies)
     const filterColumnDependents = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'filterColumn') || [];
     for (const depField of filterColumnDependents) {
-      logger.debug(`🧹 [Google Sheets] Clearing second-level dependent field: ${depField.name}`);
+      logger.info(`🧹 [Google Sheets] Clearing second-level dependent field: ${depField.name}`);
       setValue(depField.name, '');
       if (depField.dynamic || depField.dynamicOptions) {
         resetOptions(depField.name);
@@ -194,7 +194,7 @@ export function useGoogleSheetsFieldHandler({
    * Handle sheetName changes
    */
   const handleSheetNameChange = useCallback(async (value: any) => {
-    logger.debug('🔍 Google Sheets sheetName changed:', value);
+    logger.info('🔍 Google Sheets sheetName changed:', value);
 
     // Clear preview data for update action
     if (values.action === 'update') {
@@ -211,7 +211,7 @@ export function useGoogleSheetsFieldHandler({
     const dependentFields = nodeInfo?.configSchema?.filter((f: any) => f.dependsOn === 'sheetName') || [];
 
     for (const depField of dependentFields) {
-      logger.debug(`🧹 [Google Sheets] Clearing dependent field: ${depField.name}`);
+      logger.info(`🧹 [Google Sheets] Clearing dependent field: ${depField.name}`);
       setValue(depField.name, '');
 
       // Reset cached options for dynamic fields
@@ -262,7 +262,7 @@ export function useGoogleSheetsFieldHandler({
    * Handle action changes
    */
   const handleActionChange = useCallback((value: any) => {
-    logger.debug('🔍 Google Sheets action changed:', value);
+    logger.info('🔍 Google Sheets action changed:', value);
     
     const previousAction = values.action;
     

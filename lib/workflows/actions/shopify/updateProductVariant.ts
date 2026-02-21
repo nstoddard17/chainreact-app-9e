@@ -35,7 +35,7 @@ export async function updateShopifyProductVariant(
     // 3. Convert to GID format
     const variantGid = toVariantGid(variantId)
 
-    logger.debug('[Shopify GraphQL] Updating product variant:', { variantId: variantGid })
+    logger.info('[Shopify GraphQL] Updating product variant:', { variantId: variantGid })
 
     // 4. Build GraphQL mutation using productVariantsBulkUpdate (recommended even for single variant)
     const mutation = `
@@ -79,7 +79,7 @@ export async function updateShopifyProductVariant(
     // We'll handle it separately if provided
     let inventoryResult: any = null
     if (inventoryQuantity !== undefined) {
-      logger.debug('[Shopify GraphQL] Note: Inventory quantity update requires separate API call')
+      logger.info('[Shopify GraphQL] Note: Inventory quantity update requires separate API call')
       // This would need to be handled with inventorySetQuantities mutation
       // For now, we'll log a warning that this field is not supported in bulk variant update
     }

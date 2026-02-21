@@ -54,7 +54,7 @@ export async function createOnedriveSharingLink(
       payload.password = password
     }
 
-    logger.debug('[OneDrive] Creating sharing link:', {
+    logger.info('[OneDrive] Creating sharing link:', {
       itemId: targetItemId,
       linkType,
       linkScope,

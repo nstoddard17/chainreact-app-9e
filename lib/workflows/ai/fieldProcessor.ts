@@ -625,7 +625,7 @@ async function logFieldResolutions(
     if (error) {
       logger.error('Failed to log field resolutions:', error)
     } else {
-      logger.debug(`Logged ${resolutions.length} AI field resolutions for node ${context.nodeId}`)
+      logger.info(`Logged ${resolutions.length} AI field resolutions for node ${context.nodeId}`)
     }
   } catch (error) {
     logger.error('Error logging field resolutions:', error)

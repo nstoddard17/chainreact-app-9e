@@ -116,7 +116,7 @@ export async function slackActionSendMessageLegacy(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('💬 [Slack] Starting message send with config:', {
+    logger.info('💬 [Slack] Starting message send with config:', {
       channel: config.channel,
       hasMessage: !!config.message
     })
@@ -169,7 +169,7 @@ export async function slackActionSendMessageLegacy(
       throw new Error('Failed to get Slack access token')
     }
 
-    logger.debug('📤 [Slack] Sending message to channel:', channel, {
+    logger.info('📤 [Slack] Sending message to channel:', channel, {
       customizeBot,
       hasUsername: !!username,
       hasIcon: !!icon,
@@ -182,7 +182,7 @@ export async function slackActionSendMessageLegacy(
     const attachmentArray = attachments ? (Array.isArray(attachments) ? attachments : [attachments]) : []
 
     if (attachmentArray.length > 0) {
-      logger.debug('📎 [Slack] Processing attachments:', attachmentArray.length)
+      logger.info('📎 [Slack] Processing attachments:', attachmentArray.length)
 
       for (const attachment of attachmentArray) {
         try {
@@ -205,7 +205,7 @@ export async function slackActionSendMessageLegacy(
           } else if (attachment && typeof attachment === 'object') {
             if (attachment.type === 'base64' && attachment.data) {
               // Base64 encoded file
-              logger.debug('📎 [Slack] Processing base64 attachment:', attachment.name)
+              logger.info('📎 [Slack] Processing base64 attachment:', attachment.name)
 
               // Convert base64 to buffer
               const base64Data = attachment.data.split(',')[1] // Remove data:mime;base64, prefix
@@ -231,11 +231,11 @@ export async function slackActionSendMessageLegacy(
                 .getPublicUrl(fileName)
 
               fileUrl = publicUrl
-              logger.debug('✅ [Slack] Uploaded file to temp storage:', fileName)
+              logger.info('✅ [Slack] Uploaded file to temp storage:', fileName)
 
             } else if (attachment.type === 'file' && attachment.file) {
               // Large file that needs to be uploaded to permanent storage first
-              logger.debug('📎 [Slack] Processing large file:', attachment.name)
+              logger.info('📎 [Slack] Processing large file:', attachment.name)
 
               // This would need to be handled differently - files can't be passed directly
               // from client to server action. The file should be uploaded to storage first
@@ -351,14 +351,14 @@ export async function slackActionSendMessageLegacy(
     // If we have file URLs, upload them to Slack using the new API
     const uploadedFileIds: string[] = []
     if (fileUrls.length > 0) {
-      logger.debug('📤 [Slack] Uploading files to Slack:', fileUrls.length)
+      logger.info('📤 [Slack] Uploading files to Slack:', fileUrls.length)
 
       for (const fileUrl of fileUrls) {
         try {
           // For each file URL, we need to use Slack's new file upload API
           // Since we have URLs (not actual file content), we'll include them in the message
           // Slack will unfurl the URLs if they are publicly accessible
-          logger.debug('📎 [Slack] File URL to share:', fileUrl)
+          logger.info('📎 [Slack] File URL to share:', fileUrl)
         } catch (error) {
           logger.error('❌ [Slack] Error uploading file to Slack:', error)
         }
@@ -399,7 +399,7 @@ export async function slackActionSendMessageLegacy(
       }
     }
 
-    logger.debug('✅ [Slack] Message sent successfully:', {
+    logger.info('✅ [Slack] Message sent successfully:', {
       channel: result.channel,
       ts: result.ts
     })
@@ -435,7 +435,7 @@ export async function createSlackChannel(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug('🆕 [Slack] Starting channel creation with config:', {
+    logger.info('🆕 [Slack] Starting channel creation with config:', {
       channelName: config.channelName,
       visibility: config.visibility,
       template: config.template
@@ -473,7 +473,7 @@ export async function createSlackChannel(
       throw new Error('Channel name contains no valid characters. Use letters, numbers, hyphens, or underscores.')
     }
 
-    logger.debug('🔤 [Slack] Sanitized channel name:', { original: channelName, sanitized: sanitizedChannelName })
+    logger.info('🔤 [Slack] Sanitized channel name:', { original: channelName, sanitized: sanitizedChannelName })
 
     // Get Slack integration
     const { createSupabaseServerClient } = await import('@/utils/supabase/server')
@@ -498,7 +498,7 @@ export async function createSlackChannel(
       throw new Error('Failed to get Slack access token')
     }
 
-    logger.debug('📤 [Slack] Creating channel:', sanitizedChannelName)
+    logger.info('📤 [Slack] Creating channel:', sanitizedChannelName)
 
     // Create the channel
     const createResponse = await fetch('https://slack.com/api/conversations.create', {
@@ -532,7 +532,7 @@ export async function createSlackChannel(
     }
 
     const channelId = createResult.channel.id
-    logger.debug('✅ [Slack] Channel created successfully:', channelId)
+    logger.info('✅ [Slack] Channel created successfully:', channelId)
 
     // Set channel topic if provided
     if (channelTopic) {

@@ -859,7 +859,7 @@ export function FieldRenderer({
               let fileValue;
               if (integrationProvider === 'trello' && field.name === 'attachment') {
                 // Log the value structure for debugging
-                logger.debug('[FieldRenderer] Trello attachment value:', {
+                logger.info('[FieldRenderer] Trello attachment value:', {
                   value,
                   valueType: typeof value,
                   hasFile: !!value?.file,
@@ -1383,12 +1383,12 @@ export function FieldRenderer({
               const fileSize = uploadedFile instanceof File ? uploadedFile.size : (uploadedFile as any).size;
 
               if (fileName) {
-                logger.debug('[FieldRenderer] Auto-populating filename field:', fileName);
+                logger.info('[FieldRenderer] Auto-populating filename field:', fileName);
                 setFieldValue('filename', fileName);
               }
 
               if (fileType) {
-                logger.debug('[FieldRenderer] Auto-populating contentType field:', fileType);
+                logger.info('[FieldRenderer] Auto-populating contentType field:', fileType);
                 setFieldValue('contentType', fileType);
               }
 
@@ -1410,7 +1410,7 @@ export function FieldRenderer({
                     url: base64
                   };
 
-                  logger.debug('[FieldRenderer] Converted file to base64 for storage:', {
+                  logger.info('[FieldRenderer] Converted file to base64 for storage:', {
                     name: fileName,
                     size: fileSize,
                     type: fileType,
@@ -1498,10 +1498,10 @@ export function FieldRenderer({
                 const currentTitle = parentValues?.title || '';
                 if (!currentTitle || currentTitle.trim() === '') {
                   const fileNameWithoutExt = uploadedFile.name.replace(/\.[^/.]+$/, '');
-                  logger.debug('[FieldRenderer] Auto-populating title field:', fileNameWithoutExt);
+                  logger.info('[FieldRenderer] Auto-populating title field:', fileNameWithoutExt);
                   setFieldValue('title', fileNameWithoutExt);
                 } else {
-                  logger.debug('[FieldRenderer] Title already set, not overwriting:', currentTitle);
+                  logger.info('[FieldRenderer] Title already set, not overwriting:', currentTitle);
                 }
               }
 
@@ -1522,7 +1522,7 @@ export function FieldRenderer({
                     url: base64
                   };
 
-                  logger.debug('[FieldRenderer] Converted Google Docs file to base64 for storage:', {
+                  logger.info('[FieldRenderer] Converted Google Docs file to base64 for storage:', {
                     name: uploadedFile.name,
                     size: uploadedFile.size,
                     type: uploadedFile.type
@@ -1875,7 +1875,7 @@ export function FieldRenderer({
 
         // Debug logging for board field
         if (field.name === 'boardId') {
-          logger.debug('[FieldRenderer] Board field select options:', {
+          logger.info('[FieldRenderer] Board field select options:', {
             fieldName: field.name,
             hasStaticOptions: !!field.options,
             staticOptionsCount: field.options?.length || 0,

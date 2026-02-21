@@ -29,7 +29,7 @@ function detectTriggerTypeChange(
 
     // If this node has an existing resource with a different type, it's a type change
     if (existingType && existingType !== newNode.type) {
-      logger.debug(`[apply-edits] Detected trigger type change for node ${newNode.id}: ${existingType} → ${newNode.type}`)
+      logger.info(`[apply-edits] Detected trigger type change for node ${newNode.id}: ${existingType} → ${newNode.type}`)
       return true
     }
   }
@@ -155,7 +155,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
         currentNodeIds
       )
       if (cleanupResult.deletedCount > 0) {
-        logger.debug(`[apply-edits] Cleaned up ${cleanupResult.deletedCount} orphaned trigger resources for workflow ${flowId}`)
+        logger.info(`[apply-edits] Cleaned up ${cleanupResult.deletedCount} orphaned trigger resources for workflow ${flowId}`)
       }
       if (cleanupResult.errors.length > 0) {
         logger.warn(`[apply-edits] Trigger cleanup had errors: ${cleanupResult.errors.join(', ')}`)
@@ -187,11 +187,11 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
         // hasn't configured yet. They'll be activated when the user saves config.
         const newTriggerNodes = newTriggerNodesAll.filter((n: any) => isTriggerConfigured(n.config))
         if (newTriggerNodesAll.length > newTriggerNodes.length) {
-          logger.debug(`[apply-edits] Skipping ${newTriggerNodesAll.length - newTriggerNodes.length} unconfigured trigger(s) - will activate when configured`)
+          logger.info(`[apply-edits] Skipping ${newTriggerNodesAll.length - newTriggerNodes.length} unconfigured trigger(s) - will activate when configured`)
         }
 
         if (newTriggerNodes.length > 0) {
-          logger.debug(`[apply-edits] Found ${newTriggerNodes.length} new trigger(s) in active workflow - activating`)
+          logger.info(`[apply-edits] Found ${newTriggerNodes.length} new trigger(s) in active workflow - activating`)
 
           const legacyNodes = newTriggerNodes.map((n: any) => ({
             id: n.id,
@@ -226,7 +226,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
               logger.error('[apply-edits] Failed to roll back workflow status:', rollbackErr)
             }
           } else {
-            logger.debug(`[apply-edits] Successfully activated ${newTriggerNodes.length} new trigger(s)`)
+            logger.info(`[apply-edits] Successfully activated ${newTriggerNodes.length} new trigger(s)`)
           }
         }
       } catch (activationError) {
@@ -296,7 +296,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
         const triggerTypeChanged = detectTriggerTypeChange(existingResources || [], newTriggerNodes)
 
         if (triggerTypeChanged) {
-          logger.debug(`[apply-edits] Trigger TYPE changed in active workflow ${flowId} - doing full deactivate + reactivate`)
+          logger.info(`[apply-edits] Trigger TYPE changed in active workflow ${flowId} - doing full deactivate + reactivate`)
 
           // Deactivate all existing triggers
           await triggerLifecycleManager.deactivateWorkflowTriggers(flowId, user.id)
@@ -305,7 +305,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
           const configuredTriggerNodes = newTriggerNodes.filter((n: any) => isTriggerConfigured(n.config))
 
           if (configuredTriggerNodes.length === 0) {
-            logger.debug(`[apply-edits] All triggers unconfigured after type change - skipping reactivation, will activate when configured`)
+            logger.info(`[apply-edits] All triggers unconfigured after type change - skipping reactivation, will activate when configured`)
           } else {
             // Reactivate with new trigger configuration
             // Convert flow nodes to legacy format expected by activateWorkflowTriggers
@@ -342,7 +342,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
                 logger.error('[apply-edits] Failed to roll back workflow status:', rollbackErr)
               }
             } else {
-              logger.debug(`[apply-edits] Successfully reactivated ${configuredTriggerNodes.length} triggers`)
+              logger.info(`[apply-edits] Successfully reactivated ${configuredTriggerNodes.length} triggers`)
             }
           }
         }

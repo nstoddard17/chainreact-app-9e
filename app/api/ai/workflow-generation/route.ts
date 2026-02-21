@@ -91,7 +91,7 @@ async function saveNodesToNormalizedTable(
 
 export async function POST(request: NextRequest) {
   try {
-    logger.debug("🔍 Workflow generation API called")
+    logger.info("🔍 Workflow generation API called")
     cookies()
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
@@ -103,32 +103,32 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      logger.debug("❌ Authentication failed:", userError)
+      logger.info("❌ Authentication failed:", userError)
       return errorResponse("Unauthorized" , 401)
     }
 
-    logger.debug("✅ User authenticated:", user.id)
+    logger.info("✅ User authenticated:", user.id)
     const { prompt, workflowId } = await request.json()
 
     if (!prompt) {
-      logger.debug("❌ No prompt provided")
+      logger.info("❌ No prompt provided")
       return errorResponse("Prompt is required" , 400)
     }
 
-    logger.debug("📝 Generating workflow for prompt:", prompt)
+    logger.info("📝 Generating workflow for prompt:", prompt)
 
     // Generate workflow using AI
     const result = await generateWorkflowFromPrompt(prompt)
 
-    logger.debug("🤖 AI generation result:", result)
+    logger.info("🤖 AI generation result:", result)
 
     if (!result.success || !result.workflow) {
-      logger.debug("❌ AI generation failed:", result.error)
+      logger.info("❌ AI generation failed:", result.error)
       return errorResponse(result.error || "Failed to generate workflow" 
       , 500)
     }
 
-    logger.debug("✅ AI generation successful, saving to database")
+    logger.info("✅ AI generation successful, saving to database")
 
     // If a workflowId is provided, update the existing workflow
     if (workflowId) {
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
         result.workflow.connections
       )
 
-      logger.debug("✅ Workflow updated successfully")
+      logger.info("✅ Workflow updated successfully")
       return jsonResponse({
         success: true,
         workflow,
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
       result.workflow.connections
     )
 
-    logger.debug("✅ Workflow created successfully:", workflow.id)
+    logger.info("✅ Workflow created successfully:", workflow.id)
     return jsonResponse({ 
       success: true,
       workflow,

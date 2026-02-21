@@ -14,7 +14,7 @@ export async function onenoteGetPageContent(
   const { pageId, includeIDs = false, preGenerated = true } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would get OneNote page content:", { pageId, includeIDs })
+    logger.info("[TEST MODE] Would get OneNote page content:", { pageId, includeIDs })
     return {
       success: true,
       output: {

@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     const retentionDays = getRetentionDays(request)
-    logger.debug(`Starting webhook_events cleanup (retentionDays=${retentionDays})...`)
+    logger.info(`Starting webhook_events cleanup (retentionDays=${retentionDays})...`)
 
     const supabase = getSupabase()
     const { data, error } = await supabase.rpc('cleanup_old_webhook_events', {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
 
     const deletedCount = typeof data === 'number' ? data : 0
-    logger.debug(`Webhook events cleanup completed. Removed ${deletedCount} rows.`)
+    logger.info(`Webhook events cleanup completed. Removed ${deletedCount} rows.`)
 
     return jsonResponse({
       success: true,

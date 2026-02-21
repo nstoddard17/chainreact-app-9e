@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       stores.forEach(s => storeMap.set(s.shop, s))
       allStores = Array.from(storeMap.values())
 
-      logger.debug(`Merged Shopify stores: ${allStores.length} total (${stores.length} new, ${existingStores.length} existing)`)
+      logger.info(`Merged Shopify stores: ${allStores.length} total (${stores.length} new, ${existingStores.length} existing)`)
     }
 
     const integrationData = {
@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
       }
 
       integrationId = existingIntegration.id
-      logger.debug(`✅ Updated existing Shopify integration: ${integrationId}`)
+      logger.info(`✅ Updated existing Shopify integration: ${integrationId}`)
     } else {
       // Insert new integration
       const { data: integration, error: insertError } = await supabase
@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
       }
 
       integrationId = integration.id
-      logger.debug(`✅ Created new Shopify integration: ${integrationId}`)
+      logger.info(`✅ Created new Shopify integration: ${integrationId}`)
     }
 
     // Grant admin permissions to the user who connected the integration
@@ -215,7 +215,7 @@ export async function GET(request: NextRequest) {
       const { autoGrantPermissionsForIntegration } = await import('@/lib/services/integration-permissions')
       try {
         await autoGrantPermissionsForIntegration(integrationId, userId)
-        logger.debug(`✅ Granted admin permissions for Shopify integration: ${integrationId}`)
+        logger.info(`✅ Granted admin permissions for Shopify integration: ${integrationId}`)
       } catch (permError) {
         logger.error('Failed to grant permissions for Shopify integration:', permError)
         // Don't fail the whole flow - integration is connected, just permissions might be missing

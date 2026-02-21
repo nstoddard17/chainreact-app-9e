@@ -54,7 +54,7 @@ export async function updateShopifyProduct(
     // 3. Convert to GID format
     const productGid = toProductGid(productId)
 
-    logger.debug('[Shopify GraphQL] Updating product:', { productId: productGid })
+    logger.info('[Shopify GraphQL] Updating product:', { productId: productGid })
 
     // 4. Build GraphQL mutation (only include fields that were provided)
     const mutation = `

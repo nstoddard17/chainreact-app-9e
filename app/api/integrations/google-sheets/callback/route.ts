@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
         if (userInfoResponse.ok) {
           const userInfo = await userInfoResponse.json()
-          logger.debug('✅ Google Sheets user info fetched:', {
+          logger.info('✅ Google Sheets user info fetched:', {
             email: userInfo.email,
             name: userInfo.name,
           })

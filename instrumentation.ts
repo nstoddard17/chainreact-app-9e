@@ -10,12 +10,12 @@ export async function register() {
     process.env.NODE_ENV !== 'test' &&
     process.env.NEXT_RUNTIME === 'nodejs'
   ) {
-    logger.debug('🚀 Starting server-side instrumentation...')
+    logger.info('🚀 Starting server-side instrumentation...')
 
     // Initialize console deduplication for cleaner terminal logs
     try {
       const { initConsoleDeduplication } = await import('@/lib/logging/consoleDeduplicator')
-      logger.debug('🔧 Initializing console deduplication for cleaner logs...')
+      logger.info('🔧 Initializing console deduplication for cleaner logs...')
       initConsoleDeduplication()
     } catch (error) {
       logger.warn('⚠️ Could not initialize console deduplication:', error)
@@ -24,20 +24,20 @@ export async function register() {
     // Initialize file logging system
     try {
       const { logger } = await import('@/lib/logging/initLogging')
-      logger.debug('📁 File logging system initialized')
+      logger.info('📁 File logging system initialized')
     } catch (error) {
       logger.warn('⚠️ Could not initialize file logging:', error)
     }
 
     // Prevent multiple initializations (Next.js may call register multiple times)
     if (isDiscordInitialized) {
-      logger.debug('⏭️ Discord bot already initialized, skipping...')
+      logger.info('⏭️ Discord bot already initialized, skipping...')
       return
     }
 
     // Check if Discord bot should be disabled (for development without Discord)
     if (process.env.DISABLE_DISCORD_BOT === 'true') {
-      logger.debug('⚠️ Discord bot disabled via DISABLE_DISCORD_BOT environment variable')
+      logger.info('⚠️ Discord bot disabled via DISABLE_DISCORD_BOT environment variable')
       return
     }
 

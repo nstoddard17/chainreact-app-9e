@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const days = parseInt(searchParams.get('days') || '30')
 
-    logger.debug('[Analytics API] Fetching cost savings', {
+    logger.info('[Analytics API] Fetching cost savings', {
       userId: user.id,
       days
     })

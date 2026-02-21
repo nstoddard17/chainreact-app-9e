@@ -519,7 +519,7 @@ export class SafetyValidator {
     };
 
     // In production, send to monitoring service
-    logger.debug('🛡️ Validation Log:', {
+    logger.info('🛡️ Validation Log:', {
       workflowId: logEntry.workflowId,
       nodeId: logEntry.nodeId,
       errorCount: logEntry.errors.length,

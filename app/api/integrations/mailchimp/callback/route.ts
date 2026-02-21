@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
         if (metadataResponse.ok) {
           const metadataData = await metadataResponse.json()
-          logger.debug('✅ Mailchimp metadata fetched:', {
+          logger.info('✅ Mailchimp metadata fetched:', {
             dc: metadataData.dc,
             accountname: metadataData.accountname
           })
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
                 const accountData = await accountResponse.json()
                 email = accountData.email || accountData.contact?.email || accountData.login?.email || null
                 accountName = accountData.account_name || metadataData.accountname || null
-                logger.debug('✅ Mailchimp account details fetched:', {
+                logger.info('✅ Mailchimp account details fetched:', {
                   email,
                   accountName
                 })

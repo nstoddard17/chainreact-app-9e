@@ -62,7 +62,7 @@ export async function runGoogleAnalyticsReport(context: ExecutionContext): Promi
     limit = 100
   } = context.config
 
-  logger.debug('[Google Analytics] Running report:', {
+  logger.info('[Google Analytics] Running report:', {
     propertyId,
     dateRange,
     metrics,
@@ -85,7 +85,7 @@ export async function runGoogleAnalyticsReport(context: ExecutionContext): Promi
 
   // Check test mode
   if (context.testMode) {
-    logger.debug('[Google Analytics] Test mode - returning mock report data')
+    logger.info('[Google Analytics] Test mode - returning mock report data')
     return {
       report_data: [
         {
@@ -155,7 +155,7 @@ export async function runGoogleAnalyticsReport(context: ExecutionContext): Promi
       }
     })
 
-    logger.debug('[Google Analytics] Report run successfully:', {
+    logger.info('[Google Analytics] Report run successfully:', {
       rowCount: response.data.rows?.length || 0
     })
 

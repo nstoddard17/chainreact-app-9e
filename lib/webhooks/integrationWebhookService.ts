@@ -23,7 +23,7 @@ export class IntegrationWebhookService {
    */
   async setupIntegrationWebhooks(userId: string, providerId: string, integrationConfig: Record<string, any>): Promise<void> {
     try {
-      logger.debug(`Setting up webhooks for ${providerId} integration for user ${userId}`)
+      logger.info(`Setting up webhooks for ${providerId} integration for user ${userId}`)
 
       const webhookConfigs = this.getWebhookConfigsForProvider(providerId, userId, integrationConfig)
       
@@ -31,7 +31,7 @@ export class IntegrationWebhookService {
         await this.registerIntegrationWebhook(config)
       }
 
-      logger.debug(`Successfully set up ${webhookConfigs.length} webhooks for ${providerId}`)
+      logger.info(`Successfully set up ${webhookConfigs.length} webhooks for ${providerId}`)
     } catch (error) {
       logger.error(`Error setting up webhooks for ${providerId}:`, error)
       throw error
@@ -48,7 +48,7 @@ export class IntegrationWebhookService {
     const triggerTypes = this.getTriggerTypesForProvider(providerId)
     
     if (triggerTypes.length === 0) {
-      logger.debug(`No webhook triggers found for provider: ${providerId}`)
+      logger.info(`No webhook triggers found for provider: ${providerId}`)
       return []
     }
 
@@ -145,7 +145,7 @@ export class IntegrationWebhookService {
       // Register with external service based on provider
       await this.registerWithExternalService(config, webhookConfig.id)
 
-      logger.debug(`Registered webhook for ${config.providerId} with ID: ${webhookConfig.id}`)
+      logger.info(`Registered webhook for ${config.providerId} with ID: ${webhookConfig.id}`)
     } catch (error) {
       logger.error(`Error registering webhook for ${config.providerId}:`, error)
       throw error
@@ -159,7 +159,7 @@ export class IntegrationWebhookService {
     const integrationConfig = INTEGRATION_CONFIGS[config.providerId]
     
     if (!integrationConfig) {
-      logger.debug(`No integration config found for ${config.providerId}`)
+      logger.info(`No integration config found for ${config.providerId}`)
       return
     }
 
@@ -180,7 +180,7 @@ export class IntegrationWebhookService {
       })
       .eq('id', webhookId)
 
-    logger.debug(`Webhook registration for ${config.providerId} requires manual setup`)
+    logger.info(`Webhook registration for ${config.providerId} requires manual setup`)
   }
 
   /**
@@ -246,7 +246,7 @@ export class IntegrationWebhookService {
    */
   async removeIntegrationWebhooks(userId: string, providerId: string): Promise<void> {
     try {
-      logger.debug(`Removing webhooks for ${providerId} integration for user ${userId}`)
+      logger.info(`Removing webhooks for ${providerId} integration for user ${userId}`)
 
       // Get all webhooks for this user and provider
       const { data: webhooks, error } = await this.supabase
@@ -267,7 +267,7 @@ export class IntegrationWebhookService {
           .eq('id', webhook.id)
       }
 
-      logger.debug(`Successfully removed ${webhooks?.length || 0} webhooks for ${providerId}`)
+      logger.info(`Successfully removed ${webhooks?.length || 0} webhooks for ${providerId}`)
     } catch (error) {
       logger.error(`Error removing webhooks for ${providerId}:`, error)
       throw error
@@ -279,7 +279,7 @@ export class IntegrationWebhookService {
    */
   private async removeFromExternalService(webhook: any): Promise<void> {
     // Implementation would depend on the external service
-    logger.debug(`Removing webhook from ${webhook.provider_id}`)
+    logger.info(`Removing webhook from ${webhook.provider_id}`)
   }
 
   /**

@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     const userId_instagram = tokenData.user_id
     const grantedPermissions = tokenData.permissions || ''
     
-    logger.debug('Instagram permissions granted:', grantedPermissions)
+    logger.info('Instagram permissions granted:', grantedPermissions)
 
     // Exchange short-lived token for long-lived token
     const longLivedTokenResponse = await fetch(

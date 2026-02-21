@@ -38,7 +38,7 @@ export class WorkflowExecutionService {
     testModeConfig?: TestModeConfig,
     supabaseClient?: any
   ) {
-    logger.debug("🚀 Starting workflow execution service", {
+    logger.info("🚀 Starting workflow execution service", {
       testMode,
       testModeConfig: testModeConfig ? {
         triggerMode: testModeConfig.triggerMode,
@@ -98,13 +98,13 @@ export class WorkflowExecutionService {
     const validNodes = allNodes.filter((node: any) => {
       // Skip AddActionNodes - these are UI placeholders for adding new nodes
       if (node.type === 'addAction' || node.id?.startsWith('add-action-')) {
-        logger.debug(`Skipping UI placeholder node: ${node.id}`)
+        logger.info(`Skipping UI placeholder node: ${node.id}`)
         return false
       }
       
       // Skip InsertActionNodes - these are also UI placeholders
       if (node.type === 'insertAction') {
-        logger.debug(`Skipping UI insert node: ${node.id}`)
+        logger.info(`Skipping UI insert node: ${node.id}`)
         return false
       }
       
@@ -126,7 +126,7 @@ export class WorkflowExecutionService {
 
     const nodes = validNodes
 
-    logger.debug("Executing workflow with:", {
+    logger.info("Executing workflow with:", {
       originalNodesCount: allNodes.length,
       validNodesCount: nodes.length,
       skippedNodes: allNodes.length - nodes.length,
@@ -163,21 +163,21 @@ export class WorkflowExecutionService {
           const rootActions = nodes.filter((n: any) => !n.data?.isTrigger && !hasIncoming(n.id))
 
           if (rootActions.length > 0) {
-            logger.debug(`⚙️ Fallback: starting from ${rootActions.length} root action node(s) (no triggers present)`)
+            logger.info(`⚙️ Fallback: starting from ${rootActions.length} root action node(s) (no triggers present)`)
             startingNodes = rootActions
           } else {
             // Fallback 2: as a last resort, start from the first non-trigger node
             const firstAction = nodes.find((n: any) => !n.data?.isTrigger)
             if (firstAction) {
-              logger.debug(`⚙️ Fallback: starting from first action node ${firstAction.id} (no roots found)`) 
+              logger.info(`⚙️ Fallback: starting from first action node ${firstAction.id} (no roots found)`) 
               startingNodes = [firstAction]
             } else {
-              logger.debug('⚠️ No action nodes available to execute when skipping triggers')
+              logger.info('⚠️ No action nodes available to execute when skipping triggers')
               startingNodes = []
             }
           }
         } else {
-          logger.debug('No action nodes connected to triggers, workflow may be trigger-only')
+          logger.info('No action nodes connected to triggers, workflow may be trigger-only')
           startingNodes = [] // Allow empty for trigger-only workflows
         }
       }
@@ -250,23 +250,23 @@ export class WorkflowExecutionService {
     const completedNodeIds: string[] = []
     const failedNodeIds: Array<{ nodeId: string; error: string }> = []
 
-    logger.debug(`📍 Starting execution with ${startingNodes.length} starting nodes`)
+    logger.info(`📍 Starting execution with ${startingNodes.length} starting nodes`)
     if (startingNodes.length === 0 && skipTriggers) {
-      logger.debug('⚠️ No action nodes found connected to triggers')
+      logger.info('⚠️ No action nodes found connected to triggers')
       // Log the trigger nodes and connections for debugging
       const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger === true)
-      logger.debug(`   Found ${triggerNodes.length} trigger nodes`)
+      logger.info(`   Found ${triggerNodes.length} trigger nodes`)
       triggerNodes.forEach((t: any) => {
         const connectedNodes = validConnections
           .filter((c: any) => c.source === t.id)
           .map((c: any) => nodes.find((n: any) => n.id === c.target))
           .filter(Boolean)
-        logger.debug(`   Trigger ${t.id} connects to ${connectedNodes.length} nodes`)
+        logger.info(`   Trigger ${t.id} connects to ${connectedNodes.length} nodes`)
       })
     }
 
     for (const startNode of startingNodes) {
-      logger.debug(`🎯 Executing ${skipTriggers ? 'action' : 'trigger'} node: ${startNode.id} (${startNode.data.type})`)
+      logger.info(`🎯 Executing ${skipTriggers ? 'action' : 'trigger'} node: ${startNode.id} (${startNode.data.type})`)
 
       // Update progress: starting this node
       await progressTracker.update({
@@ -282,7 +282,7 @@ export class WorkflowExecutionService {
         executionContext
       )
 
-      logger.debug(`   Node ${startNode.id} execution result:`, {
+      logger.info(`   Node ${startNode.id} execution result:`, {
         success: result?.success,
         hasError: !!result?.error,
         hasResults: !!result?.results,
@@ -368,7 +368,7 @@ export class WorkflowExecutionService {
       results.push(result)
     }
 
-    logger.debug(`✅ Workflow execution completed with ${results.length} results`)
+    logger.info(`✅ Workflow execution completed with ${results.length} results`)
 
     // Complete progress tracking
     const hasErrors = failedNodeIds.length > 0
@@ -409,7 +409,7 @@ export class WorkflowExecutionService {
 
     // If in test mode and we have intercepted actions, return them separately
     if (testMode && executionContext.interceptedActions.length > 0) {
-      logger.debug(`📦 Returning ${executionContext.interceptedActions.length} intercepted actions`)
+      logger.info(`📦 Returning ${executionContext.interceptedActions.length} intercepted actions`)
       return {
         results,
         interceptedActions: executionContext.interceptedActions,
@@ -433,7 +433,7 @@ export class WorkflowExecutionService {
     supabase: any,
     testModeConfig?: TestModeConfig
   ): Promise<ExecutionContext> {
-    logger.debug(`🔧 Creating execution context with userId: ${userId}`)
+    logger.info(`🔧 Creating execution context with userId: ${userId}`)
 
     // Initialize data flow manager
     const dataFlowManager = createDataFlowManager(`exec_${Date.now()}`, workflow.id, userId)
@@ -461,8 +461,8 @@ export class WorkflowExecutionService {
       })
     }
 
-    logger.debug(`📊 Loaded ${variables?.length || 0} workflow variables`)
-    logger.debug(`✅ Created execution context with userId: ${executionContext.userId}`)
+    logger.info(`📊 Loaded ${variables?.length || 0} workflow variables`)
+    logger.info(`✅ Created execution context with userId: ${executionContext.userId}`)
 
     return executionContext
   }

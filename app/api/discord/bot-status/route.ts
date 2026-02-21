@@ -20,13 +20,13 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
       };
     }
 
-    logger.debug('🔍 Checking bot status for guild:', guildId, 'with bot client ID:', botClientId);
+    logger.info('🔍 Checking bot status for guild:', guildId, 'with bot client ID:', botClientId);
     
     let channelsStatus = null;
     
     // First, try to fetch channels (more reliable than member check)
     try {
-      logger.debug('🔍 Trying to fetch guild channels...');
+      logger.info('🔍 Trying to fetch guild channels...');
       const channelsResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/channels`, {
         headers: {
           'Authorization': `Bot ${botToken}`,
@@ -35,11 +35,11 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
       });
       
       channelsStatus = channelsResponse.status;
-      logger.debug('🔍 Channels API response status:', channelsStatus);
+      logger.info('🔍 Channels API response status:', channelsStatus);
       
       if (channelsResponse.ok) {
         const channels = await channelsResponse.json();
-        logger.debug('🔍 Successfully fetched channels:', channels.length, 'channels found');
+        logger.info('🔍 Successfully fetched channels:', channels.length, 'channels found');
         
         // Bot can access channels, so it's in the guild with proper permissions
         return {
@@ -47,15 +47,15 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
           hasPermissions: true
         };
       } else if (channelsResponse.status === 403) {
-        logger.debug('🔍 403 error - could be bot not in guild or missing permissions, checking membership...');
+        logger.info('🔍 403 error - could be bot not in guild or missing permissions, checking membership...');
         // Don't assume bot is in guild on 403 - need to check membership first
       }
     } catch (channelsError) {
-      logger.debug('🔍 Channels check failed, trying member check...', channelsError.message);
+      logger.info('🔍 Channels check failed, trying member check...', channelsError.message);
     }
     
     // Fallback to member check
-    logger.debug('🔍 Trying to check bot membership...');
+    logger.info('🔍 Trying to check bot membership...');
     const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${botClientId}`, {
       headers: {
         'Authorization': `Bot ${botToken}`,
@@ -63,13 +63,13 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
       },
     });
     
-    logger.debug('🔍 Member API response status:', memberResponse.status);
+    logger.info('🔍 Member API response status:', memberResponse.status);
 
     if (memberResponse.ok) {
-      logger.debug('🔍 Bot is a member of the guild');
+      logger.info('🔍 Bot is a member of the guild');
       // Bot is in the guild - now check if we had a 403 on channels earlier
       if (channelsStatus === 403) {
-        logger.debug('🔍 Bot is in guild but lacks channel view permissions');
+        logger.info('🔍 Bot is in guild but lacks channel view permissions');
         return {
           isInGuild: true,
           hasPermissions: false,
@@ -83,7 +83,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
         };
       
     } else if (memberResponse.status === 404) {
-      logger.debug('🔍 Bot is not a member of the guild');
+      logger.info('🔍 Bot is not a member of the guild');
       // Bot is not in the guild
       return {
         isInGuild: false,
@@ -91,7 +91,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
         error: "Bot not added to this server"
       };
     } else if (memberResponse.status === 403) {
-      logger.debug('🔍 Bot lacks permissions to check membership - probably not in guild');
+      logger.info('🔍 Bot lacks permissions to check membership - probably not in guild');
       // Bot doesn't have permission to check membership, likely not in guild
       return {
         isInGuild: false,
@@ -99,7 +99,7 @@ async function verifyBotInGuild(guildId: string): Promise<{ isInGuild: boolean; 
         error: "Bot not in server or missing permissions"
       };
     } 
-      logger.debug('🔍 Unknown error checking bot status');
+      logger.info('🔍 Unknown error checking bot status');
       return {
         isInGuild: false,
         hasPermissions: false,
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
     // Check if bot is actually in the guild
     const botStatus = await verifyBotInGuild(guildId);
     
-    logger.debug("🔍 Bot status check result for guild:", guildId, botStatus);
+    logger.info("🔍 Bot status check result for guild:", guildId, botStatus);
 
     return jsonResponse(botStatus)
   } catch (error) {

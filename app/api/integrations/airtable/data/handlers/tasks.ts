@@ -64,7 +64,7 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
 ): Promise<TaskOption[]> => {
   const { baseId, tableName } = options
 
-  logger.debug("🔍 Airtable tasks fetcher called with:", {
+  logger.info("🔍 Airtable tasks fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -78,16 +78,16 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !tableName) {
-      logger.debug('⚠️ Base ID or Table name missing, returning empty list')
+      logger.info('⚠️ Base ID or Table name missing, returning empty list')
       return []
     }
 
-    logger.debug('🔍 Fetching Airtable tasks from API...')
+    logger.info('🔍 Fetching Airtable tasks from API...')
 
     // Fetch records to extract unique tasks
     const queryParams = new URLSearchParams()
@@ -104,7 +104,7 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
     if (data.records && Array.isArray(data.records)) {
       // Log first record to see field structure
       if (data.records.length > 0) {
-        logger.debug('📊 [Airtable Tasks] Sample record fields:', Object.keys(data.records[0].fields || {}))
+        logger.info('📊 [Airtable Tasks] Sample record fields:', Object.keys(data.records[0].fields || {}))
       }
 
       data.records.forEach((record: any) => {
@@ -122,12 +122,12 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
           }
 
           if (taskNameField) {
-            logger.debug(`📊 [Airtable Tasks] Found matching field '${taskNameField}'`)
+            logger.info(`📊 [Airtable Tasks] Found matching field '${taskNameField}'`)
             const taskField = record.fields[taskNameField]
 
             // Tasks might be an array or a string
             if (Array.isArray(taskField)) {
-              logger.debug(`📊 [Airtable Tasks] Field is array:`, taskField)
+              logger.info(`📊 [Airtable Tasks] Field is array:`, taskField)
               taskField.forEach(task => {
                 if (task && typeof task === 'string') {
                   // If it looks like a full description (contains sentence-like text), try to extract just the name
@@ -151,7 +151,7 @@ export const getAirtableTasks: AirtableDataHandler<TaskOption> = async (
       label: task
     })).sort((a, b) => a.label.localeCompare(b.label))
 
-    logger.debug(`✅ Airtable tasks fetched successfully: ${options.length} unique tasks`)
+    logger.info(`✅ Airtable tasks fetched successfully: ${options.length} unique tasks`)
     return options
 
   } catch (error: any) {

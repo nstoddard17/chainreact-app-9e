@@ -112,7 +112,7 @@ export async function verifyAirtableRecord(
           const resolvedName = await resolveAirtableTableName(accessToken, baseId, tableIdOrName)
 
           if (resolvedName && !tried.has(resolvedName)) {
-            logger.debug(`🔁 Retrying verification with resolved table name: ${resolvedName}`)
+            logger.info(`🔁 Retrying verification with resolved table name: ${resolvedName}`)
             queue.push(resolvedName)
             continue
           }
@@ -143,12 +143,12 @@ export async function verifyAirtableRecord(
       );
 
       if (response.status === 200) {
-        logger.debug(`✅ Record ${recordId} still exists (path: ${candidate})`);
+        logger.info(`✅ Record ${recordId} still exists (path: ${candidate})`);
         return true;
       }
 
       if (response.status === 404) {
-        logger.debug(`🗑️ Record ${recordId} not found via path ${candidate}`);
+        logger.info(`🗑️ Record ${recordId} not found via path ${candidate}`);
         // Try next candidate (e.g., table ID vs table name)
         continue;
       }
@@ -161,7 +161,7 @@ export async function verifyAirtableRecord(
           const resolvedName = await resolveAirtableTableName(accessToken, baseId, tableIdOrName)
 
           if (resolvedName && !tried.has(resolvedName)) {
-            logger.debug(`🔁 Retrying verification with resolved table name: ${resolvedName}`)
+            logger.info(`🔁 Retrying verification with resolved table name: ${resolvedName}`)
             queue.push(resolvedName)
             continue
           }
@@ -181,7 +181,7 @@ export async function verifyAirtableRecord(
     }
 
     // If all candidates return 404 (and any metadata lookup failed), treat as deleted
-    logger.debug(`🗑️ Record ${recordId} missing across all table paths, skipping execution.`);
+    logger.info(`🗑️ Record ${recordId} missing across all table paths, skipping execution.`);
     return false;
   } catch (error) {
     logger.error('❌ Error verifying Airtable record:', error);

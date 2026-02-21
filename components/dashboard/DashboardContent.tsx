@@ -41,7 +41,7 @@ export default function DashboardContent() {
   // Debug logging
   useEffect(() => {
     if (isClientReady) {
-      logger.debug('🎯 [Dashboard] Auth state:', {
+      logger.info('🎯 [Dashboard] Auth state:', {
         user: user ? {
           id: user.id,
           email: user.email,
@@ -106,7 +106,7 @@ export default function DashboardContent() {
   })
 
   const getFirstName = () => {
-    logger.debug('📝 [Dashboard] Getting first name from:', {
+    logger.info('📝 [Dashboard] Getting first name from:', {
       'profile.username': profile?.username,
       'profile.full_name': profile?.full_name,
       'user.name': user?.name,
@@ -115,28 +115,28 @@ export default function DashboardContent() {
 
     // First try username from profile
     if (profile?.username) {
-      logger.debug('✅ [Dashboard] Using username from profile')
+      logger.info('✅ [Dashboard] Using username from profile')
       return profile.username
     }
     // Then try full name and extract first part
     if (profile?.full_name) {
       const firstName = profile.full_name.split(" ")[0]
-      logger.debug('✅ [Dashboard] Using full_name first part')
+      logger.info('✅ [Dashboard] Using full_name first part')
       return firstName
     }
     // Fallback to user name if available
     if (user?.name) {
       const firstName = user.name.split(" ")[0]
-      logger.debug('⚠️ [Dashboard] Falling back to user.name')
+      logger.info('⚠️ [Dashboard] Falling back to user.name')
       return firstName
     }
     // Last resort: extract from email
     if (user?.email) {
       const emailName = user.email.split("@")[0]
-      logger.debug('⚠️ [Dashboard] Falling back to email prefix')
+      logger.info('⚠️ [Dashboard] Falling back to email prefix')
       return emailName
     }
-    logger.debug('❌ [Dashboard] No name found, using default "User"')
+    logger.info('❌ [Dashboard] No name found, using default "User"')
     return "User"
   }
 
@@ -154,7 +154,7 @@ export default function DashboardContent() {
         message="Loading your dashboard..."
         timeout={1000} // Very short timeout - 1 second max
         onTimeout={() => {
-          logger.debug('Dashboard render forced after 1 second')
+          logger.info('Dashboard render forced after 1 second')
           // Don't reload, just continue rendering
         }}
       />

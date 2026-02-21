@@ -31,7 +31,7 @@ export class RequestManager {
   cancelExistingRequest(cacheKey: string): void {
     const existingController = this.abortControllers.get(cacheKey);
     if (existingController) {
-      logger.debug('🚫 [RequestManager] Cancelling existing request for:', {
+      logger.info('🚫 [RequestManager] Cancelling existing request for:', {
         cacheKey,
         oldRequestId: this.activeRequestIds.get(cacheKey)
       });
@@ -99,11 +99,11 @@ export class RequestManager {
    * Cancel all active requests (useful for cleanup)
    */
   cancelAllRequests(): void {
-    logger.debug('🚫 [RequestManager] Cancelling all active requests');
+    logger.info('🚫 [RequestManager] Cancelling all active requests');
     
     // Abort all fetch requests
     this.abortControllers.forEach((controller, key) => {
-      logger.debug('🚫 [RequestManager] Aborting request:', key);
+      logger.info('🚫 [RequestManager] Aborting request:', key);
       controller.abort();
     });
 
@@ -145,7 +145,7 @@ export class RequestManager {
   ): Promise<T | undefined> {
     // Check if there's already an active request for this key
     if (!forceRefresh && this.hasActiveRequest(cacheKey)) {
-      logger.debug('🔄 [RequestManager] Waiting for existing request:', cacheKey);
+      logger.info('🔄 [RequestManager] Waiting for existing request:', cacheKey);
       try {
         await this.getActiveRequest(cacheKey);
         // Request completed, data should be available

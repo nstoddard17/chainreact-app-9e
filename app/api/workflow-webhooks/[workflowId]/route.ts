@@ -225,14 +225,14 @@ export async function POST(
         return errorResponse('Invalid webhook signature', 401);
       }
 
-      logger.debug(`✅ Webhook signature verified for workflow ${workflowId}`);
+      logger.info(`✅ Webhook signature verified for workflow ${workflowId}`);
     } else {
       logger.warn(`⚠️ Webhook signature verification disabled for workflow ${workflowId} (allowUnsigned: true)`);
     }
 
     // If in test mode, store the event data in trigger_resources for polling
     if (isTestMode && triggerResource) {
-      logger.debug(`🧪 Test mode detected, storing event data for polling`)
+      logger.info(`🧪 Test mode detected, storing event data for polling`)
       await supabase
         .from('trigger_resources')
         .update({

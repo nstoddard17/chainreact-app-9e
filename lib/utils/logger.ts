@@ -7,7 +7,7 @@
  * Usage:
  *   import { logger } from '@/lib/utils/logger'
  *   logger.info('User logged in', { userId })
- *   logger.debug('Token refresh', { provider })
+ *   logger.info('Token refresh', { provider })
  *   logger.trace('Full payload', { data })
  *
  * Environment Variables:
@@ -175,7 +175,7 @@ class Logger {
    *
    * @example
    * logger.ifDebug(() => {
-   *   logger.debug('Expensive operation', complexCalculation())
+   *   logger.info('Expensive operation', complexCalculation())
    * })
    */
   ifError(callback: () => void): void {

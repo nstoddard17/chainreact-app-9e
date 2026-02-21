@@ -321,8 +321,8 @@ export default function AIRouterConfigModal({
     }
 
     // Simulate routing decision
-    logger.debug('Testing routing with input:', testInput)
-    logger.debug('Configuration:', config)
+    logger.info('Testing routing with input:', testInput)
+    logger.info('Configuration:', config)
     
     // Show test results in UI
     // This would trigger actual AI call in production

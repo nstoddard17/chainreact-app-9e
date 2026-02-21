@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const client = createManyChatClient(apiKey)
     const tags = await client.getTags()
 
-    logger.debug(`[MANYCHAT TAGS] Fetched ${tags.length} tags`)
+    logger.info(`[MANYCHAT TAGS] Fetched ${tags.length} tags`)
 
     return NextResponse.json({ tags })
 

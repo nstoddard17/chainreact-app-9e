@@ -36,13 +36,13 @@ function DiscordChannelFieldComponent({
   const handleChannelFieldOpen = (open: boolean) => {
     // Skip loading if we have a saved value - just show the saved value
     if (value) {
-      logger.debug(`📌 [DiscordChannelField] Not loading on dropdown open - using saved value:`, value);
+      logger.info(`📌 [DiscordChannelField] Not loading on dropdown open - using saved value:`, value);
       return;
     }
     
     // Only load if we don't have a saved value or if user explicitly opens the dropdown
     if (open && field.dynamic && onDynamicLoad && !isLoading && options.length === 0 && !value) {
-      logger.debug(`📥 [DiscordChannelField] Loading channels on dropdown open`);
+      logger.info(`📥 [DiscordChannelField] Loading channels on dropdown open`);
       onDynamicLoad(field.name);
     }
   };
@@ -104,7 +104,7 @@ function DiscordChannelFieldComponent({
       }];
     } else if (!matchingOption && options.length === 0 && !isLoading) {
       // No options loaded yet, show loading placeholder
-      logger.debug(`📌 [DiscordChannelField] Waiting for channel data to load for:`, value);
+      logger.info(`📌 [DiscordChannelField] Waiting for channel data to load for:`, value);
       processedOptions = [{
         id: value,
         value: value,
@@ -132,13 +132,13 @@ function DiscordChannelFieldComponent({
   React.useEffect(() => {
     // SKIP auto-load if we have a saved value
     if (value) {
-      logger.debug('📌 [DiscordChannelField] Skipping auto-load - has saved value:', value);
+      logger.info('📌 [DiscordChannelField] Skipping auto-load - has saved value:', value);
       return;
     }
     
     if (processedOptions.length === 0 && !isLoading && !value && onDynamicLoad && field.dynamic) {
       // Trigger loading automatically
-      logger.debug('📥 Auto-triggering channel load - no options available');
+      logger.info('📥 Auto-triggering channel load - no options available');
       onDynamicLoad(field.name);
     }
   }, [processedOptions.length, isLoading, value, onDynamicLoad, field.dynamic, field.name]);

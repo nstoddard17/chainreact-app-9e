@@ -141,8 +141,8 @@ export default function BetaTestersContent() {
         }
         setBetaTesters([])
       } else {
-        logger.debug(`Fetched ${result.data?.length || 0} beta testers`)
-        logger.debug("Setting beta testers:", result.data)
+        logger.info(`Fetched ${result.data?.length || 0} beta testers`)
+        logger.info("Setting beta testers:", result.data)
         setBetaTesters(result.data || [])
       }
     } catch (err) {

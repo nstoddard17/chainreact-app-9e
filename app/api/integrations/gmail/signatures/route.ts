@@ -7,14 +7,14 @@ import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
-    logger.debug('🔍 [GMAIL SIGNATURES] API endpoint called')
+    logger.info('🔍 [GMAIL SIGNATURES] API endpoint called')
     const searchParams = request.nextUrl.searchParams
     const requestedUserId = searchParams.get('userId')
 
-    logger.debug('🔍 [GMAIL SIGNATURES] Request params:', { requestedUserId })
+    logger.info('🔍 [GMAIL SIGNATURES] Request params:', { requestedUserId })
 
     if (!requestedUserId) {
-      logger.debug('❌ [SIGNATURES] No userId provided')
+      logger.info('❌ [SIGNATURES] No userId provided')
       return errorResponse('Missing userId parameter' , 400)
     }
     
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (userError || !userData) {
-      logger.debug('❌ [SIGNATURES] User not found:', userError)
+      logger.info('❌ [SIGNATURES] User not found:', userError)
       return errorResponse('User not found' , 404)
     }
 
@@ -42,16 +42,16 @@ export async function GET(request: NextRequest) {
       .single()
 
     const customSignatureNames = integration?.metadata?.signature_names || {}
-    logger.debug('🔍 [GMAIL SIGNATURES] Custom signature names from metadata:', customSignatureNames)
+    logger.info('🔍 [GMAIL SIGNATURES] Custom signature names from metadata:', customSignatureNames)
 
     // Get Gmail access token
-    logger.debug('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
+    logger.info('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
     let accessToken
     try {
       accessToken = await getDecryptedAccessToken(userId, 'gmail')
-      logger.debug('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
+      logger.info('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
     } catch (error) {
-      logger.debug('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
+      logger.info('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
       return errorResponse('Gmail integration not connected', 200, {
         signatures: [],
         needsConnection: true
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (!accessToken) {
-      logger.debug('❌ [GMAIL SIGNATURES] Gmail access token missing')
+      logger.info('❌ [GMAIL SIGNATURES] Gmail access token missing')
       return errorResponse('Gmail access token missing', 200, {
         signatures: [],
         needsConnection: true
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch Gmail sendAs settings to get signatures
-    logger.debug('🔍 [GMAIL SIGNATURES] Fetching Gmail sendAs settings...')
+    logger.info('🔍 [GMAIL SIGNATURES] Fetching Gmail sendAs settings...')
     const settingsResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -84,14 +84,14 @@ export async function GET(request: NextRequest) {
     }
 
     const settingsData = await settingsResponse.json()
-    logger.debug(`✅ [GMAIL SIGNATURES] SendAs API response received:`, JSON.stringify(settingsData, null, 2))
-    logger.debug(`🔍 [GMAIL SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
+    logger.info(`✅ [GMAIL SIGNATURES] SendAs API response received:`, JSON.stringify(settingsData, null, 2))
+    logger.info(`🔍 [GMAIL SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
     
     const signatures = []
     
     if (settingsData.sendAs && Array.isArray(settingsData.sendAs)) {
       settingsData.sendAs.forEach((sendAsSettings: any, index: number) => {
-        logger.debug(`🔍 [GMAIL SIGNATURES] Processing sendAs ${index}:`, {
+        logger.info(`🔍 [GMAIL SIGNATURES] Processing sendAs ${index}:`, {
           sendAsEmail: sendAsSettings.sendAsEmail,
           displayName: sendAsSettings.displayName,
           hasSignature: !!sendAsSettings.signature,
@@ -117,9 +117,9 @@ export async function GET(request: NextRequest) {
         })
         
         if (sendAsSettings.signature) {
-          logger.debug(`✅ [GMAIL SIGNATURES] Found signature for: ${sendAsSettings.displayName || sendAsSettings.sendAsEmail}`)
+          logger.info(`✅ [GMAIL SIGNATURES] Found signature for: ${sendAsSettings.displayName || sendAsSettings.sendAsEmail}`)
         } else {
-          logger.debug(`⚠️ [GMAIL SIGNATURES] No signature set for: ${sendAsSettings.sendAsEmail}`)
+          logger.info(`⚠️ [GMAIL SIGNATURES] No signature set for: ${sendAsSettings.sendAsEmail}`)
         }
       })
     }
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
     // Only return signatures that actually have content (filter out empty ones)
     const signaturesWithContent = signatures.filter(sig => sig.hasSignature && sig.content.trim() !== '')
 
-    logger.debug(`✅ [GMAIL SIGNATURES] Returning ${signaturesWithContent.length} signature(s):`,
+    logger.info(`✅ [GMAIL SIGNATURES] Returning ${signaturesWithContent.length} signature(s):`,
       signaturesWithContent.map(sig => ({ id: sig.id, name: sig.name, hasSignature: sig.hasSignature })))
 
     const response = {
@@ -148,14 +148,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    logger.debug('🔍 [GMAIL SIGNATURES] POST endpoint called')
+    logger.info('🔍 [GMAIL SIGNATURES] POST endpoint called')
     const body = await request.json()
     const { userId, name, content, isDefault } = body
 
-    logger.debug('🔍 [GMAIL SIGNATURES] Request body:', { userId, name, hasContent: !!content, isDefault })
+    logger.info('🔍 [GMAIL SIGNATURES] Request body:', { userId, name, hasContent: !!content, isDefault })
 
     if (!userId || !name || !content) {
-      logger.debug('❌ [SIGNATURES] Missing required fields')
+      logger.info('❌ [SIGNATURES] Missing required fields')
       return errorResponse('Missing required fields: userId, name, and content are required', 400)
     }
 
@@ -168,28 +168,28 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (userError || !userData) {
-      logger.debug('❌ [SIGNATURES] User not found:', userError)
+      logger.info('❌ [SIGNATURES] User not found:', userError)
       return errorResponse('User not found', 404)
     }
 
     // Get Gmail access token
-    logger.debug('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
+    logger.info('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
     let accessToken
     try {
       accessToken = await getDecryptedAccessToken(userId, 'gmail')
-      logger.debug('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
+      logger.info('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
     } catch (error) {
-      logger.debug('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
+      logger.info('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
       return errorResponse('Gmail integration not connected', 401)
     }
 
     if (!accessToken) {
-      logger.debug('❌ [GMAIL SIGNATURES] Gmail access token missing')
+      logger.info('❌ [GMAIL SIGNATURES] Gmail access token missing')
       return errorResponse('Gmail access token missing', 401)
     }
 
     // First, get the user's email to create/update sendAs settings
-    logger.debug('🔍 [GMAIL SIGNATURES] Fetching user profile to get email...')
+    logger.info('🔍 [GMAIL SIGNATURES] Fetching user profile to get email...')
     const profileResponse = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -204,10 +204,10 @@ export async function POST(request: NextRequest) {
 
     const profileData = await profileResponse.json()
     const userEmail = profileData.emailAddress
-    logger.debug('✅ [GMAIL SIGNATURES] User email:', userEmail)
+    logger.info('✅ [GMAIL SIGNATURES] User email:', userEmail)
 
     // Update the sendAs settings to set/update the signature
-    logger.debug('🔍 [GMAIL SIGNATURES] Updating sendAs settings with new signature...')
+    logger.info('🔍 [GMAIL SIGNATURES] Updating sendAs settings with new signature...')
     const updateResponse = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs/${encodeURIComponent(userEmail)}`,
       {
@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
     }
 
     const updatedSettings = await updateResponse.json()
-    logger.debug('✅ [GMAIL SIGNATURES] Signature updated successfully')
+    logger.info('✅ [GMAIL SIGNATURES] Signature updated successfully')
 
     // Store the custom signature name in integration metadata
     const { data: integration } = await supabase
@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', integration.id)
 
-      logger.debug('✅ [GMAIL SIGNATURES] Custom signature name stored in metadata')
+      logger.info('✅ [GMAIL SIGNATURES] Custom signature name stored in metadata')
     }
 
     // Return success response
@@ -279,15 +279,15 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    logger.debug('🔍 [GMAIL SIGNATURES] DELETE endpoint called')
+    logger.info('🔍 [GMAIL SIGNATURES] DELETE endpoint called')
     const searchParams = request.nextUrl.searchParams
     const userId = searchParams.get('userId')
     const email = searchParams.get('email')
 
-    logger.debug('🔍 [GMAIL SIGNATURES] Delete params:', { userId, email })
+    logger.info('🔍 [GMAIL SIGNATURES] Delete params:', { userId, email })
 
     if (!userId || !email) {
-      logger.debug('❌ [SIGNATURES] Missing required parameters')
+      logger.info('❌ [SIGNATURES] Missing required parameters')
       return errorResponse('Missing required parameters: userId and email', 400)
     }
 
@@ -300,28 +300,28 @@ export async function DELETE(request: NextRequest) {
       .single()
 
     if (userError || !userData) {
-      logger.debug('❌ [SIGNATURES] User not found:', userError)
+      logger.info('❌ [SIGNATURES] User not found:', userError)
       return errorResponse('User not found', 404)
     }
 
     // Get Gmail access token
-    logger.debug('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
+    logger.info('🔍 [GMAIL SIGNATURES] Getting access token for user:', userId)
     let accessToken
     try {
       accessToken = await getDecryptedAccessToken(userId, 'gmail')
-      logger.debug('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
+      logger.info('✅ [GMAIL SIGNATURES] Access token retrieved successfully')
     } catch (error) {
-      logger.debug('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
+      logger.info('❌ [GMAIL SIGNATURES] Gmail integration not found:', error)
       return errorResponse('Gmail integration not connected', 401)
     }
 
     if (!accessToken) {
-      logger.debug('❌ [GMAIL SIGNATURES] Gmail access token missing')
+      logger.info('❌ [GMAIL SIGNATURES] Gmail access token missing')
       return errorResponse('Gmail access token missing', 401)
     }
 
     // Delete the signature by setting it to empty string
-    logger.debug('🔍 [GMAIL SIGNATURES] Deleting signature for email:', email)
+    logger.info('🔍 [GMAIL SIGNATURES] Deleting signature for email:', email)
     const deleteResponse = await fetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs/${encodeURIComponent(email)}`,
       {
@@ -342,7 +342,7 @@ export async function DELETE(request: NextRequest) {
       return errorResponse('Failed to delete signature from Gmail', 500)
     }
 
-    logger.debug('✅ [GMAIL SIGNATURES] Signature deleted successfully')
+    logger.info('✅ [GMAIL SIGNATURES] Signature deleted successfully')
 
     // Remove custom signature name from metadata
     const { data: integration } = await supabase
@@ -369,7 +369,7 @@ export async function DELETE(request: NextRequest) {
         })
         .eq('id', integration.id)
 
-      logger.debug('✅ [GMAIL SIGNATURES] Custom signature name removed from metadata')
+      logger.info('✅ [GMAIL SIGNATURES] Custom signature name removed from metadata')
     }
 
     return jsonResponse({

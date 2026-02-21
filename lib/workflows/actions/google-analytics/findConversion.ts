@@ -25,7 +25,7 @@ export async function findGoogleAnalyticsConversion(
       }
     }
 
-    logger.debug(`[GA4 Find Conversion] Searching for conversion "${conversionEventName}" in property ${propertyId}`)
+    logger.info(`[GA4 Find Conversion] Searching for conversion "${conversionEventName}" in property ${propertyId}`)
 
     // List all conversion events for the property
     const response = await fetch(
@@ -52,7 +52,7 @@ export async function findGoogleAnalyticsConversion(
     )
 
     if (!foundEvent) {
-      logger.debug(`[GA4 Find Conversion] Conversion event "${conversionEventName}" not found`)
+      logger.info(`[GA4 Find Conversion] Conversion event "${conversionEventName}" not found`)
       return {
         success: true,
         output: {
@@ -64,7 +64,7 @@ export async function findGoogleAnalyticsConversion(
       }
     }
 
-    logger.debug('[GA4 Find Conversion] Found conversion event:', foundEvent.name)
+    logger.info('[GA4 Find Conversion] Found conversion event:', foundEvent.name)
 
     // Extract the conversion ID from the resource name
     // Format: properties/{propertyId}/conversionEvents/{conversionId}

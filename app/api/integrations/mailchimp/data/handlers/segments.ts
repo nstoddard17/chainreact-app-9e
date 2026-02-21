@@ -20,7 +20,7 @@ export const getMailchimpSegments: MailchimpDataHandler<MailchimpSegment> = asyn
   // Support both audienceId and audience_id (field name varies by context)
   const audienceId = options.audienceId || options.audience_id
 
-  logger.debug("🔍 [Mailchimp] Fetching segments:", {
+  logger.info("🔍 [Mailchimp] Fetching segments:", {
     integrationId: integration.id,
     audienceId,
     options
@@ -34,15 +34,15 @@ export const getMailchimpSegments: MailchimpDataHandler<MailchimpSegment> = asyn
     // Validate integration status
     validateMailchimpIntegration(integration)
 
-    logger.debug(`🔍 [Mailchimp] Validating token...`)
+    logger.info(`🔍 [Mailchimp] Validating token...`)
     const tokenResult = await validateMailchimpToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ [Mailchimp] Token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    logger.debug('🔍 [Mailchimp] Fetching segments from API...')
+    logger.info('🔍 [Mailchimp] Fetching segments from API...')
     const apiUrl = await buildMailchimpApiUrl(integration, `/lists/${audienceId}/segments`)
 
     // Add query parameters
@@ -54,7 +54,7 @@ export const getMailchimpSegments: MailchimpDataHandler<MailchimpSegment> = asyn
 
     const segments = await parseMailchimpApiResponse<MailchimpSegment>(response)
 
-    logger.debug(`✅ [Mailchimp] Segments fetched successfully: ${segments.length} segments`)
+    logger.info(`✅ [Mailchimp] Segments fetched successfully: ${segments.length} segments`)
     return segments
 
   } catch (error: any) {

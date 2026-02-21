@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 
         if (accountResponse.ok) {
           accountInfo = await accountResponse.json()
-          logger.debug('Dropbox account info fetched:', {
+          logger.info('Dropbox account info fetched:', {
             email: accountInfo.email,
             hasPhoto: !!accountInfo.profile_photo_url
           })
@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
         }
 
         upsertedIntegration = data
-        logger.debug(`✅ Updated existing Dropbox integration: ${existingIntegration.id}`)
+        logger.info(`✅ Updated existing Dropbox integration: ${existingIntegration.id}`)
       } else {
         // Insert new integration (different email = new account)
         const { data, error: insertError } = await supabase
@@ -223,7 +223,7 @@ export async function GET(request: NextRequest) {
         }
 
         upsertedIntegration = data
-        logger.debug(`✅ Created new Dropbox integration for ${dropboxEmail}`)
+        logger.info(`✅ Created new Dropbox integration for ${dropboxEmail}`)
       }
     } else {
       // Fallback: No email available, try to update by user_id + provider
@@ -249,7 +249,7 @@ export async function GET(request: NextRequest) {
         }
 
         upsertedIntegration = data
-        logger.debug(`✅ Updated existing Dropbox integration (no email): ${existingIntegration.id}`)
+        logger.info(`✅ Updated existing Dropbox integration (no email): ${existingIntegration.id}`)
       } else {
         const { data, error: insertError } = await supabase
           .from('integrations')
@@ -263,7 +263,7 @@ export async function GET(request: NextRequest) {
         }
 
         upsertedIntegration = data
-        logger.debug(`✅ Created new Dropbox integration (no email)`)
+        logger.info(`✅ Created new Dropbox integration (no email)`)
       }
     }
 

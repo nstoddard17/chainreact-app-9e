@@ -118,8 +118,8 @@ export function resolveValue(
 
   // Debug logging for variable resolution
   if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) {
-    logger.debug('🔍 Resolving variable:', value)
-    logger.debug('🔍 Available input keys:', Object.keys(input || {}).join(', '))
+    logger.info('🔍 Resolving variable:', value)
+    logger.info('🔍 Available input keys:', Object.keys(input || {}).join(', '))
   }
   
   // First check if the entire value is a single template
@@ -219,21 +219,21 @@ export function resolveValue(
           }, nodeData.output.output)
 
           if (doubleNestedValue !== undefined) {
-            logger.debug(`🔍 Resolved ${key} from double-nested output:`, doubleNestedValue)
+            logger.info(`🔍 Resolved ${key} from double-nested output:`, doubleNestedValue)
             return doubleNestedValue
           }
         }
 
-        logger.debug(`❌ [RESOLVE_VALUE] Could not resolve "${key}" - field "${outputField}" not found in node data, output, or nested output`)
+        logger.info(`❌ [RESOLVE_VALUE] Could not resolve "${key}" - field "${outputField}" not found in node data, output, or nested output`)
       } else {
-        logger.debug(`❌ [RESOLVE_VALUE] Node ID "${nodeIdOrTitle}" NOT FOUND in input keys:`, Object.keys(input || {}))
+        logger.info(`❌ [RESOLVE_VALUE] Node ID "${nodeIdOrTitle}" NOT FOUND in input keys:`, Object.keys(input || {}))
 
         // PREFIX MATCHING: Try to find node by prefix (e.g., {{ai_agent.output}} -> ai_agent-xxxxx.output)
         if (input) {
           const inputKeys = Object.keys(input)
           const prefixMatchKey = inputKeys.find(k => k.startsWith(nodeIdOrTitle + '-'))
           if (prefixMatchKey) {
-            logger.debug(`🔍 [RESOLVE_VALUE] PREFIX MATCH for dotted path: "${nodeIdOrTitle}" -> "${prefixMatchKey}"`)
+            logger.info(`🔍 [RESOLVE_VALUE] PREFIX MATCH for dotted path: "${nodeIdOrTitle}" -> "${prefixMatchKey}"`)
             const nodeData = input[prefixMatchKey]
 
             if (nodeData && typeof nodeData === 'object') {
@@ -244,7 +244,7 @@ export function resolveValue(
                 }, nodeData.data)
 
                 if (dataFieldValue !== undefined) {
-                  logger.debug(`✅ [RESOLVE_VALUE] Resolved "${key}" via prefix match from data`)
+                  logger.info(`✅ [RESOLVE_VALUE] Resolved "${key}" via prefix match from data`)
                   return dataFieldValue
                 }
               }
@@ -255,7 +255,7 @@ export function resolveValue(
               }, nodeData)
 
               if (fieldValue !== undefined) {
-                logger.debug(`✅ [RESOLVE_VALUE] Resolved "${key}" via prefix match`)
+                logger.info(`✅ [RESOLVE_VALUE] Resolved "${key}" via prefix match`)
                 return fieldValue
               }
 
@@ -265,7 +265,7 @@ export function resolveValue(
                   return acc && acc[part]
                 }, nodeData.output)
                 if (outputFieldValue !== undefined) {
-                  logger.debug(`✅ [RESOLVE_VALUE] Resolved "${key}" via prefix match from output`)
+                  logger.info(`✅ [RESOLVE_VALUE] Resolved "${key}" via prefix match from output`)
                   return outputFieldValue
                 }
               }
@@ -273,7 +273,7 @@ export function resolveValue(
           }
         }
 
-        logger.debug(`❌ [RESOLVE_VALUE] This is likely a data flow issue - the previous node output is not keyed correctly`)
+        logger.info(`❌ [RESOLVE_VALUE] This is likely a data flow issue - the previous node output is not keyed correctly`)
       }
 
       const nodeTitle = nodeIdOrTitle
@@ -338,7 +338,7 @@ export function resolveValue(
       if (input && input.trigger) {
         const triggerValue = triggerPath.reduce((acc: any, part: any) => acc && acc[part], input.trigger)
         if (triggerValue !== undefined) {
-          logger.debug(`✅ [RESOLVE_VALUE] Found trigger.${triggerPath.join('.')} from input.trigger:`, triggerValue)
+          logger.info(`✅ [RESOLVE_VALUE] Found trigger.${triggerPath.join('.')} from input.trigger:`, triggerValue)
           return triggerValue
         }
       }
@@ -383,7 +383,7 @@ export function resolveValue(
         const inputKeys = Object.keys(input)
         const prefixMatchKey = inputKeys.find(k => k.startsWith(variableName + '-'))
         if (prefixMatchKey) {
-          logger.debug(`🔍 [RESOLVE_VALUE] PREFIX MATCH: "${variableName}" -> "${prefixMatchKey}"`)
+          logger.info(`🔍 [RESOLVE_VALUE] PREFIX MATCH: "${variableName}" -> "${prefixMatchKey}"`)
           const nodeData = input[prefixMatchKey]
 
           // For AI agent and similar nodes, extract the actual output value
@@ -392,12 +392,12 @@ export function resolveValue(
           if (nodeData && typeof nodeData === 'object') {
             // First check data.output (AI agent stores actual text here)
             if (nodeData.data?.output !== undefined && nodeData.data.output !== '[Circular Reference]') {
-              logger.debug(`✅ [RESOLVE_VALUE] Found output from data.output via prefix match: "${prefixMatchKey}"`)
+              logger.info(`✅ [RESOLVE_VALUE] Found output from data.output via prefix match: "${prefixMatchKey}"`)
               return nodeData.data.output
             }
             // Fall back to top-level output if it's not a circular reference marker
             if (nodeData.output !== undefined && nodeData.output !== '[Circular Reference]') {
-              logger.debug(`✅ [RESOLVE_VALUE] Found output from prefix match: "${prefixMatchKey}"`)
+              logger.info(`✅ [RESOLVE_VALUE] Found output from prefix match: "${prefixMatchKey}"`)
               return nodeData.output
             }
             // Otherwise return the whole node data
@@ -571,7 +571,7 @@ export function resolveValue(
             const inputKeys = Object.keys(input)
             const prefixMatchKey = inputKeys.find(k => k.startsWith(nodeIdOrTitle + '-'))
             if (prefixMatchKey) {
-              logger.debug(`🔍 [EMBEDDED] PREFIX MATCH for dotted path: "${nodeIdOrTitle}" -> "${prefixMatchKey}"`)
+              logger.info(`🔍 [EMBEDDED] PREFIX MATCH for dotted path: "${nodeIdOrTitle}" -> "${prefixMatchKey}"`)
               const nodeData = input[prefixMatchKey]
 
               if (nodeData && typeof nodeData === 'object') {
@@ -582,7 +582,7 @@ export function resolveValue(
                   }, nodeData.data)
 
                   if (dataFieldValue !== undefined) {
-                    logger.debug(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match from data`)
+                    logger.info(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match from data`)
                     return stringifyForEmbedding(dataFieldValue)
                   }
                 }
@@ -593,7 +593,7 @@ export function resolveValue(
                 }, nodeData)
 
                 if (fieldValue !== undefined) {
-                  logger.debug(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match`)
+                  logger.info(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match`)
                   return stringifyForEmbedding(fieldValue)
                 }
 
@@ -603,7 +603,7 @@ export function resolveValue(
                     return acc && acc[part]
                   }, nodeData.output)
                   if (outputFieldValue !== undefined) {
-                    logger.debug(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match from output`)
+                    logger.info(`✅ [EMBEDDED] Resolved "${nodeIdOrTitle}.${outputField}" via prefix match from output`)
                     return stringifyForEmbedding(outputFieldValue)
                   }
                 }
@@ -626,7 +626,7 @@ export function resolveValue(
         const inputKeys = Object.keys(input)
         const prefixMatchKey = inputKeys.find(k => k.startsWith(variableName + '-'))
         if (prefixMatchKey) {
-          logger.debug(`🔍 [EMBEDDED] PREFIX MATCH: "${variableName}" -> "${prefixMatchKey}"`)
+          logger.info(`🔍 [EMBEDDED] PREFIX MATCH: "${variableName}" -> "${prefixMatchKey}"`)
           const nodeData = input[prefixMatchKey]
 
           // For AI agent and similar nodes, extract the actual output value
@@ -635,12 +635,12 @@ export function resolveValue(
           if (nodeData && typeof nodeData === 'object') {
             // First check data.output (AI agent stores actual text here)
             if (nodeData.data?.output !== undefined && nodeData.data.output !== '[Circular Reference]') {
-              logger.debug(`✅ [EMBEDDED] Found output from data.output via prefix match: "${prefixMatchKey}"`)
+              logger.info(`✅ [EMBEDDED] Found output from data.output via prefix match: "${prefixMatchKey}"`)
               return stringifyForEmbedding(nodeData.data.output)
             }
             // Fall back to top-level output if it's not a circular reference marker
             if (nodeData.output !== undefined && nodeData.output !== '[Circular Reference]') {
-              logger.debug(`✅ [EMBEDDED] Found output from prefix match: "${prefixMatchKey}"`)
+              logger.info(`✅ [EMBEDDED] Found output from prefix match: "${prefixMatchKey}"`)
               return stringifyForEmbedding(nodeData.output)
             }
             return stringifyForEmbedding(nodeData)

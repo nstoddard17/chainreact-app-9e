@@ -65,7 +65,7 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
       setError(null)
 
       const billingPeriod = billingCycle === "annual" ? "yearly" : "monthly"
-      logger.debug("Processing plan:", tier, "billing:", billingPeriod)
+      logger.info("Processing plan:", tier, "billing:", billingPeriod)
 
       if (currentSubscription && currentSubscription.status === "active") {
         const isUpgradeToAnnual = currentSubscription.billing_cycle === "monthly" && billingPeriod === "yearly"

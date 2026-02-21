@@ -51,7 +51,7 @@ export async function requireUsername() {
     profileError = { code: 'TIMEOUT', message: 'Profile fetch timed out' }
   }
   
-  logger.debug('[Username Check]', {
+  logger.info('[Username Check]', {
     userId: user.id,
     hasEmail: !!user.email,
     provider: profile?.provider,
@@ -93,16 +93,16 @@ export async function requireUsername() {
   
   // Check if username is missing (for any user, but especially Google users)
   if (!profile?.username || profile.username.trim() === '') {
-    logger.debug('[Username Check] No username found, checking if Google user...')
+    logger.info('[Username Check] No username found, checking if Google user...')
     
     // For Google users, always redirect to setup
     if (profile?.provider === 'google') {
-      logger.debug('[Username Check] Google user without username, redirecting to setup')
+      logger.info('[Username Check] Google user without username, redirecting to setup')
       redirect("/auth/setup-username")
     }
     
     // For other providers, this shouldn't happen, but handle it
-    logger.debug('[Username Check] Non-Google user without username, redirecting to setup')
+    logger.info('[Username Check] Non-Google user without username, redirecting to setup')
     redirect("/auth/setup-username")
   }
   

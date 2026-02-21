@@ -43,7 +43,7 @@ export async function createOnedriveFolder(
       payload.description = description
     }
 
-    logger.debug('[OneDrive] Creating folder:', { folderName, parentFolderId })
+    logger.info('[OneDrive] Creating folder:', { folderName, parentFolderId })
 
     const response = await fetch(createUrl, {
       method: 'POST',

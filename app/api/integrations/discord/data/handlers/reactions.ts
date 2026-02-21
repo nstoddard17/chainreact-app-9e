@@ -9,7 +9,7 @@ import { logger } from '@/lib/utils/logger'
 
 export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (integration: DiscordIntegration, options: any = {}) => {
   try {
-    logger.debug("🔍 Discord reactions fetcher called with options:", options)
+    logger.info("🔍 Discord reactions fetcher called with options:", options)
     const { channelId, messageId } = options
     
     if (!channelId || !messageId) {
@@ -17,7 +17,7 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
       throw new Error("Channel ID and Message ID are required to fetch Discord reactions")
     }
 
-    logger.debug("🔍 Fetching reactions for message:", messageId, "in channel:", channelId)
+    logger.info("🔍 Fetching reactions for message:", messageId, "in channel:", channelId)
 
     // Use bot token for server operations
     const botToken = process.env.DISCORD_BOT_TOKEN
@@ -26,11 +26,11 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
       return []
     }
 
-    logger.debug("🔍 Bot token available, making Discord API call...")
+    logger.info("🔍 Bot token available, making Discord API call...")
 
     try {
       // First, get the specific message to see its reactions
-      logger.debug(`🔍 Making Discord API call to fetch message ${messageId} in channel ${channelId}`)
+      logger.info(`🔍 Making Discord API call to fetch message ${messageId} in channel ${channelId}`)
       const messageResponse = await fetchDiscordWithRateLimit<any>(() => 
         fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${messageId}`, {
           headers: {
@@ -40,7 +40,7 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
         })
       )
 
-      logger.debug("🔍 Discord API response received:", {
+      logger.info("🔍 Discord API response received:", {
         hasMessage: !!messageResponse,
         hasReactions: !!(messageResponse && messageResponse.reactions),
         reactionsCount: messageResponse?.reactions?.length || 0,
@@ -48,7 +48,7 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
       })
 
       if (!messageResponse || !messageResponse.reactions) {
-        logger.debug("🔍 No reactions found on this message")
+        logger.info("🔍 No reactions found on this message")
         return []
       }
 
@@ -75,11 +75,11 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
         }
       })
 
-      logger.debug("🔍 Processed reactions:", reactions.length)
+      logger.info("🔍 Processed reactions:", reactions.length)
       if (reactions.length === 0) {
-        logger.debug("🔍 No reactions found - this is normal if the message has no reactions")
+        logger.info("🔍 No reactions found - this is normal if the message has no reactions")
       } else {
-        logger.debug("🔍 Found reactions:", reactions.map((r: any) => `${r.emoji} (${r.count})`))
+        logger.info("🔍 Found reactions:", reactions.map((r: any) => `${r.emoji} (${r.count})`))
       }
       return reactions
     } catch (error: any) {
@@ -93,7 +93,7 @@ export const getDiscordReactions: DiscordDataHandler<DiscordReaction> = async (i
       }
       if (error.message.includes("404")) {
         // Message not found - return empty array instead of throwing error
-        logger.debug(`Message ${messageId} not found - returning empty reactions list`)
+        logger.info(`Message ${messageId} not found - returning empty reactions list`)
         return []
       }
       throw error

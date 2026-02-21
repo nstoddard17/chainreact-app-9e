@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    logger.debug('[Discord Slash Commands] Checking if command exists', {
+    logger.info('[Discord Slash Commands] Checking if command exists', {
       guildId,
       commandName
     });
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     const commands = await listResponse.json();
     const commandExists = commands.some((cmd: any) => cmd.name === commandName);
 
-    logger.debug('[Discord Slash Commands] Check result', {
+    logger.info('[Discord Slash Commands] Check result', {
       commandName,
       guildId,
       exists: commandExists,

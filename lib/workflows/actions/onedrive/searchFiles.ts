@@ -45,7 +45,7 @@ export async function searchOnedriveFiles(
       searchUrl += '&$orderby=size desc'
     }
 
-    logger.debug('[OneDrive] Searching files:', {
+    logger.info('[OneDrive] Searching files:', {
       searchQuery,
       searchType,
       searchScope,

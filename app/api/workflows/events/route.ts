@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       try {
         // Check if event matches the condition
         if (!matchesCondition(eventData, waiting.match_condition)) {
-          logger.debug(`[Events] Event doesn't match condition for execution ${waiting.execution_id}`)
+          logger.info(`[Events] Event doesn't match condition for execution ${waiting.execution_id}`)
           continue
         }
 

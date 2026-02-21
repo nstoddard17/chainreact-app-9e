@@ -20,16 +20,16 @@ interface DataFetcher {
 
 // Add comprehensive error handling and fix API calls
 export async function POST(req: NextRequest) {
-  logger.debug('🚀 [SERVER] fetch-user-data API route called')
+  logger.info('🚀 [SERVER] fetch-user-data API route called')
   
   try {
     const body = await req.json();
     const { integrationId, dataType, options = {} } = body;
 
-    logger.debug('🔍 [SERVER] fetch-user-data request parsed:', { integrationId, dataType, options });
+    logger.info('🔍 [SERVER] fetch-user-data request parsed:', { integrationId, dataType, options });
 
     if (!integrationId || !dataType) {
-      logger.debug('❌ [SERVER] Missing required parameters');
+      logger.info('❌ [SERVER] Missing required parameters');
       return jsonResponse({ error: 'Missing required parameters' }, { status: 400 });
     }
     
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     // Route Teams-specific data requests through Teams API
     if (teamsDataTypes.has(dataType)) {
-      logger.debug('🔍 [SERVER] Routing Teams data request', { dataType, integrationId, options });
+      logger.info('🔍 [SERVER] Routing Teams data request', { dataType, integrationId, options });
 
       const baseUrl = req.nextUrl.origin;
       const teamsApiResponse = await fetchWithTimeout(`${baseUrl}/api/integrations/teams/data`, {
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     // Route Gmail-specific data requests (including enhanced recipients and labels) through Gmail API
     if (gmailDataTypes.has(dataType)) {
-      logger.debug('🔍 [SERVER] Routing Gmail data request', { dataType, integrationId });
+      logger.info('🔍 [SERVER] Routing Gmail data request', { dataType, integrationId });
 
       try {
         // Fetch the integration initiating the request (with timeout protection)
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
         let gmailIntegration = requestingIntegration.provider === 'gmail' ? requestingIntegration : null;
 
         if (!gmailIntegration) {
-          logger.debug('🔍 [SERVER] Resolving Gmail integration for user', {
+          logger.info('🔍 [SERVER] Resolving Gmail integration for user', {
             userId: requestingIntegration.user_id,
             requestingProvider: requestingIntegration.provider,
             dataType,
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
           }
 
           gmailIntegration = resolvedGmailIntegration;
-          logger.debug('✅ [SERVER] Found Gmail integration for cross-provider request:', gmailIntegration.id);
+          logger.info('✅ [SERVER] Found Gmail integration for cross-provider request:', gmailIntegration.id);
         }
 
         const baseUrl = req.nextUrl.origin;
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
         }
 
         const gmailResult = await gmailApiResponse.json();
-        logger.debug(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
+        logger.info(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
 
         return jsonResponse(gmailResult);
 
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
 
     // Handle Gmail recent recipients with original working method (no contacts permission needed)
     if (integration.provider === 'gmail' && dataType === 'gmail-recent-recipients') {
-      logger.debug(`🔄 [SERVER] Using original Gmail recipients method`);
+      logger.info(`🔄 [SERVER] Using original Gmail recipients method`);
       
       try {
         // Validate integration has access token
@@ -286,7 +286,7 @@ export async function POST(req: NextRequest) {
             name: recipient.name
           }))
 
-        logger.debug(`✅ [SERVER] Original Gmail method: Found ${recipientArray.length} recipients`)
+        logger.info(`✅ [SERVER] Original Gmail method: Found ${recipientArray.length} recipients`)
         return jsonResponse({ data: recipientArray })
 
       } catch (error: any) {
@@ -304,7 +304,7 @@ export async function POST(req: NextRequest) {
       if (dataType.startsWith('google-') || 
           dataType === 'google-calendars' || 
           dataType === 'google-contacts') {
-        logger.debug(`🔄 [SERVER] Routing Google request to dedicated API: ${dataType} (provider: ${integration.provider})`);
+        logger.info(`🔄 [SERVER] Routing Google request to dedicated API: ${dataType} (provider: ${integration.provider})`);
         
         try {
           const baseUrl = req.nextUrl.origin
@@ -327,7 +327,7 @@ export async function POST(req: NextRequest) {
           }
 
           const googleResult = await googleApiResponse.json();
-          logger.debug(`✅ [SERVER] Google API completed for ${dataType}, result length:`, googleResult.data?.length || 'unknown');
+          logger.info(`✅ [SERVER] Google API completed for ${dataType}, result length:`, googleResult.data?.length || 'unknown');
 
           return jsonResponse(googleResult);
         } catch (error: any) {
@@ -343,7 +343,7 @@ export async function POST(req: NextRequest) {
       dataType === 'gmail_recipients' ||
       dataType === 'gmail_signatures'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Gmail request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Gmail request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -366,7 +366,7 @@ export async function POST(req: NextRequest) {
         }
 
         const gmailResult = await gmailApiResponse.json();
-        logger.debug(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
+        logger.info(`✅ [SERVER] Gmail API completed for ${dataType}, result length:`, gmailResult.data?.length || 'unknown');
 
         // Return the Gmail API response directly (it's already in the correct format)
         return jsonResponse(gmailResult);
@@ -382,7 +382,7 @@ export async function POST(req: NextRequest) {
       dataType === 'slack_channels' ||
       dataType === 'slack_users'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Slack request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Slack request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -405,7 +405,7 @@ export async function POST(req: NextRequest) {
         }
 
         const slackResult = await slackApiResponse.json();
-        logger.debug(`✅ [SERVER] Slack API completed for ${dataType}, result length:`, slackResult.data?.length || 'unknown');
+        logger.info(`✅ [SERVER] Slack API completed for ${dataType}, result length:`, slackResult.data?.length || 'unknown');
 
         // Return the Slack API response directly (it's already in the correct format)
         return jsonResponse(slackResult);
@@ -429,7 +429,7 @@ export async function POST(req: NextRequest) {
       dataType === 'google-sheets_column_values' ||
       dataType === 'google-sheets_enhanced-preview'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Google request to dedicated API:`, {
+      logger.info(`🔄 [SERVER] Routing Google request to dedicated API:`, {
         dataType,
         integrationId,
         provider: integration.provider,
@@ -445,7 +445,7 @@ export async function POST(req: NextRequest) {
           options
         }
         
-        logger.debug(`🚀 [SERVER] Making Google API request:`, requestPayload);
+        logger.info(`🚀 [SERVER] Making Google API request:`, requestPayload);
         
         const googleApiResponse = await fetch(`${baseUrl}/api/integrations/google/data`, {
           method: 'POST',
@@ -455,7 +455,7 @@ export async function POST(req: NextRequest) {
           body: JSON.stringify(requestPayload)
         });
 
-        logger.debug(`📡 [SERVER] Google API response:`, {
+        logger.info(`📡 [SERVER] Google API response:`, {
           status: googleApiResponse.status,
           statusText: googleApiResponse.statusText,
           ok: googleApiResponse.ok,
@@ -479,7 +479,7 @@ export async function POST(req: NextRequest) {
         }
 
         const googleResult = await googleApiResponse.json();
-        logger.debug(`✅ [SERVER] Google API completed for ${dataType}:`, {
+        logger.info(`✅ [SERVER] Google API completed for ${dataType}:`, {
           resultLength: googleResult.data?.length || 'unknown',
           success: googleResult.success,
           hasData: !!googleResult.data
@@ -508,7 +508,7 @@ export async function POST(req: NextRequest) {
       dataType === 'notion_workspaces' ||
       dataType === 'notion_database_properties'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Notion request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Notion request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -531,7 +531,7 @@ export async function POST(req: NextRequest) {
         }
 
         const notionResult = await notionApiResponse.json();
-        logger.debug(`✅ [SERVER] Notion API completed for ${dataType}, result length:`, notionResult.data?.length || 'unknown');
+        logger.info(`✅ [SERVER] Notion API completed for ${dataType}, result length:`, notionResult.data?.length || 'unknown');
         
         // Return the Notion API response directly (it's already in the correct format)
         return jsonResponse(notionResult);
@@ -554,7 +554,7 @@ export async function POST(req: NextRequest) {
       dataType === 'discord_banned_users' ||
       dataType === 'discord_users'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Discord request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Discord request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -577,7 +577,7 @@ export async function POST(req: NextRequest) {
         }
 
         const discordResult = await discordApiResponse.json();
-        logger.debug(`✅ [SERVER] Discord API completed for ${dataType}, result length:`, discordResult.data?.length || 'unknown');
+        logger.info(`✅ [SERVER] Discord API completed for ${dataType}, result length:`, discordResult.data?.length || 'unknown');
         
         // Return the Discord API response directly (it's already in the correct format)
         return jsonResponse(discordResult);
@@ -592,7 +592,7 @@ export async function POST(req: NextRequest) {
     if (integration.provider === 'facebook' && (
       dataType === 'facebook_pages'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Facebook request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Facebook request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -615,7 +615,7 @@ export async function POST(req: NextRequest) {
         }
 
         const facebookResult = await facebookApiResponse.json();
-        logger.debug(`✅ [SERVER] Facebook API completed for ${dataType}, result length:`, facebookResult.data?.length || 'unknown');
+        logger.info(`✅ [SERVER] Facebook API completed for ${dataType}, result length:`, facebookResult.data?.length || 'unknown');
         
         // Return the Facebook API response directly (it's already in the correct format)
         return jsonResponse(facebookResult);
@@ -630,7 +630,7 @@ export async function POST(req: NextRequest) {
     if (integration.provider === 'twitter' && (
       dataType === 'twitter_mentions'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Twitter request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Twitter request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -653,7 +653,7 @@ export async function POST(req: NextRequest) {
         }
 
         const twitterResult = await twitterApiResponse.json();
-        logger.debug(`✅ [SERVER] Twitter API completed for ${dataType}, result length:`, twitterResult.data?.length || 'unknown');
+        logger.info(`✅ [SERVER] Twitter API completed for ${dataType}, result length:`, twitterResult.data?.length || 'unknown');
         
         // Return the Twitter API response directly (it's already in the correct format)
         return jsonResponse(twitterResult);
@@ -670,7 +670,7 @@ export async function POST(req: NextRequest) {
       dataType === 'onenote_sections' ||
       dataType === 'onenote_pages'
     )) {
-      logger.debug(`🔄 [SERVER] Routing OneNote request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing OneNote request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -693,7 +693,7 @@ export async function POST(req: NextRequest) {
         }
 
         const oneNoteResult = await oneNoteApiResponse.json();
-        logger.debug(`✅ [SERVER] OneNote API success:`, {
+        logger.info(`✅ [SERVER] OneNote API success:`, {
           dataType,
           resultCount: oneNoteResult.data?.length || 0
         });
@@ -716,7 +716,7 @@ export async function POST(req: NextRequest) {
       dataType === 'outlook_calendars' ||
       dataType === 'outlook_signatures'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Outlook request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Outlook request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -739,7 +739,7 @@ export async function POST(req: NextRequest) {
         }
 
         const outlookResult = await outlookApiResponse.json();
-        logger.debug(`✅ [SERVER] Outlook API success:`, {
+        logger.info(`✅ [SERVER] Outlook API success:`, {
           dataType,
           resultCount: outlookResult.data?.length || 0
         });
@@ -766,7 +766,7 @@ export async function POST(req: NextRequest) {
       dataType === 'hubspot_products' ||
       dataType === 'hubspot_line_items'
     )) {
-      logger.debug(`🔄 [SERVER] Routing HubSpot request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing HubSpot request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -789,7 +789,7 @@ export async function POST(req: NextRequest) {
         }
 
         const hubspotResult = await hubspotApiResponse.json();
-        logger.debug(`✅ [SERVER] HubSpot API success:`, {
+        logger.info(`✅ [SERVER] HubSpot API success:`, {
           dataType,
           resultCount: hubspotResult.data?.length || 0
         });
@@ -816,7 +816,7 @@ export async function POST(req: NextRequest) {
       dataType === 'airtable_records' ||
       dataType === 'airtable_attachment_fields'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Airtable request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Airtable request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -839,7 +839,7 @@ export async function POST(req: NextRequest) {
         }
 
         const airtableResult = await airtableApiResponse.json();
-        logger.debug(`✅ [SERVER] Airtable API success:`, {
+        logger.info(`✅ [SERVER] Airtable API success:`, {
           dataType,
           resultCount: airtableResult.data?.length || 0
         });
@@ -863,7 +863,7 @@ export async function POST(req: NextRequest) {
       dataType === 'trello_lists' ||
       dataType === 'trello_cards'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Trello request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Trello request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -886,7 +886,7 @@ export async function POST(req: NextRequest) {
         }
 
         const trelloResult = await trelloApiResponse.json();
-        logger.debug(`✅ [SERVER] Trello API success:`, {
+        logger.info(`✅ [SERVER] Trello API success:`, {
           dataType,
           resultCount: trelloResult.data?.length || 0
         });
@@ -910,7 +910,7 @@ export async function POST(req: NextRequest) {
       dataType === 'microsoft-excel_data_preview' ||
       dataType.startsWith('microsoft-excel_')
     )) {
-      logger.debug(`🔄 [SERVER] Routing Microsoft Excel request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Microsoft Excel request to dedicated API: ${dataType}`);
 
       try {
         const baseUrl = req.nextUrl.origin
@@ -937,7 +937,7 @@ export async function POST(req: NextRequest) {
         }
 
         const excelResult = await excelApiResponse.json();
-        logger.debug(`✅ [SERVER] Microsoft Excel API success:`, {
+        logger.info(`✅ [SERVER] Microsoft Excel API success:`, {
           dataType,
           resultCount: excelResult.data?.length || 0
         });
@@ -956,7 +956,7 @@ export async function POST(req: NextRequest) {
       dataType === 'onedrive-folders' ||
       dataType === 'onedrive-files'
     )) {
-      logger.debug(`🔄 [SERVER] Routing OneDrive request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing OneDrive request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -979,7 +979,7 @@ export async function POST(req: NextRequest) {
         }
 
         const onedriveResult = await onedriveApiResponse.json();
-        logger.debug(`✅ [SERVER] OneDrive API success:`, {
+        logger.info(`✅ [SERVER] OneDrive API success:`, {
           dataType,
           resultCount: onedriveResult.data?.length || 0
         });
@@ -997,7 +997,7 @@ export async function POST(req: NextRequest) {
     if ((
       dataType === 'gumroad_products'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Gumroad request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Gumroad request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -1020,7 +1020,7 @@ export async function POST(req: NextRequest) {
         }
 
         const gumroadResult = await gumroadApiResponse.json();
-        logger.debug(`✅ [SERVER] Gumroad API success:`, {
+        logger.info(`✅ [SERVER] Gumroad API success:`, {
           dataType,
           resultCount: gumroadResult.data?.length || 0
         });
@@ -1038,7 +1038,7 @@ export async function POST(req: NextRequest) {
     if ((
       dataType === 'blackbaud_constituents'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Blackbaud request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Blackbaud request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -1061,7 +1061,7 @@ export async function POST(req: NextRequest) {
         }
 
         const blackbaudResult = await blackbaudApiResponse.json();
-        logger.debug(`✅ [SERVER] Blackbaud API success:`, {
+        logger.info(`✅ [SERVER] Blackbaud API success:`, {
           dataType,
           resultCount: blackbaudResult.data?.length || 0
         });
@@ -1079,7 +1079,7 @@ export async function POST(req: NextRequest) {
     if ((
       dataType === 'dropbox-folders'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Dropbox request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Dropbox request to dedicated API: ${dataType}`);
       
       try {
         const baseUrl = req.nextUrl.origin
@@ -1102,7 +1102,7 @@ export async function POST(req: NextRequest) {
         }
 
         const dropboxResult = await dropboxApiResponse.json();
-        logger.debug(`✅ [SERVER] Dropbox API success:`, {
+        logger.info(`✅ [SERVER] Dropbox API success:`, {
           dataType,
           resultCount: dropboxResult.data?.length || 0
         });
@@ -1120,7 +1120,7 @@ export async function POST(req: NextRequest) {
     if ((
       dataType === 'box-folders'
     )) {
-      logger.debug(`🔄 [SERVER] Routing Box request to dedicated API: ${dataType}`);
+      logger.info(`🔄 [SERVER] Routing Box request to dedicated API: ${dataType}`);
 
       try {
         const baseUrl = req.nextUrl.origin
@@ -1143,7 +1143,7 @@ export async function POST(req: NextRequest) {
         }
 
         const boxResult = await boxApiResponse.json();
-        logger.debug(`✅ [SERVER] Box API success:`, {
+        logger.info(`✅ [SERVER] Box API success:`, {
           dataType,
           resultCount: boxResult.data?.length || 0
         });
@@ -1163,7 +1163,7 @@ export async function POST(req: NextRequest) {
       dataType === 'stripe_subscriptions' ||
       dataType.startsWith('stripe_')
     )) {
-      logger.debug(`🔄 [SERVER] Routing Stripe request to dedicated API: ${dataType}`, {
+      logger.info(`🔄 [SERVER] Routing Stripe request to dedicated API: ${dataType}`, {
         integrationId,
         options
       });
@@ -1182,7 +1182,7 @@ export async function POST(req: NextRequest) {
           })
         });
 
-        logger.debug(`📡 [SERVER] Stripe API response status:`, {
+        logger.info(`📡 [SERVER] Stripe API response status:`, {
           status: stripeApiResponse.status,
           ok: stripeApiResponse.ok
         });
@@ -1194,7 +1194,7 @@ export async function POST(req: NextRequest) {
         }
 
         const stripeResult = await stripeApiResponse.json();
-        logger.debug(`✅ [SERVER] Stripe API success:`, {
+        logger.info(`✅ [SERVER] Stripe API success:`, {
           dataType,
           resultCount: stripeResult.data?.length || 0,
           sampleData: stripeResult.data?.slice(0, 2)
@@ -1210,7 +1210,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Find the data fetcher for the requested data type (legacy path)
-    logger.debug(`⚠️ [SERVER] Using legacy data fetcher path for ${dataType}`, {
+    logger.info(`⚠️ [SERVER] Using legacy data fetcher path for ${dataType}`, {
       integrationProvider: integration?.provider,
       availableFetchers: Object.keys(dataFetchers)
     });
@@ -1226,9 +1226,9 @@ export async function POST(req: NextRequest) {
 
     // Fetch the data
     try {
-      logger.debug(`🔍 [SERVER] Calling dataFetcher for ${dataType}...`);
+      logger.info(`🔍 [SERVER] Calling dataFetcher for ${dataType}...`);
       const data = await dataFetcher(integration, options);
-      logger.debug(`✅ [SERVER] Data fetch successful for ${dataType}, result length:`, data?.length || 'unknown');
+      logger.info(`✅ [SERVER] Data fetch successful for ${dataType}, result length:`, data?.length || 'unknown');
       return jsonResponse({ data });
     } catch (error: any) {
       logger.error(`❌ [SERVER] Error calling dataFetcher for ${dataType}:`, error);
@@ -1342,9 +1342,9 @@ async function checkChannelPermissions(channelName: string, botToken: string): P
     channelPermissionCache.set(cacheKey, { accessible, timestamp: Date.now() })
     
     if (accessible) {
-      logger.debug(`📋 Channel ${channelName}: accessible`)
+      logger.info(`📋 Channel ${channelName}: accessible`)
     } else {
-      logger.debug(`❌ Channel ${channelName}: bot cannot access (${channelResponse.status})`)
+      logger.info(`❌ Channel ${channelName}: bot cannot access (${channelResponse.status})`)
     }
     
     return accessible

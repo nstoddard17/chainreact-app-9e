@@ -58,7 +58,7 @@ export const getHubSpotProducts: HubSpotDataHandler<HubSpotProduct> = async (int
       description: product.properties?.description || ''
     }))
 
-    logger.debug(`✅ Fetched ${products.length} products`)
+    logger.info(`✅ Fetched ${products.length} products`)
     return products
 
   } catch (error: any) {

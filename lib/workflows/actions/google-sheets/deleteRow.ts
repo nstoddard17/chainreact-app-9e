@@ -26,7 +26,7 @@ export async function deleteGoogleSheetsRow(
     const deleteAll = resolveValue(config.deleteAll, input) || false
     const confirmDelete = resolveValue(config.confirmDelete, input)
 
-    logger.debug("Resolved delete row values:", {
+    logger.info("Resolved delete row values:", {
       spreadsheetId,
       sheetName,
       deleteBy,
@@ -100,11 +100,11 @@ export async function deleteGoogleSheetsRow(
     // Handle row selection shortcuts
     if (rowSelection === 'last') {
       rowNumber = rows.length // Last row (1-indexed)
-      logger.debug(`Using last row: ${rowNumber}`)
+      logger.info(`Using last row: ${rowNumber}`)
     } else if (rowSelection === 'first_data') {
       // First data row - if there's more than 1 row, assume row 1 is headers
       rowNumber = rows.length > 1 ? 2 : 1
-      logger.debug(`Using first data row: ${rowNumber}`)
+      logger.info(`Using first data row: ${rowNumber}`)
     }
 
     // Find the row(s) to delete

@@ -292,7 +292,7 @@ export function formatAIResponse(
     // Detect data type
     const type = context?.dataType as FormattedResponse['type'] || detectDataType(aiResponse, context)
 
-    logger.debug('Smart formatter detected type:', type)
+    logger.info('Smart formatter detected type:', type)
 
     // Format based on type
     let formattedContent = aiResponse

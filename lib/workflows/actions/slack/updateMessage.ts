@@ -40,7 +40,7 @@ export async function updateMessage(params: {
 
       // If bot can't update (message was posted by user), try user token
       if (!result.ok && result.error === 'cant_update_message' && asUser) {
-        logger.debug('[Slack Update Message] Bot token failed, retrying with user token')
+        logger.info('[Slack Update Message] Bot token failed, retrying with user token')
         const userToken = workspace
           ? await getSlackToken(workspace, true, true)
           : await getSlackToken(userId, false, true)

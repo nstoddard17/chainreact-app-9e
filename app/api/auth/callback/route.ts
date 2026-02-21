@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/workflows'
   const type = searchParams.get('type') // Check if this is an email confirmation
 
-  logger.debug('[auth/callback] Request received:', {
+  logger.info('[auth/callback] Request received:', {
     hasCode: !!code,
     type,
     next,
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
       // The email confirmation happens on Supabase's side regardless of session errors
       // Common errors: PKCE errors, "already used", session issues - all mean email IS confirmed
       if (type === 'email-confirmation') {
-        logger.debug('Email confirmation callback with error, redirecting to success page anyway:', error.message)
+        logger.info('Email confirmation callback with error, redirecting to success page anyway:', error.message)
         return NextResponse.redirect(`${origin}/auth/email-confirmed?cross_device=true`)
       }
 
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 
       if (isCodeVerifierError) {
         // Likely a cross-device confirmation - show success page
-        logger.debug('Code verifier error detected (likely cross-device), redirecting to success page')
+        logger.info('Code verifier error detected (likely cross-device), redirecting to success page')
         return NextResponse.redirect(`${origin}/auth/email-confirmed?cross_device=true`)
       }
 
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 
     if (!error && data.user) {
       // Debug logging to understand the auth flow
-      logger.debug('Auth callback - User data:', {
+      logger.info('Auth callback - User data:', {
         id: data.user.id,
         email: data.user.email,
         email_confirmed_at: data.user.email_confirmed_at,
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
       const isEmailConfirmation = type === 'email-confirmation' ||
         (data.user.email_confirmed_at && (isNewUser || userCreatedRecently || emailJustConfirmed))
 
-      logger.debug('Auth callback - Email confirmation check:', {
+      logger.info('Auth callback - Email confirmation check:', {
         isNewUser,
         userCreatedRecently,
         emailJustConfirmed,
@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
         // User is already signed in via exchangeCodeForSession
         // Always redirect to the email-confirmed success page
         // The page will detect if user wants to continue on this device or return to original
-        logger.debug('Email confirmation successful, redirecting to success page')
+        logger.info('Email confirmation successful, redirecting to success page')
         return NextResponse.redirect(`${origin}/auth/email-confirmed?confirmed=true`)
       }
 
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
                           data.user.app_metadata?.providers?.includes('google') ||
                           data.user.identities?.some(id => id.provider === 'google')
       
-      logger.debug('OAuth callback - Is Google auth:', isGoogleAuth, {
+      logger.info('OAuth callback - Is Google auth:', isGoogleAuth, {
         provider: data.user.app_metadata?.provider,
         providers: data.user.app_metadata?.providers,
         identities: data.user.identities?.map(id => id.provider)
@@ -193,7 +193,7 @@ export async function GET(request: NextRequest) {
           .eq('id', data.user.id)
           .single()
         
-        logger.debug('Profile check result:', { profileData, profileError })
+        logger.info('Profile check result:', { profileData, profileError })
         
         // If profile doesn't exist, create it first
         if (profileError && profileError.code === 'PGRST116') {
@@ -210,7 +210,7 @@ export async function GET(request: NextRequest) {
             lastName = lastName || nameParts.slice(1).join(' ') || ''
           }
           
-          logger.debug('Creating new Google user profile:', {
+          logger.info('Creating new Google user profile:', {
             id: data.user.id,
             email: data.user.email,
             firstName,
@@ -243,14 +243,14 @@ export async function GET(request: NextRequest) {
           }
           
           // Always redirect to username setup for new Google users
-          logger.debug('New Google user created, redirecting to username setup')
+          logger.info('New Google user created, redirecting to username setup')
           return NextResponse.redirect(`${origin}/auth/setup-username`)
         }
         
         // Check if this is a Google user without username
         // This check should catch ALL Google users without usernames
         if (!profileData?.username || profileData.username === '' || profileData.username === null) {
-          logger.debug('Google user without username detected, redirecting to setup:', {
+          logger.info('Google user without username detected, redirecting to setup:', {
             hasUsername: !!profileData?.username,
             provider: profileData?.provider
           })
@@ -258,7 +258,7 @@ export async function GET(request: NextRequest) {
         }
         
         // Google user has a username, proceed normally
-        logger.debug('Google user has username, proceeding to workflows')
+        logger.info('Google user has username, proceeding to workflows')
       }
       
       // User has username or is not Google auth, proceed to workflows

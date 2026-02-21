@@ -34,7 +34,7 @@ export class WorkflowService {
   ): Promise<Workflow[]> {
     const { user, session } = await SessionManager.getSecureUserAndSession()
 
-    logger.debug('🌐 [WorkflowService] Making API call (unified view)', {
+    logger.info('🌐 [WorkflowService] Making API call (unified view)', {
       force,
       filterContext: filterContext || 'ALL (unified)',
       workspaceId,
@@ -101,7 +101,7 @@ export class WorkflowService {
   ): Promise<Workflow> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
-    logger.debug('🌐 [WorkflowService] Creating workflow', {
+    logger.info('🌐 [WorkflowService] Creating workflow', {
       name,
       workspaceType,
       workspaceId,
@@ -153,7 +153,7 @@ export class WorkflowService {
   ): Promise<any> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
-    logger.debug('🌐 [WorkflowService] Updating workflow', {
+    logger.info('🌐 [WorkflowService] Updating workflow', {
       id,
       updates: Object.keys(updates),
       timestamp: new Date().toISOString()
@@ -176,7 +176,7 @@ export class WorkflowService {
     }
 
     const data = await response.json()
-    logger.debug('✅ [WorkflowService] Successfully updated workflow', { id });
+    logger.info('✅ [WorkflowService] Successfully updated workflow', { id });
     return data
   }
 
@@ -188,7 +188,7 @@ export class WorkflowService {
   static async deleteWorkflow(id: string): Promise<void> {
     const { session } = await SessionManager.getSecureUserAndSession()
 
-    logger.debug('🌐 [WorkflowService] Deleting workflow', {
+    logger.info('🌐 [WorkflowService] Deleting workflow', {
       id,
       timestamp: new Date().toISOString()
     });
@@ -207,6 +207,6 @@ export class WorkflowService {
       throw new Error(`Failed to delete workflow: ${response.statusText}`)
     }
 
-    logger.debug('✅ [WorkflowService] Successfully deleted workflow', { id });
+    logger.info('✅ [WorkflowService] Successfully deleted workflow', { id });
   }
 }

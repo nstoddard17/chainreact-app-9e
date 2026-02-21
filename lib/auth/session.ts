@@ -63,7 +63,7 @@ export class SessionManager {
     }
 
     // If no session or it's incomplete, try to refresh
-    logger.debug("No valid session found, attempting refresh...")
+    logger.info("No valid session found, attempting refresh...")
     const { data: { session: refreshedSession }, error: refreshError } = await SessionManager.withTimeout(
       supabase.auth.refreshSession(),
       8000,
@@ -72,7 +72,7 @@ export class SessionManager {
 
     if (refreshError || !refreshedSession?.access_token || !refreshedSession?.user) {
       // Only log, don't console.error to avoid scary messages
-      logger.debug("Session refresh not possible, user needs to log in")
+      logger.info("Session refresh not possible, user needs to log in")
       throw new Error("No authenticated user found. Please log in.")
     }
 

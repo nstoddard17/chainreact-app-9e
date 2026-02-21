@@ -135,7 +135,7 @@ export function VariablePickerSidePanel({
       const staticSchema = getActionOutputSchema(nodeType, nodeConfig)
       const filteredOutputs = staticSchema.filter(output => relevantAIOutputs.includes(output.name));
 
-      logger.debug(`📊 [VARIABLES] Context-aware AI Agent filtering for ${currentNodeType}:`, {
+      logger.info(`📊 [VARIABLES] Context-aware AI Agent filtering for ${currentNodeType}:`, {
         nodeType,
         currentNodeType,
         relevantAIOutputs,
@@ -153,7 +153,7 @@ export function VariablePickerSidePanel({
     if (nodeId && testResults[nodeId]) {
       const mergedSchema = mergeSchemas(staticSchema, testResults[nodeId])
 
-      logger.debug(`📊 [VARIABLES] Merged schema for ${nodeType}:`, {
+      logger.info(`📊 [VARIABLES] Merged schema for ${nodeType}:`, {
         nodeType,
         staticFieldCount: staticSchema.length,
         runtimeFieldCount: Object.keys(testResults[nodeId] || {}).length,
@@ -165,7 +165,7 @@ export function VariablePickerSidePanel({
       return mergedSchema
     }
 
-    logger.debug(`📊 [VARIABLES] Using static schema for ${nodeType}:`, {
+    logger.info(`📊 [VARIABLES] Using static schema for ${nodeType}:`, {
       nodeType,
       fieldCount: staticSchema.length,
       fields: staticSchema.map(o => o.name)
@@ -308,7 +308,7 @@ export function VariablePickerSidePanel({
       // If the node doesn't exist yet (being configured before adding to graph),
       // show all nodes since we don't know where it will be placed
       if (!currentNodeExists) {
-        logger.debug('📊 [VARIABLES] Current node not in graph yet, showing all nodes:', {
+        logger.info('📊 [VARIABLES] Current node not in graph yet, showing all nodes:', {
           currentNodeId,
           allNodesCount: allNodes.length
         });
@@ -338,7 +338,7 @@ export function VariablePickerSidePanel({
       const previousNodeIds = new Set(getPreviousNodes(currentNodeId));
 
       // Debug logging with MORE DETAIL
-      logger.debug('📊 [VARIABLES] Debug info:', {
+      logger.info('📊 [VARIABLES] Debug info:', {
         currentNodeId,
         previousNodeIds: Array.from(previousNodeIds),
         allNodesCount: allNodes.length,
@@ -363,7 +363,7 @@ export function VariablePickerSidePanel({
 
         // Log why each node is included/excluded
         if (!isNotCurrent || !hasOutputs || !isPrevious) {
-          logger.debug(`📊 [VARIABLES] Node "${node.title}" excluded:`, {
+          logger.info(`📊 [VARIABLES] Node "${node.title}" excluded:`, {
             nodeId: node.id,
             isNotCurrent,
             hasOutputs,
@@ -377,7 +377,7 @@ export function VariablePickerSidePanel({
       });
 
       // Debug: Log which nodes are being included
-      logger.debug('📊 [VARIABLES] Filtered nodes for variables menu:', filteredNodes.map(n => ({
+      logger.info('📊 [VARIABLES] Filtered nodes for variables menu:', filteredNodes.map(n => ({
         id: n.id,
         title: n.title,
         type: n.type,
@@ -561,7 +561,7 @@ export function VariablePickerSidePanel({
   const handleDragStart = (e: React.DragEvent, variable: string) => {
     isDraggingVariable.current = true
     allowClickSelect.current = false
-    logger.debug('🚀 [VariablePickerSidePanel] Drag started:', {
+    logger.info('🚀 [VariablePickerSidePanel] Drag started:', {
       variable,
       dataTransferTypes: e.dataTransfer.types,
       effectAllowed: 'copy'
@@ -575,7 +575,7 @@ export function VariablePickerSidePanel({
       isDraggingVariable.current = false
       allowClickSelect.current = true
     })
-    logger.debug('🏁 [VariablePickerSidePanel] Drag ended', {
+    logger.info('🏁 [VariablePickerSidePanel] Drag ended', {
       dropEffect: e?.dataTransfer?.dropEffect
     })
     if (e) {
@@ -643,7 +643,7 @@ export function VariablePickerSidePanel({
 
       // Call API to test the workflow
       // Send the current workflow data (nodes and edges) instead of relying on database
-      logger.debug('🧪 [Test] Calling test API with:', {
+      logger.info('🧪 [Test] Calling test API with:', {
         workflowId: resolvedWorkflowId,
         nodeId: currentNodeId || triggerNode.id,
         nodesCount: workflowData.nodes.length,
@@ -669,7 +669,7 @@ export function VariablePickerSidePanel({
         const execPath = responseData.executionPath || [];
         const triggerOut = responseData.triggerOutput || {};
 
-        logger.debug('🧪 [Test] Results received:', {
+        logger.info('🧪 [Test] Results received:', {
           testResultsCount: testDataArray.length,
           executionPathLength: execPath.length,
           firstResult: testDataArray[0]
@@ -1000,7 +1000,7 @@ export function VariablePickerSidePanel({
                                 allowClickSelect.current = true
                               }}
                               onDragStart={(e) => {
-                                logger.debug('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
+                                logger.info('🚀🚀🚀 [VariablePickerSidePanel] DRAG STARTED!', {
                                   variableRef,
                                   displayVariableRef,
                                   nodeTitle: node.title,

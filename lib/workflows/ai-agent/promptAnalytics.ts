@@ -121,7 +121,7 @@ export async function logPrompt(entry: PromptLogEntry): Promise<string | null> {
       return null
     }
 
-    logger.debug('[PromptAnalytics] Logged prompt:', {
+    logger.info('[PromptAnalytics] Logged prompt:', {
       promptId: data.id,
       usedTemplate: entry.usedTemplate,
       templateId: entry.templateId,
@@ -160,7 +160,7 @@ export async function updatePrompt(update: PromptUpdateData): Promise<boolean> {
       return false
     }
 
-    logger.debug('[PromptAnalytics] Updated prompt:', {
+    logger.info('[PromptAnalytics] Updated prompt:', {
       promptId: update.promptId,
       ...updateData
     })

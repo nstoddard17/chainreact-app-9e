@@ -23,7 +23,7 @@ export const maxDuration = 10 // Max 10 seconds for this endpoint
  * Updated: 2025-10-28 - Added workspace context filtering
  */
 export async function GET(request: NextRequest) {
-  logger.debug('📍 [API /api/integrations] GET request received', {
+  logger.info('📍 [API /api/integrations] GET request received', {
     timestamp: new Date().toISOString(),
     url: request.url
   });
@@ -44,14 +44,14 @@ export async function GET(request: NextRequest) {
       return errorResponse("Not authenticated", 401)
     }
 
-    logger.debug('✅ [API /api/integrations] User authenticated', { userId: user.id });
+    logger.info('✅ [API /api/integrations] User authenticated', { userId: user.id });
 
     // Parse workspace context from query parameters
     const { searchParams } = new URL(request.url)
     const workspaceType = searchParams.get('workspace_type') || 'personal'
     const workspaceId = searchParams.get('workspace_id')
 
-    logger.debug('🏠 [API /api/integrations] Workspace context', {
+    logger.info('🏠 [API /api/integrations] Workspace context', {
       workspaceType,
       workspaceId
     });
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       )
     ])
 
-    logger.debug('📊 [API /api/integrations] Parallel query results', {
+    logger.info('📊 [API /api/integrations] Parallel query results', {
       workspaceType,
       workspaceId,
       integrationsCount: integrations?.length || 0,
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
               updated_at: now.toISOString(),
             })
             .in("id", expiredIntegrationIds)
-          logger.debug(`⏰ [API /api/integrations] Background: Updated ${expiredIntegrationIds.length} expired integrations`)
+          logger.info(`⏰ [API /api/integrations] Background: Updated ${expiredIntegrationIds.length} expired integrations`)
         } catch (err) {
           logger.error('❌ [API /api/integrations] Background update failed:', err)
         }
@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
       // First, check for explicit permission in integration_permissions table
       if (permissionMap.has(integration.id)) {
         userPermission = permissionMap.get(integration.id) as 'use' | 'manage' | 'admin'
-        logger.debug('📋 [API /api/integrations] Using explicit permission', {
+        logger.info('📋 [API /api/integrations] Using explicit permission', {
           integrationId: integration.id,
           provider: integration.provider,
           permission: userPermission
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (userPermission) {
-          logger.debug('📋 [API /api/integrations] Using implicit permission', {
+          logger.info('📋 [API /api/integrations] Using implicit permission', {
             integrationId: integration.id,
             provider: integration.provider,
             permission: userPermission,
@@ -230,7 +230,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    logger.debug('✅ [API /api/integrations] Returning integrations', {
+    logger.info('✅ [API /api/integrations] Returning integrations', {
       count: updatedIntegrations?.length || 0,
       workspaceType
     });

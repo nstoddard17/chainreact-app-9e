@@ -24,7 +24,7 @@ export async function hubspotAddToWorkflow(
       throw new Error('Workflow ID and contact email are required')
     }
 
-    logger.debug('Enrolling contact in workflow:', { workflowId, contactEmail })
+    logger.info('Enrolling contact in workflow:', { workflowId, contactEmail })
 
     const response = await fetch(
       `https://api.hubapi.com/automation/v2/workflows/${workflowId}/enrollments/contacts/${contactEmail}`,

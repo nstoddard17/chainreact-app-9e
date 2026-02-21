@@ -80,7 +80,7 @@ export class ExecutionHistoryService {
       this.currentExecutionId = executionId
       this.stepCounter = 0
 
-      logger.debug(`📝 Started execution history tracking: ${executionId}`)
+      logger.info(`📝 Started execution history tracking: ${executionId}`)
       return executionId
     } catch (error) {
       logger.error('Failed to start execution history:', error)
@@ -125,7 +125,7 @@ export class ExecutionHistoryService {
         throw error
       }
 
-      logger.debug(`📝 Recorded step ${this.stepCounter}: ${nodeType} (${nodeId})`)
+      logger.info(`📝 Recorded step ${this.stepCounter}: ${nodeType} (${nodeId})`)
       return data.id
     } catch (error) {
       logger.error('Failed to record execution step:', error)
@@ -182,7 +182,7 @@ export class ExecutionHistoryService {
       }
 
       const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : '⏭️'
-      logger.debug(`${statusIcon} Step ${nodeId} ${status}${duration_ms ? ` (${duration_ms}ms)` : ''}`)
+      logger.info(`${statusIcon} Step ${nodeId} ${status}${duration_ms ? ` (${duration_ms}ms)` : ''}`)
     } catch (error) {
       logger.error('Failed to complete execution step:', error)
     }
@@ -214,7 +214,7 @@ export class ExecutionHistoryService {
         throw error
       }
 
-      logger.debug(`⏸️  Step ${nodeId} paused for user input`)
+      logger.info(`⏸️  Step ${nodeId} paused for user input`)
     } catch (error) {
       logger.error('Failed to pause execution step:', error)
     }
@@ -249,7 +249,7 @@ export class ExecutionHistoryService {
         throw error
       }
 
-      logger.debug(`⏸️  Execution ${executionId} paused at node ${pausedNodeId}`)
+      logger.info(`⏸️  Execution ${executionId} paused at node ${pausedNodeId}`)
     } catch (error) {
       logger.error('Failed to pause execution history:', error)
     }
@@ -284,7 +284,7 @@ export class ExecutionHistoryService {
       }
 
       const statusIcon = status === 'completed' ? '✅' : status === 'failed' ? '❌' : '⚠️'
-      logger.debug(`${statusIcon} Execution ${executionId} ${status}`)
+      logger.info(`${statusIcon} Execution ${executionId} ${status}`)
     } catch (error) {
       logger.error('Failed to complete execution history:', error)
     }
@@ -364,7 +364,7 @@ export class ExecutionHistoryService {
         throw error
       }
 
-      logger.debug(`🗑️ Deleted execution history for workflow ${workflowId}`)
+      logger.info(`🗑️ Deleted execution history for workflow ${workflowId}`)
     } catch (error) {
       logger.error('Failed to delete execution history:', error)
     }
@@ -378,7 +378,7 @@ export class ExecutionHistoryService {
       const supabase = await this.getSupabase()
 
       // No-op for now: legacy cleanup function targeted removed tables.
-      logger.debug('🧹 Skipped cleanup_old_execution_history (deprecated)')
+      logger.info('🧹 Skipped cleanup_old_execution_history (deprecated)')
     } catch (error) {
       logger.error('Failed to cleanup old history:', error)
     }

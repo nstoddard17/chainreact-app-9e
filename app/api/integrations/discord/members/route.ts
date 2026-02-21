@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    logger.debug(`🔍 [Discord Members] Processing request:`, {
+    logger.info(`🔍 [Discord Members] Processing request:`, {
       userId,
       guildId,
       status: integration.status,
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     // Get members using the handler
     const members = await getDiscordMembers(integration as DiscordIntegration, { guildId })
 
-    logger.debug(`✅ [Discord Members] Successfully fetched members:`, {
+    logger.info(`✅ [Discord Members] Successfully fetched members:`, {
       userId,
       guildId,
       memberCount: members?.length || 0

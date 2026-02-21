@@ -196,7 +196,7 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    logger.debug('🔍 HubSpot API returning:', {
+    logger.info('🔍 HubSpot API returning:', {
       success: response.success,
       propertiesCount: availableProperties.length,
       groupsCount: Object.keys(groupedProperties).length

@@ -39,7 +39,7 @@ export const getMondayBoards: MondayDataHandler<MondayBoard> = async (integratio
       state: board.state
     }))
 
-    logger.debug(`✅ [Monday Boards] Fetched ${boards.length} boards`)
+    logger.info(`✅ [Monday Boards] Fetched ${boards.length} boards`)
 
     return boards
 

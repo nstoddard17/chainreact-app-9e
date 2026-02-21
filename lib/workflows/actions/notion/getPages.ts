@@ -44,7 +44,7 @@ export async function notionGetPages(
       if (cachedDataSourceId) {
         targetId = cachedDataSourceId
         useDataSourceEndpoint = true
-        logger.debug('Using cached data source mapping')
+        logger.info('Using cached data source mapping')
       } else {
         // Cache miss - fetch from API
         try {
@@ -71,7 +71,7 @@ export async function notionGetPages(
               useDataSourceEndpoint = true
               // Cache the mapping for future requests
               cacheDataSourceId(databaseId, targetId)
-              logger.debug('Auto-detected and cached data source for query operation')
+              logger.info('Auto-detected and cached data source for query operation')
             }
           }
         } catch (err) {
@@ -109,7 +109,7 @@ export async function notionGetPages(
       ? `https://api.notion.com/v1/data_sources/${targetId}/query`
       : `https://api.notion.com/v1/databases/${targetId}/query`
 
-    logger.debug(`Querying Notion ${useDataSourceEndpoint ? 'data source' : 'database'}`)
+    logger.info(`Querying Notion ${useDataSourceEndpoint ? 'data source' : 'database'}`)
 
     const response = await fetch(endpoint, {
       method: useDataSourceEndpoint ? 'PATCH' : 'POST',

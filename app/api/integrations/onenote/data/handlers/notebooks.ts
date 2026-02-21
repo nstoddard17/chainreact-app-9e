@@ -8,7 +8,7 @@ import { validateOneNoteIntegration, validateOneNoteToken, tryMultipleOneNoteEnd
 import { logger } from '@/lib/utils/logger'
 
 export const getOneNoteNotebooks: OneNoteDataHandler<OneNoteNotebook> = async (integration: OneNoteIntegration, options: any = {}): Promise<OneNoteApiResponse<OneNoteNotebook>> => {
-  logger.debug(`🔍 OneNote notebooks fetcher called with:`, {
+  logger.info(`🔍 OneNote notebooks fetcher called with:`, {
     integrationId: integration.id,
     provider: integration.provider,
     status: integration.status,
@@ -19,9 +19,9 @@ export const getOneNoteNotebooks: OneNoteDataHandler<OneNoteNotebook> = async (i
     // Validate integration status
     validateOneNoteIntegration(integration)
     
-    logger.debug(`🔍 Validating OneNote token...`)
+    logger.info(`🔍 Validating OneNote token...`)
     const tokenResult = await validateOneNoteToken(integration)
-    logger.debug(`🔍 Token validation result:`, {
+    logger.info(`🔍 Token validation result:`, {
       success: tokenResult.success,
       hasToken: !!tokenResult.token,
       tokenLength: tokenResult.token?.length || 0,
@@ -30,7 +30,7 @@ export const getOneNoteNotebooks: OneNoteDataHandler<OneNoteNotebook> = async (i
     })
     
     if (!tokenResult.success) {
-      logger.debug(`❌ OneNote token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ OneNote token validation failed: ${tokenResult.error}`)
       return {
         data: [],
         error: {
@@ -62,7 +62,7 @@ export const getOneNoteNotebooks: OneNoteDataHandler<OneNoteNotebook> = async (i
     )
     
     if (result.data.length > 0) {
-      logger.debug(`🔍 OneNote notebooks from API:`, result.data.map((notebook: any) => ({
+      logger.info(`🔍 OneNote notebooks from API:`, result.data.map((notebook: any) => ({
         id: notebook.id,
         displayName: notebook.displayName,
         name: notebook.name,

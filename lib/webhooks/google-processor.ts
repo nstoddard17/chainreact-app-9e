@@ -31,24 +31,24 @@ function calendarDebug(message: string, payload?: any) {
   if (!isCalendarDebugEnabled) return
   try {
     if (payload !== undefined) {
-      logger.debug(`[Google Calendar] ${message}`, payload)
+      logger.info(`[Google Calendar] ${message}`, payload)
     } else {
-      logger.debug(`[Google Calendar] ${message}`)
+      logger.info(`[Google Calendar] ${message}`)
     }
   } catch {
-    logger.debug(`[Google Calendar] ${message}`)
+    logger.info(`[Google Calendar] ${message}`)
   }
 }
 
 function calendarInfo(message: string, payload?: any) {
   try {
     if (payload !== undefined) {
-      logger.debug(`[Google Calendar] ${message}`, payload)
+      logger.info(`[Google Calendar] ${message}`, payload)
     } else {
-      logger.debug(`[Google Calendar] ${message}`)
+      logger.info(`[Google Calendar] ${message}`)
     }
   } catch {
-    logger.debug(`[Google Calendar] ${message}`)
+    logger.info(`[Google Calendar] ${message}`)
   }
 }
 
@@ -144,7 +144,7 @@ function wasRecentlyProcessedSheetsChange(
   if (entry.lastSignature !== undefined && entry.lastSignature !== null) {
     if (signature !== undefined && signature !== null && signature === entry.lastSignature) {
       if (Date.now() - entry.processedAt < CALENDAR_DEDUPE_WINDOW_MS) {
-        logger.debug('[Google Sheets] Dedupe hit (signature)', { key })
+        logger.info('[Google Sheets] Dedupe hit (signature)', { key })
         return true
       }
     }
@@ -155,7 +155,7 @@ function wasRecentlyProcessedSheetsChange(
   if (incomingUpdated !== null) {
     if (entry.lastUpdated !== undefined && entry.lastUpdated !== null) {
       if (incomingUpdated <= entry.lastUpdated) {
-        logger.debug('[Google Sheets] Dedupe hit (timestamp)', { key })
+        logger.info('[Google Sheets] Dedupe hit (timestamp)', { key })
         return true
       }
     }
@@ -163,7 +163,7 @@ function wasRecentlyProcessedSheetsChange(
   }
 
   if (Date.now() - entry.processedAt < CALENDAR_DEDUPE_WINDOW_MS) {
-    logger.debug('[Google Sheets] Dedupe hit (window)', { key })
+    logger.info('[Google Sheets] Dedupe hit (window)', { key })
     return true
   }
 
@@ -178,7 +178,7 @@ function markSheetsChangeProcessed(key: string, updatedAt?: string | null, signa
     lastUpdated: incomingUpdated,
     lastSignature: signature ?? null
   })
-  logger.debug('[Google Sheets] Dedupe record stored', { key, signature })
+  logger.info('[Google Sheets] Dedupe record stored', { key, signature })
 
   if (processedSheetsChanges.size > 1000) {
     const now = Date.now()
@@ -252,7 +252,7 @@ export interface GoogleWebhookEvent {
 async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Promise<any> {
   const { eventData } = event
 
-  logger.debug('[Gmail] Webhook notification received', {
+  logger.info('[Gmail] Webhook notification received', {
     emailAddress: eventData.emailAddress,
     historyId: eventData.historyId
   })
@@ -276,12 +276,12 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
     logger.error('[Gmail] Failed to fetch test sessions:', sessionError)
   }
 
-  logger.debug('[Gmail] Found test sessions', {
+  logger.info('[Gmail] Found test sessions', {
     count: testSessions?.length || 0
   })
 
   if (!testSessions || testSessions.length === 0) {
-    logger.debug('[Gmail] No active test sessions waiting for Gmail trigger')
+    logger.info('[Gmail] No active test sessions waiting for Gmail trigger')
     return { processed: true, eventType: 'gmail.notification', testSessions: 0 }
   }
 
@@ -331,7 +331,7 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
           targetHandle: edge.target_port_id || 'target'
         }))
 
-        logger.debug('[Gmail] Using saved workflow data', { workflowId, workflowName })
+        logger.info('[Gmail] Using saved workflow data', { workflowId, workflowName })
       } else if (testModeConfig?.nodes && testModeConfig?.triggerNode) {
         // Unsaved workflow - use test_mode_config
         workflowId = session.workflow_id
@@ -339,7 +339,7 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
         workflowNodes = testModeConfig.nodes
         workflowConnections = testModeConfig.connections || []
         workflowName = testModeConfig.workflowName || 'Unsaved Workflow'
-        logger.debug('[Gmail] Using unsaved workflow data from test_mode_config', {
+        logger.info('[Gmail] Using unsaved workflow data from test_mode_config', {
           workflowId,
           workflowName,
           nodeCount: workflowNodes.length
@@ -349,7 +349,7 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
         continue
       }
 
-      logger.debug('[Gmail] Starting workflow execution for test session', {
+      logger.info('[Gmail] Starting workflow execution for test session', {
         sessionId: session.id,
         workflowId,
         workflowName,
@@ -392,7 +392,7 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
           const storedHistoryId = triggerResource?.config?.resourceId
           const historyIdToUse = storedHistoryId || eventData.historyId
 
-          logger.debug('[Gmail] Fetching email details', {
+          logger.info('[Gmail] Fetching email details', {
             storedHistoryId,
             notificationHistoryId: eventData.historyId,
             usingHistoryId: historyIdToUse
@@ -461,7 +461,7 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
               }
               emailDetails.body = body
 
-              logger.debug('[Gmail] Email details fetched successfully', {
+              logger.info('[Gmail] Email details fetched successfully', {
                 hasFrom: !!emailDetails.from,
                 subjectLength: emailDetails.subject?.length || 0,
                 bodyLength: emailDetails.body?.length || 0
@@ -514,7 +514,7 @@ async function processGmailEvent(event: GoogleWebhookEvent, metadata: any): Prom
         })
         .eq('id', session.id)
 
-      logger.debug('[Gmail] Test session trigger data stored (execution deferred to frontend SSE)', {
+      logger.info('[Gmail] Test session trigger data stored (execution deferred to frontend SSE)', {
         sessionId: session.id,
         workflowId,
         hasEmailDetails: !!emailDetails
@@ -556,7 +556,7 @@ export async function processGoogleEvent(event: GoogleWebhookEvent): Promise<any
       try {
         metadata = JSON.parse(event.eventData.token)
       } catch (e) {
-        logger.debug('Could not parse token metadata')
+        logger.info('Could not parse token metadata')
       }
     }
 
@@ -590,7 +590,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
         || (event.eventData?.headers?.['x-goog-channel-id'])
         || null
       if (channelId) {
-        logger.debug('[Google Drive] Webhook received', {
+        logger.info('[Google Drive] Webhook received', {
           channelId,
           hasToken: Boolean(event.eventData?.token)
         })
@@ -621,7 +621,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
             provider: sub.provider || metadata?.provider,
             contextProvider: sub.provider || metadata?.contextProvider
           }
-          logger.debug('[Google Drive] Subscription metadata resolved from channel', {
+          logger.info('[Google Drive] Subscription metadata resolved from channel', {
             userId: metadata.userId,
             integrationId: metadata.integrationId
           })
@@ -633,7 +633,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   }
 
   if (!metadata.userId || !metadata.integrationId) {
-    logger.debug('Google Drive webhook received, but missing metadata for processing', {
+    logger.info('Google Drive webhook received, but missing metadata for processing', {
       hasUserId: Boolean(metadata?.userId),
       hasIntegrationId: Boolean(metadata?.integrationId)
     })
@@ -779,7 +779,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
 
     metadata = mergedMetadata
 
-    logger.debug('[Google Sheets] Normalized metadata', {
+    logger.info('[Google Sheets] Normalized metadata', {
       userId: metadata.userId,
       integrationId: metadata.integrationId,
       spreadsheetId: metadata.spreadsheetId,
@@ -819,7 +819,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   }
 
   if (!subscription?.page_token) {
-    logger.debug('Google Drive subscription missing page token, skipping change fetch', {
+    logger.info('Google Drive subscription missing page token, skipping change fetch', {
       userId: metadata.userId,
       integrationId: metadata.integrationId
     })
@@ -835,7 +835,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     lastDrivePageTokenProcessed.set(channelId, subscription.page_token)
   }
   const fetchLogLabel = isSheetsWatch ? '[Google Sheets] Fetching changes' : '[Google Drive] Fetching changes'
-  logger.debug(fetchLogLabel, { hasPageToken: !!subscription.page_token, updatedAt: subscription?.updated_at })
+  logger.info(fetchLogLabel, { hasPageToken: !!subscription.page_token, updatedAt: subscription?.updated_at })
   const integrationProvider = isSheetsWatch ? 'google-sheets' : 'google-drive'
   const changes = await getGoogleDriveChanges(
     metadata.userId,
@@ -845,7 +845,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   )
   const watchStartTs = subscription?.updated_at ? new Date(subscription.updated_at).getTime() : null
   const fetchedLogLabel = isSheetsWatch ? '[Google Sheets] Changes fetched' : '[Google Drive] Changes fetched'
-  logger.debug(fetchedLogLabel, {
+  logger.info(fetchedLogLabel, {
     count: Array.isArray(changes.changes) ? changes.changes.length : 0,
     nextPageToken: (changes.nextPageToken ? `${String(changes.nextPageToken).slice(0, 8) }...` : null)
   })
@@ -899,7 +899,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           : (nowTs - createdTime.getTime() < 120000))
       : false
     const changeLogLabel = isSheetsWatch ? '[Google Sheets] Change' : '[Google Drive] Change'
-    logger.debug(changeLogLabel, {
+    logger.info(changeLogLabel, {
       id: change.fileId || change.file?.id,
       mimeType,
       parents: parentIds,
@@ -924,7 +924,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
         sheetChangeCounts[sheetChangeType] += 1
       }
 
-      logger.debug('[Google Sheets] Change detected via Drive watch', {
+      logger.info('[Google Sheets] Change detected via Drive watch', {
         id: change.fileId || change.file?.id,
         changeType: sheetChangeType,
         isNewItem,
@@ -969,7 +969,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     }
 
     if (classifiedAs) {
-      logger.debug('[Google Drive] Change classified', {
+      logger.info('[Google Drive] Change classified', {
         id: change.fileId || change.file?.id,
         changeType: classifiedAs
       })
@@ -1034,12 +1034,12 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   }
 
   if (isSheetsWatch) {
-    logger.debug('[Google Sheets] Processed change batch', {
+    logger.info('[Google Sheets] Processed change batch', {
       changesCount: processedChanges,
       sheetChangeCounts
     })
   } else {
-    logger.debug('[Google Drive] Processed change batch', { changesCount: processedChanges, changeTypeCounts })
+    logger.info('[Google Drive] Processed change batch', { changesCount: processedChanges, changeTypeCounts })
   }
   return { processed: true, changesCount: processedChanges }
 }
@@ -1255,7 +1255,7 @@ function doesFilePassFilters(file: any, filters: any, parentIds: string[], confi
     })
 
     if (!matchesType) {
-      logger.debug('[Google Drive] File type does not match filter', {
+      logger.info('[Google Drive] File type does not match filter', {
         fileMimeType,
         allowedTypes: filters.fileTypes
       })
@@ -1269,7 +1269,7 @@ function doesFilePassFilters(file: any, filters: any, parentIds: string[], confi
     const pattern = filters.namePattern.toLowerCase()
 
     if (!fileName.toLowerCase().includes(pattern)) {
-      logger.debug('[Google Drive] File name does not match pattern', {
+      logger.info('[Google Drive] File name does not match pattern', {
         fileName,
         pattern: filters.namePattern
       })
@@ -1284,7 +1284,7 @@ function doesFilePassFilters(file: any, filters: any, parentIds: string[], confi
     const isDirectChild = parentIds.length === 1 && isInConfiguredFolder
 
     if (!isDirectChild) {
-      logger.debug('[Google Drive] File is in subfolder, skipping due to excludeSubfolders filter', {
+      logger.info('[Google Drive] File is in subfolder, skipping due to excludeSubfolders filter', {
         fileId: file.id || file.fileId,
         parentIds,
         configuredFolderId
@@ -1299,7 +1299,7 @@ function doesFilePassFilters(file: any, filters: any, parentIds: string[], confi
     const minSizeBytes = filters.minFileSize * 1024 * 1024 // Convert MB to bytes
 
     if (fileSizeBytes < minSizeBytes) {
-      logger.debug('[Google Drive] File size below minimum', {
+      logger.info('[Google Drive] File size below minimum', {
         fileId: file.id || file.fileId,
         fileSizeMB: (fileSizeBytes / (1024 * 1024)).toFixed(2),
         minSizeMB: filters.minFileSize
@@ -1314,7 +1314,7 @@ function doesFilePassFilters(file: any, filters: any, parentIds: string[], confi
     const maxSizeBytes = filters.maxFileSize * 1024 * 1024 // Convert MB to bytes
 
     if (fileSizeBytes > maxSizeBytes) {
-      logger.debug('[Google Drive] File size exceeds maximum', {
+      logger.info('[Google Drive] File size exceeds maximum', {
         fileId: file.id || file.fileId,
         fileSizeMB: (fileSizeBytes / (1024 * 1024)).toFixed(2),
         maxSizeMB: filters.maxFileSize
@@ -1329,7 +1329,7 @@ function doesFilePassFilters(file: any, filters: any, parentIds: string[], confi
     const expectedEmail = filters.createdByEmail.trim().toLowerCase()
 
     if (ownerEmail.toLowerCase() !== expectedEmail) {
-      logger.debug('[Google Drive] File creator does not match filter', {
+      logger.info('[Google Drive] File creator does not match filter', {
         fileId: file.id || file.fileId,
         ownerEmail,
         expectedEmail: filters.createdByEmail
@@ -1921,7 +1921,7 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
 
         // Apply filter criteria from node config (for file_created triggers)
         if (changeType === 'file_created' && !doesFilePassFilters(drivePayload, nodeConfig, parentIds, configuredFolderId)) {
-          logger.debug('[Google Drive] File does not pass filter criteria', {
+          logger.info('[Google Drive] File does not pass filter criteria', {
             workflowId: workflow.id,
             resourceId,
             filters: {
@@ -1980,7 +1980,7 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
         )
 
         await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerPayload)
-        logger.debug('[Google Drive] Workflow execution started', {
+        logger.info('[Google Drive] Workflow execution started', {
           workflowId: workflow.id,
           executionSessionId: executionSession.id,
           changeType
@@ -2041,7 +2041,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
     // We only use trigger_resources now - the webhook_configs query was legacy code
     const mergedConfigs = [...(triggerResources || [])]
 
-    logger.debug('[Google Sheets] Evaluating sheet workflows', {
+    logger.info('[Google Sheets] Evaluating sheet workflows', {
       changeType,
       triggerType,
       spreadsheetId,
@@ -2159,7 +2159,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         if (changeType !== 'new_worksheet') {
           const configSheetName = configData?.sheetName || nodeConfig?.sheetName || null
           if (configSheetName && changeSheetName && configSheetName !== changeSheetName) {
-            logger.debug('[Google Sheets] Sheet name mismatch', {
+            logger.info('[Google Sheets] Sheet name mismatch', {
               workflowId: workflow.id,
               configSheetName,
               changeSheetName
@@ -2182,7 +2182,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
           if (skipEmptyRows) {
             const hasAnyValue = rowValues.some((val: any) => val !== null && val !== undefined && String(val).trim() !== '')
             if (!hasAnyValue) {
-              logger.debug('[Google Sheets] Skipping empty row', {
+              logger.info('[Google Sheets] Skipping empty row', {
                 workflowId: workflow.id,
                 rowNumber: changePayload?.rowNumber,
                 changeType,
@@ -2209,7 +2209,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
               })
 
               if (missingRequiredColumns.length > 0) {
-                logger.debug('[Google Sheets] Skipping row - required columns missing values', {
+                logger.info('[Google Sheets] Skipping row - required columns missing values', {
                   workflowId: workflow.id,
                   rowNumber: changePayload?.rowNumber,
                   changeType,
@@ -2231,7 +2231,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         return true
       })
 
-      logger.debug('[Google Sheets] Matching triggers found', {
+      logger.info('[Google Sheets] Matching triggers found', {
         workflowId: workflow.id,
         matchingCount: matchingTriggers.length
       })
@@ -2275,7 +2275,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         `${changeType}-${changeIdentifier}`
       )
 
-      logger.debug('[Google Sheets] Dedupe check', {
+      logger.info('[Google Sheets] Dedupe check', {
         workflowId: workflow.id,
         dedupeKey,
         signature: dedupeSignature,
@@ -2330,7 +2330,7 @@ async function triggerMatchingSheetsWorkflows(changeType: SheetsChangeType, chan
         )
 
         await executionEngine.executeWorkflowAdvanced(executionSession.id, triggerPayload)
-        logger.debug('[Google Sheets] Workflow execution started', {
+        logger.info('[Google Sheets] Workflow execution started', {
           workflowId: workflow.id,
           executionSessionId: executionSession.id,
           changeType
@@ -2489,7 +2489,7 @@ async function processGoogleDocsEvent(event: GoogleWebhookEvent): Promise<any> {
     case 'comment.added':
       return await handleDocsCommentAdded(eventData)
     default:
-      logger.debug('Unhandled Google Docs event type:', eventData.type)
+      logger.info('Unhandled Google Docs event type:', eventData.type)
       return { processed: true, eventType: eventData.type }
   }
 }
@@ -2523,7 +2523,7 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
       }
     }
 
-    logger.debug('[Google Sheets] Loaded subscription metadata', {
+    logger.info('[Google Sheets] Loaded subscription metadata', {
       hasMetadata: Boolean(subscriptionMetadata),
       updatedAt: subscription?.updated_at
     })
@@ -2537,7 +2537,7 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
         subscriptionMetadata
       )
 
-      logger.debug('[Google Sheets] Detected sheet changes', {
+      logger.info('[Google Sheets] Detected sheet changes', {
         totalChanges: result.changes?.length || 0,
         changeTypes: (result.changes || []).map(c => c.type)
       })
@@ -2600,13 +2600,13 @@ async function processGoogleSheetsEvent(event: GoogleWebhookEvent, metadata: any
   }
 
   // Fallback to generic processing
-  logger.debug('Google Sheets webhook received, but missing metadata for processing')
+  logger.info('Google Sheets webhook received, but missing metadata for processing')
   return { processed: true, eventType: 'sheets.notification' }
 }
 
 async function processGenericGoogleEvent(event: GoogleWebhookEvent): Promise<any> {
   // Generic Google event processing
-  logger.debug('Processing generic Google webhook event:', event.service)
+  logger.info('Processing generic Google webhook event:', event.service)
   return { processed: true, service: event.service }
 }
 
@@ -2641,7 +2641,7 @@ async function handleDriveFileUpdated(eventData: any): Promise<any> {
 
 async function handleDriveFileDeleted(eventData: any): Promise<any> {
   const targetId = eventData.fileId || eventData.file?.id
-  logger.debug('Processing Google Drive file deleted:', targetId)
+  logger.info('Processing Google Drive file deleted:', targetId)
   return { processed: true, type: 'drive_file_deleted', fileId: targetId }
 }
 
@@ -2685,49 +2685,49 @@ async function handleCalendarEventDeleted(eventData: any): Promise<any> {
 }
 
 async function handleCalendarCreated(eventData: any): Promise<any> {
-  logger.debug('Processing Google Calendar created:', eventData.calendar_id)
+  logger.info('Processing Google Calendar created:', eventData.calendar_id)
   return { processed: true, type: 'calendar_created', calendarId: eventData.calendar_id }
 }
 
 // Google Docs event handlers
 async function handleDocsDocumentCreated(eventData: any): Promise<any> {
-  logger.debug('Processing Google Docs document created:', eventData.document_id)
+  logger.info('Processing Google Docs document created:', eventData.document_id)
   return { processed: true, type: 'docs_document_created', documentId: eventData.document_id }
 }
 
 async function handleDocsDocumentUpdated(eventData: any): Promise<any> {
-  logger.debug('Processing Google Docs document updated:', eventData.document_id)
+  logger.info('Processing Google Docs document updated:', eventData.document_id)
   return { processed: true, type: 'docs_document_updated', documentId: eventData.document_id }
 }
 
 async function handleDocsDocumentDeleted(eventData: any): Promise<any> {
-  logger.debug('Processing Google Docs document deleted:', eventData.document_id)
+  logger.info('Processing Google Docs document deleted:', eventData.document_id)
   return { processed: true, type: 'docs_document_deleted', documentId: eventData.document_id }
 }
 
 async function handleDocsCommentAdded(eventData: any): Promise<any> {
-  logger.debug('Processing Google Docs comment added:', eventData.comment_id)
+  logger.info('Processing Google Docs comment added:', eventData.comment_id)
   return { processed: true, type: 'docs_comment_added', commentId: eventData.comment_id }
 }
 
 // Google Sheets event handlers
 async function handleSheetsSpreadsheetCreated(eventData: any): Promise<any> {
-  logger.debug('Processing Google Sheets spreadsheet created:', eventData.spreadsheet_id)
+  logger.info('Processing Google Sheets spreadsheet created:', eventData.spreadsheet_id)
   return { processed: true, type: 'sheets_spreadsheet_created', spreadsheetId: eventData.spreadsheet_id }
 }
 
 async function handleSheetsSpreadsheetUpdated(eventData: any): Promise<any> {
-  logger.debug('Processing Google Sheets spreadsheet updated:', eventData.spreadsheet_id)
+  logger.info('Processing Google Sheets spreadsheet updated:', eventData.spreadsheet_id)
   return { processed: true, type: 'sheets_spreadsheet_updated', spreadsheetId: eventData.spreadsheet_id }
 }
 
 async function handleSheetsCellUpdated(eventData: any): Promise<any> {
-  logger.debug('Processing Google Sheets cell updated:', eventData.cell_range)
+  logger.info('Processing Google Sheets cell updated:', eventData.cell_range)
   return { processed: true, type: 'sheets_cell_updated', cellRange: eventData.cell_range }
 }
 
 async function handleSheetsSheetCreated(eventData: any): Promise<any> {
-  logger.debug('Processing Google Sheets sheet created:', eventData.sheetName || eventData.sheet_id)
+  logger.info('Processing Google Sheets sheet created:', eventData.sheetName || eventData.sheet_id)
 
   const metadata = eventData.metadata || {}
   const timestamp = eventData.timestamp || new Date().toISOString()
@@ -2748,7 +2748,7 @@ async function handleSheetsSheetCreated(eventData: any): Promise<any> {
 }
 
 async function handleSheetsRowCreated(eventData: any): Promise<any> {
-  logger.debug('Processing Google Sheets new row:', eventData.sheetName, eventData.rowNumber)
+  logger.info('Processing Google Sheets new row:', eventData.sheetName, eventData.rowNumber)
 
   const metadata = eventData.metadata || {}
   const timestamp = eventData.timestamp || new Date().toISOString()
@@ -2783,7 +2783,7 @@ async function handleSheetsRowCreated(eventData: any): Promise<any> {
 }
 
 async function handleSheetsRowUpdated(eventData: any): Promise<any> {
-  logger.debug('Processing Google Sheets row updated:', eventData.sheetName)
+  logger.info('Processing Google Sheets row updated:', eventData.sheetName)
 
   const metadata = eventData.metadata || {}
   const timestamp = eventData.timestamp || new Date().toISOString()
@@ -2834,7 +2834,7 @@ export async function processGoogleEventForTestSession(event: {
 }): Promise<any> {
   const { service, eventData, requestId, testSessionId, testSession } = event
 
-  logger.debug('[Test Session] Google test webhook received', {
+  logger.info('[Test Session] Google test webhook received', {
     requestId,
     testSessionId,
     service,
@@ -2842,7 +2842,7 @@ export async function processGoogleEventForTestSession(event: {
     eventKeys: eventData ? Object.keys(eventData).slice(0, 12) : []
   })
 
-  logger.debug(`🧪 [Test Session] Processing ${service} event for session ${testSessionId}`)
+  logger.info(`🧪 [Test Session] Processing ${service} event for session ${testSessionId}`)
 
   try {
     const supabase = await createSupabaseServiceClient()
@@ -2904,7 +2904,7 @@ export async function processGoogleEventForTestSession(event: {
       .eq('id', testSessionId)
 
     // Execute the workflow with test data
-    logger.debug(`🧪 [Test Session] Starting workflow execution`, {
+    logger.info(`🧪 [Test Session] Starting workflow execution`, {
       workflowId: workflow.id,
       executionId: executionSession.id,
       testSessionId
@@ -2918,7 +2918,7 @@ export async function processGoogleEventForTestSession(event: {
       { triggerOutput: eventData }
     )
 
-    logger.debug(`🧪 [Test Session] Workflow execution complete for session ${testSessionId}`)
+    logger.info(`🧪 [Test Session] Workflow execution complete for session ${testSessionId}`)
 
     return {
       processed: true,

@@ -47,7 +47,7 @@ export async function GET(
 
       // If table doesn't exist, return a default progress response with error info
       if (progressError.message?.includes('relation') && progressError.message?.includes('does not exist')) {
-        logger.debug('execution_progress table does not exist yet, returning default progress')
+        logger.info('execution_progress table does not exist yet, returning default progress')
 
         // Return a simulated progress response
         return jsonResponse({
@@ -82,7 +82,7 @@ export async function GET(
 
     if (!progress) {
       // No progress record yet, return default
-      logger.debug('No progress record found yet for execution:', executionId)
+      logger.info('No progress record found yet for execution:', executionId)
 
       return jsonResponse({
         execution: {

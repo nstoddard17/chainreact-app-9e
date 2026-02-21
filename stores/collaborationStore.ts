@@ -117,7 +117,7 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
     
     // Prevent multiple join calls for the same workflow
     if (loading || (collaborationSession && collaborationSession.workflow_id === workflowId)) {
-      logger.debug('🔄 Already joining or joined workflow:', workflowId)
+      logger.info('🔄 Already joining or joined workflow:', workflowId)
       return
     }
 
@@ -341,14 +341,14 @@ export const useCollaborationStore = create<CollaborationState & CollaborationAc
     // Clean up any existing polling BEFORE creating new one
     const { pollingInterval } = get()
     if (pollingInterval) {
-      logger.debug('🧹 Cleaning up existing polling interval')
+      logger.info('🧹 Cleaning up existing polling interval')
       clearInterval(pollingInterval)
       set({ pollingInterval: null })
     }
 
     // Placeholder for real-time logic
     // e.g., using Supabase real-time
-    logger.debug(`Setting up real-time subscriptions for workflow ${workflowId}`)
+    logger.info(`Setting up real-time subscriptions for workflow ${workflowId}`)
 
     // Do an immediate poll, then set up interval for subsequent polls
     get().pollCollaboratorUpdates(workflowId)

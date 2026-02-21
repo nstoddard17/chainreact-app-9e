@@ -30,7 +30,7 @@ async function inviteGuestUser(
       }
     }
 
-    logger.debug('[Teams] Attempting to invite guest user:', { email, sendInvitationMessage })
+    logger.info('[Teams] Attempting to invite guest user:', { email, sendInvitationMessage })
 
     const inviteResponse = await fetch('https://graph.microsoft.com/v1.0/invitations', {
       method: 'POST',
@@ -192,7 +192,7 @@ export async function createTeamsGroupChat(
             memberId = foundUser.id
             isGuest = foundUser.userType === 'Guest'
             addedMembers.push(memberEmail)
-            logger.debug('[Teams] Resolved member email to ID:', {
+            logger.info('[Teams] Resolved member email to ID:', {
               email: memberEmail,
               userId: memberId,
               userType: foundUser.userType

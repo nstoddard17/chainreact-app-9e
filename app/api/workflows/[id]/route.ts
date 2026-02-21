@@ -43,7 +43,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // Log for debugging
-    logger.debug('🔍 [Workflow API] Checking access:', {
+    logger.info('🔍 [Workflow API] Checking access:', {
       workflowId: resolvedParams.id,
       workflowOwnerId: workflowExists.user_id,
       currentUserId: user.id,
@@ -171,7 +171,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const body = await request.json()
     const resolvedParams = await params
 
-    logger.debug('📝 [Workflow API] Updating workflow with body:', {
+    logger.info('📝 [Workflow API] Updating workflow with body:', {
       id: resolvedParams.id,
       name: body.name,
       hasName: 'name' in body,
@@ -345,7 +345,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }))
 
       await repository.saveNodes(resolvedParams.id, flowNodes, user.id)
-      logger.debug(`[Workflow API] Saved ${flowNodes.length} nodes to workflow_nodes table`)
+      logger.info(`[Workflow API] Saved ${flowNodes.length} nodes to workflow_nodes table`)
     } else {
       // Use current nodes from normalized table
       nodes = currentNodes.map(nodeToLegacyFormat)
@@ -378,14 +378,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
       if (flowEdges.length > 0) {
         await repository.saveEdges(resolvedParams.id, flowEdges, user.id)
-        logger.debug(`[Workflow API] Saved ${flowEdges.length} edges to workflow_edges table`)
+        logger.info(`[Workflow API] Saved ${flowEdges.length} edges to workflow_edges table`)
       }
     } else {
       // Use current edges from normalized table
       connections = currentEdges.map(edgeToLegacyFormat)
     }
 
-    logger.debug('✅ [Workflow API] Successfully updated workflow:', resolvedParams.id)
+    logger.info('✅ [Workflow API] Successfully updated workflow:', resolvedParams.id)
 
     // Determine graph connectivity (trigger → action)
     const triggerNodes = nodes.filter((n: any) => n?.data?.isTrigger)
@@ -442,7 +442,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         mappings: []
       }], user.id)
 
-      logger.debug('🔗 Auto-connected single trigger to single action')
+      logger.info('🔗 Auto-connected single trigger to single action')
     }
 
     // Auto-wire disconnected triggers to nearest actions
@@ -515,7 +515,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       if (newEdgesToAdd.length > 0) {
         const repository = await getFlowRepository(serviceClient)
         await repository.saveEdges(resolvedParams.id, newEdgesToAdd, user.id)
-        logger.debug('🔗 Auto-connected triggers to nearest actions where needed')
+        logger.info('🔗 Auto-connected triggers to nearest actions where needed')
       }
     }
 
@@ -552,7 +552,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
           const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
           const webhookManager = new TriggerWebhookManager()
           await webhookManager.unregisterWorkflowWebhooks(data.id)
-          logger.debug('♻️ Unregistered existing webhooks due to missing action connections')
+          logger.info('♻️ Unregistered existing webhooks due to missing action connections')
         } catch (cleanupErr) {
           logger.warn('⚠️ Failed to unregister webhooks after connectivity check:', cleanupErr)
         }
@@ -596,7 +596,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
       // Smart update: preserve polling state when appropriate
       if (wasActive && nodesProvided) {
-        logger.debug('🔄 Workflow is active and nodes provided - using smart trigger update')
+        logger.info('🔄 Workflow is active and nodes provided - using smart trigger update')
         try {
           const result = await triggerLifecycleManager.updateWorkflowTriggers(
             data.id,
@@ -624,7 +624,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
               }
             }, { status: 200 })
           } else {
-            logger.debug('✅ All triggers updated successfully')
+            logger.info('✅ All triggers updated successfully')
           }
         } catch (updateErr) {
           logger.error('❌ Failed to update triggers:', updateErr)
@@ -648,7 +648,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         }
       } else if (statusChangedToActive && !wasActive) {
         // Fresh activation
-        logger.debug('🚀 Workflow being freshly activated - activating all triggers')
+        logger.info('🚀 Workflow being freshly activated - activating all triggers')
         try {
           const result = await triggerLifecycleManager.activateWorkflowTriggers(
             data.id,
@@ -675,7 +675,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
               }
             }, { status: 200 })
           }
-          logger.debug('✅ All lifecycle-managed triggers activated successfully')
+          logger.info('✅ All lifecycle-managed triggers activated successfully')
         } catch (lifecycleErr) {
           logger.error('❌ Failed to activate lifecycle-managed triggers:', lifecycleErr)
           const { data: rolledBackWorkflow } = await serviceClient
@@ -700,17 +700,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     if (shouldUnregisterWebhooks) {
-      logger.debug('🔗 Workflow deactivated - unregistering all trigger resources')
+      logger.info('🔗 Workflow deactivated - unregistering all trigger resources')
 
       try {
         const { triggerLifecycleManager } = await import('@/lib/triggers')
         await triggerLifecycleManager.deactivateWorkflowTriggers(data.id, user.id)
-        logger.debug('✅ Lifecycle-managed triggers deactivated')
+        logger.info('✅ Lifecycle-managed triggers deactivated')
 
         const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
         const webhookManager = new TriggerWebhookManager()
         await webhookManager.unregisterWorkflowWebhooks(data.id)
-        logger.debug('✅ Legacy webhooks unregistered')
+        logger.info('✅ Legacy webhooks unregistered')
       } catch (webhookError) {
         logger.error('Failed to unregister triggers on deactivation:', webhookError)
       }
@@ -722,7 +722,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
         const webhookManager = new TriggerWebhookManager()
         await webhookManager.cleanupUnusedWebhooks(data.id)
-        logger.debug('✅ Cleaned up unused webhooks')
+        logger.info('✅ Cleaned up unused webhooks')
       } catch (cleanupErr) {
         logger.warn('⚠️ Failed to cleanup unused webhooks after workflow update:', cleanupErr)
       }
@@ -773,12 +773,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     try {
       const { triggerLifecycleManager } = await import('@/lib/triggers')
       await triggerLifecycleManager.deleteWorkflowTriggers(workflowId, user.id)
-      logger.debug('♻️ Deleted lifecycle-managed triggers before deleting workflow', { workflowId })
+      logger.info('♻️ Deleted lifecycle-managed triggers before deleting workflow', { workflowId })
 
       const { TriggerWebhookManager } = await import('@/lib/webhooks/triggerWebhookManager')
       const webhookManager = new TriggerWebhookManager()
       await webhookManager.unregisterWorkflowWebhooks(workflowId)
-      logger.debug('♻️ Unregistered legacy webhooks before deleting workflow', { workflowId })
+      logger.info('♻️ Unregistered legacy webhooks before deleting workflow', { workflowId })
     } catch (unregisterError) {
       logger.warn('⚠️ Failed to cleanup triggers before deletion:', unregisterError)
     }

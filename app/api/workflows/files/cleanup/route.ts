@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       });
     }
 
-    logger.debug(`Found ${expiredFiles.length} expired files to clean up`);
+    logger.info(`Found ${expiredFiles.length} expired files to clean up`);
     let cleanedCount = 0;
     let failedCount = 0;
 
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
         });
 
         if (orphanedFiles.length > 0) {
-          logger.debug(`Found ${orphanedFiles.length} orphaned files in storage`);
+          logger.info(`Found ${orphanedFiles.length} orphaned files in storage`);
           const orphanedPaths = orphanedFiles.map(f => `temp-attachments/${f.name}`);
           
           // Delete orphaned files from storage
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
       logger.error('Error cleaning up orphaned storage files:', error);
     }
 
-    logger.debug(`Cleanup completed: ${cleanedCount} files cleaned, ${failedCount} failed`);
+    logger.info(`Cleanup completed: ${cleanedCount} files cleaned, ${failedCount} failed`);
 
     return jsonResponse({ 
       message: 'Cleanup completed',

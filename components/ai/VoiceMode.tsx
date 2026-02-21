@@ -133,7 +133,7 @@ export function VoiceMode({ onClose, onTranscript }: VoiceModeProps) {
     switch (message.type) {
       case 'session.created':
       case 'session.updated':
-        logger.debug('Session updated:', message)
+        logger.info('Session updated:', message)
         break
 
       case 'input_audio_buffer.speech_started':
@@ -186,7 +186,7 @@ export function VoiceMode({ onClose, onTranscript }: VoiceModeProps) {
         break
 
       default:
-        logger.debug('Unhandled message type:', message.type)
+        logger.info('Unhandled message type:', message.type)
     }
   }
 

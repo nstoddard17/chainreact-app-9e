@@ -34,7 +34,7 @@ export function DiscordRichTextEditor({
   channelId,
   userId
 }: DiscordRichTextEditorProps) {
-  logger.debug('[DiscordRichTextEditorSimple] Rendering - Simplified version active')
+  logger.info('[DiscordRichTextEditorSimple] Rendering - Simplified version active')
   
   return (
     <div className={cn("space-y-2", className)}>

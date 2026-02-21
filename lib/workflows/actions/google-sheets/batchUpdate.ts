@@ -113,7 +113,7 @@ export async function batchUpdateGoogleSheets(
       }
     }
 
-    logger.debug("Batch updating Google Sheets:", {
+    logger.info("Batch updating Google Sheets:", {
       spreadsheetId,
       updateCount: updates.length,
       ranges: updates.map(u => u.range)
@@ -130,7 +130,7 @@ export async function batchUpdateGoogleSheets(
       data: data
     }
 
-    logger.debug("Sending batch update request:", JSON.stringify(requestBody, null, 2))
+    logger.info("Sending batch update request:", JSON.stringify(requestBody, null, 2))
 
     // Execute batch update
     const response = await fetch(

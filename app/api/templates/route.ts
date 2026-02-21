@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
         ...workflow_json,
         nodes: filteredNodes
       }
-      logger.debug(`Template creation: Filtered ${workflow_json.nodes.length - filteredNodes.length} placeholder nodes`)
+      logger.info(`Template creation: Filtered ${workflow_json.nodes.length - filteredNodes.length} placeholder nodes`)
     }
 
     const { data: template, error } = await supabase

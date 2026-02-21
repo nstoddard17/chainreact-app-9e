@@ -42,7 +42,7 @@ export const getShopifyCustomers: ShopifyDataHandler<ShopifyCustomer[]> = async 
       }
     })
 
-    logger.debug(`✅ [Shopify] Fetched ${customers.length} customers`)
+    logger.info(`✅ [Shopify] Fetched ${customers.length} customers`)
     return customers
 
   } catch (error: any) {

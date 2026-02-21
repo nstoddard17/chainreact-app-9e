@@ -37,23 +37,23 @@ export const usePrefetchConfig = () => {
     // Check cache first
     const cached = getCache(cacheKey)
     if (cached) {
-      logger.debug('✅ [Prefetch] Cache hit:', cacheKey)
+      logger.info('✅ [Prefetch] Cache hit:', cacheKey)
       return Promise.resolve()
     }
 
     const promise = (async () => {
       try {
-        logger.debug('🚀 [Prefetch] Starting for field:', fieldName)
+        logger.info('🚀 [Prefetch] Starting for field:', fieldName)
 
         const resourceType = getResourceTypeForField(providerId, fieldName)
         if (!resourceType) {
-          logger.debug('⚠️ [Prefetch] No resource type for field:', fieldName)
+          logger.info('⚠️ [Prefetch] No resource type for field:', fieldName)
           return
         }
 
         const integration = getIntegrationByProvider(providerId)
         if (!integration) {
-          logger.debug('⚠️ [Prefetch] No integration found for:', providerId)
+          logger.info('⚠️ [Prefetch] No integration found for:', providerId)
           // Fetch integrations and retry
           await fetchIntegrations()
           return
@@ -65,7 +65,7 @@ export const usePrefetchConfig = () => {
         // Cache the result
         setCache(cacheKey, data, 15 * 60 * 1000) // 15 min TTL for prefetched data
 
-        logger.debug('✅ [Prefetch] Completed for field:', fieldName)
+        logger.info('✅ [Prefetch] Completed for field:', fieldName)
       } catch (error: any) {
         logger.error('❌ [Prefetch] Failed for field:', fieldName, error.message)
       } finally {
@@ -89,7 +89,7 @@ export const usePrefetchConfig = () => {
     fields: any[]
   ): Promise<void> => {
     try {
-      logger.debug('🚀 [Prefetch] Starting node prefetch:', { nodeType, providerId })
+      logger.info('🚀 [Prefetch] Starting node prefetch:', { nodeType, providerId })
 
       // First, ensure integrations are loaded
       await fetchIntegrations()
@@ -100,11 +100,11 @@ export const usePrefetchConfig = () => {
       )
 
       if (independentFields.length === 0) {
-        logger.debug('⚠️ [Prefetch] No independent fields to prefetch')
+        logger.info('⚠️ [Prefetch] No independent fields to prefetch')
         return
       }
 
-      logger.debug(`🚀 [Prefetch] Found ${independentFields.length} independent fields to prefetch`)
+      logger.info(`🚀 [Prefetch] Found ${independentFields.length} independent fields to prefetch`)
 
       // Prefetch all independent fields in parallel
       await Promise.allSettled(
@@ -113,7 +113,7 @@ export const usePrefetchConfig = () => {
         )
       )
 
-      logger.debug('✅ [Prefetch] Completed node prefetch:', nodeType)
+      logger.info('✅ [Prefetch] Completed node prefetch:', nodeType)
     } catch (error: any) {
       logger.error('❌ [Prefetch] Failed node prefetch:', error.message)
     }
@@ -124,7 +124,7 @@ export const usePrefetchConfig = () => {
    */
   const clearPrefetchCache = useCallback((providerId: string) => {
     // Clear all entries related to this provider
-    logger.debug('🧹 [Prefetch] Clearing cache for provider:', providerId)
+    logger.info('🧹 [Prefetch] Clearing cache for provider:', providerId)
     // The cache store will handle this
   }, [])
 

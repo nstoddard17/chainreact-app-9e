@@ -260,7 +260,7 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     // Handle case where worksheet is empty or usedRange fails
     if (!usedRangeResponse.ok) {
       const errorText = await usedRangeResponse.text()
-      logger.debug('[fetchColumns] usedRange returned error, worksheet may be empty', { errorText });
+      logger.info('[fetchColumns] usedRange returned error, worksheet may be empty', { errorText });
 
       // For empty worksheets, return default column letters (A through J)
       const defaultColumnCount = 10
@@ -293,7 +293,7 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
     // Determine column count from the data
     const columnCount = Math.max(...allRows.map((row: any[]) => row.length))
 
-    logger.debug('[fetchColumns] Processing columns', {
+    logger.info('[fetchColumns] Processing columns', {
       hasHeaders,
       hasHeadersType: typeof hasHeaders,
       columnCount,
@@ -311,7 +311,7 @@ const fetchColumns: ExcelDataHandler = async (integration: MicrosoftExcelIntegra
           description: `Column ${letter}`
         }
       })
-      logger.debug('[fetchColumns] Returning column letters', { columns: columns.map(c => c.value) })
+      logger.info('[fetchColumns] Returning column letters', { columns: columns.map(c => c.value) })
       return columns
     }
 

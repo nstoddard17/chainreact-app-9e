@@ -29,7 +29,7 @@ export class GmailOptionsLoader implements ProviderOptionsLoader {
    */
   canHandle(fieldName: string, providerId: string): boolean {
     const canHandle = providerId === 'gmail' && this.supportedFields.includes(fieldName)
-    logger.debug('[GmailOptionsLoader] canHandle check:', {
+    logger.info('[GmailOptionsLoader] canHandle check:', {
       fieldName,
       providerId,
       canHandle,
@@ -64,7 +64,7 @@ export class GmailOptionsLoader implements ProviderOptionsLoader {
 
     try {
       // Get the dataType from field mapping
-      logger.debug('[GmailOptionsLoader] Looking up dataType in fieldToResourceMap...')
+      logger.info('[GmailOptionsLoader] Looking up dataType in fieldToResourceMap...')
       const dataType = fieldToResourceMap[nodeType]?.[fieldName]
 
       logger.info(`[GmailOptionsLoader] DataType lookup result: ${dataType}`)
@@ -87,17 +87,17 @@ export class GmailOptionsLoader implements ProviderOptionsLoader {
       // The dependsOnValue comes from the search handler which passes the search query
       if (dependsOnValue !== undefined && dependsOnValue !== null) {
         options.searchQuery = dependsOnValue
-        logger.debug('[GmailOptionsLoader] Including search query:', dependsOnValue)
+        logger.info('[GmailOptionsLoader] Including search query:', dependsOnValue)
       }
 
       // Include any extra options from the params
       if (extraOptions) {
         Object.assign(options, extraOptions)
-        logger.debug('[GmailOptionsLoader] Added extraOptions to request')
+        logger.info('[GmailOptionsLoader] Added extraOptions to request')
       }
 
       logger.info('📡 [GmailOptionsLoader] Making API request to /api/integrations/gmail/data')
-      logger.debug('[GmailOptionsLoader] Request payload:', {
+      logger.info('[GmailOptionsLoader] Request payload:', {
         integrationId,
         dataType,
         options
@@ -113,7 +113,7 @@ export class GmailOptionsLoader implements ProviderOptionsLoader {
       const duration = Date.now() - startTime
 
       logger.info(`✅ [GmailOptionsLoader] API response received in ${duration}ms`)
-      logger.debug('[GmailOptionsLoader] Response:', {
+      logger.info('[GmailOptionsLoader] Response:', {
         success: response.success,
         hasData: !!response.data,
         dataType: typeof response.data

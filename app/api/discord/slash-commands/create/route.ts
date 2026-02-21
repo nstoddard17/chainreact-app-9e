@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       type: 1 // CHAT_INPUT type
     };
 
-    logger.debug('[Discord Slash Commands] Sending request to Discord API', {
+    logger.info('[Discord Slash Commands] Sending request to Discord API', {
       url: discordApiUrl,
       commandData
     });

@@ -37,7 +37,7 @@ export function useGoogleSheetsState({ nodeInfo, values }: UseGoogleSheetsStateP
         return;
       }
 
-      logger.debug('🔍 Loading Google Sheets preview data:', { spreadsheetId, sheetName, hasHeaders });
+      logger.info('🔍 Loading Google Sheets preview data:', { spreadsheetId, sheetName, hasHeaders });
       
       const response = await fetch('/api/integrations/google-sheets/data', {
         method: 'POST',
@@ -62,7 +62,7 @@ export function useGoogleSheetsState({ nodeInfo, values }: UseGoogleSheetsStateP
       }
 
       const data = await response.json();
-      logger.debug('✅ Loaded', data.length, 'rows from sheet');
+      logger.info('✅ Loaded', data.length, 'rows from sheet');
       
       // Transform data to match expected format with fields
       const transformedData = data.map((row: any, index: number) => ({
@@ -83,7 +83,7 @@ export function useGoogleSheetsState({ nodeInfo, values }: UseGoogleSheetsStateP
   
   // Handle row selection for update
   const handleRowSelect = useCallback((row: any) => {
-    logger.debug('Selected row for update:', row);
+    logger.info('Selected row for update:', row);
     // You can add logic here to populate form fields with row data
   }, []);
   

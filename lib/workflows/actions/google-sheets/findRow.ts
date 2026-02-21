@@ -20,7 +20,7 @@ export async function findGoogleSheetsRow(
     const searchValue = resolveValue(config.searchValue, input)
     const matchType = resolveValue(config.matchType, input) || 'exact'
 
-    logger.debug("🔍 Find Google Sheets Row - Resolved values:", {
+    logger.info("🔍 Find Google Sheets Row - Resolved values:", {
       spreadsheetId,
       sheetName,
       searchColumn,
@@ -86,7 +86,7 @@ export async function findGoogleSheetsRow(
       }
     }
 
-    logger.debug(`🔍 Searching ${dataRows.length} rows with headers:`, headers)
+    logger.info(`🔍 Searching ${dataRows.length} rows with headers:`, headers)
 
     // Determine if searching all columns or specific column
     const searchAllColumns = searchColumn === '*'
@@ -170,7 +170,7 @@ export async function findGoogleSheetsRow(
     // Row number is index + 2 (1-indexed, +1 for header row)
     const rowNumber = foundRowIndex + 2
 
-    logger.debug(`✅ Found matching row at row ${rowNumber}:`, rowData)
+    logger.info(`✅ Found matching row at row ${rowNumber}:`, rowData)
 
     return {
       success: true,

@@ -127,7 +127,7 @@ export const getNodeByType = (type: string): NodeComponent | undefined => {
     const { ALL_NODE_COMPONENTS } = require('./index')
     const node = ALL_NODE_COMPONENTS.find((n: NodeComponent) => n.type === type)
     if (node) {
-      logger.debug(`[NodeRegistry] Found node "${type}" in ALL_NODE_COMPONENTS (registry not initialized)`)
+      logger.info(`[NodeRegistry] Found node "${type}" in ALL_NODE_COMPONENTS (registry not initialized)`)
     }
     return node
   } catch (error) {

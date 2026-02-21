@@ -10,14 +10,14 @@ export const getAirtableAttachmentFields: AirtableDataHandler<AirtableFieldOptio
 ) => {
   const fields = await getAirtableFields(integration, options)
 
-  logger.debug('[getAirtableAttachmentFields] All fields:', {
+  logger.info('[getAirtableAttachmentFields] All fields:', {
     totalFields: fields.length,
     fieldTypes: fields.map(f => ({ name: f.label, type: f.type }))
   })
 
   const attachmentFields = fields.filter(field => ATTACHMENT_FIELD_TYPES.has(field.type))
 
-  logger.debug('[getAirtableAttachmentFields] Filtered attachment fields:', {
+  logger.info('[getAirtableAttachmentFields] Filtered attachment fields:', {
     attachmentFieldsFound: attachmentFields.length,
     attachmentFields: attachmentFields.map(f => ({ name: f.label, type: f.type }))
   })

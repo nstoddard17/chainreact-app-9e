@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
             }
           } catch (photoError) {
             // Photo might not be set for this user, that's okay
-            logger.debug("Microsoft Graph photo not available for user")
+            logger.info("Microsoft Graph photo not available for user")
           }
 
           // Check if this is a personal account
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
               knownLimitation: true
             }
           } else {
-            logger.debug("✅ Work/School account detected:", email)
+            logger.info("✅ Work/School account detected:", email)
             metadata = {
               accountType: "work",
               email: email,

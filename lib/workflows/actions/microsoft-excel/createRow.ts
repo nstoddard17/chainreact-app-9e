@@ -23,7 +23,7 @@ export async function createMicrosoftExcelRow(
     // Normalize hasHeaders to boolean
     const useHeaders = hasHeaders === 'yes' || hasHeaders === true
 
-    logger.debug('📊 [Excel Create Row] Config:', {
+    logger.info('📊 [Excel Create Row] Config:', {
       workbookId,
       worksheetName,
       insertPosition,
@@ -37,7 +37,7 @@ export async function createMicrosoftExcelRow(
     // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
     // But we need: { "Name": "John" } or { "A": "John" } for letter columns
     if (Array.isArray(columnMapping)) {
-      logger.debug('📊 [Excel Create Row] Converting array format to object format');
+      logger.info('📊 [Excel Create Row] Converting array format to object format');
       const mappingObject: Record<string, any> = {};
       for (const item of columnMapping) {
         if (item && item.column && item.value !== undefined) {
@@ -77,7 +77,7 @@ export async function createMicrosoftExcelRow(
     let columnPositions: number[] = []
 
     const columnKeys = Object.keys(columnMapping)
-    logger.debug('📊 [Excel Create Row] Column keys:', columnKeys)
+    logger.info('📊 [Excel Create Row] Column keys:', columnKeys)
 
     if (!useHeaders) {
       // Column letters mode (A, B, C, etc.)
@@ -86,7 +86,7 @@ export async function createMicrosoftExcelRow(
         // Convert A=0, B=1, C=2, etc.
         const position = columnLetter.charCodeAt(0) - 65
         columnPositions.push(position)
-        logger.debug(`  Column "${columnLetter}" (position ${position}) -> value: "${value}"`)
+        logger.info(`  Column "${columnLetter}" (position ${position}) -> value: "${value}"`)
       }
 
       // Find the max position to determine array size
@@ -121,7 +121,7 @@ export async function createMicrosoftExcelRow(
         }
       }
 
-      logger.debug('📊 [Excel Create Row] Header row:', headerRow)
+      logger.info('📊 [Excel Create Row] Header row:', headerRow)
 
       if (headerRow.length === 0) {
         // No headers found, but user said there are headers
@@ -139,24 +139,24 @@ export async function createMicrosoftExcelRow(
           const position = headerRow.findIndex(h => h === columnName)
           if (position !== -1) {
             values[position] = value || ''
-            logger.debug(`  Header "${columnName}" (position ${position}) -> value: "${value}"`)
+            logger.info(`  Header "${columnName}" (position ${position}) -> value: "${value}"`)
           } else {
             // Header not found - might be a column letter format
             if (/^[A-Z]$/.test(columnName)) {
               const letterPosition = columnName.charCodeAt(0) - 65
               if (letterPosition <= maxPosition) {
                 values[letterPosition] = value || ''
-                logger.debug(`  Column letter "${columnName}" (position ${letterPosition}) -> value: "${value}"`)
+                logger.info(`  Column letter "${columnName}" (position ${letterPosition}) -> value: "${value}"`)
               }
             } else {
-              logger.debug(`  Column "${columnName}" not found in headers, skipping`)
+              logger.info(`  Column "${columnName}" not found in headers, skipping`)
             }
           }
         }
       }
     }
 
-    logger.debug('📊 [Excel Create Row] Final values array:', values)
+    logger.info('📊 [Excel Create Row] Final values array:', values)
 
     // Calculate the column range
     const columnCount = values.length
@@ -188,9 +188,9 @@ export async function createMicrosoftExcelRow(
         lastDataRow = parseInt(match[2])
         isBlankSheet = false
       }
-      logger.debug('📊 [Excel Create Row] Used range:', usedRange.address, 'Last row:', lastDataRow)
+      logger.info('📊 [Excel Create Row] Used range:', usedRange.address, 'Last row:', lastDataRow)
     } else {
-      logger.debug('📊 [Excel Create Row] No used range - blank worksheet')
+      logger.info('📊 [Excel Create Row] No used range - blank worksheet')
     }
 
     // Determine where to insert based on position and headers
@@ -217,7 +217,7 @@ export async function createMicrosoftExcelRow(
       targetRow = parseInt(specificRow)
     }
 
-    logger.debug('📊 [Excel Create Row] Target row:', targetRow, 'Insert position:', insertPosition)
+    logger.info('📊 [Excel Create Row] Target row:', targetRow, 'Insert position:', insertPosition)
 
     // Cell reference uses just the cell address (e.g., A1:C1), not the worksheet name prefix
     const cellRangeAddress = `A${targetRow}:${endColumn}${targetRow}`
@@ -242,7 +242,7 @@ export async function createMicrosoftExcelRow(
         const error = await insertResponse.text()
         throw new Error(`Failed to insert row: ${error}`)
       }
-      logger.debug('📊 [Excel Create Row] Inserted blank row at:', rangeAddress)
+      logger.info('📊 [Excel Create Row] Inserted blank row at:', rangeAddress)
     }
 
     // Now update the range with the values

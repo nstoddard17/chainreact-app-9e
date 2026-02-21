@@ -30,7 +30,7 @@ export async function addMicrosoftExcelTableRow(
   // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
   // But we need: { "Name": "John" }
   if (Array.isArray(columnMapping)) {
-    logger.debug('[Microsoft Excel] Converting array format to object format');
+    logger.info('[Microsoft Excel] Converting array format to object format');
     const mappingObject: Record<string, any> = {};
     for (const item of columnMapping) {
       if (item && item.column && item.value !== undefined) {
@@ -40,7 +40,7 @@ export async function addMicrosoftExcelTableRow(
     columnMapping = mappingObject;
   }
 
-  logger.debug('[Microsoft Excel] Adding row to table:', { workbookId, tableName })
+  logger.info('[Microsoft Excel] Adding row to table:', { workbookId, tableName })
 
   try {
     // Get Microsoft Excel integration
@@ -117,7 +117,7 @@ export async function addMicrosoftExcelTableRow(
 
     const result = await addRowResponse.json()
 
-    logger.debug('[Microsoft Excel] Successfully added row to table')
+    logger.info('[Microsoft Excel] Successfully added row to table')
 
     return {
       success: true,

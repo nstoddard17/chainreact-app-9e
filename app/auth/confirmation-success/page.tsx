@@ -27,10 +27,10 @@ export default function ConfirmationSuccessPage() {
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (session && !error) {
-          logger.debug('Valid session found after email confirmation')
+          logger.info('Valid session found after email confirmation')
           setHasValidSession(true)
         } else {
-          logger.debug('No valid session found, user needs to sign in')
+          logger.info('No valid session found, user needs to sign in')
           setHasValidSession(false)
         }
       } catch (error) {

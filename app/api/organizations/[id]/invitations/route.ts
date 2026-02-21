@@ -10,7 +10,7 @@ export async function GET(
 ) {
   const { id: organizationId } = await params
   try {
-    logger.debug('Invitations API: Starting request for organization:', organizationId)
+    logger.info('Invitations API: Starting request for organization:', organizationId)
     
     const supabase = await createSupabaseRouteHandlerClient()
     const serviceClient = await createSupabaseServiceClient()
@@ -18,11 +18,11 @@ export async function GET(
     // Get current user
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user) {
-      logger.debug('Invitations API: User not authenticated')
+      logger.info('Invitations API: User not authenticated')
       return errorResponse("Unauthorized" , 401)
     }
 
-    logger.debug('Invitations API: User authenticated:', user.id)
+    logger.info('Invitations API: User authenticated:', user.id)
 
     // Check if user is an admin of any team in this organization
     const { data: adminTeams } = await serviceClient
@@ -35,14 +35,14 @@ export async function GET(
       .eq("team_members.user_id", user.id)
       .eq("team_members.role", "admin")
 
-    logger.debug('Invitations API: Admin teams check result:', { adminTeams })
+    logger.info('Invitations API: Admin teams check result:', { adminTeams })
 
     if (!adminTeams || adminTeams.length === 0) {
-      logger.debug('Invitations API: Access denied - user is not an admin')
+      logger.info('Invitations API: Access denied - user is not an admin')
       return errorResponse("Insufficient permissions - only team admins can view invitations", 403)
     }
 
-    logger.debug('Invitations API: User is admin, fetching invitations')
+    logger.info('Invitations API: User is admin, fetching invitations')
 
     // Get pending invitations
     const { data: invitations, error } = await serviceClient
@@ -52,7 +52,7 @@ export async function GET(
       .is("accepted_at", null) // Use IS NULL instead of = null
       .order("created_at", { ascending: false })
 
-    logger.debug('Invitations API: Fetch result:', { invitations, error })
+    logger.info('Invitations API: Fetch result:', { invitations, error })
 
     if (error) {
       logger.error("Error fetching invitations:", error)

@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
       // Strategy 1: Try the OAuth access-tokens endpoint (most reliable)
       try {
-        logger.debug('🔍 [HubSpot] Trying primary endpoint: /oauth/v1/access-tokens')
+        logger.info('🔍 [HubSpot] Trying primary endpoint: /oauth/v1/access-tokens')
         const tokenInfoResponse = await fetch(
           `https://api.hubapi.com/oauth/v1/access-tokens/${tokenData.access_token}`,
           {
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
 
       // Strategy 2: Fallback to /integrations/v1/me endpoint
       try {
-        logger.debug('🔍 [HubSpot] Trying fallback endpoint: /integrations/v1/me')
+        logger.info('🔍 [HubSpot] Trying fallback endpoint: /integrations/v1/me')
         const accountResponse = await fetch('https://api.hubapi.com/integrations/v1/me', {
           headers: {
             Authorization: `Bearer ${tokenData.access_token}`,

@@ -161,7 +161,7 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to create SSO configuration' }, { status: 500 })
     }
 
-    logger.debug('[SSO] Configuration created', {
+    logger.info('[SSO] Configuration created', {
       orgId: organizationId,
       provider,
       configId: config.id
@@ -240,7 +240,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Failed to update SSO configuration' }, { status: 500 })
     }
 
-    logger.debug('[SSO] Configuration updated', { configId, updates: Object.keys(updateData) })
+    logger.info('[SSO] Configuration updated', { configId, updates: Object.keys(updateData) })
 
     return NextResponse.json({
       success: true,
@@ -295,7 +295,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Failed to delete SSO configuration' }, { status: 500 })
     }
 
-    logger.debug('[SSO] Configuration deleted', { configId, orgId: organizationId })
+    logger.info('[SSO] Configuration deleted', { configId, orgId: organizationId })
 
     return NextResponse.json({ success: true })
   } catch (error) {

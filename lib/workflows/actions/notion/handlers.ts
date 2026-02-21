@@ -179,7 +179,7 @@ function resolveDatabaseProperty(database: any, identifier: string) {
     // Ignore decode errors
   }
 
-  logger.debug('[Notion resolveDatabaseProperty] Looking up property', {
+  logger.info('[Notion resolveDatabaseProperty] Looking up property', {
     identifier,
     decodedIdentifier,
     availableProperties: Object.entries(database.properties).map(([name, prop]: [string, any]) => ({
@@ -415,7 +415,7 @@ export async function notionUpdatePage(
       // If this is a database page, fetch the database schema to get property types
       if (pageData.parent?.type === 'database_id') {
         const databaseId = pageData.parent.database_id
-        logger.debug('Fetching database schema for property types:', databaseId)
+        logger.info('Fetching database schema for property types:', databaseId)
 
         const getSchemaStart = Date.now()
         const dbData = await notionApiRequest(`/databases/${databaseId}`, "GET", accessToken)
@@ -438,7 +438,7 @@ export async function notionUpdatePage(
               }
             }
           }
-          logger.debug('Property schema loaded:', Object.keys(propertySchema))
+          logger.info('Property schema loaded:', Object.keys(propertySchema))
         }
       }
     } catch (error) {
@@ -454,7 +454,7 @@ export async function notionUpdatePage(
     for (const [propName, propConfig] of Object.entries(propertySchema)) {
       if ((propConfig as any).type === 'title') {
         titlePropertyName = propName
-        logger.debug(`Found title property name in schema: "${titlePropertyName}"`)
+        logger.info(`Found title property name in schema: "${titlePropertyName}"`)
         break
       }
     }
@@ -466,7 +466,7 @@ export async function notionUpdatePage(
     if (title && title !== '') {
       processedProperties[titlePropertyName] = formatNotionPropertyValue('title', title)
       titleHandled = true
-      logger.debug(`Set title using property name: "${titlePropertyName}"`)
+      logger.info(`Set title using property name: "${titlePropertyName}"`)
     }
 
     for (const [key, value] of Object.entries(properties)) {
@@ -498,13 +498,13 @@ export async function notionUpdatePage(
 
       // Skip block content fields - these should be handled through blocks API
       if (blockContentKeys.some(blockKey => key.includes(blockKey))) {
-        logger.debug(`Skipping block content field: ${key}`)
+        logger.info(`Skipping block content field: ${key}`)
         continue
       }
 
       // Skip properties that contain '-content' suffix as they're usually block content
       if (key.includes('-content')) {
-        logger.debug(`Skipping content field: ${key}`)
+        logger.info(`Skipping content field: ${key}`)
         continue
       }
 
@@ -526,10 +526,10 @@ export async function notionUpdatePage(
         if (clearPropInfo?.type) {
           const propertyKey = clearPropInfo.name || key
           processedProperties[propertyKey] = formatNotionPropertyValue(clearPropInfo.type, value)
-          logger.debug(`Clearing property ${key} (resolved to "${propertyKey}") as type ${clearPropInfo.type}`)
+          logger.info(`Clearing property ${key} (resolved to "${propertyKey}") as type ${clearPropInfo.type}`)
         } else {
           // Without schema type, skip the property entirely rather than sending raw null
-          logger.debug(`Skipping empty property ${key} - no schema type found, cannot safely clear`)
+          logger.info(`Skipping empty property ${key} - no schema type found, cannot safely clear`)
         }
         continue
       }
@@ -561,7 +561,7 @@ export async function notionUpdatePage(
 
         if (valueObj.items || valueObj.blocks || valueObj.children) {
           // This looks like block content, skip it
-          logger.debug(`Skipping property ${key} - appears to be block content`)
+          logger.info(`Skipping property ${key} - appears to be block content`)
           continue
         }
       }
@@ -570,7 +570,7 @@ export async function notionUpdatePage(
       const propInfo = propertySchema[key]
       if (propInfo?.type) {
         const propertyKey = propInfo.name || key
-        logger.debug(`Formatting property ${key} (resolved to "${propertyKey}") as type ${propInfo.type}`)
+        logger.info(`Formatting property ${key} (resolved to "${propertyKey}") as type ${propInfo.type}`)
 
         // Special handling for people properties - skip if value can't be resolved to IDs
         if (propInfo.type === 'people') {
@@ -580,7 +580,7 @@ export async function notionUpdatePage(
             (typeof p === 'string' && /^[0-9a-f-]{32,36}$/i.test(p))
           )
           if (!hasValidIds && peopleValue.length > 0) {
-            logger.debug(`Skipping people property ${key} - values are names without IDs, cannot resolve`)
+            logger.info(`Skipping people property ${key} - values are names without IDs, cannot resolve`)
             continue
           }
         }
@@ -598,7 +598,7 @@ export async function notionUpdatePage(
           decodedPropInfo = propertySchema[decodedKey]
           if (decodedPropInfo?.type) {
             const propertyKey = decodedPropInfo.name || decodedKey
-            logger.debug(`Formatting property ${key} (URL-decoded to "${decodedKey}", resolved to "${propertyKey}") as type ${decodedPropInfo.type}`)
+            logger.info(`Formatting property ${key} (URL-decoded to "${decodedKey}", resolved to "${propertyKey}") as type ${decodedPropInfo.type}`)
             processedProperties[propertyKey] = formatNotionPropertyValue(decodedPropInfo.type, value)
             continue
           }
@@ -613,7 +613,7 @@ export async function notionUpdatePage(
     }
 
     // Debug logging
-    logger.debug('Processed properties for Notion update:', JSON.stringify(processedProperties, null, 2))
+    logger.info('Processed properties for Notion update:', JSON.stringify(processedProperties, null, 2))
 
     // Only include properties in payload if we have any to update
     const payload: any = {}
@@ -947,15 +947,15 @@ export async function notionAppendBlocks(
     const blocks = context.dataFlowManager.resolveVariable(config.blocks)
     const after = context.dataFlowManager.resolveVariable(config.after)
 
-    logger.debug('📝 notionAppendBlocks - config:', config)
-    logger.debug('📝 notionAppendBlocks - resolved blocks:', blocks)
+    logger.info('📝 notionAppendBlocks - config:', config)
+    logger.info('📝 notionAppendBlocks - resolved blocks:', blocks)
 
     // Ensure blocks is an array
     const blocksArray = Array.isArray(blocks) ? blocks : []
 
     // Don't make API call if there are no blocks to append
     if (blocksArray.length === 0) {
-      logger.debug('📝 notionAppendBlocks - No blocks to append, skipping')
+      logger.info('📝 notionAppendBlocks - No blocks to append, skipping')
       return {
         success: true,
         output: {
@@ -1006,7 +1006,7 @@ export async function notionUpdateBlock(
     const blockContent = context.dataFlowManager.resolveVariable(config.block_content)
     const archived = config.archived
 
-    logger.debug('📝 notionUpdateBlock - Updating block:', {
+    logger.info('📝 notionUpdateBlock - Updating block:', {
       blockId,
       blockContent
     })
@@ -1090,7 +1090,7 @@ export async function notionRetrieveBlockChildren(
     // Notion API doesn't support server-side filtering of block children
     if (filterType && Array.isArray(filterType) && filterType.length > 0) {
       children = children.filter((block: any) => filterType.includes(block.type))
-      logger.debug("[Notion] Filtered blocks by type:", {
+      logger.info("[Notion] Filtered blocks by type:", {
         filterType,
         originalCount: result.results?.length || 0,
         filteredCount: children.length
@@ -1494,7 +1494,7 @@ export async function notionFindOrCreateDatabaseItem(
   context: ExecutionContext
 ): Promise<ActionResult> {
   try {
-    logger.debug("[Notion Find or Create] Received config:", {
+    logger.info("[Notion Find or Create] Received config:", {
       configKeys: Object.keys(config),
       database: config.database,
       database_id: config.database_id,
@@ -1526,7 +1526,7 @@ export async function notionFindOrCreateDatabaseItem(
       throw new Error('Search value is required')
     }
 
-    logger.debug("[Notion Find or Create] Starting search", {
+    logger.info("[Notion Find or Create] Starting search", {
       databaseId,
       rawDatabaseId,
       searchProperty: searchPropertyInput,
@@ -1552,7 +1552,7 @@ export async function notionFindOrCreateDatabaseItem(
       page_size: 1 // We only need to know if one exists
     }
 
-    logger.debug("[Notion Find or Create] Searching database", { searchPayload })
+    logger.info("[Notion Find or Create] Searching database", { searchPayload })
 
     const searchResult = await notionApiRequest(
       `/databases/${databaseId}/query`,
@@ -1564,7 +1564,7 @@ export async function notionFindOrCreateDatabaseItem(
     // Step 2: If found, return existing item
     if (searchResult.results && searchResult.results.length > 0) {
       const existingItem = searchResult.results[0]
-      logger.debug("[Notion Find or Create] Found existing item", { id: existingItem.id })
+      logger.info("[Notion Find or Create] Found existing item", { id: existingItem.id })
 
       return {
         success: true,
@@ -1582,7 +1582,7 @@ export async function notionFindOrCreateDatabaseItem(
 
     // Step 3: If not found and createIfNotFound is false, return not found
     if (!createIfNotFound) {
-      logger.debug("[Notion Find or Create] Item not found, create disabled")
+      logger.info("[Notion Find or Create] Item not found, create disabled")
       return {
         success: true,
         output: {
@@ -1596,7 +1596,7 @@ export async function notionFindOrCreateDatabaseItem(
     }
 
     // Step 4: Create new item
-    logger.debug("[Notion Find or Create] Creating new item")
+    logger.info("[Notion Find or Create] Creating new item")
 
     // Merge search property/value into create properties
     if (typeof createProperties === 'string') {
@@ -1627,7 +1627,7 @@ export async function notionFindOrCreateDatabaseItem(
 
     const newItem = await notionApiRequest("/pages", "POST", accessToken, createPayload)
 
-    logger.debug("[Notion Find or Create] Created new item", { id: newItem.id })
+    logger.info("[Notion Find or Create] Created new item", { id: newItem.id })
 
     return {
       success: true,
@@ -1678,7 +1678,7 @@ export async function notionUpdateDatabaseItem(
       throw new Error('Item to update is required')
     }
 
-    logger.debug("[Notion Update Database Item] Starting update", {
+    logger.info("[Notion Update Database Item] Starting update", {
       itemId,
       databaseId,
       propertiesKeys: Object.keys(properties)
@@ -1697,7 +1697,7 @@ export async function notionUpdateDatabaseItem(
               propertySchema[propConfig.id] = { type: propConfig.type, name: propName }
             }
           }
-          logger.debug('[Notion Update Database Item] Property schema loaded:', Object.keys(propertySchema))
+          logger.info('[Notion Update Database Item] Property schema loaded:', Object.keys(propertySchema))
         }
       } catch (error) {
         logger.warn('[Notion Update Database Item] Could not fetch database schema, will use heuristics:', error)
@@ -1733,7 +1733,7 @@ export async function notionUpdateDatabaseItem(
       // Look up property type from schema
       const propInfo = propertySchema[key]
       if (propInfo?.type) {
-        logger.debug(`[Notion Update Database Item] Formatting property ${key} as type ${propInfo.type}`)
+        logger.info(`[Notion Update Database Item] Formatting property ${key} as type ${propInfo.type}`)
         processedProperties[propInfo.name || key] = formatNotionPropertyValue(propInfo.type, value)
         continue
       }
@@ -1760,13 +1760,13 @@ export async function notionUpdateDatabaseItem(
         }
       }
 
-      logger.debug(`[Notion Update Database Item] Inferred property ${key} as type ${inferredType}`)
+      logger.info(`[Notion Update Database Item] Inferred property ${key} as type ${inferredType}`)
       processedProperties[key] = formatNotionPropertyValue(inferredType, value)
     }
 
     // Check if we have anything to update
     if (Object.keys(processedProperties).length === 0) {
-      logger.debug('[Notion Update Database Item] No properties to update')
+      logger.info('[Notion Update Database Item] No properties to update')
       return {
         success: true,
         output: {
@@ -1776,7 +1776,7 @@ export async function notionUpdateDatabaseItem(
       }
     }
 
-    logger.debug('[Notion Update Database Item] Final payload:', JSON.stringify(processedProperties, null, 2))
+    logger.info('[Notion Update Database Item] Final payload:', JSON.stringify(processedProperties, null, 2))
 
     // Make the update request
     const result = await notionApiRequest(`/pages/${itemId}`, "PATCH", accessToken, {
@@ -2042,7 +2042,7 @@ export async function notionAddBlock(
       children: [blockObject]
     }
 
-    logger.debug("[Notion Add Block] Payload:", JSON.stringify(payload, null, 2))
+    logger.info("[Notion Add Block] Payload:", JSON.stringify(payload, null, 2))
 
     const result = await notionApiRequest(
       `/blocks/${pageId}/children`,

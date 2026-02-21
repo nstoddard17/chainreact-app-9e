@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const workspaceId = searchParams.get('workspace_id')
     const includeTrash = searchParams.get('include_trash') === 'true'
 
-    logger.debug('[API /api/workflows] GET request', {
+    logger.info('[API /api/workflows] GET request', {
       filterContext: filterContext || 'ALL (unified view)',
       workspaceId,
       includeTrash,
@@ -194,7 +194,7 @@ export async function GET(request: NextRequest) {
 
     const error = null
 
-    logger.debug('[API /api/workflows] Query result', {
+    logger.info('[API /api/workflows] Query result', {
       filterContext: filterContext || 'ALL',
       count: workflows?.length || 0,
       error
@@ -245,7 +245,7 @@ export async function GET(request: NextRequest) {
           workflow.nodes = nodesByWorkflowId.get(workflow.id) || []
         }
 
-        logger.debug('[API /api/workflows] Attached nodes to workflows', {
+        logger.info('[API /api/workflows] Attached nodes to workflows', {
           totalNodes: allNodes.length,
           workflowsWithNodes: nodesByWorkflowId.size
         })
@@ -306,7 +306,7 @@ export async function POST(request: Request) {
       workspace_id
     } = validationResult.data
 
-    logger.debug('[API /api/workflows] POST request', {
+    logger.info('[API /api/workflows] POST request', {
       name,
       workspace_type,
       workspace_id,
@@ -397,7 +397,7 @@ export async function POST(request: Request) {
       // Don't fail the request, just log it
     }
 
-    logger.debug('[API /api/workflows] Workflow created', {
+    logger.info('[API /api/workflows] Workflow created', {
       id: workflow.id,
       workspace_type,
       permission_granted: !permissionError

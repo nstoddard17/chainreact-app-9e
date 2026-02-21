@@ -58,7 +58,7 @@ export const getShopifyInventoryItems: ShopifyDataHandler<ShopifyInventoryItem[]
       }
     }
 
-    logger.debug(`✅ [Shopify] Fetched ${inventoryItems.length} inventory items`)
+    logger.info(`✅ [Shopify] Fetched ${inventoryItems.length} inventory items`)
     return inventoryItems
 
   } catch (error: any) {

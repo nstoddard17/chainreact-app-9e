@@ -31,7 +31,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.debug(`🔔 Activating Shopify trigger for workflow ${workflowId}`, {
+    logger.info(`🔔 Activating Shopify trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -67,7 +67,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       throw new Error(`Shopify integration not found for store: ${selectedShop}`)
     }
 
-    logger.debug(`🔍 Found Shopify integration ${integration.id} for shop ${selectedShop}`)
+    logger.info(`🔍 Found Shopify integration ${integration.id} for shop ${selectedShop}`)
 
     // Decrypt access token
     const accessToken = typeof integration.access_token === 'string'
@@ -87,7 +87,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
     // Get topic for this trigger type
     const topic = this.getTopicForTrigger(triggerType)
 
-    logger.debug(`📤 Creating Shopify webhook`, {
+    logger.info(`📤 Creating Shopify webhook`, {
       shopDomain,
       topic,
       webhookUrl
@@ -143,14 +143,14 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       // The webhook was already created successfully with Shopify, so we can continue
       if (insertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-        logger.debug(`✅ Shopify webhook created (without local record): ${webhook.id}`)
+        logger.info(`✅ Shopify webhook created (without local record): ${webhook.id}`)
         return
       }
       logger.error(`❌ Failed to store trigger resource:`, insertError)
       throw new Error(`Failed to store trigger resource: ${insertError.message}`)
     }
 
-    logger.debug(`✅ Shopify webhook created: ${webhook.id}`)
+    logger.info(`✅ Shopify webhook created: ${webhook.id}`)
   }
 
   /**
@@ -160,7 +160,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId } = context
 
-    logger.debug(`🛑 Deactivating Shopify triggers for workflow ${workflowId}`)
+    logger.info(`🛑 Deactivating Shopify triggers for workflow ${workflowId}`)
 
     // Get all Shopify webhooks for this workflow
     const { data: resources } = await getSupabase()
@@ -171,7 +171,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No active Shopify webhooks for workflow ${workflowId}`)
+      logger.info(`ℹ️ No active Shopify webhooks for workflow ${workflowId}`)
       return
     }
 
@@ -251,7 +251,7 @@ export class ShopifyTriggerLifecycle implements TriggerLifecycle {
           .delete()
           .eq('id', resource.id)
 
-        logger.debug(`✅ Deleted Shopify webhook: ${resource.external_id}`)
+        logger.info(`✅ Deleted Shopify webhook: ${resource.external_id}`)
       } catch (error) {
         logger.error(`❌ Failed to delete webhook ${resource.external_id}:`, error)
         await getSupabase()

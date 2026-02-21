@@ -8,7 +8,7 @@ import { validateTrelloIntegration, validateTrelloToken, makeTrelloApiRequest, p
 import { logger } from '@/lib/utils/logger'
 
 export const getTrelloListTemplates: TrelloDataHandler<TrelloListTemplate> = async (integration: TrelloIntegration, options: any = {}): Promise<TrelloListTemplate[]> => {
-  logger.debug("🔍 Trello list templates fetcher called with integration:", {
+  logger.info("🔍 Trello list templates fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -19,15 +19,15 @@ export const getTrelloListTemplates: TrelloDataHandler<TrelloListTemplate> = asy
     // Validate integration status
     validateTrelloIntegration(integration)
     
-    logger.debug(`🔍 Validating Trello token...`)
+    logger.info(`🔍 Validating Trello token...`)
     const tokenResult = await validateTrelloToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Trello token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Trello token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    logger.debug('🔍 Fetching Trello boards and their lists from API...')
+    logger.info('🔍 Fetching Trello boards and their lists from API...')
     
     // First get all boards
     const boardsApiUrl = buildTrelloApiUrl('/1/members/me/boards?fields=id,name,desc,url,closed')
@@ -63,7 +63,7 @@ export const getTrelloListTemplates: TrelloDataHandler<TrelloListTemplate> = asy
       }
     }
     
-    logger.debug(`✅ Trello list templates fetched successfully: ${listTemplates.length} lists`)
+    logger.info(`✅ Trello list templates fetched successfully: ${listTemplates.length} lists`)
     return listTemplates
     
   } catch (error: any) {

@@ -66,7 +66,7 @@ export function TwitterConfiguration({
     dependsOnValue?: any,
     forceReload?: boolean
   ) => {
-    logger.debug('🔍 [TwitterConfig] handleDynamicLoad called:', { 
+    logger.info('🔍 [TwitterConfig] handleDynamicLoad called:', { 
       fieldName, 
       dependsOn, 
       dependsOnValue,

@@ -40,7 +40,7 @@ export const getNotionPageDetails: NotionDataHandler<PageDetails> = async (
   // Normalize page ID (remove dashes)
   const normalizedPageId = pageId.replace(/-/g, '')
 
-  logger.debug('[Notion Page Details] Fetching page:', {
+  logger.info('[Notion Page Details] Fetching page:', {
     integrationId: integration.id,
     pageId: normalizedPageId,
     workspaceId: workspaceId || 'default'
@@ -55,7 +55,7 @@ export const getNotionPageDetails: NotionDataHandler<PageDetails> = async (
 
     const pageData = await response.json()
 
-    logger.debug('[Notion Page Details] Page retrieved:', {
+    logger.info('[Notion Page Details] Page retrieved:', {
       pageId: pageData.id,
       propertyCount: Object.keys(pageData.properties || {}).length,
       parentType: pageData.parent?.type

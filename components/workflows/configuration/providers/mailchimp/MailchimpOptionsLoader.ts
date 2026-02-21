@@ -55,7 +55,7 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
     if (pendingPromise) {
-      logger.debug(`🔄 [Mailchimp] Reusing pending request for ${fieldName}`);
+      logger.info(`🔄 [Mailchimp] Reusing pending request for ${fieldName}`);
       return pendingPromise;
     }
 
@@ -98,7 +98,7 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
             options.audience_id = dependsOnValue;
           }
 
-          logger.debug(`📡 [Mailchimp] Loading ${dataType}:`, { integrationId, options });
+          logger.info(`📡 [Mailchimp] Loading ${dataType}:`, { integrationId, options });
 
           // Make API request
           const response = await fetch('/api/integrations/mailchimp/data', {
@@ -150,7 +150,7 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
             });
           }
 
-          logger.debug(`✅ [Mailchimp] Loaded ${result.length} ${dataType}`);
+          logger.info(`✅ [Mailchimp] Loaded ${result.length} ${dataType}`);
 
           // Clean up pending promise
           pendingPromises.delete(requestKey);
@@ -201,6 +201,6 @@ export class MailchimpOptionsLoader implements ProviderOptionsLoader {
     pendingPromises.clear();
     debounceTimers.forEach(timer => clearTimeout(timer));
     debounceTimers.clear();
-    logger.debug('🧹 [Mailchimp] Cache cleared');
+    logger.info('🧹 [Mailchimp] Cache cleared');
   }
 }

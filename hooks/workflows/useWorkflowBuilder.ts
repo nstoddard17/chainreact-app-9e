@@ -672,7 +672,7 @@ export function useWorkflowBuilder() {
       return
     }
 
-    logger.debug('🔍 [Validation] Running validation on nodes...')
+    logger.info('🔍 [Validation] Running validation on nodes...')
 
     const workflow = {
       id: currentWorkflow?.id || '',
@@ -683,7 +683,7 @@ export function useWorkflowBuilder() {
 
     const validationResult = validateWorkflowNodes(workflow, ALL_NODE_COMPONENTS)
 
-    logger.debug('🔍 [Validation] Invalid node IDs:', validationResult.invalidNodeIds)
+    logger.info('🔍 [Validation] Invalid node IDs:', validationResult.invalidNodeIds)
 
     // Build a map of validation states
     const validationMap = new Map<string, any>()
@@ -720,7 +720,7 @@ export function useWorkflowBuilder() {
 
   // Handle add action button click - moved up before other callbacks to ensure it's available
   const handleAddActionClick = useCallback((nodeId: string, parentId: string) => {
-    // logger.debug('handleAddActionClick called with nodeId:', nodeId, 'parentId:', parentId)
+    // logger.info('handleAddActionClick called with nodeId:', nodeId, 'parentId:', parentId)
 
     // Check if the parent node is part of an AI Agent chain OR is an AI Agent itself
     const parentNode = nodesRef.current.find(n => n.id === parentId)
@@ -733,8 +733,8 @@ export function useWorkflowBuilder() {
 
     if (aiAgentId) {
       // This is an AI Agent chain - open action dialog with AI Agent context
-      logger.debug('🤖 Add Action clicked for AI Agent chain - opening action selection with AI context')
-      logger.debug('🔵 Chain index for new action:', parentChainIndex)
+      logger.info('🤖 Add Action clicked for AI Agent chain - opening action selection with AI context')
+      logger.info('🔵 Chain index for new action:', parentChainIndex)
 
       // Store AI Agent context for when action is selected
       dialogsHook.setSourceAddNode({
@@ -749,7 +749,7 @@ export function useWorkflowBuilder() {
       dialogsHook.setSearchQuery("")
       dialogsHook.setShowActionDialog(true)
 
-      logger.debug('Called setShowActionDialog(true) for AI Agent chain')
+      logger.info('Called setShowActionDialog(true) for AI Agent chain')
       return
     }
 
@@ -760,10 +760,10 @@ export function useWorkflowBuilder() {
     dialogsHook.setSearchQuery("")
     dialogsHook.setShowActionDialog(true)
 
-    logger.debug('Called setShowActionDialog(true)')
+    logger.info('Called setShowActionDialog(true)')
     // Force a check after a small delay to see if state updated
     setTimeout(() => {
-      logger.debug('showActionDialog state after 100ms:', dialogsHook.showActionDialog)
+      logger.info('showActionDialog state after 100ms:', dialogsHook.showActionDialog)
     }, 100)
   }, [dialogsHook])
 
@@ -1342,7 +1342,7 @@ export function useWorkflowBuilder() {
   }, [runPreflightCheck, toast])
 
   const handleNodeAddChain = useCallback((nodeId: string) => {
-    logger.debug('🔗 Add chain to AI Agent:', nodeId)
+    logger.info('🔗 Add chain to AI Agent:', nodeId)
 
     const aiAgentNode = nodesRef.current.find(n => n.id === nodeId)
     if (!aiAgentNode) {
@@ -1360,7 +1360,7 @@ export function useWorkflowBuilder() {
     }, -1)
 
     const newChainIndex = maxChainIndex + 1
-    logger.debug('🔗 Creating chain placeholder for chain index:', newChainIndex)
+    logger.info('🔗 Creating chain placeholder for chain index:', newChainIndex)
 
     // Create chain placeholder node
     const chainPlaceholderId = `chain-placeholder-${nodeId}-${newChainIndex}-${Date.now()}`
@@ -1395,14 +1395,14 @@ export function useWorkflowBuilder() {
       const nodeWidth = 480
       const horizontalGap = 80 // Small gap between chains
       xPosition = highestChainFirstNode.position.x + nodeWidth + horizontalGap
-      logger.debug('🔗 Positioning to the right of chain', maxChainIndex, 'first node at X:', highestChainFirstNode.position.x, 'new X:', xPosition)
+      logger.info('🔗 Positioning to the right of chain', maxChainIndex, 'first node at X:', highestChainFirstNode.position.x, 'new X:', xPosition)
     } else {
       // If no existing chains, use AI Agent's X position
       xPosition = aiAgentNode.position.x
-      logger.debug('🔗 No existing chains found, using AI Agent X:', xPosition)
+      logger.info('🔗 No existing chains found, using AI Agent X:', xPosition)
     }
 
-    logger.debug('🔗 Chain placeholder position:', { x: xPosition, y: yPosition, chainIndex: newChainIndex })
+    logger.info('🔗 Chain placeholder position:', { x: xPosition, y: yPosition, chainIndex: newChainIndex })
 
     const chainPlaceholderNode: Node = {
       id: chainPlaceholderId,
@@ -1438,7 +1438,7 @@ export function useWorkflowBuilder() {
       }
     ])
 
-    logger.debug('🔗 Chain placeholder created:', chainPlaceholderId, 'for chain index:', newChainIndex)
+    logger.info('🔗 Chain placeholder created:', chainPlaceholderId, 'for chain index:', newChainIndex)
   }, [setNodes, setEdges, handleAddActionClick])
 
   // Now we can define the actual undo/redo implementation
@@ -1489,7 +1489,7 @@ export function useWorkflowBuilder() {
   // For now, just create placeholder functions that will be updated
   const handleUndo = useCallback(() => {
     if (!handleUndoRef.current) {
-      logger.debug('Undo handler not yet initialized')
+      logger.info('Undo handler not yet initialized')
       return
     }
     handleUndoRef.current()
@@ -1497,7 +1497,7 @@ export function useWorkflowBuilder() {
 
   const handleRedo = useCallback(() => {
     if (!handleRedoRef.current) {
-      logger.debug('Redo handler not yet initialized')
+      logger.info('Redo handler not yet initialized')
       return
     }
     handleRedoRef.current()
@@ -1718,7 +1718,7 @@ export function useWorkflowBuilder() {
             if (!conn?.source || !conn?.target) continue
             // Skip edges to/from AddActionNodes (they should be created dynamically)
             if (conn.source.includes('add-action') || conn.target.includes('add-action')) {
-              // logger.debug('Skipping saved AddActionNode edge:', conn.id)
+              // logger.info('Skipping saved AddActionNode edge:', conn.id)
               continue
             }
             if (!validNodeIds.has(conn.source) || !validNodeIds.has(conn.target)) continue
@@ -2449,7 +2449,7 @@ export function useWorkflowBuilder() {
 
   // Handle action selection
   const handleActionSelect = useCallback((integration: IntegrationInfo, action: NodeComponent) => {
-    // logger.debug('🟣 [handleActionSelect] Called with:', {
+    // logger.info('🟣 [handleActionSelect] Called with:', {
     //   integration: integration?.name,
     //   action: action?.type,
     //   sourceAddNode: dialogsHook.sourceAddNode,
@@ -2474,7 +2474,7 @@ export function useWorkflowBuilder() {
 
       // Check if this is for an AI Agent chain - if so, auto-create config with AI fields
       if (sourceInfo?.isAIAgentAction) {
-        logger.debug('🤖 [handleActionSelect] AI Agent action - creating auto config with AI fields', {
+        logger.info('🤖 [handleActionSelect] AI Agent action - creating auto config with AI fields', {
           actionType: action.type,
           actionTitle: action.title,
           sourceInfo
@@ -2486,7 +2486,7 @@ export function useWorkflowBuilder() {
           _allFieldsAI: true,  // Flag to indicate all fields should be AI-generated
         }
 
-        logger.debug('🤖 [handleActionSelect] Created aiConfig:', aiConfig)
+        logger.info('🤖 [handleActionSelect] Created aiConfig:', aiConfig)
 
         // Add the action directly with AI config and chain metadata
         handleAddAction(integration, action, aiConfig, sourceInfo)
@@ -2520,12 +2520,12 @@ export function useWorkflowBuilder() {
     } else {
       // Add action without configuration
       const sourceInfo = dialogsHook.sourceAddNode
-      logger.debug('🟣 [handleActionSelect] Node does NOT need configuration, adding directly with sourceNodeInfo:', sourceInfo)
+      logger.info('🟣 [handleActionSelect] Node does NOT need configuration, adding directly with sourceNodeInfo:', sourceInfo)
 
       if (sourceInfo) {
         // TODO: Add the action directly without configuration
         // This needs to be handled differently since handleAddAction is defined later
-        logger.debug('🟣 [handleActionSelect] Would add action directly, but implementation needed')
+        logger.info('🟣 [handleActionSelect] Would add action directly, but implementation needed')
       } else {
         logger.warn('🟣 [handleActionSelect] No sourceNodeInfo available for direct add')
       }
@@ -2608,7 +2608,7 @@ export function useWorkflowBuilder() {
 
   // Handle adding an action node
   const handleAddAction = useCallback((integration: any, nodeComponent: any, config: Record<string, any>, sourceNodeInfo: any) => {
-    // logger.debug('🟢 [handleAddAction] START - called with:', {
+    // logger.info('🟢 [handleAddAction] START - called with:', {
     //   integration: integration?.name,
     //   nodeComponent: nodeComponent?.type,
     //   sourceNodeInfo,
@@ -2641,7 +2641,7 @@ export function useWorkflowBuilder() {
       return undefined
     }
 
-    // logger.debug('Found parent node:', parentNode.id, 'insertBefore:', sourceNodeInfo.insertBefore)
+    // logger.info('Found parent node:', parentNode.id, 'insertBefore:', sourceNodeInfo.insertBefore)
 
     // Check if the parent node is part of an AI agent chain
     let parentAIAgentId = parentNode?.data?.parentAIAgentId
@@ -2662,13 +2662,13 @@ export function useWorkflowBuilder() {
       parentChainIndex = sourceNodeInfo.parentChainIndex ?? 0
     }
 
-    // logger.debug('AI Agent metadata:', { parentAIAgentId, parentChainIndex })
+    // logger.info('AI Agent metadata:', { parentAIAgentId, parentChainIndex })
 
     // Generate proper node ID using UUID for database compatibility
     // (workflow_nodes.id is uuid type)
     const newNodeId = crypto.randomUUID()
 
-    // logger.debug('Generated newNodeId:', newNodeId, 'isAIAgentChain:', !!parentAIAgentId)
+    // logger.info('Generated newNodeId:', newNodeId, 'isAIAgentChain:', !!parentAIAgentId)
 
     // Determine position: if adding from a chain placeholder, use its exact position
     const sourceNode = nodes.find(n => n.id === sourceNodeInfo.id)
@@ -2681,7 +2681,7 @@ export function useWorkflowBuilder() {
         x: sourceNode.position.x,
         y: sourceNode.position.y
       }
-      logger.debug('🔵 Using chain placeholder position:', nodePosition)
+      logger.info('🔵 Using chain placeholder position:', nodePosition)
     } else {
       // Default positioning below parent
       nodePosition = {
@@ -2725,7 +2725,7 @@ export function useWorkflowBuilder() {
     setNodes(nds => {
       // Check if we're inserting between nodes
       if (sourceNodeInfo.insertBefore) {
-        // logger.debug('Inserting between nodes. Target:', sourceNodeInfo.insertBefore)
+        // logger.info('Inserting between nodes. Target:', sourceNodeInfo.insertBefore)
 
         const targetNode = nds.find(n => n.id === sourceNodeInfo.insertBefore)
         if (targetNode) {
@@ -2758,11 +2758,11 @@ export function useWorkflowBuilder() {
             return node
           })
 
-          logger.debug('Positioned new node at:', newNode.position)
-          logger.debug('Moved target and downstream nodes down by:', nodeSpacing)
+          logger.info('Positioned new node at:', newNode.position)
+          logger.info('Moved target and downstream nodes down by:', nodeSpacing)
 
           const result = [...updatedNodes, { ...newNode, draggable: true }]
-          logger.debug('Total nodes after insertion:', result.length)
+          logger.info('Total nodes after insertion:', result.length)
           return result
         } else {
           logger.error('Target node not found for insertion:', sourceNodeInfo.insertBefore)
@@ -2780,11 +2780,11 @@ export function useWorkflowBuilder() {
         if (isAIAgent) {
           // For AI Agent nodes, create a chain placeholder
           const placeholderId = `chain-placeholder-${newNodeId}`
-          logger.debug('🟣 Creating chain placeholder for AI Agent:', newNodeId, 'with ID:', placeholderId)
+          logger.info('🟣 Creating chain placeholder for AI Agent:', newNodeId, 'with ID:', placeholderId)
 
           // Store the handler to open action selection modal
           const clickHandler = () => {
-            logger.debug('Chain placeholder clicked for AI Agent:', newNodeId)
+            logger.info('Chain placeholder clicked for AI Agent:', newNodeId)
             // Open the action selection dialog with AI Agent as source
             handleAddActionClick(placeholderId, newNodeId)
           }
@@ -2807,7 +2807,7 @@ export function useWorkflowBuilder() {
               onClick: clickHandler
             }
           }
-          // logger.debug('🟣 Chain placeholder node created:', placeholderNode)
+          // logger.info('🟣 Chain placeholder node created:', placeholderNode)
           return [...updatedNodes, placeholderNode]
         }
 
@@ -2827,13 +2827,13 @@ export function useWorkflowBuilder() {
     setEdges(eds => {
       // Check if we're inserting between nodes
       if (sourceNodeInfo.insertBefore) {
-        // logger.debug('Updating edges for insertion. Removing edge:', parentId, '->', sourceNodeInfo.insertBefore)
+        // logger.info('Updating edges for insertion. Removing edge:', parentId, '->', sourceNodeInfo.insertBefore)
         // Remove the edge between parentId and insertBefore
         const filteredEdges = eds.filter(e =>
           !(e.source === parentId && e.target === sourceNodeInfo.insertBefore)
         )
 
-        // logger.debug('Edges before:', eds.length, 'Edges after filter:', filteredEdges.length)
+        // logger.info('Edges before:', eds.length, 'Edges after filter:', filteredEdges.length)
 
         // Add edges: parent -> newNode -> insertBefore
         const newEdges = [...filteredEdges,
@@ -2858,8 +2858,8 @@ export function useWorkflowBuilder() {
           // Don't add edge to AddAction when inserting between nodes
         ]
 
-        // logger.debug('Added new edges:', `${parentId} -> ${newNodeId}`, `${newNodeId} -> ${sourceNodeInfo.insertBefore}`)
-        // logger.debug('Total edges after insertion:', newEdges.length)
+        // logger.info('Added new edges:', `${parentId} -> ${newNodeId}`, `${newNodeId} -> ${sourceNodeInfo.insertBefore}`)
+        // logger.info('Total edges after insertion:', newEdges.length)
         return newEdges
       } else {
         // Regular add action (at the end of chain)
@@ -3045,7 +3045,7 @@ export function useWorkflowBuilder() {
       insertBefore: targetId
     }
 
-    // logger.debug('🔶 [handleAddNodeBetween] Setting sourceAddNode for insertion:', insertNodeInfo)
+    // logger.info('🔶 [handleAddNodeBetween] Setting sourceAddNode for insertion:', insertNodeInfo)
 
     dialogsHook.setSourceAddNode(insertNodeInfo)
     dialogsHook.setSelectedIntegration(null)
@@ -3149,7 +3149,7 @@ export function useWorkflowBuilder() {
     let placeholdersToDelete = new Set([`add-action-${nodeId}`])
 
     if (isAIAgent) {
-      // logger.debug('🗑️ Deleting AI Agent and all its chains')
+      // logger.info('🗑️ Deleting AI Agent and all its chains')
 
       // Find all nodes that are children of this AI Agent
       currentNodes.forEach(n => {
@@ -3173,7 +3173,7 @@ export function useWorkflowBuilder() {
         }
       })
 
-      logger.debug(`🗑️ Deleting AI Agent with ${nodesToDelete.size - 1} related nodes`)
+      logger.info(`🗑️ Deleting AI Agent with ${nodesToDelete.size - 1} related nodes`)
     }
 
     // Convert sets to arrays for easier use
@@ -3265,7 +3265,7 @@ export function useWorkflowBuilder() {
                     style: { stroke: '#d1d5db', strokeWidth: 1 },
                     data: {
                       onAddNode: () => {
-                        // logger.debug('🔵 Edge button clicked - inserting between:', incomingEdge.source, 'and', outgoingEdge.target)
+                        // logger.info('🔵 Edge button clicked - inserting between:', incomingEdge.source, 'and', outgoingEdge.target)
                         handleAddNodeBetween(incomingEdge.source, outgoingEdge.target)
                       }
                     }
@@ -3306,11 +3306,11 @@ export function useWorkflowBuilder() {
             n.type !== 'addAction'
           )
 
-          logger.debug(`🔍 AI Agent ${parentAIAgentId} has ${remainingChainNodes.length} remaining chain nodes after deletion`)
+          logger.info(`🔍 AI Agent ${parentAIAgentId} has ${remainingChainNodes.length} remaining chain nodes after deletion`)
 
           // If no chain nodes remain, restore the Chain Placeholder
           if (remainingChainNodes.length === 0) {
-            logger.debug('🔄 Restoring Chain Placeholder for AI Agent with no chains')
+            logger.info('🔄 Restoring Chain Placeholder for AI Agent with no chains')
 
             const chainPlaceholderId = `chain-placeholder-${parentAIAgentId}-0-${Date.now()}`
             const chainPlaceholderNode: Node = {
@@ -3326,7 +3326,7 @@ export function useWorkflowBuilder() {
                 parentAIAgentId: parentAIAgentId,
                 parentChainIndex: 0,
                 onClick: () => {
-                  logger.debug('🔵 Chain placeholder onClick triggered')
+                  logger.info('🔵 Chain placeholder onClick triggered')
                   handleAddActionClick(chainPlaceholderId, parentAIAgentId)
                 }
               }

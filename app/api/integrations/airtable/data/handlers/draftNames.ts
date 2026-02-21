@@ -19,7 +19,7 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
 ): Promise<DraftNameOption[]> => {
   const { baseId, tableName } = options
 
-  logger.debug("🔍 Airtable draft names fetcher called with:", {
+  logger.info("🔍 Airtable draft names fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -33,16 +33,16 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
     if (!baseId || !tableName) {
-      logger.debug('⚠️ Base ID or Table name missing, returning empty list')
+      logger.info('⚠️ Base ID or Table name missing, returning empty list')
       return []
     }
 
-    logger.debug('🔍 Fetching Airtable draft names from API...')
+    logger.info('🔍 Fetching Airtable draft names from API...')
 
     // Fetch records to extract unique draft names
     const queryParams = new URLSearchParams()
@@ -59,7 +59,7 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
     if (data.records && Array.isArray(data.records)) {
       // Log first record to see field structure
       if (data.records.length > 0) {
-        logger.debug('📊 [Airtable] Sample record fields:', Object.keys(data.records[0].fields || {}))
+        logger.info('📊 [Airtable] Sample record fields:', Object.keys(data.records[0].fields || {}))
       }
 
       data.records.forEach((record: any) => {
@@ -70,7 +70,7 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
           )
 
           if (fieldName) {
-            logger.debug(`📊 [Airtable] Found matching field '${fieldName}' for draft names`)
+            logger.info(`📊 [Airtable] Found matching field '${fieldName}' for draft names`)
             const draftName = record.fields[fieldName]
             if (draftName && typeof draftName === 'string') {
               draftNames.add(draftName)
@@ -81,7 +81,7 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
               key.toLowerCase().includes('draft')
             )
             if (draftField) {
-              logger.debug(`📊 [Airtable] Found field '${draftField}' containing 'draft'`)
+              logger.info(`📊 [Airtable] Found field '${draftField}' containing 'draft'`)
               const draftValue = record.fields[draftField]
               if (draftValue && typeof draftValue === 'string') {
                 draftNames.add(draftValue)
@@ -98,11 +98,11 @@ export const getAirtableDraftNames: AirtableDataHandler<DraftNameOption> = async
       label: name
     })).sort((a, b) => a.label.localeCompare(b.label))
 
-    logger.debug(`✅ Airtable draft names fetched successfully: ${options.length} unique names`)
+    logger.info(`✅ Airtable draft names fetched successfully: ${options.length} unique names`)
 
     // If no options found, return some test data to verify the UI is working
     if (options.length === 0) {
-      logger.debug('⚠️ No draft names found in records, returning test data');
+      logger.info('⚠️ No draft names found in records, returning test data');
       return [
         { value: 'draft-1', label: 'Draft Design v1' },
         { value: 'draft-2', label: 'Draft Design v2' },

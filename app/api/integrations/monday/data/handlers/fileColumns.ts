@@ -67,7 +67,7 @@ export const getMondayFileColumns: MondayDataHandler<MondayColumn> = async (
       type: 'virtual'
     })
 
-    logger.debug(`✅ [Monday File Columns] Fetched ${fileColumns.length} file columns for board ${boardId}`)
+    logger.info(`✅ [Monday File Columns] Fetched ${fileColumns.length} file columns for board ${boardId}`)
 
     return fileColumns
 

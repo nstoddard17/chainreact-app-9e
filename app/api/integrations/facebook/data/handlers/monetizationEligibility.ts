@@ -35,7 +35,7 @@ export const getMonetizationEligibility: FacebookDataHandler<MonetizationEligibi
       return []
     }
 
-    logger.debug('[Facebook] Checking monetization eligibility for page:', pageId)
+    logger.info('[Facebook] Checking monetization eligibility for page:', pageId)
 
     // Validate and get token
     const tokenResult = await validateFacebookToken(integration)
@@ -62,7 +62,7 @@ export const getMonetizationEligibility: FacebookDataHandler<MonetizationEligibi
     const followerCount = pageData.followers_count || 0
     const pageName = pageData.name || 'Unknown Page'
 
-    logger.debug('[Facebook] Page data:', {
+    logger.info('[Facebook] Page data:', {
       pageId,
       pageName,
       followerCount,
@@ -92,13 +92,13 @@ export const getMonetizationEligibility: FacebookDataHandler<MonetizationEligibi
           viewMinutes = values.reduce((sum: number, entry: any) => sum + (entry.value || 0), 0)
           hasMinViewTime = viewMinutes >= 600000
 
-          logger.debug('[Facebook] Video insights:', { viewMinutes, hasMinViewTime })
+          logger.info('[Facebook] Video insights:', { viewMinutes, hasMinViewTime })
         }
       } else {
-        logger.debug('[Facebook] Could not fetch video insights (may require additional permissions)')
+        logger.info('[Facebook] Could not fetch video insights (may require additional permissions)')
       }
     } catch (error) {
-      logger.debug('[Facebook] Error fetching video insights:', error)
+      logger.info('[Facebook] Error fetching video insights:', error)
       // Continue without view time data
     }
 
@@ -134,7 +134,7 @@ export const getMonetizationEligibility: FacebookDataHandler<MonetizationEligibi
       message
     }
 
-    logger.debug('[Facebook] Monetization eligibility result:', result)
+    logger.info('[Facebook] Monetization eligibility result:', result)
 
     return [result]
   } catch (error: any) {

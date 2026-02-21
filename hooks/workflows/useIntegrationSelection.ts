@@ -240,14 +240,14 @@ export function useIntegrationSelection() {
 
       // Hide actions marked with hideInActionSelection
       if (action.hideInActionSelection) {
-        logger.debug(`Hiding action: ${action.title || action.type}`)
+        logger.info(`Hiding action: ${action.title || action.type}`)
         return false
       }
 
       return true
     })
 
-    logger.debug(`[useIntegrationSelection] Filtered ${selectedIntegration.name} actions:`, {
+    logger.info(`[useIntegrationSelection] Filtered ${selectedIntegration.name} actions:`, {
       total: selectedIntegration.actions.length,
       filtered: filtered.length,
       actions: filtered.map(a => a.title || a.type)

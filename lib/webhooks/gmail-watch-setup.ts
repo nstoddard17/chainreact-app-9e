@@ -79,7 +79,7 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<GmailWa
     // Check if token needs refresh
     let accessToken = decryptedAccessToken
     if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
-      logger.debug('Access token expired, refreshing...')
+      logger.info('Access token expired, refreshing...')
       const newToken = await GmailService.refreshToken(config.userId, config.integrationId)
       if (!newToken) {
         throw new Error('Failed to refresh Gmail access token')
@@ -119,7 +119,7 @@ export async function setupGmailWatch(config: GmailWatchConfig): Promise<GmailWa
 
     const expirationIso = new Date(parseInt(response.data.expiration)).toISOString()
 
-    logger.debug('✅ Gmail watch created successfully:', {
+    logger.info('✅ Gmail watch created successfully:', {
       historyId: response.data.historyId,
       expiration: expirationIso,
       emailAddress: profile.data.emailAddress
@@ -187,7 +187,7 @@ export async function stopGmailWatch(userId: string, integrationId: string): Pro
       .single()
 
     if (error || !integration) {
-      logger.debug('Gmail integration not found - watch may already be stopped')
+      logger.info('Gmail integration not found - watch may already be stopped')
       return
     }
 
@@ -200,7 +200,7 @@ export async function stopGmailWatch(userId: string, integrationId: string): Pro
     // Decrypt the access token first
     const decryptedAccessToken = await decryptToken(integration.access_token)
     if (!decryptedAccessToken) {
-      logger.debug('Failed to decrypt Gmail access token - watch may already be stopped')
+      logger.info('Failed to decrypt Gmail access token - watch may already be stopped')
       return
     }
     oauth2Client.setCredentials({ access_token: decryptedAccessToken })
@@ -220,7 +220,7 @@ export async function stopGmailWatch(userId: string, integrationId: string): Pro
       .eq('integration_id', integrationId)
       .eq('provider', 'gmail')
 
-    logger.debug('✅ Gmail watch stopped successfully')
+    logger.info('✅ Gmail watch stopped successfully')
   } catch (error) {
     logger.error('Failed to stop Gmail watch:', error)
     // Don't throw - watch might already be stopped

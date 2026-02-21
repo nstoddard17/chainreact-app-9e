@@ -116,7 +116,7 @@ export async function middleware(req: NextRequest) {
     const accountAge = new Date().getTime() - new Date(user.created_at).getTime()
     const isNewBetaUser = isBetaTester && accountAge < 60000 // Less than 1 minute old
 
-    logger.debug('[Middleware] Username check:', {
+    logger.info('[Middleware] Username check:', {
       path: pathname,
       userId: user.id,
       provider: profile?.provider,
@@ -133,7 +133,7 @@ export async function middleware(req: NextRequest) {
     if (profileError && profileError.code === 'PGRST116') {
       // Give new beta users a grace period for profile creation
       if (isNewBetaUser) {
-        logger.debug('[Middleware] New beta user, profile still being created, allowing access')
+        logger.info('[Middleware] New beta user, profile still being created, allowing access')
         return res
       }
 
@@ -142,13 +142,13 @@ export async function middleware(req: NextRequest) {
                           user.identities?.some(id => id.provider === 'google')
 
       if (isGoogleUser && !pathname.startsWith('/auth/setup-username')) {
-        logger.debug('[Middleware] Google user without profile, redirecting to setup')
+        logger.info('[Middleware] Google user without profile, redirecting to setup')
         return NextResponse.redirect(new URL('/auth/setup-username', req.url))
       }
 
       // For other users without profiles after grace period
       if (!pathname.startsWith('/auth/setup-username')) {
-        logger.debug('[Middleware] User without profile, redirecting to setup')
+        logger.info('[Middleware] User without profile, redirecting to setup')
         return NextResponse.redirect(new URL('/auth/setup-username', req.url))
       }
     }
@@ -160,16 +160,16 @@ export async function middleware(req: NextRequest) {
 
       // Give new beta users a grace period
       if (isNewBetaUser) {
-        logger.debug('[Middleware] New beta user without username yet, allowing temporary access')
+        logger.info('[Middleware] New beta user without username yet, allowing temporary access')
         // Set a temporary redirect after grace period
         if (accountAge > 30000) { // After 30 seconds
-          logger.debug('[Middleware] Beta user grace period expired, redirecting to setup')
+          logger.info('[Middleware] Beta user grace period expired, redirecting to setup')
           return NextResponse.redirect(new URL('/auth/setup-username', req.url))
         }
         return res
       }
 
-      logger.debug('[Middleware] User without username, redirecting to setup', {
+      logger.info('[Middleware] User without username, redirecting to setup', {
         username: profile?.username,
         provider: profile?.provider
       })

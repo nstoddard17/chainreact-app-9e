@@ -9,8 +9,8 @@ import { makeNotionApiRequest, validateNotionIntegration, resolveNotionAccessTok
 import { logger } from '@/lib/utils/logger'
 
 export const getNotionDatabaseFields: NotionDataHandler = async (integration: NotionIntegration, context?: any): Promise<any[]> => {
-  logger.debug("🔍 Notion database fields fetcher called")
-  logger.debug("🔍 Context:", context)
+  logger.info("🔍 Notion database fields fetcher called")
+  logger.info("🔍 Context:", context)
 
   try {
     validateNotionIntegration(integration)
@@ -23,7 +23,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: No
       throw new Error("Database ID is required to fetch fields")
     }
 
-    logger.debug(`🔍 Fetching database schema and first entry for database: ${databaseId}`)
+    logger.info(`🔍 Fetching database schema and first entry for database: ${databaseId}`)
 
     // First, get the database schema to understand all properties
     const databaseResponse = await makeNotionApiRequest(
@@ -44,7 +44,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: No
     const properties = database.properties || {}
     const databaseTitle = database.title?.[0]?.plain_text || 'Untitled Database'
 
-    logger.debug(`✅ Database "${databaseTitle}" has ${Object.keys(properties).length} properties`)
+    logger.info(`✅ Database "${databaseTitle}" has ${Object.keys(properties).length} properties`)
 
     // Now, query the database to get the first entry for current values
     const queryResponse = await makeNotionApiRequest(
@@ -65,7 +65,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: No
     if (queryResponse.ok) {
       const queryData = await queryResponse.json()
       firstEntry = queryData.results?.[0]
-      logger.debug(`✅ Found first entry with ${firstEntry ? 'data' : 'no data'}`)
+      logger.info(`✅ Found first entry with ${firstEntry ? 'data' : 'no data'}`)
     }
 
     // Transform properties to field format with current values
@@ -204,7 +204,7 @@ export const getNotionDatabaseFields: NotionDataHandler = async (integration: No
       fields.push(field)
     })
 
-    logger.debug(`✅ Returning ${fields.length} fields with current values`)
+    logger.info(`✅ Returning ${fields.length} fields with current values`)
 
     return fields
 

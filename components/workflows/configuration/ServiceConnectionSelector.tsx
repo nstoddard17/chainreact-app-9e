@@ -117,7 +117,7 @@ export function ServiceConnectionSelector({
     setFetchError(null)
 
     try {
-      logger.debug('[ServiceConnectionSelector] Fetching all connections', { providerId })
+      logger.info('[ServiceConnectionSelector] Fetching all connections', { providerId })
 
       // Get the current session for authorization
       const supabase = createClient()
@@ -145,7 +145,7 @@ export function ServiceConnectionSelector({
       const data = await response.json()
       const fetchedConns = data.connections || []
 
-      logger.debug('[ServiceConnectionSelector] Fetched connections', {
+      logger.info('[ServiceConnectionSelector] Fetched connections', {
         providerId,
         count: fetchedConns.length
       })
@@ -197,7 +197,7 @@ export function ServiceConnectionSelector({
   // Listen for integration reconnection events
   useEffect(() => {
     const handleReconnectionEvent = async (event: CustomEvent) => {
-      logger.debug('[ServiceConnectionSelector] Reconnection event received', {
+      logger.info('[ServiceConnectionSelector] Reconnection event received', {
         eventProvider: event.detail?.provider,
         componentProviderId: providerId,
         matches: event.detail?.provider === providerId,
@@ -205,16 +205,16 @@ export function ServiceConnectionSelector({
       })
 
       if (event.detail?.provider === providerId) {
-        logger.debug('[ServiceConnectionSelector] Provider matches, refreshing connections')
+        logger.info('[ServiceConnectionSelector] Provider matches, refreshing connections')
         try {
           await fetchAllConnections()
-          logger.debug('[ServiceConnectionSelector] Connections refreshed successfully')
+          logger.info('[ServiceConnectionSelector] Connections refreshed successfully')
         } catch (error: any) {
           logger.error('[ServiceConnectionSelector] Failed to refresh connections', { error: error.message })
         } finally {
           // Always clear spinner, even if fetch fails
           setIsRefreshing(false)
-          logger.debug('[ServiceConnectionSelector] Cleared refreshing state')
+          logger.info('[ServiceConnectionSelector] Cleared refreshing state')
         }
       }
     }

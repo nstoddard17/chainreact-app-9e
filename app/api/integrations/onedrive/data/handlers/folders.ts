@@ -20,7 +20,7 @@ async function fetchFoldersRecursively(
   maxDepth: number = 10 // Prevent infinite recursion
 ): Promise<void> {
   if (depth >= maxDepth) {
-    logger.debug(`[OneDrive] Max depth ${maxDepth} reached at path: ${parentPath}`)
+    logger.info(`[OneDrive] Max depth ${maxDepth} reached at path: ${parentPath}`)
     return
   }
 
@@ -34,7 +34,7 @@ async function fetchFoldersRecursively(
 
   if (!foldersResponse.ok) {
     // Don't fail the whole operation if one folder fails - just log and continue
-    logger.debug(`[OneDrive] Could not fetch children of folder ${parentId}: ${foldersResponse.status}`)
+    logger.info(`[OneDrive] Could not fetch children of folder ${parentId}: ${foldersResponse.status}`)
     return
   }
 
@@ -70,7 +70,7 @@ async function fetchFoldersRecursively(
 }
 
 export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (integration: OneDriveIntegration, options: any = {}): Promise<OneDriveFolder[]> => {
-  logger.debug("🔍 OneDrive folders fetcher called with integration:", {
+  logger.info("🔍 OneDrive folders fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -81,15 +81,15 @@ export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (in
     // Validate integration status
     validateOneDriveIntegration(integration)
 
-    logger.debug(`🔍 Validating OneDrive token...`)
+    logger.info(`🔍 Validating OneDrive token...`)
     const tokenResult = await validateOneDriveToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ OneDrive token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ OneDrive token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    logger.debug('🔍 Testing OneDrive drive access...')
+    logger.info('🔍 Testing OneDrive drive access...')
 
     // First, test if we can access the drive at all
     // Note: buildOneDriveApiUrl automatically adds /v1.0
@@ -109,10 +109,10 @@ export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (in
       }
     }
 
-    logger.debug('✅ OneDrive drive access successful')
+    logger.info('✅ OneDrive drive access successful')
 
     // Fetch ALL folders recursively
-    logger.debug('🔍 Fetching ALL OneDrive folders recursively...')
+    logger.info('🔍 Fetching ALL OneDrive folders recursively...')
     const allFolders: any[] = []
 
     await fetchFoldersRecursively(tokenResult.token!, null, '', allFolders)
@@ -132,7 +132,7 @@ export const getOneDriveFolders: OneDriveDataHandler<OneDriveFolder> = async (in
       parentReference: undefined
     }
 
-    logger.debug(`✅ OneDrive folders fetched successfully: ${allFolders.length} folders + root`)
+    logger.info(`✅ OneDrive folders fetched successfully: ${allFolders.length} folders + root`)
     return [rootOption, ...allFolders]
 
   } catch (error: any) {

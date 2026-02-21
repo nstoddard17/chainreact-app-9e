@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
           return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
         }
 
-        logger.debug(`✅ Updated existing Facebook integration: ${existingIntegration.id}`)
+        logger.info(`✅ Updated existing Facebook integration: ${existingIntegration.id}`)
       } else {
         // Insert new integration (different email = new account)
         const { error: insertError } = await supabase
@@ -180,7 +180,7 @@ export async function GET(request: NextRequest) {
           return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
         }
 
-        logger.debug(`✅ Created new Facebook integration for ${userEmail}`)
+        logger.info(`✅ Created new Facebook integration for ${userEmail}`)
       }
     } else {
       // Fallback: No email available, try to update by user_id + provider
@@ -203,7 +203,7 @@ export async function GET(request: NextRequest) {
           return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
         }
 
-        logger.debug(`✅ Updated existing Facebook integration (no email): ${existingIntegration.id}`)
+        logger.info(`✅ Updated existing Facebook integration (no email): ${existingIntegration.id}`)
       } else {
         const { error: insertError } = await supabase
           .from('integrations')
@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
           return createPopupResponse('error', provider, 'Failed to store integration data', baseUrl)
         }
 
-        logger.debug(`✅ Created new Facebook integration (no email)`)
+        logger.info(`✅ Created new Facebook integration (no email)`)
       }
     }
 

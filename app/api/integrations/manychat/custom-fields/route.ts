@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const client = createManyChatClient(apiKey)
     const fields = await client.getCustomFields()
 
-    logger.debug(`[MANYCHAT CUSTOM FIELDS] Fetched ${fields.length} custom fields`)
+    logger.info(`[MANYCHAT CUSTOM FIELDS] Fetched ${fields.length} custom fields`)
 
     return NextResponse.json({ fields })
 

@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     process.env.TUNNEL_URL
   const redirectBase = devWebhookUrl || baseUrl
 
-  logger.debug('📍 Slack callback - Base URL:', baseUrl)
-  logger.debug('📍 Slack callback - Using redirect base:', redirectBase)
+  logger.info('📍 Slack callback - Base URL:', baseUrl)
+  logger.info('📍 Slack callback - Using redirect base:', redirectBase)
 
   return handleOAuthCallback(request, {
     provider: 'slack',
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
       const expiresIn = tokenData.authed_user?.expires_in || tokenData.expires_in
 
-      logger.debug('Slack token response structure:', {
+      logger.info('Slack token response structure:', {
         ok: tokenData.ok,
         app_id: tokenData.app_id,
         authed_user: tokenData.authed_user ? { id: tokenData.authed_user.id } : null,

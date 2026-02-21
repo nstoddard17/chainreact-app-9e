@@ -44,7 +44,7 @@ export async function hubspotUpdateLineItem(
       throw new Error('At least one field (quantity, price, or discount) must be provided')
     }
 
-    logger.debug('Updating line item:', { lineItemId, properties })
+    logger.info('Updating line item:', { lineItemId, properties })
 
     const response = await fetch(
       `https://api.hubapi.com/crm/v3/objects/line_items/${lineItemId}`,

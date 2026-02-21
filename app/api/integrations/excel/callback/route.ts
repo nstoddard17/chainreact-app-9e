@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
               avatarUrl = `https://graph.microsoft.com/v1.0/me/photo/$value`
             }
           } catch (photoError) {
-            logger.debug("Microsoft Graph photo not available for user")
+            logger.info("Microsoft Graph photo not available for user")
           }
 
           return {

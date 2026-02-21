@@ -151,7 +151,7 @@ export function AirtableImageField({
   const handleFileSelect = () => {
     // Prevent multiple simultaneous file choosers from opening
     if (isFileChooserOpen.current) {
-      logger.debug('🚫 [AirtableImageField] File chooser already open, ignoring click');
+      logger.info('🚫 [AirtableImageField] File chooser already open, ignoring click');
       return;
     }
 
@@ -159,7 +159,7 @@ export function AirtableImageField({
 
     // When replacing a file (files already exist), ensure we're ready for a clean replacement
     if (hasLocalFile && !field.multiple) {
-      logger.debug('🔄 [AirtableImageField] Replacing existing file...');
+      logger.info('🔄 [AirtableImageField] Replacing existing file...');
     }
     fileInputRef.current?.click();
   };
@@ -193,11 +193,11 @@ export function AirtableImageField({
 
         // If field allows multiple, append to existing
         if (field.multiple && Array.isArray(value)) {
-          logger.debug('📎 [AirtableImageField] Adding image to multiple:', newImage.filename);
+          logger.info('📎 [AirtableImageField] Adding image to multiple:', newImage.filename);
           onChange([...value, newImage]);
         } else {
           // Single image - completely replace existing
-          logger.debug('🔄 [AirtableImageField] Replacing image. Old:', value?.filename || 'none', '→ New:', newImage.filename);
+          logger.info('🔄 [AirtableImageField] Replacing image. Old:', value?.filename || 'none', '→ New:', newImage.filename);
 
           // First clear the old value to ensure clean replacement
           onChange(null);
@@ -205,7 +205,7 @@ export function AirtableImageField({
           // Then set the new value after a microtask to ensure React processes the clear
           setTimeout(() => {
             onChange(newImage);
-            logger.debug('✅ [AirtableImageField] Image replaced successfully');
+            logger.info('✅ [AirtableImageField] Image replaced successfully');
           }, 0);
         }
 

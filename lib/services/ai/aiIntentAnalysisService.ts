@@ -35,7 +35,7 @@ export class AIIntentAnalysisService {
     integrations: Integration[], 
     timeout: number = 8000
   ): Promise<IntentAnalysisResult> {
-    logger.debug("🧠 Starting intent analysis for message length:", message.length)
+    logger.info("🧠 Starting intent analysis for message length:", message.length)
 
     const systemPrompt = this.buildSystemPrompt(integrations, message)
 
@@ -43,7 +43,7 @@ export class AIIntentAnalysisService {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-      logger.debug("🤖 Making OpenAI API call for intent analysis...")
+      logger.info("🤖 Making OpenAI API call for intent analysis...")
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "system", content: systemPrompt }],
@@ -54,7 +54,7 @@ export class AIIntentAnalysisService {
       })
 
       clearTimeout(timeoutId)
-      logger.debug("✅ OpenAI API call completed")
+      logger.info("✅ OpenAI API call completed")
 
       const content = response.choices[0].message.content
       if (!content) {
@@ -63,7 +63,7 @@ export class AIIntentAnalysisService {
 
       try {
         const result = JSON.parse(content) as IntentAnalysisResult
-        logger.debug("✅ Intent analysis completed:", {
+        logger.info("✅ Intent analysis completed:", {
           intent: result.intent,
           action: result.action,
           specifiedIntegration: result.specifiedIntegration

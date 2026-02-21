@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       // API VERIFICATION: Microsoft Graph API endpoint for current user
       // Docs: https://learn.microsoft.com/en-us/graph/api/user-get
       // Returns: id, mail, userPrincipalName, displayName, etc.
-      logger.debug('🔍 Validating Teams account access...')
+      logger.info('🔍 Validating Teams account access...')
 
       try {
         const validationResponse = await fetch(`${baseUrl}/api/integrations/validate-teams-account`, {
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         })
 
         const validationData = await validationResponse.json()
-        logger.debug('🔍 Teams account validation result:', validationData)
+        logger.info('🔍 Teams account validation result:', validationData)
 
         if (!validationData.success) {
           if (validationData.error === 'TEAMS_PERSONAL_ACCOUNT') {
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
             avatarUrl = `https://graph.microsoft.com/v1.0/me/photo/$value`
           }
         } catch (photoError) {
-          logger.debug("Microsoft Graph photo not available for user")
+          logger.info("Microsoft Graph photo not available for user")
         }
 
         // Calculate refresh token expiration (Microsoft default is 90 days)

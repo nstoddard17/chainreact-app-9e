@@ -26,7 +26,7 @@ const formReducer = (state: FormState, action: FormAction): FormState => {
         isDirty: true
       };
       
-      logger.debug('🔍 formReducer SET_VALUE:', { 
+      logger.info('🔍 formReducer SET_VALUE:', { 
         field: action.field, 
         value: action.value, 
         oldValues: state.values, 
@@ -121,7 +121,7 @@ export const useFormState = (
 
   // Set a single form value
   const setValue = useCallback((field: string, value: any) => {
-    logger.debug('🔍 useFormState setValue called:', { field, value, currentState: state.values });
+    logger.info('🔍 useFormState setValue called:', { field, value, currentState: state.values });
     dispatch({ type: 'SET_VALUE', field, value });
     
     // Clear error for this field if it exists
@@ -132,7 +132,7 @@ export const useFormState = (
 
   // Set multiple form values at once
   const setValues = useCallback((values: Record<string, any>) => {
-    logger.debug('🔍 useFormState setValues called:', { values, currentState: state.values });
+    logger.info('🔍 useFormState setValues called:', { values, currentState: state.values });
     dispatch({ type: 'SET_VALUES', values });
     
     // Clear all errors when setting new values

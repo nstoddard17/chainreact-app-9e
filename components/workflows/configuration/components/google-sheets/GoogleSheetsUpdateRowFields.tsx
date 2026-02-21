@@ -71,7 +71,7 @@ export function GoogleSheetsUpdateRowFields({
         return;
       }
 
-      logger.debug('📊 [AddRowFields] Self-fetching sheet data', {
+      logger.info('📊 [AddRowFields] Self-fetching sheet data', {
         spreadsheetId: values.spreadsheetId,
         sheetName: values.sheetName,
         integrationId: intId
@@ -105,7 +105,7 @@ export function GoogleSheetsUpdateRowFields({
           fields: row.fields || row
         }));
         setSelfFetchedData(formattedData);
-        logger.debug('📊 [AddRowFields] Self-fetch complete', { rowCount: formattedData.length });
+        logger.info('📊 [AddRowFields] Self-fetch complete', { rowCount: formattedData.length });
       }
     } catch (error: any) {
       logger.error('📊 [AddRowFields] Self-fetch error', { error: error.message });

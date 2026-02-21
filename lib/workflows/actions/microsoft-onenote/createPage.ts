@@ -16,7 +16,7 @@ export async function onenoteCreatePage(
   const { notebookId, sectionId, title, content, contentType = "text/html" } = params
 
   if (context.testMode) {
-    logger.debug("[TEST MODE] Would create OneNote page:", { notebookId, sectionId, title })
+    logger.info("[TEST MODE] Would create OneNote page:", { notebookId, sectionId, title })
     return {
       success: true,
       output: {

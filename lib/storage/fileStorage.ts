@@ -311,7 +311,7 @@ export class FileStorageService {
         }
       }
 
-      logger.debug(`Cleaned up ${cleanedCount} expired files`)
+      logger.info(`Cleaned up ${cleanedCount} expired files`)
       return cleanedCount
     } catch (error) {
       logger.error('Error cleaning up expired files:', error)

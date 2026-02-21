@@ -12,7 +12,7 @@ export const getStripeSubscriptions: StripeDataHandler<StripeSubscription> = asy
   integration: StripeIntegration,
   options: any = {}
 ): Promise<StripeSubscription[]> => {
-  logger.debug('[Stripe Subscriptions] Fetching subscriptions', {
+  logger.info('[Stripe Subscriptions] Fetching subscriptions', {
     integrationId: integration.id,
     hasToken: !!integration.access_token
   })
@@ -63,7 +63,7 @@ export const getStripeSubscriptions: StripeDataHandler<StripeSubscription> = asy
       }
     })
 
-    logger.debug('[Stripe Subscriptions] Fetched successfully', {
+    logger.info('[Stripe Subscriptions] Fetched successfully', {
       count: subscriptions.length
     })
 

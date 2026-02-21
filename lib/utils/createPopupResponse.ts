@@ -124,7 +124,7 @@ export function createPopupResponse(
   const displayName = getProviderDisplayName(provider)
 
   // Log the popup response creation for debugging
-  logger.debug(`🔄 Creating popup response: type=${type}, provider=${provider}, displayName=${displayName}, message=${message}`)
+  logger.info(`🔄 Creating popup response: type=${type}, provider=${provider}, displayName=${displayName}, message=${message}`)
   const title = type === "success" ? `${displayName} Connection Successful` : `${displayName} Connection Failed`
   const header = type === "success" ? `${displayName} Connected!` : `Error Connecting ${displayName}`
   const status = type === "success" ? 200 : 400

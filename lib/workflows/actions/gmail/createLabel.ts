@@ -28,7 +28,7 @@ export async function createGmailLabel(
       }
     }
 
-    logger.debug(`[Gmail Create Label] Creating label: ${labelName}`)
+    logger.info(`[Gmail Create Label] Creating label: ${labelName}`)
 
     // Build request body
     const requestBody: any = {
@@ -49,7 +49,7 @@ export async function createGmailLabel(
         textColor: textColor || defaultTextColor
       }
 
-      logger.debug(`[Gmail Create Label] Setting colors - background: ${requestBody.color.backgroundColor}, text: ${requestBody.color.textColor}`)
+      logger.info(`[Gmail Create Label] Setting colors - background: ${requestBody.color.backgroundColor}, text: ${requestBody.color.textColor}`)
     }
 
     // Create label
@@ -82,7 +82,7 @@ export async function createGmailLabel(
 
     const result = await response.json()
 
-    logger.debug('[Gmail Create Label] Successfully created label:', result.id)
+    logger.info('[Gmail Create Label] Successfully created label:', result.id)
 
     return {
       success: true,

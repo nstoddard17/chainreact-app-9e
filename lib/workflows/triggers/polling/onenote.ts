@@ -134,7 +134,7 @@ export async function pollOneNoteForNewNotes(
     const data = await response.json()
     const pages = data.value || []
 
-    logger.debug('[OneNote Poll] Found new pages:', {
+    logger.info('[OneNote Poll] Found new pages:', {
       count: pages.length,
       userId,
       workflowId

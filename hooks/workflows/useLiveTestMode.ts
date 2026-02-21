@@ -87,7 +87,7 @@ export function useLiveTestMode(workflowId: string) {
       // Start polling for session status
       startSessionPolling()
 
-      logger.debug('✅ Live test mode started', data)
+      logger.info('✅ Live test mode started', data)
     } catch (error: any) {
       logger.error('Failed to start live test:', error)
       setState(prev => ({
@@ -124,7 +124,7 @@ export function useLiveTestMode(workflowId: string) {
         error: null,
       })
 
-      logger.debug('✅ Live test mode stopped')
+      logger.info('✅ Live test mode stopped')
     } catch (error: any) {
       logger.error('Failed to stop live test:', error)
     }

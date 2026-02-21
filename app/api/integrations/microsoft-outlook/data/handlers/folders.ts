@@ -17,7 +17,7 @@ export interface OutlookFolder {
  */
 export async function getOutlookFolders(integration: any): Promise<OutlookFolder[]> {
   try {
-    logger.debug('[Outlook API] Fetching mail folders')
+    logger.info('[Outlook API] Fetching mail folders')
 
     if (!integration.access_token) {
       throw new Error('No access token available')
@@ -43,7 +43,7 @@ export async function getOutlookFolders(integration: any): Promise<OutlookFolder
     const data = await response.json()
     const folders = data.value || []
 
-    logger.debug(`[Outlook API] Found ${folders.length} mail folders`)
+    logger.info(`[Outlook API] Found ${folders.length} mail folders`)
 
     const folderOptions: OutlookFolder[] = folders.map((folder: any) => ({
       value: folder.id,

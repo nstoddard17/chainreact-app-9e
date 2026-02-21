@@ -56,7 +56,7 @@ function WaitingConfirmationContent() {
     autoSignInAttempted.current = true
 
     setIsSigningIn(true)
-    logger.debug('Attempting auto sign-in for cross-device confirmation...')
+    logger.info('Attempting auto sign-in for cross-device confirmation...')
 
     try {
       // Request a magic link token for this user
@@ -88,7 +88,7 @@ function WaitingConfirmationContent() {
         }
 
         if (verifyData.session) {
-          logger.debug('Auto sign-in successful! Redirecting to workflows...')
+          logger.info('Auto sign-in successful! Redirecting to workflows...')
           localStorage.removeItem('pendingSignup')
           await initialize()
 
@@ -116,13 +116,13 @@ function WaitingConfirmationContent() {
     // Uses server-side API to check confirmation status across devices
     const pollInterval = setInterval(async () => {
       try {
-        logger.debug('Polling for email confirmation...')
+        logger.info('Polling for email confirmation...')
 
         // First, check if we have a local session (same device confirmation)
         const { data: { session } } = await supabase.auth.getSession()
 
         if (session?.user?.email_confirmed_at) {
-          logger.debug('Email confirmed! Session detected on this device.')
+          logger.info('Email confirmed! Session detected on this device.')
           setIsConfirmed(true)
           setIsPolling(false)
           clearInterval(pollInterval)
@@ -148,7 +148,7 @@ function WaitingConfirmationContent() {
           const data = await response.json()
 
           if (data.confirmed) {
-            logger.debug('Email confirmed on another device! Initiating auto sign-in...')
+            logger.info('Email confirmed on another device! Initiating auto sign-in...')
             setIsConfirmed(true)
             setIsPolling(false)
             clearInterval(pollInterval)

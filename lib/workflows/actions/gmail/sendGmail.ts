@@ -16,7 +16,7 @@ export async function sendGmail(
 ): Promise<ActionResult> {
   try {
     const executionId = `gmail_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    logger.debug(`📧 Starting Gmail send process [${executionId}]`, { userId, config: { ...config, body: config.body ? "[CONTENT]" : undefined } })
+    logger.info(`📧 Starting Gmail send process [${executionId}]`, { userId, config: { ...config, body: config.body ? "[CONTENT]" : undefined } })
     
     const accessToken = await getDecryptedAccessToken(userId, "gmail")
 
@@ -34,7 +34,7 @@ export async function sendGmail(
       body = `${body }\n\n${ signature}`
     }
 
-    logger.debug("Resolved email values:", { to, cc, bcc, subject, hasBody: !!body, hasSignature: !!signature, attachmentIds: attachmentIds?.length || 0 })
+    logger.info("Resolved email values:", { to, cc, bcc, subject, hasBody: !!body, hasSignature: !!signature, attachmentIds: attachmentIds?.length || 0 })
 
     if (!to || !subject || !body) {
       const missingFields = []
@@ -66,7 +66,7 @@ export async function sendGmail(
     if (attachmentIds && attachmentIds.length > 0) {
       try {
         attachmentFiles = await FileStorageService.getFilesFromReferences(attachmentIds, userId)
-        logger.debug(`Retrieved ${attachmentFiles.length} attachment files`)
+        logger.info(`Retrieved ${attachmentFiles.length} attachment files`)
       } catch (error: any) {
         logger.error('Error retrieving attachment files:', error)
         return { success: false, message: `Failed to retrieve attachments: ${error.message}` }
@@ -116,7 +116,7 @@ export async function sendGmail(
 
     const email = emailLines.join('\n')
 
-    logger.debug("Making Gmail API request...")
+    logger.info("Making Gmail API request...")
     const response = await fetch("https://www.googleapis.com/gmail/v1/users/me/messages/send", {
       method: "POST",
       headers: {
@@ -128,7 +128,7 @@ export async function sendGmail(
       }),
     })
 
-    logger.debug("Gmail API response status:", response.status)
+    logger.info("Gmail API response status:", response.status)
     
     const result = await response.json()
 
@@ -143,7 +143,7 @@ export async function sendGmail(
       throw new Error(errorMessage)
     }
 
-    logger.debug(`📧 Gmail send successful [${executionId}]:`, { messageId: result.id })
+    logger.info(`📧 Gmail send successful [${executionId}]:`, { messageId: result.id })
     
     return {
       success: true,

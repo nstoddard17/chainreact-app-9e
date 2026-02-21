@@ -39,7 +39,7 @@ export async function POST(
     // Use service role client to avoid auth issues during page unload
     const supabase = await createSupabaseServiceClient()
 
-    logger.debug(`🧹 Cleanup request received for session ${sessionId}`)
+    logger.info(`🧹 Cleanup request received for session ${sessionId}`)
 
     // Verify session exists and belongs to this workflow
     const { data: session } = await supabase
@@ -51,7 +51,7 @@ export async function POST(
       .single()
 
     if (!session) {
-      logger.debug('Session not found or already cleaned up')
+      logger.info('Session not found or already cleaned up')
       return jsonResponse({ success: true })
     }
 
@@ -65,9 +65,9 @@ export async function POST(
     if (nodes && nodes.length > 0) {
       try {
         const { triggerLifecycleManager } = await import('@/lib/triggers')
-        logger.debug('🔄 Deactivating trigger for live test mode...')
+        logger.info('🔄 Deactivating trigger for live test mode...')
         await triggerLifecycleManager.deactivateWorkflowTriggers(workflowId, userId)
-        logger.debug('✅ Trigger deactivated successfully')
+        logger.info('✅ Trigger deactivated successfully')
       } catch (error) {
         logger.error('Error deactivating triggers:', error)
         // Continue with cleanup even if deactivation fails
@@ -83,7 +83,7 @@ export async function POST(
       })
       .eq('id', sessionId)
 
-    logger.debug(`✅ Test session ${sessionId} cleaned up successfully`)
+    logger.info(`✅ Test session ${sessionId} cleaned up successfully`)
 
     return jsonResponse({
       success: true,

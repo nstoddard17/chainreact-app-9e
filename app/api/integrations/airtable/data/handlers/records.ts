@@ -10,7 +10,7 @@ import { logger } from '@/lib/utils/logger'
 export const getAirtableRecords: AirtableDataHandler<AirtableRecord> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableRecord[]> => {
   const { baseId, tableName, maxRecords = 100, view, filterByFormula, sort } = options
   
-  logger.debug("🔍 Airtable records fetcher called with:", {
+  logger.info("🔍 Airtable records fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -22,11 +22,11 @@ export const getAirtableRecords: AirtableDataHandler<AirtableRecord> = async (in
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    logger.debug(`🔍 Validating Airtable token...`)
+    logger.info(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -38,7 +38,7 @@ export const getAirtableRecords: AirtableDataHandler<AirtableRecord> = async (in
       throw new Error('Table name is required for fetching records')
     }
     
-    logger.debug('🔍 Fetching Airtable records from API...')
+    logger.info('🔍 Fetching Airtable records from API...')
     
     // Build query parameters
     const queryParams = new URLSearchParams()
@@ -58,7 +58,7 @@ export const getAirtableRecords: AirtableDataHandler<AirtableRecord> = async (in
     
     const records = await parseAirtableApiResponse<AirtableRecord>(response)
     
-    logger.debug(`✅ Airtable records fetched successfully: ${records.length} records`)
+    logger.info(`✅ Airtable records fetched successfully: ${records.length} records`)
     return records
     
   } catch (error: any) {

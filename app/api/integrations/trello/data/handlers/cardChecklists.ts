@@ -29,17 +29,17 @@ export const getTrelloCardChecklists: TrelloDataHandler<TrelloChecklist> = async
     }
 
     if (!cardId) {
-      logger.debug('⚠️ No card ID provided, returning empty checklists array')
+      logger.info('⚠️ No card ID provided, returning empty checklists array')
       return []
     }
 
-    logger.debug('🔍 Fetching Trello card checklists from API...', { cardId })
+    logger.info('🔍 Fetching Trello card checklists from API...', { cardId })
     const apiUrl = buildTrelloApiUrl(`/1/cards/${cardId}/checklists?fields=id,name,pos`)
 
     const response = await makeTrelloApiRequest(apiUrl, tokenResult.token!, tokenResult.key)
     const checklists = await parseTrelloApiResponse<TrelloChecklist>(response)
 
-    logger.debug(`✅ Trello card checklists fetched successfully: ${checklists.length} checklists`)
+    logger.info(`✅ Trello card checklists fetched successfully: ${checklists.length} checklists`)
     return checklists
 
   } catch (error: any) {

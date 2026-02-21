@@ -101,14 +101,14 @@ export async function POST(request: Request) {
         if (!result.success) {
           logger.error(`Failed to send invitation email to waitlist member (ID: ${member.id}):`, result.error)
           // Log the signup URL as fallback
-          logger.debug(`Waitlist Invitation URL for ID ${member.id}:`)
-          logger.debug(`Signup URL: ${signupUrl}`)
+          logger.info(`Waitlist Invitation URL for ID ${member.id}:`)
+          logger.info(`Signup URL: ${signupUrl}`)
         }
       } catch (emailError) {
         logger.error(`Failed to send invitation email to waitlist member (ID: ${member.id}):`, emailError)
         // Log the signup URL as fallback
-        logger.debug(`Waitlist Invitation URL for ID ${member.id}:`)
-        logger.debug(`Signup URL: ${signupUrl}`)
+        logger.info(`Waitlist Invitation URL for ID ${member.id}:`)
+        logger.info(`Signup URL: ${signupUrl}`)
       }
     })
 

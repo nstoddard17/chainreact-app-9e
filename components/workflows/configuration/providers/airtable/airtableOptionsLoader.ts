@@ -33,7 +33,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     // Handle dynamic Airtable fields (including our dropdown fields)
     if (providerId === 'airtable' && fieldName.startsWith('airtable_field_')) {
       // Always handle any field with the airtable_field_ prefix
-      logger.debug(`✅ [AirtableOptionsLoader] canHandle returning true for ${fieldName}`);
+      logger.info(`✅ [AirtableOptionsLoader] canHandle returning true for ${fieldName}`);
       return true;
     }
 
@@ -43,7 +43,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
     const { fieldName, integrationId, signal, extraOptions } = params;
 
-    logger.debug(`🔍 [AirtableOptionsLoader] loadOptions called for field: ${fieldName}`, {
+    logger.info(`🔍 [AirtableOptionsLoader] loadOptions called for field: ${fieldName}`, {
       hasExtraOptions: !!extraOptions,
       baseId: extraOptions?.baseId,
       tableName: extraOptions?.tableName
@@ -53,26 +53,26 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (fieldName.startsWith('airtable_field_')) {
       // Check if it's one of our special dropdown fields
       const actualFieldName = fieldName.replace('airtable_field_', '').toLowerCase();
-      logger.debug(`🔍 [AirtableOptionsLoader] Processing dynamic field, actualFieldName: ${actualFieldName}`);
+      logger.info(`🔍 [AirtableOptionsLoader] Processing dynamic field, actualFieldName: ${actualFieldName}`);
 
       if (actualFieldName.includes('draft') && actualFieldName.includes('name')) {
-        logger.debug(`🔍 [AirtableOptionsLoader] Loading draft names`);
+        logger.info(`🔍 [AirtableOptionsLoader] Loading draft names`);
         return this.loadDynamicFieldOptions(params, 'airtable_draft_names');
       } else if (actualFieldName.includes('designer')) {
-        logger.debug(`🔍 [AirtableOptionsLoader] Loading designers`);
+        logger.info(`🔍 [AirtableOptionsLoader] Loading designers`);
         return this.loadDynamicFieldOptions(params, 'airtable_designers');
       } else if (actualFieldName.includes('project')) {
-        logger.debug(`🔍 [AirtableOptionsLoader] Loading projects`);
+        logger.info(`🔍 [AirtableOptionsLoader] Loading projects`);
         return this.loadDynamicFieldOptions(params, 'airtable_projects');
       } else if (actualFieldName.includes('feedback')) {
-        logger.debug(`🔍 [AirtableOptionsLoader] Loading feedback`);
+        logger.info(`🔍 [AirtableOptionsLoader] Loading feedback`);
         return this.loadDynamicFieldOptions(params, 'airtable_feedback');
       } else if (actualFieldName.includes('task')) {
-        logger.debug(`🔍 [AirtableOptionsLoader] Loading tasks`);
+        logger.info(`🔍 [AirtableOptionsLoader] Loading tasks`);
         return this.loadDynamicFieldOptions(params, 'airtable_tasks');
       } 
         // Handle linked record fields
-        logger.debug(`🔍 [AirtableOptionsLoader] Loading linked records`);
+        logger.info(`🔍 [AirtableOptionsLoader] Loading linked records`);
         return this.loadLinkedRecords(params);
       
     }
@@ -123,7 +123,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { integrationId, signal, forceRefresh } = params;
 
     if (!integrationId) {
-      logger.debug('🔍 [Airtable] Cannot load bases without integrationId');
+      logger.info('🔍 [Airtable] Cannot load bases without integrationId');
       return [];
     }
 
@@ -133,7 +133,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -141,10 +141,10 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Airtable] Cache HIT for baseId:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Airtable] Cache HIT for baseId:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Airtable] Cache MISS for baseId:`, { cacheKey });
+      logger.info(`❌ [Airtable] Cache MISS for baseId:`, { cacheKey });
     }
 
     try {
@@ -180,7 +180,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       // Store in cache
       const ttl = getFieldTTL('baseId');
       cacheStore.set(cacheKey, formattedBases, ttl);
-      logger.debug(`💾 [Airtable] Cached ${formattedBases.length} options for baseId (TTL: ${ttl / 1000}s)`);
+      logger.info(`💾 [Airtable] Cached ${formattedBases.length} options for baseId (TTL: ${ttl / 1000}s)`);
 
       return formattedBases;
     } catch (error) {
@@ -193,7 +193,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: baseIdValue, integrationId, signal, forceRefresh } = params;
 
     if (!baseIdValue || !integrationId) {
-      logger.debug('🔍 [Airtable] Cannot load tables without baseId and integrationId');
+      logger.info('🔍 [Airtable] Cannot load tables without baseId and integrationId');
       return [];
     }
 
@@ -206,7 +206,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -214,10 +214,10 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Airtable] Cache HIT for tableName:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Airtable] Cache HIT for tableName:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Airtable] Cache MISS for tableName:`, { cacheKey });
+      logger.info(`❌ [Airtable] Cache MISS for tableName:`, { cacheKey });
     }
 
     try {
@@ -250,7 +250,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       // Store in cache
       const ttl = getFieldTTL('tableName');
       cacheStore.set(cacheKey, formattedTables, ttl);
-      logger.debug(`💾 [Airtable] Cached ${formattedTables.length} options for tableName (TTL: ${ttl / 1000}s)`);
+      logger.info(`💾 [Airtable] Cached ${formattedTables.length} options for tableName (TTL: ${ttl / 1000}s)`);
 
       return formattedTables;
     } catch (error) {
@@ -263,13 +263,13 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: tableName, extraOptions, integrationId, signal, forceRefresh } = params;
 
     if (!tableName || !integrationId) {
-      logger.debug('🔍 [Airtable] Cannot load fields without tableName and integrationId');
+      logger.info('🔍 [Airtable] Cannot load fields without tableName and integrationId');
       return [];
     }
 
     const baseId = extraOptions?.baseId;
     if (!baseId) {
-      logger.debug('🔍 [Airtable] Cannot load fields without baseId');
+      logger.info('🔍 [Airtable] Cannot load fields without baseId');
       return [];
     }
 
@@ -279,7 +279,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -287,10 +287,10 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Airtable] Cache HIT for filterField:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Airtable] Cache HIT for filterField:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Airtable] Cache MISS for filterField:`, { cacheKey });
+      logger.info(`❌ [Airtable] Cache MISS for filterField:`, { cacheKey });
     }
 
     try {
@@ -318,7 +318,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const fields = result.data || [];
 
-      logger.debug(`🔍 [loadFields] Received ${fields.length} fields from API:`, {
+      logger.info(`🔍 [loadFields] Received ${fields.length} fields from API:`, {
         firstField: fields[0],
         selectFields: fields.filter((f: any) => f.type === 'singleSelect' || f.type === 'multipleSelects').map((f: any) => ({
           label: f.label || f.value || f.name,
@@ -337,7 +337,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         options: field.options // Preserve options for select fields
       }));
 
-      logger.debug(`🔍 [loadFields] Formatted fields:`, {
+      logger.info(`🔍 [loadFields] Formatted fields:`, {
         firstFormatted: formattedFields[0],
         selectFormatted: formattedFields.filter((f: any) => f.type === 'singleSelect' || f.type === 'multipleSelects').slice(0, 2)
       });
@@ -345,7 +345,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       // Store in cache
       const ttl = getFieldTTL('filterField');
       cacheStore.set(cacheKey, formattedFields, ttl);
-      logger.debug(`💾 [Airtable] Cached ${formattedFields.length} editable fields for filterField (TTL: ${ttl / 1000}s)`);
+      logger.info(`💾 [Airtable] Cached ${formattedFields.length} editable fields for filterField (TTL: ${ttl / 1000}s)`);
 
       return formattedFields;
     } catch (error) {
@@ -357,7 +357,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
   private async loadDynamicFieldOptions(params: LoadOptionsParams, dataType: string): Promise<FormattedOption[]> {
     const { extraOptions, integrationId, signal, fieldName, forceRefresh } = params;
 
-    logger.debug(`📊 [loadDynamicFieldOptions] Called with:`, {
+    logger.info(`📊 [loadDynamicFieldOptions] Called with:`, {
       fieldName,
       dataType,
       integrationId,
@@ -365,7 +365,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     });
 
     if (!integrationId) {
-      logger.debug(`🔍 [Airtable] Cannot load ${dataType} without integrationId`);
+      logger.info(`🔍 [Airtable] Cannot load ${dataType} without integrationId`);
       return [];
     }
 
@@ -373,7 +373,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableName = extraOptions?.tableName;
 
     if (!baseId || !tableName) {
-      logger.debug(`🔍 [Airtable] Cannot load ${dataType} without baseId and tableName`, {
+      logger.info(`🔍 [Airtable] Cannot load ${dataType} without baseId and tableName`, {
         baseId,
         tableName,
         extraOptions
@@ -387,7 +387,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -395,10 +395,10 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Airtable] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Airtable] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Airtable] Cache MISS for ${fieldName}:`, { cacheKey });
+      logger.info(`❌ [Airtable] Cache MISS for ${fieldName}:`, { cacheKey });
     }
 
     // For linked record fields, we need to fetch from the linked table
@@ -443,7 +443,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         const result = await response.json();
         const options = result.data || [];
 
-        logger.debug(`📊 [loadDynamicFieldOptions] Linked table response for ${linkedTableName}:`, {
+        logger.info(`📊 [loadDynamicFieldOptions] Linked table response for ${linkedTableName}:`, {
           status: response.status,
           dataCount: options.length,
           firstOption: options[0]
@@ -457,7 +457,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
         // Store in cache
         const ttl = getFieldTTL(fieldName);
         cacheStore.set(cacheKey, formattedOptions, ttl);
-        logger.debug(`💾 [Airtable] Cached ${formattedOptions.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
+        logger.info(`💾 [Airtable] Cached ${formattedOptions.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
 
         return formattedOptions;
       } catch (error) {
@@ -491,7 +491,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const options = result.data || [];
 
-      logger.debug(`📊 [loadDynamicFieldOptions] Regular field response for ${dataType}:`, {
+      logger.info(`📊 [loadDynamicFieldOptions] Regular field response for ${dataType}:`, {
         status: response.status,
         dataCount: options.length,
         firstOption: options[0]
@@ -505,7 +505,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       // Store in cache
       const ttl = getFieldTTL(fieldName);
       cacheStore.set(cacheKey, formattedOptions, ttl);
-      logger.debug(`💾 [Airtable] Cached ${formattedOptions.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
+      logger.info(`💾 [Airtable] Cached ${formattedOptions.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
 
       return formattedOptions;
     } catch (error) {
@@ -518,7 +518,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: filterField, extraOptions, integrationId, signal, forceRefresh } = params;
 
     if (!filterField || !integrationId) {
-      logger.debug('🔍 [Airtable] Cannot load field values without filterField and integrationId');
+      logger.info('🔍 [Airtable] Cannot load field values without filterField and integrationId');
       return [];
     }
 
@@ -526,7 +526,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableName = extraOptions?.tableName;
 
     if (!baseId || !tableName) {
-      logger.debug('🔍 [Airtable] Cannot load field values without baseId and tableName');
+      logger.info('🔍 [Airtable] Cannot load field values without baseId and tableName');
       return [];
     }
 
@@ -536,7 +536,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -544,10 +544,10 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Airtable] Cache HIT for filterValue:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Airtable] Cache HIT for filterValue:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Airtable] Cache MISS for filterValue:`, { cacheKey });
+      logger.info(`❌ [Airtable] Cache MISS for filterValue:`, { cacheKey });
     }
 
     try {
@@ -603,7 +603,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       // Store in cache
       const ttl = getFieldTTL('filterValue');
       cacheStore.set(cacheKey, formattedValues, ttl);
-      logger.debug(`💾 [Airtable] Cached ${formattedValues.length} options for filterValue (TTL: ${ttl / 1000}s)`);
+      logger.info(`💾 [Airtable] Cached ${formattedValues.length} options for filterValue (TTL: ${ttl / 1000}s)`);
 
       return formattedValues;
     } catch (error) {
@@ -620,7 +620,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { dependsOnValue: searchField, extraOptions, integrationId, signal, forceRefresh } = params;
 
     if (!searchField || !integrationId) {
-      logger.debug('🔍 [Airtable] Cannot load search field values without searchField and integrationId');
+      logger.info('🔍 [Airtable] Cannot load search field values without searchField and integrationId');
       return [];
     }
 
@@ -628,7 +628,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableName = extraOptions?.tableName;
 
     if (!baseId || !tableName) {
-      logger.debug('🔍 [Airtable] Cannot load search field values without baseId and tableName');
+      logger.info('🔍 [Airtable] Cannot load search field values without baseId and tableName');
       return [];
     }
 
@@ -658,7 +658,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       });
 
       if (!response.ok) {
-        logger.debug('🔍 [Airtable] Failed to load field metadata for searchValue');
+        logger.info('🔍 [Airtable] Failed to load field metadata for searchValue');
         return [];
       }
 
@@ -669,13 +669,13 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       fieldMetadata = fields.find((f: any) => f.value === searchField || f.label === searchField);
 
       if (!fieldMetadata) {
-        logger.debug('🔍 [Airtable] Field not found in metadata:', searchField);
+        logger.info('🔍 [Airtable] Field not found in metadata:', searchField);
         return [];
       }
 
       // If field has options (singleSelect or multipleSelects), return them
       if (fieldMetadata.options && Array.isArray(fieldMetadata.options)) {
-        logger.debug(`✅ [Airtable] Found ${fieldMetadata.options.length} options for select field "${searchField}"`);
+        logger.info(`✅ [Airtable] Found ${fieldMetadata.options.length} options for select field "${searchField}"`);
 
         const formattedOptions = fieldMetadata.options.map((option: any) => ({
           value: option.name,
@@ -687,7 +687,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       }
 
       // For non-select fields, return empty array (allows freeform tags input)
-      logger.debug(`🔍 [Airtable] Field "${searchField}" is type "${fieldMetadata.type}" - allowing freeform input`);
+      logger.info(`🔍 [Airtable] Field "${searchField}" is type "${fieldMetadata.type}" - allowing freeform input`);
       return [];
 
     } catch (error) {
@@ -700,7 +700,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { extraOptions, integrationId, signal, forceRefresh } = params;
 
     if (!integrationId) {
-      logger.debug('🔍 [Airtable] Cannot load records without integrationId');
+      logger.info('🔍 [Airtable] Cannot load records without integrationId');
       return [];
     }
 
@@ -708,7 +708,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableName = extraOptions?.tableName;
 
     if (!baseId || !tableName) {
-      logger.debug('🔍 [Airtable] Cannot load records without baseId and tableName');
+      logger.info('🔍 [Airtable] Cannot load records without baseId and tableName');
       return [];
     }
 
@@ -718,7 +718,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -726,10 +726,10 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Airtable] Cache HIT for selectedRecord:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Airtable] Cache HIT for selectedRecord:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Airtable] Cache MISS for selectedRecord:`, { cacheKey });
+      logger.info(`❌ [Airtable] Cache MISS for selectedRecord:`, { cacheKey });
     }
 
     try {
@@ -783,7 +783,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       // Store in cache
       const ttl = getFieldTTL('selectedRecord');
       cacheStore.set(cacheKey, formattedRecords, ttl);
-      logger.debug(`💾 [Airtable] Cached ${formattedRecords.length} options for selectedRecord (TTL: ${ttl / 1000}s)`);
+      logger.info(`💾 [Airtable] Cached ${formattedRecords.length} options for selectedRecord (TTL: ${ttl / 1000}s)`);
 
       return formattedRecords;
     } catch (error) {
@@ -796,7 +796,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { extraOptions, integrationId, signal, forceRefresh } = params;
 
     if (!integrationId) {
-      logger.debug('🔍 [Airtable] Cannot load attachment fields without integrationId');
+      logger.info('🔍 [Airtable] Cannot load attachment fields without integrationId');
       return [];
     }
 
@@ -804,7 +804,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableName = extraOptions?.tableName;
 
     if (!baseId || !tableName) {
-      logger.debug('🔍 [Airtable] Cannot load attachment fields without baseId and tableName');
+      logger.info('🔍 [Airtable] Cannot load attachment fields without baseId and tableName');
       return [];
     }
 
@@ -814,7 +814,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -822,10 +822,10 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Airtable] Cache HIT for attachmentField:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Airtable] Cache HIT for attachmentField:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Airtable] Cache MISS for attachmentField:`, { cacheKey });
+      logger.info(`❌ [Airtable] Cache MISS for attachmentField:`, { cacheKey });
     }
 
     try {
@@ -860,7 +860,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       // Store in cache
       const ttl = getFieldTTL('attachmentField');
       cacheStore.set(cacheKey, formattedFields, ttl);
-      logger.debug(`💾 [Airtable] Cached ${formattedFields.length} options for attachmentField (TTL: ${ttl / 1000}s)`);
+      logger.info(`💾 [Airtable] Cached ${formattedFields.length} options for attachmentField (TTL: ${ttl / 1000}s)`);
 
       return formattedFields;
     } catch (error) {
@@ -873,7 +873,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const { fieldName, extraOptions, integrationId, signal, forceRefresh } = params;
 
     if (!integrationId) {
-      logger.debug('🔍 [Airtable] Cannot load linked records without integrationId');
+      logger.info('🔍 [Airtable] Cannot load linked records without integrationId');
       return [];
     }
 
@@ -882,14 +882,14 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableFields = extraOptions?.tableFields;
 
     if (!baseId || !tableName) {
-      logger.debug('🔍 [Airtable] Cannot load linked records without baseId and tableName');
+      logger.info('🔍 [Airtable] Cannot load linked records without baseId and tableName');
       return [];
     }
 
     // Extract field name from the prefixed field name (e.g., "airtable_field_Associated Project" -> "Associated Project")
     const actualFieldName = fieldName.replace('airtable_field_', '');
 
-    logger.debug('🔍 [Airtable] Looking for linked field:', {
+    logger.info('🔍 [Airtable] Looking for linked field:', {
       fieldName,
       actualFieldName,
       availableFields: tableFields?.map((f: any) => ({ name: f.name, type: f.type, id: f.id }))
@@ -899,7 +899,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const tableField = tableFields?.find((f: any) => f.name === actualFieldName);
 
     if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
-      logger.debug('🔍 [Airtable] Field is not a linked record field:', {
+      logger.info('🔍 [Airtable] Field is not a linked record field:', {
         foundField: tableField,
         actualFieldName,
         fieldType: tableField?.type
@@ -912,7 +912,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const linkedTableName = this.guessLinkedTableName(tableField.name);
 
     if (!linkedTableId && !linkedTableName) {
-      logger.debug('🔍 [Airtable] Cannot determine linked table');
+      logger.info('🔍 [Airtable] Cannot determine linked table');
       return [];
     }
 
@@ -922,7 +922,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
 
     // Force refresh handling
     if (forceRefresh) {
-      logger.debug(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
+      logger.info(`🔄 [Airtable] Force refresh - invalidating cache:`, cacheKey);
       cacheStore.invalidate(cacheKey);
     }
 
@@ -930,10 +930,10 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cacheStore.get(cacheKey);
       if (cached) {
-        logger.debug(`💾 [Airtable] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
+        logger.info(`💾 [Airtable] Cache HIT for ${fieldName}:`, { cacheKey, count: cached.length });
         return cached;
       }
-      logger.debug(`❌ [Airtable] Cache MISS for ${fieldName}:`, { cacheKey });
+      logger.info(`❌ [Airtable] Cache MISS for ${fieldName}:`, { cacheKey });
     }
 
     try {
@@ -966,7 +966,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
           );
       
       if (!linkedTable) {
-        logger.debug('🔍 [Airtable] Linked table not found');
+        logger.info('🔍 [Airtable] Linked table not found');
         return [];
       }
 
@@ -1021,7 +1021,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
       // Store in cache
       const ttl = getFieldTTL(fieldName);
       cacheStore.set(cacheKey, formattedRecords, ttl);
-      logger.debug(`💾 [Airtable] Cached ${formattedRecords.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
+      logger.info(`💾 [Airtable] Cached ${formattedRecords.length} options for ${fieldName} (TTL: ${ttl / 1000}s)`);
 
       return formattedRecords;
     } catch (error) {
@@ -1069,7 +1069,7 @@ export class AirtableOptionsLoader implements ProviderOptionsLoader {
     const cacheStore = useConfigCacheStore.getState();
     cacheStore.invalidateProvider('airtable');
 
-    logger.debug('🧹 [Airtable] Cache cleared');
+    logger.info('🧹 [Airtable] Cache cleared');
   }
 
   getFieldDependencies(fieldName: string): string[] {

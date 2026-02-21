@@ -45,7 +45,7 @@ export async function archiveGmailEmail(
       }
     }
 
-    logger.debug(`[Gmail Archive] Archiving ${messageIds.length} email(s)`)
+    logger.info(`[Gmail Archive] Archiving ${messageIds.length} email(s)`)
 
     // Archive emails by removing INBOX label
     // This is the Gmail API's way of archiving - the email stays in All Mail
@@ -82,7 +82,7 @@ export async function archiveGmailEmail(
 
     const successCount = results.filter(r => r.success).length
 
-    logger.debug(`[Gmail Archive] Successfully archived ${successCount}/${messageIds.length} email(s)`)
+    logger.info(`[Gmail Archive] Successfully archived ${successCount}/${messageIds.length} email(s)`)
 
     return {
       success: successCount > 0,

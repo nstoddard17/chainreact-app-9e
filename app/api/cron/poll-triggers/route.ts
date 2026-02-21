@@ -52,7 +52,7 @@ async function runPolling(authHeader: string | null) {
   for (const trigger of triggers || []) {
     const handler = findPollingHandler(trigger)
     if (!handler) {
-      logger.debug('[Poll] No handler found for trigger:', {
+      logger.info('[Poll] No handler found for trigger:', {
         triggerId: trigger.id,
         triggerType: trigger.trigger_type
       })
@@ -78,7 +78,7 @@ async function runPolling(authHeader: string | null) {
 
     const pollInterval = handler.getIntervalMs(userRole) || DEFAULT_POLL_INTERVAL_MS
     if (now - lastPollAt < pollInterval) {
-      logger.debug('[Poll] Skipping - interval not elapsed:', {
+      logger.info('[Poll] Skipping - interval not elapsed:', {
         triggerId: trigger.id,
         triggerType: trigger.trigger_type,
         lastPollAt: lastPollAt ? new Date(lastPollAt).toISOString() : 'never',

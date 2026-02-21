@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    logger.debug(`🔍 [Discord Roles] Processing request:`, {
+    logger.info(`🔍 [Discord Roles] Processing request:`, {
       userId,
       guildId,
       status: integration.status,
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     // Get roles using the handler
     const roles = await getDiscordRoles(integration as DiscordIntegration, { guildId })
 
-    logger.debug(`✅ [Discord Roles] Successfully fetched roles:`, {
+    logger.info(`✅ [Discord Roles] Successfully fetched roles:`, {
       userId,
       guildId,
       roleCount: roles?.length || 0

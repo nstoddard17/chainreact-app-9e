@@ -15,7 +15,7 @@ import { logger } from '@/lib/utils/logger'
 export const getSlackWorkspaces: SlackDataHandler<SlackWorkspace> = async (integration: SlackIntegration) => {
   try {
     validateSlackIntegration(integration)
-    logger.debug("🏢 [Slack Workspaces] Fetching workspace info")
+    logger.info("🏢 [Slack Workspaces] Fetching workspace info")
 
     // Slack doesn't have a direct API for multiple workspaces, but we can get team info
     const response = await makeSlackApiRequest(
@@ -65,7 +65,7 @@ export const getSlackWorkspaces: SlackDataHandler<SlackWorkspace> = async (integ
       teamId: data.team.id // Keep team ID for reference
     }]
 
-    logger.debug(`✅ [Slack Workspaces] Retrieved workspace: ${data.team.name} (integration: ${integration.id})`)
+    logger.info(`✅ [Slack Workspaces] Retrieved workspace: ${data.team.name} (integration: ${integration.id})`)
     return workspaces
 
   } catch (error: any) {

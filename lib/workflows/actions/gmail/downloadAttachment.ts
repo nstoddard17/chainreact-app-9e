@@ -40,7 +40,7 @@ export async function downloadGmailAttachment(
       }
     }
 
-    logger.debug(`[Gmail Download Attachment] Configuration:`, {
+    logger.info(`[Gmail Download Attachment] Configuration:`, {
       messageId,
       attachmentSelection,
       storageService,
@@ -94,7 +94,7 @@ export async function downloadGmailAttachment(
       }
     }
 
-    logger.debug(`[Gmail Download Attachment] Found ${allAttachments.length} attachments:`,
+    logger.info(`[Gmail Download Attachment] Found ${allAttachments.length} attachments:`,
       allAttachments.map(a => a.filename))
 
     // Step 3: Filter attachments based on selection mode
@@ -157,7 +157,7 @@ export async function downloadGmailAttachment(
         break
     }
 
-    logger.debug(`[Gmail Download Attachment] Will download ${attachmentsToDownload.length} attachment(s)`)
+    logger.info(`[Gmail Download Attachment] Will download ${attachmentsToDownload.length} attachment(s)`)
 
     // Step 4: Download and save each attachment to storage
     const results = []
@@ -229,7 +229,7 @@ export async function downloadGmailAttachment(
           success: true
         })
 
-        logger.debug(`[Gmail Download Attachment] Saved ${attachment.filename} as ${finalFilename}`)
+        logger.info(`[Gmail Download Attachment] Saved ${attachment.filename} as ${finalFilename}`)
 
       } catch (error: any) {
         logger.error(`[Gmail Download Attachment] Failed to process ${attachment.filename}:`, error)

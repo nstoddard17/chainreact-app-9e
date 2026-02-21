@@ -89,11 +89,11 @@ export default function CompanyFieldsSelector({
       setLoading(true)
       const result = await loadIntegrationData('hubspot_all_company_properties', integrationId)
       
-      logger.debug('🔍 CompanyFieldsSelector received result:', result)
+      logger.info('🔍 CompanyFieldsSelector received result:', result)
       
       if (result && result.properties) {
-        logger.debug('✅ Found company properties:', result.properties.length)
-        logger.debug('✅ Found grouped company properties:', Object.keys(result.groupedProperties))
+        logger.info('✅ Found company properties:', result.properties.length)
+        logger.info('✅ Found grouped company properties:', Object.keys(result.groupedProperties))
         
         setProperties(result.properties)
         setGroupedProperties(result.groupedProperties)

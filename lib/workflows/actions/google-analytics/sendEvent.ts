@@ -16,7 +16,7 @@ export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promi
     userId
   } = context.config
 
-  logger.debug('[Google Analytics] Preparing to send event:', {
+  logger.info('[Google Analytics] Preparing to send event:', {
     measurementId,
     eventName,
     hasClientId: !!clientId,
@@ -43,7 +43,7 @@ export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promi
 
   // Check test mode
   if (context.testMode) {
-    logger.debug('[Google Analytics] Test mode - simulating event send')
+    logger.info('[Google Analytics] Test mode - simulating event send')
     return {
       success: true,
       event_name: eventName,
@@ -94,7 +94,7 @@ export async function sendGoogleAnalyticsEvent(context: ExecutionContext): Promi
 
     // GA4 Measurement Protocol returns 204 on success (no content)
     if (response.status === 204 || response.status === 200) {
-      logger.debug('[Google Analytics] Event sent successfully:', {
+      logger.info('[Google Analytics] Event sent successfully:', {
         eventName,
         clientId,
         status: response.status

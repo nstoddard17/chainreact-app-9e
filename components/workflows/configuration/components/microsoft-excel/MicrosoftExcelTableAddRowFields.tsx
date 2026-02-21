@@ -53,7 +53,7 @@ export function MicrosoftExcelTableAddRowFields({
         return;
       }
 
-      logger.debug('📊 [MicrosoftExcelTableAddRowFields] Fetching table columns', {
+      logger.info('📊 [MicrosoftExcelTableAddRowFields] Fetching table columns', {
         workbookId: values.workbookId,
         tableName: values.tableName,
         integrationId: intId
@@ -85,7 +85,7 @@ export function MicrosoftExcelTableAddRowFields({
           typeof col === 'string' ? col : col.name || col.value || col.label
         );
         setColumns(columnNames);
-        logger.debug('📊 [MicrosoftExcelTableAddRowFields] Fetch complete', {
+        logger.info('📊 [MicrosoftExcelTableAddRowFields] Fetch complete', {
           columnCount: columnNames.length,
           columns: columnNames
         });

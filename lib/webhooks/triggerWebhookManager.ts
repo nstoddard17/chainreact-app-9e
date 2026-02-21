@@ -167,7 +167,7 @@ export class TriggerWebhookManager {
    */
   async unregisterWorkflowWebhooks(workflowId: string): Promise<void> {
     try {
-      logger.debug(`🔗 Unregistering all webhooks for workflow ${workflowId}`)
+      logger.info(`🔗 Unregistering all webhooks for workflow ${workflowId}`)
 
       // Get all webhook configs for this workflow
       const { data: webhookConfigs, error } = await this.supabase
@@ -181,7 +181,7 @@ export class TriggerWebhookManager {
       }
 
       if (!webhookConfigs || webhookConfigs.length === 0) {
-        logger.debug('No webhooks found for this workflow')
+        logger.info('No webhooks found for this workflow')
         return
       }
 
@@ -190,7 +190,7 @@ export class TriggerWebhookManager {
         await this.unregisterWebhook(config.id)
       }
 
-      logger.debug(`✅ Unregistered ${webhookConfigs.length} webhook(s) for workflow ${workflowId}`)
+      logger.info(`✅ Unregistered ${webhookConfigs.length} webhook(s) for workflow ${workflowId}`)
     } catch (error) {
       logger.error('Failed to unregister workflow webhooks:', error)
       // Don't throw - best effort cleanup
@@ -247,7 +247,7 @@ export class TriggerWebhookManager {
         })
 
         if (!hasMatchingTrigger) {
-          logger.debug('🧹 Cleaning up unused webhook config', {
+          logger.info('🧹 Cleaning up unused webhook config', {
             workflowId: config.workflow_id,
             webhookId: config.id,
             triggerType: config.trigger_type
@@ -277,7 +277,7 @@ export class TriggerWebhookManager {
         await this.unregisterFromExternalService(webhookConfig)
 
         // Delete webhook execution history
-        logger.debug('🗑️ Cleaning up webhook execution history for webhook:', webhookId)
+        logger.info('🗑️ Cleaning up webhook execution history for webhook:', webhookId)
         const { error: executionDeleteError } = await this.supabase
           .from('webhook_executions')
           .delete()
@@ -294,7 +294,7 @@ export class TriggerWebhookManager {
           .delete()
           .eq('id', webhookId)
 
-        logger.debug('✅ Webhook unregistered and cleaned up successfully')
+        logger.info('✅ Webhook unregistered and cleaned up successfully')
       }
     } catch (error) {
       logger.error('Error unregistering webhook:', error)
@@ -603,7 +603,7 @@ export class TriggerWebhookManager {
       }
       
       await registerDiscordWebhook(registration)
-      logger.debug('✅ Discord webhook registered successfully via API')
+      logger.info('✅ Discord webhook registered successfully via API')
     } catch (error) {
       logger.error('Failed to register Discord webhook:', error)
       throw error
@@ -667,7 +667,7 @@ export class TriggerWebhookManager {
         })
         .eq('id', webhookId)
 
-      logger.debug('✅ Gmail watch registered successfully, expires:', expiration.toISOString())
+      logger.info('✅ Gmail watch registered successfully, expires:', expiration.toISOString())
     } catch (error) {
       logger.error('Failed to register Gmail watch:', error)
       throw error
@@ -735,7 +735,7 @@ export class TriggerWebhookManager {
         .update({ config: updatedConfig })
         .eq('id', webhookId)
 
-      logger.debug('✅ Google Calendar watch registered successfully for', targets.length, 'calendar(s)')
+      logger.info('✅ Google Calendar watch registered successfully for', targets.length, 'calendar(s)')
     } catch (error) {
       logger.error('Failed to register Google Calendar watch:', error)
       throw error
@@ -788,7 +788,7 @@ export class TriggerWebhookManager {
         })
         .eq('id', webhookId)
 
-      logger.debug('✅ Google Drive watch registered successfully, expires:', result.expiration)
+      logger.info('✅ Google Drive watch registered successfully, expires:', result.expiration)
     } catch (error) {
       logger.error('Failed to register Google Drive watch:', error)
       throw error
@@ -893,7 +893,7 @@ export class TriggerWebhookManager {
         })
         .eq('id', webhookId)
 
-      logger.debug('✅ Google Sheets watch registered successfully, expires:', result.expiration)
+      logger.info('✅ Google Sheets watch registered successfully, expires:', result.expiration)
     } catch (error) {
       logger.error('Failed to register Google Sheets watch:', error)
       throw error
@@ -927,89 +927,89 @@ export class TriggerWebhookManager {
     ]
 
     if (lifecycleManagedProviders.includes(config.providerId)) {
-      logger.debug(`⏭️ Skipping webhook registration for ${config.providerId} - now managed by TriggerLifecycleManager`)
+      logger.info(`⏭️ Skipping webhook registration for ${config.providerId} - now managed by TriggerLifecycleManager`)
       return
     }
 
     // This integrates with external APIs to register webhooks
-    logger.debug('🔗 registerWithExternalService called for provider:', config.providerId)
+    logger.info('🔗 registerWithExternalService called for provider:', config.providerId)
 
     switch (config.providerId) {
       case 'discord':
         // Discord webhooks are automatically created via Discord API
-        logger.debug('🎯 Calling registerDiscordWebhook for config:', config)
+        logger.info('🎯 Calling registerDiscordWebhook for config:', config)
         await this.registerDiscordWebhook(config)
-        logger.debug('✅ registerDiscordWebhook completed')
+        logger.info('✅ registerDiscordWebhook completed')
         break
       
       case 'google-docs':
         // Google Docs changes arrive via Google Drive change notifications
         // Reuse Drive watch to detect document changes
-        logger.debug('🔗 Setting up Google Docs watch via Drive change notifications')
+        logger.info('🔗 Setting up Google Docs watch via Drive change notifications')
         await this.registerGoogleDriveWatch({ ...config, providerId: 'google-drive', config: { ...(config.config || {}) }, contextProvider: 'google-docs' } as any, webhookId)
         break
         
       case 'gmail':
         // Gmail uses push notifications via Google Cloud Pub/Sub
-        logger.debug('🔗 Setting up Gmail watch for webhook notifications')
+        logger.info('🔗 Setting up Gmail watch for webhook notifications')
         await this.registerGmailWatch(config, webhookId)
         break
       
       case 'google-calendar':
         // Google Calendar uses watch API
-        logger.debug('🔗 Setting up Google Calendar watch for webhook notifications')
+        logger.info('🔗 Setting up Google Calendar watch for webhook notifications')
         await this.registerGoogleCalendarWatch(config, webhookId)
         break
 
       case 'google-drive':
         // Google Drive uses watch API
-        logger.debug('🔗 Setting up Google Drive watch for webhook notifications')
+        logger.info('🔗 Setting up Google Drive watch for webhook notifications')
         await this.registerGoogleDriveWatch(config, webhookId)
         break
 
       case 'google-sheets':
       case 'google_sheets':
         // Google Sheets uses Drive watch API
-        logger.debug('🔗 Setting up Google Sheets watch for webhook notifications')
+        logger.info('🔗 Setting up Google Sheets watch for webhook notifications')
         await this.registerGoogleSheetsWatch(config, webhookId)
         break
 
       case 'airtable':
         // Register Airtable webhook for the base
-        logger.debug('🔗 Setting up Airtable webhook for base monitoring')
+        logger.info('🔗 Setting up Airtable webhook for base monitoring')
         await this.registerAirtableWebhook(config, webhookId)
         break
 
       case 'dropbox':
-        logger.debug('🔗 Preparing Dropbox webhook cursor state')
+        logger.info('🔗 Preparing Dropbox webhook cursor state')
         await this.registerDropboxWebhook(config, webhookId)
         break
 
       case 'trello':
-        logger.debug('🔗 Setting up Trello webhook for board monitoring')
+        logger.info('🔗 Setting up Trello webhook for board monitoring')
         await this.registerTrelloWebhook(config, webhookId)
         break
 
       case 'onedrive': {
-        logger.debug('🔗 Setting up OneDrive watch via Microsoft Graph subscriptions')
+        logger.info('🔗 Setting up OneDrive watch via Microsoft Graph subscriptions')
         await this.registerOneDriveWebhook(config, webhookId)
         break
       }
 
       case 'microsoft-outlook': {
-        logger.debug('🔗 Setting up Outlook email watch via Microsoft Graph subscriptions')
+        logger.info('🔗 Setting up Outlook email watch via Microsoft Graph subscriptions')
         await this.registerOutlookWebhook(config, webhookId)
         break
       }
 
       case 'microsoft-teams': {
-        logger.debug('🔗 Setting up Teams watch via Microsoft Graph subscriptions')
+        logger.info('🔗 Setting up Teams watch via Microsoft Graph subscriptions')
         await this.registerTeamsWebhook(config, webhookId)
         break
       }
 
       case 'microsoft-onenote': {
-        logger.debug('🔗 Setting up OneNote watch via Microsoft Graph subscriptions')
+        logger.info('🔗 Setting up OneNote watch via Microsoft Graph subscriptions')
         await this.registerOneNoteWebhook(config, webhookId)
         break
       }
@@ -1017,18 +1017,18 @@ export class TriggerWebhookManager {
       case 'slack':
         // Slack uses Event Subscriptions configured at app level
         // We store the configuration for filtering events
-        logger.debug('🔗 Setting up Slack event subscription configuration')
+        logger.info('🔗 Setting up Slack event subscription configuration')
         await this.registerSlackWebhook(config, webhookId)
         break
 
       case 'github':
         // GitHub webhooks are configured through repository API
-        logger.debug('🔗 Setting up GitHub webhook for repository monitoring')
+        logger.info('🔗 Setting up GitHub webhook for repository monitoring')
         await this.registerGithubWebhook(config, webhookId)
         break
 
       default:
-        logger.debug(`Webhook registration for ${config.providerId} not yet implemented`)
+        logger.info(`Webhook registration for ${config.providerId} not yet implemented`)
     }
   }
 
@@ -1054,7 +1054,7 @@ export class TriggerWebhookManager {
         })
         .eq('id', webhookId)
 
-      logger.debug('✅ Slack event subscription configuration stored', {
+      logger.info('✅ Slack event subscription configuration stored', {
         channelId: channelId || 'all channels',
         eventTypes: eventTypes.length > 0 ? eventTypes : 'all events'
       })
@@ -1162,7 +1162,7 @@ export class TriggerWebhookManager {
         })
         .eq('id', webhookId)
 
-      logger.debug('✅ GitHub webhook registered successfully', {
+      logger.info('✅ GitHub webhook registered successfully', {
         repository,
         webhookId: webhookData.id,
         events
@@ -1246,7 +1246,7 @@ export class TriggerWebhookManager {
         .update({ external_id: sub.id, metadata })
         .eq('id', webhookId)
 
-      logger.debug('✅ Teams subscription registered', metadata)
+      logger.info('✅ Teams subscription registered', metadata)
     } catch (error) {
       if (error instanceof Error && error.message.includes('401')) {
         try {
@@ -1339,7 +1339,7 @@ export class TriggerWebhookManager {
         .update({ external_id: sub.id, metadata })
         .eq('id', webhookId)
 
-      logger.debug('✅ OneNote subscription registered', metadata)
+      logger.info('✅ OneNote subscription registered', metadata)
     } catch (error) {
       if (error instanceof Error && error.message.includes('401')) {
         try {
@@ -1425,7 +1425,7 @@ export class TriggerWebhookManager {
         .update({ metadata })
         .eq('id', webhookId)
 
-      logger.debug('✅ OneDrive subscription registered', metadata)
+      logger.info('✅ OneDrive subscription registered', metadata)
     } catch (error) {
       // Mark workflows if auth expired
       if (error instanceof Error && error.message.includes('401')) {
@@ -1514,7 +1514,7 @@ export class TriggerWebhookManager {
         .update({ external_id: sub.id, metadata })
         .eq('id', webhookId)
 
-      logger.debug('✅ Outlook email subscription registered', metadata)
+      logger.info('✅ Outlook email subscription registered', metadata)
     } catch (error) {
       // Mark workflows if auth expired
       if (error instanceof Error && error.message.includes('401')) {
@@ -1539,7 +1539,7 @@ export class TriggerWebhookManager {
    */
   private async registerTeamsWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
     // Similar implementation for Teams
-    logger.debug('Teams webhook registration not yet implemented')
+    logger.info('Teams webhook registration not yet implemented')
   }
 
   /**
@@ -1547,7 +1547,7 @@ export class TriggerWebhookManager {
    */
   private async registerOneNoteWebhook(config: WebhookTriggerConfig, webhookId: string): Promise<void> {
     // Similar implementation for OneNote
-    logger.debug('OneNote webhook registration not yet implemented')
+    logger.info('OneNote webhook registration not yet implemented')
   }
 
   /**
@@ -1579,11 +1579,11 @@ export class TriggerWebhookManager {
         throw new Error('Base ID is required for Airtable webhook registration')
       }
 
-      logger.debug(`🔧 Registering Airtable webhook for base: ${baseId}, table: ${tableName || 'all tables'}`)
+      logger.info(`🔧 Registering Airtable webhook for base: ${baseId}, table: ${tableName || 'all tables'}`)
 
       // Get the webhook URL for Airtable (uses HTTPS in development via ngrok if configured)
       const webhookUrl = getWebhookUrl('airtable')
-      logger.debug(`📢 Using webhook URL: ${webhookUrl}`)
+      logger.info(`📢 Using webhook URL: ${webhookUrl}`)
 
       // Register webhook with Airtable (this handles creating or reusing existing webhook)
       await ensureAirtableWebhookForBase(config.userId, baseId, webhookUrl, tableName)
@@ -1617,7 +1617,7 @@ export class TriggerWebhookManager {
         })
         .eq('id', webhookId)
 
-      logger.debug('✅ Airtable webhook registered successfully for base:', baseId)
+      logger.info('✅ Airtable webhook registered successfully for base:', baseId)
     } catch (error) {
       logger.error('Failed to register Airtable webhook:', error)
       throw error
@@ -1763,7 +1763,7 @@ export class TriggerWebhookManager {
         })
         .eq('id', webhookId)
 
-      logger.debug('✅ Dropbox webhook cursor stored successfully', {
+      logger.info('✅ Dropbox webhook cursor stored successfully', {
         webhookId,
         path: normalizedPath || 'root',
         includeSubfolders,
@@ -1784,7 +1784,7 @@ export class TriggerWebhookManager {
       const boardId: string | undefined = config.config?.boardId || config.config?.board_id
 
       if (!boardId) {
-        logger.debug('ℹ️ Skipping Trello webhook registration - board not selected', {
+        logger.info('ℹ️ Skipping Trello webhook registration - board not selected', {
           workflowId: config.workflowId,
           triggerType: config.triggerType
         })
@@ -1847,7 +1847,7 @@ export class TriggerWebhookManager {
         trelloKey = process.env.TRELLO_CLIENT_ID
       }
 
-      logger.debug('🔐 Trello credentials check:', {
+      logger.info('🔐 Trello credentials check:', {
         hasAccessToken: !!accessToken,
         tokenLength: accessToken?.length,
         tokenPrefix: accessToken ? `${accessToken.substring(0, 8) }...` : 'none',
@@ -1870,13 +1870,13 @@ export class TriggerWebhookManager {
             const description = `ChainReact workflow ${config.workflowId} - board ${boardId}`
 
       // First, verify the board is accessible
-      logger.debug('🔍 Verifying Trello board access before webhook creation', { boardId })
+      logger.info('🔍 Verifying Trello board access before webhook creation', { boardId })
       const boardCheckUrl = new URL(`https://api.trello.com/1/boards/${boardId}`)
       boardCheckUrl.searchParams.set('key', trelloKey)
       boardCheckUrl.searchParams.set('token', accessToken)
       boardCheckUrl.searchParams.set('fields', 'id,name')
 
-      logger.debug('📡 Trello board check URL:', {
+      logger.info('📡 Trello board check URL:', {
         url: boardCheckUrl.toString().replace(accessToken, 'TOKEN_HIDDEN').replace(trelloKey, 'KEY_HIDDEN'),
         hasKey: boardCheckUrl.searchParams.has('key'),
         hasToken: boardCheckUrl.searchParams.has('token'),
@@ -1901,7 +1901,7 @@ export class TriggerWebhookManager {
       }
 
       const boardInfo = await boardCheckResponse.json()
-      logger.debug('✅ Trello board verified', { boardId, boardName: boardInfo.name })
+      logger.info('✅ Trello board verified', { boardId, boardName: boardInfo.name })
 
       const webhookCreateUrl = new URL('https://api.trello.com/1/webhooks')
       webhookCreateUrl.searchParams.set('key', trelloKey)
@@ -1914,7 +1914,7 @@ export class TriggerWebhookManager {
         active: 'true'
       })
 
-      logger.debug('📤 Creating Trello webhook', {
+      logger.info('📤 Creating Trello webhook', {
         boardId,
         callbackURL,
         description
@@ -1931,7 +1931,7 @@ export class TriggerWebhookManager {
 
         if (createResponse.ok) {
           createdWebhook = await createResponse.json()
-          logger.debug('✅ Trello webhook created successfully', { webhookId: createdWebhook.id })
+          logger.info('✅ Trello webhook created successfully', { webhookId: createdWebhook.id })
         } else {
           const responseBody = await createResponse.text().catch(() => '')
           const isDuplicate = createResponse.status === 400 && responseBody.toLowerCase().includes('already exists')
@@ -1967,7 +1967,7 @@ export class TriggerWebhookManager {
       }
 
       if (!createdWebhook) {
-        logger.debug('🔄 Webhook creation returned duplicate, searching for existing webhook...')
+        logger.info('🔄 Webhook creation returned duplicate, searching for existing webhook...')
         createdWebhook = await this.findExistingTrelloWebhook(trelloKey, accessToken, boardId, callbackURL)
 
         if (!createdWebhook) {
@@ -1982,7 +1982,7 @@ export class TriggerWebhookManager {
             active: true
           }
         } else {
-          logger.debug('✅ Using existing Trello webhook', { webhookId: createdWebhook.id })
+          logger.info('✅ Using existing Trello webhook', { webhookId: createdWebhook.id })
         }
       }
 
@@ -2006,7 +2006,7 @@ export class TriggerWebhookManager {
         })
         .eq('id', webhookId)
 
-      logger.debug('✅ Trello webhook registered', {
+      logger.info('✅ Trello webhook registered', {
         workflowId: config.workflowId,
         boardId,
         trelloWebhookId: createdWebhook.id
@@ -2033,7 +2033,7 @@ export class TriggerWebhookManager {
       const listUrl = new URL(`https://api.trello.com/1/tokens/${accessToken}/webhooks`)
       listUrl.searchParams.set('key', trelloKey)
 
-      logger.debug('🔍 Looking for existing Trello webhook', {
+      logger.info('🔍 Looking for existing Trello webhook', {
         boardId,
         callbackURL,
         endpoint: listUrl.toString().replace(accessToken, 'TOKEN_HIDDEN').replace(trelloKey, 'KEY_HIDDEN')
@@ -2047,7 +2047,7 @@ export class TriggerWebhookManager {
       }
 
       const webhooks = await response.json()
-      logger.debug(`📋 Found ${webhooks.length} existing Trello webhooks`)
+      logger.info(`📋 Found ${webhooks.length} existing Trello webhooks`)
 
       if (!Array.isArray(webhooks)) {
         return null
@@ -2057,7 +2057,7 @@ export class TriggerWebhookManager {
       const existingWebhook = webhooks.find((hook: any) => {
         const matches = hook?.idModel === boardId && hook?.callbackURL === callbackURL
         if (matches) {
-          logger.debug('✅ Found matching existing webhook', {
+          logger.info('✅ Found matching existing webhook', {
             webhookId: hook.id,
             boardId: hook.idModel,
             active: hook.active
@@ -2067,7 +2067,7 @@ export class TriggerWebhookManager {
       })
 
       if (!existingWebhook && webhooks.length > 0) {
-        logger.debug('📝 Existing webhooks (none match):', webhooks.map((h: any) => ({
+        logger.info('📝 Existing webhooks (none match):', webhooks.map((h: any) => ({
           id: h.id,
           boardId: h.idModel,
           callbackURL: h.callbackURL,
@@ -2096,7 +2096,7 @@ export class TriggerWebhookManager {
         .maybeSingle()
 
       if (!integration) {
-        logger.debug('ℹ️ Skipping Trello webhook unregister - integration not connected')
+        logger.info('ℹ️ Skipping Trello webhook unregister - integration not connected')
         return
       }
 
@@ -2107,7 +2107,7 @@ export class TriggerWebhookManager {
       const trelloKey = trelloKeyRaw && trelloKeyRaw !== 'null' && trelloKeyRaw !== 'undefined' ? trelloKeyRaw : null
 
       if (!trelloKey || !accessToken) {
-        logger.debug('ℹ️ Skipping Trello webhook unregister - missing credentials')
+        logger.info('ℹ️ Skipping Trello webhook unregister - missing credentials')
         return
       }
 
@@ -2119,7 +2119,7 @@ export class TriggerWebhookManager {
       }
 
       if (!trelloWebhookId) {
-        logger.debug('ℹ️ Trello webhook ID not found for unregister', { boardId })
+        logger.info('ℹ️ Trello webhook ID not found for unregister', { boardId })
         return
       }
 
@@ -2132,7 +2132,7 @@ export class TriggerWebhookManager {
         const text = await response.text().catch(() => '')
         logger.warn('⚠️ Failed to delete Trello webhook', { status: response.status, text })
       } else {
-        logger.debug('✅ Trello webhook unregistered', { trelloWebhookId })
+        logger.info('✅ Trello webhook unregistered', { trelloWebhookId })
       }
     } catch (error) {
       logger.error('Failed to unregister Trello webhook:', error)
@@ -2160,7 +2160,7 @@ export class TriggerWebhookManager {
         )
         
         if (deleteResponse.ok) {
-          logger.debug('✅ Discord webhook deleted successfully')
+          logger.info('✅ Discord webhook deleted successfully')
         } else {
           logger.warn('Failed to delete Discord webhook, but continuing cleanup')
         }
@@ -2211,14 +2211,14 @@ export class TriggerWebhookManager {
       }
 
       if (!integrationId) {
-        logger.debug('Gmail integration not found, watch may already be stopped')
+        logger.info('Gmail integration not found, watch may already be stopped')
         return
       }
 
       const { stopGmailWatch } = await import('./gmail-watch-setup')
       await stopGmailWatch(webhookConfig.user_id, integrationId)
 
-      logger.debug('✅ Gmail watch stopped successfully')
+      logger.info('✅ Gmail watch stopped successfully')
     } catch (error) {
       logger.error('Failed to stop Gmail watch:', error)
       // Don't throw - watch might already be stopped
@@ -2244,7 +2244,7 @@ export class TriggerWebhookManager {
       let integrationId = metadata.integrationId || metadata.integration_id
 
       if (!channelId || !resourceId) {
-        logger.debug('Google Calendar watch metadata missing, watch may already be stopped')
+        logger.info('Google Calendar watch metadata missing, watch may already be stopped')
         return
       }
 
@@ -2263,14 +2263,14 @@ export class TriggerWebhookManager {
       }
 
       if (!integrationId) {
-        logger.debug('Google Calendar integration not found, watch may already be stopped')
+        logger.info('Google Calendar integration not found, watch may already be stopped')
         return
       }
 
       const { stopGoogleCalendarWatch } = await import('./google-calendar-watch-setup')
       await stopGoogleCalendarWatch(webhookConfig.user_id, integrationId, channelId, resourceId)
 
-      logger.debug('✅ Google Calendar watch stopped successfully')
+      logger.info('✅ Google Calendar watch stopped successfully')
     } catch (error) {
       logger.error('Failed to stop Google Calendar watch:', error)
       // Don't throw - watch might already be stopped
@@ -2296,7 +2296,7 @@ export class TriggerWebhookManager {
       let integrationId = metadata.integrationId || metadata.integration_id
 
       if (!channelId || !resourceId) {
-        logger.debug('Google Drive watch metadata missing, watch may already be stopped')
+        logger.info('Google Drive watch metadata missing, watch may already be stopped')
         return
       }
 
@@ -2315,14 +2315,14 @@ export class TriggerWebhookManager {
       }
 
       if (!integrationId) {
-        logger.debug('Google Drive integration not found, watch may already be stopped')
+        logger.info('Google Drive integration not found, watch may already be stopped')
         return
       }
 
       const { stopGoogleDriveWatch } = await import('./google-drive-watch-setup')
       await stopGoogleDriveWatch(webhookConfig.user_id, integrationId, channelId, resourceId)
 
-      logger.debug('✅ Google Drive watch stopped successfully')
+      logger.info('✅ Google Drive watch stopped successfully')
     } catch (error) {
       logger.error('Failed to stop Google Drive watch:', error)
       // Don't throw - watch might already be stopped
@@ -2340,7 +2340,7 @@ export class TriggerWebhookManager {
       const { unregisterAirtableWebhook } = await import('@/lib/integrations/airtable/webhooks')
       await unregisterAirtableWebhook(webhookConfig.user_id, baseId)
 
-      logger.debug('✅ Airtable webhook unregistered successfully')
+      logger.info('✅ Airtable webhook unregistered successfully')
     } catch (error) {
       logger.error('Failed to unregister Airtable webhook:', error)
       // Don't throw - continue with cleanup even if Airtable API fails
@@ -2447,7 +2447,7 @@ export class TriggerWebhookManager {
               resourceId
             )
           } else {
-            logger.debug('Skipping Google Sheets watch stop due to missing identifiers', {
+            logger.info('Skipping Google Sheets watch stop due to missing identifiers', {
               hasChannelId: Boolean(channelId),
               hasResourceId: Boolean(resourceId),
               hasIntegrationId: Boolean(integrationId)
@@ -2460,14 +2460,14 @@ export class TriggerWebhookManager {
       }
 
       default:
-        logger.debug(`Unregistering webhook from ${webhookConfig.provider_id} not yet implemented`)
+        logger.info(`Unregistering webhook from ${webhookConfig.provider_id} not yet implemented`)
     }
   }
 
   private async unregisterDropboxWebhook(webhookConfig: any): Promise<void> {
     try {
       const cursorInfo = webhookConfig?.metadata?.cursor
-      logger.debug('🗑️ Clearing Dropbox webhook metadata', {
+      logger.info('🗑️ Clearing Dropbox webhook metadata', {
         webhookId: webhookConfig.id,
         hadCursor: Boolean(cursorInfo)
       })
@@ -2486,7 +2486,7 @@ export class TriggerWebhookManager {
       }
       const subscriptionId: string | null = metadata?.subscriptionId || null
       if (!subscriptionId) {
-        logger.debug('Skipping OneDrive subscription delete: no subscriptionId on webhook metadata')
+        logger.info('Skipping OneDrive subscription delete: no subscriptionId on webhook metadata')
         return
       }
 
@@ -2517,7 +2517,7 @@ export class TriggerWebhookManager {
       const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
       const mgr = new MicrosoftGraphSubscriptionManager()
       await mgr.deleteSubscription(subscriptionId, accessToken)
-      logger.debug('✅ OneDrive subscription deleted', { subscriptionId })
+      logger.info('✅ OneDrive subscription deleted', { subscriptionId })
     } catch (error) {
       logger.warn('Failed to unregister OneDrive subscription (will expire automatically):', error)
     }
@@ -2553,7 +2553,7 @@ export class TriggerWebhookManager {
       const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
       const mgr = new MicrosoftGraphSubscriptionManager()
       await mgr.deleteSubscription(subscriptionId, accessToken)
-      logger.debug('✅ Outlook subscription deleted', { subscriptionId })
+      logger.info('✅ Outlook subscription deleted', { subscriptionId })
     } catch (error) {
       logger.warn('Failed to unregister Outlook subscription (will expire automatically):', error)
     }
@@ -2566,9 +2566,9 @@ export class TriggerWebhookManager {
     try {
       // Slack Event Subscriptions are configured at the app level
       // We just remove our configuration metadata
-      logger.debug('🗑️ Clearing Slack event subscription configuration')
+      logger.info('🗑️ Clearing Slack event subscription configuration')
       // The webhook_configs entry will be deleted by the calling function
-      logger.debug('✅ Slack event subscription configuration cleared')
+      logger.info('✅ Slack event subscription configuration cleared')
     } catch (error) {
       logger.warn('Failed to unregister Slack webhook:', error)
     }
@@ -2585,7 +2585,7 @@ export class TriggerWebhookManager {
       const repo = webhookConfig.metadata?.repo
 
       if (!githubWebhookId || !owner || !repo) {
-        logger.debug('GitHub webhook metadata missing, webhook may already be deleted')
+        logger.info('GitHub webhook metadata missing, webhook may already be deleted')
         return
       }
 
@@ -2599,13 +2599,13 @@ export class TriggerWebhookManager {
         .maybeSingle()
 
       if (!integration) {
-        logger.debug('GitHub integration not found, webhook may already be deleted')
+        logger.info('GitHub integration not found, webhook may already be deleted')
         return
       }
 
       const accessToken = integration.access_token ? safeDecrypt(integration.access_token) : null
       if (!accessToken) {
-        logger.debug('GitHub access token missing, cannot delete webhook')
+        logger.info('GitHub access token missing, cannot delete webhook')
         return
       }
 
@@ -2626,7 +2626,7 @@ export class TriggerWebhookManager {
         const errorText = await response.text()
         logger.warn('Failed to delete GitHub webhook:', errorText)
       } else {
-        logger.debug('✅ GitHub webhook deleted successfully', { repository, webhookId: githubWebhookId })
+        logger.info('✅ GitHub webhook deleted successfully', { repository, webhookId: githubWebhookId })
       }
     } catch (error) {
       logger.error('Failed to unregister GitHub webhook:', error)
@@ -2664,7 +2664,7 @@ export class TriggerWebhookManager {
       const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
       const mgr = new MicrosoftGraphSubscriptionManager()
       await mgr.deleteSubscription(subscriptionId, accessToken)
-      logger.debug('✅ Teams subscription deleted', { subscriptionId })
+      logger.info('✅ Teams subscription deleted', { subscriptionId })
     } catch (error) {
       logger.warn('Failed to unregister Teams subscription (will expire automatically):', error)
     }
@@ -2700,7 +2700,7 @@ export class TriggerWebhookManager {
       const { MicrosoftGraphSubscriptionManager } = await import('@/lib/microsoft-graph/subscriptionManager')
       const mgr = new MicrosoftGraphSubscriptionManager()
       await mgr.deleteSubscription(subscriptionId, accessToken)
-      logger.debug('✅ OneNote subscription deleted', { subscriptionId })
+      logger.info('✅ OneNote subscription deleted', { subscriptionId })
     } catch (error) {
       logger.warn('Failed to unregister OneNote subscription (will expire automatically):', error)
     }

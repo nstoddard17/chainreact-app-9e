@@ -10,7 +10,7 @@ import { logger } from '@/lib/utils/logger'
 export const getAirtableFeedbackRecords: AirtableDataHandler<AirtableFeedbackRecord> = async (integration: AirtableIntegration, options: AirtableHandlerOptions = {}): Promise<AirtableFeedbackRecord[]> => {
   const { baseId } = options
   
-  logger.debug("🔍 Airtable feedback records fetcher called with:", {
+  logger.info("🔍 Airtable feedback records fetcher called with:", {
     integrationId: integration.id,
     baseId,
     hasToken: !!integration.access_token
@@ -20,11 +20,11 @@ export const getAirtableFeedbackRecords: AirtableDataHandler<AirtableFeedbackRec
     // Validate integration status
     validateAirtableIntegration(integration)
     
-    logger.debug(`🔍 Validating Airtable token...`)
+    logger.info(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -32,7 +32,7 @@ export const getAirtableFeedbackRecords: AirtableDataHandler<AirtableFeedbackRec
       throw new Error('Base ID is required for fetching feedback records')
     }
     
-    logger.debug('🔍 Fetching Airtable feedback records from API...')
+    logger.info('🔍 Fetching Airtable feedback records from API...')
     
     // Try common feedback table names
     const possibleTableNames = ['Feedback', 'User Feedback', 'Customer Feedback', 'Reviews', 'Comments']
@@ -45,21 +45,21 @@ export const getAirtableFeedbackRecords: AirtableDataHandler<AirtableFeedbackRec
         
         if (response.ok) {
           const tableRecords = await parseAirtableApiResponse<AirtableFeedbackRecord>(response)
-          logger.debug(`✅ Found feedback table: ${tableName} with ${tableRecords.length} records`)
+          logger.info(`✅ Found feedback table: ${tableName} with ${tableRecords.length} records`)
           records = tableRecords
           break
         }
       } catch (error) {
-        logger.debug(`❌ Table ${tableName} not found, trying next...`)
+        logger.info(`❌ Table ${tableName} not found, trying next...`)
         continue
       }
     }
     
     if (records.length === 0) {
-      logger.debug('📝 No feedback table found, returning empty array')
+      logger.info('📝 No feedback table found, returning empty array')
     }
     
-    logger.debug(`✅ Airtable feedback records fetched successfully: ${records.length} records`)
+    logger.info(`✅ Airtable feedback records fetched successfully: ${records.length} records`)
     return records
     
   } catch (error: any) {

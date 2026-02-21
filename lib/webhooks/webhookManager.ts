@@ -170,7 +170,7 @@ export class WebhookManager {
       if (error) {
         // If table doesn't exist yet, return empty array
         if (error.code === '42P01') { // Table doesn't exist
-          logger.debug('Webhook tables not created yet, returning empty array')
+          logger.info('Webhook tables not created yet, returning empty array')
           return []
         }
         throw error
@@ -197,7 +197,7 @@ export class WebhookManager {
       if (error) {
         // If table doesn't exist yet, return null
         if (error.code === '42P01') { // Table doesn't exist
-          logger.debug('Webhook tables not created yet')
+          logger.info('Webhook tables not created yet')
           return null
         }
         if (error.code === 'PGRST116') return null
@@ -439,7 +439,7 @@ export class WebhookManager {
   ): Promise<void> {
     // Implementation depends on the provider
     // This would make API calls to register webhooks with external services
-    logger.debug(`Registering webhook with ${providerId} for ${triggerType}`)
+    logger.info(`Registering webhook with ${providerId} for ${triggerType}`)
   }
 
   /**
@@ -451,7 +451,7 @@ export class WebhookManager {
     webhookUrl: string
   ): Promise<void> {
     // Implementation depends on the provider
-    logger.debug(`Unregistering webhook from ${providerId} for ${triggerType}`)
+    logger.info(`Unregistering webhook from ${providerId} for ${triggerType}`)
   }
 
   /**

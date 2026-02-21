@@ -7,7 +7,7 @@ import { logger } from '@/lib/utils/logger'
 
 // Test endpoint to verify webhook and Supabase connection
 export async function GET() {
-  logger.debug("[Webhook Test] Testing webhook configuration...")
+  logger.info("[Webhook Test] Testing webhook configuration...")
   
   const results = {
     timestamp: new Date().toISOString(),
@@ -50,14 +50,14 @@ export async function GET() {
     results.error = error.message
   }
   
-  logger.debug("[Webhook Test] Results:", JSON.stringify(results, null, 2))
+  logger.info("[Webhook Test] Results:", JSON.stringify(results, null, 2))
   
   return jsonResponse(results)
 }
 
 // Test POST to simulate webhook
 export async function POST(request: Request) {
-  logger.debug("[Webhook Test] Received test POST request")
+  logger.info("[Webhook Test] Received test POST request")
   
   try {
     const body = await request.json()
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       headers: Object.fromEntries(request.headers.entries())
     }
     
-    logger.debug("[Webhook Test] Test log:", JSON.stringify(testLog, null, 2))
+    logger.info("[Webhook Test] Test log:", JSON.stringify(testLog, null, 2))
     
     // Try to insert a test record
     const { data, error } = await supabase
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     
     if (error) {
       // If webhook_logs table doesn't exist, try another table
-      logger.debug("[Webhook Test] webhook_logs table error:", error.message)
+      logger.info("[Webhook Test] webhook_logs table error:", error.message)
       
       // Try to at least verify Supabase connection
       const { data: testQuery, error: queryError } = await supabase

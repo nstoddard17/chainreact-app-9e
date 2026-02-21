@@ -44,7 +44,7 @@ export const getSlackFiles: SlackDataHandler<SlackFile> = async (integration: Sl
       const { decryptToken } = await import('@/lib/integrations/tokenUtils')
       try {
         accessToken = await decryptToken(integration.metadata.user_token)
-        logger.debug("📎 [Slack Files] Successfully decrypted user token")
+        logger.info("📎 [Slack Files] Successfully decrypted user token")
       } catch (error: any) {
         logger.error("❌ [Slack Files] Failed to decrypt user token:", {
           error: error.message,
@@ -54,7 +54,7 @@ export const getSlackFiles: SlackDataHandler<SlackFile> = async (integration: Sl
       }
     }
 
-    logger.debug("📎 [Slack Files] Fetching files", {
+    logger.info("📎 [Slack Files] Fetching files", {
       integrationId: integration.id,
       workspaceName: integration.team_name,
       teamId: integration.team_id,
@@ -111,7 +111,7 @@ export const getSlackFiles: SlackDataHandler<SlackFile> = async (integration: Sl
       url_private: file.url_private,
     }))
 
-    logger.debug(`✅ [Slack Files] Retrieved ${files.length} files`, {
+    logger.info(`✅ [Slack Files] Retrieved ${files.length} files`, {
       integrationId: integration.id,
       workspaceName: integration.team_name,
       filesCount: files.length,

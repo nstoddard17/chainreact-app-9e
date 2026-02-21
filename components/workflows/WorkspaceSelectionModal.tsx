@@ -144,7 +144,7 @@ export function WorkspaceSelectionModal({
             description: `New workflows will be created in ${workspace.name}`
           })
 
-          logger.debug("✅ [WorkspaceSelectionModal] Default workspace updated:", {
+          logger.info("✅ [WorkspaceSelectionModal] Default workspace updated:", {
             workspaceType,
             workspaceId: workspaceId || null
           })

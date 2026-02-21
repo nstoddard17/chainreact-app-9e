@@ -89,7 +89,7 @@ export async function handleOAuthCallback(
   const error = url.searchParams.get('error')
   const baseUrl = getBaseUrl()
 
-  logger.debug(`🔍 ${config.provider} callback called:`, {
+  logger.info(`🔍 ${config.provider} callback called:`, {
     url: url.toString(),
     hasCode: !!code,
     hasState: !!state,
@@ -126,7 +126,7 @@ export async function handleOAuthCallback(
       )
     }
 
-    logger.debug(`${config.provider} OAuth callback state:`, {
+    logger.info(`${config.provider} OAuth callback state:`, {
       userId: stateObject.userId,
       provider: stateObject.provider,
       reconnect: stateObject.reconnect,
@@ -172,7 +172,7 @@ export async function handleOAuthCallback(
       await config.onSuccess(integrationId, stateObject)
     }
 
-    logger.debug(`✅ ${config.provider} integration successfully saved`)
+    logger.info(`✅ ${config.provider} integration successfully saved`)
 
     return createPopupResponse(
       'success',
@@ -374,7 +374,7 @@ async function saveIntegration(
       throw new Error(`Database Error: ${error.message}`)
     }
 
-    logger.debug(`✅ Updated existing integration: ${state.integrationId}`)
+    logger.info(`✅ Updated existing integration: ${state.integrationId}`)
     return state.integrationId
   } else {
     // ACCOUNT-BASED DEDUPLICATION: Check if this account already exists
@@ -423,7 +423,7 @@ async function saveIntegration(
           throw new Error(`Database Error: ${error.message}`)
         }
 
-        logger.debug(`✅ Updated existing integration by account: ${existingIntegration.id}`)
+        logger.info(`✅ Updated existing integration by account: ${existingIntegration.id}`)
         return existingIntegration.id
       }
     }
@@ -442,7 +442,7 @@ async function saveIntegration(
         throw new Error(`Database Error: ${error.message}`)
       }
 
-      logger.debug(`✅ Created new integration: ${data.id}`)
+      logger.info(`✅ Created new integration: ${data.id}`)
       return data.id
     } else {
       // For team/org, check by email if available
@@ -468,7 +468,7 @@ async function saveIntegration(
             throw new Error(`Database Error: ${error.message}`)
           }
 
-          logger.debug(`✅ Updated existing team/org integration: ${existingIntegration.id}`)
+          logger.info(`✅ Updated existing team/org integration: ${existingIntegration.id}`)
           return existingIntegration.id
         }
       }
@@ -485,7 +485,7 @@ async function saveIntegration(
         throw new Error(`Database Error: ${error.message}`)
       }
 
-      logger.debug(`✅ Created new team/org integration: ${data.id}`)
+      logger.info(`✅ Created new team/org integration: ${data.id}`)
       return data.id
     }
   }
@@ -500,7 +500,7 @@ async function grantWorkspacePermissions(
 ): Promise<void> {
   // Skip permission granting for reconnects (permissions already exist)
   if (state.reconnect) {
-    logger.debug('Skipping permission grant for reconnect')
+    logger.info('Skipping permission grant for reconnect')
     return
   }
 
@@ -512,7 +512,7 @@ async function grantWorkspacePermissions(
     id: workspaceId,
   }
 
-  logger.debug('Granting permissions for workspace context:', workspaceContext)
+  logger.info('Granting permissions for workspace context:', workspaceContext)
 
   const result = await autoGrantPermissionsForIntegration(
     integrationId,
@@ -525,7 +525,7 @@ async function grantWorkspacePermissions(
     throw new Error(`Failed to grant permissions: ${result.error}`)
   }
 
-  logger.debug('✅ Permissions granted successfully')
+  logger.info('✅ Permissions granted successfully')
 }
 
 // ================================================================

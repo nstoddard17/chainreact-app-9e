@@ -8,7 +8,7 @@ import { validateHubSpotIntegration, validateHubSpotToken, makeHubSpotApiRequest
 import { logger } from '@/lib/utils/logger'
 
 export const getHubSpotJobTitles: HubSpotDataHandler<HubSpotJobTitle> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotJobTitle[]> => {
-  logger.debug("🔍 HubSpot job titles fetcher called with integration:", {
+  logger.info("🔍 HubSpot job titles fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -19,19 +19,19 @@ export const getHubSpotJobTitles: HubSpotDataHandler<HubSpotJobTitle> = async (i
     // Validate integration status
     validateHubSpotIntegration(integration)
     
-    logger.debug(`🔍 Validating HubSpot token...`)
+    logger.info(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    logger.debug('🔍 Using predefined HubSpot job titles list...')
+    logger.info('🔍 Using predefined HubSpot job titles list...')
     // Job titles are free text fields in HubSpot, but we'll provide common options
     const jobTitles = getDefaultJobTitles()
     
-    logger.debug(`✅ HubSpot job titles fetched successfully: ${jobTitles.length} job titles`)
+    logger.info(`✅ HubSpot job titles fetched successfully: ${jobTitles.length} job titles`)
     return jobTitles
     
   } catch (error: any) {

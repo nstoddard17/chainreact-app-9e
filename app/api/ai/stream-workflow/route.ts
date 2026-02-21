@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       clarifications = {} // User-provided clarifications from analysis phase
     } = body
 
-    logger.debug('[STREAM] Clarifications payload summary', {
+    logger.info('[STREAM] Clarifications payload summary', {
       clarificationKeys: clarifications ? Object.keys(clarifications) : [],
       detailsCount: Array.isArray(clarifications?.details) ? clarifications.details.length : 0,
       answersKeys: clarifications?.answers ? Object.keys(clarifications.answers) : [],
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
 
           const connectedProviderIds = connectedIntegrations.map(normalizeProviderId)
 
-          logger.debug('[Prerequisite Check] Input state', {
+          logger.info('[Prerequisite Check] Input state', {
             requiredApps: prerequisiteCheck.requiredApps,
             connectedIntegrations,
             normalizedConnected: connectedProviderIds
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
           const missingApps = (prerequisiteCheck.requiredApps || []).filter((app: string) => {
             const normalizedRequired = normalizeProviderId(app)
             const isConnected = connectedProviderIds.includes(normalizedRequired)
-            logger.debug('[Prerequisite Check] App connection status', {
+            logger.info('[Prerequisite Check] App connection status', {
               app,
               normalizedRequired,
               isConnected
@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
             totalNodes: plan.nodes.length
           })
 
-          logger.debug('[STREAM] Plan nodes overview', {
+          logger.info('[STREAM] Plan nodes overview', {
             nodes: plan.nodes.map((n: any) => ({ type: n.type, title: n.title }))
           })
 
@@ -405,7 +405,7 @@ export async function POST(request: NextRequest) {
             node.data.isPending = false
             node.data.autoExpand = true
 
-            logger.debug('[STREAM] Preparing node', {
+            logger.info('[STREAM] Preparing node', {
               nodeId: node.id,
               title: plannedNode.title
             })
@@ -423,7 +423,7 @@ export async function POST(request: NextRequest) {
             node.data.aiStatus = 'configuring'
             node.data.aiBadgeText = 'Configuring'
             node.data.aiBadgeVariant = 'info'
-            logger.debug('[STREAM] Starting configuration', {
+            logger.info('[STREAM] Starting configuration', {
               nodeId: node.id,
               title: plannedNode.title
             })
@@ -448,7 +448,7 @@ export async function POST(request: NextRequest) {
             })
 
             // Generate configuration with timeout
-            logger.debug('[STREAM] Calling generateNodeConfig', {
+            logger.info('[STREAM] Calling generateNodeConfig', {
               title: plannedNode.title,
               nodeId: node.id,
               model: configModel
@@ -469,7 +469,7 @@ export async function POST(request: NextRequest) {
               }
             })
             const configDuration = Date.now() - configStartTime
-            logger.debug('[STREAM] generateNodeConfig completed', {
+            logger.info('[STREAM] generateNodeConfig completed', {
               title: plannedNode.title,
               durationMs: configDuration
             })
@@ -481,7 +481,7 @@ export async function POST(request: NextRequest) {
               prompt
             })
 
-            logger.debug('[STREAM] Config result summary', {
+            logger.info('[STREAM] Config result summary', {
               success: configResult.success,
               hasConfig: !!configResult.config,
               configKeys: Object.keys(configResult.config || {}),
@@ -529,7 +529,7 @@ export async function POST(request: NextRequest) {
 
             const effectiveFallbackFields = Array.from(new Set([...unresolvedFallbackFields, ...enforcedMissingFields]))
             const hasUnresolvedFields = effectiveFallbackFields.length > 0
-            logger.debug('[STREAM] Applying configuration fields', {
+            logger.info('[STREAM] Applying configuration fields', {
               title: plannedNode.title,
               fieldCount: configFields.length,
               fieldKeys: Object.keys(finalConfigWithMappings)
@@ -546,7 +546,7 @@ export async function POST(request: NextRequest) {
 
             // If no config fields for trigger, add a default one to show something
             if (configFields.length === 0 && nodeComponent.isTrigger) {
-              logger.debug('[STREAM] No config for trigger; adding default message', {
+              logger.info('[STREAM] No config for trigger; adding default message', {
                 title: plannedNode.title
               })
               sendEvent('field_configured', {
@@ -569,7 +569,7 @@ export async function POST(request: NextRequest) {
 
               // Add field to node config
               node.data.config[fieldKey] = fieldValue
-              logger.debug('[STREAM] Setting field value', {
+              logger.info('[STREAM] Setting field value', {
                 title: plannedNode.title,
                 fieldKey,
                 fieldValue
@@ -675,7 +675,7 @@ export async function POST(request: NextRequest) {
 
             // Step 3: Test node (skip for triggers)
             if (nodeComponent.isTrigger) {
-              logger.debug('[STREAM] Skipping trigger test', {
+              logger.info('[STREAM] Skipping trigger test', {
                 title: plannedNode.title
               })
 
@@ -721,7 +721,7 @@ export async function POST(request: NextRequest) {
                 return
               }
 
-              logger.debug('[STREAM] Trigger block complete; client still connected', {
+              logger.info('[STREAM] Trigger block complete; client still connected', {
                 nodeIndex: i
               })
             } else {
@@ -1533,7 +1533,7 @@ async function generateNodeConfig({
   workflowData
 }: any) {
   try {
-    logger.debug('[generateNodeConfig] Starting configuration', {
+    logger.info('[generateNodeConfig] Starting configuration', {
       nodeTitle: node.title,
       nodeType: nodeComponent.type,
       providerId: nodeComponent.providerId
@@ -1548,7 +1548,7 @@ async function generateNodeConfig({
 
     const clarificationEntries = Object.entries(clarificationFieldValues)
     if (nodeComponent.type === 'slack_action_send_message') {
-      logger.debug('[generateNodeConfig] Slack clarifications captured', {
+      logger.info('[generateNodeConfig] Slack clarifications captured', {
         clarificationFieldValues,
         clarificationEntries
       })
@@ -1594,11 +1594,11 @@ async function generateNodeConfig({
           '3. Variable syntax like {{trigger.from}} should be preserved exactly as shown'
         ].join('\n')
 
-        logger.debug('[generateNodeConfig] Built clarification context block')
+        logger.info('[generateNodeConfig] Built clarification context block')
       }
     }
 
-    logger.debug('[generateNodeConfig] Clarification context ready', {
+    logger.info('[generateNodeConfig] Clarification context ready', {
       hasContext: Boolean(clarificationContext)
     })
 
@@ -1614,7 +1614,7 @@ async function generateNodeConfig({
         : []
 
     if (nodeComponent.type === 'slack_action_send_message') {
-      logger.debug('[generateNodeConfig] Slack auto-mapping entries', {
+      logger.info('[generateNodeConfig] Slack auto-mapping entries', {
         entries: autoMappingEntries
       })
     }
@@ -1703,7 +1703,7 @@ Return JSON:
   "reasoning": "Brief explanation of choices made"
 }`
 
-      logger.debug('[generateNodeConfig] Sending prompt to AI model', { model })
+      logger.info('[generateNodeConfig] Sending prompt to AI model', { model })
 
       result = await callAI({
         prompt: configPrompt,
@@ -1717,7 +1717,7 @@ Return JSON:
 
     // Initialize config if it doesn't exist
     if (!result.config) {
-      logger.debug('[generateNodeConfig] No config from AI, initializing empty object')
+      logger.info('[generateNodeConfig] No config from AI, initializing empty object')
       result.config = {}
     }
 
@@ -1729,7 +1729,7 @@ Return JSON:
 
     // CRITICAL: Force-apply clarification values to ensure they're used
     if (clarificationEntries.length > 0) {
-      logger.debug('[generateNodeConfig] Force-applying clarifications to config', {
+      logger.info('[generateNodeConfig] Force-applying clarifications to config', {
         clarificationCount: clarificationEntries.length
       })
 
@@ -1885,7 +1885,7 @@ Return JSON:
     // Force-apply message template for other messaging providers if needed
     if (messageTemplate && nodeComponent.providerId && ['discord'].includes(nodeComponent.providerId)) {
       if (!result.config.message || result.config.message === '' || result.config.message === 'Empty') {
-        logger.debug('[generateNodeConfig] Force-setting message template for messaging provider')
+        logger.info('[generateNodeConfig] Force-setting message template for messaging provider')
         result.config.message = messageTemplate
       }
       if (!displayOverrides.message) {

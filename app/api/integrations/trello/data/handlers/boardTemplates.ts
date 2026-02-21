@@ -48,7 +48,7 @@ export async function getTrelloBoardTemplates(
   options: any = {}
 ): Promise<any[]> {
   try {
-    logger.debug('[Trello] Fetching board templates')
+    logger.info('[Trello] Fetching board templates')
 
     // For board templates, we return the predefined list
     // Trello doesn't have a public API endpoint for templates

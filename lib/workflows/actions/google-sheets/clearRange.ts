@@ -67,7 +67,7 @@ export async function clearGoogleSheetsRange(
       const lastRowNumber = values.length
       rangeToClean = `${sheetName}!${lastRowNumber}:${lastRowNumber}`
 
-      logger.debug("Clearing last row:", { lastRowNumber, range: rangeToClean })
+      logger.info("Clearing last row:", { lastRowNumber, range: rangeToClean })
     } else if (clearType === 'specific_row') {
       const rowNumber = resolveValue(config.rowNumber, input)
       if (!rowNumber) {
@@ -75,7 +75,7 @@ export async function clearGoogleSheetsRange(
       }
       rangeToClean = `${sheetName}!${rowNumber}:${rowNumber}`
 
-      logger.debug("Clearing specific row:", { rowNumber, range: rangeToClean })
+      logger.info("Clearing specific row:", { rowNumber, range: rangeToClean })
     } else {
       return {
         success: false,
@@ -83,7 +83,7 @@ export async function clearGoogleSheetsRange(
       }
     }
 
-    logger.debug("Clearing Google Sheets range:", {
+    logger.info("Clearing Google Sheets range:", {
       spreadsheetId,
       sheetName,
       clearType,

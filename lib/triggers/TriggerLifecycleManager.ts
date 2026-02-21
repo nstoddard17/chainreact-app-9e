@@ -30,7 +30,7 @@ export class TriggerLifecycleManager {
    */
   registerProvider(entry: TriggerProviderEntry): void {
     this.providers.set(entry.providerId, entry)
-    logger.debug(`📝 Registered trigger provider: ${entry.providerId}`)
+    logger.info(`📝 Registered trigger provider: ${entry.providerId}`)
   }
 
   /**
@@ -107,7 +107,7 @@ export class TriggerLifecycleManager {
     const triggerNodes = nodes.filter((node: any) => node.data?.isTrigger)
 
     const modeLabel = testMode ? '🧪 TEST MODE' : '🚀 PRODUCTION'
-    logger.debug(`${modeLabel} Activating ${triggerNodes.length} triggers for workflow ${workflowId}`)
+    logger.info(`${modeLabel} Activating ${triggerNodes.length} triggers for workflow ${workflowId}`)
 
     for (const node of triggerNodes) {
       const providerId = node.data?.providerId
@@ -122,7 +122,7 @@ export class TriggerLifecycleManager {
       const lifecycle = this.getLifecycle(providerId)
       if (!lifecycle) {
         // No lifecycle registered = no external resources needed (e.g., schedule, manual)
-        logger.debug(`ℹ️ No lifecycle for ${providerId}, skipping (no external resources needed)`)
+        logger.info(`ℹ️ No lifecycle for ${providerId}, skipping (no external resources needed)`)
         continue
       }
 
@@ -138,7 +138,7 @@ export class TriggerLifecycleManager {
         }
 
         await lifecycle.onActivate(context)
-        logger.debug(`✅ Activated trigger: ${providerId}/${triggerType} for workflow ${workflowId}${testMode ? ' (TEST)' : ''}`)
+        logger.info(`✅ Activated trigger: ${providerId}/${triggerType} for workflow ${workflowId}${testMode ? ' (TEST)' : ''}`)
 
       } catch (error) {
         const errorMsg = `Failed to activate ${providerId}/${triggerType}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -178,21 +178,21 @@ export class TriggerLifecycleManager {
     if (testSessionId) {
       // Only deactivate test triggers for this specific session
       query = query.eq('test_session_id', testSessionId)
-      logger.debug(`🧪 Deactivating TEST triggers for session ${testSessionId}`)
+      logger.info(`🧪 Deactivating TEST triggers for session ${testSessionId}`)
     } else {
       // Deactivate production triggers only (not test triggers)
       query = query.or('is_test.is.null,is_test.eq.false')
-      logger.debug(`🛑 Deactivating PRODUCTION triggers for workflow ${workflowId}`)
+      logger.info(`🛑 Deactivating PRODUCTION triggers for workflow ${workflowId}`)
     }
 
     const { data: resources } = await query
 
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No trigger resources found for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
+      logger.info(`ℹ️ No trigger resources found for workflow ${workflowId}${testSessionId ? ` (session ${testSessionId})` : ''}`)
       return { success: true, errors: [] }
     }
 
-    logger.debug(`🛑 Deactivating ${resources.length} trigger resources for workflow ${workflowId}`)
+    logger.info(`🛑 Deactivating ${resources.length} trigger resources for workflow ${workflowId}`)
 
     for (const resource of resources) {
       const lifecycle = this.getLifecycle(resource.provider_id)
@@ -210,7 +210,7 @@ export class TriggerLifecycleManager {
         }
 
         await lifecycle.onDeactivate(context)
-        logger.debug(`✅ Deactivated trigger: ${resource.provider_id} for workflow ${workflowId}${testSessionId ? ' (TEST)' : ''}`)
+        logger.info(`✅ Deactivated trigger: ${resource.provider_id} for workflow ${workflowId}${testSessionId ? ' (TEST)' : ''}`)
 
       } catch (error) {
         const errorMsg = `Failed to deactivate ${resource.provider_id}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -243,11 +243,11 @@ export class TriggerLifecycleManager {
       .eq('workflow_id', workflowId)
 
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No trigger resources found for workflow ${workflowId}`)
+      logger.info(`ℹ️ No trigger resources found for workflow ${workflowId}`)
       return { success: true, errors: [] }
     }
 
-    logger.debug(`🗑️ Deleting ${resources.length} trigger resources for workflow ${workflowId}`)
+    logger.info(`🗑️ Deleting ${resources.length} trigger resources for workflow ${workflowId}`)
 
     for (const resource of resources) {
       const lifecycle = this.getLifecycle(resource.provider_id)
@@ -264,7 +264,7 @@ export class TriggerLifecycleManager {
         }
 
         await lifecycle.onDelete(context)
-        logger.debug(`✅ Deleted trigger: ${resource.provider_id} for workflow ${workflowId}`)
+        logger.info(`✅ Deleted trigger: ${resource.provider_id} for workflow ${workflowId}`)
 
       } catch (error) {
         const errorMsg = `Failed to delete ${resource.provider_id}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -299,17 +299,17 @@ export class TriggerLifecycleManager {
       .eq('node_id', nodeId)
 
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No trigger resources found for node ${nodeId} in workflow ${workflowId}`)
+      logger.info(`ℹ️ No trigger resources found for node ${nodeId} in workflow ${workflowId}`)
       return { success: true, errors: [] }
     }
 
-    logger.debug(`🗑️ Deleting ${resources.length} trigger resources for node ${nodeId}`)
+    logger.info(`🗑️ Deleting ${resources.length} trigger resources for node ${nodeId}`)
 
     for (const resource of resources) {
       const lifecycle = this.getLifecycle(resource.provider_id)
       if (!lifecycle) {
         // No lifecycle = just delete the database record
-        logger.debug(`ℹ️ No lifecycle for ${resource.provider_id}, deleting DB record only`)
+        logger.info(`ℹ️ No lifecycle for ${resource.provider_id}, deleting DB record only`)
         await getSupabase()
           .from('trigger_resources')
           .delete()
@@ -326,7 +326,7 @@ export class TriggerLifecycleManager {
         }
 
         await lifecycle.onDelete(context)
-        logger.debug(`✅ Deleted trigger for node ${nodeId}: ${resource.provider_id}`)
+        logger.info(`✅ Deleted trigger for node ${nodeId}: ${resource.provider_id}`)
 
       } catch (error) {
         const errorMsg = `Failed to delete trigger for node ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -371,7 +371,7 @@ export class TriggerLifecycleManager {
       return { success: true, deletedCount: 0, errors: [] }
     }
 
-    logger.debug(`🧹 Found ${orphanedResources.length} orphaned trigger resources to clean up`)
+    logger.info(`🧹 Found ${orphanedResources.length} orphaned trigger resources to clean up`)
 
     for (const resource of orphanedResources) {
       try {
@@ -388,7 +388,7 @@ export class TriggerLifecycleManager {
       }
     }
 
-    logger.debug(`🧹 Cleaned up ${deletedCount} orphaned trigger resources`)
+    logger.info(`🧹 Cleaned up ${deletedCount} orphaned trigger resources`)
 
     return {
       success: errors.length === 0,
@@ -474,7 +474,7 @@ export class TriggerLifecycleManager {
       newTriggerNodes.map(n => [n.id, n])
     )
 
-    logger.debug(`🔄 Updating triggers: ${existingByNodeId.size} existing, ${newByNodeId.size} new`)
+    logger.info(`🔄 Updating triggers: ${existingByNodeId.size} existing, ${newByNodeId.size} new`)
 
     // Categorize changes
     const unchanged: string[] = []
@@ -514,7 +514,7 @@ export class TriggerLifecycleManager {
       const lifecycle = this.getLifecycle(resource.provider_id)
       if (!lifecycle) {
         // No lifecycle = no optimization possible
-        logger.debug(`ℹ️ No lifecycle for ${resource.provider_id}, treating as resource change`)
+        logger.info(`ℹ️ No lifecycle for ${resource.provider_id}, treating as resource change`)
         resourceChange.push({ nodeId, resource, newNode })
         continue
       }
@@ -524,7 +524,7 @@ export class TriggerLifecycleManager {
 
       if (resourceKeys.length === 0) {
         // Provider doesn't implement optimization, fall back to full deactivate+activate
-        logger.debug(`ℹ️ Provider ${resource.provider_id} doesn't implement getResourceIdentityKeys(), treating as resource change`)
+        logger.info(`ℹ️ Provider ${resource.provider_id} doesn't implement getResourceIdentityKeys(), treating as resource change`)
         resourceChange.push({ nodeId, resource, newNode })
         continue
       }
@@ -559,14 +559,14 @@ export class TriggerLifecycleManager {
     }
 
     // Log categorization
-    logger.debug(`📊 Categorization: ${unchanged.length} unchanged, ${configOnly.length} config-only, ${resourceChange.length} resource change, ${typeChange.length} type change, ${removed.length} removed, ${added.length} added`)
+    logger.info(`📊 Categorization: ${unchanged.length} unchanged, ${configOnly.length} config-only, ${resourceChange.length} resource change, ${typeChange.length} type change, ${removed.length} removed, ${added.length} added`)
 
     // Execute operations
     // 1. Remove deleted triggers
     for (const nodeId of removed) {
       try {
         await this.deleteNodeTrigger(workflowId, userId, nodeId)
-        logger.debug(`✅ REMOVED: Node ${nodeId}`)
+        logger.info(`✅ REMOVED: Node ${nodeId}`)
       } catch (error) {
         const errorMsg = `Failed to remove trigger ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
         logger.error(`❌ ${errorMsg}`)
@@ -592,7 +592,7 @@ export class TriggerLifecycleManager {
           })
           .eq('id', resource.id)
 
-        logger.debug(`✅ CONFIG_ONLY: Node ${nodeId} (preserved polling state)`)
+        logger.info(`✅ CONFIG_ONLY: Node ${nodeId} (preserved polling state)`)
       } catch (error) {
         const errorMsg = `Failed to update config for trigger ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
         logger.error(`❌ ${errorMsg}`)
@@ -623,7 +623,7 @@ export class TriggerLifecycleManager {
           }
 
           await lifecycle.onActivate(context)
-          logger.debug(`✅ RESOURCE_CHANGE: Node ${nodeId} (deactivated + reactivated)`)
+          logger.info(`✅ RESOURCE_CHANGE: Node ${nodeId} (deactivated + reactivated)`)
         }
       } catch (error) {
         const errorMsg = `Failed to handle resource change for trigger ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -655,7 +655,7 @@ export class TriggerLifecycleManager {
           }
 
           await lifecycle.onActivate(context)
-          logger.debug(`✅ TYPE_CHANGE: Node ${nodeId} (${resource.trigger_type} → ${triggerType})`)
+          logger.info(`✅ TYPE_CHANGE: Node ${nodeId} (${resource.trigger_type} → ${triggerType})`)
         }
       } catch (error) {
         const errorMsg = `Failed to handle type change for trigger ${nodeId}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -683,7 +683,7 @@ export class TriggerLifecycleManager {
           }
 
           await lifecycle.onActivate(context)
-          logger.debug(`✅ ADDED: Node ${node.id}`)
+          logger.info(`✅ ADDED: Node ${node.id}`)
         }
       } catch (error) {
         const errorMsg = `Failed to activate new trigger ${node.id}: ${error instanceof Error ? error.message : 'Unknown error'}`

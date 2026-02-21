@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    logger.debug(`🔍 [Discord Channels] Processing request:`, {
+    logger.info(`🔍 [Discord Channels] Processing request:`, {
       userId,
       guildId,
       status: integration.status,
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     // Get channels using the handler
     const channels = await getDiscordChannels(integration as DiscordIntegration, options)
 
-    logger.debug(`✅ [Discord Channels] Successfully fetched channels:`, {
+    logger.info(`✅ [Discord Channels] Successfully fetched channels:`, {
       userId,
       guildId,
       channelCount: channels?.length || 0

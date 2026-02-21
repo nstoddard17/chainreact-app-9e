@@ -153,7 +153,7 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
           logger.warn(`[Discord Channels] Could not fetch guild roles:`, rolesError)
         }
       } catch (memberError) {
-        logger.debug("[Discord Channels] Could not fetch bot member info, will show all channels:", memberError)
+        logger.info("[Discord Channels] Could not fetch bot member info, will show all channels:", memberError)
       }
 
       // Use makeDiscordApiRequest with caching for faster subsequent loads
@@ -165,19 +165,19 @@ export const getDiscordChannels: DiscordDataHandler<DiscordChannel> = async (int
       )
     } catch (fetchError: any) {
       // Handle fetchDiscordWithRateLimit errors specifically
-      logger.debug(`Discord API fetch error for guild ${guildId}:`, fetchError.message)
+      logger.info(`Discord API fetch error for guild ${guildId}:`, fetchError.message)
       
       if (fetchError.status === 401) {
         throw new Error("Discord bot authentication failed. Please check bot configuration.")
       }
       if (fetchError.status === 403) {
         // Bot doesn't have permission or isn't in the server - return empty array
-        logger.debug(`Bot missing permissions or not in server ${guildId} - returning empty channels list`)
+        logger.info(`Bot missing permissions or not in server ${guildId} - returning empty channels list`)
         return []
       }
       if (fetchError.status === 404) {
         // Bot is not in the server - return empty array
-        logger.debug(`Bot is not a member of server ${guildId} - returning empty channels list`)
+        logger.info(`Bot is not a member of server ${guildId} - returning empty channels list`)
         return []
       }
       

@@ -23,7 +23,7 @@ async function withRetry<T>(
       // Check if it's a rate limit error
       if (error.status === 429 && attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000; // Exponential backoff with jitter
-        logger.debug(`Rate limited. Retrying in ${delay}ms...`);
+        logger.info(`Rate limited. Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }

@@ -106,9 +106,9 @@ export function resolveNotionAccessToken(
     const workspaceToken = integration.metadata.workspaces[workspaceId]?.access_token
     if (workspaceToken) {
       encryptedToken = workspaceToken
-      logger.debug('[Notion] Using workspace-specific access token', { workspaceId })
+      logger.info('[Notion] Using workspace-specific access token', { workspaceId })
     } else {
-      logger.debug('[Notion] Workspace token missing, falling back to primary token', { workspaceId })
+      logger.info('[Notion] Workspace token missing, falling back to primary token', { workspaceId })
     }
   }
 

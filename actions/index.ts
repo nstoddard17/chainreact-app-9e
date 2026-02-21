@@ -102,14 +102,14 @@ export async function executeAction(
     
     // Add timing and logging for monitoring
     const startTime = Date.now()
-    logger.debug(`Executing action: ${actionName} (${actionType})`)
+    logger.info(`Executing action: ${actionName} (${actionType})`)
     
     // Execute the handler
     const result = await handler(params)
     
     // Log completion time
     const executionTime = Date.now() - startTime
-    logger.debug(`Action ${actionName} completed in ${executionTime}ms with success=${result.success}`)
+    logger.info(`Action ${actionName} completed in ${executionTime}ms with success=${result.success}`)
     
     // Return the result
     return result

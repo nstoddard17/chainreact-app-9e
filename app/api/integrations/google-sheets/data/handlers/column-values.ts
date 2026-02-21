@@ -85,7 +85,7 @@ export const getGoogleSheetsColumnValues: GoogleSheetsDataHandler<string[]> = as
       a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
     )
 
-    logger.debug(`Fetched ${sortedValues.length} unique values from column "${filterColumn}"`)
+    logger.info(`Fetched ${sortedValues.length} unique values from column "${filterColumn}"`)
 
     return sortedValues
 

@@ -26,7 +26,7 @@ export interface BatchFieldValuesOptions extends AirtableHandlerOptions {
 export const getAirtableBatchFieldValues: AirtableDataHandler<BatchFieldValue> = async (integration: AirtableIntegration, options: BatchFieldValuesOptions): Promise<BatchFieldValue[]> => {
   const { baseId, tableName, fields } = options as BatchFieldValuesOptions
 
-  logger.debug("🔍 Airtable batch field values fetcher called with:", {
+  logger.info("🔍 Airtable batch field values fetcher called with:", {
     integrationId: integration.id,
     baseId,
     tableName,
@@ -39,11 +39,11 @@ export const getAirtableBatchFieldValues: AirtableDataHandler<BatchFieldValue> =
     // Validate integration status
     validateAirtableIntegration(integration)
 
-    logger.debug(`🔍 Validating Airtable token...`)
+    logger.info(`🔍 Validating Airtable token...`)
     const tokenResult = await validateAirtableToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ Airtable token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Airtable token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
@@ -51,7 +51,7 @@ export const getAirtableBatchFieldValues: AirtableDataHandler<BatchFieldValue> =
       throw new Error('Base ID, table name, and fields array are required for batch field values')
     }
 
-    logger.debug('🔍 Fetching Airtable records to extract batch field values...')
+    logger.info('🔍 Fetching Airtable records to extract batch field values...')
 
     // Build the URL for getting records from the table
     const url = new URL(buildAirtableApiUrl(`/v0/${baseId}/${encodeURIComponent(tableName)}`))
@@ -65,7 +65,7 @@ export const getAirtableBatchFieldValues: AirtableDataHandler<BatchFieldValue> =
     const response = await makeAirtableApiRequest(url.toString(), tokenResult.token!)
     const recordsData = await parseAirtableApiResponse(response)
 
-    logger.debug('🔍 [Batch Field Values] Records fetched:', {
+    logger.info('🔍 [Batch Field Values] Records fetched:', {
       recordCount: recordsData.records?.length || 0,
       fieldsRequested: fields.map(f => f.name),
       sampleRecord: recordsData.records?.[0]?.fields
@@ -131,7 +131,7 @@ export const getAirtableBatchFieldValues: AirtableDataHandler<BatchFieldValue> =
       }
     })
 
-    logger.debug(`✅ Airtable batch field values fetched successfully:`, {
+    logger.info(`✅ Airtable batch field values fetched successfully:`, {
       fieldCount: results.length,
       totalValues: results.reduce((sum, r) => sum + r.values.length, 0),
       breakdown: results.map(r => ({ field: r.fieldName, count: r.values.length }))

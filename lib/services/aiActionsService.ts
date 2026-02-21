@@ -10,7 +10,7 @@ export class AIActionsService {
     const configWithTemplates = applyTemplateDefaultsToConfig(nodeType, { ...resolvedConfig })
     const preparedConfig = this.prepareConfig(nodeType, configWithTemplates, context)
 
-    logger.debug(`🤖 Executing AI action: ${nodeType}`)
+    logger.info(`🤖 Executing AI action: ${nodeType}`)
 
     if (context.testMode) {
       return this.buildTestResponse(nodeType, preparedConfig, context)
@@ -37,12 +37,12 @@ export class AIActionsService {
   }
 
   async executeAIAgent(node: any, context: ExecutionContext): Promise<any> {
-    logger.debug("🤖 Executing AI Agent")
+    logger.info("🤖 Executing AI Agent")
 
     // Resolve variable references in config before executing
     const aiResolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
 
-    logger.debug("🤖 AI Agent executing with resolved config keys:", Object.keys(aiResolvedConfig || {}))
+    logger.info("🤖 AI Agent executing with resolved config keys:", Object.keys(aiResolvedConfig || {}))
 
     // Call AI agent directly
     const { executeAIAgent } = await import('@/lib/workflows/aiAgent')
@@ -54,12 +54,12 @@ export class AIActionsService {
   }
 
   async executeAIRouter(node: any, context: ExecutionContext): Promise<any> {
-    logger.debug("🤖 Executing AI Agent (Router Mode)")
+    logger.info("🤖 Executing AI Agent (Router Mode)")
 
     // Resolve variable references in config before executing
     const resolvedConfig = context.dataFlowManager.resolveObject(node.data?.config || {})
 
-    logger.debug("🤖 AI Agent executing with resolved config")
+    logger.info("🤖 AI Agent executing with resolved config")
 
     // Call unified AI agent action
     const { executeAIAgentAction } = await import('@/lib/workflows/actions/aiAgentAction')

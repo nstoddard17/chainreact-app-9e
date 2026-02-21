@@ -196,7 +196,7 @@ export function GenericSelectField({
 
     // If force refresh, invalidate cache first
     if (forceRefresh && shouldCache) {
-      logger.debug('[GenericSelectField] Force refresh - invalidating cache:', cacheKey)
+      logger.info('[GenericSelectField] Force refresh - invalidating cache:', cacheKey)
       invalidateCache(cacheKey)
       setIsFromCache(false)
     }
@@ -205,12 +205,12 @@ export function GenericSelectField({
     if (!forceRefresh && shouldCache) {
       const cached = getCache(cacheKey)
       if (cached) {
-        logger.debug('[GenericSelectField] Cache HIT:', { fieldName, cacheKey, optionsCount: cached.length })
+        logger.info('[GenericSelectField] Cache HIT:', { fieldName, cacheKey, optionsCount: cached.length })
         setIsFromCache(true)
         // Cache hit! No need to call onDynamicLoad - options are already set via parent component
         return
       }
-      logger.debug('[GenericSelectField] Cache MISS:', { fieldName, cacheKey })
+      logger.info('[GenericSelectField] Cache MISS:', { fieldName, cacheKey })
     }
 
     // Cache miss or no cache - load from API
@@ -227,14 +227,14 @@ export function GenericSelectField({
 
     // Use ref to check if already refreshing to avoid stale closure
     if (isRefreshing) {
-      logger.debug('[GenericSelectField] Refresh already in progress, skipping');
+      logger.info('[GenericSelectField] Refresh already in progress, skipping');
       return;
     }
 
     setIsRefreshing(true);
     try {
       const dependencyValue = field.dependsOn ? parentValues[field.dependsOn] : undefined;
-      logger.debug('[GenericSelectField] Refreshing field:', {
+      logger.info('[GenericSelectField] Refreshing field:', {
         fieldName: field.name,
         dependsOn: field.dependsOn,
         dependencyValue
@@ -245,7 +245,7 @@ export function GenericSelectField({
       } else if (!field.dependsOn) {
         await cachedDynamicLoad(field.name, undefined, undefined, true);
       } else {
-        logger.debug('[GenericSelectField] Skipping refresh - dependent field missing parent value');
+        logger.info('[GenericSelectField] Skipping refresh - dependent field missing parent value');
       }
     } catch (error) {
       logger.error('[GenericSelectField] Refresh failed:', error);
@@ -291,7 +291,7 @@ export function GenericSelectField({
     setIsSearching(true);
 
     try {
-      logger.debug('[GenericSelectField] Search query:', { fieldName: field.name, query });
+      logger.info('[GenericSelectField] Search query:', { fieldName: field.name, query });
 
       // Call onDynamicLoad with search parameter
       // The API handler will receive this as part of options
@@ -523,7 +523,7 @@ export function GenericSelectField({
 
   // Handle variable selection from SimpleVariablePicker
   const handleVariableSelect = React.useCallback((variable: string) => {
-    logger.debug('[GenericSelectField] Variable selected:', { fieldName: field.name, variable });
+    logger.info('[GenericSelectField] Variable selected:', { fieldName: field.name, variable });
     onChange(variable);
 
     // Set display label for the variable
@@ -541,7 +541,7 @@ export function GenericSelectField({
 
   // Debug logging for board field
   if (field.name === 'boardId') {
-    logger.debug('[GenericSelectField] Board field props:', {
+    logger.info('[GenericSelectField] Board field props:', {
       fieldName: field.name,
       options: options,
       optionsLength: options?.length || 0,
@@ -651,7 +651,7 @@ export function GenericSelectField({
       const singleOption = options[0];
       const optionValue = singleOption.value || singleOption.id;
 
-      logger.debug('[GenericSelectField] Auto-selecting single option for disabled field:', {
+      logger.info('[GenericSelectField] Auto-selecting single option for disabled field:', {
         fieldName: field.name,
         optionValue,
         optionLabel: singleOption.label
@@ -742,7 +742,7 @@ export function GenericSelectField({
       });
     }
 
-    logger.debug('🔍 [GenericSelectField] handleFieldOpen called:', {
+    logger.info('🔍 [GenericSelectField] handleFieldOpen called:', {
       open,
       wasOpen,
       isOpeningNow,
@@ -783,7 +783,7 @@ export function GenericSelectField({
 
     // If this is a dependent field and dependency hasn't changed, don't reload if recently loaded
     if (isDependentField && hasAttemptedLoad && recentlyLoaded) {
-      logger.debug('⏭️ [GenericSelectField] Skipping reload for dependent field - recently loaded:', field.name)
+      logger.info('⏭️ [GenericSelectField] Skipping reload for dependent field - recently loaded:', field.name)
       return
     }
 
@@ -879,7 +879,7 @@ export function GenericSelectField({
           isLoadingRefCurrent: isLoadingRef.current
         });
       } else {
-        logger.debug('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
+        logger.info('🚀 [GenericSelectField] Triggering dynamic load for field:', field.name, 'with dependencies:', {
           dependsOn: field.dependsOn,
           dependsOnValue: dependencyValue,
           forceRefresh,
@@ -1046,7 +1046,7 @@ export function GenericSelectField({
 
   // Drag and drop handlers
   const handleDragOver = React.useCallback((e: React.DragEvent) => {
-    logger.debug('🎯 [GenericSelectField] Drag over:', { fieldName: field.name })
+    logger.info('🎯 [GenericSelectField] Drag over:', { fieldName: field.name })
     e.preventDefault()
     e.stopPropagation()
     setIsDragOver(true)
@@ -1084,7 +1084,7 @@ export function GenericSelectField({
       }
     }
 
-    logger.debug('🎯 [GenericSelectField] Variable dropped:', {
+    logger.info('🎯 [GenericSelectField] Variable dropped:', {
       fieldName: field.name,
       droppedText,
       alias,
@@ -1112,7 +1112,7 @@ export function GenericSelectField({
         saveLabelToCache(droppedText, friendlyLabel)
       }
 
-      logger.debug('✅ [GenericSelectField] Variable accepted:', {
+      logger.info('✅ [GenericSelectField] Variable accepted:', {
         fieldName: field.name,
         variable: droppedText,
         friendlyLabel,

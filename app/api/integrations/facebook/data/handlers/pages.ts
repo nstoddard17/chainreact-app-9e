@@ -9,16 +9,16 @@ import { logger } from '@/lib/utils/logger'
 
 export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integration: FacebookIntegration, options: any = {}) => {
   try {
-    logger.debug("🔍 Facebook pages fetcher called with integration:", {
+    logger.info("🔍 Facebook pages fetcher called with integration:", {
       id: integration.id,
       provider: integration.provider,
       hasToken: !!integration.access_token
     })
     
     // Validate and get token
-    logger.debug("🔍 Validating Facebook token...")
+    logger.info("🔍 Validating Facebook token...")
     const tokenResult = await validateFacebookToken(integration)
-    logger.debug("🔍 Token validation result:", {
+    logger.info("🔍 Token validation result:", {
       success: tokenResult.success,
       hasToken: !!tokenResult.token,
       tokenLength: tokenResult.token?.length || 0,
@@ -27,11 +27,11 @@ export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integr
     })
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Facebook token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Facebook token validation failed: ${tokenResult.error}`)
       return []
     }
 
-    logger.debug("🔍 Making Facebook API call with appsecret_proof")
+    logger.info("🔍 Making Facebook API call with appsecret_proof")
     const response = await makeFacebookApiRequest(
       'https://graph.facebook.com/v19.0/me/accounts',
       tokenResult.token!
@@ -39,7 +39,7 @@ export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integr
 
     if (!response.ok) {
       if (response.status === 401) {
-        logger.debug("❌ Facebook API returned 401 - token may be invalid")
+        logger.info("❌ Facebook API returned 401 - token may be invalid")
         return []
       }
       const errorData = await response.json().catch(() => ({}))
@@ -48,7 +48,7 @@ export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integr
     }
 
     const data = await response.json()
-    logger.debug("🔍 Facebook API response:", data)
+    logger.info("🔍 Facebook API response:", data)
     
     const pages = (data.data || []).map((page: any) => ({
       id: page.id,
@@ -59,7 +59,7 @@ export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integr
       tasks: page.tasks || [],
     }))
     
-    logger.debug("🔍 Processed Facebook pages:", pages)
+    logger.info("🔍 Processed Facebook pages:", pages)
     return pages
   } catch (error: any) {
     logger.error("Error fetching Facebook pages:", error)

@@ -181,7 +181,7 @@ export async function markGmailAsUnread(
         const query = queryParts.join(' ')
         const maxMessages = Math.min(config.maxMessages || 100, 1000)
 
-        logger.debug(`[markGmailAsUnread] Searching with query: ${query}, maxMessages: ${maxMessages}`)
+        logger.info(`[markGmailAsUnread] Searching with query: ${query}, maxMessages: ${maxMessages}`)
 
         const searchResult = await searchGmailMessages(accessToken, query, maxMessages)
 
@@ -207,7 +207,7 @@ export async function markGmailAsUnread(
     }
 
     // Mark messages as unread
-    logger.debug(`[markGmailAsUnread] Marking ${messageIds.length} message(s) as unread`)
+    logger.info(`[markGmailAsUnread] Marking ${messageIds.length} message(s) as unread`)
 
     await markMessagesAsUnread(accessToken, messageIds)
 

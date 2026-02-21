@@ -56,7 +56,7 @@ export function MicrosoftExcelWorksheetAddRowFields({
         return;
       }
 
-      logger.debug('📊 [MicrosoftExcelWorksheetAddRowFields] Fetching worksheet columns', {
+      logger.info('📊 [MicrosoftExcelWorksheetAddRowFields] Fetching worksheet columns', {
         workbookId: values.workbookId,
         worksheetName: values.worksheetName,
         hasHeaders: values.hasHeaders,
@@ -90,7 +90,7 @@ export function MicrosoftExcelWorksheetAddRowFields({
           typeof col === 'string' ? col : col.name || col.value || col.label
         );
         setColumns(columnNames);
-        logger.debug('📊 [MicrosoftExcelWorksheetAddRowFields] Fetch complete', {
+        logger.info('📊 [MicrosoftExcelWorksheetAddRowFields] Fetch complete', {
           columnCount: columnNames.length,
           columns: columnNames
         });

@@ -52,7 +52,7 @@ export async function handleDropboxWebhookEvent(
 ): Promise<DropboxWebhookResult[]> {
   const logPrefix = requestId ? `[${requestId}]` : '[dropbox]'
   try {
-    logger.debug(`${logPrefix} Dropbox webhook payload keys:`, {
+    logger.info(`${logPrefix} Dropbox webhook payload keys:`, {
       hasListFolder: !!payload?.list_folder,
       accounts: payload?.list_folder?.accounts || payload?.list_folder?.account_ids || null,
       deltaPresent: !!payload?.delta,
@@ -64,7 +64,7 @@ export async function handleDropboxWebhookEvent(
   const workflows = await findDropboxWorkflows(payload)
 
   if (workflows.length === 0) {
-    logger.debug(`${logPrefix} No Dropbox workflows matched incoming payload.`)
+    logger.info(`${logPrefix} No Dropbox workflows matched incoming payload.`)
     return []
   }
 
@@ -86,7 +86,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
     : []
 
   if (accounts.length === 0) {
-    logger.debug('🛑 Dropbox webhook payload missing accounts array, skipping workflow lookup')
+    logger.info('🛑 Dropbox webhook payload missing accounts array, skipping workflow lookup')
     return []
   }
 
@@ -134,7 +134,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
   }
 
   if (dropboxConfigMap.size === 0) {
-    logger.debug('ℹ️ No Dropbox webhook configs matched the incoming account IDs')
+    logger.info('ℹ️ No Dropbox webhook configs matched the incoming account IDs')
     return []
   }
 
@@ -191,7 +191,7 @@ async function findDropboxWorkflows(payload: any): Promise<any[]> {
     matching.push(workflowWithNodes)
   }
 
-  logger.debug(`🎯 Dropbox workflows matched: ${matching.length}`)
+  logger.info(`🎯 Dropbox workflows matched: ${matching.length}`)
   return matching
 }
 
@@ -202,12 +202,12 @@ async function processDropboxWorkflow(
   requestId?: string
 ): Promise<DropboxWebhookResult | null> {
   const logPrefix = requestId ? `[${requestId}]` : ''
-  logger.debug(`${logPrefix} Processing Dropbox workflow ${workflow.id} (${workflow.name})`)
+  logger.info(`${logPrefix} Processing Dropbox workflow ${workflow.id} (${workflow.name})`)
 
   const triggerPayload = await buildDropboxTriggerPayload(workflow, payload, requestId)
 
   if (!triggerPayload) {
-    logger.debug(`${logPrefix} Dropbox payload unavailable, skipping workflow ${workflow.id}`)
+    logger.info(`${logPrefix} Dropbox payload unavailable, skipping workflow ${workflow.id}`)
     return {
       workflowId: workflow.id,
       success: true,
@@ -217,7 +217,7 @@ async function processDropboxWorkflow(
   }
 
   if (!triggerPayload.files || triggerPayload.files.length === 0) {
-    logger.debug(`${logPrefix} No Dropbox files matched filters for workflow ${workflow.id}, skipping execution`, {
+    logger.info(`${logPrefix} No Dropbox files matched filters for workflow ${workflow.id}, skipping execution`, {
       dropbox: {
         skipReason: triggerPayload.skipReason,
         folderPath: triggerPayload.folderPath,
@@ -242,7 +242,7 @@ async function processDropboxWorkflow(
     }
   }
 
-  logger.debug(`${logPrefix} Dropbox payload prepared for workflow ${workflow.id}`, {
+  logger.info(`${logPrefix} Dropbox payload prepared for workflow ${workflow.id}`, {
     fileCount: triggerPayload.files.length,
     firstFile: triggerPayload.files[0]?.pathLower || null
   })
@@ -284,10 +284,10 @@ async function processDropboxWorkflow(
     }
   )
 
-  logger.debug(`${logPrefix} Created execution session: ${session.id}`)
+  logger.info(`${logPrefix} Created execution session: ${session.id}`)
 
   await executionEngine.executeWorkflowAdvanced(session.id, triggerPayload)
-  logger.debug(`${logPrefix} Dropbox workflow execution completed`)
+  logger.info(`${logPrefix} Dropbox workflow execution completed`)
 
   return {
     workflowId: workflow.id,
@@ -397,7 +397,7 @@ async function buildDropboxTriggerPayload(
   }
 
   if (!cursor) {
-    logger.debug(`${logPrefix} No Dropbox cursor stored for workflow ${workflow.id}, fetching latest...`)
+    logger.info(`${logPrefix} No Dropbox cursor stored for workflow ${workflow.id}, fetching latest...`)
     cursor = await getLatestDropboxCursor(accessToken, rawFolderPath, includeSubfolders)
 
     if (!cursor) {
@@ -452,7 +452,7 @@ async function buildDropboxTriggerPayload(
   const entries = entriesResult.entries
   const nextCursor = entriesResult.cursor || cursor
 
-  logger.debug(`${logPrefix} Dropbox entries fetched`, {
+  logger.info(`${logPrefix} Dropbox entries fetched`, {
     workflowId: workflow.id,
     accountId,
     folderPath: rawFolderPath,
@@ -479,7 +479,7 @@ async function buildDropboxTriggerPayload(
       serverModified: entry.server_modified
     }))
 
-  logger.debug(`${logPrefix} Dropbox filtered files`, {
+  logger.info(`${logPrefix} Dropbox filtered files`, {
     workflowId: workflow.id,
     filteredCount: filteredFiles.length,
     firstFile: filteredFiles[0]?.pathLower || null

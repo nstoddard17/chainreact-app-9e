@@ -13,7 +13,7 @@ import { logger } from '@/lib/utils/logger'
 export const getNotionTemplates: NotionDataHandler<NotionTemplate> = async (integration: NotionIntegration) => {
   try {
     validateNotionIntegration(integration)
-    logger.debug("📄 [Notion Templates] Fetching templates")
+    logger.info("📄 [Notion Templates] Fetching templates")
 
     // Validate and get token
     const tokenResult = await validateNotionToken(integration)
@@ -61,7 +61,7 @@ export const getNotionTemplates: NotionDataHandler<NotionTemplate> = async (inte
       properties: template.properties
     }))
 
-    logger.debug(`✅ [Notion Templates] Retrieved ${templates.length} templates`)
+    logger.info(`✅ [Notion Templates] Retrieved ${templates.length} templates`)
     return templates
 
   } catch (error: any) {

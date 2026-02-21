@@ -28,7 +28,7 @@ export function validateMondayIntegration(integration: MondayIntegration): void 
  */
 export async function getMondayAccessToken(integration: MondayIntegration): Promise<string> {
   try {
-    logger.debug('🔑 [Monday Utils] Decrypting access token', {
+    logger.info('🔑 [Monday Utils] Decrypting access token', {
       hasToken: !!integration.access_token,
       tokenLength: integration.access_token?.length,
       integrationId: integration.id
@@ -45,7 +45,7 @@ export async function getMondayAccessToken(integration: MondayIntegration): Prom
       throw new Error('Invalid Monday.com access token format')
     }
 
-    logger.debug('🔑 [Monday Utils] Token decrypted successfully', {
+    logger.info('🔑 [Monday Utils] Token decrypted successfully', {
       decryptedLength: decrypted.length
     })
     return decrypted
@@ -71,7 +71,7 @@ export async function makeMondayApiRequest(
   }
 
   try {
-    logger.debug('🌐 [Monday Utils] Making API request', {
+    logger.info('🌐 [Monday Utils] Making API request', {
       hasToken: !!accessToken,
       tokenPrefix: `${accessToken.substring(0, 10)}...`,
       hasVariables: !!variables
@@ -90,7 +90,7 @@ export async function makeMondayApiRequest(
       })
     })
 
-    logger.debug('🌐 [Monday Utils] API response received', {
+    logger.info('🌐 [Monday Utils] API response received', {
       status: response.status,
       ok: response.ok
     })

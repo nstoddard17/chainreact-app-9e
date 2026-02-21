@@ -39,11 +39,11 @@ export async function getChannelInfo(params: {
       : await getSlackToken(userId, false)
 
     const apiPayload = { channel: targetChannel }
-    logger.debug('[Slack Get Channel Info] API payload:', apiPayload)
+    logger.info('[Slack Get Channel Info] API payload:', apiPayload)
 
     const result = await callSlackApi('conversations.info', accessToken, apiPayload)
 
-    logger.debug('[Slack Get Channel Info] API response:', { ok: result.ok, error: result.error })
+    logger.info('[Slack Get Channel Info] API response:', { ok: result.ok, error: result.error })
 
     if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
 

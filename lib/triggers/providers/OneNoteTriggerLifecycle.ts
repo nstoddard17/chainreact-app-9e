@@ -29,7 +29,7 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, nodeId, triggerType, config, testMode } = context
 
     const modeLabel = testMode ? '[TEST]' : '[PRODUCTION]'
-    logger.debug(`${modeLabel} Activating OneNote polling trigger for workflow ${workflowId}`, {
+    logger.info(`${modeLabel} Activating OneNote polling trigger for workflow ${workflowId}`, {
       triggerType,
       configKeys: Object.keys(config || {})
     })
@@ -55,7 +55,7 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
         throw new Error(`Token lacks OneNote permissions. Status: ${response.status}`)
       }
 
-      logger.debug('[OneNote] Token verified with OneNote permissions')
+      logger.info('[OneNote] Token verified with OneNote permissions')
     } catch (error) {
       logger.error('[OneNote] Failed to verify OneNote token:', error)
       throw new Error('Microsoft OneNote integration not connected or token expired. Please reconnect your Microsoft OneNote account.')
@@ -107,7 +107,7 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
             updatedAt: new Date().toISOString()
           }
 
-          logger.debug('[OneNote] Initial snapshot captured', {
+          logger.info('[OneNote] Initial snapshot captured', {
             pageCount: Object.keys(pageIds).length,
             triggerType
           })
@@ -151,14 +151,14 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
       throw new Error(`Failed to store trigger resource: ${insertError.message}`)
     }
 
-    logger.debug(`[OneNote] Polling trigger activated for workflow ${workflowId}`)
+    logger.info(`[OneNote] Polling trigger activated for workflow ${workflowId}`)
   }
 
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId, nodeId, testSessionId } = context
 
     const modeLabel = testSessionId ? '[TEST]' : nodeId ? '[NODE]' : '[PRODUCTION]'
-    logger.debug(`${modeLabel} Deactivating OneNote triggers for workflow ${workflowId}${nodeId ? ` node ${nodeId}` : ''}`)
+    logger.info(`${modeLabel} Deactivating OneNote triggers for workflow ${workflowId}${nodeId ? ` node ${nodeId}` : ''}`)
 
     let query = getSupabase()
       .from('trigger_resources')
@@ -179,7 +179,7 @@ export class OneNoteTriggerLifecycle implements TriggerLifecycle {
     if (error) {
       logger.error('[OneNote] Failed to delete trigger resources:', error)
     } else {
-      logger.debug(`[OneNote] Polling triggers deactivated for workflow ${workflowId}`)
+      logger.info(`[OneNote] Polling triggers deactivated for workflow ${workflowId}`)
     }
   }
 

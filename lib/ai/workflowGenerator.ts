@@ -38,7 +38,7 @@ const GeneratedWorkflowSchema = z.object({
 
 export async function generateWorkflowFromPrompt(prompt: string) {
   try {
-    logger.debug("🔍 generateWorkflowFromPrompt called with:", prompt)
+    logger.info("🔍 generateWorkflowFromPrompt called with:", prompt)
     
     // Use the existing generateWorkflow function from workflowAI.ts
     const workflow = await generateWorkflow({
@@ -46,7 +46,7 @@ export async function generateWorkflowFromPrompt(prompt: string) {
       userId: "temp", // This will be set by the API route
     })
 
-    logger.debug("✅ generateWorkflow successful:", workflow)
+    logger.info("✅ generateWorkflow successful:", workflow)
 
     return {
       success: true,

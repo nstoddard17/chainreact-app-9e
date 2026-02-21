@@ -77,7 +77,7 @@ async function verifyBotInGuild(guildId: string): Promise<boolean> {
         const botMember = members.find((member: any) => member.user?.id === botUserId)
         
         if (botMember) {
-          logger.debug(`✅ Bot verified as member of guild ${guildId}`)
+          logger.info(`✅ Bot verified as member of guild ${guildId}`)
           return true
         }
       }
@@ -98,7 +98,7 @@ async function verifyBotInGuild(guildId: string): Promise<boolean> {
       if (memberResponse.status === 200) {
         const memberData = await memberResponse.json()
         if (memberData.user?.id === botUserId) {
-          logger.debug(`✅ Bot verified in guild ${guildId} via direct check`)
+          logger.info(`✅ Bot verified in guild ${guildId} via direct check`)
           return true
         }
       }
@@ -106,7 +106,7 @@ async function verifyBotInGuild(guildId: string): Promise<boolean> {
       logger.error("Error in direct member check:", error)
     }
 
-    logger.debug(`❌ Bot is not a member of guild ${guildId}`)
+    logger.info(`❌ Bot is not a member of guild ${guildId}`)
     return false
   } catch (error) {
     logger.error("Error verifying bot in guild:", error)
@@ -123,10 +123,10 @@ export async function sendDiscordMessage(
   input: Record<string, any>
 ): Promise<ActionResult> {
   try {
-    logger.debug("🔍 [DISCORD DEBUG] sendDiscordMessage called with:")
-    logger.debug(`   userId: ${userId}`)
-    logger.debug(`   config keys:`, Object.keys(config || {}))
-    logger.debug(`   input keys:`, Object.keys(input || {}))
+    logger.info("🔍 [DISCORD DEBUG] sendDiscordMessage called with:")
+    logger.info(`   userId: ${userId}`)
+    logger.info(`   config keys:`, Object.keys(config || {}))
+    logger.info(`   input keys:`, Object.keys(input || {}))
 
     // CRITICAL DEBUG: Log the raw message config BEFORE resolution
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
@@ -161,17 +161,17 @@ export async function sendDiscordMessage(
       embedTimestamp = false
     } = resolvedConfig
 
-    logger.debug(`🔍 [DISCORD DEBUG] Resolved config:`)
-    logger.debug(`   guildId: ${guildId}`)
-    logger.debug(`   channelId: ${channelId}`)
-    logger.debug(`   message: ${message ? 'SET' : 'MISSING'}`)
+    logger.info(`🔍 [DISCORD DEBUG] Resolved config:`)
+    logger.info(`   guildId: ${guildId}`)
+    logger.info(`   channelId: ${channelId}`)
+    logger.info(`   message: ${message ? 'SET' : 'MISSING'}`)
 
     if (!guildId || !channelId || !message) {
       throw new Error("Guild ID, Channel ID, and message are required")
     }
 
     // Get Discord integration
-    logger.debug(`🔍 [DISCORD DEBUG] Querying Discord integration for userId: ${userId}`)
+    logger.info(`🔍 [DISCORD DEBUG] Querying Discord integration for userId: ${userId}`)
 
     // Use service client for webhook-triggered workflows (no cookies in that context)
     const { createClient } = await import('@supabase/supabase-js')
@@ -188,18 +188,18 @@ export async function sendDiscordMessage(
       .eq("status", "connected")
       .single()
 
-    logger.debug(`🔍 [DISCORD DEBUG] Integration query result:`)
-    logger.debug(`   error:`, integrationError)
-    logger.debug(`   integration found:`, !!integration)
+    logger.info(`🔍 [DISCORD DEBUG] Integration query result:`)
+    logger.info(`   error:`, integrationError)
+    logger.info(`   integration found:`, !!integration)
     if (integration) {
-      logger.debug(`   integration id: ${integration.id}`)
-      logger.debug(`   integration provider: ${integration.provider}`)
-      logger.debug(`   integration status: ${integration.status}`)
-      logger.debug(`   integration userId: ${integration.user_id}`)
+      logger.info(`   integration id: ${integration.id}`)
+      logger.info(`   integration provider: ${integration.provider}`)
+      logger.info(`   integration status: ${integration.status}`)
+      logger.info(`   integration userId: ${integration.user_id}`)
     }
 
     if (!integration) {
-      logger.debug(`❌ [DISCORD DEBUG] No Discord integration found for userId: ${userId}`)
+      logger.info(`❌ [DISCORD DEBUG] No Discord integration found for userId: ${userId}`)
       throw new Error("Discord integration not connected")
     }
 
@@ -562,7 +562,7 @@ export async function deleteDiscordCategory(
             })
           }
 
-          logger.debug(`Moved ${categoryChannels.length} channels out of category ${categoryId}`)
+          logger.info(`Moved ${categoryChannels.length} channels out of category ${categoryId}`)
         }
       } catch (error) {
         logger.warn("Failed to move channels out of category:", error)

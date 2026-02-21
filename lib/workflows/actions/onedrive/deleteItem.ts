@@ -56,7 +56,7 @@ export async function deleteOnedriveItem(
 
     const itemDetails = await itemResponse.json()
 
-    logger.debug('[OneDrive] Deleting item:', {
+    logger.info('[OneDrive] Deleting item:', {
       id: targetItemId,
       name: itemDetails.name,
       permanent: permanentDelete

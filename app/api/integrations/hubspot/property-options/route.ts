@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const propertyName = searchParams.get('property')
     const integrationId = searchParams.get('integrationId')
 
-    logger.debug('Property options request:', { propertyName, integrationId })
+    logger.info('Property options request:', { propertyName, integrationId })
 
     if (!propertyName || !integrationId) {
       return errorResponse('Property name and integration ID are required' , 400)
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseRouteHandlerClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    logger.debug('Auth check:', { hasUser: !!user, authError: authError?.message })
+    logger.info('Auth check:', { hasUser: !!user, authError: authError?.message })
     
     if (authError || !user) {
       return errorResponse('Unauthorized' , 401)

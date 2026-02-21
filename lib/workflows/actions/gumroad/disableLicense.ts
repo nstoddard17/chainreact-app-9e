@@ -32,7 +32,7 @@ export async function disableGumroadLicense(
       license_key: licenseKey
     }
 
-    logger.debug('[disableGumroadLicense] Disabling license:', {
+    logger.info('[disableGumroadLicense] Disabling license:', {
       productId,
       licenseKey: licenseKey.substring(0, 8) + '...' // Log only first 8 chars for security
     })

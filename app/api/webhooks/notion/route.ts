@@ -29,14 +29,14 @@ const colors = {
 }
 
 function logSection(title: string, data: any, color: string = colors.cyan) {
-  logger.debug(`\n${color}${colors.bright}${'='.repeat(60)}${colors.reset}`)
-  logger.debug(`${color}${colors.bright}📌 ${title}${colors.reset}`)
-  logger.debug(`${color}${'='.repeat(60)}${colors.reset}`)
+  logger.info(`\n${color}${colors.bright}${'='.repeat(60)}${colors.reset}`)
+  logger.info(`${color}${colors.bright}📌 ${title}${colors.reset}`)
+  logger.info(`${color}${'='.repeat(60)}${colors.reset}`)
 
   if (typeof data === 'object' && data !== null) {
-    logger.debug(JSON.stringify(data, null, 2))
+    logger.info(JSON.stringify(data, null, 2))
   } else {
-    logger.debug(data)
+    logger.info(data)
   }
 }
 
@@ -364,7 +364,7 @@ export async function POST(req: NextRequest) {
       }
     }, colors.green)
 
-    logger.debug(`\n${colors.green}${colors.bright}✅ Notion webhook processed successfully!${colors.reset}\n`)
+    logger.info(`\n${colors.green}${colors.bright}✅ Notion webhook processed successfully!${colors.reset}\n`)
 
     return response
 

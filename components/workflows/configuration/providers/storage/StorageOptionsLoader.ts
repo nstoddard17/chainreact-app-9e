@@ -20,7 +20,7 @@ export class StorageOptionsLoader implements ProviderOptionsLoader {
    */
   canHandle(fieldName: string, providerId: string): boolean {
     const canHandle = this.supportedFields.includes(fieldName)
-    logger.debug('[StorageOptionsLoader] canHandle check:', {
+    logger.info('[StorageOptionsLoader] canHandle check:', {
       fieldName,
       providerId,
       canHandle,
@@ -98,7 +98,7 @@ export class StorageOptionsLoader implements ProviderOptionsLoader {
 
       if (!finalIntegrationId) {
         // Fetch integrations for this storage provider
-        logger.debug('[StorageOptionsLoader] No storageConnectionId, fetching integrations for provider')
+        logger.info('[StorageOptionsLoader] No storageConnectionId, fetching integrations for provider')
         const integrationsResponse = await apiClient.get(`/api/integrations/all-connections?provider=${providerId}`)
 
         if (integrationsResponse.success && integrationsResponse.data?.connections?.length > 0) {
@@ -107,7 +107,7 @@ export class StorageOptionsLoader implements ProviderOptionsLoader {
           )
           if (connectedIntegrations.length > 0) {
             finalIntegrationId = connectedIntegrations[0].id
-            logger.debug('[StorageOptionsLoader] Using first connected integration:', finalIntegrationId)
+            logger.info('[StorageOptionsLoader] Using first connected integration:', finalIntegrationId)
           } else {
             logger.warn('[StorageOptionsLoader] No connected integrations found for provider:', providerId)
             return []
@@ -122,7 +122,7 @@ export class StorageOptionsLoader implements ProviderOptionsLoader {
       const endpoint = `/api/integrations/${providerId}/data`
 
       logger.info(`📡 [StorageOptionsLoader] Making API request to ${endpoint}`)
-      logger.debug('[StorageOptionsLoader] Request payload:', {
+      logger.info('[StorageOptionsLoader] Request payload:', {
         integrationId: finalIntegrationId,
         dataType,
         options: extraOptions || {}
@@ -138,7 +138,7 @@ export class StorageOptionsLoader implements ProviderOptionsLoader {
       const duration = Date.now() - startTime
 
       logger.info(`✅ [StorageOptionsLoader] API response received in ${duration}ms`)
-      logger.debug('[StorageOptionsLoader] Response:', {
+      logger.info('[StorageOptionsLoader] Response:', {
         success: response.success,
         hasData: !!response.data,
         dataType: typeof response.data

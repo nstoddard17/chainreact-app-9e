@@ -55,7 +55,7 @@ export const getNotionPageBlocksDeletable: NotionDataHandler<DeletableBlock> = a
       throw new Error(tokenResult.error || "Token validation failed")
     }
 
-    logger.debug("🗑️ [Notion Deletable Blocks] Fetching blocks for page:", pageId)
+    logger.info("🗑️ [Notion Deletable Blocks] Fetching blocks for page:", pageId)
 
     // Fetch all blocks from the page
     const blocksResponse = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
@@ -84,7 +84,7 @@ export const getNotionPageBlocksDeletable: NotionDataHandler<DeletableBlock> = a
     const blocksData = await blocksResponse.json()
     const blocks = blocksData.results || []
 
-    logger.debug(`🗑️ [Notion Deletable Blocks] Found ${blocks.length} blocks`)
+    logger.info(`🗑️ [Notion Deletable Blocks] Found ${blocks.length} blocks`)
 
     // Transform blocks into deletable format with checkboxes
     const deletableBlocks: DeletableBlock[] = []
@@ -161,7 +161,7 @@ export const getNotionPageBlocksDeletable: NotionDataHandler<DeletableBlock> = a
       })
     }
 
-    logger.debug(`🗑️ [Notion Deletable Blocks] Returning ${deletableBlocks.length} deletable blocks`)
+    logger.info(`🗑️ [Notion Deletable Blocks] Returning ${deletableBlocks.length} deletable blocks`)
 
     // Return as a single section with checkbox-style blocks
     return [{

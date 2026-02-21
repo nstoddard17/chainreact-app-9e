@@ -207,7 +207,7 @@ export class UserDeletionService {
 
     // Fetch user's workflow IDs upfront (needed for workflow_id-based deletions)
     const workflowIds = await this.getUserWorkflowIds(userId)
-    logger.debug(`[UserDeletion] Found ${workflowIds.length} workflows for user ${userId}`)
+    logger.info(`[UserDeletion] Found ${workflowIds.length} workflows for user ${userId}`)
 
     // Wave 0: Deregister external webhooks before deleting any data
     if (mode === 'full') {
@@ -404,7 +404,7 @@ export class UserDeletionService {
 
     if (error) {
       // Some tables may not exist in all environments - log and continue
-      logger.debug(`[UserDeletion] Delete from ${table} (${column}=${userId}): ${error.message}`)
+      logger.info(`[UserDeletion] Delete from ${table} (${column}=${userId}): ${error.message}`)
       throw error
     }
   }
@@ -419,7 +419,7 @@ export class UserDeletionService {
       .in(column, workflowIds)
 
     if (error) {
-      logger.debug(`[UserDeletion] Delete from ${table} by ${column}: ${error.message}`)
+      logger.info(`[UserDeletion] Delete from ${table} by ${column}: ${error.message}`)
       throw error
     }
   }
@@ -440,7 +440,7 @@ export class UserDeletionService {
         .eq(column, userId)
 
       if (error) {
-        logger.debug(`[UserDeletion] Anonymize ${table}: ${error.message}`)
+        logger.info(`[UserDeletion] Anonymize ${table}: ${error.message}`)
         return { table, error: error.message }
       }
       return null

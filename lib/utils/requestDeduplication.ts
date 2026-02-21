@@ -37,11 +37,11 @@ class RequestDeduplicationManager {
     const timestamp = this.requestTimestamps.get(key)
 
     if (existing && timestamp && (now - timestamp) < ttl) {
-      logger.debug('🔄 [RequestDedup] Reusing pending request:', key)
+      logger.info('🔄 [RequestDedup] Reusing pending request:', key)
       return existing
     }
 
-    logger.debug('🚀 [RequestDedup] Starting new request:', key)
+    logger.info('🚀 [RequestDedup] Starting new request:', key)
 
     // Create new request
     const promise = fetcher()
@@ -109,7 +109,7 @@ class RequestDeduplicationManager {
     })
 
     if (staleKeys.length > 0) {
-      logger.debug(`🧹 [RequestDedup] Cleaned up ${staleKeys.length} stale requests`)
+      logger.info(`🧹 [RequestDedup] Cleaned up ${staleKeys.length} stale requests`)
     }
   }
 

@@ -40,7 +40,7 @@ export async function updateGoogleSheetsCell(
       }
     }
 
-    logger.debug("Updating Google Sheets cell:", {
+    logger.info("Updating Google Sheets cell:", {
       spreadsheetId,
       sheetName,
       cellAddress,

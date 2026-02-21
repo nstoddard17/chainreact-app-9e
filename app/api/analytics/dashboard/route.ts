@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     const isAllTime = !Number.isFinite(days) || days <= 0
     const startDate = isAllTime ? new Date("1970-01-01T00:00:00.000Z") : subDays(today, days - 1)
 
-    logger.debug("[Analytics Dashboard] Fetching data", {
+    logger.info("[Analytics Dashboard] Fetching data", {
       userId: user.id,
       days: isAllTime ? 0 : days,
       startDate: startDate.toISOString(),
@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
       },
     }
 
-    logger.debug("[Analytics Dashboard] Data fetched successfully", {
+    logger.info("[Analytics Dashboard] Data fetched successfully", {
       executionCount: productionExecutions.length,
       workflowCount: workflows.length,
       integrationCount: integrations.length,

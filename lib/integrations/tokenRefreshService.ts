@@ -88,7 +88,7 @@ export async function refreshTokenForProvider(
 ): Promise<RefreshResult> {
   const verbose = options.verbose ?? false;
 
-  logger.debug(`🔄 Starting token refresh for ${provider} (ID: ${integration.id?.substring(0, 8)}...)`, {
+  logger.info(`🔄 Starting token refresh for ${provider} (ID: ${integration.id?.substring(0, 8)}...)`, {
     has_refresh_token: !!refreshToken,
     refresh_token_length: refreshToken?.length,
     integration_status: integration.status,
@@ -107,9 +107,9 @@ export async function refreshTokenForProvider(
           throw new Error("Encryption secret is not configured")
         }
 
-        logger.debug(`🔐 ${provider}: Decrypting refresh token (length: ${refreshToken.length})`)
+        logger.info(`🔐 ${provider}: Decrypting refresh token (length: ${refreshToken.length})`)
         decryptedRefreshToken = decrypt(refreshToken, secret)
-        logger.debug(`✅ ${provider}: Token decrypted successfully (new length: ${decryptedRefreshToken.length})`)
+        logger.info(`✅ ${provider}: Token decrypted successfully (new length: ${decryptedRefreshToken.length})`)
       } catch (error: any) {
         logger.error(`Decryption error:`, error)
         
@@ -135,7 +135,7 @@ export async function refreshTokenForProvider(
         
       }
     } else {
-      logger.debug(`ℹ️  ${provider}: Refresh token does not appear to be encrypted`)
+      logger.info(`ℹ️  ${provider}: Refresh token does not appear to be encrypted`)
     }
 
     const config = getOAuthConfig(provider)
@@ -145,7 +145,7 @@ export async function refreshTokenForProvider(
       return { success: false, error: `No OAuth config found for provider: ${provider}` }
     }
 
-    logger.debug(`✅ ${provider}: Found OAuth config`, {
+    logger.info(`✅ ${provider}: Found OAuth config`, {
       tokenEndpoint: config.tokenEndpoint,
       authMethod: config.authMethod,
       hasScope: !!config.scope,
@@ -195,7 +195,7 @@ export async function refreshTokenForProvider(
       return { success: false, error: `Missing client credentials for provider: ${provider}` }
     }
 
-    logger.debug(`✅ ${provider}: Got client credentials`, {
+    logger.info(`✅ ${provider}: Got client credentials`, {
       clientIdLength: clientId.length,
       clientSecretLength: clientSecret.length
     })
@@ -210,7 +210,7 @@ export async function refreshTokenForProvider(
       if (config.authMethod === "body") {
         bodyParams.client_id = clientId
         bodyParams.client_secret = clientSecret
-        if (verbose) logger.debug(`Added client auth to body for ${provider}`)
+        if (verbose) logger.info(`Added client auth to body for ${provider}`)
       }
     } else {
       // Some providers like Kit only need client_id, not client_secret for refresh
@@ -218,7 +218,7 @@ export async function refreshTokenForProvider(
         bodyParams.client_id = clientId
         // Remove any client_secret if it was added
         delete bodyParams.client_secret
-        if (verbose) logger.debug(`Special handling for Kit: added only client_id to body`)
+        if (verbose) logger.info(`Special handling for Kit: added only client_id to body`)
       }
     }
 
@@ -229,14 +229,14 @@ export async function refreshTokenForProvider(
       if (provider === "teams") {
         const scopeString = config.scope || ""
         bodyParams.scope = scopeString
-        if (verbose) logger.debug(`Added Teams scope from config: ${scopeString}`)
+        if (verbose) logger.info(`Added Teams scope from config: ${scopeString}`)
       } else {
         const scopeString = Array.isArray(config.scope) ? config.scope.join(" ") : config.scope
         bodyParams.scope = scopeString
-        if (verbose) logger.debug(`Added scope to body for ${provider}: ${scopeString}`)
+        if (verbose) logger.info(`Added scope to body for ${provider}: ${scopeString}`)
       }
     } else if (config.scope && config.sendScopeWithRefresh === false) {
-      if (verbose) logger.debug(`Skipping scope for ${provider} as sendScopeWithRefresh is false`)
+      if (verbose) logger.info(`Skipping scope for ${provider} as sendScopeWithRefresh is false`)
     }
 
     // Add redirect_uri if required
@@ -244,7 +244,7 @@ export async function refreshTokenForProvider(
       const baseUrl = getBaseUrl()
       const redirectUri = `${baseUrl}${config.redirectUriPath}`
       bodyParams.redirect_uri = redirectUri
-      if (verbose) logger.debug(`Added redirect_uri to body for ${provider}: ${redirectUri}`)
+      if (verbose) logger.info(`Added redirect_uri to body for ${provider}: ${redirectUri}`)
     }
 
     // Special handling for Airtable
@@ -252,12 +252,12 @@ export async function refreshTokenForProvider(
       const baseUrl = getBaseUrl()
       const redirectUri = `${baseUrl}${config.redirectUriPath}`
       bodyParams.redirect_uri = redirectUri
-      if (verbose) logger.debug(`Added redirect_uri to body for Airtable: ${redirectUri}`)
+      if (verbose) logger.info(`Added redirect_uri to body for Airtable: ${redirectUri}`)
     }
 
     // Special handling for Dropbox
     if (provider === "dropbox") {
-      if (verbose) logger.debug(`Skipping redirect_uri for Dropbox as it's not supported during refresh`)
+      if (verbose) logger.info(`Skipping redirect_uri for Dropbox as it's not supported during refresh`)
       delete bodyParams.redirect_uri
     }
 
@@ -266,11 +266,11 @@ export async function refreshTokenForProvider(
     if (config.authMethod === "basic") {
       const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64")
       headers.set("Authorization", `Basic ${basicAuth}`)
-      if (verbose) logger.debug(`Added Basic auth header for ${provider}`)
+      if (verbose) logger.info(`Added Basic auth header for ${provider}`)
     } else if (config.authMethod === "header") {
       headers.set("Client-ID", clientId)
       headers.set("Authorization", `Bearer ${clientSecret}`)
-      if (verbose) logger.debug(`Added header auth for ${provider}`)
+      if (verbose) logger.info(`Added header auth for ${provider}`)
     }
     headers.set("Content-Type", "application/x-www-form-urlencoded")
 
@@ -278,7 +278,7 @@ export async function refreshTokenForProvider(
     const bodyString = new URLSearchParams(bodyParams).toString()
 
     // Log the request details
-    logger.debug(`📤 ${provider}: Sending refresh request to ${config.tokenEndpoint}`, {
+    logger.info(`📤 ${provider}: Sending refresh request to ${config.tokenEndpoint}`, {
       method: 'POST',
       bodyParams: Object.keys(bodyParams),
       headerKeys: Array.from(headers.keys()),
@@ -294,7 +294,7 @@ export async function refreshTokenForProvider(
     })
     const duration = Date.now() - startTime
 
-    logger.debug(`📥 ${provider}: Received response (${duration}ms)`, {
+    logger.info(`📥 ${provider}: Received response (${duration}ms)`, {
       status: response.status,
       statusText: response.statusText,
       contentType: response.headers.get('content-type'),
@@ -341,7 +341,7 @@ export async function refreshTokenForProvider(
         }
       )
       if (verbose) {
-        logger.debug(`Full error response:`, responseData)
+        logger.info(`Full error response:`, responseData)
       }
 
       // Check for specific error codes that indicate an invalid refresh token
@@ -354,7 +354,7 @@ export async function refreshTokenForProvider(
 
       // Special handling for Gmail and Google services
       if (provider === "gmail" || provider.startsWith("google")) {
-        if (verbose) logger.debug(`Google error type: ${responseData.error}`)
+        if (verbose) logger.info(`Google error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = `Google refresh token has been revoked or expired. This can happen if you changed your password, revoked access, or haven't used this integration in over 6 months. Please reconnect your ${provider} account in Settings → Integrations.`
           needsReauth = true
@@ -363,7 +363,7 @@ export async function refreshTokenForProvider(
 
       // Special handling for Discord errors
       else if (provider === "discord") {
-        if (verbose) logger.debug(`Discord error type: ${responseData.error}`)
+        if (verbose) logger.info(`Discord error type: ${responseData.error}`)
         if (responseData.error === "invalid_scope") {
           finalErrorMessage = "Discord authentication scopes have changed. Please reconnect your Discord account in Settings → Integrations."
           needsReauth = true
@@ -375,7 +375,7 @@ export async function refreshTokenForProvider(
 
       // Special handling for Airtable errors
       else if (provider === "airtable") {
-        if (verbose) logger.debug(`Airtable error type: ${responseData.error}`)
+        if (verbose) logger.info(`Airtable error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
           needsReauth = true
@@ -384,7 +384,7 @@ export async function refreshTokenForProvider(
 
       // Special handling for Microsoft-related providers (Teams, OneDrive, Excel, etc.)
       else if (provider === "teams" || provider === "onedrive" || provider === "microsoft-excel" || provider.startsWith("microsoft")) {
-        if (verbose) logger.debug(`Microsoft error type: ${responseData.error}`)
+        if (verbose) logger.info(`Microsoft error type: ${responseData.error}`)
         if (responseData.error === "invalid_grant") {
           finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
           needsReauth = true
@@ -393,7 +393,7 @@ export async function refreshTokenForProvider(
       
       // Special handling for TikTok
       else if (provider === "tiktok") {
-        if (verbose) logger.debug(`TikTok error type: ${responseData.error}`)
+        if (verbose) logger.info(`TikTok error type: ${responseData.error}`)
         
         // Common TikTok error patterns
         if (responseData.error === "invalid_client") {
@@ -411,7 +411,7 @@ export async function refreshTokenForProvider(
       
       // Special handling for Kit
       else if (provider === "kit") {
-        if (verbose) logger.debug(`Kit error type: ${responseData.error}`)
+        if (verbose) logger.info(`Kit error type: ${responseData.error}`)
         
         if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
           finalErrorMessage = responseData.error_description || "Kit returned an invalid response."
@@ -424,7 +424,7 @@ export async function refreshTokenForProvider(
       
       // Special handling for PayPal
       else if (provider === "paypal") {
-        if (verbose) logger.debug(`PayPal error type: ${responseData.error}`)
+        if (verbose) logger.info(`PayPal error type: ${responseData.error}`)
         
         if (responseData.error === "invalid_client") {
           finalErrorMessage = "PayPal client credentials are invalid. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET."
@@ -457,7 +457,7 @@ export async function refreshTokenForProvider(
     const refreshExpiresIn = responseData.refresh_expires_in
     const newScope = responseData.scope
 
-    logger.debug(`✅ ${provider}: Token refresh successful`, {
+    logger.info(`✅ ${provider}: Token refresh successful`, {
       hasNewAccessToken: !!newAccessToken,
       hasNewRefreshToken: !!newRefreshToken,
       accessTokenLength: newAccessToken?.length,

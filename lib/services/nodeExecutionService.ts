@@ -28,11 +28,11 @@ export class NodeExecutionService {
     context: ExecutionContext
   ): Promise<any> {
     const startTime = Date.now()
-    logger.debug(`🔧 Executing node: ${node.id} (${node.data.type})`)
+    logger.info(`🔧 Executing node: ${node.id} (${node.data.type})`)
 
     // Log node configuration for debugging
     if (node.data.type.includes('discord')) {
-      logger.debug(`   Discord node config:`, {
+      logger.info(`   Discord node config:`, {
         providerId: node.data.providerId,
         hasConfig: !!node.data.config,
         configKeys: node.data.config ? Object.keys(node.data.config) : []
@@ -91,7 +91,7 @@ export class NodeExecutionService {
 
         // INTERCEPT_WRITES: Execute reads normally, intercept sends/creates/updates
         if (actionMode === ActionTestMode.INTERCEPT_WRITES && this.isExternalAction(node.data.type)) {
-          logger.debug(`🛡️ Intercepting write action: ${node.data.type}`)
+          logger.info(`🛡️ Intercepting write action: ${node.data.type}`)
           nodeResult = {
             ...nodeResult,
             intercepted: {
@@ -107,7 +107,7 @@ export class NodeExecutionService {
 
         // SKIP_ALL: Skip all external actions entirely, use mock responses
         if (actionMode === ActionTestMode.SKIP_ALL && this.isIntegrationNode(node.data.type)) {
-          logger.debug(`⏭️ Skipping external action: ${node.data.type}`)
+          logger.info(`⏭️ Skipping external action: ${node.data.type}`)
           nodeResult = {
             success: true,
             output: {
@@ -145,7 +145,7 @@ export class NodeExecutionService {
           }
         }
         context.dataFlowManager.setNodeOutput(node.id, nodeOutput)
-        logger.debug(`💾 Stored output for node ${node.id}:`, {
+        logger.info(`💾 Stored output for node ${node.id}:`, {
           success: nodeOutput.success,
           dataKeys: nodeOutput.data ? Object.keys(nodeOutput.data) : 'no data'
         })
@@ -159,7 +159,7 @@ export class NodeExecutionService {
       // If so, DO NOT execute connected nodes - the workflow should pause here
       if (nodeResult?.pauseExecution) {
         logger.info(`⏸️  Node ${node.id} requesting workflow pause (HITL)`)
-        logger.debug(`   Will NOT execute connected nodes - workflow is pausing`)
+        logger.info(`   Will NOT execute connected nodes - workflow is pausing`)
         // Don't execute connected nodes, but don't fail either
         // The workflowExecutionService will handle the pause
       }
@@ -198,7 +198,7 @@ export class NodeExecutionService {
       }
 
       const executionTime = Date.now() - startTime
-      logger.debug(`✅ Node ${node.id} completed in ${executionTime}ms`)
+      logger.info(`✅ Node ${node.id} completed in ${executionTime}ms`)
 
       // Record step completion - but NOT if the workflow is pausing (HITL)
       // When pauseExecution is true, the node is actually waiting for input, not completed
@@ -314,13 +314,13 @@ export class NodeExecutionService {
     const outgoingConnections = connections.filter((conn: any) => conn.source === sourceNode.id)
     const routedConnections = filterConnectionsForNode(sourceNode, outgoingConnections, result)
 
-    logger.debug(`🔗 Node ${sourceNode.id} has ${routedConnections.length} routed connection(s) (total outgoing: ${outgoingConnections.length})`, {
+    logger.info(`🔗 Node ${sourceNode.id} has ${routedConnections.length} routed connection(s) (total outgoing: ${outgoingConnections.length})`, {
       nodeType: sourceNode?.data?.type,
       pathTaken: result?.pathTaken ?? result?.data?.pathTaken,
       nextNodeId: result?.nextNodeId,
       selectedPaths: result?.data?.selectedPaths
     })
-    logger.debug(`📌 Original context userId: ${context.userId}`)
+    logger.info(`📌 Original context userId: ${context.userId}`)
 
     for (const connection of routedConnections) {
       const connectedNode = allNodes.find((node: any) => node.id === connection.target)
@@ -334,7 +334,7 @@ export class NodeExecutionService {
         data: { ...context.data, ...result }
       }
 
-      logger.debug(`📌 Updated context userId for node ${connectedNode.id}: ${updatedContext.userId}`, {
+      logger.info(`📌 Updated context userId for node ${connectedNode.id}: ${updatedContext.userId}`, {
         viaHandle: connection.sourceHandle || 'default'
       })
 

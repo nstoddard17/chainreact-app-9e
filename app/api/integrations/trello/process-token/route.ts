@@ -23,7 +23,7 @@ const getSupabaseClient = () => {
 export const POST = async (request: NextRequest) => {
   try {
     const supabase = getSupabaseClient()
-    logger.debug("Processing Trello token")
+    logger.info("Processing Trello token")
     const { token, userId } = await request.json()
 
     if (!token || !userId) {
@@ -86,7 +86,7 @@ export const POST = async (request: NextRequest) => {
 
     let integrationId: string | undefined
     if (existingIntegration) {
-      logger.debug("Updating existing Trello integration")
+      logger.info("Updating existing Trello integration")
       const { error: updateError } = await supabase
         .from("integrations")
         .update({
@@ -115,7 +115,7 @@ export const POST = async (request: NextRequest) => {
       }
       integrationId = existingIntegration.id
     } else {
-      logger.debug("Creating new Trello integration")
+      logger.info("Creating new Trello integration")
       const { data, error } = await supabase
         .from("integrations")
         .insert({
@@ -136,14 +136,14 @@ export const POST = async (request: NextRequest) => {
     if (integrationId) {
       try {
         await validateAndUpdateIntegrationScopes(integrationId, grantedScopes)
-        logger.debug("Trello integration scope validation completed")
+        logger.info("Trello integration scope validation completed")
       } catch (err) {
         logger.error("Trello scope validation failed:", err)
         // Don't fail the whole process for scope validation errors
       }
     }
 
-    logger.debug("Trello integration processed successfully")
+    logger.info("Trello integration processed successfully")
     return jsonResponse({ success: true, integrationId })
   } catch (e: any) {
     logger.error("Error processing Trello token:", e)

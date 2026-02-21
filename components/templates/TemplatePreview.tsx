@@ -33,7 +33,7 @@ export function TemplatePreview({
     // No-op functions for preview mode
     const noop = () => {}
 
-    logger.debug('TemplatePreview - nodes:', nodes?.length, 'connections:', connections?.length)
+    logger.info('TemplatePreview - nodes:', nodes?.length, 'connections:', connections?.length)
 
     return nodes.map((node) => {
       // Get the node component definition

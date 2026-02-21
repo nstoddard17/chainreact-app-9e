@@ -22,7 +22,7 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (
     validateNotionIntegration(integration)
     const { workspaceId } = getNotionRequestOptions(context)
 
-    logger.debug('[Notion Users] Fetching workspace users', {
+    logger.info('[Notion Users] Fetching workspace users', {
       integrationId: integration.id,
       workspaceId: workspaceId || 'default'
     })
@@ -107,7 +107,7 @@ export const getNotionUsers: NotionDataHandler<NotionUser> = async (
 
     finalUsers.sort((a, b) => a.name.localeCompare(b.name))
 
-    logger.debug('[Notion Users] Retrieved users', {
+    logger.info('[Notion Users] Retrieved users', {
       integrationId: integration.id,
       workspaceId: workspaceId || 'default',
       count: finalUsers.length

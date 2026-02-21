@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Dropbox API] Processing request:`, {
+    logger.info(`🔍 [Dropbox API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as DropboxIntegration, options)
 
-    logger.debug(`✅ [Dropbox API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Dropbox API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

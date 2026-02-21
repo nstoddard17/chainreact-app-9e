@@ -10,7 +10,7 @@ import { logger } from '@/lib/utils/logger'
 export const getHubSpotDealStages: HubSpotDataHandler<HubSpotDealStage> = async (integration: HubSpotIntegration, options: HubSpotHandlerOptions = {}): Promise<HubSpotDealStage[]> => {
   const { pipeline } = options
   
-  logger.debug("🔍 HubSpot deal stages fetcher called with:", {
+  logger.info("🔍 HubSpot deal stages fetcher called with:", {
     integrationId: integration.id,
     pipeline,
     hasToken: !!integration.access_token
@@ -20,11 +20,11 @@ export const getHubSpotDealStages: HubSpotDataHandler<HubSpotDealStage> = async 
     // Validate integration status
     validateHubSpotIntegration(integration)
     
-    logger.debug(`🔍 Validating HubSpot token...`)
+    logger.info(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
@@ -32,7 +32,7 @@ export const getHubSpotDealStages: HubSpotDataHandler<HubSpotDealStage> = async 
       throw new Error('Pipeline ID is required for fetching deal stages')
     }
     
-    logger.debug('🔍 Fetching HubSpot deal stages from API...')
+    logger.info('🔍 Fetching HubSpot deal stages from API...')
     const apiUrl = buildHubSpotApiUrl(`/crm/v3/pipelines/deals/${pipeline}`)
     
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
@@ -47,7 +47,7 @@ export const getHubSpotDealStages: HubSpotDataHandler<HubSpotDealStage> = async 
     // Return the stages from the pipeline
     const stages = data.stages || []
     
-    logger.debug(`✅ HubSpot deal stages fetched successfully: ${stages.length} stages`)
+    logger.info(`✅ HubSpot deal stages fetched successfully: ${stages.length} stages`)
     return stages
     
   } catch (error: any) {

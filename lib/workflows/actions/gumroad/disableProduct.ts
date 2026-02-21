@@ -22,7 +22,7 @@ export async function disableGumroadProduct(
 
     const url = `https://api.gumroad.com/v2/products/${encodeURIComponent(productId)}/disable?access_token=${accessToken}`
 
-    logger.debug('[disableGumroadProduct] Disabling product:', { productId })
+    logger.info('[disableGumroadProduct] Disabling product:', { productId })
 
     const response = await fetch(url, {
       method: "PUT",

@@ -110,7 +110,7 @@ Workflow automation that thinks for itself
       },
     })
 
-    logger.debug('Welcome email sent successfully:', result.data?.id)
+    logger.info('Welcome email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending welcome email:', error)
@@ -139,7 +139,7 @@ export async function sendPasswordResetEmail(
       html: emailHtml,
     })
 
-    logger.debug('Password reset email sent successfully:', result.data?.id)
+    logger.info('Password reset email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending password reset email:', error)
@@ -176,7 +176,7 @@ export async function sendCustomEmail(
       attachments: options.attachments,
     })
 
-    logger.debug('Custom email sent successfully:', result.data?.id)
+    logger.info('Custom email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending custom email:', error)
@@ -191,7 +191,7 @@ export async function getEmailAnalytics(emailId: string) {
   try {
     // Note: Resend analytics API is still in development
     // This is a placeholder for when it becomes available
-    logger.debug('Fetching analytics for email:', emailId)
+    logger.info('Fetching analytics for email:', emailId)
     return { success: true, data: null }
   } catch (error) {
     logger.error('Error fetching email analytics:', error)
@@ -240,7 +240,7 @@ export async function sendBulkEmails(
     const successful = results.filter(result => result.status === 'fulfilled').length
     const failed = results.filter(result => result.status === 'rejected').length
 
-    logger.debug(`Bulk email results: ${successful} successful, ${failed} failed`)
+    logger.info(`Bulk email results: ${successful} successful, ${failed} failed`)
     return { success: true, successful, failed, results }
   } catch (error) {
     logger.error('Error sending bulk emails:', error)
@@ -287,7 +287,7 @@ export async function sendBetaInvitationEmail(
       },
     })
 
-    logger.debug('Beta invitation email sent successfully:', result.data?.id)
+    logger.info('Beta invitation email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending beta invitation email:', error)
@@ -321,7 +321,7 @@ export async function sendWaitlistWelcomeEmail(
       },
     })
 
-    logger.debug('Waitlist welcome email sent successfully:', result.data?.id)
+    logger.info('Waitlist welcome email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending waitlist welcome email:', error)
@@ -362,7 +362,7 @@ export async function sendWaitlistInvitationEmail(
       },
     })
 
-    logger.debug('Waitlist invitation email sent successfully:', result.data?.id)
+    logger.info('Waitlist invitation email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending waitlist invitation email:', error)
@@ -413,7 +413,7 @@ export async function sendTeamInvitationEmail(
       replyTo: inviterEmail,
     })
 
-    logger.debug('Team invitation email sent successfully:', result.data?.id)
+    logger.info('Team invitation email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending team invitation email:', error)
@@ -459,7 +459,7 @@ export async function sendIntegrationDisconnectedEmail(
       },
     })
 
-    logger.debug('Integration disconnection email sent successfully:', result.data?.id)
+    logger.info('Integration disconnection email sent successfully:', result.data?.id)
     return { success: true, id: result.data?.id }
   } catch (error) {
     logger.error('Error sending integration disconnection email:', error)

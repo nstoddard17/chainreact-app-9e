@@ -43,7 +43,7 @@ const SUBSCRIPTION_TO_TRIGGER_MAP: Record<string, string> = {
  * POST handler - receives webhook notifications from HubSpot
  */
 export async function POST(req: NextRequest) {
-  logger.debug('🔔 HubSpot webhook received at', new Date().toISOString())
+  logger.info('🔔 HubSpot webhook received at', new Date().toISOString())
 
   // Create client inside handler to avoid build-time initialization
   const supabase = createClient(
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   try {
     const payload = await req.json()
 
-    logger.debug('📦 HubSpot webhook payload:', {
+    logger.info('📦 HubSpot webhook payload:', {
       subscriptionType: payload.subscriptionType,
       objectId: payload.objectId,
       portalId: payload.portalId
@@ -99,11 +99,11 @@ export async function POST(req: NextRequest) {
     const { data: triggerResources } = await query
 
     if (!triggerResources || triggerResources.length === 0) {
-      logger.debug(`ℹ️ No active workflows found for trigger type: ${triggerType}`)
+      logger.info(`ℹ️ No active workflows found for trigger type: ${triggerType}`)
       return jsonResponse({ success: true, processed: 0 })
     }
 
-    logger.debug(`📋 Found ${triggerResources.length} workflow(s) to execute`)
+    logger.info(`📋 Found ${triggerResources.length} workflow(s) to execute`)
 
     // Build trigger data from HubSpot payload
     const triggerData = buildHubSpotTriggerData(payload, subscriptionType)
@@ -116,22 +116,22 @@ export async function POST(req: NextRequest) {
       // This allows workflows to listen for changes to specific properties
       const propertyName = resource.config?.propertyName
       if (propertyName && payload.propertyName !== propertyName) {
-        logger.debug(`⏭️ Skipping workflow ${resource.workflow_id} - property filter mismatch`)
+        logger.info(`⏭️ Skipping workflow ${resource.workflow_id} - property filter mismatch`)
         continue
       }
 
       const skipReason = shouldSkipByConfig(triggerType, resource.config || {}, triggerData)
       if (skipReason) {
-        logger.debug(`⏭️ Skipping workflow ${resource.workflow_id} - ${skipReason}`)
+        logger.info(`⏭️ Skipping workflow ${resource.workflow_id} - ${skipReason}`)
         continue
       }
 
-      logger.debug(`⚡ Executing workflow ${resource.workflow_id}`)
+      logger.info(`⚡ Executing workflow ${resource.workflow_id}`)
       await executeWorkflow(resource.workflow_id, resource.user_id, triggerData)
       executed++
     }
 
-    logger.debug(`✅ Executed ${executed} workflow(s)`)
+    logger.info(`✅ Executed ${executed} workflow(s)`)
     return jsonResponse({ success: true, processed: executed })
 
   } catch (error: any) {
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
  */
 async function executeWorkflow(workflowId: string, userId: string, triggerData: any): Promise<void> {
   try {
-    logger.debug(`🚀 Executing workflow ${workflowId}`)
+    logger.info(`🚀 Executing workflow ${workflowId}`)
 
     // Get workflow details
     const { data: workflow, error: workflowError } = await supabase
@@ -163,7 +163,7 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
       return
     }
 
-    logger.debug(`⚡ Executing workflow "${workflow.name}"`)
+    logger.info(`⚡ Executing workflow "${workflow.name}"`)
 
     // Import workflow execution service
     const { WorkflowExecutionService } = await import('@/lib/services/workflowExecutionService')
@@ -179,7 +179,7 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
       true // skipTriggers = true (already triggered by webhook)
     )
 
-    logger.debug(`✅ Workflow execution completed:`, {
+    logger.info(`✅ Workflow execution completed:`, {
       success: !!executionResult.results,
       executionId: executionResult.executionId,
       resultsCount: executionResult.results?.length || 0

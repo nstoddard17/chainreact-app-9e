@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     const headers = Object.fromEntries(request.headers.entries())
 
-    logger.debug('📥 Microsoft Graph lifecycle webhook received:', {
+    logger.info('📥 Microsoft Graph lifecycle webhook received:', {
       headers: Object.keys(headers),
       bodyLength: body.length,
       hasValidationToken: !!validationToken,
@@ -52,13 +52,13 @@ export async function POST(request: NextRequest) {
     // Handle validation request from Microsoft
     if (validationToken || headers['content-type']?.includes('text/plain')) {
       const token = validationToken || body
-      logger.debug('🔍 Lifecycle validation request received')
+      logger.info('🔍 Lifecycle validation request received')
       return new NextResponse(token, { status: 200, headers: { 'Content-Type': 'text/plain' } })
     }
 
     // Handle empty body
     if (!body || body.length === 0) {
-      logger.debug('⚠️ Empty lifecycle webhook payload received, skipping')
+      logger.info('⚠️ Empty lifecycle webhook payload received, skipping')
       return jsonResponse({ success: true, empty: true })
     }
 
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     // Lifecycle notifications arrive as an array in payload.value
     const notifications: LifecycleNotification[] = Array.isArray(payload?.value) ? payload.value : []
 
-    logger.debug('📋 Lifecycle webhook payload analysis:', {
+    logger.info('📋 Lifecycle webhook payload analysis:', {
       hasValue: !!payload?.value,
       valueIsArray: Array.isArray(payload?.value),
       notificationCount: notifications.length,
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       try {
         const { subscriptionId, lifecycleEvent, subscriptionExpirationDateTime, clientState } = notification
 
-        logger.debug('🔄 Processing lifecycle notification:', {
+        logger.info('🔄 Processing lifecycle notification:', {
           subscriptionId,
           lifecycleEvent,
           expiresAt: subscriptionExpirationDateTime,
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         switch (lifecycleEvent) {
           case 'subscriptionRemoved':
             // Subscription was deleted or expired
-            logger.debug('🗑️ Subscription removed:', subscriptionId)
+            logger.info('🗑️ Subscription removed:', subscriptionId)
 
             // Mark as expired in trigger_resources
             await getSupabase()
@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
   const validationToken = url.searchParams.get('validationToken') || url.searchParams.get('validationtoken')
 
   if (validationToken) {
-    logger.debug('🔍 Lifecycle validation request (GET) received')
+    logger.info('🔍 Lifecycle validation request (GET) received')
     return new NextResponse(validationToken, { status: 200, headers: { 'Content-Type': 'text/plain' } })
   }
 

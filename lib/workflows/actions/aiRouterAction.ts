@@ -56,7 +56,7 @@ export class AIRouterAction {
     await this.trackUsage(decision, context)
     await this.storeMemory(memoryContext, decision, context)
 
-    logger.debug('[AIRouterAction] Execution complete', {
+    logger.info('[AIRouterAction] Execution complete', {
       selectedPaths: decision.selectedPaths,
       tokensUsed: decision.tokensUsed,
       cost: decision.cost

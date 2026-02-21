@@ -40,7 +40,7 @@ export function ConfigurationContainer({
   isFormValid = true
 }: ConfigurationContainerProps) {
   const handleFormSubmit = (e: React.FormEvent) => {
-    logger.debug('🎯 [ConfigurationContainer] Form submit event triggered');
+    logger.info('🎯 [ConfigurationContainer] Form submit event triggered');
     if (onSubmit) {
       onSubmit(e);
     } else {
@@ -75,7 +75,7 @@ export function ConfigurationContainer({
               <Button
                 type="submit"
                 onClick={() => {
-                  logger.debug('💾 [ConfigurationContainer] Save button clicked, isFormValid:', isFormValid);
+                  logger.info('💾 [ConfigurationContainer] Save button clicked, isFormValid:', isFormValid);
                 }}
               >
                 {submitLabel || (isEditMode ? 'Update Configuration' : 'Save Configuration')}

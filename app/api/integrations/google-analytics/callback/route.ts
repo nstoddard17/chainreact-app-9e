@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
         if (userInfoResponse.ok) {
           const userInfo = await userInfoResponse.json()
-          logger.debug('✅ Google Analytics user info fetched:', {
+          logger.info('✅ Google Analytics user info fetched:', {
             email: userInfo.email,
             name: userInfo.name,
           })

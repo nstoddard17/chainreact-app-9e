@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   try {
     // First authenticate with regular client
     const supabase = await createSupabaseRouteHandlerClient()
-    logger.debug('[My Teams API] Supabase client created', { elapsed: Date.now() - startTime })
+    logger.info('[My Teams API] Supabase client created', { elapsed: Date.now() - startTime })
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       return errorResponse("Unauthorized", 401)
     }
 
-    logger.debug('[My Teams API] Auth complete, fetching teams for user:', {
+    logger.info('[My Teams API] Auth complete, fetching teams for user:', {
       userId: user.id,
       elapsed: Date.now() - startTime
     })
@@ -54,13 +54,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (!teamMemberships || teamMemberships.length === 0) {
-      logger.debug('[My Teams API] No team memberships found', {
+      logger.info('[My Teams API] No team memberships found', {
         elapsed: Date.now() - startTime
       })
       return jsonResponse({ teams: [] })
     }
 
-    logger.debug('[My Teams API] Team memberships fetched:', {
+    logger.info('[My Teams API] Team memberships fetched:', {
       count: teamMemberships.length,
       elapsed: Date.now() - startTime
     })
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
       throw allMembersResult.error
     }
 
-    logger.debug('[My Teams API] Teams and members fetched:', {
+    logger.info('[My Teams API] Teams and members fetched:', {
       teamsCount: teamsResult.data?.length || 0,
       membersCount: allMembersResult.data?.length || 0,
       elapsed: Date.now() - startTime
@@ -130,12 +130,12 @@ export async function GET(request: NextRequest) {
       })
       .filter(Boolean) // Remove nulls
 
-    logger.debug('[My Teams API] Teams merged:', {
+    logger.info('[My Teams API] Teams merged:', {
       count: teams.length,
       elapsed: Date.now() - startTime
     })
 
-    logger.debug('[My Teams API] Successfully fetched teams:', {
+    logger.info('[My Teams API] Successfully fetched teams:', {
       count: teams.length,
       totalElapsed: Date.now() - startTime
     })

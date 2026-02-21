@@ -22,7 +22,7 @@ export interface HubSpotWorkflow {
 }
 
 export const getHubSpotWorkflows: HubSpotDataHandler<HubSpotWorkflow> = async (integration: HubSpotIntegration, options: any = {}): Promise<HubSpotWorkflow[]> => {
-  logger.debug("🔍 HubSpot workflows fetcher called", {
+  logger.info("🔍 HubSpot workflows fetcher called", {
     integrationId: integration.id,
     hasToken: !!integration.access_token
   })
@@ -30,15 +30,15 @@ export const getHubSpotWorkflows: HubSpotDataHandler<HubSpotWorkflow> = async (i
   try {
     validateHubSpotIntegration(integration)
 
-    logger.debug(`🔍 Validating HubSpot token...`)
+    logger.info(`🔍 Validating HubSpot token...`)
     const tokenResult = await validateHubSpotToken(integration)
 
     if (!tokenResult.success) {
-      logger.debug(`❌ HubSpot token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ HubSpot token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
 
-    logger.debug('🔍 Fetching HubSpot workflows from API...')
+    logger.info('🔍 Fetching HubSpot workflows from API...')
     const apiUrl = buildHubSpotApiUrl('/automation/v4/flows')
 
     const response = await makeHubSpotApiRequest(apiUrl, tokenResult.token!)
@@ -59,7 +59,7 @@ export const getHubSpotWorkflows: HubSpotDataHandler<HubSpotWorkflow> = async (i
       updatedAt: workflow.updatedAt
     }))
 
-    logger.debug(`✅ HubSpot workflows fetched successfully: ${workflows.length} workflows`)
+    logger.info(`✅ HubSpot workflows fetched successfully: ${workflows.length} workflows`)
     return workflows
 
   } catch (error: any) {

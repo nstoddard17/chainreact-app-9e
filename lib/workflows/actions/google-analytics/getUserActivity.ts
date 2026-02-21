@@ -24,7 +24,7 @@ export async function getGoogleAnalyticsUserActivity(context: ExecutionContext):
     dateRange = 'last_30_days'
   } = context.config
 
-  logger.debug('[Google Analytics] Fetching user activity:', {
+  logger.info('[Google Analytics] Fetching user activity:', {
     propertyId,
     userId,
     dateRange
@@ -41,7 +41,7 @@ export async function getGoogleAnalyticsUserActivity(context: ExecutionContext):
 
   // Check test mode
   if (context.testMode) {
-    logger.debug('[Google Analytics] Test mode - returning mock user activity')
+    logger.info('[Google Analytics] Test mode - returning mock user activity')
     return {
       user_id: userId,
       activity: [
@@ -133,7 +133,7 @@ export async function getGoogleAnalyticsUserActivity(context: ExecutionContext):
       }
     })
 
-    logger.debug('[Google Analytics] User activity fetched successfully:', {
+    logger.info('[Google Analytics] User activity fetched successfully:', {
       rowCount: response.data.rows?.length || 0
     })
 

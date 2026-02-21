@@ -72,7 +72,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeFilter(node: any, context: ExecutionContext) {
-    logger.debug("🔍 Executing filter node")
+    logger.info("🔍 Executing filter node")
     
     const condition = node.data.config?.condition || "true"
     const result = this.evaluateExpression(condition, context)
@@ -86,7 +86,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeDelay(node: any, context: ExecutionContext) {
-    logger.debug("⏳ Executing delay node")
+    logger.info("⏳ Executing delay node")
     
     const delayMs = Number(node.data.config?.delay || 1000)
     
@@ -102,7 +102,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeConditional(node: any, context: ExecutionContext) {
-    logger.debug("❓ Executing conditional node")
+    logger.info("❓ Executing conditional node")
     
     // TODO: Implement conditional logic
     return {
@@ -113,7 +113,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeCustomScript(node: any, context: ExecutionContext) {
-    logger.debug("📜 Executing custom script node")
+    logger.info("📜 Executing custom script node")
     
     // TODO: Implement custom script logic
     return {
@@ -129,7 +129,7 @@ export class ActionNodeHandlers {
     connections: any[], 
     context: ExecutionContext
   ) {
-    logger.debug("🔄 Executing loop node")
+    logger.info("🔄 Executing loop node")
     
     const arrayPath = node.data.config?.array_path || "data.items"
     const itemVariable = node.data.config?.item_variable || "item"
@@ -176,7 +176,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeVariableSet(node: any, context: ExecutionContext) {
-    logger.debug("📝 Executing variable set node")
+    logger.info("📝 Executing variable set node")
     
     const variableName = node.data.config?.variable_name
     const value = this.evaluateExpression(node.data.config?.value || "", context)
@@ -209,7 +209,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeVariableGet(node: any, context: ExecutionContext) {
-    logger.debug("📖 Executing variable get node")
+    logger.info("📖 Executing variable get node")
     
     const variableName = node.data.config?.variable_name
     const defaultValue = node.data.config?.default_value
@@ -229,7 +229,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeIfCondition(node: any, context: ExecutionContext) {
-    logger.debug("🤔 Executing if condition node")
+    logger.info("🤔 Executing if condition node")
     
     const condition = node.data.config?.condition || "true"
     const result = this.evaluateExpression(condition, context)
@@ -243,7 +243,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeSwitchCase(node: any, context: ExecutionContext) {
-    logger.debug("🔀 Executing switch case node")
+    logger.info("🔀 Executing switch case node")
     
     const switchValue = this.evaluateExpression(node.data.config?.switch_value || "", context)
     const cases = node.data.config?.cases || []
@@ -257,7 +257,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeDataTransform(node: any, context: ExecutionContext) {
-    logger.debug("🔄 Executing data transform node")
+    logger.info("🔄 Executing data transform node")
     
     const transformType = node.data.config?.transform_type || "map"
     const transformConfig = node.data.config?.transform_config || {}
@@ -271,7 +271,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeTemplate(node: any, context: ExecutionContext) {
-    logger.debug("📄 Executing template node")
+    logger.info("📄 Executing template node")
     
     const template = node.data.config?.template || ""
     const rendered = this.renderTemplate(template, context)
@@ -285,7 +285,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeJavaScript(node: any, context: ExecutionContext) {
-    logger.debug("⚡ Executing JavaScript node")
+    logger.info("⚡ Executing JavaScript node")
     
     const script = node.data.config?.script || ""
     
@@ -310,7 +310,7 @@ export class ActionNodeHandlers {
     connections: any[], 
     context: ExecutionContext
   ) {
-    logger.debug("🛡️ Executing try-catch node")
+    logger.info("🛡️ Executing try-catch node")
     
     // TODO: Implement try-catch logic with proper error handling
     return {
@@ -326,7 +326,7 @@ export class ActionNodeHandlers {
     connections: any[],
     context: ExecutionContext
   ) {
-    logger.debug("🔄 Executing retry node")
+    logger.info("🔄 Executing retry node")
 
     const maxRetries = Number(node.data.config?.max_retries || 3)
     const retryDelay = Number(node.data.config?.retry_delay || 1000)
@@ -340,7 +340,7 @@ export class ActionNodeHandlers {
   }
 
   private async executeHITLConversation(node: any, context: ExecutionContext) {
-    logger.debug("💬 Executing HITL conversation node")
+    logger.info("💬 Executing HITL conversation node")
 
     const config = node.data.config || {}
 

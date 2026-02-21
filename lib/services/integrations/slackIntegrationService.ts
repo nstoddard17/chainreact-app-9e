@@ -32,7 +32,7 @@ export class SlackIntegrationService {
   }
 
   private async executeSendMessage(node: any, context: ExecutionContext) {
-    logger.debug("💬 Executing Slack send message")
+    logger.info("💬 Executing Slack send message")
     
     const config = node.data.config || {}
     const channel = this.resolveValue(config.channel, context)
@@ -61,7 +61,7 @@ export class SlackIntegrationService {
   }
 
   private async executeSendDirectMessage(node: any, context: ExecutionContext) {
-    logger.debug("💬 Executing Slack send direct message")
+    logger.info("💬 Executing Slack send direct message")
     
     const config = node.data.config || {}
     const user = this.resolveValue(config.user || config.userId, context)
@@ -86,7 +86,7 @@ export class SlackIntegrationService {
   }
 
   private async executeCreateChannel(node: any, context: ExecutionContext) {
-    logger.debug("🆕 Executing Slack create channel")
+    logger.info("🆕 Executing Slack create channel")
     
     const config = node.data.config || {}
     const name = this.resolveValue(config.name, context)
@@ -115,7 +115,7 @@ export class SlackIntegrationService {
   }
 
   private async executeInviteUser(node: any, context: ExecutionContext) {
-    logger.debug("➕ Executing Slack invite user")
+    logger.info("➕ Executing Slack invite user")
     
     const config = node.data.config || {}
     const channel = this.resolveValue(config.channel, context)
@@ -139,7 +139,7 @@ export class SlackIntegrationService {
   }
 
   private async executeSetStatus(node: any, context: ExecutionContext) {
-    logger.debug("📊 Executing Slack set status")
+    logger.info("📊 Executing Slack set status")
     
     const config = node.data.config || {}
     const statusText = this.resolveValue(config.status_text || config.text, context)

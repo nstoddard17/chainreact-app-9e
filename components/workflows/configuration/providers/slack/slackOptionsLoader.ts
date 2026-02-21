@@ -58,7 +58,7 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
     );
 
     if (connectedAlternative) {
-      logger.debug(`[Slack] Found connected alternative: ${connectedAlternative.id}`);
+      logger.info(`[Slack] Found connected alternative: ${connectedAlternative.id}`);
       return { valid: true, validIntegrationId: connectedAlternative.id };
     }
 
@@ -91,7 +91,7 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
     // Check if there's already a pending promise for this exact request
     const pendingPromise = pendingPromises.get(requestKey);
     if (pendingPromise) {
-      logger.debug(`🔄 [Slack] Reusing pending request for ${fieldName}`);
+      logger.info(`🔄 [Slack] Reusing pending request for ${fieldName}`);
       return pendingPromise;
     }
 
@@ -157,13 +157,13 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cache.get(cacheKey);
       if (cached) {
-        logger.debug('✅ [Slack] Using cached channels');
+        logger.info('✅ [Slack] Using cached channels');
         return cached;
       }
     }
 
     try {
-      logger.debug('📡 [Slack] Fetching channels from API');
+      logger.info('📡 [Slack] Fetching channels from API');
 
       const response = await fetch('/api/integrations/slack/data', {
         method: 'POST',
@@ -195,7 +195,7 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
       // Cache the results
       cache.set(cacheKey, options, getFieldTTL('slack_channels'));
 
-      logger.debug(`✅ [Slack] Loaded ${options.length} channels`);
+      logger.info(`✅ [Slack] Loaded ${options.length} channels`);
       return options;
 
     } catch (error: any) {
@@ -213,13 +213,13 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cache.get(cacheKey);
       if (cached) {
-        logger.debug('✅ [Slack] Using cached users');
+        logger.info('✅ [Slack] Using cached users');
         return cached;
       }
     }
 
     try {
-      logger.debug('📡 [Slack] Fetching users from API');
+      logger.info('📡 [Slack] Fetching users from API');
 
       const response = await fetch('/api/integrations/slack/data', {
         method: 'POST',
@@ -252,7 +252,7 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
       // Cache the results
       cache.set(cacheKey, options, getFieldTTL('slack_users'));
 
-      logger.debug(`✅ [Slack] Loaded ${options.length} users`);
+      logger.info(`✅ [Slack] Loaded ${options.length} users`);
       return options;
 
     } catch (error: any) {
@@ -270,13 +270,13 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
     if (!forceRefresh) {
       const cached = cache.get(cacheKey);
       if (cached) {
-        logger.debug('✅ [Slack] Using cached workspaces');
+        logger.info('✅ [Slack] Using cached workspaces');
         return cached;
       }
     }
 
     try {
-      logger.debug('📡 [Slack] Fetching workspaces from API');
+      logger.info('📡 [Slack] Fetching workspaces from API');
 
       const response = await fetch('/api/integrations/slack/data', {
         method: 'POST',
@@ -308,7 +308,7 @@ export class SlackOptionsLoader implements ProviderOptionsLoader {
       // Cache the results
       cache.set(cacheKey, options, getFieldTTL('slack_workspaces'));
 
-      logger.debug(`✅ [Slack] Loaded ${options.length} workspaces`);
+      logger.info(`✅ [Slack] Loaded ${options.length} workspaces`);
       return options;
 
     } catch (error: any) {

@@ -25,7 +25,7 @@ export async function handleStripeTriggerEvent(
     const eventType = stripeEvent.type
     const data = stripeEvent.data?.object || {}
 
-    logger.debug('[Stripe Trigger] Extracting data from event', {
+    logger.info('[Stripe Trigger] Extracting data from event', {
       eventType,
       objectId: data.id,
     })

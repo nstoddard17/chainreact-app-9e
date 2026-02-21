@@ -56,7 +56,7 @@ export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
           .maybeSingle()
 
         if (!dedupeError && existingEvent) {
-          logger.debug(`🧊 Duplicate webhook event ignored`, {
+          logger.info(`🧊 Duplicate webhook event ignored`, {
             provider: event.provider,
             dedupeKey
           })
@@ -204,16 +204,16 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
       const isTrigger = Boolean(nodeData.isTrigger || node.isTrigger)
 
       // Enhanced debugging to see exact node structure
-      logger.debug(`   🔍 Checking node: ${node.type} (ReactFlow type)`)
-      logger.debug(`      Full node.data keys:`, Object.keys(nodeData))
-      logger.debug(`      data.type: ${nodeData.type}`)
-      logger.debug(`      data.isTrigger: ${nodeData.isTrigger}`)
-      logger.debug(`      data.providerId: ${nodeData.providerId}`)
-      logger.debug(`      eventType (computed): ${nodeEventType}`)
+      logger.info(`   🔍 Checking node: ${node.type} (ReactFlow type)`)
+      logger.info(`      Full node.data keys:`, Object.keys(nodeData))
+      logger.info(`      data.type: ${nodeData.type}`)
+      logger.info(`      data.isTrigger: ${nodeData.isTrigger}`)
+      logger.info(`      data.providerId: ${nodeData.providerId}`)
+      logger.info(`      eventType (computed): ${nodeEventType}`)
 
       // If this is a trigger node but missing type, log full data
       if (isTrigger && !nodeData.type) {
-        logger.debug(`      ⚠️ Trigger node missing data.type! Full data:`, JSON.stringify(nodeData).substring(0, 300))
+        logger.info(`      ⚠️ Trigger node missing data.type! Full data:`, JSON.stringify(nodeData).substring(0, 300))
       }
 
       if (!isTrigger) {
@@ -278,7 +278,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
       }
 
       if (!matchesEventType) {
-        logger.debug(`      ❌ Event type mismatch: node=${nodeEventType}, event=${event.eventType}`)
+        logger.info(`      ❌ Event type mismatch: node=${nodeEventType}, event=${event.eventType}`)
         return false
       }
 
@@ -307,7 +307,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
     }
   }
 
-  logger.debug(`🎯 Found ${matchingWorkflows.length} matching workflows`)
+  logger.info(`🎯 Found ${matchingWorkflows.length} matching workflows`)
   return matchingWorkflows
 }
 
@@ -327,10 +327,10 @@ async function applyTriggerFilters(triggerNode: any, event: WebhookEvent): Promi
       // Look up the integration's team_id and compare
       const expectedTeamId = await getSlackTeamIdFromIntegration(workspaceIntegrationId)
       if (expectedTeamId && expectedTeamId !== eventTeamId) {
-        logger.debug(`   ❌ Slack workspace mismatch: event team=${eventTeamId}, expected=${expectedTeamId}`)
+        logger.info(`   ❌ Slack workspace mismatch: event team=${eventTeamId}, expected=${expectedTeamId}`)
         return false
       }
-      logger.debug(`   ✅ Slack workspace match: ${eventTeamId}`)
+      logger.info(`   ✅ Slack workspace match: ${eventTeamId}`)
     }
   }
 
@@ -498,7 +498,7 @@ async function executeWorkflowInstantly(workflow: any, event: WebhookEvent): Pro
       }
     )
     
-    logger.debug(`✅ Workflow "${workflow.name}" executed successfully with webhook data`)
+    logger.info(`✅ Workflow "${workflow.name}" executed successfully with webhook data`)
     return result
     
   } catch (error) {
@@ -543,21 +543,21 @@ async function storeWebhookEvent(event: WebhookEvent, dedupeKey?: string | null,
 
 // Provider-specific processors
 export async function processDiscordEvent(event: WebhookEvent): Promise<any> {
-  logger.debug('Processing Discord message with length:', event.eventData.content?.length || 0)
+  logger.info('Processing Discord message with length:', event.eventData.content?.length || 0)
   return await processWebhookEvent(event)
 }
 
 export async function processSlackEvent(event: WebhookEvent): Promise<any> {
-  logger.debug('Processing Slack message with length:', event.eventData.text?.length || 0)
+  logger.info('Processing Slack message with length:', event.eventData.text?.length || 0)
   return await processWebhookEvent(event)
 }
 
 export async function processGitHubEvent(event: WebhookEvent): Promise<any> {
-  logger.debug('Processing GitHub event:', event.eventType)
+  logger.info('Processing GitHub event:', event.eventType)
   return await processWebhookEvent(event)
 }
 
 export async function processNotionEvent(event: WebhookEvent): Promise<any> {
-  logger.debug('Processing Notion event:', event.eventType)
+  logger.info('Processing Notion event:', event.eventType)
   return await processWebhookEvent(event)
 } 

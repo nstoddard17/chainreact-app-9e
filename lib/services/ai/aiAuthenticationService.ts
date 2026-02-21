@@ -27,7 +27,7 @@ export class AIAuthenticationService {
   }
 
   async authenticateRequest(request: NextRequest): Promise<{ user: AuthenticatedUser | null, error?: string }> {
-    logger.debug("🔐 Authenticating AI assistant request")
+    logger.info("🔐 Authenticating AI assistant request")
 
     const authHeader = request.headers.get("authorization")
     
@@ -48,7 +48,7 @@ export class AIAuthenticationService {
       }
     }
 
-    logger.debug("✅ User authenticated:", user.id)
+    logger.info("✅ User authenticated:", user.id)
     
     return {
       user: {
@@ -59,13 +59,13 @@ export class AIAuthenticationService {
   }
 
   async checkAIUsageLimit(userId: string): Promise<{ allowed: boolean, error?: string, details?: any }> {
-    logger.debug("📊 Checking AI usage limits for user:", userId)
+    logger.info("📊 Checking AI usage limits for user:", userId)
 
     try {
       const usageCheck = await checkUsageLimit(userId, "ai_assistant")
       
       if (!usageCheck.allowed) {
-        logger.debug("❌ AI usage limit exceeded:", usageCheck)
+        logger.info("❌ AI usage limit exceeded:", usageCheck)
         return {
           allowed: false,
           error: `You've reached your AI assistant usage limit for this month (${usageCheck.limit} messages). Please upgrade your plan for more AI usage.`,
@@ -73,7 +73,7 @@ export class AIAuthenticationService {
         }
       }
 
-      logger.debug("✅ AI usage allowed:", usageCheck)
+      logger.info("✅ AI usage allowed:", usageCheck)
       return {
         allowed: true,
         details: usageCheck
@@ -97,12 +97,12 @@ export class AIAuthenticationService {
       }
     }
 
-    logger.debug("✅ OpenAI configuration validated")
+    logger.info("✅ OpenAI configuration validated")
     return { valid: true }
   }
 
   async getIntegrations(userId: string, timeout: number = 10000): Promise<{ integrations: any[], error?: string }> {
-    logger.debug("🔌 Fetching user integrations:", userId)
+    logger.info("🔌 Fetching user integrations:", userId)
 
     try {
       const integrationsPromise = this.supabaseAdmin
@@ -128,7 +128,7 @@ export class AIAuthenticationService {
         }
       }
 
-      logger.debug("✅ Integrations fetched:", integrations?.map((i: any) => ({ 
+      logger.info("✅ Integrations fetched:", integrations?.map((i: any) => ({ 
         provider: i.provider, 
         hasToken: !!i.access_token 
       })))

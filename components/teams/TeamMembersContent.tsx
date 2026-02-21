@@ -186,7 +186,7 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
         toast.error(errorMessage)
 
         // Log for debugging
-        logger.debug('Invitation failed:', { status: response.status, error: errorMessage })
+        logger.info('Invitation failed:', { status: response.status, error: errorMessage })
         return
       }
 

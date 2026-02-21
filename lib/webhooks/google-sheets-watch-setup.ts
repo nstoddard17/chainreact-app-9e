@@ -89,7 +89,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
     // Check if token needs refresh
     const accessToken = decryptedAccessToken
     if (integration.expires_at && new Date(integration.expires_at) < new Date()) {
-      logger.debug('Access token expired, refreshing...')
+      logger.info('Access token expired, refreshing...')
       // TODO: Implement token refresh for Google Sheets
       // For now, throw an error
       throw new Error('Google Sheets token expired - please reconnect the integration')
@@ -204,7 +204,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       throw new Error('Failed to create Google Sheets watch - missing required data')
     }
 
-    logger.debug('✅ Google Sheets watch created successfully:', {
+    logger.info('✅ Google Sheets watch created successfully:', {
       channelId,
       resourceId: watchResponse.data.resourceId,
       expiration: new Date(parseInt(watchResponse.data.expiration)).toISOString(),
@@ -246,7 +246,7 @@ export async function setupGoogleSheetsWatch(config: GoogleSheetsWatchConfig): P
       throw new Error(`Failed to store watch metadata: ${watchInsertError.message}`)
     }
 
-    logger.debug('📦 Stored Google Sheets watch metadata', {
+    logger.info('📦 Stored Google Sheets watch metadata', {
       userId: config.userId,
       integrationId: config.integrationId,
       metadata: {
@@ -294,7 +294,7 @@ export async function stopGoogleSheetsWatch(userId: string, integrationId: strin
       .single()
 
     if (error || !integration) {
-      logger.debug('Google Sheets integration not found - watch may already be stopped')
+      logger.info('Google Sheets integration not found - watch may already be stopped')
       return
     }
 
@@ -308,7 +308,7 @@ export async function stopGoogleSheetsWatch(userId: string, integrationId: strin
     // Decrypt the access token first
     const decryptedAccessToken = await decryptToken(integration.access_token)
     if (!decryptedAccessToken) {
-      logger.debug('Failed to decrypt Google Sheets access token - watch may already be stopped')
+      logger.info('Failed to decrypt Google Sheets access token - watch may already be stopped')
       return
     }
     oauth2Client.setCredentials({ access_token: decryptedAccessToken })
@@ -331,7 +331,7 @@ export async function stopGoogleSheetsWatch(userId: string, integrationId: strin
       .eq('channel_id', channelId)
       .eq('user_id', userId)
 
-    logger.debug('✅ Google Sheets watch stopped successfully')
+    logger.info('✅ Google Sheets watch stopped successfully')
   } catch (error) {
     logger.error('Failed to stop Google Sheets watch:', error)
     // Don't throw - watch might already be stopped
@@ -409,7 +409,7 @@ export async function checkGoogleSheetsChanges(
       ? Object.keys(previousMetadata.rowSignatures).length
       : 0
 
-    logger.debug('[Google Sheets] Change detection context', {
+    logger.info('[Google Sheets] Change detection context', {
       spreadsheetId,
       sheetName: previousMetadata.sheetName,
       lastRowCount: previousMetadata.lastRowCount,
@@ -433,7 +433,7 @@ export async function checkGoogleSheetsChanges(
         const previousRowSignatures: Record<string, string> = previousMetadata.rowSignatures || {}
         const currentRowSignatures: Record<string, string> = {}
 
-        logger.debug('[Google Sheets] Row count comparison', {
+        logger.info('[Google Sheets] Row count comparison', {
           previousRowCount,
           currentRowCount
         })
@@ -453,7 +453,7 @@ export async function checkGoogleSheetsChanges(
           const signaturesDiffer = previousSignature !== signature
 
           if (rowNumber <= 10 || rowNumber >= Math.max(previousRowCount - 3, 1)) {
-            logger.debug('[Google Sheets] Row snapshot', {
+            logger.info('[Google Sheets] Row snapshot', {
               rowNumber,
               signature,
               previousSignature,
@@ -476,7 +476,7 @@ export async function checkGoogleSheetsChanges(
           }
 
           if (signaturesDiffer) {
-            logger.debug('[Google Sheets] Row signature change detected', {
+            logger.info('[Google Sheets] Row signature change detected', {
               sheetName: previousMetadata.sheetName,
               rowNumber,
               wasPreviouslyEmpty,

@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
           const highestRes = displayImage.elements[displayImage.elements.length - 1]
           avatarUrl = highestRes?.identifiers?.[0]?.identifier || null
         }
-        logger.debug('LinkedIn profile picture fetched:', { hasAvatar: !!avatarUrl })
+        logger.info('LinkedIn profile picture fetched:', { hasAvatar: !!avatarUrl })
       }
     } catch (pictureError) {
       logger.warn('Failed to fetch LinkedIn profile picture:', pictureError)

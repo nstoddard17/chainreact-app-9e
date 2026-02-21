@@ -40,7 +40,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
   async onActivate(context: TriggerActivationContext): Promise<void> {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
-    logger.debug(`🔔 Activating Gumroad trigger for workflow ${workflowId}`, {
+    logger.info(`🔔 Activating Gumroad trigger for workflow ${workflowId}`, {
       triggerType,
       config
     })
@@ -84,14 +84,14 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
       // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
       if (insertError.code === '23503') {
         logger.warn(`⚠️ Could not store trigger resource (workflow may be unsaved): ${insertError.message}`)
-        logger.debug(`✅ Gumroad trigger registered (without local record) for workflow ${workflowId}`)
+        logger.info(`✅ Gumroad trigger registered (without local record) for workflow ${workflowId}`)
         return
       }
       logger.error(`❌ Failed to store trigger resource:`, insertError)
       throw new Error(`Failed to store trigger resource: ${insertError.message}`)
     }
 
-    logger.debug(`✅ Gumroad trigger registered for workflow ${workflowId}`)
+    logger.info(`✅ Gumroad trigger registered for workflow ${workflowId}`)
     logger.info(`📝 Gumroad webhook must be manually configured at: https://app.gumroad.com/settings/advanced#ping-settings`)
     logger.info(`📝 Use this webhook URL: ${webhookUrl}?workflowId=${workflowId}`)
   }
@@ -103,7 +103,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
   async onDeactivate(context: TriggerDeactivationContext): Promise<void> {
     const { workflowId } = context
 
-    logger.debug(`🛑 Deactivating Gumroad triggers for workflow ${workflowId}`)
+    logger.info(`🛑 Deactivating Gumroad triggers for workflow ${workflowId}`)
 
     // Get all Gumroad triggers for this workflow
     const { data: resources } = await getSupabase()
@@ -114,7 +114,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
       .eq('status', 'active')
 
     if (!resources || resources.length === 0) {
-      logger.debug(`ℹ️ No active Gumroad triggers for workflow ${workflowId}`)
+      logger.info(`ℹ️ No active Gumroad triggers for workflow ${workflowId}`)
       return
     }
 
@@ -125,7 +125,7 @@ export class GumroadTriggerLifecycle implements TriggerLifecycle {
       .eq('workflow_id', workflowId)
       .eq('provider_id', 'gumroad')
 
-    logger.debug(`✅ Gumroad trigger registrations removed for workflow ${workflowId}`)
+    logger.info(`✅ Gumroad trigger registrations removed for workflow ${workflowId}`)
     logger.info(`📝 Remember to remove webhook from Gumroad dashboard if no longer needed`)
   }
 

@@ -19,7 +19,7 @@ export async function executeLoop(
   try {
     const loopMode = config.loopMode || 'items'
 
-    logger.debug('[Loop] Starting loop execution', {
+    logger.info('[Loop] Starting loop execution', {
       loopMode,
       config
     })
@@ -70,7 +70,7 @@ async function executeCountLoop(
       throw new Error('Count cannot exceed 500 iterations')
     }
 
-    logger.debug('[Loop:Count] Starting count loop', {
+    logger.info('[Loop:Count] Starting count loop', {
       count,
       initialValue,
       stepIncrement
@@ -94,7 +94,7 @@ async function executeCountLoop(
       }
     }
 
-    logger.debug('[Loop:Count] First iteration prepared', {
+    logger.info('[Loop:Count] First iteration prepared', {
       counter: output.counter,
       totalItems: output.totalItems,
       progressPercentage: output.progressPercentage
@@ -134,7 +134,7 @@ async function executeItemsLoop(
     const itemsRaw = context.dataFlowManager.resolveVariable(config.items)
     const batchSize = parseInt(context.dataFlowManager.resolveVariable(config.batchSize)) || 1
 
-    logger.debug('[Loop:Items] Starting items loop', {
+    logger.info('[Loop:Items] Starting items loop', {
       itemsRaw: typeof itemsRaw,
       batchSize,
       configItems: config.items
@@ -194,7 +194,7 @@ async function executeItemsLoop(
     const totalItems = items.length
     const actualBatchSize = Math.min(Math.max(1, batchSize), totalItems)
 
-    logger.debug('[Loop:Items] Processing array', {
+    logger.info('[Loop:Items] Processing array', {
       totalItems,
       batchSize: actualBatchSize,
       firstItem: items[0]
@@ -223,7 +223,7 @@ async function executeItemsLoop(
       remainingItems: totalItems - (currentIndex + actualBatchSize)
     }
 
-    logger.debug('[Loop:Items] First iteration prepared', {
+    logger.info('[Loop:Items] First iteration prepared', {
       index: output.index,
       totalItems: output.totalItems,
       batchSize: output.batchSize,

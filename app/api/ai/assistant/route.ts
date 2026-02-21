@@ -27,13 +27,13 @@ export async function POST(request: NextRequest) {
   // Listen for connection close
   request.signal.addEventListener('abort', () => {
     connectionClosed = true
-    logger.debug("Client connection aborted")
+    logger.info("Client connection aborted")
   })
 
   try {
     // Early exit if connection closed
     if (connectionClosed) {
-      logger.debug("Connection closed early, aborting processing")
+      logger.info("Connection closed early, aborting processing")
       return new Response(null, { status: 499 }) // Client Closed Request
     }
 

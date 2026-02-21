@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return errorResponse('Unauthorized' , 401)
     }
 
-    logger.debug('🔄 Starting Google watch renewal process...')
+    logger.info('🔄 Starting Google watch renewal process...')
 
     // Renew expiring watches
     await renewExpiringGoogleWatches()
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     // Clean up old expired subscriptions
     await cleanupExpiredSubscriptions()
 
-    logger.debug('✅ Google watch renewal process completed')
+    logger.info('✅ Google watch renewal process completed')
 
     return jsonResponse({
       success: true,

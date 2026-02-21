@@ -8,7 +8,7 @@ import { validateGumroadIntegration, validateGumroadToken, makeGumroadApiRequest
 import { logger } from '@/lib/utils/logger'
 
 export const getGumroadProducts: GumroadDataHandler<GumroadProduct> = async (integration: GumroadIntegration, options: any = {}): Promise<GumroadProduct[]> => {
-  logger.debug("🔍 Gumroad products fetcher called with integration:", {
+  logger.info("🔍 Gumroad products fetcher called with integration:", {
     id: integration.id,
     provider: integration.provider,
     hasToken: !!integration.access_token,
@@ -19,15 +19,15 @@ export const getGumroadProducts: GumroadDataHandler<GumroadProduct> = async (int
     // Validate integration status
     validateGumroadIntegration(integration)
     
-    logger.debug(`🔍 Validating Gumroad token...`)
+    logger.info(`🔍 Validating Gumroad token...`)
     const tokenResult = await validateGumroadToken(integration)
     
     if (!tokenResult.success) {
-      logger.debug(`❌ Gumroad token validation failed: ${tokenResult.error}`)
+      logger.info(`❌ Gumroad token validation failed: ${tokenResult.error}`)
       throw new Error(tokenResult.error || "Authentication failed")
     }
     
-    logger.debug('🔍 Fetching Gumroad products...')
+    logger.info('🔍 Fetching Gumroad products...')
 
     // Gumroad API uses access_token as query parameter (handled by makeGumroadApiRequest)
     const apiUrl = buildGumroadApiUrl('/products')
@@ -76,7 +76,7 @@ export const getGumroadProducts: GumroadDataHandler<GumroadProduct> = async (int
       tags: product.tags
     }))
     
-    logger.debug(`✅ Gumroad products fetched successfully: ${products.length} products`)
+    logger.info(`✅ Gumroad products fetched successfully: ${products.length} products`)
     return products
     
   } catch (error: any) {

@@ -52,7 +52,7 @@ export async function removeGmailLabel(
       }
     }
 
-    logger.debug(`[Gmail Remove Label] Removing labels from ${messageIds.length} email(s):`, labelIds)
+    logger.info(`[Gmail Remove Label] Removing labels from ${messageIds.length} email(s):`, labelIds)
 
     // Remove labels from messages
     const results = []
@@ -92,7 +92,7 @@ export async function removeGmailLabel(
 
     const successCount = results.filter(r => r.success).length
 
-    logger.debug(`[Gmail Remove Label] Successfully removed labels from ${successCount}/${messageIds.length} email(s)`)
+    logger.info(`[Gmail Remove Label] Successfully removed labels from ${successCount}/${messageIds.length} email(s)`)
 
     return {
       success: successCount > 0,

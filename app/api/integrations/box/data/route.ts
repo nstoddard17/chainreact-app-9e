@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 })
     }
 
-    logger.debug(`🔍 [Box API] Processing request:`, {
+    logger.info(`🔍 [Box API] Processing request:`, {
       integrationId,
       dataType,
       status: integration.status,
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     // Execute the handler
     const data = await handler(integration as BoxIntegration, options)
 
-    logger.debug(`✅ [Box API] Successfully processed ${dataType}:`, {
+    logger.info(`✅ [Box API] Successfully processed ${dataType}:`, {
       integrationId,
       resultCount: data?.length || 0
     })

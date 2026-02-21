@@ -40,7 +40,7 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
     // Note: buildOneDriveApiUrl automatically adds /v1.0 if not present
     const url = buildOneDriveApiUrl(`${baseEndpoint}?$top=200`)
 
-    logger.debug('🔍 [OneDrive] Fetching files from:', {
+    logger.info('🔍 [OneDrive] Fetching files from:', {
       baseEndpoint,
       folderId: effectiveFolderId,
       fullUrl: url
@@ -60,7 +60,7 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
 
     const payload = await response.json()
 
-    logger.debug('📦 [OneDrive] Raw API response:', {
+    logger.info('📦 [OneDrive] Raw API response:', {
       totalItems: payload?.value?.length || 0,
       hasValue: !!payload?.value,
       firstFewItems: payload?.value?.slice(0, 3)?.map((item: any) => ({
@@ -81,12 +81,12 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
       // Exclude items that have 'folder' property
       const isFile = (item.file !== undefined || item.package !== undefined) && item.folder === undefined
       if (!isFile && item.name) {
-        logger.debug(`⏭️ Skipping non-file item: ${item.name} (folder: ${!!item.folder}, package: ${!!item.package})`)
+        logger.info(`⏭️ Skipping non-file item: ${item.name} (folder: ${!!item.folder}, package: ${!!item.package})`)
       }
       return isFile
     })
 
-    logger.debug('✅ [OneDrive] Filtered files:', {
+    logger.info('✅ [OneDrive] Filtered files:', {
       totalFiles: files.length,
       fileNames: files.map((f: any) => f.name)
     })

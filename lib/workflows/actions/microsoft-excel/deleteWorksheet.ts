@@ -25,7 +25,7 @@ export async function deleteMicrosoftExcelWorksheet(
   const { workbookId, worksheetName } = config
   const { userId } = context
 
-  logger.debug('[Microsoft Excel] Deleting worksheet:', { workbookId, worksheetName })
+  logger.info('[Microsoft Excel] Deleting worksheet:', { workbookId, worksheetName })
 
   try {
     // Get Microsoft Excel integration
@@ -71,7 +71,7 @@ export async function deleteMicrosoftExcelWorksheet(
       }
     }
 
-    logger.debug('[Microsoft Excel] Successfully deleted worksheet')
+    logger.info('[Microsoft Excel] Successfully deleted worksheet')
 
     return {
       success: true,

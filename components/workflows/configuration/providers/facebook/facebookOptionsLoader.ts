@@ -24,7 +24,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     const { fieldName, integrationId, dependsOnValue, signal } = params;
     
     if (!integrationId) {
-      logger.debug('🔍 [Facebook] No integration ID provided');
+      logger.info('🔍 [Facebook] No integration ID provided');
       return [];
     }
 
@@ -56,12 +56,12 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
           result = [];
       }
       
-      logger.debug(`✅ [Facebook] Loaded ${result.length} options for ${fieldName}`);
+      logger.info(`✅ [Facebook] Loaded ${result.length} options for ${fieldName}`);
       return result;
       
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        logger.debug('🚫 [Facebook] Request aborted for field:', fieldName);
+        logger.info('🚫 [Facebook] Request aborted for field:', fieldName);
         return [];
       }
       
@@ -112,7 +112,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     const { integrationId, dependsOnValue: pageId, signal } = params;
     
     if (!pageId) {
-      logger.debug('🔍 [Facebook] Cannot load conversations without page ID');
+      logger.info('🔍 [Facebook] Cannot load conversations without page ID');
       return [];
     }
 
@@ -156,7 +156,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     const { integrationId, dependsOnValue: pageId, signal } = params;
     
     if (!pageId) {
-      logger.debug('🔍 [Facebook] Cannot load posts without page ID');
+      logger.info('🔍 [Facebook] Cannot load posts without page ID');
       return [];
     }
 
@@ -223,7 +223,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
       const result = await response.json();
       const groups = result.data || [];
       
-      logger.debug('🔍 [Facebook] Groups data received:', groups);
+      logger.info('🔍 [Facebook] Groups data received:', groups);
 
       return groups.map((group: any) => ({
         value: group.id, // Always use group.id for the value
@@ -248,7 +248,7 @@ export class FacebookOptionsLoader implements ProviderOptionsLoader {
     const { integrationId, dependsOnValue: pageId, signal } = params;
 
     if (!pageId) {
-      logger.debug('🔍 [Facebook] Cannot check monetization eligibility without page ID');
+      logger.info('🔍 [Facebook] Cannot check monetization eligibility without page ID');
       return [{
         value: 'no-page',
         label: '⚠️ Select a page first',

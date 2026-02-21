@@ -83,7 +83,7 @@ export function GoogleSheetsFindRowPreview({
     setSearchResult(null);
 
     try {
-      logger.debug('🔍 Testing Find Row search...', {
+      logger.info('🔍 Testing Find Row search...', {
         spreadsheetId: values.spreadsheetId,
         sheetName: values.sheetName,
         searchColumn: values.searchColumn,
@@ -120,7 +120,7 @@ export function GoogleSheetsFindRowPreview({
       const result = await response.json();
       const rows = result.data || [];
 
-      logger.debug('🔍 Search data loaded:', { rowCount: rows.length });
+      logger.info('🔍 Search data loaded:', { rowCount: rows.length });
 
       // Perform search based on match type
       const matchType = values.matchType || 'exact';
@@ -147,14 +147,14 @@ export function GoogleSheetsFindRowPreview({
       });
 
       if (foundRow) {
-        logger.debug('✅ Row found:', foundRow);
+        logger.info('✅ Row found:', foundRow);
         setSearchResult({
           found: true,
           rowNumber: foundRow.rowNumber,
           rowData: foundRow.fields
         });
       } else {
-        logger.debug('❌ No matching row found');
+        logger.info('❌ No matching row found');
         setSearchResult({
           found: false,
           message: 'No matching row found'

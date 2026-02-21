@@ -32,7 +32,7 @@ export class GoogleAnalyticsOptionsLoader implements ProviderOptionsLoader {
   async loadOptions(params: LoadOptionsParams): Promise<SelectOption[]> {
     const { fieldName, integrationId, dependsOnValue, extraOptions } = params;
 
-    logger.debug('📊 [GoogleAnalytics] Loading options:', {
+    logger.info('📊 [GoogleAnalytics] Loading options:', {
       fieldName,
       integrationId,
       dependsOnValue,

@@ -25,7 +25,7 @@ export async function createMicrosoftExcelWorksheet(
   const { workbookId, worksheetName } = config
   const { userId } = context
 
-  logger.debug('[Microsoft Excel] Creating worksheet:', { workbookId, worksheetName })
+  logger.info('[Microsoft Excel] Creating worksheet:', { workbookId, worksheetName })
 
   try {
     // Get Microsoft Excel integration
@@ -74,7 +74,7 @@ export async function createMicrosoftExcelWorksheet(
 
     const result = await createResponse.json()
 
-    logger.debug('[Microsoft Excel] Successfully created worksheet')
+    logger.info('[Microsoft Excel] Successfully created worksheet')
 
     return {
       success: true,

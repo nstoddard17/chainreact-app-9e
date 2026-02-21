@@ -13,7 +13,7 @@ import { logger } from '@/lib/utils/logger'
 export const getGoogleCalendars: GoogleDataHandler<GoogleCalendar> = async (integration: GoogleIntegration) => {
   try {
     validateGoogleIntegration(integration)
-    logger.debug("📅 [Google Calendar] Fetching calendars")
+    logger.info("📅 [Google Calendar] Fetching calendars")
 
     const accessToken = getGoogleAccessToken(integration)
     const response = await makeGoogleApiRequest(
@@ -37,7 +37,7 @@ export const getGoogleCalendars: GoogleDataHandler<GoogleCalendar> = async (inte
       time_zone: calendar.timeZone,
     }))
 
-    logger.debug(`✅ [Google Calendar] Retrieved ${calendars.length} calendars`)
+    logger.info(`✅ [Google Calendar] Retrieved ${calendars.length} calendars`)
     return calendars
 
   } catch (error: any) {
@@ -59,10 +59,10 @@ export const getGoogleCalendarEvents: GoogleDataHandler = async (
     // Get calendarId from options (passed from dependent field)
     const calendarId = options?.calendarId || options?.dependsOnValue
 
-    logger.debug("📅 [Google Calendar] Fetching events from calendar:", calendarId)
+    logger.info("📅 [Google Calendar] Fetching events from calendar:", calendarId)
 
     if (!calendarId) {
-      logger.debug("📅 [Google Calendar] No calendarId provided, returning empty array")
+      logger.info("📅 [Google Calendar] No calendarId provided, returning empty array")
       return []
     }
 
@@ -149,7 +149,7 @@ export const getGoogleCalendarEvents: GoogleDataHandler = async (
       }
     })
 
-    logger.debug(`✅ [Google Calendar] Retrieved ${events.length} events`)
+    logger.info(`✅ [Google Calendar] Retrieved ${events.length} events`)
     return events
 
   } catch (error: any) {

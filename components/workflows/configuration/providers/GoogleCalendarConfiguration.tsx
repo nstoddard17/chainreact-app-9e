@@ -139,11 +139,11 @@ export function GoogleCalendarConfiguration(props: GoogleCalendarConfigurationPr
         if (currentAllDay === true) {
           setValue('notifications', defaultNotifications);
           setValue('transparency', 'transparent');
-          logger.debug('🔄 [GoogleCalendar] Switched to all-day event - reset notifications to 30 minutes and transparency to free');
+          logger.info('🔄 [GoogleCalendar] Switched to all-day event - reset notifications to 30 minutes and transparency to free');
         } else if (currentAllDay === false) {
           setValue('notifications', defaultNotifications);
           setValue('transparency', 'opaque');
-          logger.debug('🔄 [GoogleCalendar] Switched to timed event - reset notifications to 30 minutes and transparency to busy');
+          logger.info('🔄 [GoogleCalendar] Switched to timed event - reset notifications to 30 minutes and transparency to busy');
         }
       }
     }

@@ -53,7 +53,7 @@ export function DiscordUserSelector({
       
       setLoading(true)
       try {
-        logger.debug('DiscordUserSelector loading users with:', { searchQuery })
+        logger.info('DiscordUserSelector loading users with:', { searchQuery })
         
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => {
@@ -66,7 +66,7 @@ export function DiscordUserSelector({
         
         const data = await Promise.race([dataPromise, timeoutPromise])
         
-        logger.debug('DiscordUserSelector received data:', data)
+        logger.info('DiscordUserSelector received data:', data)
         
         if (data && Array.isArray(data)) {
           setUsers(data)
