@@ -498,6 +498,105 @@ async function pollNewAudience(trigger: any, accessToken: string, dc: string): P
 }
 
 /**
+ * Poll for new campaigns (draft, scheduled, or sent)
+ */
+async function pollNewCampaign(trigger: any, accessToken: string, dc: string): Promise<void> {
+  const config = trigger.config || {}
+  const previousSnapshot = config.mailchimpSnapshot
+  const headers = { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+
+  const statusFilter = config.status
+  const audienceFilter = config.audienceId || config.audience_id
+
+  let url = `https://${dc}.api.mailchimp.com/3.0/campaigns?sort_field=create_time&sort_dir=DESC&count=50`
+  if (statusFilter && statusFilter !== 'all') {
+    url += `&status=${statusFilter}`
+  }
+  if (audienceFilter) {
+    url += `&list_id=${audienceFilter}`
+  }
+
+  const resp = await fetchWithTimeout(url, { headers }, 10000)
+  if (!resp.ok) {
+    logger.warn('[Mailchimp Poll] Failed to fetch campaigns for campaign_created', {
+      triggerId: trigger.id, status: resp.status, statusText: resp.statusText
+    })
+    return
+  }
+  const data = await resp.json()
+
+  const currentCampaignIds = (data.campaigns || []).map((c: any) => c.id)
+  const campaignMap = new Map((data.campaigns || []).map((c: any) => [c.id, c]))
+
+  logger.info('[Mailchimp Poll] Fetched campaigns from API', {
+    triggerId: trigger.id,
+    campaignCount: currentCampaignIds.length,
+    statusFilter: statusFilter || 'all'
+  })
+
+  const newSnapshot = {
+    type: 'new_campaign',
+    campaignIds: currentCampaignIds,
+    updatedAt: new Date().toISOString()
+  }
+
+  await getSupabase()
+    .from('trigger_resources')
+    .update({
+      config: {
+        ...config,
+        mailchimpSnapshot: newSnapshot,
+        polling: { ...(config.polling || {}), lastPolledAt: new Date().toISOString() }
+      },
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', trigger.id)
+
+  if (!previousSnapshot) {
+    logger.info('[Mailchimp Poll] First poll - baseline established for campaign_created', {
+      triggerId: trigger.id, campaignCount: currentCampaignIds.length
+    })
+    return
+  }
+
+  const prevIds = new Set(previousSnapshot.campaignIds || [])
+  const newCampaigns = currentCampaignIds.filter((id: string) => !prevIds.has(id))
+
+  for (const campaignId of newCampaigns) {
+    const campaign = campaignMap.get(campaignId)
+    if (!campaign) continue
+
+    await triggerWorkflow(trigger, {
+      campaignId: campaign.id,
+      title: campaign.settings?.title || '',
+      subject: campaign.settings?.subject_line || '',
+      type: campaign.type || 'regular',
+      status: campaign.status || '',
+      audienceId: campaign.recipients?.list_id || '',
+      sendTime: campaign.send_time || '',
+      createTime: campaign.create_time || '',
+      fromName: campaign.settings?.from_name || '',
+      replyTo: campaign.settings?.reply_to || ''
+    })
+
+    logger.info('[Mailchimp Poll] Triggered for new campaign', {
+      triggerId: trigger.id,
+      campaignId: campaign.id,
+      title: campaign.settings?.title,
+      status: campaign.status
+    })
+  }
+
+  if (newCampaigns.length === 0) {
+    logger.info('[Mailchimp Poll] No new campaigns detected', {
+      triggerId: trigger.id,
+      currentCount: currentCampaignIds.length,
+      previousCount: previousSnapshot.campaignIds?.length || 0
+    })
+  }
+}
+
+/**
  * Trigger workflow execution via the execute API
  */
 async function triggerWorkflow(trigger: any, inputData: any): Promise<void> {
@@ -556,7 +655,8 @@ export const mailchimpPollingHandler: PollingHandler = {
     return type === 'mailchimp_trigger_email_opened' ||
       type === 'mailchimp_trigger_link_clicked' ||
       type === 'mailchimp_trigger_segment_updated' ||
-      type === 'mailchimp_trigger_new_audience'
+      type === 'mailchimp_trigger_new_audience' ||
+      type === 'mailchimp_trigger_campaign_created'
   },
   getIntervalMs: (userRole: string) => ROLE_POLL_INTERVAL_MS[userRole] ?? DEFAULT_POLL_INTERVAL_MS,
   poll: async ({ trigger }: PollingContext) => {
@@ -588,6 +688,10 @@ export const mailchimpPollingHandler: PollingHandler = {
 
         case 'mailchimp_trigger_new_audience':
           await pollNewAudience(trigger, accessToken, dc)
+          break
+
+        case 'mailchimp_trigger_campaign_created':
+          await pollNewCampaign(trigger, accessToken, dc)
           break
 
         default:

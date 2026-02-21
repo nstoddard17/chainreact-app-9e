@@ -75,6 +75,11 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
       case 'mailchimp_trigger_new_campaign':
         return { campaign: true }
 
+      case 'mailchimp_trigger_campaign_created':
+        // Polling-based: Mailchimp campaign webhook only fires on SEND
+        // Polling detects all campaign statuses (save, schedule, sent, etc.)
+        return {}
+
       case 'mailchimp_trigger_segment_updated':
       case 'mailchimp_trigger_new_audience':
         // These require polling - no webhook support
@@ -557,6 +562,27 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
           return { type: 'new_audience', audienceIds, updatedAt: new Date().toISOString() }
         }
         return { type: 'new_audience', audienceIds: [], updatedAt: new Date().toISOString() }
+      }
+
+      case 'mailchimp_trigger_campaign_created': {
+        const statusFilter = config?.status
+        const audienceFilter = config?.audienceId || config?.audience_id
+
+        let url = `https://${dc}.api.mailchimp.com/3.0/campaigns?sort_field=create_time&sort_dir=DESC&count=50`
+        if (statusFilter && statusFilter !== 'all') {
+          url += `&status=${statusFilter}`
+        }
+        if (audienceFilter) {
+          url += `&list_id=${audienceFilter}`
+        }
+
+        const resp = await fetch(url, { headers })
+        if (resp.ok) {
+          const data = await resp.json()
+          const campaignIds = (data.campaigns || []).map((c: any) => c.id)
+          return { type: 'new_campaign', campaignIds, updatedAt: new Date().toISOString() }
+        }
+        return { type: 'new_campaign', campaignIds: [], updatedAt: new Date().toISOString() }
       }
 
       default:

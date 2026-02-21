@@ -1070,7 +1070,10 @@ const mailchimpMappings: Record<string, FieldMapping> = {
     audienceId: "mailchimp_audiences",
   },
   mailchimp_trigger_new_campaign: {
-    // No dynamic fields
+    audienceId: "mailchimp_audiences",
+  },
+  mailchimp_trigger_campaign_created: {
+    audienceId: "mailchimp_audiences",
   },
   mailchimp_trigger_subscriber_added_to_segment: {
     audienceId: "mailchimp_audiences",

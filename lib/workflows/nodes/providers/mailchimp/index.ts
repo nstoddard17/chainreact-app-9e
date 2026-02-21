@@ -358,8 +358,8 @@ export const mailchimpNodes: NodeComponent[] = [
   },
   {
     type: "mailchimp_trigger_new_campaign",
-    title: "New Campaign",
-    description: "Triggers when a new campaign is created or sent",
+    title: "Campaign Sent",
+    description: "Triggers when a campaign is sent to an audience",
     icon: Send,
     providerId: "mailchimp",
     category: "Email",
@@ -375,19 +375,6 @@ export const mailchimpNodes: NodeComponent[] = [
         loadOnMount: true,
         placeholder: "Select an audience",
         description: "Choose which Mailchimp audience to monitor for campaign sends"
-      },
-      {
-        name: "status",
-        label: "Campaign Status",
-        type: "select",
-        required: false,
-        defaultValue: "sent",
-        options: [
-          { value: "sent", label: "Sent Campaigns Only" },
-          { value: "save", label: "Saved Drafts Only" },
-          { value: "all", label: "All Campaigns" }
-        ],
-        description: "Choose which campaign events to monitor"
       }
     ],
     outputSchema: [
@@ -419,13 +406,110 @@ export const mailchimpNodes: NodeComponent[] = [
         name: "status",
         label: "Status",
         type: "string",
-        description: "Campaign status (sent, save, etc.)"
+        description: "Campaign status"
       },
       {
         name: "audienceId",
         label: "Audience ID",
         type: "string",
         description: "The audience this campaign was sent to"
+      },
+      {
+        name: "sendTime",
+        label: "Send Time",
+        type: "string",
+        description: "When the campaign was sent"
+      },
+      {
+        name: "createTime",
+        label: "Create Time",
+        type: "string",
+        description: "When the campaign was created"
+      },
+      {
+        name: "fromName",
+        label: "From Name",
+        type: "string",
+        description: "Sender name"
+      },
+      {
+        name: "replyTo",
+        label: "Reply To",
+        type: "string",
+        description: "Reply-to email address"
+      }
+    ]
+  },
+  {
+    type: "mailchimp_trigger_campaign_created",
+    title: "New Campaign",
+    description: "Triggers when a new campaign is created (draft, scheduled, or sent)",
+    icon: Send,
+    providerId: "mailchimp",
+    category: "Email",
+    isTrigger: true,
+    producesOutput: true,
+    configSchema: [
+      {
+        name: "audienceId",
+        label: "Audience",
+        type: "combobox",
+        required: false,
+        dynamic: "mailchimp_audiences",
+        loadOnMount: true,
+        placeholder: "All audiences",
+        description: "Optionally filter to a specific audience"
+      },
+      {
+        name: "status",
+        label: "Campaign Status",
+        type: "select",
+        required: false,
+        defaultValue: "all",
+        options: [
+          { value: "all", label: "All Campaigns" },
+          { value: "sent", label: "Sent Campaigns Only" },
+          { value: "save", label: "Saved Drafts Only" }
+        ],
+        description: "Filter which campaign statuses to detect"
+      }
+    ],
+    outputSchema: [
+      {
+        name: "campaignId",
+        label: "Campaign ID",
+        type: "string",
+        description: "Unique identifier for the campaign"
+      },
+      {
+        name: "title",
+        label: "Campaign Title",
+        type: "string",
+        description: "Title/name of the campaign"
+      },
+      {
+        name: "subject",
+        label: "Subject Line",
+        type: "string",
+        description: "Email subject line"
+      },
+      {
+        name: "type",
+        label: "Campaign Type",
+        type: "string",
+        description: "Type of campaign (regular, plaintext, etc.)"
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "string",
+        description: "Campaign status (save, sent, schedule, etc.)"
+      },
+      {
+        name: "audienceId",
+        label: "Audience ID",
+        type: "string",
+        description: "The audience associated with this campaign"
       },
       {
         name: "sendTime",
