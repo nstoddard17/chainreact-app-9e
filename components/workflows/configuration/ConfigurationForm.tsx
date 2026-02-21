@@ -1402,6 +1402,19 @@ function ConfigurationForm({
     );
   }
 
+  // Show a message when the node has no configuration fields (e.g., Manual Trigger)
+  // The account selector in SetupTab still renders above this, so users can change accounts
+  if (!nodeInfo.configSchema || nodeInfo.configSchema.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-slate-500 dark:text-slate-400">
+        <div className="text-center">
+          <Settings className="h-8 w-8 mx-auto mb-2 text-slate-400 dark:text-slate-500" />
+          <p className="text-sm">No additional configuration needed for this node.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show loading screen during initial load only when:
   // 1. There are dynamic fields to fetch AND
   // 2. This is NOT a reopen (reopening should show saved values immediately)
