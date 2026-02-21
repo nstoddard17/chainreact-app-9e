@@ -16,7 +16,6 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { safeDecrypt } from '@/lib/security/encryption'
 import {
   TriggerLifecycle,
   TriggerActivationContext,
@@ -24,7 +23,7 @@ import {
   TriggerHealthStatus
 } from '../types'
 import { logger } from '@/lib/utils/logger'
-import crypto from 'crypto'
+import { getMailchimpAuth } from '@/lib/workflows/actions/mailchimp/utils'
 
 // Helper to create supabase client inside handlers
 const getSupabase = () => createClient(
@@ -32,41 +31,7 @@ const getSupabase = () => createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
-interface MailchimpAuthData {
-  accessToken: string
-  dc: string // Data center (e.g., us1, us19)
-}
-
 export class MailchimpTriggerLifecycle implements TriggerLifecycle {
-
-  /**
-   * Get Mailchimp auth data for user
-   */
-  private async getMailchimpAuth(userId: string): Promise<MailchimpAuthData> {
-    const { data: integration } = await getSupabase()
-      .from('integrations')
-      .select('access_token, metadata')
-      .eq('user_id', userId)
-      .eq('provider', 'mailchimp')
-      .single()
-
-    if (!integration) {
-      throw new Error('Mailchimp integration not found for user')
-    }
-
-    const accessToken = typeof integration.access_token === 'string'
-      ? safeDecrypt(integration.access_token)
-      : null
-
-    if (!accessToken) {
-      throw new Error('Failed to decrypt Mailchimp access token')
-    }
-
-    // Extract data center from metadata
-    const dc = integration.metadata?.dc || 'us1'
-
-    return { accessToken, dc }
-  }
 
   /**
    * Get webhook callback URL
@@ -153,7 +118,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
       // Capture initial snapshot to prevent "first poll miss" bug
       let initialSnapshot: any = null
       try {
-        const { accessToken, dc } = await this.getMailchimpAuth(userId)
+        const { accessToken, dc } = await getMailchimpAuth(userId)
         initialSnapshot = await this.captureInitialSnapshot(triggerType, config, accessToken, dc)
         logger.debug('[Mailchimp] Initial snapshot captured', { triggerType })
       } catch (snapshotError: any) {
@@ -206,7 +171,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Get Mailchimp auth
-    const { accessToken, dc } = await this.getMailchimpAuth(userId)
+    const { accessToken, dc } = await getMailchimpAuth(userId)
 
     // Get webhook callback URL
     const webhookUrl = this.getWebhookUrl()
@@ -345,7 +310,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
     }
 
     // Get Mailchimp auth
-    const { accessToken, dc } = await this.getMailchimpAuth(userId)
+    const { accessToken, dc } = await getMailchimpAuth(userId)
 
     const webhookId = resource.resource_id || resource.external_id
     const audienceId = resource.config?.audienceId
@@ -434,7 +399,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
       }
 
       // For webhook triggers, verify the webhook still exists
-      const { accessToken, dc } = await this.getMailchimpAuth(userId)
+      const { accessToken, dc } = await getMailchimpAuth(userId)
       const webhookId = resource.resource_id
       const audienceId = resource.config?.audienceId
 

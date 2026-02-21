@@ -422,6 +422,14 @@ async function pollNewAudience(trigger: any, accessToken: string, dc: string): P
   const currentAudienceIds = (data.lists || []).map((l: any) => l.id)
   const audienceMap = new Map((data.lists || []).map((l: any) => [l.id, l]))
 
+  logger.info('[Mailchimp Poll] Fetched audiences from API', {
+    triggerId: trigger.id,
+    dc,
+    audienceCount: currentAudienceIds.length,
+    totalItems: data.total_items,
+    audiences: (data.lists || []).map((l: any) => ({ id: l.id, name: l.name }))
+  })
+
   const newSnapshot = {
     type: 'new_audience',
     audienceIds: currentAudienceIds,
@@ -449,6 +457,13 @@ async function pollNewAudience(trigger: any, accessToken: string, dc: string): P
 
   const prevIds = new Set(previousSnapshot.audienceIds || [])
   const newAudiences = currentAudienceIds.filter((id: string) => !prevIds.has(id))
+
+  logger.info('[Mailchimp Poll] Snapshot comparison', {
+    triggerId: trigger.id,
+    previousIds: previousSnapshot.audienceIds || [],
+    currentIds: currentAudienceIds,
+    newIds: newAudiences
+  })
 
   for (const audienceId of newAudiences) {
     const audience = audienceMap.get(audienceId)
