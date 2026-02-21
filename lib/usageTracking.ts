@@ -39,10 +39,13 @@ export async function checkUsageLimit(
   userId: string,
   resourceType: string,
 ): Promise<{ allowed: boolean; limit: number; current: number }> {
-  // TEMPORARY: Disable usage limits for testing
-  logger.info("🧪 Usage limits disabled for testing")
-  return { allowed: true, limit: 999999, current: 0 }
-  
+  // For task-based limits, use the direct profile check
+  if (resourceType === 'execution') {
+    const { checkTaskBalance } = await import('@/lib/workflows/taskDeduction')
+    const result = await checkTaskBalance(userId, 1)
+    return { allowed: result.allowed, limit: result.limit, current: result.used }
+  }
+
   const supabase = createClient()
 
   try {
@@ -89,7 +92,8 @@ export async function checkUsageLimit(
     return { allowed, limit, current }
   } catch (error) {
     logger.error("Usage limit check error:", error)
-    return { allowed: false, limit: 0, current: 0 }
+    // Fail open - don't block users if usage check fails
+    return { allowed: true, limit: 999999, current: 0 }
   }
 }
 

@@ -237,6 +237,29 @@ export class AdvancedExecutionEngine {
         await this.progressTracker.complete(true)
       }
 
+      // Deduct tasks for executed nodes (live mode is never test mode)
+      try {
+        const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
+        const { data: completedEvents } = await this.supabase
+          .from('live_execution_events')
+          .select('node_id')
+          .eq('session_id', sessionId)
+          .eq('event_type', 'node_completed')
+
+        const executedNodesList = (completedEvents || [])
+          .map((e: any) => workflow.nodes?.find((n: any) => n.id === e.node_id))
+          .filter(Boolean)
+
+        if (executedNodesList.length > 0) {
+          await deductExecutionTasks(session.user_id, executedNodesList, sessionId, false)
+        }
+      } catch (taskError) {
+        logger.warn('[AdvancedExecutionEngine] Task deduction failed (non-blocking)', {
+          sessionId,
+          error: taskError instanceof Error ? taskError.message : String(taskError)
+        })
+      }
+
       const completionInfo = {
         sessionId,
         workflowId: session.workflow_id
@@ -284,6 +307,30 @@ export class AdvancedExecutionEngine {
           execution_time_ms: Date.now() - executionStartMs,
         })
         .eq("id", sessionId)
+
+    // Deduct tasks for nodes that completed before the failure
+    try {
+      const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
+      const { data: completedEvents } = await this.supabase
+        .from('live_execution_events')
+        .select('node_id')
+        .eq('session_id', sessionId)
+        .eq('event_type', 'node_completed')
+
+      const executedNodesList = (completedEvents || [])
+        .map((e: any) => workflow.nodes?.find((n: any) => n.id === e.node_id))
+        .filter(Boolean)
+
+      if (executedNodesList.length > 0) {
+        await deductExecutionTasks(session.user_id, executedNodesList, sessionId, false)
+      }
+    } catch (taskError) {
+      logger.warn('[AdvancedExecutionEngine] Task deduction on failure path failed (non-blocking)', {
+        sessionId,
+        error: taskError instanceof Error ? taskError.message : String(taskError)
+      })
+    }
+
     await this.logExecutionEvent(sessionId, "execution_error", null, {
       error: error instanceof Error ? error.message : "Unknown error",
     })

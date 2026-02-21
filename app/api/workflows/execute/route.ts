@@ -391,6 +391,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Check task usage limits before execution (only for live/non-test mode)
+    if (!effectiveTestMode) {
+      try {
+        const { checkTaskBalance } = require('@/lib/workflows/taskDeduction')
+        const { getWorkflowTaskCost } = require('@/lib/workflows/cost-calculator')
+        const actionNodes = nodes.filter((n: any) => !n.data?.isTrigger)
+        const estimatedCost = getWorkflowTaskCost(actionNodes)
+
+        if (estimatedCost.total > 0) {
+          const balanceCheck = await checkTaskBalance(userId, estimatedCost.total)
+
+          if (!balanceCheck.allowed) {
+            logger.warn('[Execute Route] Task limit exceeded', {
+              userId,
+              workflowId,
+              tasksNeeded: estimatedCost.total,
+              remaining: balanceCheck.remaining,
+              limit: balanceCheck.limit
+            })
+            return errorResponse(
+              `Task limit reached. You need ${estimatedCost.total} task${estimatedCost.total !== 1 ? 's' : ''} but have ${balanceCheck.remaining} remaining. Upgrade your plan for more tasks.`,
+              402,
+              { tasksNeeded: estimatedCost.total, remaining: balanceCheck.remaining, limit: balanceCheck.limit }
+            )
+          }
+        }
+      } catch (limitCheckError) {
+        // Fail open - don't block execution if limit check fails
+        logger.warn('[Execute Route] Task limit check failed (allowing execution)', {
+          userId,
+          workflowId,
+          error: limitCheckError instanceof Error ? limitCheckError.message : String(limitCheckError)
+        })
+      }
+    }
+
     // Execute the workflow using the new service or advanced engine based on mode
     logger.info("Starting workflow execution with effectiveTestMode:", effectiveTestMode, "executionMode:", executionMode)
 

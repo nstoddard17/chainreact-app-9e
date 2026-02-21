@@ -12,6 +12,20 @@ const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET || "", {
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
+// Map plan IDs to task limits (must match PLAN_LIMITS in plan-restrictions.ts)
+const PLAN_TASK_LIMITS: Record<string, number> = {
+  'free-tier': 100,
+  'free': 100,
+  'pro': 750,
+  'team': 2000,
+  'business': 5000,
+  'enterprise': -1,
+}
+
+function getTaskLimitForPlan(planId: string): number {
+  return PLAN_TASK_LIMITS[planId] ?? 100
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text()
   const sig = headers().get("stripe-signature")!
@@ -102,6 +116,24 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Reset task usage for new plan and set task limit
+      const taskLimit = getTaskLimitForPlan(planId)
+      const { error: taskResetError } = await supabase
+        .from("user_profiles")
+        .update({
+          tasks_used: 0,
+          tasks_limit: taskLimit,
+          billing_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          plan: planId === 'free-tier' ? 'free' : planId,
+        })
+        .eq("id", userId)
+
+      if (taskResetError) {
+        logger.error("[Webhook] Failed to reset task usage on checkout:", taskResetError)
+      } else {
+        logger.info("[Webhook] Task usage reset for new subscription", { userId, planId, taskLimit })
+      }
+
       break
     }
 
@@ -136,7 +168,14 @@ export async function POST(request: NextRequest) {
 
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription
-      
+
+      // Find the user before updating subscription
+      const { data: subForUser } = await supabase
+        .from("subscriptions")
+        .select("user_id")
+        .eq("stripe_subscription_id", subscription.id)
+        .single()
+
       // Update subscription to canceled/free tier
       const { error } = await supabase
         .from("subscriptions")
@@ -152,16 +191,35 @@ export async function POST(request: NextRequest) {
         return errorResponse("Failed to cancel subscription" , 500)
       }
 
+      // Reset to free tier task limits
+      if (subForUser?.user_id) {
+        const { error: taskResetError } = await supabase
+          .from("user_profiles")
+          .update({
+            tasks_used: 0,
+            tasks_limit: 100,
+            plan: 'free',
+            billing_period_start: new Date().toISOString(),
+          })
+          .eq("id", subForUser.user_id)
+
+        if (taskResetError) {
+          logger.error("[Webhook] Failed to reset tasks on cancellation:", taskResetError)
+        } else {
+          logger.info("[Webhook] Reset to free tier", { userId: subForUser.user_id })
+        }
+      }
+
       break
     }
 
     case "invoice.payment_succeeded": {
       const invoice = event.data.object as Stripe.Invoice
       const subscriptionId = invoice.subscription as string
-      
+
       // Update subscription period
       const subscription = await stripe.subscriptions.retrieve(subscriptionId)
-      
+
       const { error } = await supabase
         .from("subscriptions")
         .update({
@@ -174,6 +232,36 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         logger.error("Error updating subscription period:", error)
+      }
+
+      // Reset task usage for new billing period
+      const { data: subData } = await supabase
+        .from("subscriptions")
+        .select("user_id, plan_id")
+        .eq("stripe_subscription_id", subscriptionId)
+        .single()
+
+      if (subData?.user_id) {
+        const taskLimit = getTaskLimitForPlan(subData.plan_id)
+        const { error: resetError } = await supabase
+          .from("user_profiles")
+          .update({
+            tasks_used: 0,
+            tasks_limit: taskLimit,
+            billing_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          })
+          .eq("id", subData.user_id)
+
+        if (resetError) {
+          logger.error("[Webhook] Failed to reset task usage on invoice payment:", resetError)
+        } else {
+          logger.info("[Webhook] Task usage reset for new billing period", {
+            userId: subData.user_id,
+            planId: subData.plan_id,
+            taskLimit,
+            periodStart: new Date(subscription.current_period_start * 1000).toISOString()
+          })
+        }
       }
 
       break

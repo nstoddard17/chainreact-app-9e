@@ -374,6 +374,26 @@ export class WorkflowExecutionService {
     const hasErrors = failedNodeIds.length > 0
     await progressTracker.complete(!hasErrors, hasErrors ? 'Workflow execution completed with errors' : undefined)
 
+    // Deduct tasks for executed nodes (skip for test/sandbox mode)
+    if (!testMode) {
+      try {
+        const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
+        const allExecutedNodeIds = [
+          ...completedNodeIds,
+          ...failedNodeIds.map((f: any) => f.nodeId)
+        ]
+        const executedNodesList = nodes.filter((n: any) => allExecutedNodeIds.includes(n.id))
+        if (executedNodesList.length > 0) {
+          await deductExecutionTasks(userId, executedNodesList, executionId, false)
+        }
+      } catch (taskError) {
+        logger.warn('[WorkflowExecutionService] Task deduction failed (non-blocking)', {
+          executionId,
+          error: taskError instanceof Error ? taskError.message : String(taskError)
+        })
+      }
+    }
+
     // Update workflow_execution_sessions record to completed status
     const finalStatus = hasErrors ? "failed" : "completed"
     const { error: completeError } = await supabase

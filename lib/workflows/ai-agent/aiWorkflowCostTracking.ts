@@ -64,7 +64,7 @@ export async function checkAIWorkflowTaskBalance(
 
     // Get user's current task balance
     const { data: profile, error } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .select('tasks_used, tasks_limit')
       .eq('id', userId)
       .single()
@@ -127,7 +127,7 @@ export async function deductAIWorkflowTasks(
 
     // Get current balance
     const { data: profile, error: fetchError } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .select('tasks_used, tasks_limit')
       .eq('id', userId)
       .single()
@@ -166,7 +166,7 @@ export async function deductAIWorkflowTasks(
 
     // Deduct tasks from profile
     const { data: updatedProfile, error: updateError } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .update({ tasks_used: newUsed })
       .eq('id', userId)
       .select('tasks_used, tasks_limit')
