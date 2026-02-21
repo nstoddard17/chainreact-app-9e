@@ -3,6 +3,7 @@ import { getMailchimpAuth } from '@/lib/workflows/actions/mailchimp/utils'
 import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 import { logger } from '@/lib/utils/logger'
 import { PollingContext, PollingHandler } from '@/lib/triggers/polling'
+import { fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
 
 const ROLE_POLL_INTERVAL_MS: Record<string, number> = {
   free: 15 * 60 * 1000,
@@ -34,11 +35,16 @@ async function pollEmailOpened(trigger: any, accessToken: string, dc: string): P
     campaignIds = [config.campaignId]
   } else {
     // Fetch recent sent campaigns
-    const resp = await fetch(
+    const resp = await fetchWithTimeout(
       `https://${dc}.api.mailchimp.com/3.0/campaigns?status=sent&sort_field=send_time&sort_dir=DESC&count=10`,
-      { headers }
+      { headers }, 10000
     )
-    if (!resp.ok) return
+    if (!resp.ok) {
+      logger.warn('[Mailchimp Poll] Failed to fetch campaigns for email_opened', {
+        triggerId: trigger.id, status: resp.status, statusText: resp.statusText
+      })
+      return
+    }
     const data = await resp.json()
     campaignIds = (data.campaigns || []).map((c: any) => c.id)
   }
@@ -46,11 +52,16 @@ async function pollEmailOpened(trigger: any, accessToken: string, dc: string): P
   const currentCampaigns: Record<string, any> = {}
 
   for (const campaignId of campaignIds) {
-    const resp = await fetch(
+    const resp = await fetchWithTimeout(
       `https://${dc}.api.mailchimp.com/3.0/reports/${campaignId}`,
-      { headers }
+      { headers }, 10000
     )
-    if (!resp.ok) continue
+    if (!resp.ok) {
+      logger.warn('[Mailchimp Poll] Failed to fetch report for campaign', {
+        triggerId: trigger.id, campaignId, status: resp.status
+      })
+      continue
+    }
     const report = await resp.json()
     currentCampaigns[campaignId] = { totalOpens: report.opens?.opens_total || 0 }
   }
@@ -76,28 +87,35 @@ async function pollEmailOpened(trigger: any, accessToken: string, dc: string): P
 
   // First poll establishes baseline
   if (!previousSnapshot) {
-    logger.debug('[Mailchimp Poll] First poll - baseline established for email_opened', { triggerId: trigger.id })
+    logger.info('[Mailchimp Poll] First poll - baseline established for email_opened', { triggerId: trigger.id })
     return
   }
 
   // Detect new opens
+  let triggeredAny = false
   for (const campaignId of campaignIds) {
     const prevOpens = previousSnapshot.campaigns?.[campaignId]?.totalOpens || 0
     const currOpens = currentCampaigns[campaignId]?.totalOpens || 0
 
     if (currOpens > prevOpens) {
+      triggeredAny = true
       // Fetch the actual new open details
-      const detailResp = await fetch(
+      const detailResp = await fetchWithTimeout(
         `https://${dc}.api.mailchimp.com/3.0/reports/${campaignId}/open-details?count=10&sort_field=timestamp&sort_dir=DESC`,
-        { headers }
+        { headers }, 10000
       )
-      if (!detailResp.ok) continue
+      if (!detailResp.ok) {
+        logger.warn('[Mailchimp Poll] Failed to fetch open details', {
+          triggerId: trigger.id, campaignId, status: detailResp.status
+        })
+        continue
+      }
       const detailData = await detailResp.json()
 
       // Get campaign info for title
-      const campaignResp = await fetch(
+      const campaignResp = await fetchWithTimeout(
         `https://${dc}.api.mailchimp.com/3.0/campaigns/${campaignId}`,
-        { headers }
+        { headers }, 10000
       )
       const campaignData = campaignResp.ok ? await campaignResp.json() : {}
       const campaignTitle = campaignData.settings?.title || campaignData.settings?.subject_line || ''
@@ -118,12 +136,18 @@ async function pollEmailOpened(trigger: any, accessToken: string, dc: string): P
         })
       }
 
-      logger.debug('[Mailchimp Poll] Triggered workflow for new email opens', {
+      logger.info('[Mailchimp Poll] Triggered workflow for new email opens', {
         triggerId: trigger.id,
         campaignId,
         newOpens: newOpenCount
       })
     }
+  }
+
+  if (!triggeredAny) {
+    logger.info('[Mailchimp Poll] No new email opens detected', {
+      triggerId: trigger.id, campaignsChecked: campaignIds.length
+    })
   }
 }
 
@@ -139,11 +163,16 @@ async function pollLinkClicked(trigger: any, accessToken: string, dc: string): P
   if (config.campaignId) {
     campaignIds = [config.campaignId]
   } else {
-    const resp = await fetch(
+    const resp = await fetchWithTimeout(
       `https://${dc}.api.mailchimp.com/3.0/campaigns?status=sent&sort_field=send_time&sort_dir=DESC&count=10`,
-      { headers }
+      { headers }, 10000
     )
-    if (!resp.ok) return
+    if (!resp.ok) {
+      logger.warn('[Mailchimp Poll] Failed to fetch campaigns for link_clicked', {
+        triggerId: trigger.id, status: resp.status, statusText: resp.statusText
+      })
+      return
+    }
     const data = await resp.json()
     campaignIds = (data.campaigns || []).map((c: any) => c.id)
   }
@@ -151,11 +180,16 @@ async function pollLinkClicked(trigger: any, accessToken: string, dc: string): P
   const currentCampaigns: Record<string, any> = {}
 
   for (const campaignId of campaignIds) {
-    const resp = await fetch(
+    const resp = await fetchWithTimeout(
       `https://${dc}.api.mailchimp.com/3.0/reports/${campaignId}`,
-      { headers }
+      { headers }, 10000
     )
-    if (!resp.ok) continue
+    if (!resp.ok) {
+      logger.warn('[Mailchimp Poll] Failed to fetch report for campaign', {
+        triggerId: trigger.id, campaignId, status: resp.status
+      })
+      continue
+    }
     const report = await resp.json()
     currentCampaigns[campaignId] = { totalClicks: report.clicks?.clicks_total || 0 }
   }
@@ -179,25 +213,32 @@ async function pollLinkClicked(trigger: any, accessToken: string, dc: string): P
     .eq('id', trigger.id)
 
   if (!previousSnapshot) {
-    logger.debug('[Mailchimp Poll] First poll - baseline established for link_clicked', { triggerId: trigger.id })
+    logger.info('[Mailchimp Poll] First poll - baseline established for link_clicked', { triggerId: trigger.id })
     return
   }
 
+  let triggeredAny = false
   for (const campaignId of campaignIds) {
     const prevClicks = previousSnapshot.campaigns?.[campaignId]?.totalClicks || 0
     const currClicks = currentCampaigns[campaignId]?.totalClicks || 0
 
     if (currClicks > prevClicks) {
-      const detailResp = await fetch(
+      triggeredAny = true
+      const detailResp = await fetchWithTimeout(
         `https://${dc}.api.mailchimp.com/3.0/reports/${campaignId}/click-details?count=10&sort_field=total_clicks&sort_dir=DESC`,
-        { headers }
+        { headers }, 10000
       )
-      if (!detailResp.ok) continue
+      if (!detailResp.ok) {
+        logger.warn('[Mailchimp Poll] Failed to fetch click details', {
+          triggerId: trigger.id, campaignId, status: detailResp.status
+        })
+        continue
+      }
       const detailData = await detailResp.json()
 
-      const campaignResp = await fetch(
+      const campaignResp = await fetchWithTimeout(
         `https://${dc}.api.mailchimp.com/3.0/campaigns/${campaignId}`,
-        { headers }
+        { headers }, 10000
       )
       const campaignData = campaignResp.ok ? await campaignResp.json() : {}
       const campaignTitle = campaignData.settings?.title || campaignData.settings?.subject_line || ''
@@ -209,11 +250,16 @@ async function pollLinkClicked(trigger: any, accessToken: string, dc: string): P
 
       for (const urlInfo of urlsReport) {
         // Get members who clicked this URL
-        const membersResp = await fetch(
+        const membersResp = await fetchWithTimeout(
           `https://${dc}.api.mailchimp.com/3.0/reports/${campaignId}/click-details/${urlInfo.id}/members?count=5`,
-          { headers }
+          { headers }, 10000
         )
-        if (!membersResp.ok) continue
+        if (!membersResp.ok) {
+          logger.warn('[Mailchimp Poll] Failed to fetch click members', {
+            triggerId: trigger.id, campaignId, status: membersResp.status
+          })
+          continue
+        }
         const membersData = await membersResp.json()
 
         for (const member of membersData.members || []) {
@@ -228,12 +274,18 @@ async function pollLinkClicked(trigger: any, accessToken: string, dc: string): P
         }
       }
 
-      logger.debug('[Mailchimp Poll] Triggered workflow for new link clicks', {
+      logger.info('[Mailchimp Poll] Triggered workflow for new link clicks', {
         triggerId: trigger.id,
         campaignId,
         newClicks: currClicks - prevClicks
       })
     }
+  }
+
+  if (!triggeredAny) {
+    logger.info('[Mailchimp Poll] No new link clicks detected', {
+      triggerId: trigger.id, campaignsChecked: campaignIds.length
+    })
   }
 }
 
@@ -247,15 +299,20 @@ async function pollSegmentUpdated(trigger: any, accessToken: string, dc: string)
   const headers = { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
 
   if (!audienceId) {
-    logger.debug('[Mailchimp Poll] No audienceId for segment_updated trigger', { triggerId: trigger.id })
+    logger.warn('[Mailchimp Poll] No audienceId for segment_updated trigger', { triggerId: trigger.id })
     return
   }
 
-  const resp = await fetch(
+  const resp = await fetchWithTimeout(
     `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments?count=100`,
-    { headers }
+    { headers }, 10000
   )
-  if (!resp.ok) return
+  if (!resp.ok) {
+    logger.warn('[Mailchimp Poll] Failed to fetch segments', {
+      triggerId: trigger.id, audienceId, status: resp.status, statusText: resp.statusText
+    })
+    return
+  }
   const data = await resp.json()
 
   const currentSegments: Record<string, any> = {}
@@ -287,18 +344,20 @@ async function pollSegmentUpdated(trigger: any, accessToken: string, dc: string)
     .eq('id', trigger.id)
 
   if (!previousSnapshot) {
-    logger.debug('[Mailchimp Poll] First poll - baseline established for segment_updated', { triggerId: trigger.id })
+    logger.info('[Mailchimp Poll] First poll - baseline established for segment_updated', { triggerId: trigger.id })
     return
   }
 
   const eventTypeFilter = config.eventType || 'both'
   const prevSegments = previousSnapshot.segments || {}
+  let triggeredAny = false
 
   // Check for new segments
   for (const [segId, segData] of Object.entries(currentSegments) as [string, any][]) {
     if (!prevSegments[segId]) {
       // New segment
       if (eventTypeFilter === 'both' || eventTypeFilter === 'created') {
+        triggeredAny = true
         await triggerWorkflow(trigger, {
           segmentId: segId,
           segmentName: segData.name,
@@ -309,7 +368,7 @@ async function pollSegmentUpdated(trigger: any, accessToken: string, dc: string)
           createdAt: segData.updatedAt,
           updatedAt: segData.updatedAt
         })
-        logger.debug('[Mailchimp Poll] Triggered for new segment', { triggerId: trigger.id, segmentId: segId })
+        logger.info('[Mailchimp Poll] Triggered for new segment', { triggerId: trigger.id, segmentId: segId })
       }
     } else if (
       prevSegments[segId].memberCount !== segData.memberCount ||
@@ -317,6 +376,7 @@ async function pollSegmentUpdated(trigger: any, accessToken: string, dc: string)
     ) {
       // Updated segment
       if (eventTypeFilter === 'both' || eventTypeFilter === 'updated') {
+        triggeredAny = true
         await triggerWorkflow(trigger, {
           segmentId: segId,
           segmentName: segData.name,
@@ -327,9 +387,15 @@ async function pollSegmentUpdated(trigger: any, accessToken: string, dc: string)
           createdAt: prevSegments[segId].updatedAt,
           updatedAt: segData.updatedAt
         })
-        logger.debug('[Mailchimp Poll] Triggered for updated segment', { triggerId: trigger.id, segmentId: segId })
+        logger.info('[Mailchimp Poll] Triggered for updated segment', { triggerId: trigger.id, segmentId: segId })
       }
     }
+  }
+
+  if (!triggeredAny) {
+    logger.info('[Mailchimp Poll] No segment changes detected', {
+      triggerId: trigger.id, segmentsChecked: Object.keys(currentSegments).length
+    })
   }
 }
 
@@ -341,11 +407,16 @@ async function pollNewAudience(trigger: any, accessToken: string, dc: string): P
   const previousSnapshot = config.mailchimpSnapshot
   const headers = { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
 
-  const resp = await fetch(
+  const resp = await fetchWithTimeout(
     `https://${dc}.api.mailchimp.com/3.0/lists?count=100`,
-    { headers }
+    { headers }, 10000
   )
-  if (!resp.ok) return
+  if (!resp.ok) {
+    logger.warn('[Mailchimp Poll] Failed to fetch audiences', {
+      triggerId: trigger.id, status: resp.status, statusText: resp.statusText
+    })
+    return
+  }
   const data = await resp.json()
 
   const currentAudienceIds = (data.lists || []).map((l: any) => l.id)
@@ -370,7 +441,9 @@ async function pollNewAudience(trigger: any, accessToken: string, dc: string): P
     .eq('id', trigger.id)
 
   if (!previousSnapshot) {
-    logger.debug('[Mailchimp Poll] First poll - baseline established for new_audience', { triggerId: trigger.id })
+    logger.info('[Mailchimp Poll] First poll - baseline established for new_audience', {
+      triggerId: trigger.id, audienceCount: currentAudienceIds.length
+    })
     return
   }
 
@@ -393,10 +466,18 @@ async function pollNewAudience(trigger: any, accessToken: string, dc: string): P
       dateCreated: audience.date_created
     })
 
-    logger.debug('[Mailchimp Poll] Triggered for new audience', {
+    logger.info('[Mailchimp Poll] Triggered for new audience', {
       triggerId: trigger.id,
       audienceId: audience.id,
       name: audience.name
+    })
+  }
+
+  if (newAudiences.length === 0) {
+    logger.info('[Mailchimp Poll] No new audiences detected', {
+      triggerId: trigger.id,
+      currentCount: currentAudienceIds.length,
+      previousCount: previousSnapshot.audienceIds?.length || 0
     })
   }
 }
@@ -406,25 +487,51 @@ async function pollNewAudience(trigger: any, accessToken: string, dc: string): P
  */
 async function triggerWorkflow(trigger: any, inputData: any): Promise<void> {
   const base = getWebhookBaseUrl()
-  await fetch(`${base}/api/workflows/execute`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-user-id': trigger.user_id
-    },
-    body: JSON.stringify({
+  try {
+    const response = await fetchWithTimeout(`${base}/api/workflows/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': trigger.user_id
+      },
+      body: JSON.stringify({
+        workflowId: trigger.workflow_id,
+        testMode: false,
+        executionMode: 'live',
+        skipTriggers: true,
+        inputData: {
+          source: 'mailchimp-poll',
+          triggerType: trigger.trigger_type,
+          ...inputData,
+          timestamp: inputData.timestamp || new Date().toISOString()
+        }
+      })
+    }, 15000)
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unable to read response')
+      logger.error('[Mailchimp Poll] Workflow execution failed', {
+        status: response.status,
+        error: errorText,
+        workflowId: trigger.workflow_id,
+        triggerId: trigger.id,
+        triggerType: trigger.trigger_type
+      })
+    } else {
+      logger.info('[Mailchimp Poll] Workflow execution triggered successfully', {
+        workflowId: trigger.workflow_id,
+        triggerId: trigger.id,
+        triggerType: trigger.trigger_type
+      })
+    }
+  } catch (error: any) {
+    logger.error('[Mailchimp Poll] Failed to call workflow execute endpoint', {
+      error: error.message,
       workflowId: trigger.workflow_id,
-      testMode: false,
-      executionMode: 'live',
-      skipTriggers: true,
-      inputData: {
-        source: 'mailchimp-poll',
-        triggerType: trigger.trigger_type,
-        ...inputData,
-        timestamp: inputData.timestamp || new Date().toISOString()
-      }
+      triggerId: trigger.id,
+      triggerType: trigger.trigger_type
     })
-  })
+  }
 }
 
 export const mailchimpPollingHandler: PollingHandler = {
@@ -469,7 +576,7 @@ export const mailchimpPollingHandler: PollingHandler = {
           break
 
         default:
-          logger.debug('[Mailchimp Poll] Unknown trigger type', { triggerType: trigger.trigger_type })
+          logger.warn('[Mailchimp Poll] Unknown trigger type', { triggerType: trigger.trigger_type })
       }
     } catch (error: any) {
       logger.error('[Mailchimp Poll] Error during polling', {
@@ -479,7 +586,7 @@ export const mailchimpPollingHandler: PollingHandler = {
       })
     }
 
-    logger.debug('[Mailchimp Poll] Completed polling', {
+    logger.info('[Mailchimp Poll] Completed polling', {
       triggerId: trigger.id,
       triggerType: trigger.trigger_type,
       workflowId: trigger.workflow_id

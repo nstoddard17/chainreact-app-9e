@@ -175,6 +175,20 @@ export async function POST(request: NextRequest) {
       return errorResponse("Workflow not found" , 404)
     }
 
+    // Check workflow status - reject execution for inactive workflows
+    if (!effectiveTestMode && workflow.status !== 'active') {
+      logger.warn('[Execute Route] Workflow execution rejected - workflow not active', {
+        workflowId,
+        status: workflow.status,
+        isWebhookRequest
+      })
+      return errorResponse(
+        `Workflow is not active (status: ${workflow.status})`,
+        400,
+        { workflowId, status: workflow.status }
+      )
+    }
+
     // Load nodes and edges from normalized tables
     const [nodesResult, edgesResult] = await Promise.all([
       supabase
