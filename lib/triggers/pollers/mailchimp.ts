@@ -97,6 +97,14 @@ async function pollEmailOpened(trigger: any, accessToken: string, dc: string): P
     const prevOpens = previousSnapshot.campaigns?.[campaignId]?.totalOpens || 0
     const currOpens = currentCampaigns[campaignId]?.totalOpens || 0
 
+    logger.info('[Mailchimp Poll] Open count comparison', {
+      triggerId: trigger.id,
+      campaignId,
+      previousOpens: prevOpens,
+      currentOpens: currOpens,
+      snapshotUpdatedAt: previousSnapshot.updatedAt
+    })
+
     if (currOpens > prevOpens) {
       triggeredAny = true
       // Fetch the actual new open details
