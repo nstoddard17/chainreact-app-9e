@@ -162,8 +162,8 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         })
       }
 
-      // Store in trigger_resources with polling config
-      const { error: insertError } = await getSupabase().from('trigger_resources').insert({
+      // Store in trigger_resources with polling config (upsert to handle reactivation)
+      const { error: upsertError } = await getSupabase().from('trigger_resources').upsert({
         workflow_id: workflowId,
         user_id: userId,
         provider: 'mailchimp',
@@ -180,16 +180,18 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
           ...(initialSnapshot ? { mailchimpSnapshot: initialSnapshot } : {})
         },
         status: 'active',
-        created_at: new Date().toISOString()
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'provider,resource_type,resource_id'
       })
 
-      if (insertError) {
+      if (upsertError) {
         logger.error('Failed to store Mailchimp polling trigger:', {
-          error: insertError,
+          error: upsertError,
           workflowId,
           triggerType
         })
-        throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+        throw new Error(`Failed to store trigger resource: ${upsertError.message}`)
       }
 
       return
@@ -256,8 +258,8 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
       audienceId
     })
 
-    // Store in trigger_resources table
-    const { error: insertError } = await getSupabase().from('trigger_resources').insert({
+    // Store in trigger_resources table (upsert to handle reactivation)
+    const { error: upsertError } = await getSupabase().from('trigger_resources').upsert({
       workflow_id: workflowId,
       user_id: userId,
       provider: 'mailchimp',
@@ -274,11 +276,13 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         webhookId: webhook.id,
         events
       },
-      created_at: new Date().toISOString()
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'provider,resource_type,resource_id'
     })
 
-    if (insertError) {
-      logger.error('Failed to store trigger resource', { error: insertError })
+    if (upsertError) {
+      logger.error('Failed to store trigger resource', { error: upsertError })
 
       // Clean up webhook if we failed to store the record
       try {
@@ -295,7 +299,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         logger.error('Failed to cleanup webhook after storage error', { error: cleanupError })
       }
 
-      throw new Error(`Failed to store trigger resource: ${insertError.message}`)
+      throw new Error(`Failed to store trigger resource: ${upsertError.message}`)
     }
 
     logger.info(`✅ Mailchimp trigger activated successfully`, {
