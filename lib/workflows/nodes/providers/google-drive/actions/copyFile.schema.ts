@@ -8,7 +8,7 @@ export const copyFileActionSchema: NodeComponent = {
   providerId: "google-drive",
   category: "Google Drive",
   isTrigger: false,
-  requiredScopes: ["https://www.googleapis.com/auth/drive.file"],
+  requiredScopes: ["https://www.googleapis.com/auth/drive"],
   configSchema: [
     {
       name: "fileId",
