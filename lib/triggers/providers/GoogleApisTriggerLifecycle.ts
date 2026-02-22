@@ -277,7 +277,11 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
 
     logger.info(`📝 Storing trigger resource:`, resourceData)
 
-    const { error: insertError } = await getSupabase().from('trigger_resources').insert(resourceData)
+    // Upsert: if a row with the same (provider, resource_type, resource_id) already exists
+    // (e.g. re-activating a watch on the same file), update it with the new channel info
+    const { error: insertError } = await getSupabase()
+      .from('trigger_resources')
+      .upsert(resourceData, { onConflict: 'provider, resource_type, resource_id' })
 
     if (insertError) {
       // Check if this is a FK constraint violation (code 23503) - happens for unsaved workflows in test mode
