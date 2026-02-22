@@ -2146,7 +2146,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     )}
                   </div>
                   {(description || (component && component.description)) && (
-                    <p className="text-sm text-muted-foreground leading-snug line-clamp-1">{description || component?.description}</p>
+                    <p className="text-sm text-muted-foreground leading-snug line-clamp-1" title={description || component?.description}>{description || component?.description}</p>
                   )}
                 </div>
               )}
