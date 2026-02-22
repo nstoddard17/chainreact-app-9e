@@ -815,7 +815,8 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   }
 
   // If this delivery belongs to an older channel than the latest, ignore it
-  if (channelId) {
+  // Skip this check when subscription came from trigger_resources (modern source of truth)
+  if (channelId && subscriptionSource !== 'trigger_resources') {
     const { data: latestForOwner } = await supabase
       .from('google_watch_subscriptions')
       .select('channel_id, updated_at')
@@ -826,6 +827,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       .limit(1)
       .maybeSingle()
     if (latestForOwner?.channel_id && latestForOwner.channel_id !== channelId) {
+      logger.info('[Google Drive] Ignoring stale channel delivery', { channelId, latestChannel: latestForOwner.channel_id })
       return { processed: true, ignored: true, reason: 'stale_channel' }
     }
   }
