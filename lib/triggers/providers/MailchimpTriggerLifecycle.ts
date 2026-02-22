@@ -214,23 +214,100 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
       }
     )
 
+    let webhook: any
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
       const errorMessage = errorData.detail || errorData.title || `HTTP ${response.status}`
-      logger.error('Failed to create Mailchimp webhook', {
-        status: response.status,
-        error: errorMessage,
-        errors: errorData.errors
+
+      // Check if the error is "duplicate webhook URL" - if so, find and reuse the existing one
+      const isDuplicateUrl = errorData.errors?.some(
+        (e: any) => e.field === 'url' && e.message?.includes("can't set up multiple WebHooks")
+      )
+
+      if (isDuplicateUrl) {
+        logger.info('Mailchimp webhook already exists for this URL, finding existing webhook', {
+          audienceId,
+          webhookUrl: fullWebhookUrl
+        })
+
+        // List existing webhooks for this audience
+        const listResponse = await fetch(
+          `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/webhooks`,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          }
+        )
+
+        if (listResponse.ok) {
+          const listData = await listResponse.json()
+          const existingWebhook = (listData.webhooks || []).find(
+            (wh: any) => wh.url === fullWebhookUrl
+          )
+
+          if (existingWebhook) {
+            // Update the existing webhook's events and sources to match the current trigger
+            const patchResponse = await fetch(
+              `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/webhooks/${existingWebhook.id}`,
+              {
+                method: 'PATCH',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  events,
+                  sources: { user: true, admin: true, api: true }
+                })
+              }
+            )
+
+            if (patchResponse.ok) {
+              webhook = await patchResponse.json()
+              logger.info('✅ Found and updated existing Mailchimp webhook', {
+                webhookId: webhook.id,
+                audienceId,
+                events
+              })
+            } else {
+              // PATCH failed but webhook exists - still usable
+              webhook = existingWebhook
+              logger.warn('Found existing Mailchimp webhook but failed to update events', {
+                webhookId: existingWebhook.id,
+                patchStatus: patchResponse.status
+              })
+            }
+          } else {
+            logger.error('Duplicate URL error but could not find matching webhook', {
+              audienceId,
+              webhookUrl: fullWebhookUrl,
+              existingWebhooks: (listData.webhooks || []).map((wh: any) => ({ id: wh.id, url: wh.url }))
+            })
+            throw new Error(`Failed to create Mailchimp webhook: ${errorMessage}`)
+          }
+        } else {
+          logger.error('Failed to list existing Mailchimp webhooks', {
+            status: listResponse.status
+          })
+          throw new Error(`Failed to create Mailchimp webhook: ${errorMessage}`)
+        }
+      } else {
+        logger.error('Failed to create Mailchimp webhook', {
+          status: response.status,
+          error: errorMessage,
+          errors: errorData.errors
+        })
+        throw new Error(`Failed to create Mailchimp webhook: ${errorMessage}`)
+      }
+    } else {
+      webhook = await response.json()
+      logger.info(`✅ Created Mailchimp webhook`, {
+        webhookId: webhook.id,
+        audienceId
       })
-      throw new Error(`Failed to create Mailchimp webhook: ${errorMessage}`)
     }
-
-    const webhook = await response.json()
-
-    logger.info(`✅ Created Mailchimp webhook`, {
-      webhookId: webhook.id,
-      audienceId
-    })
 
     // Store in trigger_resources table (upsert to handle reactivation)
     const { error: upsertError } = await getSupabase().from('trigger_resources').upsert({
