@@ -687,35 +687,35 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
           return { type: 'subscriber_added_to_segment', memberEmails: [], updatedAt: new Date().toISOString() }
         }
 
-        // All segments mode — fetch all segments and their members
+        // All tags mode — fetch only static segments (tags) and their members
         const segResp = await fetch(
-          `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments?count=100`,
+          `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments?type=static&count=100`,
           { headers }
         )
         if (!segResp.ok) {
-          return { type: 'subscriber_added_to_segment', mode: 'all_segments', segments: {}, updatedAt: new Date().toISOString() }
+          return { type: 'subscriber_added_to_segment', mode: 'all_tags', segments: {}, updatedAt: new Date().toISOString() }
         }
         const segData = await segResp.json()
-        const allSegments = (segData.segments || []).slice(0, 20) as any[]
+        const allTags = (segData.segments || []).slice(0, 20) as any[]
 
         const segments: Record<string, { name: string; memberEmails: string[] }> = {}
-        for (const seg of allSegments) {
+        for (const tag of allTags) {
           const memResp = await fetch(
-            `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${seg.id}/members?count=1000`,
+            `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${tag.id}/members?count=1000`,
             { headers }
           )
           if (memResp.ok) {
             const memData = await memResp.json()
-            segments[seg.id] = {
-              name: seg.name,
+            segments[tag.id] = {
+              name: tag.name,
               memberEmails: (memData.members || []).map((m: any) => m.email_address)
             }
           } else {
-            segments[seg.id] = { name: seg.name, memberEmails: [] }
+            segments[tag.id] = { name: tag.name, memberEmails: [] }
           }
         }
 
-        return { type: 'subscriber_added_to_segment', mode: 'all_segments', segments, updatedAt: new Date().toISOString() }
+        return { type: 'subscriber_added_to_segment', mode: 'all_tags', segments, updatedAt: new Date().toISOString() }
       }
 
       default:

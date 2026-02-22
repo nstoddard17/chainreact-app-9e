@@ -542,8 +542,8 @@ export const mailchimpNodes: NodeComponent[] = [
   },
   {
     type: "mailchimp_trigger_subscriber_added_to_segment",
-    title: "Subscriber Added to Segment or Tag",
-    description: "Triggers when a subscriber is added to a segment or tag within an audience",
+    title: "Subscriber Tagged",
+    description: "Triggers when a subscriber is tagged within an audience",
     icon: UserCheck,
     providerId: "mailchimp",
     category: "Email",
@@ -563,20 +563,12 @@ export const mailchimpNodes: NodeComponent[] = [
       },
       {
         name: "segmentId",
-        label: "Segment (Optional)",
+        label: "Tag (Optional)",
         type: "combobox",
         required: false,
-        dynamic: "mailchimp_segments",
+        dynamic: "mailchimp_tag_segments",
         dependsOn: "audienceId",
-        placeholder: "All segments",
-        description: "Monitor a specific segment, or leave empty to monitor all segments"
-      },
-      {
-        name: "tagName",
-        label: "Tag Name (Optional)",
-        type: "text",
-        required: false,
-        placeholder: "vip",
+        placeholder: "All tags",
         description: "Monitor a specific tag, or leave empty to monitor all tags"
       }
     ],

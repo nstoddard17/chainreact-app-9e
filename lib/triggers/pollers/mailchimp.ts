@@ -605,7 +605,7 @@ async function pollNewCampaign(trigger: any, accessToken: string, dc: string): P
 }
 
 /**
- * Poll for new subscribers added to a segment (or all segments if none specified)
+ * Poll for new subscribers tagged in an audience (monitors tags, which are static segments in Mailchimp)
  */
 async function pollSubscriberAddedToSegment(trigger: any, accessToken: string, dc: string): Promise<void> {
   const config = trigger.config || {}
@@ -619,14 +619,14 @@ async function pollSubscriberAddedToSegment(trigger: any, accessToken: string, d
     return
   }
 
-  // Path A: Single segment mode (segmentId provided)
+  // Path A: Specific tag selected (segmentId provided — tags are static segments in Mailchimp)
   if (segmentId) {
     const resp = await fetchWithTimeout(
       `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${segmentId}/members?count=1000`,
       { headers }, 10000
     )
     if (!resp.ok) {
-      logger.warn('[Mailchimp Poll] Failed to fetch segment members', {
+      logger.warn('[Mailchimp Poll] Failed to fetch tag members', {
         triggerId: trigger.id, audienceId, segmentId, status: resp.status, statusText: resp.statusText
       })
       return
@@ -654,8 +654,8 @@ async function pollSubscriberAddedToSegment(trigger: any, accessToken: string, d
       })
       .eq('id', trigger.id)
 
-    if (!previousSnapshot || previousSnapshot.mode === 'all_segments') {
-      logger.info('[Mailchimp Poll] Baseline established for subscriber_added_to_segment (single segment)', {
+    if (!previousSnapshot || previousSnapshot.mode === 'all_tags') {
+      logger.info('[Mailchimp Poll] Baseline established for subscriber tagged (single tag)', {
         triggerId: trigger.id, memberCount: currentEmails.length
       })
       return
@@ -676,78 +676,78 @@ async function pollSubscriberAddedToSegment(trigger: any, accessToken: string, d
         addedAt: member.last_changed || new Date().toISOString()
       })
 
-      logger.info('[Mailchimp Poll] Triggered for new segment member', {
+      logger.info('[Mailchimp Poll] Triggered for newly tagged subscriber', {
         triggerId: trigger.id, segmentId, email: member.email_address
       })
     }
 
     if (newMembers.length === 0) {
-      logger.info('[Mailchimp Poll] No new segment members detected', {
+      logger.info('[Mailchimp Poll] No newly tagged subscribers detected', {
         triggerId: trigger.id, segmentId, currentCount: currentEmails.length, previousCount: prevEmails.size
       })
     }
     return
   }
 
-  // Path B: All segments mode (no segmentId provided)
+  // Path B: All tags mode (no specific tag selected) — only fetch static segments (tags)
   const segResp = await fetchWithTimeout(
-    `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments?count=100`,
+    `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments?type=static&count=100`,
     { headers }, 10000
   )
   if (!segResp.ok) {
-    logger.warn('[Mailchimp Poll] Failed to fetch segments list for all-segments mode', {
+    logger.warn('[Mailchimp Poll] Failed to fetch tags list for all-tags mode', {
       triggerId: trigger.id, audienceId, status: segResp.status, statusText: segResp.statusText
     })
     return
   }
   const segData = await segResp.json()
-  const allSegments = (segData.segments || []).slice(0, 20) as any[]
+  const allTags = (segData.segments || []).slice(0, 20) as any[]
 
-  if (allSegments.length === 0) {
-    logger.info('[Mailchimp Poll] No segments found for audience in all-segments mode', {
+  if (allTags.length === 0) {
+    logger.info('[Mailchimp Poll] No tags found for audience in all-tags mode', {
       triggerId: trigger.id, audienceId
     })
     return
   }
 
   if ((segData.segments || []).length > 20) {
-    logger.warn('[Mailchimp Poll] Audience has more than 20 segments, only monitoring first 20', {
-      triggerId: trigger.id, audienceId, totalSegments: (segData.segments || []).length
+    logger.warn('[Mailchimp Poll] Audience has more than 20 tags, only monitoring first 20', {
+      triggerId: trigger.id, audienceId, totalTags: (segData.segments || []).length
     })
   }
 
-  // Fetch members for each segment
-  const currentSegments: Record<string, { name: string; memberEmails: string[]; members: any[] }> = {}
-  for (const seg of allSegments) {
+  // Fetch members for each tag
+  const currentTags: Record<string, { name: string; memberEmails: string[]; members: any[] }> = {}
+  for (const tag of allTags) {
     const memResp = await fetchWithTimeout(
-      `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${seg.id}/members?count=1000`,
+      `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${tag.id}/members?count=1000`,
       { headers }, 10000
     )
     if (memResp.ok) {
       const memData = await memResp.json()
       const members = (memData.members || []) as any[]
-      currentSegments[seg.id] = {
-        name: seg.name,
+      currentTags[tag.id] = {
+        name: tag.name,
         memberEmails: members.map((m: any) => m.email_address),
         members
       }
     } else {
-      logger.warn('[Mailchimp Poll] Failed to fetch members for segment, skipping', {
-        triggerId: trigger.id, segmentId: seg.id, segmentName: seg.name, status: memResp.status
+      logger.warn('[Mailchimp Poll] Failed to fetch members for tag, skipping', {
+        triggerId: trigger.id, tagId: tag.id, tagName: tag.name, status: memResp.status
       })
     }
   }
 
   // Build snapshot (lightweight - no full member objects)
-  const snapshotSegments: Record<string, { name: string; memberEmails: string[] }> = {}
-  for (const [segId, data] of Object.entries(currentSegments)) {
-    snapshotSegments[segId] = { name: data.name, memberEmails: data.memberEmails }
+  const snapshotTags: Record<string, { name: string; memberEmails: string[] }> = {}
+  for (const [tagId, data] of Object.entries(currentTags)) {
+    snapshotTags[tagId] = { name: data.name, memberEmails: data.memberEmails }
   }
 
   const newSnapshot = {
     type: 'subscriber_added_to_segment',
-    mode: 'all_segments' as const,
-    segments: snapshotSegments,
+    mode: 'all_tags' as const,
+    segments: snapshotTags,
     updatedAt: new Date().toISOString()
   }
 
@@ -765,19 +765,19 @@ async function pollSubscriberAddedToSegment(trigger: any, accessToken: string, d
 
   // First poll or format transition — establish baseline
   if (!previousSnapshot || !previousSnapshot.segments) {
-    logger.info('[Mailchimp Poll] Baseline established for subscriber_added_to_segment (all segments)', {
-      triggerId: trigger.id, segmentCount: Object.keys(snapshotSegments).length
+    logger.info('[Mailchimp Poll] Baseline established for subscriber tagged (all tags)', {
+      triggerId: trigger.id, tagCount: Object.keys(snapshotTags).length
     })
     return
   }
 
-  // Compare per-segment for new members
-  const prevSegments = previousSnapshot.segments || {}
+  // Compare per-tag for new members
+  const prevTags = previousSnapshot.segments || {}
   let totalNewMembers = 0
 
-  for (const [segId, segData] of Object.entries(currentSegments)) {
-    const prevEmails = new Set(prevSegments[segId]?.memberEmails || [])
-    const newMembers = segData.members.filter((m: any) => !prevEmails.has(m.email_address))
+  for (const [tagId, tagData] of Object.entries(currentTags)) {
+    const prevEmails = new Set(prevTags[tagId]?.memberEmails || [])
+    const newMembers = tagData.members.filter((m: any) => !prevEmails.has(m.email_address))
 
     for (const member of newMembers) {
       totalNewMembers++
@@ -787,21 +787,22 @@ async function pollSubscriberAddedToSegment(trigger: any, accessToken: string, d
         firstName: member.merge_fields?.FNAME || '',
         lastName: member.merge_fields?.LNAME || '',
         status: member.status,
-        segmentId: segId,
-        segmentName: segData.name,
+        segmentId: tagId,
+        segmentName: tagData.name,
+        tagName: tagData.name,
         audienceId,
         addedAt: member.last_changed || new Date().toISOString()
       })
 
-      logger.info('[Mailchimp Poll] Triggered for new segment member (all segments mode)', {
-        triggerId: trigger.id, segmentId: segId, segmentName: segData.name, email: member.email_address
+      logger.info('[Mailchimp Poll] Triggered for newly tagged subscriber (all tags mode)', {
+        triggerId: trigger.id, tagId, tagName: tagData.name, email: member.email_address
       })
     }
   }
 
   if (totalNewMembers === 0) {
-    logger.info('[Mailchimp Poll] No new segment members detected (all segments mode)', {
-      triggerId: trigger.id, segmentCount: Object.keys(currentSegments).length
+    logger.info('[Mailchimp Poll] No newly tagged subscribers detected (all tags mode)', {
+      triggerId: trigger.id, tagCount: Object.keys(currentTags).length
     })
   }
 }

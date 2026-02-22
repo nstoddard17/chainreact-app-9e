@@ -1077,7 +1077,7 @@ const mailchimpMappings: Record<string, FieldMapping> = {
   },
   mailchimp_trigger_subscriber_added_to_segment: {
     audienceId: "mailchimp_audiences",
-    segmentId: "mailchimp_segments",
+    segmentId: "mailchimp_tag_segments",
   },
   mailchimp_trigger_subscriber_updated: {
     audienceId: "mailchimp_audiences",
