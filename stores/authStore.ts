@@ -491,7 +491,7 @@ export const useAuthStore = create<AuthState>()(
                 logger.info('🔍 Service profile unavailable, attempting direct fetch for user ID:', user.id)
                 const fetchResult = await supabase
                   .from('user_profiles')
-                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, created_at, updated_at')
+                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at')
                   .eq('id', user.id)
                   .single()
 
@@ -544,7 +544,7 @@ export const useAuthStore = create<AuthState>()(
                   const createResult = await supabase
                     .from('user_profiles')
                     .insert(createProfileData)
-                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, created_at, updated_at')
+                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at')
                     .single()
 
                   logger.info('📊 [AUTH] Profile creation result', {
@@ -743,7 +743,7 @@ export const useAuthStore = create<AuthState>()(
                 // Fetch additional profile data from user_profiles table
                 const { data: profileData, error: profileError } = await supabase
                   .from('user_profiles')
-                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, admin, email, created_at, updated_at')
+                  .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at')
                   .eq('id', session.user.id)
                   .single()
 
@@ -753,7 +753,7 @@ export const useAuthStore = create<AuthState>()(
                   // Try fetching without the role/admin column in case they don't exist yet
                   const fallbackResult = await supabase
                     .from('user_profiles')
-                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, email, created_at, updated_at')
+                    .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at')
                     .eq('id', session.user.id)
                     .single()
                   
