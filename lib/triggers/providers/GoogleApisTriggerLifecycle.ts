@@ -438,63 +438,86 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       return
     }
 
-    // Get user's access token from any connected Google integration
     const googleProviders = ['gmail', 'google', 'google-drive', 'google-calendar', 'google-sheets', 'google-docs']
-    const { data: integration } = await getSupabase()
-      .from('integrations')
-      .select('access_token, refresh_token')
-      .eq('user_id', userId)
-      .in('provider', googleProviders)
-      .eq('status', 'connected')
-      .limit(1)
-      .single()
 
-    if (!integration) {
-      logger.warn(`⚠️ Google integration not found, marking subscriptions as deleted`)
-      await getSupabase()
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .like('provider_id', 'google%')
-      return
-    }
-
-    // Decrypt tokens
-    const accessToken = typeof integration.access_token === 'string'
-      ? safeDecrypt(integration.access_token)
-      : null
-    const refreshToken = typeof integration.refresh_token === 'string'
-      ? safeDecrypt(integration.refresh_token)
-      : null
-
-    if (!accessToken) {
-      logger.warn(`⚠️ Failed to decrypt Google access token, marking subscriptions as deleted`)
-      await getSupabase()
-        .from('trigger_resources')
-        .delete()
-        .eq('workflow_id', workflowId)
-        .like('provider_id', 'google%')
-      return
-    }
-
-    // Initialize OAuth client
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET
-    )
-    oauth2Client.setCredentials({
-      access_token: accessToken,
-      refresh_token: refreshToken
-    })
-
-    // Stop each subscription
+    // Stop each subscription using per-resource integration tokens
     for (const resource of resources) {
       if (!resource.external_id || !resource.config?.api) continue
 
+      const api = resource.config.api
+      const channelId = resource.external_id
+      const resourceId = resource.config.resourceId
+
       try {
-        const api = resource.config.api
-        const channelId = resource.external_id
-        const resourceId = resource.config.resourceId
+        // Get the correct integration for this specific resource
+        let integration = null
+
+        // First: use the stored integrationId (most reliable — matches the token that created the watch)
+        if (resource.config?.integrationId) {
+          const { data: exactIntegration } = await getSupabase()
+            .from('integrations')
+            .select('access_token, refresh_token')
+            .eq('id', resource.config.integrationId)
+            .eq('status', 'connected')
+            .maybeSingle()
+          integration = exactIntegration
+        }
+
+        // Second: try the resource's specific provider
+        if (!integration) {
+          const { data: providerMatch } = await getSupabase()
+            .from('integrations')
+            .select('access_token, refresh_token')
+            .eq('user_id', userId)
+            .eq('provider', resource.provider_id)
+            .eq('status', 'connected')
+            .limit(1)
+            .maybeSingle()
+          integration = providerMatch
+        }
+
+        // Third: any Google integration as fallback
+        if (!integration) {
+          const { data: anyGoogle } = await getSupabase()
+            .from('integrations')
+            .select('access_token, refresh_token')
+            .eq('user_id', userId)
+            .in('provider', googleProviders)
+            .eq('status', 'connected')
+            .limit(1)
+            .maybeSingle()
+          integration = anyGoogle
+        }
+
+        if (!integration) {
+          logger.warn(`⚠️ No Google integration found for ${api} subscription ${channelId}, deleting local record`)
+          await getSupabase().from('trigger_resources').delete().eq('id', resource.id)
+          continue
+        }
+
+        // Decrypt tokens
+        const accessToken = typeof integration.access_token === 'string'
+          ? safeDecrypt(integration.access_token)
+          : null
+        const refreshToken = typeof integration.refresh_token === 'string'
+          ? safeDecrypt(integration.refresh_token)
+          : null
+
+        if (!accessToken) {
+          logger.warn(`⚠️ Failed to decrypt token for ${api} subscription ${channelId}, deleting local record`)
+          await getSupabase().from('trigger_resources').delete().eq('id', resource.id)
+          continue
+        }
+
+        // Initialize OAuth client with the correct integration's tokens
+        const oauth2Client = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET
+        )
+        oauth2Client.setCredentials({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        })
 
         switch (api) {
           case 'gmail':
@@ -524,12 +547,20 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           .eq('id', resource.id)
 
         logger.info(`✅ Stopped Google ${api} subscription: ${channelId}`)
-      } catch (error) {
-        logger.error(`❌ Failed to stop subscription ${resource.external_id}:`, error)
-        await getSupabase()
-          .from('trigger_resources')
-          .update({ status: 'error', updated_at: new Date().toISOString() })
-          .eq('id', resource.id)
+      } catch (error: any) {
+        const status = error?.code || error?.status
+        if (status === 403 || status === 404) {
+          // 403 = insufficient scopes (stale token), 404 = already expired
+          // Delete local record — the watch will expire on its own
+          logger.warn(`⚠️ Could not stop Google ${api} subscription ${channelId} (${status}), deleting local record`)
+          await getSupabase().from('trigger_resources').delete().eq('id', resource.id)
+        } else {
+          logger.error(`❌ Failed to stop subscription ${resource.external_id}:`, error)
+          await getSupabase()
+            .from('trigger_resources')
+            .update({ status: 'error', updated_at: new Date().toISOString() })
+            .eq('id', resource.id)
+        }
       }
     }
     // Note: No need to clean up webhook_configs - we use trigger_resources as source of truth
