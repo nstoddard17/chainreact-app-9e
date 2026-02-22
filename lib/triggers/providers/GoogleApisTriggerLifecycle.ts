@@ -375,6 +375,8 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
 
     const response = await drive.files.watch({
       fileId: fileId || 'root',
+      supportsAllDrives: true,
+      supportsTeamDrives: true,
       requestBody: {
         id: channelId,
         type: 'web_hook',
