@@ -120,8 +120,8 @@ const nextConfig = {
               "form-action 'self'",
               // Script sources - 'unsafe-inline' needed for Next.js, 'unsafe-eval' needed for some libs
               // In production, consider using nonces instead
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://maps.googleapis.com https://www.googletagmanager.com",
-              "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://maps.googleapis.com https://www.googletagmanager.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://maps.googleapis.com https://www.googletagmanager.com https://apis.google.com",
+              "script-src-elem 'self' 'unsafe-inline' https://js.stripe.com https://maps.googleapis.com https://www.googletagmanager.com https://apis.google.com",
               // Style sources
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               // Font sources
@@ -129,11 +129,11 @@ const nextConfig = {
               // Image sources
               "img-src 'self' data: blob: https: http:",
               // Connect sources (API endpoints, WebSockets)
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://maps.googleapis.com https://api.resend.com https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://maps.googleapis.com https://api.resend.com https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://apis.google.com https://www.googleapis.com",
               // Object sources (plugins)
               "object-src 'none'",
               // Child/frame sources
-              "child-src 'self' https://js.stripe.com",
+              "child-src 'self' https://js.stripe.com https://docs.google.com",
               // Worker sources
               "worker-src 'self' blob:",
               // Manifest
