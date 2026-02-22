@@ -605,6 +605,90 @@ async function pollNewCampaign(trigger: any, accessToken: string, dc: string): P
 }
 
 /**
+ * Poll for new subscribers added to a specific segment
+ */
+async function pollSubscriberAddedToSegment(trigger: any, accessToken: string, dc: string): Promise<void> {
+  const config = trigger.config || {}
+  const previousSnapshot = config.mailchimpSnapshot
+  const audienceId = config.audienceId || config.audience_id
+  const segmentId = config.segmentId
+  const headers = { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+
+  if (!audienceId || !segmentId) {
+    logger.warn('[Mailchimp Poll] Missing audienceId or segmentId for subscriber_added_to_segment', { triggerId: trigger.id })
+    return
+  }
+
+  const resp = await fetchWithTimeout(
+    `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${segmentId}/members?count=1000`,
+    { headers }, 10000
+  )
+  if (!resp.ok) {
+    logger.warn('[Mailchimp Poll] Failed to fetch segment members', {
+      triggerId: trigger.id, audienceId, segmentId, status: resp.status, statusText: resp.statusText
+    })
+    return
+  }
+  const data = await resp.json()
+
+  const currentMembers = (data.members || []) as any[]
+  const currentEmails = currentMembers.map((m: any) => m.email_address)
+
+  const newSnapshot = {
+    type: 'subscriber_added_to_segment',
+    memberEmails: currentEmails,
+    updatedAt: new Date().toISOString()
+  }
+
+  await getSupabase()
+    .from('trigger_resources')
+    .update({
+      config: {
+        ...config,
+        mailchimpSnapshot: newSnapshot,
+        polling: { ...(config.polling || {}), lastPolledAt: new Date().toISOString() }
+      },
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', trigger.id)
+
+  if (!previousSnapshot) {
+    logger.info('[Mailchimp Poll] First poll - baseline established for subscriber_added_to_segment', {
+      triggerId: trigger.id, memberCount: currentEmails.length
+    })
+    return
+  }
+
+  const prevEmails = new Set(previousSnapshot.memberEmails || [])
+  const newMembers = currentMembers.filter((m: any) => !prevEmails.has(m.email_address))
+
+  for (const member of newMembers) {
+    await triggerWorkflow(trigger, {
+      email: member.email_address,
+      subscriberId: member.id,
+      firstName: member.merge_fields?.FNAME || '',
+      lastName: member.merge_fields?.LNAME || '',
+      status: member.status,
+      segmentId,
+      audienceId,
+      addedAt: member.last_changed || new Date().toISOString()
+    })
+
+    logger.info('[Mailchimp Poll] Triggered for new segment member', {
+      triggerId: trigger.id,
+      segmentId,
+      email: member.email_address
+    })
+  }
+
+  if (newMembers.length === 0) {
+    logger.info('[Mailchimp Poll] No new segment members detected', {
+      triggerId: trigger.id, segmentId, currentCount: currentEmails.length, previousCount: prevEmails.size
+    })
+  }
+}
+
+/**
  * Trigger workflow execution via the execute API
  */
 async function triggerWorkflow(trigger: any, inputData: any): Promise<void> {
@@ -664,7 +748,8 @@ export const mailchimpPollingHandler: PollingHandler = {
       type === 'mailchimp_trigger_link_clicked' ||
       type === 'mailchimp_trigger_segment_updated' ||
       type === 'mailchimp_trigger_new_audience' ||
-      type === 'mailchimp_trigger_campaign_created'
+      type === 'mailchimp_trigger_campaign_created' ||
+      type === 'mailchimp_trigger_subscriber_added_to_segment'
   },
   getIntervalMs: (userRole: string) => ROLE_POLL_INTERVAL_MS[userRole] ?? DEFAULT_POLL_INTERVAL_MS,
   poll: async ({ trigger }: PollingContext) => {
@@ -700,6 +785,10 @@ export const mailchimpPollingHandler: PollingHandler = {
 
         case 'mailchimp_trigger_campaign_created':
           await pollNewCampaign(trigger, accessToken, dc)
+          break
+
+        case 'mailchimp_trigger_subscriber_added_to_segment':
+          await pollSubscriberAddedToSegment(trigger, accessToken, dc)
           break
 
         default:

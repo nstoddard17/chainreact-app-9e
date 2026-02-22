@@ -67,8 +67,8 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         return { ...allFalse, subscribe: true, profile: true, upemail: true }
 
       case 'mailchimp_trigger_subscriber_added_to_segment':
-        // Segment membership is tracked via profile updates
-        return { ...allFalse, profile: true }
+        // Polling-based: Mailchimp doesn't webhook segment membership changes
+        return {}
 
       case 'mailchimp_trigger_link_clicked':
       case 'mailchimp_trigger_email_opened':
@@ -664,6 +664,25 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
           return { type: 'new_campaign', campaignIds, updatedAt: new Date().toISOString() }
         }
         return { type: 'new_campaign', campaignIds: [], updatedAt: new Date().toISOString() }
+      }
+
+      case 'mailchimp_trigger_subscriber_added_to_segment': {
+        const audienceId = config.audienceId || config.audience_id
+        const segmentId = config.segmentId
+        if (!audienceId || !segmentId) {
+          return { type: 'subscriber_added_to_segment', memberEmails: [], updatedAt: new Date().toISOString() }
+        }
+
+        const resp = await fetch(
+          `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${segmentId}/members?count=1000`,
+          { headers }
+        )
+        if (resp.ok) {
+          const data = await resp.json()
+          const memberEmails = (data.members || []).map((m: any) => m.email_address)
+          return { type: 'subscriber_added_to_segment', memberEmails, updatedAt: new Date().toISOString() }
+        }
+        return { type: 'subscriber_added_to_segment', memberEmails: [], updatedAt: new Date().toISOString() }
       }
 
       default:
