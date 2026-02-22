@@ -10,6 +10,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     providerId: "microsoft-excel",
     category: "Productivity",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     requiredIntegration: "microsoft-excel", // Requires Microsoft Excel connection for Graph API access
     configSchema: [
@@ -89,6 +90,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     providerId: "microsoft-excel",
     category: "Productivity",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     requiredIntegration: "microsoft-excel",
     configSchema: [
@@ -142,6 +144,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     description: "Triggers when a row is updated in an Excel worksheet (uses position-based tracking)",
     icon: FileSpreadsheet,
     isTrigger: true,
+    triggerType: "polling",
     providerId: "microsoft-excel",
     category: "Productivity",
     producesOutput: true,
@@ -235,6 +238,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     providerId: "microsoft-excel",
     category: "Productivity",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     requiredIntegration: "microsoft-excel",
     configSchema: [
@@ -306,6 +310,7 @@ export const microsoftExcelNodes: NodeComponent[] = [
     providerId: "microsoft-excel",
     category: "Productivity",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     requiredIntegration: "microsoft-excel",
     configSchema: [

@@ -134,6 +134,7 @@ export const mailchimpNodes: NodeComponent[] = [
     providerId: "mailchimp",
     category: "Email",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     configSchema: [
       {
@@ -212,6 +213,7 @@ export const mailchimpNodes: NodeComponent[] = [
     providerId: "mailchimp",
     category: "Email",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     configSchema: [
       {
@@ -448,6 +450,7 @@ export const mailchimpNodes: NodeComponent[] = [
     providerId: "mailchimp",
     category: "Email",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     configSchema: [
       {
@@ -738,6 +741,7 @@ export const mailchimpNodes: NodeComponent[] = [
     providerId: "mailchimp",
     category: "Email",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     configSchema: [
       {
@@ -823,6 +827,7 @@ export const mailchimpNodes: NodeComponent[] = [
     providerId: "mailchimp",
     category: "Email",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     configSchema: [],
     outputSchema: [

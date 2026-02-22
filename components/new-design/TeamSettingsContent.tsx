@@ -57,7 +57,7 @@ interface Team {
   user_role?: string
   billing?: {
     plan?: string
-    credits?: number
+    tasksRemaining?: number
     billing_source?: 'owner' | 'organization'
   }
 }
@@ -559,9 +559,9 @@ export function TeamSettingsContent() {
                         ? 'Full platform access with premium support'
                         : 'Basic features for small teams'}
                     </p>
-                    {currentTeam?.billing?.credits !== undefined && (
+                    {currentTeam?.billing?.tasksRemaining !== undefined && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {currentTeam.billing.credits.toLocaleString()} credits remaining
+                        {currentTeam.billing.tasksRemaining.toLocaleString()} tasks remaining
                       </p>
                     )}
                   </div>

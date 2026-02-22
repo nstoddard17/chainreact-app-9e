@@ -64,14 +64,14 @@ export async function GET(
       // Standalone team - fetch owner's billing info
       const { data: ownerProfile } = await serviceClient
         .from('user_profiles')
-        .select('plan, credits')
+        .select('plan, tasks_used, tasks_limit')
         .eq('id', team.created_by)
         .single()
 
       if (ownerProfile) {
         billingInfo = {
           plan: ownerProfile.plan || 'free',
-          credits: ownerProfile.credits || 0,
+          tasksRemaining: Math.max(0, (ownerProfile.tasks_limit || 500) - (ownerProfile.tasks_used || 0)),
           billing_source: 'owner' // Indicates billing is inherited from owner
         }
       }

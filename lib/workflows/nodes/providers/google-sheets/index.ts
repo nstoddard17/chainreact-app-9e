@@ -67,6 +67,7 @@ export const googleSheetsNodes: NodeComponent[] = [
     providerId: "google-sheets",
     category: "Productivity",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     configSchema: [
       {
@@ -159,6 +160,7 @@ export const googleSheetsNodes: NodeComponent[] = [
     providerId: "google-sheets",
     category: "Productivity",
     isTrigger: true,
+    triggerType: "polling",
     producesOutput: true,
     configSchema: [
       {
@@ -223,6 +225,7 @@ export const googleSheetsNodes: NodeComponent[] = [
     description: "Triggers when a row is updated in a Google Sheet.",
     icon: FileSpreadsheet,
     isTrigger: true,
+    triggerType: "polling",
     providerId: "google-sheets",
     category: "Productivity",
     producesOutput: true,

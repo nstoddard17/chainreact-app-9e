@@ -86,7 +86,7 @@ interface Organization {
   is_workspace?: boolean
   billing?: {
     plan?: string
-    credits?: number
+    tasksRemaining?: number
     billing_source?: 'owner' | 'organization'
   }
 }
@@ -200,7 +200,7 @@ export function OrganizationSettingsContent() {
         name: org.name,
         hasBilling: !!org.billing,
         billingPlan: org.billing?.plan,
-        billingCredits: org.billing?.credits,
+        billingTasksRemaining: org.billing?.tasksRemaining,
         billingSource: org.billing?.billing_source
       })
 
@@ -868,9 +868,9 @@ export function OrganizationSettingsContent() {
                         ? 'Beta access with early features'
                         : 'Basic features for small teams'}
                     </p>
-                    {organization?.billing?.credits !== undefined && organization?.billing?.credits !== null && (
+                    {organization?.billing?.tasksRemaining !== undefined && organization?.billing?.tasksRemaining !== null && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {organization.billing.credits.toLocaleString()} credits remaining
+                        {organization.billing.tasksRemaining.toLocaleString()} tasks remaining
                       </p>
                     )}
                   </div>

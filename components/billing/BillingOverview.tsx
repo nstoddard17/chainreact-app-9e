@@ -15,7 +15,7 @@ interface BillingEntity {
   name: string
   type: 'personal' | 'organization' | 'team'
   plan: string
-  credits?: number
+  tasksRemaining?: number
   billingSource: 'owner' | 'organization'
   isOwner: boolean
 }
@@ -47,7 +47,7 @@ export default function BillingOverview() {
         name: 'Personal Account',
         type: 'personal',
         plan: profile.plan || 'free',
-        credits: profile.credits || 0,
+        tasksRemaining: Math.max(0, (profile.tasks_limit || 500) - (profile.tasks_used || 0)),
         billingSource: 'owner',
         isOwner: true
       })
@@ -70,7 +70,7 @@ export default function BillingOverview() {
               name: orgDetail.name,
               type: 'organization',
               plan: orgDetail.billing?.plan || 'free',
-              credits: orgDetail.billing?.credits || 0,
+              tasksRemaining: orgDetail.billing?.tasksRemaining || 0,
               billingSource: orgDetail.billing?.billing_source || 'owner',
               isOwner: true
             })
@@ -96,7 +96,7 @@ export default function BillingOverview() {
               name: teamDetail.name,
               type: 'team',
               plan: teamDetail.billing?.plan || 'free',
-              credits: teamDetail.billing?.credits || 0,
+              tasksRemaining: teamDetail.billing?.tasksRemaining || 0,
               billingSource: teamDetail.billing?.billing_source || 'owner',
               isOwner: true
             })
@@ -275,12 +275,12 @@ export default function BillingOverview() {
                 ))}
               </div>
 
-              {/* Credits Display */}
-              {entity.credits !== undefined && entity.credits > 0 && (
+              {/* Tasks Remaining Display */}
+              {entity.tasksRemaining !== undefined && entity.tasksRemaining > 0 && (
                 <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                   <Sparkles className="w-4 h-4 text-primary" />
                   <span className="text-sm font-medium">
-                    {entity.credits.toLocaleString()} credits remaining
+                    {entity.tasksRemaining.toLocaleString()} tasks remaining
                   </span>
                 </div>
               )}

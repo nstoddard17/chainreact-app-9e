@@ -3,7 +3,7 @@
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
-import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database, PauseCircle, RefreshCw, Zap } from "lucide-react"
+import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database, PauseCircle, RefreshCw, Zap, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -25,6 +25,8 @@ import './builder/styles/node-states.css'
 import { InlineNodePicker } from './InlineNodePicker'
 import type { NodeComponent } from '@/lib/workflows/nodes/types'
 import { FieldVisibilityEngine } from '@/lib/workflows/fields/visibility'
+import { usePlanRestrictions } from '@/hooks/use-plan-restrictions'
+import { getPollingIntervalLabel, isMaxPollingTier } from '@/lib/triggers/polling-intervals'
 
 export type NodeState = 'skeleton' | 'ready' | 'running' | 'passed' | 'failed' | 'paused' | 'listening'
 
@@ -375,6 +377,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
   const isPathNode = type === 'path'
   const isAIRouterNode = type === 'ai_router'
   const isPathConditionNode = type === 'path_condition'
+
+  // Polling trigger indicator
+  const { currentPlan } = usePlanRestrictions()
+  const isPollingTrigger = isTrigger && component?.triggerType === 'polling'
+  const pollingIntervalLabel = isPollingTrigger ? getPollingIntervalLabel(currentPlan) : ''
+  const showPollingUpgradeCTA = isPollingTrigger && !isMaxPollingTier(currentPlan)
 
   // Check if all required fields are filled
   // Use validationState from ConfigurationForm if available (smart check with visibility awareness)
@@ -2010,6 +2018,39 @@ function CustomNode({ id, data, selected }: NodeProps) {
             </TooltipTrigger>
             <TooltipContent side="left" className="text-xs">
               <p>Uses {data.nodeCost} task{data.nodeCost !== 1 ? 's' : ''} per execution</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+
+      {/* Polling trigger indicator - bottom-left corner */}
+      {isPollingTrigger && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="absolute bottom-2 left-2 z-20 noDrag noPan">
+                <Badge
+                  variant="outline"
+                  className="text-xs px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 cursor-default"
+                >
+                  <Clock className="w-3 h-3 mr-0.5" />
+                  {pollingIntervalLabel}
+                </Badge>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs max-w-[220px]">
+              <div className="space-y-1">
+                <p className="font-medium">Polling Trigger</p>
+                <p className="text-muted-foreground">Checks for changes every {pollingIntervalLabel}</p>
+                {showPollingUpgradeCTA && (
+                  <p className="text-blue-600 dark:text-blue-400">
+                    <a href="/settings/billing" className="underline hover:no-underline" onClick={(e) => e.stopPropagation()}>
+                      Upgrade your plan
+                    </a>
+                    {' '}for faster polling (down to 1 min)
+                  </p>
+                )}
+              </div>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

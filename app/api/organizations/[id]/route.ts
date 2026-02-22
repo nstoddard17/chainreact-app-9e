@@ -110,7 +110,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // Get billing information from organization owner's profile
     const { data: ownerProfile } = await serviceClient
       .from("user_profiles")
-      .select("plan, credits")
+      .select("plan, tasks_used, tasks_limit")
       .eq("id", organization.owner_id)
       .single()
 
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       team_count: teamCount || 0,
       billing: ownerProfile ? {
         plan: ownerProfile.plan || 'free',
-        credits: ownerProfile.credits || 0,
+        tasksRemaining: Math.max(0, (ownerProfile.tasks_limit || 500) - (ownerProfile.tasks_used || 0)),
         billing_source: 'owner' as const
       } : undefined
     }
