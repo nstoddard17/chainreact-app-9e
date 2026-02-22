@@ -626,6 +626,30 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
             integrationId: metadata.integrationId
           })
         }
+
+        // Fallback: try trigger_resources table (modern lifecycle stores subscriptions here)
+        if (!sub) {
+          const { data: triggerResource } = await supabaseLookup
+            .from('trigger_resources')
+            .select('user_id, provider_id, config')
+            .eq('external_id', channelId)
+            .eq('status', 'active')
+            .maybeSingle()
+
+          if (triggerResource) {
+            metadata = {
+              ...metadata,
+              userId: triggerResource.user_id,
+              integrationId: triggerResource.config?.integrationId,
+              provider: triggerResource.provider_id || metadata?.provider,
+              contextProvider: triggerResource.provider_id || metadata?.contextProvider
+            }
+            logger.info('[Google Drive] Subscription metadata resolved from trigger_resources', {
+              userId: metadata.userId,
+              integrationId: metadata.integrationId
+            })
+          }
+        }
       }
     } catch {
       // ignore

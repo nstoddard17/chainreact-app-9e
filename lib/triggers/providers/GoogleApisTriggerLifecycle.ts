@@ -235,10 +235,10 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
           channelData = await this.createGmailWatch(oauth2Client, webhookUrl, channelId, config)
           break
         case 'calendar':
-          channelData = await this.createCalendarWatch(oauth2Client, webhookUrl, channelId, resourceId)
+          channelData = await this.createCalendarWatch(oauth2Client, webhookUrl, channelId, resourceId, { userId, integrationId: integration.id, provider: providerId })
           break
         case 'drive':
-          channelData = await this.createDriveWatch(oauth2Client, webhookUrl, channelId, resourceId)
+          channelData = await this.createDriveWatch(oauth2Client, webhookUrl, channelId, resourceId, { userId, integrationId: integration.id, provider: providerId })
           break
         default:
           throw new Error(`Unsupported Google API: ${api}`)
@@ -261,6 +261,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       external_id: channelData.id,
       config: {
         ...config,
+        integrationId: integration.id,
         channelId: channelData.id,
         resourceId: channelData.resourceId,
         api,
@@ -346,7 +347,8 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     auth: any,
     webhookUrl: string,
     channelId: string,
-    calendarId: string = 'primary'
+    calendarId: string = 'primary',
+    tokenMetadata?: { userId: string; integrationId: string; provider: string }
   ): Promise<any> {
     const calendar = google.calendar({ version: 'v3', auth })
 
@@ -355,7 +357,8 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       requestBody: {
         id: channelId,
         type: 'web_hook',
-        address: webhookUrl
+        address: webhookUrl,
+        token: tokenMetadata ? JSON.stringify(tokenMetadata) : undefined
       }
     })
 
@@ -369,7 +372,8 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
     auth: any,
     webhookUrl: string,
     channelId: string,
-    fileId?: string
+    fileId?: string,
+    tokenMetadata?: { userId: string; integrationId: string; provider: string }
   ): Promise<any> {
     const drive = google.drive({ version: 'v3', auth })
 
@@ -380,7 +384,8 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       requestBody: {
         id: channelId,
         type: 'web_hook',
-        address: webhookUrl
+        address: webhookUrl,
+        token: tokenMetadata ? JSON.stringify(tokenMetadata) : undefined
       }
     })
 
