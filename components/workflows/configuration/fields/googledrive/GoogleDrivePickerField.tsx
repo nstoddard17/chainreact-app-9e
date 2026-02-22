@@ -60,19 +60,18 @@ export function GoogleDrivePickerField({
       return
     }
 
-    await new Promise<void>((resolve, reject) => {
-      const existing = document.querySelector(`script[src="${GOOGLE_API_SCRIPT}"]`)
-      if (existing) {
-        existing.addEventListener("load", () => resolve())
-        existing.addEventListener("error", () => reject(new Error("Failed to load Google API script")))
-        return
-      }
+    // Remove any stale script tag from a previous failed attempt
+    const existing = document.querySelector(`script[src="${GOOGLE_API_SCRIPT}"]`)
+    if (existing) {
+      existing.remove()
+    }
 
+    await new Promise<void>((resolve, reject) => {
       const script = document.createElement("script")
       script.src = GOOGLE_API_SCRIPT
       script.async = true
       script.onload = () => resolve()
-      script.onerror = () => reject(new Error("Failed to load Google API script"))
+      script.onerror = () => reject(new Error("Failed to load Google API script. Check browser console for CSP or network errors."))
       document.body.appendChild(script)
     })
 
@@ -107,8 +106,8 @@ export function GoogleDrivePickerField({
 
     await loadGoogleApi()
 
-    if (!window.gapi || !window.google) {
-      throw new Error("Google Picker API not available")
+    if (!window.gapi) {
+      throw new Error("Google API script loaded but gapi not available")
     }
 
     const accessToken = await fetchAccessToken()
