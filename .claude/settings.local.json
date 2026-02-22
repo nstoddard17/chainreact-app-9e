@@ -68,7 +68,9 @@
       "Bash(npx supabase:*)",
       "Bash(jq:*)",
       "Bash(echo:*)",
-      "Bash(npx stripe:*)"
+      "Bash(npx stripe:*)",
+      "WebFetch(domain:mailchimp.com)",
+      "WebFetch(domain:rudrastyh.com)"
     ],
     "deny": [],
     "ask": [],

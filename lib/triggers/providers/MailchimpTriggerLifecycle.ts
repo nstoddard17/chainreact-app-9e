@@ -52,20 +52,23 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
     upemail?: boolean
     campaign?: boolean
   } {
+    // Mailchimp requires all event fields to be explicitly set (true/false)
+    const allFalse = { subscribe: false, unsubscribe: false, profile: false, cleaned: false, upemail: false, campaign: false }
+
     switch (triggerType) {
       case 'mailchimp_trigger_new_subscriber':
-        return { subscribe: true }
+        return { ...allFalse, subscribe: true }
 
       case 'mailchimp_trigger_unsubscribed':
-        return { unsubscribe: true }
+        return { ...allFalse, unsubscribe: true }
 
       case 'mailchimp_trigger_subscriber_updated':
         // Profile updates AND new subscribers
-        return { subscribe: true, profile: true, upemail: true }
+        return { ...allFalse, subscribe: true, profile: true, upemail: true }
 
       case 'mailchimp_trigger_subscriber_added_to_segment':
         // Segment membership is tracked via profile updates
-        return { profile: true }
+        return { ...allFalse, profile: true }
 
       case 'mailchimp_trigger_link_clicked':
       case 'mailchimp_trigger_email_opened':
@@ -73,7 +76,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
         return {}
 
       case 'mailchimp_trigger_new_campaign':
-        return { campaign: true }
+        return { ...allFalse, campaign: true }
 
       case 'mailchimp_trigger_campaign_created':
         // Polling-based: Mailchimp campaign webhook only fires on SEND
@@ -216,7 +219,8 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
       const errorMessage = errorData.detail || errorData.title || `HTTP ${response.status}`
       logger.error('Failed to create Mailchimp webhook', {
         status: response.status,
-        error: errorMessage
+        error: errorMessage,
+        errors: errorData.errors
       })
       throw new Error(`Failed to create Mailchimp webhook: ${errorMessage}`)
     }

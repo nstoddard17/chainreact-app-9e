@@ -1808,9 +1808,15 @@ function CustomNode({ id, data, selected }: NodeProps) {
               <GripVertical className="w-3 h-3" />
             </button>
           )}
-      {/* Three-dots menu with badge slot */}
+      {/* Configuration status badge - above card, right-aligned */}
+      {activeStatusBadge && (
+        <div className="absolute right-0 z-20 noDrag noPan" style={{ bottom: '100%', marginBottom: '6px' }}>
+          {activeStatusBadge}
+        </div>
+      )}
+
+      {/* Three-dots menu */}
       <div className="absolute top-2 right-2 flex items-center gap-1 z-30">
-        {activeStatusBadge}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button

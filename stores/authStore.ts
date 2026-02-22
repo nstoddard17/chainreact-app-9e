@@ -192,6 +192,9 @@ export const useAuthStore = create<AuthState>()(
             provider: raw.provider ?? undefined,
             created_at: raw.created_at ?? undefined,
             updated_at: raw.updated_at ?? undefined,
+            tasks_used: raw.tasks_used ?? 0,
+            tasks_limit: raw.tasks_limit ?? undefined,
+            billing_period_start: raw.billing_period_start ?? undefined,
           })
 
           const fetchProfileFromApi = async (): Promise<Profile | null> => {
@@ -424,6 +427,9 @@ export const useAuthStore = create<AuthState>()(
               provider: raw.provider ?? undefined,
               created_at: raw.created_at ?? undefined,
               updated_at: raw.updated_at ?? undefined,
+              tasks_used: raw.tasks_used ?? 0,
+              tasks_limit: raw.tasks_limit ?? undefined,
+              billing_period_start: raw.billing_period_start ?? undefined,
             })
 
             const fetchProfileViaService = async (): Promise<Profile | null> => {
