@@ -980,7 +980,8 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           fileId: change.fileId,
           file: change.file,
           metadata,
-          parentIds
+          parentIds,
+          webhookHeaders: event.eventData?.headers
         })
         classifiedAs = 'file_created'
         changeTypeCounts.file_created += 1
@@ -989,7 +990,8 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           fileId: change.fileId,
           file: change.file,
           metadata,
-          parentIds
+          parentIds,
+          webhookHeaders: event.eventData?.headers
         })
         classifiedAs = 'file_updated'
         changeTypeCounts.file_updated += 1
@@ -1769,7 +1771,7 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
   }
 }
 
-async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveItem: any, metadata: any, options?: { parentIds?: string[]; isFolder?: boolean }) {
+async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveItem: any, metadata: any, options?: { parentIds?: string[]; isFolder?: boolean; webhookHeaders?: Record<string, string> }) {
   if (!driveItem) {
     console.debug('[Google Drive] Change payload missing drive item details, skipping')
     return
@@ -1790,11 +1792,16 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
     return
   }
 
-  // Skip noisy open-only updates for Google Sheets files
+  // For Google Sheets, only skip if NOT a real content change
+  // x-goog-changed header includes "content" when file content was actually modified
   const mime = String(drivePayload.mimeType || '')
   if (changeType === 'file_updated' && mime === 'application/vnd.google-apps.spreadsheet') {
-    console.debug('[Google Drive] Skipping spreadsheet open/update event', { resourceId })
-    return
+    const changedHeader = String(options?.webhookHeaders?.['x-goog-changed'] || '')
+    if (!changedHeader.includes('content')) {
+      logger.debug('[Google Drive] Skipping spreadsheet open/metadata-only event', { resourceId, changedHeader })
+      return
+    }
+    logger.debug('[Google Drive] Spreadsheet content change detected, proceeding', { resourceId, changedHeader })
   }
 
   const triggerTypeMap: Record<DriveChangeType, string> = {
@@ -2648,7 +2655,8 @@ async function handleDriveFileCreated(eventData: any): Promise<any> {
   }
   await triggerMatchingDriveWorkflows('file_created', driveItem, eventData.metadata || {}, {
     parentIds,
-    isFolder: false
+    isFolder: false,
+    webhookHeaders: eventData.webhookHeaders
   })
   return { processed: true, type: 'drive_file_created', fileId: eventData.fileId || eventData.file?.id }
 }
@@ -2662,7 +2670,8 @@ async function handleDriveFileUpdated(eventData: any): Promise<any> {
   }
   await triggerMatchingDriveWorkflows('file_updated', driveItem, eventData.metadata || {}, {
     parentIds,
-    isFolder: false
+    isFolder: false,
+    webhookHeaders: eventData.webhookHeaders
   })
   return { processed: true, type: 'drive_file_updated', fileId: eventData.fileId || eventData.file?.id }
 }
