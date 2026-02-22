@@ -264,6 +264,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
         integrationId: integration.id,
         channelId: channelData.id,
         resourceId: channelData.resourceId,
+        pageToken: channelData.startPageToken || null,
         api,
         events,
         webhookUrl // Store webhook URL for debugging
@@ -381,6 +382,10 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
   ): Promise<any> {
     const drive = google.drive({ version: 'v3', auth })
 
+    // Capture startPageToken before creating watch so we can detect changes from this point
+    const startPageTokenRes = await drive.changes.getStartPageToken({ supportsAllDrives: true })
+    const startPageToken = startPageTokenRes.data.startPageToken
+
     const response = await drive.files.watch({
       fileId: fileId || 'root',
       supportsAllDrives: true,
@@ -393,7 +398,7 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       }
     })
 
-    return response.data
+    return { ...response.data, startPageToken }
   }
 
   /**

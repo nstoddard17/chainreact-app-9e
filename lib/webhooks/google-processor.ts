@@ -736,11 +736,13 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     }
   }
 
-  if (isSheetsWatch && (!subscription || !subscription.page_token) && channelId) {
+  // Fallback to trigger_resources for both Sheets and Drive watches
+  if ((!subscription || !subscription.page_token) && channelId) {
+    const providerFilter = isSheetsWatch ? 'google-sheets' : 'google-drive'
     const { data: triggerResource } = await supabase
       .from('trigger_resources')
       .select('id, config, updated_at')
-      .eq('provider_id', 'google-sheets')
+      .eq('provider_id', providerFilter)
       .eq('external_id', channelId)
       .eq('status', 'active')
       .maybeSingle()
