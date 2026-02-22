@@ -133,7 +133,8 @@ const nextConfig = {
               // Object sources (plugins)
               "object-src 'none'",
               // Child/frame sources
-              "child-src 'self' https://js.stripe.com https://docs.google.com https://drive.google.com",
+              "child-src 'self' https://js.stripe.com https://docs.google.com https://drive.google.com https://www.google.com",
+              "frame-src 'self' https://js.stripe.com https://docs.google.com https://drive.google.com https://www.google.com",
               // Worker sources
               "worker-src 'self' blob:",
               // Manifest
