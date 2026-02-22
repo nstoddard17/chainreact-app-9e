@@ -15,7 +15,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
-  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive"],
+  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.file"],
   configSchema: [
     // Document tab fields
     {
@@ -223,7 +223,7 @@ const googleDocsActionUpdateDocument: NodeComponent = {
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
-  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
+  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.file"],
   configSchema: [
     {
       name: "documentId",
@@ -333,7 +333,7 @@ const googleDocsActionShareDocument: NodeComponent = {
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
-  requiredScopes: ["https://www.googleapis.com/auth/drive"],
+  requiredScopes: ["https://www.googleapis.com/auth/drive.file"],
   configSchema: [
     {
       name: "documentId",
@@ -526,7 +526,7 @@ const googleDocsActionExportDocument: NodeComponent = {
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
-  requiredScopes: ["https://www.googleapis.com/auth/documents.readonly", "https://www.googleapis.com/auth/drive"],
+  requiredScopes: ["https://www.googleapis.com/auth/documents.readonly", "https://www.googleapis.com/auth/drive.file"],
   configSchema: [
     {
       name: "documentId",
@@ -704,7 +704,7 @@ const googleDocsTriggerNewDocument: NodeComponent = {
   category: "Productivity",
   isTrigger: true,
   producesOutput: true,
-  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
+  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.file"],
   configSchema: [
     {
       name: "folderId",
@@ -781,7 +781,7 @@ const googleDocsTriggerDocumentUpdated: NodeComponent = {
   category: "Productivity",
   isTrigger: true,
   producesOutput: true,
-  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.readonly"],
+  requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive.file"],
   configSchema: [
     {
       name: "folderId",

@@ -8,7 +8,7 @@ export const getFileMetadataActionSchema: NodeComponent = {
   providerId: "google-drive",
   category: "Google Drive",
   isTrigger: false,
-  requiredScopes: ["https://www.googleapis.com/auth/drive.metadata.readonly"],
+  requiredScopes: ["https://www.googleapis.com/auth/drive.file"],
   configSchema: [
     {
       name: "fileId",

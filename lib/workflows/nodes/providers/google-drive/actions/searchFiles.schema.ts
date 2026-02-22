@@ -8,7 +8,7 @@ export const searchFilesActionSchema: NodeComponent = {
   providerId: "google-drive",
   category: "Google Drive",
   isTrigger: false,
-  requiredScopes: ["https://www.googleapis.com/auth/drive.readonly"],
+  requiredScopes: ["https://www.googleapis.com/auth/drive.file"],
   configSchema: [
     {
       name: "searchMode",

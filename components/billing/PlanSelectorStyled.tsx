@@ -23,6 +23,7 @@ const mapPlanNameToTier = (name: string): PlanTier | null => {
   const normalized = name?.toLowerCase()
   if (normalized === 'free') return 'free'
   if (normalized === 'pro' || normalized === 'professional') return 'pro'
+  if (normalized === 'beta') return 'beta'
   if (normalized === 'team') return 'team'
   if (normalized === 'business') return 'business'
   if (normalized === 'enterprise') return 'enterprise'

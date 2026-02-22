@@ -395,13 +395,13 @@ function generateGoogleAuthUrl(service: string, state: string): string {
       scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
       break
     case "google-drive":
-      scopes += " https://www.googleapis.com/auth/drive"
+      scopes += " https://www.googleapis.com/auth/drive.file"
       break
     case "google-sheets":
-      scopes += " https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly"
+      scopes += " https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file"
       break
     case "google-docs":
-      scopes += " https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.readonly"
+      scopes += " https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file"
       break
     case "google-calendar":
       scopes += " https://www.googleapis.com/auth/calendar"

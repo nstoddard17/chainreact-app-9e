@@ -92,6 +92,22 @@ export async function deductExecutionTasks(
         }
       })
 
+    // Also update monthly_usage for billing page display (non-blocking)
+    try {
+      const currentDate = new Date()
+      await supabase.rpc('increment_monthly_usage', {
+        p_user_id: userId,
+        p_year: currentDate.getFullYear(),
+        p_month: currentDate.getMonth() + 1,
+        p_field: 'execution_count',
+        p_increment: totalCost
+      })
+    } catch (usageErr) {
+      logger.warn('[TaskDeduction] monthly_usage update failed (non-blocking)', {
+        error: usageErr instanceof Error ? usageErr.message : String(usageErr)
+      })
+    }
+
     logger.info('[TaskDeduction] Tasks deducted', {
       userId,
       executionSessionId,

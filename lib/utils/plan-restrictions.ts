@@ -7,7 +7,7 @@
  * - Average workflow: ~10 tasks per run
  */
 
-export type PlanTier = 'free' | 'pro' | 'team' | 'business' | 'enterprise'
+export type PlanTier = 'free' | 'pro' | 'beta' | 'team' | 'business' | 'enterprise'
 
 // Page access control - which plan is required for each page
 export type ProtectedPage =
@@ -27,6 +27,7 @@ export const PAGE_ACCESS_REQUIREMENTS: Record<ProtectedPage, PlanTier> = {
 const PLAN_HIERARCHY: Record<PlanTier, number> = {
   'free': 0,
   'pro': 1,
+  'beta': 1, // Beta testers get Pro-equivalent access
   'team': 2,
   'business': 3,
   'enterprise': 4,
@@ -150,6 +151,30 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     slaGuarantee: null,
   },
 
+  // BETA: Pro-equivalent access for beta testers (750 tasks, $0)
+  beta: {
+    tasksPerMonth: 750,
+    maxActiveWorkflows: -1,
+    maxWorkflowsTotal: -1,
+    multiStepWorkflows: true,
+    aiAgents: true,
+    conditionalPaths: true,
+    webhooks: true,
+    scheduling: true,
+    errorNotifications: true,
+    teamSharing: false,
+    maxTeamMembers: 1,
+    sharedWorkspaces: false,
+    advancedAnalytics: false,
+    prioritySupport: true,
+    dedicatedSupport: false,
+    historyRetentionDays: 30,
+    detailedLogs: true,
+    sso: false,
+    customContracts: false,
+    slaGuarantee: null,
+  },
+
   // TEAM: Collaboration features + more tasks + analytics
   team: {
     tasksPerMonth: 2000,
@@ -251,6 +276,14 @@ export const PLAN_INFO: Record<PlanTier, PlanInfo> = {
     popular: true,
     overageRate: 0.025, // $0.025 per task
   },
+  beta: {
+    name: 'Beta',
+    price: 0,
+    priceAnnual: 0,
+    billingPeriod: 'month',
+    description: 'Beta testing program with full Pro access',
+    overageRate: null,
+  },
   team: {
     name: 'Team',
     price: 49,
@@ -296,6 +329,15 @@ export const PLAN_FEATURES: Record<PlanTier, string[]> = {
     'Detailed logs',
     'Email support',
   ],
+  beta: [
+    '750 tasks/month',
+    'Full Pro access',
+    'AI Agents (Claude)',
+    '30-day history',
+    'Detailed logs',
+    'Priority support',
+    'Early feature access',
+  ],
   team: [
     '2,000 tasks/month',
     'Everything in Pro',
@@ -328,6 +370,7 @@ export const PLAN_FEATURES: Record<PlanTier, string[]> = {
 export const PLAN_ECONOMICS = {
   free: { monthlyPrice: 0, tasks: 100, costToUs: 1, margin: 'Loss leader' },
   pro: { monthlyPrice: 19, tasks: 750, costToUs: 7.50, margin: '61%' },
+  beta: { monthlyPrice: 0, tasks: 750, costToUs: 7.50, margin: 'Beta program' },
   team: { monthlyPrice: 49, tasks: 2000, costToUs: 20, margin: '59%' },
   business: { monthlyPrice: 99, tasks: 5000, costToUs: 50, margin: '49%' },
   enterprise: { monthlyPrice: 249, tasks: 15000, costToUs: 150, margin: 'Custom' },
@@ -363,7 +406,7 @@ export function hasFeatureAccess(plan: PlanTier, feature: keyof PlanLimits): boo
  * Get the minimum plan required for a feature
  */
 export function getMinimumPlanForFeature(feature: keyof PlanLimits): PlanTier | null {
-  const tiers: PlanTier[] = ['free', 'pro', 'team', 'business', 'enterprise']
+  const tiers: PlanTier[] = ['free', 'pro', 'beta', 'team', 'business', 'enterprise']
 
   for (const tier of tiers) {
     if (hasFeatureAccess(tier, feature)) {

@@ -46,14 +46,9 @@ export class ScopeValidator {
       required: [
         'https://www.googleapis.com/auth/drive.file'
       ],
-      optional: [
-        'https://www.googleapis.com/auth/drive',
-        'https://www.googleapis.com/auth/drive.readonly'
-      ],
+      optional: [],
       description: {
-        'https://www.googleapis.com/auth/drive.file': 'View and manage Google Drive files that you have opened or created with this app',
-        'https://www.googleapis.com/auth/drive': 'See, create, and delete all of your Google Drive files',
-        'https://www.googleapis.com/auth/drive.readonly': 'View your Google Drive files'
+        'https://www.googleapis.com/auth/drive.file': 'View and manage Google Drive files that you have opened or created with this app'
       }
     },
     
@@ -380,10 +375,10 @@ export class ScopeValidator {
         'admin': ['https://www.googleapis.com/auth/gmail.modify']
       },
       'google-drive': {
-        'read': ['https://www.googleapis.com/auth/drive.readonly'],
+        'read': ['https://www.googleapis.com/auth/drive.file'],
         'write': ['https://www.googleapis.com/auth/drive.file'],
-        'delete': ['https://www.googleapis.com/auth/drive'],
-        'admin': ['https://www.googleapis.com/auth/drive']
+        'delete': ['https://www.googleapis.com/auth/drive.file'],
+        'admin': ['https://www.googleapis.com/auth/drive.file']
       },
       'discord': {
         'read': ['identify', 'guilds'],

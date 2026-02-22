@@ -24,7 +24,7 @@ export const INTEGRATION_SCOPES = {
   },
   "google-sheets": {
     required: ["https://www.googleapis.com/auth/spreadsheets"],
-    optional: ["https://www.googleapis.com/auth/drive.readonly"],
+    optional: ["https://www.googleapis.com/auth/drive.file"],
   },
   "google-calendar": {
     required: ["https://www.googleapis.com/auth/calendar"],
@@ -35,8 +35,8 @@ export const INTEGRATION_SCOPES = {
     optional: [],
   },
   "google-drive": {
-    required: ["https://www.googleapis.com/auth/drive"],
-    optional: ["https://www.googleapis.com/auth/drive.file"],
+    required: ["https://www.googleapis.com/auth/drive.file"],
+    optional: [],
   },
   youtube: {
     required: ["https://www.googleapis.com/auth/youtube.readonly"],
