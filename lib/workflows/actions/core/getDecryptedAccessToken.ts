@@ -39,14 +39,6 @@ export async function getDecryptedAccessToken(userId: string, provider: string):
 
     logger.info(`🔍 Searching for integration with providers: ${possibleProviders.join(', ')}`);
 
-    // First, let's see what integrations exist for this user
-    const { data: allUserIntegrations, error: allError } = await supabase
-      .from("integrations")
-      .select("id, provider, status")
-      .eq("user_id", userId)
-
-    logger.info(`📋 All integrations for user ${userId}:`, allUserIntegrations)
-
     // Get the user's integration - try all possible provider values
     const { data: integrations, error } = await supabase
       .from("integrations")

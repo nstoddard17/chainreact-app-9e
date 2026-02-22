@@ -109,8 +109,7 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
     const { workflowId, userId, nodeId, triggerType, config } = context
 
     logger.info(`🔔 Activating Mailchimp trigger for workflow ${workflowId}`, {
-      triggerType,
-      config
+      triggerType
     })
 
     // Get events for this trigger
@@ -669,20 +668,54 @@ export class MailchimpTriggerLifecycle implements TriggerLifecycle {
       case 'mailchimp_trigger_subscriber_added_to_segment': {
         const audienceId = config.audienceId || config.audience_id
         const segmentId = config.segmentId
-        if (!audienceId || !segmentId) {
+
+        if (!audienceId) {
           return { type: 'subscriber_added_to_segment', memberEmails: [], updatedAt: new Date().toISOString() }
         }
 
-        const resp = await fetch(
-          `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${segmentId}/members?count=1000`,
+        // Single segment mode
+        if (segmentId) {
+          const resp = await fetch(
+            `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${segmentId}/members?count=1000`,
+            { headers }
+          )
+          if (resp.ok) {
+            const data = await resp.json()
+            const memberEmails = (data.members || []).map((m: any) => m.email_address)
+            return { type: 'subscriber_added_to_segment', memberEmails, updatedAt: new Date().toISOString() }
+          }
+          return { type: 'subscriber_added_to_segment', memberEmails: [], updatedAt: new Date().toISOString() }
+        }
+
+        // All segments mode — fetch all segments and their members
+        const segResp = await fetch(
+          `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments?count=100`,
           { headers }
         )
-        if (resp.ok) {
-          const data = await resp.json()
-          const memberEmails = (data.members || []).map((m: any) => m.email_address)
-          return { type: 'subscriber_added_to_segment', memberEmails, updatedAt: new Date().toISOString() }
+        if (!segResp.ok) {
+          return { type: 'subscriber_added_to_segment', mode: 'all_segments', segments: {}, updatedAt: new Date().toISOString() }
         }
-        return { type: 'subscriber_added_to_segment', memberEmails: [], updatedAt: new Date().toISOString() }
+        const segData = await segResp.json()
+        const allSegments = (segData.segments || []).slice(0, 20) as any[]
+
+        const segments: Record<string, { name: string; memberEmails: string[] }> = {}
+        for (const seg of allSegments) {
+          const memResp = await fetch(
+            `https://${dc}.api.mailchimp.com/3.0/lists/${audienceId}/segments/${seg.id}/members?count=1000`,
+            { headers }
+          )
+          if (memResp.ok) {
+            const memData = await memResp.json()
+            segments[seg.id] = {
+              name: seg.name,
+              memberEmails: (memData.members || []).map((m: any) => m.email_address)
+            }
+          } else {
+            segments[seg.id] = { name: seg.name, memberEmails: [] }
+          }
+        }
+
+        return { type: 'subscriber_added_to_segment', mode: 'all_segments', segments, updatedAt: new Date().toISOString() }
       }
 
       default:
