@@ -71,7 +71,9 @@ export async function GET(
       if (ownerProfile) {
         billingInfo = {
           plan: ownerProfile.plan || 'free',
-          tasksRemaining: Math.max(0, (ownerProfile.tasks_limit || 500) - (ownerProfile.tasks_used || 0)),
+          tasksRemaining: ownerProfile.tasks_limit != null
+            ? Math.max(0, ownerProfile.tasks_limit - (ownerProfile.tasks_used || 0))
+            : 0,
           billing_source: 'owner' // Indicates billing is inherited from owner
         }
       }

@@ -19,13 +19,14 @@ export function TaskBalanceWidget({ className }: TaskBalanceWidgetProps) {
   const { profile } = useAuthStore()
   const { estimatedTasks } = useWorkflowCostStore()
 
+  const hasTaskData = profile?.tasks_limit != null
   const tasksUsed = profile?.tasks_used ?? 0
-  const tasksLimit = profile?.tasks_limit ?? 100
-  const tasksRemaining = Math.max(0, tasksLimit - tasksUsed)
-  const usagePercent = Math.min((tasksUsed / tasksLimit) * 100, 100)
+  const tasksLimit = profile?.tasks_limit ?? 0
+  const tasksRemaining = hasTaskData ? Math.max(0, tasksLimit - tasksUsed) : null
+  const usagePercent = hasTaskData && tasksLimit > 0 ? Math.min((tasksUsed / tasksLimit) * 100, 100) : 0
 
   // Check if workflow would exceed budget
-  const wouldExceedBudget = estimatedTasks > tasksRemaining
+  const wouldExceedBudget = hasTaskData ? estimatedTasks > (tasksRemaining ?? 0) : false
 
   // Determine status color based on usage
   const getStatusColor = () => {
@@ -69,8 +70,8 @@ export function TaskBalanceWidget({ className }: TaskBalanceWidgetProps) {
               </div>
               <span className="text-xs font-medium text-muted-foreground">Your Balance</span>
             </div>
-            <span className={cn("text-sm font-bold tabular-nums", getStatusColor())}>
-              {tasksRemaining} tasks
+            <span className={cn("text-sm font-bold tabular-nums", hasTaskData ? getStatusColor() : "text-muted-foreground")}>
+              {hasTaskData ? `${tasksRemaining} tasks` : '---'}
             </span>
           </div>
 
@@ -118,29 +119,37 @@ export function TaskBalanceWidget({ className }: TaskBalanceWidgetProps) {
 
           {/* Progress Section */}
           <div className="space-y-3 p-3 rounded-lg bg-muted/50">
-            <div className="flex justify-between items-baseline">
-              <span className="text-sm font-medium">Monthly Balance</span>
-              <span className={cn("text-lg font-bold tabular-nums", getStatusColor())}>
-                {tasksRemaining}
-                <span className="text-xs font-normal text-muted-foreground ml-1">
-                  / {tasksLimit}
-                </span>
-              </span>
-            </div>
+            {hasTaskData ? (
+              <>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-sm font-medium">Monthly Balance</span>
+                  <span className={cn("text-lg font-bold tabular-nums", getStatusColor())}>
+                    {tasksRemaining}
+                    <span className="text-xs font-normal text-muted-foreground ml-1">
+                      / {tasksLimit}
+                    </span>
+                  </span>
+                </div>
 
-            {/* Progress Bar */}
-            <div className="space-y-1.5">
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                <div
-                  className={cn("rounded-full h-2.5 transition-all", getProgressColor())}
-                  style={{ width: `${100 - usagePercent}%` }}
-                />
+                {/* Progress Bar */}
+                <div className="space-y-1.5">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                    <div
+                      className={cn("rounded-full h-2.5 transition-all", getProgressColor())}
+                      style={{ width: `${100 - usagePercent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{tasksUsed} used this month</span>
+                    <span>{Math.round(100 - usagePercent)}% remaining</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground text-center py-2">
+                Loading task data...
               </div>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{tasksUsed} used this month</span>
-                <span>{Math.round(100 - usagePercent)}% remaining</span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Workflow Estimate */}

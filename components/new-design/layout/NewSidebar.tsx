@@ -103,8 +103,8 @@ export function NewSidebar() {
   useSmartPrefetch(pathname || "/")
 
   // Task quota state - personal workspace only
-  const [tasksUsed, setTasksUsed] = useState(0)
-  const [tasksLimit, setTasksLimit] = useState(100)
+  const [tasksUsed, setTasksUsed] = useState<number | null>(null)
+  const [tasksLimit, setTasksLimit] = useState<number | null>(null)
 
   // Check if user is admin
   const isAdmin = profile?.admin === true
@@ -122,8 +122,8 @@ export function NewSidebar() {
   // Fetch personal task quota
   useEffect(() => {
     if (user && profile) {
-      setTasksUsed(profile?.tasks_used || 0)
-      setTasksLimit(profile?.tasks_limit || 100)
+      setTasksUsed(profile?.tasks_used ?? 0)
+      setTasksLimit(profile?.tasks_limit != null ? profile.tasks_limit : null)
     }
   }, [user, profile])
 
@@ -398,20 +398,28 @@ export function NewSidebar() {
                 <span className="text-xs text-muted-foreground">Personal Workspace</span>
               </div>
               <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {tasksUsed} / {tasksLimit} used
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {Math.round((tasksUsed / tasksLimit) * 100)}%
-                    </span>
+                {tasksLimit != null ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {tasksUsed ?? 0} / {tasksLimit} used
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {Math.round(((tasksUsed ?? 0) / tasksLimit) * 100)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-1.5">
+                      <div
+                        className="bg-primary rounded-full h-1.5 transition-all"
+                        style={{ width: `${Math.min(((tasksUsed ?? 0) / tasksLimit) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Loading usage...</span>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-1.5">
-                    <div
-                      className="bg-primary rounded-full h-1.5 transition-all"
-                      style={{ width: `${Math.min((tasksUsed / tasksLimit) * 100, 100)}%` }}
-                    />
-                </div>
+                )}
               </div>
             </div>
             <Button

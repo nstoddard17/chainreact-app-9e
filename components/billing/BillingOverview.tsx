@@ -47,7 +47,9 @@ export default function BillingOverview() {
         name: 'Personal Account',
         type: 'personal',
         plan: profile.plan || 'free',
-        tasksRemaining: Math.max(0, (profile.tasks_limit || 500) - (profile.tasks_used || 0)),
+        tasksRemaining: profile.tasks_limit != null
+          ? Math.max(0, profile.tasks_limit - (profile.tasks_used || 0))
+          : undefined,
         billingSource: 'owner',
         isOwner: true
       })
