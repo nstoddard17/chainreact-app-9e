@@ -82,7 +82,6 @@ import { MultipleRecordsField } from "./airtable/MultipleRecordsField";
 import { FieldMapperField } from "./airtable/FieldMapperField";
 import { ShopifyLineItemsField } from "./shopify/ShopifyLineItemsField";
 import { GoogleDriveFileField } from "./googledrive/GoogleDriveFileField";
-import { GoogleDrivePickerField } from "./googledrive/GoogleDrivePickerField";
 import { GoogleSheetsFindRowPreview } from "../components/google-sheets/GoogleSheetsFindRowPreview";
 import { GoogleSheetsAddRowFields } from "../components/google-sheets/GoogleSheetsAddRowFields";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -777,35 +776,6 @@ export function FieldRenderer({
     // This prevents all fields from showing loading when any field is loading
     const parentFieldLoading = field.dependsOn ? loadingFields?.has(field.dependsOn) : false;
     const fieldIsLoading = loadingFields?.has(field.name) || parentFieldLoading || false;
-
-    if (field.dynamic && typeof field.dynamic === "string") {
-      const dynamicType = field.dynamic
-      const isDrivePickerField = [
-        "google-drive-files",
-        "google-drive-folders",
-        "google-drive-files-and-folders"
-      ].includes(dynamicType)
-
-      if (isDrivePickerField) {
-        const mode =
-          dynamicType.includes("files-and-folders")
-            ? "files-and-folders"
-            : dynamicType.includes("folders")
-              ? "folders"
-              : "files"
-
-        return (
-          <GoogleDrivePickerField
-            field={field}
-            value={value}
-            onChange={onChange}
-            error={error}
-            mode={mode}
-            onLabelStore={onLabelStore}
-          />
-        )
-      }
-    }
 
     // Special handling for Discord slash command trigger
     // Hide all fields except guildId until a server is selected
