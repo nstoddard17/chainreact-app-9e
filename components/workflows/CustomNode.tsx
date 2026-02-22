@@ -2001,59 +2001,59 @@ function CustomNode({ id, data, selected }: NodeProps) {
         </TooltipProvider>
       )}
 
-      {/* Task cost badge - show only if node has task cost */}
+      {/* Task cost badge - below card, right-aligned */}
       {typeof data.nodeCost === 'number' && data.nodeCost > 0 && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="absolute bottom-2 right-2 z-20 noDrag noPan">
+        <div className="absolute right-0 z-20 noDrag noPan" style={{ top: '100%', marginTop: '6px' }}>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Badge
                   variant="outline"
-                  className="text-xs px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300"
+                  className="text-[10px] px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700 text-amber-700 dark:text-amber-300"
                 >
                   <Zap className="w-3 h-3 mr-0.5" />
                   {data.nodeCost}
                 </Badge>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="left" className="text-xs">
-              <p>Uses {data.nodeCost} task{data.nodeCost !== 1 ? 's' : ''} per execution</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                <p>Uses {data.nodeCost} task{data.nodeCost !== 1 ? 's' : ''} per execution</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       )}
 
-      {/* Polling trigger indicator - bottom-left corner */}
+      {/* Polling trigger indicator - below card, right-aligned */}
       {isPollingTrigger && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="absolute bottom-2 left-2 z-20 noDrag noPan">
+        <div className="absolute left-0 z-20 noDrag noPan" style={{ top: '100%', marginTop: '6px' }}>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Badge
                   variant="outline"
-                  className="text-xs px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 cursor-default"
+                  className="text-[10px] px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300 cursor-default"
                 >
                   <Clock className="w-3 h-3 mr-0.5" />
                   {pollingIntervalLabel}
                 </Badge>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs max-w-[220px]">
-              <div className="space-y-1">
-                <p className="font-medium">Polling Trigger</p>
-                <p className="text-muted-foreground">Checks for changes every {pollingIntervalLabel}</p>
-                {showPollingUpgradeCTA && (
-                  <p className="text-blue-600 dark:text-blue-400">
-                    <a href="/settings/billing" className="underline hover:no-underline" onClick={(e) => e.stopPropagation()}>
-                      Upgrade your plan
-                    </a>
-                    {' '}for faster polling (down to 1 min)
-                  </p>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs max-w-[220px]">
+                <div className="space-y-1">
+                  <p className="font-medium">Polling Trigger</p>
+                  <p className="text-muted-foreground">Checks for changes every {pollingIntervalLabel}</p>
+                  {showPollingUpgradeCTA && (
+                    <p className="text-blue-600 dark:text-blue-400">
+                      <a href="/settings/billing" className="underline hover:no-underline" onClick={(e) => e.stopPropagation()}>
+                        Upgrade your plan
+                      </a>
+                      {' '}for faster polling (down to 1 min)
+                    </p>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       )}
 
       {/* Path label badge for Path Condition nodes */}

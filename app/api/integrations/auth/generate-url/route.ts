@@ -389,7 +389,7 @@ function generateGoogleAuthUrl(service: string, state: string): string {
 
   switch (service) {
     case "gmail":
-      scopes += " https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/gmail.settings.sharing https://www.googleapis.com/auth/contacts.readonly"
+      scopes += " https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/contacts.readonly"
       break
     case "google":
       scopes = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
