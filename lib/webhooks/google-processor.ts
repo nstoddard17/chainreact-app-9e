@@ -670,15 +670,38 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   const isSheetsWatch = providerContext === 'google-sheets'
   const subscriptionProviderFilter = isSheetsWatch ? 'google-sheets' : 'google-drive'
 
-  // Prefer channel-scoped lookup to handle multiple rows
+  // Subscription lookup: try trigger_resources FIRST (modern), then legacy google_watch_subscriptions
   let subscription: any = null
   let subscriptionSource: 'google_watch_subscriptions' | 'trigger_resources' | 'none' = 'none'
-  const channelId: string | null = (event.eventData?.channelId) 
+  const channelId: string | null = (event.eventData?.channelId)
     || (event.eventData?.headers?.['x-goog-channel-id'])
     || null
   let subscriptionMetadata: any = null
 
+  // Step 1: Try trigger_resources FIRST (modern source of truth, channel-scoped)
   if (channelId) {
+    const providerFilter = isSheetsWatch ? 'google-sheets' : 'google-drive'
+    const { data: triggerResource } = await supabase
+      .from('trigger_resources')
+      .select('id, config, updated_at')
+      .eq('provider_id', providerFilter)
+      .eq('external_id', channelId)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (triggerResource?.config) {
+      subscription = {
+        page_token: triggerResource.config?.pageToken,
+        updated_at: triggerResource.updated_at,
+        metadata: triggerResource.config
+      }
+      subscriptionSource = 'trigger_resources'
+      subscriptionMetadata = triggerResource.config
+    }
+  }
+
+  // Step 2: Fall back to google_watch_subscriptions by channel_id (legacy, channel-scoped)
+  if (!subscription && channelId) {
     const { data: byChannel } = await supabase
       .from('google_watch_subscriptions')
       .select('page_token, updated_at, provider, metadata')
@@ -709,6 +732,8 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       }
     }
   }
+
+  // Step 3: Fall back to google_watch_subscriptions by user+integration (legacy, broad)
   if (!subscription) {
     const { data: latest } = await supabase
       .from('google_watch_subscriptions')
@@ -733,28 +758,6 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           subscriptionMetadata = null
         }
       }
-    }
-  }
-
-  // Fallback to trigger_resources for both Sheets and Drive watches
-  if ((!subscription || !subscription.page_token) && channelId) {
-    const providerFilter = isSheetsWatch ? 'google-sheets' : 'google-drive'
-    const { data: triggerResource } = await supabase
-      .from('trigger_resources')
-      .select('id, config, updated_at')
-      .eq('provider_id', providerFilter)
-      .eq('external_id', channelId)
-      .eq('status', 'active')
-      .maybeSingle()
-
-    if (triggerResource?.config) {
-      subscription = {
-        page_token: triggerResource.config?.pageToken,
-        updated_at: triggerResource.updated_at,
-        metadata: triggerResource.config
-      }
-      subscriptionSource = 'trigger_resources'
-      subscriptionMetadata = triggerResource.config
     }
   }
 
