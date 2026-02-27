@@ -80,7 +80,7 @@ function setCachedOptions(providerId: string, nodeType: string, options: Dynamic
       timestamp: Date.now()
     };
     localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-    logger.info(`💾 [useDynamicOptions] Saved to localStorage cache:`, cacheKey);
+    logger.debug(`[useDynamicOptions] Saved to localStorage cache:`, cacheKey);
   } catch (error) {
     logger.error('Error writing to localStorage cache:', error);
   }
@@ -190,7 +190,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       return;
     }
 
-    logger.info(`🔄 [useDynamicOptions] Reset triggered:`, {
+    logger.debug(`🔄 [useDynamicOptions] Reset triggered:`, {
       nodeTypeChanged,
       providerIdChanged,
       prevNodeType: prevNodeTypeRef.current,
@@ -282,7 +282,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     try {
       const { requestDeduplicationManager } = require('@/lib/utils/requestDeduplication');
       requestDeduplicationManager.clearAll();
-      logger.info('🧹 [useDynamicOptions] Cleared request deduplication cache');
+      logger.debug('🧹 [useDynamicOptions] Cleared request deduplication cache');
     } catch (e) {
       // Ignore if module not available
     }
@@ -311,7 +311,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   // Load options for a dynamic field with request deduplication
   const loadOptions = useCallback(async (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean, extraOptions?: Record<string, any>) => {
 
-    logger.info(`🔵 [useDynamicOptions] loadOptions called`, {
+    logger.debug(`🔵 [useDynamicOptions] loadOptions called`, {
       fieldName,
       nodeType,
       providerId,
@@ -333,7 +333,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         workspaceId: dependsOnValue,
         formValues: getFormValues?.()
       };
-      logger.info('📎 [useDynamicOptions] Slack files field loading:', debugData);
+      logger.debug('📎 [useDynamicOptions] Slack files field loading:', debugData);
       useDebugStore.getState().logEvent('info', 'Slack Files', '📎 Loading files dropdown', debugData);
     }
 
@@ -356,7 +356,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     // This prevents "Loading..." from showing when integration isn't connected yet
     const integrationExists = getIntegrationByProvider(providerId);
     if (!integrationExists && !silent) {
-      logger.info(`⚠️ [useDynamicOptions] No integration found for ${providerId}, skipping load for ${fieldName}`);
+      logger.debug(`⚠️ [useDynamicOptions] No integration found for ${providerId}, skipping load for ${fieldName}`);
       setDynamicOptions(prev => ({
         ...prev,
         [fieldName]: []
@@ -376,7 +376,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     if (!forceRefresh && shouldCacheField(fieldName)) {
       const cached = getCache(cacheKey)
       if (cached && Array.isArray(cached) && cached.length > 0) {
-        logger.info(`💾 [useDynamicOptions] Cache HIT for ${fieldName}:`, {
+        logger.debug(`💾 [useDynamicOptions] Cache HIT for ${fieldName}:`, {
           cacheKey,
           optionsCount: cached.length,
           fieldName,
@@ -399,7 +399,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
         return // Early return - no need to fetch from API
       }
-      logger.info(`❌ [useDynamicOptions] Cache MISS for ${fieldName}:`, { cacheKey })
+      logger.debug(`❌ [useDynamicOptions] Cache MISS for ${fieldName}:`, { cacheKey })
     }
 
     // Create a key that includes dependencies
@@ -410,12 +410,12 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     const existingPromise = activeRequests.current.get(activeRequestKey);
 
     if (existingPromise && !forceRefresh) {
-      logger.info(`⏳ [useDynamicOptions] Waiting for existing request: ${activeRequestKey}`);
+      logger.debug(`⏳ [useDynamicOptions] Waiting for existing request: ${activeRequestKey}`);
       let shouldReturn = true;
       try {
         await existingPromise;
       } catch (error) {
-        logger.info(`⚠️ [useDynamicOptions] Previous request failed, continuing with new request`);
+        logger.debug(`⚠️ [useDynamicOptions] Previous request failed, continuing with new request`);
         shouldReturn = false;
       }
       if (shouldReturn) {
@@ -424,7 +424,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     }
 
     if (existingPromise && forceRefresh) {
-      logger.info(`🔁 [useDynamicOptions] Force refresh requested, aborting existing request: ${activeRequestKey}`);
+      logger.debug(`🔁 [useDynamicOptions] Force refresh requested, aborting existing request: ${activeRequestKey}`);
       const inFlightController = abortControllers.current.get(requestKey);
       if (inFlightController) {
         inFlightController.abort();
@@ -455,7 +455,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     const THROTTLE_MS = 2000;
     const lastLoaded = lastLoadedAt.current.get(requestKey);
     if (!forceRefresh && lastLoaded && Date.now() - lastLoaded < THROTTLE_MS) {
-      logger.info(`⏱️ [useDynamicOptions] Throttling ${fieldName} - loaded ${Date.now() - lastLoaded}ms ago`);
+      logger.debug(`⏱️ [useDynamicOptions] Throttling ${fieldName} - loaded ${Date.now() - lastLoaded}ms ago`);
       return;
     }
 
@@ -481,7 +481,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         setLoading(false);
         // Continue with the load
       } else {
-        logger.info(`⏳ [useDynamicOptions] Skipping duplicate request (${loadDuration}ms old)`);
+        logger.debug(`⏳ [useDynamicOptions] Skipping duplicate request (${loadDuration}ms old)`);
         return;
       }
     }
@@ -516,7 +516,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       const cachedData = getCachedProviderData(providerId, userId, dataType, parentId);
 
       if (cachedData && cachedData.length > 0) {
-        logger.info(`⚡ [STALE-WHILE-REVALIDATE] Showing cached ${dataType} instantly`, {
+        logger.debug(`⚡ [STALE-WHILE-REVALIDATE] Showing cached ${dataType} instantly`, {
           fieldName,
           count: cachedData.length,
           parentId
@@ -540,19 +540,19 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         const needsRefresh = shouldRefreshProviderCache(providerId, userId, dataType, parentId);
 
         if (!needsRefresh) {
-          logger.info(`✅ [STALE-WHILE-REVALIDATE] Cache is fresh, no refresh needed`);
+          logger.debug(`✅ [STALE-WHILE-REVALIDATE] Cache is fresh, no refresh needed`);
           return; // Data is fresh enough, don't refresh
         }
 
         // Continue to fetch fresh data in background (silent mode)
-        logger.info(`🔄 [STALE-WHILE-REVALIDATE] Refreshing ${dataType} in background`);
+        logger.debug(`🔄 [STALE-WHILE-REVALIDATE] Refreshing ${dataType} in background`);
         silent = true; // Make the refresh silent
       }
     }
 
     // Debug logging for Gmail "from" field
     if (fieldName === 'from' && providerId === 'gmail') {
-      logger.info('🔍 [useDynamicOptions] Loading Gmail from field:', {
+      logger.debug('🔍 [useDynamicOptions] Loading Gmail from field:', {
         fieldName,
         nodeType,
         providerId,
@@ -571,7 +571,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
     // Debug logging for Gmail fields
     if (fieldName === 'labelIds' || fieldName === 'from') {
-      logger.info(`🔍 [useDynamicOptions] Loading Gmail field ${fieldName}:`, {
+      logger.debug(`🔍 [useDynamicOptions] Loading Gmail field ${fieldName}:`, {
         fieldName,
         nodeType,
         providerId,
@@ -583,7 +583,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
     // Debug logging for Trello template field
     if (fieldName === 'template' && providerId === 'trello') {
-      logger.info('[useDynamicOptions] Loading Trello template field:', {
+      logger.debug('[useDynamicOptions] Loading Trello template field:', {
         fieldName,
         nodeType,
         providerId,
@@ -601,14 +601,14 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
       // Enhanced logging for critical fields
       if (fieldName === 'channelId' || fieldName === 'cardId' || fieldName === 'listId' || fieldName === 'spreadsheetId') {
-        logger.info(`🔄 [useDynamicOptions] Setting loading state for ${fieldName}`);
+        logger.debug(`🔄 [useDynamicOptions] Setting loading state for ${fieldName}`);
       }
 
       onLoadingChangeRef.current?.(fieldName, true);
     } else {
       // Silent mode - just log that we're loading silently
       if (fieldName === 'channelId' || fieldName === 'cardId' || fieldName === 'listId') {
-        logger.info(`🔇 [useDynamicOptions] Loading ${fieldName} in silent mode`);
+        logger.debug(`🔇 [useDynamicOptions] Loading ${fieldName} in silent mode`);
       }
     }
 
@@ -665,30 +665,23 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
           // DEBUG: Show what's in the integration store
           const allIntegrations = useIntegrationStore.getState().integrations;
-          logger.info('🐛 [DynamicOptions] Discord guildId field - checking integration:', {
+          logger.debug('🐛 [DynamicOptions] Discord guildId field - checking integration:', {
             fieldName,
             providerId,
             integrationFound: !!discordIntegration,
             integrationId: discordIntegration?.id,
             integrationStatus: discordIntegration?.status,
-            totalIntegrations: allIntegrations.length,
-            allProviderIds: allIntegrations.map(i => i.provider),
-            discordIntegrations: allIntegrations.filter(i => i.provider?.toLowerCase().includes('discord')),
-            storeState: {
-              loading: useIntegrationStore.getState().loading,
-              lastFetchTime: useIntegrationStore.getState().lastFetchTime
-            }
           });
 
           // If integration not found, try fetching fresh integrations
           if (!discordIntegration) {
-            logger.info('⚠️ [DynamicOptions] Discord integration not found, fetching integrations...');
+            logger.debug('⚠️ [DynamicOptions] Discord integration not found, fetching integrations...');
             await fetchIntegrations(true); // Force refresh
             discordIntegration = getIntegrationByProvider('discord');
 
             // DEBUG: Show what's in store after fetch
             const allIntegrationsAfter = useIntegrationStore.getState().integrations;
-            logger.info('🔁 [DynamicOptions] Discord integration after fetch:', {
+            logger.debug('🔁 [DynamicOptions] Discord integration after fetch:', {
               integrationFound: !!discordIntegration,
               integrationId: discordIntegration?.id,
               totalIntegrations: allIntegrationsAfter.length,
@@ -731,7 +724,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             });
           }
 
-          logger.info('✅ [DynamicOptions] Loading Discord guilds', {
+          logger.debug('✅ [DynamicOptions] Loading Discord guilds', {
             integrationId: discordIntegration.id,
             fieldName,
             forceRefresh
@@ -755,7 +748,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             if (adminGuilds.length === 0) {
               logger.warn('⚠️ [DynamicOptions] No admin-level Discord servers found for HITL node; showing full list as fallback');
             } else {
-              logger.info(`✅ [DynamicOptions] HITL node showing ${adminGuilds.length}/${guilds.length} admin Discord servers`);
+              logger.debug(`✅ [DynamicOptions] HITL node showing ${adminGuilds.length}/${guilds.length} admin Discord servers`);
               guilds = adminGuilds;
             }
           }
@@ -792,7 +785,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             // Only retry once to prevent infinite loops
             if (authErrorRetryCount < MAX_AUTH_RETRIES) {
               authErrorRetryCount++;
-              logger.info('🔄 [useDynamicOptions] Attempting to refresh integrations...');
+              logger.debug('🔄 [useDynamicOptions] Attempting to refresh integrations...');
               try {
                 const { useIntegrationStore } = await import('@/stores/integrationStore');
                 useIntegrationStore.getState().fetchIntegrations(true);
@@ -898,7 +891,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             // Only retry once to prevent infinite loops
             if (authErrorRetryCount < MAX_AUTH_RETRIES) {
               authErrorRetryCount++;
-              logger.info('🔄 [useDynamicOptions] Attempting to refresh integrations...');
+              logger.debug('🔄 [useDynamicOptions] Attempting to refresh integrations...');
               try {
                 const { useIntegrationStore } = await import('@/stores/integrationStore');
                 useIntegrationStore.getState().fetchIntegrations(true);
@@ -931,7 +924,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         if (dependsOn === 'workspace' && dependsOnValue) {
           const { getIntegrationById } = useIntegrationStore.getState();
           resolved = getIntegrationById(dependsOnValue);
-          logger.info('🔍 [useDynamicOptions] Using workspace-specific integration:', {
+          logger.debug('🔍 [useDynamicOptions] Using workspace-specific integration:', {
             providerId,
             fieldName,
             workspaceId: dependsOnValue,
@@ -953,7 +946,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           resolved = getIntegrationByProvider('google-calendar') ||
                      getIntegrationByProvider('google_calendar') ||
                      getIntegrationByProvider('google');
-          logger.info('🔍 [useDynamicOptions] Google Calendar integration lookup:', {
+          logger.debug('🔍 [useDynamicOptions] Google Calendar integration lookup:', {
             providerId,
             integrationFound: !!resolved,
             integrationProvider: resolved?.provider,
@@ -974,7 +967,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
                      getIntegrationByProvider('google');
         } else if (providerId === 'microsoft-excel') {
           resolved = getIntegrationByProvider('microsoft-excel');
-          logger.info('🔍 [useDynamicOptions] Microsoft Excel integration lookup:', {
+          logger.debug('🔍 [useDynamicOptions] Microsoft Excel integration lookup:', {
             providerId,
             integrationFound: !!resolved,
             integrationProvider: resolved?.provider,
@@ -1004,33 +997,22 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           teamId: integration?.team_id,
           integrationStatus: integration?.status
         };
-        logger.info('📎 [useDynamicOptions] Slack files integration resolved:', resolveData);
+        logger.debug('📎 [useDynamicOptions] Slack files integration resolved:', resolveData);
         useDebugStore.getState().logEvent('info', 'Slack Files', '🔍 Integration resolved', resolveData);
       }
 
       // Special logging for Discord commands field
       if ((fieldName === 'command' && providerId === 'discord') || (providerId === 'discord' && !integration)) {
-        // Get all integrations from store to debug
-        const allIntegrations = useIntegrationStore.getState().integrations;
-        logger.info('🐛 [useDynamicOptions] Discord integration debug:', {
+        logger.debug('[useDynamicOptions] Discord integration lookup', {
           fieldName,
           providerId,
-          resourceType,
           integrationFound: !!integration,
-          totalIntegrations: allIntegrations.length,
-          allProviderIds: allIntegrations.map(i => i.provider),
-          discordIntegrations: allIntegrations.filter(i => i.provider?.toLowerCase().includes('discord')),
-          lookupProviderId,
-          integrationStore: {
-            loading: useIntegrationStore.getState().loading,
-            lastFetchTime: useIntegrationStore.getState().lastFetchTime
-          }
         });
       }
 
       // Special logging for Trello template field
       if (fieldName === 'template' && providerId === 'trello') {
-        logger.info('🎯 [useDynamicOptions] Trello template field integration check:', {
+        logger.debug('🎯 [useDynamicOptions] Trello template field integration check:', {
           providerId,
           fieldName,
           integrationFound: !!integration,
@@ -1040,26 +1022,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         });
       }
 
-      // Debug: Check what integrations we have
-      const allIntegrations = useIntegrationStore.getState().integrations;
-
-      // Logging removed - field working correctly
-
-      logger.info('🔍 [useDynamicOptions] Looking for integration:', {
-        providerId,
-        fieldName,
-        integrationFound: !!integration,
-        integrationId: integration?.id,
-        totalIntegrations: allIntegrations.length,
-        allProviders: allIntegrations.map(i => i.provider),
-        stripeIntegrations: allIntegrations.filter(i => i.provider?.toLowerCase().includes('stripe'))
-      });
+      logger.debug('[useDynamicOptions] Integration lookup', { providerId, found: !!integration });
 
       if (!integration) {
-        logger.info('⚠️ [useDynamicOptions] No integration found for provider:', providerId);
-        logger.info('🔍 [useDynamicOptions] Total integrations in store:', allIntegrations.length);
-        logger.info('🔍 [useDynamicOptions] All provider IDs:', allIntegrations.map(i => i.provider));
-        logger.info('🔍 [useDynamicOptions] Stripe integrations:', allIntegrations.filter(i => i.provider?.toLowerCase().includes('stripe')));
+        logger.debug('[useDynamicOptions] No integration found', { providerId });
 
         const providerKey = lookupProviderId || providerId;
         const lastAttempt = integrationFetchAttempts.current.get(providerKey);
@@ -1067,7 +1033,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         if (!silent && (!lastAttempt || Date.now() - lastAttempt > 5000)) {
           integrationFetchAttempts.current.set(providerKey, Date.now());
           try {
-            logger.info('🔁 [useDynamicOptions] Fetching integrations for provider:', providerKey);
+            logger.debug('🔁 [useDynamicOptions] Fetching integrations for provider:', providerKey);
             await fetchIntegrations(true);
           } catch (fetchError: any) {
             logger.error('❌ [useDynamicOptions] Failed to fetch integrations for provider:', providerKey, fetchError);
@@ -1080,7 +1046,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           // Log retry result for Discord
           if (providerId === 'discord') {
             const allIntegrations = useIntegrationStore.getState().integrations;
-            logger.info('🔁 [useDynamicOptions] Discord integration after retry:', {
+            logger.debug('🔁 [useDynamicOptions] Discord integration after retry:', {
               fieldName,
               integrationFound: !!integration,
               integrationId: integration?.id,
@@ -1093,7 +1059,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         if (!integration) {
           // Special handling for Trello board templates - they don't require integration
           if (resourceType === 'trello_board_templates') {
-            logger.info('📋 [useDynamicOptions] Loading Trello templates without integration');
+            logger.debug('📋 [useDynamicOptions] Loading Trello templates without integration');
             // Create a fake integration object for the templates
             integration = {
               id: 'trello-templates-fake',
@@ -1135,7 +1101,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         );
 
         if (connectedAlternative) {
-          logger.info(`🔄 [useDynamicOptions] Found connected alternative integration:`, {
+          logger.debug(`🔄 [useDynamicOptions] Found connected alternative integration:`, {
             originalId: integration.id,
             originalStatus: integration.status,
             alternativeId: connectedAlternative.id,
@@ -1178,7 +1144,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
         // If it's a dropdown field, skip all the linked record handling and go to custom loader
         if (isDropdownField) {
-          logger.info(`🔍 [useDynamicOptions] Detected dropdown field ${fieldName}, skipping linked record handling to use custom loader`);
+          logger.debug(`🔍 [useDynamicOptions] Detected dropdown field ${fieldName}, skipping linked record handling to use custom loader`);
           // Don't return here - let it fall through to the custom loader section below
         } else {
           // It's not a dropdown field, do the normal linked record handling
@@ -1233,7 +1199,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         const tableField = tableFields.find((f: any) => f.name === actualFieldName);
 
         // We've already checked if it's a dropdown field above, so this should always be a linked record field
-        logger.info(`🔍 [useDynamicOptions] Field ${fieldName} is NOT a dropdown field, checking for linked record`);
+        logger.debug(`🔍 [useDynamicOptions] Field ${fieldName} is NOT a dropdown field, checking for linked record`);
         // Only do linked record handling for actual linked record fields
           if (!tableField || (tableField.type !== 'multipleRecordLinks' && tableField.type !== 'singleRecordLink')) {
             // Only clear loading and return for non-dropdown fields that aren't linked records
@@ -1466,7 +1432,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         if (loader) {
           // NOTE: Removed early return caching check - always fetch fresh data from provider loaders
 
-          logger.info(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
+          logger.debug(`🔧 [useDynamicOptions] Using custom loader for ${providerId}/${fieldName}`);
 
           // For Airtable fields that depend on tableName, ensure baseId and tableName are in extraOptions
           const enhancedExtraOptions = extraOptions || {};
@@ -1536,7 +1502,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             throw loaderError; // Re-throw to be caught by outer catch
           }
 
-          logger.info(`📊 [useDynamicOptions] Loader returned options for ${fieldName}:`, {
+          logger.debug(`📊 [useDynamicOptions] Loader returned options for ${fieldName}:`, {
             optionsCount: formattedOptions?.length || 0,
             firstOption: formattedOptions?.[0],
             requestId,
@@ -1554,22 +1520,22 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           if (activeRequestIds.current.get(requestKey) !== requestId) {
             // If we have no options but this request has data, accept it
             if (hasNoOptions && hasNewData) {
-              logger.info(`✅ [useDynamicOptions] Request ${requestId} is not current but accepting data for ${fieldName} since we have no options`);
+              logger.debug(`✅ [useDynamicOptions] Request ${requestId} is not current but accepting data for ${fieldName} since we have no options`);
               isAcceptingStaleData = true;
             } else {
-              logger.info(`⚠️ [useDynamicOptions] Request ${requestId} is no longer current for ${fieldName}, skipping state update`);
+              logger.debug(`⚠️ [useDynamicOptions] Request ${requestId} is no longer current for ${fieldName}, skipping state update`);
               return;
             }
           }
 
-          logger.info(`✅ [useDynamicOptions] Setting dynamic options for ${fieldName} with ${formattedOptions?.length || 0} options`);
+          logger.debug(`✅ [useDynamicOptions] Setting dynamic options for ${fieldName} with ${formattedOptions?.length || 0} options`);
 
           // Save to cache store if field should be cached
           if (shouldCacheField(fieldName) && formattedOptions && formattedOptions.length > 0) {
             const cacheKey = buildCacheKey(providerId, providerId, fieldName, dependsOnValue ? { [dependsOn || 'parent']: dependsOnValue } : undefined)
             const ttl = getFieldTTL(fieldName)
             setCache(cacheKey, formattedOptions, ttl)
-            logger.info(`💾 [useDynamicOptions] Cached ${formattedOptions.length} options for ${fieldName}:`, { cacheKey, ttl })
+            logger.debug(`💾 [useDynamicOptions] Cached ${formattedOptions.length} options for ${fieldName}:`, { cacheKey, ttl })
           }
 
           // Track performance for searchField
@@ -1585,7 +1551,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               JSON.stringify(currentFieldOptions) === JSON.stringify(formattedOptions);
 
             if (areOptionsSame) {
-              logger.info(`🔄 [useDynamicOptions] Options for ${fieldName} are identical, skipping state update`);
+              logger.debug(`🔄 [useDynamicOptions] Options for ${fieldName} are identical, skipping state update`);
               return prev;
             }
 
@@ -1601,7 +1567,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               ...prev,
               [fieldName]: formattedOptions
             };
-            logger.info(`📝 [useDynamicOptions] State update for ${fieldName}:`, {
+            logger.debug(`📝 [useDynamicOptions] State update for ${fieldName}:`, {
               previousValue: prev[fieldName],
               newValue: formattedOptions,
               fullNewState: newState
@@ -1640,7 +1606,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           return;
         }
       } catch (error) {
-        logger.info(`⚠️ [useDynamicOptions] Error using custom loader for ${providerId}, falling back to default: ${error}`);
+        logger.debug(`⚠️ [useDynamicOptions] Error using custom loader for ${providerId}, falling back to default: ${error}`);
         // Fall through to use regular integration data loading
       }
       
@@ -1673,7 +1639,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Merge in extraOptions if provided (e.g., baseId for Airtable tables)
       if (extraOptions) {
         options = { ...options, ...extraOptions };
-        logger.info(`🔧 [useDynamicOptions] Merged extraOptions into request options:`, {
+        logger.debug(`🔧 [useDynamicOptions] Merged extraOptions into request options:`, {
           fieldName,
           options,
           extraOptions
@@ -1687,7 +1653,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
                                        resourceType === 'google-drive-files' ||
                                        resourceType === 'dropbox-files';
       if (dependsOn && !dependsOnValue && !allowOptionalDependency) {
-        logger.info(`⚠️ [useDynamicOptions] Skipping load for ${fieldName} - missing dependency value for ${dependsOn}`);
+        logger.debug(`⚠️ [useDynamicOptions] Skipping load for ${fieldName} - missing dependency value for ${dependsOn}`);
         setDynamicOptions(prev => ({
           ...prev,
           [fieldName]: []
@@ -1746,7 +1712,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         const worksheetName = dependsOnValue || extraOptions?.worksheetName || formValues.worksheetName;
 
         if (!workbookId || !worksheetName) {
-          logger.info(`⚠️ [useDynamicOptions] Skipping Microsoft Excel columns - missing workbookId or worksheetName:`, {
+          logger.debug(`⚠️ [useDynamicOptions] Skipping Microsoft Excel columns - missing workbookId or worksheetName:`, {
             workbookId,
             worksheetName,
             fieldName
@@ -1759,7 +1725,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           workbookId,
           worksheetName
         };
-        logger.info(`🔧 [useDynamicOptions] Microsoft Excel columns options:`, options);
+        logger.debug(`🔧 [useDynamicOptions] Microsoft Excel columns options:`, options);
       }
       
       // For Airtable fields used by filterField, use records approach to infer fields quickly
@@ -1840,7 +1806,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
       // For Airtable fields in general (e.g., watchedFieldIds, searchField), ensure baseId + tableName are passed
       if (resourceType === 'airtable_fields' && fieldName !== 'filterField') {
-        logger.info(`🔍 [useDynamicOptions] Loading airtable_fields for ${fieldName}:`, {
+        logger.debug(`🔍 [useDynamicOptions] Loading airtable_fields for ${fieldName}:`, {
           dependsOn,
           dependsOnValue,
           hasExtraOptions: !!extraOptions,
@@ -1856,7 +1822,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         const baseId = extraOptions?.baseId || formValues.baseId;
         const tableName = dependsOnValue || formValues.tableName;
 
-        logger.info(`🔍 [useDynamicOptions] Resolved values for ${fieldName}:`, {
+        logger.debug(`🔍 [useDynamicOptions] Resolved values for ${fieldName}:`, {
           baseId,
           tableName,
           fromExtraOptions: !!extraOptions?.baseId,
@@ -1873,7 +1839,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           return;
         }
         options = { baseId, tableName };
-        logger.info(`✅ [useDynamicOptions] Will fetch ${fieldName} with options:`, options);
+        logger.debug(`✅ [useDynamicOptions] Will fetch ${fieldName} with options:`, options);
       }
       
       // For Airtable field values, use records approach to get unique field values
@@ -2142,7 +2108,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       let formattedOptions: any[] = [];
       try {
 
-          logger.info('📡 [useDynamicOptions] Calling loadIntegrationData:', {
+          logger.debug('📡 [useDynamicOptions] Calling loadIntegrationData:', {
             fieldName,
             resourceType,
             integrationId: integration.id,
@@ -2160,7 +2126,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               options,
               forceRefresh
             };
-            logger.info('📎 [useDynamicOptions] About to call loadIntegrationData for Slack files:', apiCallData);
+            logger.debug('📎 [useDynamicOptions] About to call loadIntegrationData for Slack files:', apiCallData);
             useDebugStore.getState().logEvent('info', 'Slack Files', '📡 Calling API', apiCallData);
           }
 
@@ -2174,7 +2140,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               dataLength: result?.data?.length || 0,
               resultKeys: result ? Object.keys(result) : []
             };
-            logger.info('📎 [useDynamicOptions] Received result from API:', resultData);
+            logger.debug('📎 [useDynamicOptions] Received result from API:', resultData);
             useDebugStore.getState().logEvent('info', 'Slack Files', '✅ API Response', resultData);
           }
 
@@ -2195,10 +2161,10 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
                 resourceType === 'trello_cards' ||
                 fieldName === 'watchedTables' ||
                 resourceType === 'airtable_tables') {
-              logger.info(`✅ [useDynamicOptions] Using fresh data for ${fieldName} despite superseded request`);
+              logger.debug(`✅ [useDynamicOptions] Using fresh data for ${fieldName} despite superseded request`);
               // Continue to update state for these critical fields
             } else {
-              logger.info(`⏭️ [useDynamicOptions] Request ${requestId} superseded for ${fieldName}, skipping state update`);
+              logger.debug(`⏭️ [useDynamicOptions] Request ${requestId} superseded for ${fieldName}, skipping state update`);
               // Clear loading state for superseded request to prevent stuck loading
               if (loadingFields.current.has(requestKey)) {
                 loadingFields.current.delete(requestKey);
@@ -2207,7 +2173,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
                 if (!silent) {
                   onLoadingChangeRef.current?.(fieldName, false);
                 }
-                logger.info(`🧹 [useDynamicOptions] Cleared loading state for superseded ${fieldName}`);
+                logger.debug(`🧹 [useDynamicOptions] Cleared loading state for superseded ${fieldName}`);
               }
               return; // Don't update state if this request was superseded for other fields
             }
@@ -2225,7 +2191,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
               formattedLength: formattedOptions?.length || 0,
               firstOption: formattedOptions?.[0]
             };
-            logger.info('📎 [useDynamicOptions] Formatted options:', formattedData);
+            logger.debug('📎 [useDynamicOptions] Formatted options:', formattedData);
             useDebugStore.getState().logEvent('info', 'Slack Files', '🎨 Formatted Options', formattedData);
           }
 
@@ -2236,7 +2202,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
             const parentId = dataType === 'tables' ? dependsOnValue :
                            dataType === 'fields' ? dependsOnValue : undefined;
 
-            logger.info(`💾 [PROVIDER CACHE] Caching ${dataType}`, {
+            logger.debug(`💾 [PROVIDER CACHE] Caching ${dataType}`, {
               fieldName,
               count: dataArray.length,
               parentId
@@ -2251,14 +2217,14 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
               // If a base is already selected, prefetch its tables
               if (selectedBaseId) {
-                logger.info(`🔮 [PREDICTIVE PREFETCH] Base is selected, prefetching tables`, {
+                logger.debug(`🔮 [PREDICTIVE PREFETCH] Base is selected, prefetching tables`, {
                   baseId: selectedBaseId
                 });
 
                 // Prefetch tables silently in background
                 setTimeout(() => {
                   loadOptions('tableName', 'baseId', selectedBaseId, false, true).catch(err => {
-                    logger.info(`[PREDICTIVE PREFETCH] Tables prefetch failed (silent):`, err);
+                    logger.debug(`[PREDICTIVE PREFETCH] Tables prefetch failed (silent):`, err);
                   });
                 }, 100); // Small delay to not block UI
               }
@@ -2268,7 +2234,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
               // If a table is already selected, prefetch its fields
               if (selectedTableName) {
-                logger.info(`🔮 [PREDICTIVE PREFETCH] Table is selected, prefetching fields`, {
+                logger.debug(`🔮 [PREDICTIVE PREFETCH] Table is selected, prefetching fields`, {
                   tableName: selectedTableName
                 });
 
@@ -2278,7 +2244,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
                   const fieldsToPreload = ['fieldName', 'statusFieldName', 'assigneeFieldName', 'dueDateFieldName'];
                   fieldsToPreload.forEach(fieldToLoad => {
                     loadOptions(fieldToLoad, 'tableName', selectedTableName, false, true).catch(err => {
-                      logger.info(`[PREDICTIVE PREFETCH] Fields prefetch failed for ${fieldToLoad} (silent):`, err);
+                      logger.debug(`[PREDICTIVE PREFETCH] Fields prefetch failed for ${fieldToLoad} (silent):`, err);
                     });
                   });
                 }, 100); // Small delay to not block UI
@@ -2294,7 +2260,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
           // For Trello board templates, use hardcoded fallback if API fails
           if (resourceType === 'trello_board_templates') {
-            logger.info('🔄 [useDynamicOptions] Using fallback Trello templates');
+            logger.debug('🔄 [useDynamicOptions] Using fallback Trello templates');
             formattedOptions = [
               { value: 'basic', label: 'Basic Board' },
               { value: 'kanban', label: 'Kanban Board' },
@@ -2310,7 +2276,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
       // Log successful data formatting for critical fields
       if (fieldName === 'channel' || resourceType === 'slack_channels') {
-        logger.info(`📊 [useDynamicOptions] Formatted ${fieldName} options:`, {
+        logger.debug(`📊 [useDynamicOptions] Formatted ${fieldName} options:`, {
           fieldName,
           resourceType,
           optionsCount: formattedOptions.length,
@@ -2329,7 +2295,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         const cacheKey = buildCacheKey(providerId, providerId, fieldName, dependsOnValue ? { [dependsOn || 'parent']: dependsOnValue } : undefined)
         const ttl = getFieldTTL(fieldName)
         setCache(cacheKey, formattedOptions, ttl)
-        logger.info(`💾 [useDynamicOptions] Cached ${formattedOptions.length} options for ${fieldName} after loadIntegrationData:`, { cacheKey, ttl })
+        logger.debug(`💾 [useDynamicOptions] Cached ${formattedOptions.length} options for ${fieldName} after loadIntegrationData:`, { cacheKey, ttl })
       }
 
       // Update dynamic options - store both general and dependency-specific data
@@ -2364,7 +2330,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           resourceType === 'trello_cards' ||
           resourceType === 'trello_lists' ||
           resourceType === 'airtable_tables') {
-        logger.info(`🧹 [useDynamicOptions] Clearing loading state for ${fieldName} (critical field)`);
+        logger.debug(`🧹 [useDynamicOptions] Clearing loading state for ${fieldName} (critical field)`);
         loadingFields.current.delete(requestKey);
         setLoading(false);
 
@@ -2375,7 +2341,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
         // Clear loading state via callback
         if (!silent) {
           onLoadingChangeRef.current?.(fieldName, false);
-          logger.info(`✅ [useDynamicOptions] Called onLoadingChange(${fieldName}, false)`);
+          logger.debug(`✅ [useDynamicOptions] Called onLoadingChange(${fieldName}, false)`);
         }
       } else if (activeRequestIds.current.get(requestKey) === requestId) {
         // For other fields, only clear if this is still the current request
@@ -2393,7 +2359,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
           onLoadingChangeRef.current?.(fieldName, false);
         }
       } else {
-        logger.info(`⚠️ [useDynamicOptions] Not clearing loading for ${fieldName} - request superseded`);
+        logger.debug(`⚠️ [useDynamicOptions] Not clearing loading for ${fieldName} - request superseded`);
       }
       
     } catch (error: any) {
@@ -2476,11 +2442,11 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     if (!nodeType || !providerId) return;
 
     return () => {
-      logger.info('🧹 [useDynamicOptions] Cleanup triggered', { nodeType, providerId });
+      logger.debug('🧹 [useDynamicOptions] Cleanup triggered', { nodeType, providerId });
 
       // Abort ALL active fetch requests (including Discord guilds on unmount)
       abortControllers.current.forEach((controller, key) => {
-        logger.info(`🛑 [useDynamicOptions] Aborting request: ${key}`);
+        logger.debug(`🛑 [useDynamicOptions] Aborting request: ${key}`);
         controller.abort();
       });
 
@@ -2492,7 +2458,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
 
       // Cancel all active requests
       activeRequests.current.forEach((promise, key) => {
-        logger.info(`❌ [useDynamicOptions] Clearing active request: ${key}`);
+        logger.debug(`❌ [useDynamicOptions] Clearing active request: ${key}`);
       });
 
       // Clear all state
@@ -2504,7 +2470,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       // Reset auth retry count
       authErrorRetryCount = 0;
 
-      logger.info('✅ [useDynamicOptions] Cleanup complete');
+      logger.debug('✅ [useDynamicOptions] Cleanup complete');
     };
   }, [nodeType, providerId]);
 
@@ -2512,7 +2478,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   useEffect(() => {
     if (!workflowId) return;
 
-    logger.info('🔄 [useDynamicOptions] Workflow changed, clearing expired cache...', { workflowId });
+    logger.debug('🔄 [useDynamicOptions] Workflow changed, clearing expired cache...', { workflowId });
 
     // Clear all expired cache entries
     if (typeof window !== 'undefined') {
@@ -2536,7 +2502,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       }
 
       keysToRemove.forEach(key => {
-        logger.info(`🗑️ [useDynamicOptions] Removing expired cache: ${key}`);
+        logger.debug(`🗑️ [useDynamicOptions] Removing expired cache: ${key}`);
         localStorage.removeItem(key);
       });
     }
@@ -2545,7 +2511,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   // Log when initialOptions are provided
   useEffect(() => {
     if (initialOptions && Object.keys(initialOptions).length > 0) {
-      logger.info('📥 [useDynamicOptions] Hook initialized with saved options:', {
+      logger.debug('📥 [useDynamicOptions] Hook initialized with saved options:', {
         fields: Object.keys(initialOptions),
         counts: Object.entries(initialOptions).map(([key, value]) =>
           ({ field: key, count: Array.isArray(value) ? value.length : 0 })
@@ -2560,7 +2526,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
       key.startsWith('airtable_field_')
     );
     if (airtableFields.length > 0) {
-      logger.info(`🔍 [useDynamicOptions] Current Airtable field options:`,
+      logger.debug(`🔍 [useDynamicOptions] Current Airtable field options:`,
         airtableFields.reduce((acc, key) => {
           acc[key] = {
             hasOptions: !!dynamicOptions[key],
@@ -2581,7 +2547,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
   const loadOptionsParallel = useCallback(async (
     fields: Array<{ fieldName: string; dependsOn?: string; dependsOnValue?: any }>
   ): Promise<void> => {
-    logger.info(`🚀 [useDynamicOptions] Parallel load started for ${fields.length} fields`)
+    logger.debug(`🚀 [useDynamicOptions] Parallel load started for ${fields.length} fields`)
 
     // Load all fields in parallel using Promise.allSettled
     // Force refresh to ensure fresh data on every modal open
@@ -2595,7 +2561,7 @@ export const useDynamicOptions = ({ nodeType, providerId, workflowId, onLoadingC
     const succeeded = results.filter(r => r.status === 'fulfilled').length
     const failed = results.filter(r => r.status === 'rejected').length
 
-    logger.info(`✅ [useDynamicOptions] Parallel load completed: ${succeeded} succeeded, ${failed} failed`)
+    logger.debug(`✅ [useDynamicOptions] Parallel load completed: ${succeeded} succeeded, ${failed} failed`)
 
     if (failed > 0) {
       const errors = results

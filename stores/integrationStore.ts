@@ -225,7 +225,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         if (state.isConfigurationModalOpen === isOpen) {
           return state
         }
-        logger.info('[IntegrationStore] Configuration modal visibility changed:', { isOpen })
+        logger.debug('[IntegrationStore] Configuration modal visibility changed:', { isOpen })
         return { isConfigurationModalOpen: isOpen }
       })
     },
@@ -293,7 +293,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const isTimeoutError = errorMessage.includes('timeout') || errorMessage.includes('timed out')
 
           if (isAuthError) {
-            logger.info("[IntegrationStore] Skipping provider initialization - user not authenticated yet")
+            logger.debug("[IntegrationStore] Skipping provider initialization - user not authenticated yet")
           } else if (isTimeoutError) {
             logger.warn("[IntegrationStore] Provider initialization timed out - will retry when auth is ready")
           } else {
@@ -315,7 +315,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const { setLoading, currentUserId, integrations, lastFetchTime, isConfigurationModalOpen } = get()
 
         if (!force && isConfigurationModalOpen) {
-          logger.info('[IntegrationStore] Skipping integration refresh - configuration modal open')
+          logger.debug('[IntegrationStore] Skipping integration refresh - configuration modal open')
           return
         }
 
@@ -330,7 +330,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         // If workspace changed, discard old promise and abort old request
         if (lastKey !== workspaceCacheKey) {
-          logger.info('[IntegrationStore] Workspace changed, discarding old fetch promise', {
+          logger.debug('[IntegrationStore] Workspace changed, discarding old fetch promise', {
             oldKey: lastKey,
             newKey: workspaceCacheKey
           })
@@ -351,7 +351,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           ongoingFetchPromise = null
         } else {
           // Otherwise, return the existing promise to prevent duplicate requests
-          logger.info('[IntegrationStore] Returning existing fetch promise for same workspace')
+          logger.debug('[IntegrationStore] Returning existing fetch promise for same workspace')
           return ongoingFetchPromise
         }
       }
@@ -360,7 +360,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // Increased from 5s to reduce unnecessary API calls
         const CACHE_DURATION = 30000 // 30 seconds
         if (!force && lastFetchTime && Date.now() - lastFetchTime < CACHE_DURATION) {
-          logger.info('[IntegrationStore] Using cached integrations (age: ' + Math.round((Date.now() - lastFetchTime) / 1000) + 's)')
+          logger.debug('[IntegrationStore] Using cached integrations (age: ' + Math.round((Date.now() - lastFetchTime) / 1000) + 's)')
           return integrations
         }
 
@@ -402,7 +402,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             const sessionData = await SessionManager.getSecureUserAndSession();
             user = sessionData.user;
           } catch (authError: any) {
-            logger.info("User not authenticated, skipping integration fetch")
+            logger.debug("User not authenticated, skipping integration fetch")
             // Clear loading state and return empty integrations for unauthenticated users
             setLoading('integrations', false)
             set({
@@ -430,7 +430,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           // CRITICAL: Check if THIS fetch's controller has been aborted before making the API call
           // This prevents stale workspace data from being fetched if workspace changed
           if (thisController.signal.aborted) {
-            logger.info('[IntegrationStore] Fetch aborted before API call - workspace changed')
+            logger.debug('[IntegrationStore] Fetch aborted before API call - workspace changed')
             clearTimeout(fetchTimeout)
             setLoading('integrations', false)
             return
@@ -469,7 +469,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
             // Check if it was aborted
             if (error.name === 'AbortError') {
-              logger.info('Integration fetch was aborted (timeout or new request)')
+              logger.debug('Integration fetch was aborted (timeout or new request)')
               setLoading('integrations', false)
               return
             }
@@ -483,7 +483,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           } finally {
             // Cleanup
             const fetchDuration = Date.now() - fetchStartTime
-            logger.info('🧹 [IntegrationStore] Cleanup - clearing ongoingFetchPromise', {
+            logger.debug('🧹 [IntegrationStore] Cleanup - clearing ongoingFetchPromise', {
               duration: `${fetchDuration}ms`
             })
             clearTimeout(fetchTimeout)
@@ -509,7 +509,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
           const sessionData = await SessionManager.getSecureUserAndSession();
           user = sessionData.user;
         } catch (authError: any) {
-          logger.info("User not authenticated, skipping integration fetch")
+          logger.debug("User not authenticated, skipping integration fetch")
           setLoading('integrations', false)
           set({
             integrations: [],
@@ -569,13 +569,13 @@ export const useIntegrationStore = create<IntegrationStore>()(
       // Ensure providers are loaded - force reload if empty
       let { providers } = get()
       if (!providers || providers.length === 0) {
-        logger.info('🔄 Providers not loaded, initializing...')
+        logger.debug('🔄 Providers not loaded, initializing...')
         try {
           // Directly fetch providers instead of using initializeProviders which might be blocked
           const freshProviders = await IntegrationService.fetchProviders()
           set({ providers: freshProviders })
           providers = freshProviders
-          logger.info('✅ Providers loaded:', providers.map(p => p.id))
+          logger.debug('✅ Providers loaded:', providers.map(p => p.id))
         } catch (error) {
           logger.error('Failed to load providers:', error)
           // Continue anyway for known providers
@@ -589,7 +589,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         // For Discord and other known providers, proceed anyway
         const knownProviders = ['discord', 'gmail', 'notion', 'slack', 'trello', 'airtable', 'google-drive', 'google-sheets', 'google-calendar', 'google-docs', 'microsoft-outlook', 'microsoft-teams', 'outlook', 'dropbox', 'onedrive', 'hubspot', 'salesforce', 'microsoft-excel', 'onenote', 'evernote']
         if (knownProviders.includes(providerId)) {
-          logger.info(`📌 Proceeding with known provider: ${providerId}`)
+          logger.debug(`📌 Proceeding with known provider: ${providerId}`)
         } else {
           // Don't throw error - just log and proceed
           logger.error(`Unknown provider ${providerId}, but proceeding anyway`)
@@ -625,7 +625,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
 
         if (isReconnection && existingIntegration) {
           // Use reconnection flow for existing integrations that need reauth
-          logger.info(`🔄 Starting reconnection flow for ${providerId}`)
+          logger.debug(`🔄 Starting reconnection flow for ${providerId}`)
           result = await OAuthConnectionFlow.startReconnection({
             integrationId: existingIntegration.id,
             integration: existingIntegration,
@@ -709,7 +709,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
               if (typeof window !== 'undefined') {
                 const sync = getCrossTabSync()
                 sync.broadcast('integration-connected', { providerId })
-                logger.info('[IntegrationStore] Broadcasted integration-connected to other tabs')
+                logger.debug('[IntegrationStore] Broadcasted integration-connected to other tabs')
               }
 
               // Fetch from server immediately to update UI with real data
@@ -833,7 +833,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
             integrationId,
             providerId: integration?.provider
           })
-          logger.info('[IntegrationStore] Broadcasted integration-disconnected to other tabs')
+          logger.debug('[IntegrationStore] Broadcasted integration-disconnected to other tabs')
         }
 
         setLoading(loadingKey, false)
@@ -878,7 +878,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
     loadIntegrationData: async (dataType, integrationId, params, forceRefresh = false) => {
       try {
         // Create new request
-        logger.info(`🚀 [IntegrationStore] Starting new request:`, {
+        logger.debug(`🚀 [IntegrationStore] Starting new request:`, {
           dataType,
           integrationId,
           params,
@@ -1115,7 +1115,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       }
 
       // Debug log (commented out to reduce console noise)
-      // logger.info('🔍 [getConnectedProviders] Checking integrations:', {
+      // logger.debug('🔍 [getConnectedProviders] Checking integrations:', {
       //   totalIntegrations: integrations.length,
       //   integrations: integrations.map(i => ({
       //     provider: i.provider,
@@ -1149,7 +1149,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
       // Unlike Google services, Microsoft services (OneNote, Outlook, Teams, OneDrive, Excel) each need
       // their own OAuth connection and should not be considered connected just because one is connected
 
-      // logger.info('🔍 [getConnectedProviders] Final result:', connectedProviders)
+      // logger.debug('🔍 [getConnectedProviders] Final result:', connectedProviders)
       return connectedProviders
     },
 
@@ -1434,7 +1434,7 @@ if (typeof window !== 'undefined') {
 
   // Listen for integration connected events from other tabs
   sync.subscribe('integration-connected', (data) => {
-    logger.info('[IntegrationStore] Received integration-connected event from another tab', data)
+    logger.debug('[IntegrationStore] Received integration-connected event from another tab', data)
     const state = useIntegrationStore.getState()
     // Force refresh integrations to get the latest state
     state.fetchIntegrations(true)
@@ -1442,7 +1442,7 @@ if (typeof window !== 'undefined') {
 
   // Listen for integration disconnected events from other tabs
   sync.subscribe('integration-disconnected', (data) => {
-    logger.info('[IntegrationStore] Received integration-disconnected event from another tab', data)
+    logger.debug('[IntegrationStore] Received integration-disconnected event from another tab', data)
     const state = useIntegrationStore.getState()
     // Force refresh integrations to get the latest state
     state.fetchIntegrations(true)
@@ -1450,7 +1450,7 @@ if (typeof window !== 'undefined') {
 
   // Listen for integration refresh requests from other tabs
   sync.subscribe('integration-refresh', () => {
-    logger.info('[IntegrationStore] Received integration-refresh event from another tab')
+    logger.debug('[IntegrationStore] Received integration-refresh event from another tab')
     const state = useIntegrationStore.getState()
     // Force refresh integrations
     state.fetchIntegrations(true)

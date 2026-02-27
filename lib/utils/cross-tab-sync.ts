@@ -66,7 +66,7 @@ export class CrossTabSync {
       try {
         this.channel = new BroadcastChannel(this.channelName)
         this.channel.onmessage = this.handleMessage.bind(this)
-        logger.info('[CrossTabSync] Initialized with Broadcast Channel API', {
+        logger.debug('[CrossTabSync] Initialized with Broadcast Channel API', {
           tabId: this.tabId,
           channel: this.channelName
         })
@@ -108,7 +108,7 @@ export class CrossTabSync {
       }
     }
     window.addEventListener('storage', this.storageListener)
-    logger.info('[CrossTabSync] Initialized with localStorage fallback', {
+    logger.debug('[CrossTabSync] Initialized with localStorage fallback', {
       tabId: this.tabId
     })
   }
@@ -131,7 +131,7 @@ export class CrossTabSync {
       return
     }
 
-    logger.info('[CrossTabSync] Received message from another tab', {
+    logger.debug('[CrossTabSync] Received message from another tab', {
       type: message.type,
       fromTab: message.tabId,
       currentTab: this.tabId,
@@ -181,7 +181,7 @@ export class CrossTabSync {
         }, 100)
       }
 
-      logger.info('[CrossTabSync] Broadcasted message', {
+      logger.debug('[CrossTabSync] Broadcasted message', {
         type,
         tabId: this.tabId,
         method: this.useLocalStorage ? 'localStorage' : 'BroadcastChannel'
@@ -204,7 +204,7 @@ export class CrossTabSync {
 
     this.listeners.get(type)!.add(callback)
 
-    logger.info('[CrossTabSync] Subscribed to event', {
+    logger.debug('[CrossTabSync] Subscribed to event', {
       type,
       tabId: this.tabId,
       totalListeners: this.listeners.get(type)!.size
@@ -238,7 +238,7 @@ export class CrossTabSync {
 
     this.listeners.clear()
 
-    logger.info('[CrossTabSync] Cleaned up', { tabId: this.tabId })
+    logger.debug('[CrossTabSync] Cleaned up', { tabId: this.tabId })
   }
 
   /**

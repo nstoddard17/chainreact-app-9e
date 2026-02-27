@@ -232,16 +232,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
   // Debug: Log state changes for test flow
   useEffect(() => {
     if (testFlowStatus !== 'idle' || nodeExecutionData) {
-      console.log(`[CustomNode ${id}] Test state:`, {
-        testFlowStatus,
-        currentExecutingNodeId,
-        isTestListeningForNode,
-        isTestPausedForNode,
-        isTestRunningForNode,
-        isTestCompletedForNode,
-        isTestFailedForNode,
-        nodeExecutionData
-      })
+      logger.debug(`[CustomNode] Test state`, { nodeId: id, testFlowStatus })
     }
   }, [testFlowStatus, currentExecutingNodeId, isTestListeningForNode, isTestPausedForNode, isTestRunningForNode, isTestCompletedForNode, isTestFailedForNode, nodeExecutionData, id])
 
@@ -392,15 +383,12 @@ function CustomNode({ id, data, selected }: NodeProps) {
     const isGetTableSchema = type === 'airtable_action_get_table_schema';
     const isHITL = type === 'hitl_conversation';
 
-    // Debug for HITL node - use JSON.stringify for immediate visibility
+    // Debug for HITL node
     if (isHITL) {
-      console.log('[HITL Debug] hasRequiredFieldsMissing check:',
-        'hasValidationState=' + !!data.validationState,
-        'isValid=' + data.validationState?.isValid,
-        'isValidType=' + typeof data.validationState?.isValid,
-        'missingRequired=' + JSON.stringify(data.validationState?.missingRequired),
-        'configKeys=' + (config ? Object.keys(config).join(',') : 'none')
-      );
+      logger.debug('[HITL] hasRequiredFieldsMissing check', {
+        hasValidationState: !!data.validationState,
+        isValid: data.validationState?.isValid,
+      });
     }
 
     // Path 1: If we have validation state from the configuration form, use it (most reliable)
@@ -409,12 +397,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       const hasMissingRequired = (data.validationState.missingRequired?.length ?? 0) > 0
 
       if (isGetTableSchema || isHITL) {
-        console.log('[HITL/Get Table Schema Debug] Path 1 taken:',
-          'isValid=' + isValid,
-          'isValidStrictTrue=' + (isValid === true),
-          'hasMissingRequired=' + hasMissingRequired,
-          'returning=' + (isValid === true ? 'false' : isValid === false ? 'true' : String(hasMissingRequired))
-        );
+        logger.debug('[HITL] Path 1', { isValid, hasMissingRequired });
       }
 
       if (isValid === true) return false
@@ -439,12 +422,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
       )
 
       if (isGetTableSchema || isHITL) {
-        console.log('[HITL/Get Table Schema Debug] FieldVisibilityEngine Check:', {
-          missingFields,
-          config,
-          configSchemaLength: component.configSchema?.length,
-          requiredFields: component.configSchema?.filter((f: any) => f.required).map((f: any) => f.name)
-        });
+        logger.debug('[HITL] FieldVisibilityEngine check', { missingFieldCount: missingFields.length });
       }
 
       return missingFields.length > 0
@@ -758,13 +736,6 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    console.log('🔍 [CustomNode] Click detected:', {
-      nodeId: id,
-      type,
-      hasOnConfigure: !!onConfigure,
-      nodeHasConfiguration: nodeHasConfiguration(),
-      isFlowTesting: data.isFlowTesting
-    })
 
     // Disable click interactions during flow testing
     if (data.isFlowTesting) {
@@ -777,21 +748,13 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
     // Manual triggers open the trigger selection dialog on click
     if (type === 'manual' && onConfigure) {
-      console.log('🔍 [CustomNode] Opening manual trigger dialog')
-      // For manual triggers, onConfigure should open the trigger selection dialog
       onConfigure(id)
       return
     }
 
     // Only open configuration if the node has configuration options
     if (nodeHasConfiguration() && onConfigure) {
-      console.log('🔍 [CustomNode] Calling onConfigure')
       onConfigure(id)
-    } else {
-      console.log('🔍 [CustomNode] NOT calling onConfigure:', {
-        nodeHasConfiguration: nodeHasConfiguration(),
-        hasOnConfigure: !!onConfigure
-      })
     }
   }
 
@@ -1667,7 +1630,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                         logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
                         setLogoLoadFailed(true)
                       }}
-                      onLoad={() => logger.info(`Successfully loaded logo for ${providerId}`)}
+                      onLoad={() => {}}
                     />
                   ) : (
                     component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })
@@ -2094,7 +2057,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                     logger.error(`Failed to load logo for ${providerId} at path: /integrations/${providerId}.svg`)
                     setLogoLoadFailed(true)
                   }}
-                  onLoad={() => logger.info(`Successfully loaded logo for ${providerId}`)}
+                  onLoad={() => {}}
                 />
               ) : (
                 component?.icon && React.createElement(component.icon, { className: "h-7 w-7 text-foreground flex-shrink-0" })

@@ -7,8 +7,8 @@ import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   const { workspaceId } = await request.json();
-  logger.info("🔍 Workspace plan request for workspaceId:", workspaceId);
-  
+  logger.debug("[Slack] Workspace plan request", { workspaceId });
+
   const supabase = await createSupabaseRouteHandlerClient();
 
   // First, let's check what integrations exist for this workspace
@@ -16,9 +16,6 @@ export async function POST(request: NextRequest) {
     .from("integrations")
     .select("id, provider, team_id, provider_plan, status")
     .eq("provider", "slack");
-
-  logger.info("🔍 All Slack integrations:", allIntegrations);
-  logger.info("🔍 All Slack integrations error:", allError);
 
   // First try to find integration by team_id column
   let { data, error } = await supabase
@@ -28,11 +25,11 @@ export async function POST(request: NextRequest) {
     .eq("team_id", workspaceId)
     .single();
 
-  logger.info("🔍 Workspace plan query result (team_id column):", { data, error, workspaceId });
+  logger.debug("[Slack] Workspace plan query", { hasData: !!data, hasError: !!error });
 
   // If not found by team_id column, try to find by metadata.team_id (fallback for older integrations)
   if (error || !data) {
-    logger.info("🔍 No data found by team_id column, trying metadata.team_id");
+    logger.debug("[Slack] Trying metadata.team_id fallback");
     const { data: metadataData, error: metadataError } = await supabase
       .from("integrations")
       .select("provider_plan, team_id, user_id, metadata, access_token")
@@ -40,10 +37,10 @@ export async function POST(request: NextRequest) {
       .filter("metadata->>team_id", "eq", workspaceId)
       .single();
 
-    logger.info("🔍 Workspace plan query result (metadata):", { data: metadataData, error: metadataError, workspaceId });
+    logger.debug("[Slack] Metadata query", { hasData: !!metadataData, hasError: !!metadataError });
 
     if (metadataError || !metadataData) {
-      logger.info("🔍 No plan data found in either location, returning free plan");
+      logger.debug("[Slack] No plan data found, returning free plan");
       return jsonResponse({ plan: "free" }); // fallback
     }
 
@@ -52,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // Migrate: Update the team_id column for this integration
     if (data && data.metadata?.team_id && !data.team_id) {
-      logger.info("🔍 Migrating team_id from metadata to column for integration:", data.user_id);
+      logger.debug("[Slack] Migrating team_id from metadata to column");
       await supabase
         .from("integrations")
         .update({ team_id: data.metadata.team_id })
@@ -63,17 +60,16 @@ export async function POST(request: NextRequest) {
 
   // If provider_plan is null or undefined, try to fetch it from Slack API
   if (!data.provider_plan) {
-    logger.info("🔍 Provider plan not set, attempting to fetch from Slack API");
-    
+    logger.debug("[Slack] Provider plan not set, fetching from Slack API");
+
     if (!data.access_token) {
-      logger.info("🔍 No access token found, returning free plan");
+      logger.debug("[Slack] No access token found, returning free plan");
       return jsonResponse({ plan: "free" });
     }
 
     try {
       // Decrypt the access token
       const decryptedToken = decrypt(data.access_token);
-      logger.info("🔍 Successfully decrypted access token");
 
       // Fetch plan from Slack API directly
       const response = await fetch("https://slack.com/api/team.info", {
@@ -82,17 +78,16 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/x-www-form-urlencoded",
         },
       });
-      
+
       const slackData = await response.json();
-      logger.info("🔍 Slack API response:", slackData);
-      
+
       if (!slackData.ok) {
-        logger.info("🔍 Slack API returned error, returning free plan");
+        logger.debug("[Slack] API returned error, returning free plan");
         return jsonResponse({ plan: "free" });
       }
 
       const plan = slackData.team?.plan || "free";
-      logger.info("🔍 Retrieved plan from Slack API:", plan);
+      logger.debug("[Slack] Retrieved plan from API", { plan });
 
       // Update the integration record with the plan
       await supabase
@@ -101,17 +96,15 @@ export async function POST(request: NextRequest) {
         .eq("provider", "slack")
         .eq("team_id", workspaceId);
 
-      logger.info("🔍 Updated integration with plan:", plan);
       return jsonResponse({ plan });
-      
+
     } catch (apiError) {
-      logger.error("🔍 Failed to fetch plan from Slack API:", apiError);
-      logger.info("🔍 Falling back to free plan due to API error");
+      logger.error("[Slack] Failed to fetch plan from API:", apiError);
       return jsonResponse({ plan: "free" });
     }
   }
 
   const plan = data.provider_plan || "free";
-  logger.info("🔍 Returning plan:", plan);
+  logger.debug("[Slack] Returning plan", { plan });
   return jsonResponse({ plan });
-} 
+}

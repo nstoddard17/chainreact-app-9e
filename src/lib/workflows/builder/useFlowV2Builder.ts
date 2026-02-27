@@ -13,6 +13,7 @@ import {
   type Connection,
 } from "@xyflow/react"
 
+import { logger } from '@/lib/utils/logger'
 import { FlowSchema, type Flow, type FlowInterface, type Node as FlowNode, type Edge as FlowEdge } from "./schema"
 import { addNodeEdit, oldConnectToEdge, generateId } from "../compat/v2Adapter"
 import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
@@ -281,7 +282,7 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
   }
 
   if (incomingEdges.length > 1 || outgoingEdges.length > 1) {
-    console.warn("[useFlowV2Builder] Skipping reorder due to branching connections", {
+    logger.warn("[useFlowV2Builder] Skipping reorder due to branching connections", {
       orderedNodeIds,
       incoming: incomingEdges.length,
       outgoing: outgoingEdges.length,
@@ -514,7 +515,7 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
         // Atomic node replacement - avoids intermediate "no trigger" state
         const oldNode = working.nodes.find((node) => node.id === edit.oldNodeId)
         if (!oldNode) {
-          console.warn(`[applyPlannerEdits] replaceNode: old node ${edit.oldNodeId} not found`)
+          logger.warn(`[applyPlannerEdits] replaceNode: old node ${edit.oldNodeId} not found`)
           break
         }
 
@@ -583,7 +584,7 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
 
     // Debug: Log when catalog lookup fails
     if (!catalogNode) {
-      console.warn(`[flowToReactFlowNodes] Node type not found in catalog: "${node.type}"`, {
+      logger.warn(`[flowToReactFlowNodes] Node type not found in catalog: "${node.type}"`, {
         nodeId: node.id,
         nodeType: node.type,
         availableTypes: Array.from(NODE_COMPONENT_MAP.keys()).slice(0, 10), // First 10 for brevity
@@ -665,7 +666,7 @@ function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
   for (const edge of flow.edges) {
     const key = `${edge.from.nodeId}->${edge.to.nodeId}`
     if (seenEdges.has(key)) {
-      console.warn(`[flowToReactFlowEdges] Skipping duplicate edge: ${key} (id: ${edge.id})`)
+      logger.warn(`[flowToReactFlowEdges] Skipping duplicate edge: ${key} (id: ${edge.id})`)
       continue
     }
     seenEdges.add(key)
@@ -730,7 +731,7 @@ function detectMissingEdges(flow: Flow): Array<{ op: "connect"; edge: FlowEdge }
     const key = `${current.id}->${next.id}`
 
     if (!existingEdges.has(key)) {
-      console.log(`[detectMissingEdges] Found missing edge: ${current.id} -> ${next.id}`)
+      logger.debug(`[detectMissingEdges] Found missing edge: ${current.id} -> ${next.id}`)
       missingEdges.push({
         op: "connect",
         edge: {
@@ -751,10 +752,10 @@ const ALIGNMENT_LOG_PREFIX = "[WorkflowAlign]"
 function debugLog(label: string, payload?: any) {
   if (typeof window === "undefined") return
   if (payload === undefined) {
-    console.log(`${ALIGNMENT_LOG_PREFIX} ${label}`)
+    logger.debug(`${ALIGNMENT_LOG_PREFIX} ${label}`)
     return
   }
-  console.log(`${ALIGNMENT_LOG_PREFIX} ${label}: ${JSON.stringify(payload, null, 2)}`)
+  logger.debug(`${ALIGNMENT_LOG_PREFIX} ${label}: ${JSON.stringify(payload, null, 2)}`)
 }
 
 function debugLogNodes(label: string, nodes: ReactFlowNode[]) {
@@ -1222,7 +1223,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       const seenEdgeIds = new Set<string>()
       const deduplicatedEdges = edges.filter(edge => {
         if (seenEdgeIds.has(edge.id)) {
-          console.warn(`[updateReactFlowGraph] Skipping duplicate edge ID: ${edge.id}`)
+          logger.warn(`[updateReactFlowGraph] Skipping duplicate edge ID: ${edge.id}`)
           return false
         }
         seenEdgeIds.add(edge.id)
@@ -1255,7 +1256,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
     // Prevent concurrent loads (e.g., from React StrictMode double-invoke)
     if (isLoadInProgressRef.current) {
-      console.log('[useFlowV2Builder] Load already in progress, skipping duplicate call')
+      logger.debug('[useFlowV2Builder] Load already in progress, skipping duplicate call')
       return
     }
     isLoadInProgressRef.current = true
@@ -1270,14 +1271,14 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       if (hasTriggers) return status
 
       // No triggers but marked active - auto-deactivate
-      console.log(`[useFlowV2Builder] Auto-deactivating workflow ${flowId} - no triggers but marked active`)
+      logger.debug(`[useFlowV2Builder] Auto-deactivating workflow ${flowId} - no triggers but marked active`)
       try {
         const response = await fetch(`/api/workflows/${flowId}/deactivate`, {
           method: 'POST',
           credentials: 'include',
         })
         if (response.ok) {
-          console.log(`[useFlowV2Builder] Successfully auto-deactivated workflow ${flowId}`)
+          logger.debug(`[useFlowV2Builder] Successfully auto-deactivated workflow ${flowId}`)
           return 'draft'
         }
       } catch (error) {
@@ -1293,7 +1294,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         return { repairedFlow: flow, hadRepairs: false }
       }
 
-      console.log(`[useFlowV2Builder] Repairing ${missingEdgeEdits.length} missing edges`)
+      logger.debug(`[useFlowV2Builder] Repairing ${missingEdgeEdits.length} missing edges`)
       const repairedFlow = {
         ...flow,
         edges: [
@@ -1319,7 +1320,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             }),
           }
         )
-        console.log('[useFlowV2Builder] Successfully persisted repaired flow with edges')
+        logger.debug('[useFlowV2Builder] Successfully persisted repaired flow with edges')
         return payload
       } catch (error) {
         console.error('[useFlowV2Builder] Failed to persist repaired flow:', error)
@@ -1680,24 +1681,24 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
   const updateFlowName = useCallback(
     async (name: string) => {
-      console.log('[useFlowV2Builder] updateFlowName called with:', name)
+      logger.debug('[useFlowV2Builder] updateFlowName called with:', name)
       const baseFlow = await ensureFlow()
       const trimmed = name.trim()
-      console.log('[useFlowV2Builder] Current flow name:', baseFlow.name, '| New trimmed name:', trimmed)
+      logger.debug('[useFlowV2Builder] Current flow name:', baseFlow.name, '| New trimmed name:', trimmed)
 
       if (!trimmed || baseFlow.name === trimmed) {
-        console.log('[useFlowV2Builder] ⚠️ Skipping update - name is empty or unchanged')
+        logger.debug('[useFlowV2Builder] ⚠️ Skipping update - name is empty or unchanged')
         return
       }
 
       const nextFlow = cloneFlow(baseFlow)
       nextFlow.name = trimmed
       nextFlow.version = (nextFlow.version ?? 0) + 1
-      console.log('[useFlowV2Builder] Preparing to update flow name to:', trimmed, '| New version:', nextFlow.version)
+      logger.debug('[useFlowV2Builder] Preparing to update flow name to:', trimmed, '| New version:', nextFlow.version)
 
       setSaving(true)
       try {
-        console.log('[useFlowV2Builder] Calling /apply-edits API...')
+        logger.debug('[useFlowV2Builder] Calling /apply-edits API...')
         const payload = await fetchJson<{ flow: Flow; revisionId?: string; version?: number }>(
           `${flowApiUrl(flowId, '/apply-edits')}`,
           {
@@ -1709,13 +1710,13 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             }),
           }
         )
-        console.log('[useFlowV2Builder] ✅ API call succeeded, received flow with name:', payload.flow.name)
+        logger.debug('[useFlowV2Builder] ✅ API call succeeded, received flow with name:', payload.flow.name)
 
         const updatedFlow = FlowSchema.parse(payload.flow)
         flowRef.current = updatedFlow
         revisionIdRef.current = payload.revisionId ?? revisionIdRef.current
         updateReactFlowGraph(updatedFlow)
-        console.log('[useFlowV2Builder] ✅ Updated refs and graph')
+        logger.debug('[useFlowV2Builder] ✅ Updated refs and graph')
 
         setFlowState((prev) => ({
           ...prev,
@@ -1724,7 +1725,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           version: updatedFlow.version ?? payload.version ?? prev.version,
           revisionCount: (prev.revisionCount ?? 0) + 1,
         }))
-        console.log('[useFlowV2Builder] ✅ Updated flowState with new name:', updatedFlow.name)
+        logger.debug('[useFlowV2Builder] ✅ Updated flowState with new name:', updatedFlow.name)
       } finally {
         setSaving(false)
       }
@@ -1937,7 +1938,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       const payload = await fetchJson<any>(flowApiUrl(flowId, '/estimate'))
       return payload
     } catch (error) {
-      console.warn("[useFlowV2Builder] estimate unavailable", error)
+      logger.warn("[useFlowV2Builder] estimate unavailable", error)
       return null
     }
   }, [flowId])
@@ -2126,7 +2127,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       })], { type: 'application/json' })
 
       navigator.sendBeacon(url, blob)
-      console.log('[useFlowV2Builder] Flushed pending config via sendBeacon on page unload')
+      logger.debug('[useFlowV2Builder] Flushed pending config via sendBeacon on page unload')
 
       // Clear the pending config
       pendingConfigRef.current = new Map()

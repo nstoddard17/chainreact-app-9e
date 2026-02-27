@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react'
 import ConfigurationForm from '../ConfigurationForm'
 import { ServiceConnectionSelector } from '../ServiceConnectionSelector'
 import { useIntegrationStore } from '@/stores/integrationStore'
+import { logger } from '@/lib/utils/logger'
 import { getProviderBrandName } from '@/lib/integrations/brandNames'
 import { useToast } from '@/hooks/use-toast'
 import { AlertCircle } from 'lucide-react'
@@ -144,32 +145,10 @@ export function SetupTab(props: SetupTabProps) {
       lastKnownIntegrationsCache = storeState.integrations
     }
 
-    // DEBUG: Log all integrations to help trace connection status issues
-    const fallbackSource = integrations.length > 0 ? 'reactive' :
-      storeState.integrations.length > 0 ? 'getState' : 'moduleCache'
-    console.log('🔍 [SetupTab] Debug - All integrations:', effectiveIntegrations.map(int => ({
-      id: int.id,
-      provider: int.provider,
-      status: int.status,
-      workspace_type: int.workspace_type
-    })))
-    console.log('🔍 [SetupTab] Debug - Looking for provider:', nodeInfo.providerId)
-    console.log('🔍 [SetupTab] Debug - Using source:', fallbackSource, '| counts:', {
-      reactive: integrations.length,
-      getState: storeState.integrations.length,
-      moduleCache: lastKnownIntegrationsCache.length
-    })
-
     // Get all integrations that match this provider
     const providerIntegrations = effectiveIntegrations.filter(
       int => int.provider === nodeInfo.providerId
     )
-
-    console.log('🔍 [SetupTab] Debug - Matching integrations:', providerIntegrations.map(int => ({
-      id: int.id,
-      provider: int.provider,
-      status: int.status
-    })))
 
     const isConnectedStatus = (status?: string) => {
       if (!status) return false
@@ -230,12 +209,6 @@ export function SetupTab(props: SetupTabProps) {
         workspace_id: integration.workspace_id,
         created_at: integration.created_at,
       }
-
-      console.log('🔍 [SetupTab] Debug - Mapped connection:', {
-        provider: mappedConnection.provider,
-        status: mappedConnection.status,
-        originalStatus: integration.status
-      })
 
       return mappedConnection
     })

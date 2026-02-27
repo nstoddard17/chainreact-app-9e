@@ -131,7 +131,7 @@ function ConfigurationForm({
       }
     }
 
-    logger.info('🔄 [ConfigForm] Initializing values with initialData:', {
+    logger.debug('🔄 [ConfigForm] Initializing values with initialData:', {
       nodeType: nodeInfo?.type,
       providerId: nodeInfo?.providerId,
       currentNodeId,
@@ -256,7 +256,7 @@ function ConfigurationForm({
     if (!selectedIntegrationId && connectedIntegrations.length > 0) {
       const firstConnected = connectedIntegrations[0];
       setSelectedIntegrationId(firstConnected.id);
-      logger.info('[ConfigForm] Auto-selected first connected integration:', { integrationId: firstConnected.id });
+      logger.debug('[ConfigForm] Auto-selected first connected integration:', { integrationId: firstConnected.id });
       return;
     }
 
@@ -294,7 +294,7 @@ function ConfigurationForm({
       ...prev,
       integration_id: integrationId
     }));
-    logger.info('[ConfigForm] Selected account changed:', { integrationId });
+    logger.debug('[ConfigForm] Selected account changed:', { integrationId });
   }, []);
 
   // Helper function to check if status means connected
@@ -332,7 +332,7 @@ function ConfigurationForm({
       // Load labels from saved config into localStorage SYNCHRONOUSLY
       loadLabelsIntoCache(nodeInfo.providerId, nodeInfo.type, initialData);
 
-      logger.info('[ConfigForm] Loaded saved labels into cache:', {
+      logger.debug('[ConfigForm] Loaded saved labels into cache:', {
         providerId: nodeInfo.providerId,
         nodeType: nodeInfo.type,
         hasLabels: Object.keys(initialData).some(k => k.startsWith('_label_'))
@@ -392,38 +392,38 @@ function ConfigurationForm({
     onOptionsUpdated: useCallback((updatedOptions: Record<string, any>) => {
       // Update the form values with the latest dynamic options
       // This ensures they persist between modal opens
-      logger.info('📝 [ConfigForm] Dynamic options updated, saving to form values:', Object.keys(updatedOptions));
+      logger.debug('📝 [ConfigForm] Dynamic options updated, saving to form values:', Object.keys(updatedOptions));
       setValues(prev => ({
         ...prev,
         __dynamicOptions: updatedOptions
       }));
     }, []),
     onLoadingChange: (fieldName: string, isLoading: boolean) => {
-      logger.info(`🔧 [ConfigForm] onLoadingChange called:`, { fieldName, isLoading });
+      logger.debug(`🔧 [ConfigForm] onLoadingChange called:`, { fieldName, isLoading });
 
       setLoadingFields(prev => {
         const newSet = new Set(prev);
         if (isLoading) {
-          logger.info(`➕ [ConfigForm] Adding ${fieldName} to loadingFields`);
+          logger.debug(`➕ [ConfigForm] Adding ${fieldName} to loadingFields`);
           newSet.add(fieldName);
 
           // Set a timeout to clear loading state after 10 seconds to prevent infinite loading
           setTimeout(() => {
-            logger.info(`⏱️ [ConfigForm] Timeout reached for ${fieldName}, clearing loading state`);
+            logger.debug(`⏱️ [ConfigForm] Timeout reached for ${fieldName}, clearing loading state`);
             setLoadingFields(prevFields => {
               const updatedSet = new Set(prevFields);
               if (updatedSet.has(fieldName)) {
-                logger.info(`🧹 [ConfigForm] Force clearing ${fieldName} from loadingFields due to timeout`);
+                logger.debug(`🧹 [ConfigForm] Force clearing ${fieldName} from loadingFields due to timeout`);
                 updatedSet.delete(fieldName);
               }
               return updatedSet;
             });
           }, 10000);
         } else {
-          logger.info(`➖ [ConfigForm] Removing ${fieldName} from loadingFields`);
+          logger.debug(`➖ [ConfigForm] Removing ${fieldName} from loadingFields`);
           newSet.delete(fieldName);
         }
-        logger.info(`📊 [ConfigForm] LoadingFields after update:`, Array.from(newSet));
+        logger.debug(`📊 [ConfigForm] LoadingFields after update:`, Array.from(newSet));
         return newSet;
       });
 
@@ -545,7 +545,7 @@ function ConfigurationForm({
   // NOTE: Conditional return for !nodeInfo moved to after all hooks (see ~line 1341)
   // This ensures React hooks are always called in the same order
 
-  logger.info('🔍 [ConfigForm] Provider routing:', {
+  logger.debug('🔍 [ConfigForm] Provider routing:', {
     provider,
     nodeType,
     hasConfigSchema: !!nodeInfo.configSchema,
@@ -560,7 +560,7 @@ function ConfigurationForm({
     // Only initialize once per node - subsequent renders should preserve user selections
     // This fixes a bug where trigger combobox selections clear when AI Agent conversation exists
     if (hasInitializedForNodeRef.current === currentNodeId) {
-      logger.info('🔄 [ConfigForm] Skipping re-initialization - already initialized for node:', currentNodeId);
+      logger.debug('🔄 [ConfigForm] Skipping re-initialization - already initialized for node:', currentNodeId);
       return;
     }
 
@@ -570,7 +570,7 @@ function ConfigurationForm({
     // Reset cleared fields when switching to a different node
     clearedFieldsRef.current = new Set();
 
-    logger.info('🔄 [ConfigForm] Initializing form values:', {
+    logger.debug('🔄 [ConfigForm] Initializing form values:', {
       nodeType: nodeInfo?.type,
       initialData,
       hasInitialData: !!initialData && Object.keys(initialData).length > 0,
@@ -590,7 +590,7 @@ function ConfigurationForm({
         if (value !== undefined) {
           // Check if this field was manually cleared by a provider handler
           if (clearedFieldsRef.current.has(key)) {
-            logger.info(`🚫 [ConfigForm] Skipping restore of ${key} because it was manually cleared by provider handler`);
+            logger.debug(`🚫 [ConfigForm] Skipping restore of ${key} because it was manually cleared by provider handler`);
             return;
           }
 
@@ -605,12 +605,12 @@ function ConfigurationForm({
           const hasAIPlaceholder = typeof value === 'string' && value.startsWith('{{AI_FIELD:');
 
           if ((isSlackSelectorField || isNotionDatabaseField) && hasAIPlaceholder) {
-            logger.info(`🚫 [ConfigForm] Clearing AI placeholder from selector field: ${key}`);
+            logger.debug(`🚫 [ConfigForm] Clearing AI placeholder from selector field: ${key}`);
             initialValues[key] = ''; // Clear the AI placeholder
 
             // Mark as manually cleared to prevent any restoration
             clearedFieldsRef.current.add(key);
-            logger.info(`🚫 [ConfigForm] Marked selector field as cleared: ${key}`);
+            logger.debug(`🚫 [ConfigForm] Marked selector field as cleared: ${key}`);
 
             // Also ensure this field is not marked as an AI field
             // Use functional update to avoid needing aiFields in deps
@@ -635,20 +635,20 @@ function ConfigurationForm({
       if (nodeInfo?.type === 'slack_action_send_message') {
         clearedFieldsRef.current.add('channel');
         clearedFieldsRef.current.add('asUser');
-        logger.info('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared to prevent AI mode');
+        logger.debug('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared to prevent AI mode');
       }
 
       // For Notion create page, ALWAYS mark database fields as cleared to prevent AI mode
       if (nodeInfo?.type === 'notion_action_create_page') {
         clearedFieldsRef.current.add('database');
         clearedFieldsRef.current.add('databaseId');
-        logger.info('🚫 [ConfigForm] Pre-marked Notion database fields as cleared to prevent AI mode');
+        logger.debug('🚫 [ConfigForm] Pre-marked Notion database fields as cleared to prevent AI mode');
       }
 
       // If connected to AI Agent and _allFieldsAI not explicitly set, add it
       if (isConnectedToAIAgent && initialData._allFieldsAI === undefined) {
         initialValues._allFieldsAI = true;
-        logger.info('🤖 [ConfigForm] Auto-enabling _allFieldsAI for AI Agent chain');
+        logger.debug('🤖 [ConfigForm] Auto-enabling _allFieldsAI for AI Agent chain');
       }
 
       // If _allFieldsAI is set, initialize all fields with AI placeholders
@@ -704,11 +704,11 @@ function ConfigurationForm({
               initialValues[field.name] = `{{AI_FIELD:${field.name}}}`;
             }
           } else if (isSlackSelectorField) {
-            logger.info(`🚫 [ConfigForm] Skipping AI mode for Slack selector field: ${field.name}`);
+            logger.debug(`🚫 [ConfigForm] Skipping AI mode for Slack selector field: ${field.name}`);
           } else if (isNotionDatabaseField) {
-            logger.info(`🚫 [ConfigForm] Skipping AI mode for Notion database field: ${field.name}`);
+            logger.debug(`🚫 [ConfigForm] Skipping AI mode for Notion database field: ${field.name}`);
           } else if (clearedFieldsRef.current.has(field.name)) {
-            logger.info(`🚫 [ConfigForm] Skipping AI mode for manually cleared field: ${field.name}`);
+            logger.debug(`🚫 [ConfigForm] Skipping AI mode for manually cleared field: ${field.name}`);
           }
         });
       }
@@ -716,21 +716,21 @@ function ConfigurationForm({
       // No initial data - if connected to AI Agent, auto-enable AI mode
       if (isConnectedToAIAgent) {
         initialValues._allFieldsAI = true;
-        logger.info('🤖 [ConfigForm] No initial data but connected to AI Agent - enabling _allFieldsAI');
+        logger.debug('🤖 [ConfigForm] No initial data but connected to AI Agent - enabling _allFieldsAI');
       }
 
       // For Slack send message, ALWAYS mark channel and asUser as cleared to prevent AI mode
       if (nodeInfo?.type === 'slack_action_send_message') {
         clearedFieldsRef.current.add('channel');
         clearedFieldsRef.current.add('asUser');
-        logger.info('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared (no initial data)');
+        logger.debug('🚫 [ConfigForm] Pre-marked Slack selector fields as cleared (no initial data)');
       }
 
       // For Notion create page, ALWAYS mark database fields as cleared to prevent AI mode
       if (nodeInfo?.type === 'notion_action_create_page') {
         clearedFieldsRef.current.add('database');
         clearedFieldsRef.current.add('databaseId');
-        logger.info('🚫 [ConfigForm] Pre-marked Notion database fields as cleared (no initial data)');
+        logger.debug('🚫 [ConfigForm] Pre-marked Notion database fields as cleared (no initial data)');
       }
     }
 
@@ -786,10 +786,10 @@ function ConfigurationForm({
     }
 
     const normalizedInitialValues = normalizeAllVariablesInObject(initialValues);
-    logger.info('🔄 [ConfigForm] Setting form values to:', normalizedInitialValues);
-    logger.info('🔍 [ConfigForm] _allFieldsAI in initialValues:', normalizedInitialValues._allFieldsAI);
-    logger.info('🔍 [ConfigForm] _allFieldsAI in initialData:', initialData?._allFieldsAI);
-    logger.info('🔍 [ConfigForm] isConnectedToAIAgent:', isConnectedToAIAgent);
+    logger.debug('🔄 [ConfigForm] Setting form values to:', normalizedInitialValues);
+    logger.debug('🔍 [ConfigForm] _allFieldsAI in initialValues:', normalizedInitialValues._allFieldsAI);
+    logger.debug('🔍 [ConfigForm] _allFieldsAI in initialData:', initialData?._allFieldsAI);
+    logger.debug('🔍 [ConfigForm] isConnectedToAIAgent:', isConnectedToAIAgent);
     setValues(normalizedInitialValues);
     setIsInitialLoading(false);
   }, [nodeInfo, initialData, isConnectedToAIAgent, currentNodeId]);
@@ -887,7 +887,7 @@ function ConfigurationForm({
     );
 
     if (hasChanges && Object.keys(newAiFields).length > 0) {
-      logger.info('🤖 [ConfigForm] Syncing aiFields state:', newAiFields);
+      logger.debug('🤖 [ConfigForm] Syncing aiFields state:', newAiFields);
       setAiFields(newAiFields);
     }
   }, [values, initialData, nodeInfo, aiFields, isConnectedToAIAgent]);
@@ -906,7 +906,7 @@ function ConfigurationForm({
   // Ensure integrations are loaded on mount - WITH DEBOUNCE
   useEffect(() => {
     const componentId = Math.random().toString(36).substr(2, 9);
-    logger.info('🚨 [ConfigForm] MOUNT EFFECT RUNNING', {
+    logger.debug('🚨 [ConfigForm] MOUNT EFFECT RUNNING', {
       nodeType: nodeInfo?.type,
       providerId: nodeInfo?.providerId,
       timestamp: new Date().toISOString(),
@@ -921,14 +921,14 @@ function ConfigurationForm({
 
     // Clear options for Dropbox path field on mount to ensure fresh load
     if (nodeInfo?.providerId === 'dropbox' && resetOptions) {
-      logger.info('🧹 [ConfigForm] Clearing Dropbox path options on mount');
+      logger.debug('🧹 [ConfigForm] Clearing Dropbox path options on mount');
       resetOptions('path');
     }
 
     // Clear options for Trello board field on mount to ensure fresh load
     // This is critical after workflow execution that may have created new boards
     if (nodeInfo?.providerId === 'trello' && resetOptions) {
-      logger.info('🧹 [ConfigForm] Clearing Trello board options on mount to ensure fresh data');
+      logger.debug('🧹 [ConfigForm] Clearing Trello board options on mount to ensure fresh data');
       resetOptions('boardId');
     }
 
@@ -944,7 +944,7 @@ function ConfigurationForm({
                                  (existingIntegration && existingIntegration.status === 'connected');
 
     if (skipIntegrationFetch) {
-      logger.info('⏭️ [ConfigForm] Skipping integration fetch', {
+      logger.debug('⏭️ [ConfigForm] Skipping integration fetch', {
         provider: nodeInfo?.providerId,
         providerToCheck,
         hasExistingIntegration: !!existingIntegration,
@@ -956,7 +956,7 @@ function ConfigurationForm({
     // Load integrations immediately for instant UX - no artificial delay
     const loadIntegrations = async () => {
       if (mounted) {
-        logger.info('🔄 [ConfigForm] Loading integrations immediately', { componentId });
+        logger.debug('🔄 [ConfigForm] Loading integrations immediately', { componentId });
         await fetchIntegrations(); // Regular fetch - concurrent calls are now handled properly
       }
     };
@@ -966,7 +966,7 @@ function ConfigurationForm({
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
-      logger.info('🚨 [ConfigForm] UNMOUNT EFFECT CLEANUP', {
+      logger.debug('🚨 [ConfigForm] UNMOUNT EFFECT CLEANUP', {
         nodeType: nodeInfo?.type,
         timestamp: new Date().toISOString(),
         componentId
@@ -987,7 +987,7 @@ function ConfigurationForm({
     const prevNodeKey = `${nodeInfo?.id}-${nodeInfo?.type}`;
     const isNewNode = prevNodeKey !== previousNodeKeyRef.current;
 
-    logger.info('🔄 [ConfigForm] Reset hasLoadedOnMount for FRESH data load', {
+    logger.debug('🔄 [ConfigForm] Reset hasLoadedOnMount for FRESH data load', {
       nodeId: nodeInfo?.id,
       nodeType: nodeInfo?.type,
       currentNodeId,
@@ -1003,13 +1003,13 @@ function ConfigurationForm({
     // Only clear specific fields that need fresh data on each modal open
     // For Trello, always clear boards to get fresh data
     if (nodeInfo?.providerId === 'trello' && isNewNode) {
-      logger.info('🔄 [ConfigForm] Clearing Trello board cache on modal reopen');
+      logger.debug('🔄 [ConfigForm] Clearing Trello board cache on modal reopen');
       resetOptions('boardId');
     }
 
     // For Microsoft Excel, always clear workbooks to get fresh data when switching nodes
     if (nodeInfo?.providerId === 'microsoft-excel') {
-      logger.info('🔄 [ConfigForm] Clearing Microsoft Excel workbook cache on node switch');
+      logger.debug('🔄 [ConfigForm] Clearing Microsoft Excel workbook cache on node switch');
       resetOptions('workbookId');
       // Also reset dependent fields
       resetOptions('worksheetName');
@@ -1019,13 +1019,13 @@ function ConfigurationForm({
     // For Airtable, don't reset bases as they rarely change
     // Only reset if it's a completely different node
     if (nodeInfo?.providerId === 'airtable') {
-      logger.info('🔄 [ConfigForm] Airtable node - skipping base reset to prevent constant reloading');
+      logger.debug('🔄 [ConfigForm] Airtable node - skipping base reset to prevent constant reloading');
       // Don't reset baseId - let it use cached values
     } else if (nodeInfo?.configSchema) {
       // For other providers, ALWAYS reset loadOnMount fields for fresh data
       nodeInfo.configSchema.forEach((field: any) => {
         if (field.loadOnMount && field.dynamic) {
-          logger.info(`🔄 [ConfigForm] Resetting options for field: ${field.name}`);
+          logger.debug(`🔄 [ConfigForm] Resetting options for field: ${field.name}`);
           resetOptions(field.name);
         }
       });
@@ -1059,7 +1059,7 @@ function ConfigurationForm({
     if (lastLoadTimestampRef.current) {
       const { key: lastKey, time: lastTime } = lastLoadTimestampRef.current;
       if (lastKey === nodeInstanceKey && (now - lastTime) < 100) {
-        logger.info('⏭️ [ConfigForm] Skipping duplicate load - Strict Mode guard', { nodeInstanceKey });
+        logger.debug('⏭️ [ConfigForm] Skipping duplicate load - Strict Mode guard', { nodeInstanceKey });
         return;
       }
     }
@@ -1111,7 +1111,7 @@ function ConfigurationForm({
                                      parentValue !== '';
 
         if (hasValidParentValue && !loadedFieldsWithValues.current.has(field.name) && !loadingFields.has(field.name)) {
-          logger.info(`🔄 [ConfigForm] Field ${field.name} is dependent on ${field.dependsOn} which has value: ${parentValue}`);
+          logger.debug(`🔄 [ConfigForm] Field ${field.name} is dependent on ${field.dependsOn} which has value: ${parentValue}`);
           return true;
         }
       }
@@ -1126,7 +1126,7 @@ function ConfigurationForm({
 
       // Skip if field is currently loading
       if (loadingFields.has(field.name)) {
-        logger.info(`⏭️ [ConfigForm] Skipping ${field.name} - already loading`);
+        logger.debug(`⏭️ [ConfigForm] Skipping ${field.name} - already loading`);
         return false;
       }
 
@@ -1137,7 +1137,7 @@ function ConfigurationForm({
       // Special handling for Trello Move Card - always load cardId and listId if boardId is set
       if (nodeInfo?.type === 'trello_action_move_card' && values.boardId) {
         if (field.name === 'cardId' || field.name === 'listId') {
-          logger.info(`🎯 [ConfigForm] Trello Move Card - field ${field.name} has saved value: ${savedValue}, hasOptions: ${hasOptions}`);
+          logger.debug(`🎯 [ConfigForm] Trello Move Card - field ${field.name} has saved value: ${savedValue}, hasOptions: ${hasOptions}`);
           // Load if no options or if saved value not in options
           if (!hasOptions) {
             return true;
@@ -1147,7 +1147,7 @@ function ConfigurationForm({
             (opt.value === savedValue) || (opt.id === savedValue)
           );
           if (!valueExists) {
-            logger.info(`🎯 [ConfigForm] Saved value ${savedValue} not found in options for ${field.name}, need to reload`);
+            logger.debug(`🎯 [ConfigForm] Saved value ${savedValue} not found in options for ${field.name}, need to reload`);
             return true;
           }
         }
@@ -1155,7 +1155,7 @@ function ConfigurationForm({
 
       // Special handling for Notion page field
       if (nodeInfo?.providerId === 'notion' && field.name === 'page' && values.workspace) {
-        logger.info(`🎯 [ConfigForm] Notion page field - saved value: ${savedValue}, hasOptions: ${hasOptions}`);
+        logger.debug(`🎯 [ConfigForm] Notion page field - saved value: ${savedValue}, hasOptions: ${hasOptions}`);
         if (!hasOptions) {
           return true;
         }
@@ -1164,7 +1164,7 @@ function ConfigurationForm({
           (opt.value === savedValue) || (opt.id === savedValue)
         );
         if (!valueExists) {
-          logger.info(`🎯 [ConfigForm] Saved page ${savedValue} not found in options, need to reload`);
+          logger.debug(`🎯 [ConfigForm] Saved page ${savedValue} not found in options, need to reload`);
           return true;
         }
         return false; // Page is already in options
@@ -1248,7 +1248,7 @@ function ConfigurationForm({
     // Special handling for Facebook shareToGroups field
     // This is a reactive edge case that needs to load when pageId changes
     if (nodeInfo.type === 'facebook_action_create_post' && values.pageId && !dynamicOptions.shareToGroups) {
-      logger.info('🔄 [ConfigForm] Loading Facebook groups for sharing...');
+      logger.debug('🔄 [ConfigForm] Loading Facebook groups for sharing...');
       loadOptions('shareToGroups');
     }
   }, [nodeInfo, isInitialLoading, values.pageId, loadOptions, dynamicOptions]);
@@ -1256,11 +1256,11 @@ function ConfigurationForm({
   // Listen for integration reconnection events to refresh integration status
   useEffect(() => {
     const handleReconnection = (event: CustomEvent) => {
-      logger.info('🔄 [ConfigForm] Integration reconnection event received:', event.detail);
+      logger.debug('🔄 [ConfigForm] Integration reconnection event received:', event.detail);
       
       // Refresh integrations list to get updated status
       if (event.detail?.provider) {
-        logger.info('✅ [ConfigForm] Refreshing integrations after reconnection...');
+        logger.debug('✅ [ConfigForm] Refreshing integrations after reconnection...');
         fetchIntegrations(true); // Force refresh
       }
     };
@@ -1290,7 +1290,7 @@ function ConfigurationForm({
       ...fieldLabels
     };
 
-    logger.info('🎯 [ConfigForm] handleSubmit called with values:', {
+    logger.debug('🎯 [ConfigForm] handleSubmit called with values:', {
       allValues: submissionWithLabels,
       pageFieldsValue: submissionWithLabels.pageFields,
       hasPageFields: 'pageFields' in submissionWithLabels,
@@ -1318,7 +1318,7 @@ function ConfigurationForm({
           timestamp: Date.now()
         });
         if (stored) {
-          logger.info('💾 [ConfigForm] Configuration cached locally for node:', currentNodeId);
+          logger.debug('💾 [ConfigForm] Configuration cached locally for node:', currentNodeId);
         }
       }
 
@@ -1358,7 +1358,7 @@ function ConfigurationForm({
           });
         } catch (storeError) {
           // Ignore - v2 builder handles state separately
-          logger.info('Optional workflowStore update skipped (expected in v2 builder)');
+          logger.debug('Optional workflowStore update skipped (expected in v2 builder)');
         }
       }
     } catch (error) {
@@ -1391,7 +1391,7 @@ function ConfigurationForm({
   // NOW we can do the conditional return (after all hooks have been called)
   // This ensures React hooks are always called in the same order on every render
   if (!nodeInfo) {
-    logger.info('⚠️ [ConfigForm] No nodeInfo provided');
+    logger.debug('⚠️ [ConfigForm] No nodeInfo provided');
     return (
       <div className="flex items-center justify-center h-32 text-slate-500">
         <div className="text-center">
@@ -1507,74 +1507,74 @@ function ConfigurationForm({
   // THIRD THING: Route to the correct provider component
   // Check for specific node types that need custom configuration
   if (nodeInfo?.type === 'schedule') {
-    logger.info('⏰ [ConfigForm] Routing to Schedule configuration');
+    logger.debug('⏰ [ConfigForm] Routing to Schedule configuration');
     return <ScheduleConfiguration {...commonProps} />;
   }
 
   // Check for if/then condition node
   if (nodeInfo?.type === 'if_then_condition') {
-    logger.info('🔀 [ConfigForm] Routing to If/Then configuration');
+    logger.debug('🔀 [ConfigForm] Routing to If/Then configuration');
     return <IfThenConfiguration {...commonProps} />;
   }
 
   // Path Router node has no configuration - it's a placeholder node
   // Paths are configured via connected Path Condition nodes
   if (nodeInfo?.type === 'path') {
-    logger.info('🛤️ [ConfigForm] Path router has no config - showing placeholder');
+    logger.debug('🛤️ [ConfigForm] Path router has no config - showing placeholder');
     return null; // No config needed
   }
 
   // Check for router node (replaces filter and path_condition)
   if (nodeInfo?.type === 'router' || nodeInfo?.type === 'filter' || nodeInfo?.type === 'path_condition') {
-    logger.info('🔀 [ConfigForm] Routing to Router configuration');
+    logger.debug('🔀 [ConfigForm] Routing to Router configuration');
     return <RouterConfiguration {...commonProps} />;
   }
 
   // Check for loop node
   if (nodeInfo?.type === 'loop') {
-    logger.info('🔁 [ConfigForm] Routing to Loop configuration');
+    logger.debug('🔁 [ConfigForm] Routing to Loop configuration');
     return <LoopConfiguration {...commonProps} />;
   }
 
   // Check for HTTP request node
   if (nodeInfo?.type === 'http_request') {
-    logger.info('🌐 [ConfigForm] Routing to HTTP Request configuration');
+    logger.debug('🌐 [ConfigForm] Routing to HTTP Request configuration');
     return <HttpRequestConfiguration {...commonProps} />;
   }
 
   // Utility nodes
   if (nodeInfo?.type === 'transformer') {
-    logger.info('🔧 [ConfigForm] Routing to Transformer configuration');
+    logger.debug('🔧 [ConfigForm] Routing to Transformer configuration');
     return <TransformerConfiguration {...commonProps} />;
   }
 
   if (nodeInfo?.type === 'parse_file') {
-    logger.info('📄 [ConfigForm] Routing to Parse File configuration');
+    logger.debug('📄 [ConfigForm] Routing to Parse File configuration');
     return <ParseFileConfiguration {...commonProps} />;
   }
 
   if (nodeInfo?.type === 'extract_website_data') {
-    logger.info('🌐 [ConfigForm] Routing to Extract Website Data configuration');
+    logger.debug('🌐 [ConfigForm] Routing to Extract Website Data configuration');
     return <ExtractWebsiteDataConfiguration {...commonProps} />;
   }
 
   if (nodeInfo?.type === 'conditional_trigger') {
-    logger.info('⚡ [ConfigForm] Routing to Conditional Trigger configuration');
+    logger.debug('⚡ [ConfigForm] Routing to Conditional Trigger configuration');
     return <ConditionalTriggerConfiguration {...commonProps} />;
   }
 
   if (nodeInfo?.type === 'google_search') {
-    logger.info('🔍 [ConfigForm] Routing to Google Search configuration');
+    logger.debug('🔍 [ConfigForm] Routing to Google Search configuration');
     return <GoogleSearchConfiguration {...commonProps} />;
   }
 
   if (nodeInfo?.type === 'tavily_search') {
-    logger.info('🔎 [ConfigForm] Routing to Tavily Search configuration');
+    logger.debug('🔎 [ConfigForm] Routing to Tavily Search configuration');
     return <TavilySearchConfiguration {...commonProps} />;
   }
 
   if (nodeInfo?.type === 'hitl_conversation') {
-    logger.info('🧑‍🤝‍🧑 [ConfigForm] Routing to Ask Human configuration');
+    logger.debug('🧑‍🤝‍🧑 [ConfigForm] Routing to Ask Human configuration');
     return <AskHumanConfiguration {...commonProps} setValue={setValueBase} />;
   }
 
@@ -1584,22 +1584,22 @@ function ConfigurationForm({
   switch (provider) {
     // Communication
     case 'discord':
-      logger.info('📘 [ConfigForm] Routing to Discord configuration');
+      logger.debug('📘 [ConfigForm] Routing to Discord configuration');
       // Pass the base setValue for Discord to avoid complex field change logic
       // Also pass loadingFields so Discord can check if fields are loading
       return <DiscordConfiguration {...commonProps} setValue={setValueBase} loadingFields={loadingFields} />;
     
     case 'slack':
-      logger.info('💬 [ConfigForm] Routing to Slack configuration');
+      logger.debug('💬 [ConfigForm] Routing to Slack configuration');
       return <SlackConfiguration {...commonProps} />;
     
     case 'teams':
-      logger.info('👥 [ConfigForm] Routing to Teams configuration');
+      logger.debug('👥 [ConfigForm] Routing to Teams configuration');
       return <TeamsConfiguration {...commonProps} />;
     
     // Email
     case 'gmail':
-      logger.info('📧 [ConfigForm] Routing to Gmail configuration');
+      logger.debug('📧 [ConfigForm] Routing to Gmail configuration');
       return <GmailConfiguration {...commonProps} />;
     
     case 'microsoft-outlook':
@@ -1610,7 +1610,7 @@ function ConfigurationForm({
     case 'notion':
       // NOTION WORKSPACE DEBUG: Log when Notion configuration is loaded
       if (commonProps.dynamicOptions?.workspace) {
-        logger.info('🔍 [NOTION DEBUG] Notion workspace options:', {
+        logger.debug('🔍 [NOTION DEBUG] Notion workspace options:', {
           workspaceOptions: commonProps.dynamicOptions.workspace,
           currentValue: commonProps.values?.workspace
         });
@@ -1632,7 +1632,7 @@ function ConfigurationForm({
     
     // Google Services
     case 'google-sheets':
-      logger.info('📊 [ConfigForm] Routing to GoogleSheetsConfiguration', {
+      logger.debug('📊 [ConfigForm] Routing to GoogleSheetsConfiguration', {
         nodeType: nodeInfo?.type,
         providerId: provider,
         configSchemaTypes: nodeInfo?.configSchema?.map((f: any) => f.type)
@@ -1664,68 +1664,68 @@ function ConfigurationForm({
       return <HubSpotConfiguration {...commonProps} />;
     
     case 'stripe':
-      logger.info('💳 [ConfigForm] Routing to Stripe configuration');
+      logger.debug('💳 [ConfigForm] Routing to Stripe configuration');
       return <StripeConfiguration {...commonProps} />;
     
     case 'shopify':
-      logger.info('🛍️ [ConfigForm] Routing to Shopify configuration');
+      logger.debug('🛍️ [ConfigForm] Routing to Shopify configuration');
       return <ShopifyConfiguration {...commonProps} />;
     
     case 'paypal':
-      logger.info('💰 [ConfigForm] Routing to PayPal configuration');
+      logger.debug('💰 [ConfigForm] Routing to PayPal configuration');
       return <PayPalConfiguration {...commonProps} />;
     
     // Social Media
     case 'twitter':
-      logger.info('🐦 [ConfigForm] Routing to Twitter configuration');
+      logger.debug('🐦 [ConfigForm] Routing to Twitter configuration');
       return <TwitterConfiguration {...commonProps} />;
     
     case 'facebook':
-      logger.info('👤 [ConfigForm] Routing to Facebook configuration');
+      logger.debug('👤 [ConfigForm] Routing to Facebook configuration');
       return <FacebookConfiguration {...commonProps} />;
     
     case 'linkedin':
-      logger.info('💼 [ConfigForm] Routing to LinkedIn configuration');
+      logger.debug('💼 [ConfigForm] Routing to LinkedIn configuration');
       return <LinkedInConfiguration {...commonProps} />;
     
     case 'instagram':
-      logger.info('📸 [ConfigForm] Routing to Instagram configuration');
+      logger.debug('📸 [ConfigForm] Routing to Instagram configuration');
       return <InstagramConfiguration {...commonProps} />;
     
     case 'youtube':
-      logger.info('📺 [ConfigForm] Routing to YouTube configuration');
+      logger.debug('📺 [ConfigForm] Routing to YouTube configuration');
       return <YouTubeConfiguration {...commonProps} />;
     
     case 'youtube-studio':
-      logger.info('🎬 [ConfigForm] Routing to YouTube Studio configuration');
+      logger.debug('🎬 [ConfigForm] Routing to YouTube Studio configuration');
       return <YouTubeStudioConfiguration {...commonProps} />;
 
     // File Storage
     case 'dropbox':
-      logger.info('📦 [ConfigForm] Routing to Dropbox configuration');
+      logger.debug('📦 [ConfigForm] Routing to Dropbox configuration');
       return <DropboxConfiguration {...commonProps} />;
     
     case 'box':
-      logger.info('📦 [ConfigForm] Routing to Box configuration');
+      logger.debug('📦 [ConfigForm] Routing to Box configuration');
       return <BoxConfiguration {...commonProps} />;
     
     // Development
     case 'github':
-      logger.info('🐙 [ConfigForm] Routing to GitHub configuration');
+      logger.debug('🐙 [ConfigForm] Routing to GitHub configuration');
       return <GitHubConfiguration {...commonProps} />;
 
     // Productivity
     case 'monday':
-      logger.info('📊 [ConfigForm] Routing to Monday.com configuration');
+      logger.debug('📊 [ConfigForm] Routing to Monday.com configuration');
       return <MondayConfiguration {...commonProps} />;
 
     // Automation
     case 'webhook':
-      logger.info('🔗 [ConfigForm] Routing to Webhook configuration');
+      logger.debug('🔗 [ConfigForm] Routing to Webhook configuration');
       return <WebhookConfiguration {...commonProps} />;
 
     default:
-      logger.info('📕 [ConfigForm] Routing to Generic configuration for provider:', provider);
+      logger.debug('📕 [ConfigForm] Routing to Generic configuration for provider:', provider);
       return <GenericConfiguration {...commonProps} resetOptions={resetOptions} />;
   }
 }

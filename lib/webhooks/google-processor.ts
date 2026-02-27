@@ -678,7 +678,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     || null
   let subscriptionMetadata: any = null
 
-  if (channelId && subscriptionSource === 'google_watch_subscriptions') {
+  if (channelId) {
     const { data: byChannel } = await supabase
       .from('google_watch_subscriptions')
       .select('page_token, updated_at, provider, metadata')
@@ -1027,7 +1027,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       const { data: existing } = await supabase
         .from('trigger_resources')
         .select('config')
-        .eq('provider_id', 'google-sheets')
+        .eq('provider_id', subscriptionProviderFilter)
         .eq('external_id', channelId)
         .eq('status', 'active')
         .maybeSingle()
@@ -1043,7 +1043,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
           config: updatedConfig,
           updated_at: new Date().toISOString()
         })
-        .eq('provider_id', 'google-sheets')
+        .eq('provider_id', subscriptionProviderFilter)
         .eq('external_id', channelId)
     }
   }

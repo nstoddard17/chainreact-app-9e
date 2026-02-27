@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChatService, type ChatMessage } from '@/lib/workflows/ai-agent/chat-service'
 import type { ReasoningStep, NodeConfiguration } from '@/src/lib/workflows/builder/agent/types'
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Extended metadata for chat messages with LLM planner support
@@ -97,7 +98,7 @@ export function useChatPersistence({
 
   // Debug: Log when chatHistoryLoaded changes (helps diagnose stuck URL Prompt Handler)
   useEffect(() => {
-    console.log('[ChatPersistence] chatHistoryLoaded changed to:', chatHistoryLoaded, {
+    logger.debug('[ChatPersistence] chatHistoryLoaded changed to:', chatHistoryLoaded, {
       flowId,
       timestamp: new Date().toISOString(),
     })
@@ -119,7 +120,7 @@ export function useChatPersistence({
     // This prevents the UI from getting stuck when auth is slow on dev restart
     chatHistoryTimeoutRef.current = setTimeout(() => {
       if (!chatHistoryLoaded) {
-        console.log('[ChatPersistence] ⏱️ Timeout reached, marking chat history as loaded to unblock UI')
+        logger.debug('[ChatPersistence] ⏱️ Timeout reached, marking chat history as loaded to unblock UI')
         setChatHistoryLoaded(true)
       }
     }, 3000)
@@ -142,9 +143,9 @@ export function useChatPersistence({
   // Replace a message by its local ID with a saved message from the database
   const replaceMessageByLocalId = useCallback(
     (localId: string, saved: ChatMessage) => {
-      console.log('🔄 [Chat Debug] replaceMessageByLocalId called')
-      console.log('  Replacing local ID:', localId)
-      console.log('  With DB message:', {
+      logger.debug('🔄 [Chat Debug] replaceMessageByLocalId called')
+      logger.debug('  Replacing local ID:', localId)
+      logger.debug('  With DB message:', {
         id: saved.id,
         role: saved.role,
         text: saved.text?.substring(0, 50),
@@ -152,7 +153,7 @@ export function useChatPersistence({
       setAgentMessages((prev) => {
         const replaced = prev.map((message) => (message.id === localId ? saved : message))
         const foundMatch = prev.some((m) => m.id === localId)
-        console.log(
+        logger.debug(
           '  Found match:',
           foundMatch,
           '| Messages before:',
@@ -168,7 +169,7 @@ export function useChatPersistence({
 
   // Queue a message for later persistence
   const enqueuePendingMessage = useCallback((message: PendingChatMessage) => {
-    console.log('📥 [Chat Debug] Enqueueing message:', {
+    logger.debug('📥 [Chat Debug] Enqueueing message:', {
       role: message.role,
       text: message.text?.substring(0, 50),
       localId: message.localId?.substring(0, 15),
@@ -212,7 +213,7 @@ export function useChatPersistence({
     return () => {
       // Only clear if persistence was NEVER enabled (workflow never saved)
       if (!wasEverPersistenceEnabledRef.current && pendingChatMessagesRef.current.length > 0) {
-        console.log('🧹 [Chat Debug] Clearing pending messages on unmount (workflow never saved)')
+        logger.debug('🧹 [Chat Debug] Clearing pending messages on unmount (workflow never saved)')
         pendingChatMessagesRef.current = []
       }
     }
@@ -220,8 +221,8 @@ export function useChatPersistence({
 
   // Load chat history on mount (only for saved workflows with auth ready)
   useEffect(() => {
-    console.log('📌 [Chat Debug] useEffect triggered - loadChatHistory dependency changed')
-    console.log('  Dependencies:', {
+    logger.debug('📌 [Chat Debug] useEffect triggered - loadChatHistory dependency changed')
+    logger.debug('  Dependencies:', {
       flowId,
       hasFlow: !!flowState?.flow,
       revisionId: flowState?.revisionId,
@@ -229,7 +230,7 @@ export function useChatPersistence({
     })
 
     if (!flowId || !flowState?.flow || !authInitialized) {
-      console.log('  → Skipping loadChatHistory (dependencies not ready)', {
+      logger.debug('  → Skipping loadChatHistory (dependencies not ready)', {
         hasFlowId: !!flowId,
         hasFlow: !!flowState?.flow,
         flowStateExists: !!flowState,
@@ -242,7 +243,7 @@ export function useChatPersistence({
       // If flowState exists but has no revisionId, this is a new workflow - safe to proceed
       // If flowState doesn't exist yet, we can't determine this, so we wait
       if (flowId && authInitialized && flowState && !flowState.revisionId) {
-        console.log('  → New workflow (flowState exists but no revisionId), marking chat history as loaded to unblock URL Prompt Handler')
+        logger.debug('  → New workflow (flowState exists but no revisionId), marking chat history as loaded to unblock URL Prompt Handler')
         setChatHistoryLoaded(true)
       }
       return
@@ -251,23 +252,23 @@ export function useChatPersistence({
     // For new workflows (no revisionId), there's no chat history to load
     // Mark as loaded immediately so URL Prompt Handler can proceed
     if (!flowState?.revisionId) {
-      console.log('  → New workflow (no revisionId), marking chat history as loaded')
+      logger.debug('  → New workflow (no revisionId), marking chat history as loaded')
       setChatHistoryLoaded(true)
       return
     }
 
-    console.log('  → Dependencies ready, loading chat history...')
+    logger.debug('  → Dependencies ready, loading chat history...')
     const loadChatHistory = async () => {
       setIsChatLoading(true)
       try {
         const messages = await ChatService.getHistory(flowId)
-        console.log('🔍 [Chat Debug] loadChatHistory called')
-        console.log('  Loaded from DB:', messages.length, 'messages')
+        logger.debug('🔍 [Chat Debug] loadChatHistory called')
+        logger.debug('  Loaded from DB:', messages.length, 'messages')
 
         // Log any dropdown messages to debug persistence
         const dropdownMsgs = messages.filter((m: any) => m.meta?.providerDropdown)
         if (dropdownMsgs.length > 0) {
-          console.log('  📦 Dropdown messages in DB:', dropdownMsgs.map((m: any) => ({
+          logger.debug('  📦 Dropdown messages in DB:', dropdownMsgs.map((m: any) => ({
             id: m.id,
             metaKeys: Object.keys(m.meta || {}),
             hasPendingPrompt: !!m.meta?.pendingPrompt,
@@ -277,16 +278,16 @@ export function useChatPersistence({
 
         setAgentMessages((prev) => {
           if (!messages || messages.length === 0) {
-            console.log('  → No new messages, keeping current state')
+            logger.debug('  → No new messages, keeping current state')
             return prev
           }
 
           if (prev.length === 0) {
-            console.log('  → Empty state, replacing with DB messages')
+            logger.debug('  → Empty state, replacing with DB messages')
             return messages
           }
 
-          console.log('  → Merging messages...')
+          logger.debug('  → Merging messages...')
           const merged = [...prev]
           const indexById = new Map<string, number>()
           const seenContent = new Map<string, number>()
@@ -320,11 +321,11 @@ export function useChatPersistence({
             merged.push(message)
           })
 
-          console.log('  Final merged state:', merged.length, 'messages')
+          logger.debug('  Final merged state:', merged.length, 'messages')
           return merged
         })
       } catch (error) {
-        console.error('Failed to load chat history:', error)
+        logger.error('Failed to load chat history:', error)
       } finally {
         setIsChatLoading(false)
         // Mark chat history as loaded AFTER setAgentMessages has been called
@@ -351,11 +352,11 @@ export function useChatPersistence({
       const workflowHasBeenSaved = Boolean(flowState.revisionId)
 
       if (workflowHasBeenSaved) {
-        console.log('✅ [Chat Debug] Enabling chat persistence (workflow has been saved)')
+        logger.debug('✅ [Chat Debug] Enabling chat persistence (workflow has been saved)')
         setChatPersistenceEnabled(true)
         return
       } else {
-        console.log('⏸️  [Chat Debug] Chat persistence disabled (workflow not yet saved)')
+        logger.debug('⏸️  [Chat Debug] Chat persistence disabled (workflow not yet saved)')
       }
     }
 
@@ -387,7 +388,7 @@ export function useChatPersistence({
   // Flush pending messages to database (only for saved workflows with auth ready)
   useEffect(() => {
     // Debug: Log all conditions to understand when flush runs
-    console.log('🔍 [Flush Effect] Checking conditions:', {
+    logger.debug('🔍 [Flush Effect] Checking conditions:', {
       chatPersistenceEnabled,
       hasFlow: !!flowState?.flow,
       revisionId: flowState?.revisionId?.substring(0, 8),
@@ -408,7 +409,7 @@ export function useChatPersistence({
       !authInitialized ||
       pendingChatMessagesRef.current.length === 0
     ) {
-      console.log('🔍 [Flush Effect] Skipping - conditions not met')
+      logger.debug('🔍 [Flush Effect] Skipping - conditions not met')
       return
     }
 
@@ -418,20 +419,20 @@ export function useChatPersistence({
       const pending = [...pendingChatMessagesRef.current]
       pendingChatMessagesRef.current = []
 
-      console.log('🚀 [Chat Debug] Flushing pending messages:', pending.length, pending.map(m => ({ role: m.role, text: m.text?.substring(0, 30) })))
+      logger.debug('🚀 [Chat Debug] Flushing pending messages:', pending.length, pending.map(m => ({ role: m.role, text: m.text?.substring(0, 30) })))
 
       for (const item of pending) {
         if (cancelled) return
 
         // Skip ephemeral messages - they are UI state only (e.g., provider dropdowns)
         if (item.ephemeral) {
-          console.log('  ⏭️  Skipping ephemeral message (UI state only):', item.role)
+          logger.debug('  ⏭️  Skipping ephemeral message (UI state only):', item.role)
           continue
         }
 
         // Skip messages with empty text - these should never be persisted
         if (!item.text?.trim()) {
-          console.log('  ⏭️  Skipping message with empty text:', item.role)
+          logger.debug('  ⏭️  Skipping message with empty text:', item.role)
           continue
         }
 
@@ -443,7 +444,7 @@ export function useChatPersistence({
         )
 
         if (existingWithDbId && existingWithDbId.id && !existingWithDbId.id.startsWith('local-')) {
-          console.log('  ⏭️  Skipping pending message (already saved to DB):', {
+          logger.debug('  ⏭️  Skipping pending message (already saved to DB):', {
             role: item.role,
             text: item.text.substring(0, 50),
             dbId: existingWithDbId.id,
@@ -451,7 +452,7 @@ export function useChatPersistence({
           continue
         }
 
-        console.log('  💾 Saving pending message:', {
+        logger.debug('  💾 Saving pending message:', {
           role: item.role,
           text: item.text.substring(0, 50),
         })
@@ -481,7 +482,7 @@ export function useChatPersistence({
             replaceMessageByLocalId(item.localId, saved)
           }
         } catch (error) {
-          console.error('Failed to persist pending chat message:', error)
+          logger.error('Failed to persist pending chat message:', error)
         }
       }
     }

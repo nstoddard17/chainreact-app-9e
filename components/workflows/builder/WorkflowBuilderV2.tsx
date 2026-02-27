@@ -259,20 +259,20 @@ async function planWorkflowWithTemplates(
   userId?: string,
   workflowId?: string
 ): Promise<{ result: any; usedTemplate: boolean; promptId?: string }> {
-  console.log('[planWorkflowWithTemplates] Starting...', { prompt, providerId })
+  logger.debug('[planWorkflowWithTemplates] Starting...', { prompt, providerId })
 
   // Try template matching first (now async)
-  console.log('[planWorkflowWithTemplates] Checking templates...')
+  logger.debug('[planWorkflowWithTemplates] Checking templates...')
   const match = await matchTemplate(prompt, providerId)
-  console.log('[planWorkflowWithTemplates] Template match result:', match ? match.template.id : 'no match')
+  logger.debug('[planWorkflowWithTemplates] Template match result:', match ? match.template.id : 'no match')
 
   if (match) {
     // Template match! Create fake "result" object that looks like askAgent response
-    console.log('[planWorkflowWithTemplates] 🎯 Template matched! Generating plan...')
+    logger.debug('[planWorkflowWithTemplates] 🎯 Template matched! Generating plan...')
     logTemplateMatch(match.template.id, prompt)
 
     // Log prompt analytics (non-blocking with timeout - don't let it block workflow creation)
-    console.log('[planWorkflowWithTemplates] Logging prompt analytics (non-blocking)...')
+    logger.debug('[planWorkflowWithTemplates] Logging prompt analytics (non-blocking)...')
     Promise.race([
       logPrompt({
         userId: userId || '',
@@ -288,22 +288,22 @@ async function planWorkflowWithTemplates(
         planGenerated: true,
       }),
       new Promise<null>((resolve) => setTimeout(() => {
-        console.warn('[planWorkflowWithTemplates] Template analytics logging timed out after 3s')
+        logger.warn('[planWorkflowWithTemplates] Template analytics logging timed out after 3s')
         resolve(null)
       }, 3000))
     ]).then(promptId => {
-      if (promptId) console.log('[planWorkflowWithTemplates] Prompt logged:', promptId)
+      if (promptId) logger.debug('[planWorkflowWithTemplates] Prompt logged:', promptId)
     }).catch(logError => {
-      console.warn('[planWorkflowWithTemplates] ⚠️ Failed to log prompt (continuing anyway):', logError)
+      logger.warn('[planWorkflowWithTemplates] ⚠️ Failed to log prompt (continuing anyway):', logError)
     })
 
     // Convert template plan to edits format
     // IMPORTANT: Generate UUIDs for node IDs instead of using template IDs like "action-1"
     // The database expects UUID format for workflow_nodes.id and workflow_edges.source_node_id/target_node_id
     // Also ensure node structure matches what handleBuild expects (providerId in metadata)
-    console.log('[planWorkflowWithTemplates] Creating edits from template plan...', { planLength: match.plan.length })
+    logger.debug('[planWorkflowWithTemplates] Creating edits from template plan...', { planLength: match.plan.length })
     const plan = match.plan
-    console.log('[planWorkflowWithTemplates] Plan nodes:', plan.map(n => n.nodeType))
+    logger.debug('[planWorkflowWithTemplates] Plan nodes:', plan.map(n => n.nodeType))
 
     const edits = plan.map((node) => {
       // Look up the node in the catalog to get isTrigger and other metadata
@@ -324,7 +324,7 @@ async function planWorkflowWithTemplates(
       }
     })
 
-    console.log('[planWorkflowWithTemplates] ✅ Returning template result with', edits.length, 'edits')
+    logger.debug('[planWorkflowWithTemplates] ✅ Returning template result with', edits.length, 'edits')
     return {
       result: {
         workflowName: match.template.description,
@@ -337,12 +337,12 @@ async function planWorkflowWithTemplates(
   }
 
   // No template match - use LLM (costs money)
-  console.log('[planWorkflowWithTemplates] No template match, falling back to LLM...')
+  logger.debug('[planWorkflowWithTemplates] No template match, falling back to LLM...')
   logTemplateMiss(prompt)
 
   // Log prompt analytics (LLM usage) - non-blocking with timeout
   // Don't let analytics block the workflow creation
-  console.log('[planWorkflowWithTemplates] Logging prompt analytics (non-blocking)...')
+  logger.debug('[planWorkflowWithTemplates] Logging prompt analytics (non-blocking)...')
   let promptId: string | null = null
   const analyticsPromise = Promise.race([
     logPrompt({
@@ -356,25 +356,25 @@ async function planWorkflowWithTemplates(
       planGenerated: false,
     }),
     new Promise<null>((resolve) => setTimeout(() => {
-      console.warn('[planWorkflowWithTemplates] Analytics logging timed out after 3s')
+      logger.warn('[planWorkflowWithTemplates] Analytics logging timed out after 3s')
       resolve(null)
     }, 3000))
   ]).then(id => {
     promptId = id
-    if (id) console.log('[planWorkflowWithTemplates] Prompt logged:', id)
+    if (id) logger.debug('[planWorkflowWithTemplates] Prompt logged:', id)
   }).catch(err => {
-    console.warn('[planWorkflowWithTemplates] Analytics logging failed:', err?.message)
+    logger.warn('[planWorkflowWithTemplates] Analytics logging failed:', err?.message)
   })
 
   // Don't wait for analytics - proceed with askAgent immediately
-  console.log('[planWorkflowWithTemplates] Calling askAgent...')
+  logger.debug('[planWorkflowWithTemplates] Calling askAgent...')
 
   let result
   try {
     result = await actions.askAgent(prompt)
-    console.log('[planWorkflowWithTemplates] ✅ askAgent returned:', { hasEdits: !!result?.edits })
+    logger.debug('[planWorkflowWithTemplates] ✅ askAgent returned:', { hasEdits: !!result?.edits })
   } catch (askError: any) {
-    console.error('[planWorkflowWithTemplates] ❌ askAgent FAILED:', askError?.message || askError)
+    logger.error('[planWorkflowWithTemplates] ❌ askAgent FAILED:', askError?.message || askError)
     throw askError // Re-throw to be caught by the caller
   }
 
@@ -386,7 +386,7 @@ async function planWorkflowWithTemplates(
         promptId,
         planBuilt: false, // Not built yet, just planned
       }).catch(err => {
-        console.warn('[planWorkflowWithTemplates] Failed to update prompt analytics:', err?.message)
+        logger.warn('[planWorkflowWithTemplates] Failed to update prompt analytics:', err?.message)
       })
     }
   })
@@ -443,7 +443,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const hasFlowState = !!flowState
   useEffect(() => {
     // Only log on actual state transitions, not every render
-    console.log('[WorkflowBuilder Init] Key states:', {
+    logger.debug('[WorkflowBuilder Init] Key states:', {
       hasActions,
       hasBuilder,
       hasFlowState,
@@ -497,11 +497,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const cleanupTestTrigger = useCallback(async () => {
     const sessionId = testSessionIdRef.current
     if (!sessionId || !flowId) {
-      console.log('[TEST] No test session to cleanup')
+      logger.debug('[TEST] No test session to cleanup')
       return
     }
 
-    console.log('[TEST] Cleaning up test trigger...', { sessionId, workflowId: flowId })
+    logger.debug('[TEST] Cleaning up test trigger...', { sessionId, workflowId: flowId })
     try {
       await fetch('/api/workflows/test-trigger', {
         method: 'DELETE',
@@ -511,9 +511,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           testSessionId: sessionId,
         }),
       })
-      console.log('[TEST] Test trigger cleaned up successfully')
+      logger.debug('[TEST] Test trigger cleaned up successfully')
     } catch (error) {
-      console.error('[TEST] Failed to cleanup test trigger:', error)
+      logger.error('[TEST] Failed to cleanup test trigger:', error)
     } finally {
       testSessionIdRef.current = null
     }
@@ -581,7 +581,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       const hasPlaceholderNodes = builder?.nodes?.some((n: any) => n.data?.isPlaceholder) ?? false
 
       if (isActive && hasPlaceholderNodes && flowId) {
-        console.log('[WorkflowBuilder] Auto-deactivating incomplete workflow on page leave')
+        logger.debug('[WorkflowBuilder] Auto-deactivating incomplete workflow on page leave')
         // Use sendBeacon for reliable delivery on page unload
         navigator.sendBeacon(
           `/api/workflows/${flowId}/deactivate`,
@@ -740,7 +740,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     // Guard against NaN values before setting viewport
     if (!isFinite(viewportX) || !isFinite(viewportY) || !isFinite(zoom)) {
-      console.warn('[fitWorkflowToViewport] Skipping - invalid viewport values:', { viewportX, viewportY, zoom, bounds })
+      logger.warn('[fitWorkflowToViewport] Skipping - invalid viewport values:', { viewportX, viewportY, zoom, bounds })
       return
     }
 
@@ -864,19 +864,19 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     hasRestoredFromDraftRef.current = true
-    logger.info('[DraftRestore] Restoring workflow draft state...', { chatPersistenceEnabled })
+    logger.debug('[DraftRestore] Restoring workflow draft state...', { chatPersistenceEnabled })
 
     // Restore agent messages ONLY for unsaved workflows
     // For saved workflows, messages come from the database via useChatPersistence
     if (!chatPersistenceEnabled && restoredDraft.agentMessages?.length > 0) {
       setAgentMessages(restoredDraft.agentMessages)
-      console.log('[DraftRestore] Restored agent messages from localStorage (unsaved workflow)')
+      logger.debug('[DraftRestore] Restored agent messages from localStorage (unsaved workflow)')
     }
 
     // ALWAYS restore build machine state - this tracks guided setup progress
     // Even for saved workflows, we need to resume from where the user left off
     if (restoredDraft.buildMachine) {
-      console.log('[DraftRestore] Restoring build machine state:', {
+      logger.debug('[DraftRestore] Restoring build machine state:', {
         state: restoredDraft.buildMachine.state,
         planLength: restoredDraft.buildMachine.plan?.length,
         progress: restoredDraft.buildMachine.progress,
@@ -884,32 +884,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       })
       setBuildMachine(restoredDraft.buildMachine)
     } else {
-      console.log('[DraftRestore] No buildMachine in draft to restore')
+      logger.debug('[DraftRestore] No buildMachine in draft to restore')
     }
 
     // ALWAYS restore node configs - user's configuration choices
     if (restoredDraft.nodeConfigs && Object.keys(restoredDraft.nodeConfigs).length > 0) {
       setNodeConfigs(restoredDraft.nodeConfigs)
-      console.log('[DraftRestore] Restored node configs:', Object.keys(restoredDraft.nodeConfigs).length, 'nodes')
+      logger.debug('[DraftRestore] Restored node configs:', Object.keys(restoredDraft.nodeConfigs).length, 'nodes')
     }
 
     // ALWAYS restore collected preferences
     if (restoredDraft.collectedPreferences?.length > 0) {
       setCollectedPreferences(restoredDraft.collectedPreferences)
-      console.log('[DraftRestore] Restored collected preferences:', restoredDraft.collectedPreferences.length)
+      logger.debug('[DraftRestore] Restored collected preferences:', restoredDraft.collectedPreferences.length)
     }
 
     // ALWAYS restore provider selections
     if (restoredDraft.providerSelections) {
       const selections = restoreProviderSelections(restoredDraft.providerSelections)
       setProviderSelections(selections)
-      console.log('[DraftRestore] Restored provider selections:', Object.fromEntries(selections))
+      logger.debug('[DraftRestore] Restored provider selections:', Object.fromEntries(selections))
     }
 
     // ALWAYS restore pending prompt
     if (restoredDraft.pendingPrompt) {
       setPendingPrompt(restoredDraft.pendingPrompt)
-      console.log('[DraftRestore] Restored pending prompt:', restoredDraft.pendingPrompt.substring(0, 50))
+      logger.debug('[DraftRestore] Restored pending prompt:', restoredDraft.pendingPrompt.substring(0, 50))
     }
 
     // ALWAYS restore selected provider
@@ -920,25 +920,25 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // ALWAYS restore provider disambiguation state (for dropdown flow)
     if (restoredDraft.awaitingProviderSelection) {
       setAwaitingProviderSelection(restoredDraft.awaitingProviderSelection)
-      console.log('[DraftRestore] Restored awaitingProviderSelection:', restoredDraft.awaitingProviderSelection)
+      logger.debug('[DraftRestore] Restored awaitingProviderSelection:', restoredDraft.awaitingProviderSelection)
     }
     if (restoredDraft.providerCategory) {
       setProviderCategory(restoredDraft.providerCategory)
-      console.log('[DraftRestore] Restored providerCategory:', restoredDraft.providerCategory?.vagueTerm)
+      logger.debug('[DraftRestore] Restored providerCategory:', restoredDraft.providerCategory?.vagueTerm)
     }
     if (restoredDraft.pendingVagueTerms?.length > 0) {
       setPendingVagueTerms(restoredDraft.pendingVagueTerms)
-      console.log('[DraftRestore] Restored pendingVagueTerms:', restoredDraft.pendingVagueTerms.length)
+      logger.debug('[DraftRestore] Restored pendingVagueTerms:', restoredDraft.pendingVagueTerms.length)
     }
 
     // Open the agent panel if we're in the middle of provider selection
     if (restoredDraft.awaitingProviderSelection || restoredDraft.pendingPrompt) {
       setAgentOpen(true)
-      console.log('[DraftRestore] Opened agent panel (provider selection in progress)')
+      logger.debug('[DraftRestore] Opened agent panel (provider selection in progress)')
     }
 
-    console.log('[DraftRestore] Draft restored successfully')
-    logger.info('[DraftRestore] Draft restored successfully')
+    logger.debug('[DraftRestore] Draft restored successfully')
+    logger.debug('[DraftRestore] Draft restored successfully')
   }, [isDraftLoaded, restoredDraft, chatPersistenceEnabled])
 
   // Auto-save draft when relevant state changes (debounced via hook)
@@ -993,7 +993,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       buildMachine.progress.done === buildMachine.progress.total
 
     if (isSetupComplete && hasDraft) {
-      logger.info('[DraftAutoSave] Guided setup complete, clearing local draft')
+      logger.debug('[DraftAutoSave] Guided setup complete, clearing local draft')
       clearDraft()
     }
   }, [buildMachine.state, buildMachine.plan.length, buildMachine.progress.done, buildMachine.progress.total, hasDraft, clearDraft])
@@ -1021,7 +1021,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     // Recreate the dropdown message
-    console.log('[DropdownRecreate] Recreating dropdown message after page refresh:', {
+    logger.debug('[DropdownRecreate] Recreating dropdown message after page refresh:', {
       category: providerCategory?.vagueTerm,
       pendingPrompt: pendingPrompt?.substring(0, 50),
     })
@@ -1056,13 +1056,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     setAgentMessages(prev => [...prev, dropdownMessage])
     hasRecreatedDropdownRef.current = true
-    console.log('[DropdownRecreate] Dropdown message recreated successfully')
+    logger.debug('[DropdownRecreate] Dropdown message recreated successfully')
   }, [awaitingProviderSelection, providerCategory, integrations, agentMessages, pendingPrompt, pendingVagueTerms, flowId, generateLocalId])
 
   // Restore provider selection state from chat history when loaded from database
   const hasRestoredFromChatHistoryRef = useRef(false)
   useEffect(() => {
-    console.log('[ChatRestore] Effect triggered:', {
+    logger.debug('[ChatRestore] Effect triggered:', {
       chatPersistenceEnabled,
       hasRestoredAlready: hasRestoredFromChatHistoryRef.current,
       messagesCount: agentMessages.length,
@@ -1071,7 +1071,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // Only restore when chat persistence is enabled (meaning we're loading from DB)
     // and we haven't already restored
     if (!chatPersistenceEnabled || hasRestoredFromChatHistoryRef.current || agentMessages.length === 0) {
-      console.log('[ChatRestore] Skipping restoration:', {
+      logger.debug('[ChatRestore] Skipping restoration:', {
         reason: !chatPersistenceEnabled ? 'persistence not enabled' :
           hasRestoredFromChatHistoryRef.current ? 'already restored' : 'no messages'
       })
@@ -1083,16 +1083,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       (msg) => msg.role === 'assistant' && msg.meta?.providerDropdown
     )
 
-    console.log('[ChatRestore] Found dropdown messages:', dropdownMessages.length)
+    logger.debug('[ChatRestore] Found dropdown messages:', dropdownMessages.length)
     if (dropdownMessages.length > 0) {
       const lastMeta = dropdownMessages[dropdownMessages.length - 1]?.meta
-      console.log('[ChatRestore] Last dropdown full meta keys:', Object.keys(lastMeta || {}))
-      console.log('[ChatRestore] Last dropdown meta.pendingPrompt:', lastMeta?.pendingPrompt)
-      console.log('[ChatRestore] Last dropdown meta.providerDropdown keys:', Object.keys(lastMeta?.providerDropdown || {}))
+      logger.debug('[ChatRestore] Last dropdown full meta keys:', Object.keys(lastMeta || {}))
+      logger.debug('[ChatRestore] Last dropdown meta.pendingPrompt:', lastMeta?.pendingPrompt)
+      logger.debug('[ChatRestore] Last dropdown meta.providerDropdown keys:', Object.keys(lastMeta?.providerDropdown || {}))
     }
 
     if (dropdownMessages.length === 0) {
-      console.log('[ChatRestore] No dropdown messages found, marking as restored')
+      logger.debug('[ChatRestore] No dropdown messages found, marking as restored')
       hasRestoredFromChatHistoryRef.current = true
       return
     }
@@ -1105,7 +1105,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       (msg) => msg.role !== 'status' && !(msg.role === 'assistant' && msg.meta?.providerDropdown)
     )
 
-    console.log('[ChatRestore] Subsequent messages check:', {
+    logger.debug('[ChatRestore] Subsequent messages check:', {
       lastDropdownIndex,
       subsequentMessagesCount: subsequentMessages.length,
       hasSubsequentMessages,
@@ -1113,22 +1113,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     if (hasSubsequentMessages) {
       // Dropdown was already resolved, don't restore
-      console.log('[ChatRestore] Dropdown already resolved, skipping restoration')
+      logger.debug('[ChatRestore] Dropdown already resolved, skipping restoration')
       hasRestoredFromChatHistoryRef.current = true
       return
     }
 
     // Restore the provider selection state from the dropdown message
     const meta = lastDropdown.meta
-    console.log('[ChatRestore] Attempting to restore from meta:', {
+    logger.debug('[ChatRestore] Attempting to restore from meta:', {
       hasCategory: !!meta?.providerDropdown?.category,
       hasPendingPrompt: !!meta?.pendingPrompt,
       pendingPrompt: meta?.pendingPrompt?.substring(0, 50),
     })
 
     if (meta?.providerDropdown?.category && meta?.pendingPrompt) {
-      console.log('[ChatRestore] ✅ Restoring provider selection state from chat history')
-      console.log('[ChatRestore] Setting state:', {
+      logger.debug('[ChatRestore] ✅ Restoring provider selection state from chat history')
+      logger.debug('[ChatRestore] Setting state:', {
         pendingPrompt: meta.pendingPrompt,
         providerCategory: meta.providerDropdown.category?.vagueTerm,
         remainingTerms: meta.remainingTerms?.length || 0,
@@ -1142,7 +1142,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       // Open the agent panel to show the dropdown
       setAgentOpen(true)
     } else {
-      console.log('[ChatRestore] ❌ Missing required meta fields for restoration:', {
+      logger.debug('[ChatRestore] ❌ Missing required meta fields for restoration:', {
         hasCategory: !!meta?.providerDropdown?.category,
         hasPendingPrompt: !!meta?.pendingPrompt,
       })
@@ -1171,7 +1171,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const lastAssistantMsg = assistantMessages[assistantMessages.length - 1]
     const meta = (lastAssistantMsg as any)?.meta
 
-    console.log('[BuildStateRestore] Checking for plan metadata:', {
+    logger.debug('[BuildStateRestore] Checking for plan metadata:', {
       hasLastAssistantMsg: !!lastAssistantMsg,
       hasMeta: !!meta,
       hasPlan: !!meta?.plan,
@@ -1182,7 +1182,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     // If the message has plan metadata, restore to PLAN_READY state
     if (meta?.plan && (meta?.allSelectedProviders?.length > 0 || meta?.autoSelectedProvider)) {
-      console.log('[BuildStateRestore] ✅ Restoring to PLAN_READY from chat message metadata')
+      logger.debug('[BuildStateRestore] ✅ Restoring to PLAN_READY from chat message metadata')
 
       // Reconstruct the plan from the edits
       const plan: PlanNode[] = (meta.plan.edits || [])
@@ -1201,7 +1201,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           }
         })
 
-      console.log('[BuildStateRestore] Reconstructed plan:', plan.map(p => p.title))
+      logger.debug('[BuildStateRestore] Reconstructed plan:', plan.map(p => p.title))
 
       setBuildMachine(prev => ({
         ...prev,
@@ -1324,7 +1324,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     hasInitializedRef.current = true
     lastWorkspaceIdRef.current = workspaceContext?.id ?? null
 
-    console.log('[WorkflowBuilder] App context ready, initializing...', {
+    logger.debug('[WorkflowBuilder] App context ready, initializing...', {
       isFirstRun,
       workspaceChanged,
       workspaceType: workspaceContext?.type,
@@ -1349,14 +1349,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     if (isFirstRun) {
       loadWorkflowPreferences().then(prefs => {
         if (prefs) {
-          console.log('[WorkflowBuilder] Loaded workflow preferences:', {
+          logger.debug('[WorkflowBuilder] Loaded workflow preferences:', {
             email: prefs.default_email_provider,
             calendar: prefs.default_calendar_provider,
             notification: prefs.default_notification_provider,
           })
         }
       }).catch(error => {
-        console.warn('[WorkflowBuilder] Failed to load workflow preferences:', error)
+        logger.warn('[WorkflowBuilder] Failed to load workflow preferences:', error)
       })
     }
   }, [appReady, workspaceContext, setIntegrationWorkspaceContext, fetchIntegrations])
@@ -1414,7 +1414,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     if (!configuringNode?.id) return
     const nodeType = configuringNode?.data?.type || configuringNode?.type
     const nodeInfo = nodeType ? getNodeByType(nodeType) : null
-    console.log('🔧 [WorkflowBuilder] Opening config for node:', {
+    logger.debug('🔧 [WorkflowBuilder] Opening config for node:', {
       nodeId: configuringNode?.id,
       nodeType,
       nodeInfo: nodeInfo ? { type: nodeInfo.type, title: (nodeInfo as any).title, label: (nodeInfo as any).label } : null,
@@ -1487,7 +1487,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     originalPrompt: string,
     providerMeta?: { category: any; provider: any; allProviders: any[] } | Array<{ category: any; provider: any; allProviders: any[] }>
   ) => {
-    console.log('🎯 [continueWithPlanGeneration] CALLED with:', {
+    logger.debug('🎯 [continueWithPlanGeneration] CALLED with:', {
       hasResult: !!result,
       editsCount: result?.edits?.length,
       originalPrompt: originalPrompt?.substring(0, 50),
@@ -1499,7 +1499,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     // Handle unsupported features warning
     if (result?.unsupportedFeatures?.hasUnsupported) {
-      console.log('[continueWithPlanGeneration] Detected unsupported features:', result.unsupportedFeatures.features)
+      logger.debug('[continueWithPlanGeneration] Detected unsupported features:', result.unsupportedFeatures.features)
 
       // Show warning message in chat
       const warningMessage: ChatMessage = {
@@ -1587,7 +1587,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         return aIndex - bIndex
       })
 
-      console.log('[Provider Order] Reordered providers:', {
+      logger.debug('[Provider Order] Reordered providers:', {
         original: providerMeta.map(p => p.provider?.id),
         planOrder: planProviderOrder,
         reordered: orderedProviderMeta.map((p: any) => p.provider?.id)
@@ -1651,13 +1651,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       // This would call the same API that useDynamicOptions uses
       // For now, we'll use a placeholder - the actual implementation
       // will be handled by the configuration components
-      logger.info('[Prefetch] Would prefetch:', { optionType, providerId })
+      logger.debug('[Prefetch] Would prefetch:', { optionType, providerId })
       return []
     }
 
     // Start prefetching in background (don't await)
     optionsPrefetchService.prefetchForNodes(nodesToPrefetch, loadOptionsFn, isProviderConnected)
-      .then(() => logger.info('[Prefetch] Background prefetch complete for plan'))
+      .then(() => logger.debug('[Prefetch] Background prefetch complete for plan'))
       .catch(err => logger.warn('[Prefetch] Background prefetch failed:', err))
 
     const assistantLocalId = generateLocalId()
@@ -1673,7 +1673,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     setAgentMessages(prev => [...prev, localAssistantMessage])
 
-    console.log('[continueWithPlanGeneration] Saving assistant message:', {
+    logger.debug('[continueWithPlanGeneration] Saving assistant message:', {
       chatPersistenceEnabled,
       hasFlowState: !!flowState?.flow,
       assistantTextLength: assistantText?.length,
@@ -1681,7 +1681,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     })
 
     if (!chatPersistenceEnabled || !flowState?.flow) {
-      console.log('[continueWithPlanGeneration] Enqueueing message (persistence not enabled)')
+      logger.debug('[continueWithPlanGeneration] Enqueueing message (persistence not enabled)')
       enqueuePendingMessage({
         localId: assistantLocalId,
         role: 'assistant',
@@ -1690,10 +1690,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         createdAt: assistantCreatedAt,
       })
     } else {
-      console.log('[continueWithPlanGeneration] Saving directly to database via ChatService')
+      logger.debug('[continueWithPlanGeneration] Saving directly to database via ChatService')
       ChatService.addAssistantResponse(flowId, assistantText, assistantMeta)
         .then((saved) => {
-          console.log('[continueWithPlanGeneration] ChatService response:', {
+          logger.debug('[continueWithPlanGeneration] ChatService response:', {
             saved: !!saved,
             savedId: saved?.id,
           })
@@ -1702,7 +1702,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           }
         })
         .catch((error) => {
-          console.error("[continueWithPlanGeneration] Failed to save assistant response:", error)
+          logger.error("[continueWithPlanGeneration] Failed to save assistant response:", error)
         })
     }
 
@@ -1712,33 +1712,33 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         const estimate = await estimateWorkflowCost(builder.nodes)
         setCostEstimate(estimate)
       } catch (error) {
-        console.error("Failed to estimate cost:", error)
+        logger.error("Failed to estimate cost:", error)
       }
     }
 
     // Update workflow name if AI generated one
-    console.log('[WorkflowBuilderV2] Checking if we should update workflow name:', {
+    logger.debug('[WorkflowBuilderV2] Checking if we should update workflow name:', {
       hasWorkflowName: !!result.workflowName,
       workflowName: result.workflowName,
       hasUpdateFunction: !!actions?.updateFlowName
     })
 
     if (result.workflowName && actions?.updateFlowName) {
-      console.log('[WorkflowBuilderV2] Updating workflow name from "New Workflow" to:', result.workflowName)
+      logger.debug('[WorkflowBuilderV2] Updating workflow name from "New Workflow" to:', result.workflowName)
       try {
         await actions.updateFlowName(result.workflowName)
-        console.log('[WorkflowBuilderV2] ✅ updateFlowName API call succeeded')
+        logger.debug('[WorkflowBuilderV2] ✅ updateFlowName API call succeeded')
 
         // Update local UI state to show the new name immediately
         setWorkflowName(result.workflowName)
         setNameDirty(false)
-        console.log('[WorkflowBuilderV2] ✅ Local state updated - workflowName:', result.workflowName, 'nameDirty:', false)
+        logger.debug('[WorkflowBuilderV2] ✅ Local state updated - workflowName:', result.workflowName, 'nameDirty:', false)
       } catch (error) {
-        console.error('[WorkflowBuilderV2] ❌ Failed to update workflow name:', error)
+        logger.error('[WorkflowBuilderV2] ❌ Failed to update workflow name:', error)
         // Non-critical, continue anyway
       }
     } else {
-      console.log('[WorkflowBuilderV2] ❌ Skipping workflow name update - missing workflowName or updateFlowName function')
+      logger.debug('[WorkflowBuilderV2] ❌ Skipping workflow name update - missing workflowName or updateFlowName function')
     }
 
     await new Promise(resolve => setTimeout(resolve, 500))
@@ -1790,7 +1790,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     setAgentMessages(prev => [...prev, dropdownMessage])
 
     // Queue the ephemeral message - it will be skipped during persistence flush
-    console.log('[showNextProviderDropdown] Adding ephemeral dropdown message (will not be persisted)')
+    logger.debug('[showNextProviderDropdown] Adding ephemeral dropdown message (will not be persisted)')
     enqueuePendingMessage({
       localId,
       role: 'assistant',
@@ -1815,7 +1815,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const remainingTermsToUse = effectiveRemainingTerms ?? pendingVagueTerms
 
     if (!promptToUse || !categoryToUse || !actions) {
-      console.log('[Provider Selection] Missing required state:', {
+      logger.debug('[Provider Selection] Missing required state:', {
         promptToUse: !!promptToUse,
         categoryToUse: !!categoryToUse,
         actions: !!actions
@@ -1823,10 +1823,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       return
     }
 
-    console.log('[Provider Selection] User selected provider:', providerId)
-    console.log('[Provider Selection] Using prompt:', promptToUse?.substring(0, 50))
-    console.log('[Provider Selection] Current vague term:', categoryToUse.vagueTerm)
-    console.log('[Provider Selection] Remaining pending terms:', remainingTermsToUse.length)
+    logger.debug('[Provider Selection] User selected provider:', providerId)
+    logger.debug('[Provider Selection] Using prompt:', promptToUse?.substring(0, 50))
+    logger.debug('[Provider Selection] Current vague term:', categoryToUse.vagueTerm)
+    logger.debug('[Provider Selection] Remaining pending terms:', remainingTermsToUse.length)
 
     // Store the selection
     const newSelections = new Map(providerSelections)
@@ -1840,12 +1840,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       providerId
     )
 
-    console.log('[Provider Selection] Modified prompt:', modifiedPrompt)
+    logger.debug('[Provider Selection] Modified prompt:', modifiedPrompt)
 
     // Check if there are more pending vague terms to resolve
     if (remainingTermsToUse.length > 0) {
       const [nextTerm, ...remainingTerms] = remainingTermsToUse
-      console.log('[Provider Selection] More terms to resolve:', nextTerm.category?.displayName)
+      logger.debug('[Provider Selection] More terms to resolve:', nextTerm.category?.displayName)
 
       // Show next provider dropdown
       setAwaitingProviderSelection(false)
@@ -1854,12 +1854,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     // All vague terms resolved - proceed with workflow generation
-    console.log('[Provider Selection] All terms resolved, proceeding with workflow generation')
+    logger.debug('[Provider Selection] All terms resolved, proceeding with workflow generation')
 
     // Capture all selections before clearing state
     const allSelections = new Map(newSelections)
     allSelections.set(categoryToUse.vagueTerm, providerId)
-    console.log('[Provider Selection] All provider selections:', Object.fromEntries(allSelections))
+    logger.debug('[Provider Selection] All provider selections:', Object.fromEntries(allSelections))
 
     // Reset selection state
     setAwaitingProviderSelection(false)
@@ -1890,7 +1890,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     // Find the email provider for template matching (templates typically need the trigger provider)
     const emailProviderId = allSelections.get('email') || providerId
-    console.log('[Provider Selection] Email provider for template:', emailProviderId)
+    logger.debug('[Provider Selection] Email provider for template:', emailProviderId)
 
     // Clear pending state
     setPendingPrompt("")
@@ -1899,32 +1899,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     setProviderSelections(new Map())
 
     // Start planning with modified prompt
-    console.log('[Provider Selection] Starting planning sequence...')
+    logger.debug('[Provider Selection] Starting planning sequence...')
     transitionTo(BuildState.THINKING)
 
     try {
       await new Promise(resolve => setTimeout(resolve, 1000))
-      console.log('[Provider Selection] → SUBTASKS')
+      logger.debug('[Provider Selection] → SUBTASKS')
       transitionTo(BuildState.SUBTASKS)
 
       await new Promise(resolve => setTimeout(resolve, 800))
-      console.log('[Provider Selection] → COLLECT_NODES')
+      logger.debug('[Provider Selection] → COLLECT_NODES')
       transitionTo(BuildState.COLLECT_NODES)
 
       await new Promise(resolve => setTimeout(resolve, 800))
-      console.log('[Provider Selection] → OUTLINE')
+      logger.debug('[Provider Selection] → OUTLINE')
       transitionTo(BuildState.OUTLINE)
 
       await new Promise(resolve => setTimeout(resolve, 800))
-      console.log('[Provider Selection] → PURPOSE')
+      logger.debug('[Provider Selection] → PURPOSE')
       transitionTo(BuildState.PURPOSE)
 
-      console.log('[Provider Selection] Calling planWorkflowWithTemplates...')
+      logger.debug('[Provider Selection] Calling planWorkflowWithTemplates...')
       // Pass the EMAIL provider for template matching (not notification)
       const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
         actions, modifiedPrompt, emailProviderId, user?.id, flowId
       )
-      console.log('[Provider Selection] ✅ Received result from askAgent:', {
+      logger.debug('[Provider Selection] ✅ Received result from askAgent:', {
         workflowName: result.workflowName,
         editsCount: result.edits?.length,
         usedTemplate,
@@ -1933,11 +1933,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       })
 
       // Pass ALL provider metadata to include in plan message
-      console.log('[Provider Selection] Calling continueWithPlanGeneration with all providers:', allProviderMetadata.length)
+      logger.debug('[Provider Selection] Calling continueWithPlanGeneration with all providers:', allProviderMetadata.length)
       await continueWithPlanGeneration(result, modifiedPrompt, allProviderMetadata.length > 0 ? allProviderMetadata : undefined)
-      console.log('[Provider Selection] ✅ Plan generation complete')
+      logger.debug('[Provider Selection] ✅ Plan generation complete')
     } catch (error: any) {
-      console.error('[Provider Selection] ❌ Error:', error)
+      logger.error('[Provider Selection] ❌ Error:', error)
       toast({
         title: "Failed to create plan",
         description: error?.message || "Unable to generate workflow plan",
@@ -1949,7 +1949,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [actions, continueWithPlanGeneration, flowId, generateLocalId, integrations, pendingPrompt, pendingVagueTerms, providerCategory, providerSelections, showNextProviderDropdown, toast, transitionTo])
 
   const handleProviderConnect = useCallback(async (providerId: string) => {
-    console.log('[Provider Connect] User clicked connect for:', providerId)
+    logger.debug('[Provider Connect] User clicked connect for:', providerId)
 
     try {
       // Use integration store's connect function which opens OAuth popup
@@ -1957,7 +1957,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       // Integration store will refresh integrations automatically on success
       // After connection, automatically proceed with the provider selection
-      console.log('[Provider Connect] Connection successful, proceeding with provider selection')
+      logger.debug('[Provider Connect] Connection successful, proceeding with provider selection')
 
       // Give a small delay for integrations to refresh
       setTimeout(() => {
@@ -1966,7 +1966,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       }, 500)
 
     } catch (error: any) {
-      console.error('[Provider Connect] Connection failed:', error)
+      logger.error('[Provider Connect] Connection failed:', error)
       toast({
         title: "Connection Failed",
         description: error?.message || `Failed to connect ${providerId}`,
@@ -1976,7 +1976,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [toast, handleProviderSelect])
 
   const handleProviderChange = useCallback(async (newProviderId: string) => {
-    console.log('[Provider Change] User changed provider to:', newProviderId)
+    logger.debug('[Provider Change] User changed provider to:', newProviderId)
 
     // Find current provider from chat messages
     const assistantMessages = agentMessages.filter(m => m && m.role === 'assistant')
@@ -2014,7 +2014,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     if (!oldProviderId) {
-      console.warn('[Provider Change] No matching provider found for category:', newProviderCategory)
+      logger.warn('[Provider Change] No matching provider found for category:', newProviderCategory)
       toast({
         title: "Cannot Change Provider",
         description: "No matching provider found",
@@ -2105,7 +2105,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     setAgentMessages(updatedMessages)
 
-    console.log('[Provider Change] ✅ Provider swapped instantly (no LLM call, cost: $0.00)')
+    logger.debug('[Provider Change] ✅ Provider swapped instantly (no LLM call, cost: $0.00)')
   }, [agentMessages, buildMachine.plan, toast])
 
   // Enhanced chat flow handlers
@@ -2124,8 +2124,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const effectiveCategory = metaContext?.category || providerCategory
     const effectiveRemainingTerms = metaContext?.remainingTerms || pendingVagueTerms
 
-    console.log('[Provider Dropdown] User selected:', providerId, 'isConnected:', isConnected)
-    console.log('[Provider Dropdown] Current state:', {
+    logger.debug('[Provider Dropdown] User selected:', providerId, 'isConnected:', isConnected)
+    logger.debug('[Provider Dropdown] Current state:', {
       promptFromMeta: metaContext?.pendingPrompt ? metaContext.pendingPrompt.substring(0, 50) : null,
       promptFromState: pendingPrompt ? pendingPrompt.substring(0, 50) : null,
       effectivePrompt: effectivePendingPrompt ? effectivePendingPrompt.substring(0, 50) : null,
@@ -2163,13 +2163,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       pendingPrompt: effectivePendingPrompt || '',
       selectedProviderId: providerId,
     })
-    console.log('[Provider Dropdown] ✅ Saved provider selection immediately:', categoryName, '->', providerId)
+    logger.debug('[Provider Dropdown] ✅ Saved provider selection immediately:', categoryName, '->', providerId)
 
     // Always proceed with workflow building
     // Connection check happens later during WAITING_USER (node configuration)
     // This lets users see the full workflow plan before connecting accounts
     if (effectivePendingPrompt && effectiveCategory) {
-      console.log('[Provider Dropdown] ✅ Calling handleProviderSelect with context')
+      logger.debug('[Provider Dropdown] ✅ Calling handleProviderSelect with context')
       // Update state with values from meta if not already set (ensures subsequent calls have them)
       if (metaContext?.pendingPrompt && !pendingPrompt) {
         setPendingPrompt(metaContext.pendingPrompt)
@@ -2182,16 +2182,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       }
       handleProviderSelect(providerId, effectivePendingPrompt, effectiveCategory, effectiveRemainingTerms)
     } else {
-      console.log('[Provider Dropdown] ⚠️ Missing required context:', {
+      logger.debug('[Provider Dropdown] ⚠️ Missing required context:', {
         hasPendingPrompt: !!effectivePendingPrompt,
         hasCategory: !!effectiveCategory
       })
-      console.log('[Provider Dropdown] This may happen if state was not properly restored after page refresh')
+      logger.debug('[Provider Dropdown] This may happen if state was not properly restored after page refresh')
     }
   }, [pendingPrompt, providerCategory, pendingVagueTerms, awaitingProviderSelection, handleProviderSelect, providerSelections, collectedPreferences, saveImmediately])
 
   const handleConnectionComplete = useCallback(async (providerId: string, email?: string) => {
-    console.log('[Connection Complete]', providerId, 'email:', email)
+    logger.debug('[Connection Complete]', providerId, 'email:', email)
 
     // Clear pending connection
     setPendingConnectionProvider(null)
@@ -2237,7 +2237,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [providerCategory, pendingPrompt, handleProviderSelect])
 
   const handleConnectionSkip = useCallback((providerId: string) => {
-    console.log('[Connection Skip]', providerId)
+    logger.debug('[Connection Skip]', providerId)
 
     // Clear pending connection
     setPendingConnectionProvider(null)
@@ -2261,7 +2261,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [generateLocalId, pendingPrompt, handleProviderSelect])
 
   const handleNodeConfigComplete = useCallback((nodeType: string, config: Record<string, any>) => {
-    console.log('[Node Config Complete]', nodeType, config)
+    logger.debug('[Node Config Complete]', nodeType, config)
 
     // Clear pending config
     setPendingNodeConfigType(null)
@@ -2312,7 +2312,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [])
 
   const handleNodeConfigSkip = useCallback((nodeType: string) => {
-    console.log('[Node Config Skip]', nodeType)
+    logger.debug('[Node Config Skip]', nodeType)
 
     // Clear pending config
     setPendingNodeConfigType(null)
@@ -2341,7 +2341,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [])
 
   const handlePreferencesSave = useCallback(async (selectedIds: string[]) => {
-    console.log('[Preferences Save]', selectedIds)
+    logger.debug('[Preferences Save]', selectedIds)
 
     // This is handled by the PreferencesSaveCard component internally
     // using saveSelectedPreferences from the store
@@ -2475,7 +2475,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               }
             })
             .catch((error) => {
-              console.error("Failed to save user prompt:", error)
+              logger.error("Failed to save user prompt:", error)
             })
         }
 
@@ -2645,7 +2645,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             // Use helper function to generate plan and update UI (with ALL provider metadata if auto-selected)
             await continueWithPlanGeneration(result, finalPrompt, allProviderMetadata.length > 0 ? allProviderMetadata : undefined)
           } catch (error: any) {
-            console.error('[URL Prompt Handler] Error:', error)
+            logger.error('[URL Prompt Handler] Error:', error)
             toast({
               title: "Failed to create plan",
               description: error?.message || "Unable to generate workflow plan",
@@ -2951,9 +2951,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     if (!actions?.applyEdits || orderedIds.length < 2) {
       return
     }
-    console.log('[Reorder] Committing order', orderedIds)
+    logger.debug('[Reorder] Committing order', orderedIds)
     actions.applyEdits([{ op: "reorderNodes", nodeIds: orderedIds }]).catch((error) => {
-      console.error("[WorkflowBuilderV2] Failed to persist reorder", error)
+      logger.error("[WorkflowBuilderV2] Failed to persist reorder", error)
       toast({
         title: "Unable to reorder nodes",
         description: error?.message ?? "Please try again.",
@@ -3180,7 +3180,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const config = node.data?.config || {}
 
     try {
-      logger.info('[WorkflowBuilder] Testing node:', { nodeId, nodeType: node.data?.type })
+      logger.debug('[WorkflowBuilder] Testing node:', { nodeId, nodeType: node.data?.type })
 
       // Set node to running state
       setNodeState(reactFlowInstanceRef.current, nodeId, 'running')
@@ -3227,7 +3227,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         }
       }
 
-      logger.info('[WorkflowBuilder] Collected test data from upstream nodes:', {
+      logger.debug('[WorkflowBuilder] Collected test data from upstream nodes:', {
         upstreamNodeCount: upstreamNodeIds.length,
         testDataKeys: Object.keys(testData)
       })
@@ -3251,7 +3251,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         throw new Error(result.error || 'Failed to test node')
       }
 
-      logger.info('[WorkflowBuilder] Test completed:', result)
+      logger.debug('[WorkflowBuilder] Test completed:', result)
 
       // Update node with test results
       const testMetadata = {
@@ -3436,7 +3436,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     const nodesToTest = getDownstreamNodes(nodeId)
-    logger.info('[WorkflowBuilder] Testing flow from node:', nodeId, 'Total nodes:', nodesToTest.length)
+    logger.debug('[WorkflowBuilder] Testing flow from node:', nodeId, 'Total nodes:', nodesToTest.length)
 
     // Sort nodes in execution order (topological sort)
     const sortedNodeIds: string[] = []
@@ -3467,7 +3467,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       const node = builder.nodes.find((n: any) => n.id === nId)
       if (!node) continue
 
-      logger.info('[WorkflowBuilder] Testing node in flow:', node.data?.title || node.data?.type)
+      logger.debug('[WorkflowBuilder] Testing node in flow:', node.data?.title || node.data?.type)
 
       // Set node to running state
       setNodeState(reactFlowInstanceRef.current, nId, 'running')
@@ -3689,7 +3689,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const enhancedEdges = builder.edges
       .filter((edge: any) => {
         if (seenEdgeIds.has(edge.id)) {
-          console.warn(`[reactFlowProps] Skipping duplicate edge ID: ${edge.id}`)
+          logger.warn(`[reactFlowProps] Skipping duplicate edge ID: ${edge.id}`)
           return false
         }
         seenEdgeIds.add(edge.id)
@@ -3787,7 +3787,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // Lazy load integrations when panel opens (only if not already loaded)
     // Use workspace context to filter integrations to this workflow's workspace
     if (integrations.length === 0 && workspaceContext) {
-      logger.info('[WorkflowBuilder] Lazy-loading workspace-filtered integrations:', {
+      logger.debug('[WorkflowBuilder] Lazy-loading workspace-filtered integrations:', {
         workspaceType: workspaceContext.type,
         workspaceId: workspaceContext.id
       })
@@ -3816,7 +3816,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
   // Node selection from panel
   const handleNodeSelectFromPanel = useCallback(async (nodeData: any) => {
-    console.log('🎯 [WorkflowBuilder] handleNodeSelectFromPanel called:', {
+    logger.debug('🎯 [WorkflowBuilder] handleNodeSelectFromPanel called:', {
       nodeData: nodeData?.type || nodeData,
       selectedNodeId,
       changingNodeId,
@@ -3825,7 +3825,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     })
 
     if (!actions || !builder) {
-      console.log('⚠️ [WorkflowBuilder] Returning early - actions or builder missing')
+      logger.debug('⚠️ [WorkflowBuilder] Returning early - actions or builder missing')
       return
     }
 
@@ -3848,12 +3848,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // If changing an existing node, use its position
     if (nodeBeingChanged) {
       position = nodeBeingChanged.position
-      console.log('📌 [WorkflowBuilder] Changing node:', changingNodeId, 'to:', nodeData.type)
+      logger.debug('📌 [WorkflowBuilder] Changing node:', changingNodeId, 'to:', nodeData.type)
     }
     // If replacing placeholder, use its position
     else if (replacingPlaceholder) {
       position = replacingPlaceholder.position
-      console.log('📌 [WorkflowBuilder] Replacing placeholder:', selectedNodeId, 'with:', nodeData.type)
+      logger.debug('📌 [WorkflowBuilder] Replacing placeholder:', selectedNodeId, 'with:', nodeData.type)
     }
     // If adding after a specific node (from plus button), calculate position after that node
     else if (selectedNodeId) {
@@ -3863,7 +3863,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           x: afterNode.position.x, // Use same X as the node we're adding after (maintains alignment)
           y: afterNode.position.y + 180 // Add 180px vertical spacing after the node
         }
-        console.log('📌 [WorkflowBuilder] Adding node after:', selectedNodeId, 'at position:', position)
+        logger.debug('📌 [WorkflowBuilder] Adding node after:', selectedNodeId, 'at position:', position)
       }
     }
 
@@ -3895,14 +3895,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     setIsIntegrationsPanelOpen(false)
 
     // Check if this node needs configuration (has configSchema fields)
-    console.log('🔧 [WorkflowBuilder] Config check:', {
+    logger.debug('🔧 [WorkflowBuilder] Config check:', {
       nodeType: nodeData.type,
       nodeComponentFound: !!nodeComponent,
       configSchema: nodeComponent?.configSchema,
       configSchemaLength: nodeComponent?.configSchema?.length,
     })
     const needsConfiguration = nodeComponent?.configSchema && nodeComponent.configSchema.length > 0
-    console.log('🔧 [WorkflowBuilder] needsConfiguration:', needsConfiguration)
+    logger.debug('🔧 [WorkflowBuilder] needsConfiguration:', needsConfiguration)
 
     // Add optimistic node to canvas immediately for instant feedback
     builder.setNodes((nodes: any[]) => {
@@ -4047,7 +4047,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       // If changing an existing node, use atomic replaceNode to avoid intermediate states
       if (isChangingNode && nodeIdBeingChanged) {
-        console.log('📌 [WorkflowBuilder] Replacing node atomically:', nodeIdBeingChanged, '→', nodeData.type)
+        logger.debug('📌 [WorkflowBuilder] Replacing node atomically:', nodeIdBeingChanged, '→', nodeData.type)
         // replaceNode handles: delete old, add new, preserve integration_id, update edges in place
         newNodeId = await actions.replaceNode(
           nodeIdBeingChanged,
@@ -4055,7 +4055,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           position,
           ['integration_id'] // Preserve integration connection when switching same provider
         )
-        console.log('📌 [WorkflowBuilder] Node replaced successfully:', newNodeId)
+        logger.debug('📌 [WorkflowBuilder] Node replaced successfully:', newNodeId)
 
         // Only update configuring node if we opened the config modal
         if (needsConfiguration) {
@@ -4069,10 +4069,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         // Note: Edges are automatically updated by replaceNode - no manual reconnection needed
       } else {
         // Not changing an existing node - use regular addNode
-        console.log('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
+        logger.debug('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
         newNodeId = await actions.addNode(nodeData.type, position)
 
-        console.log('📌 [WorkflowBuilder] Node saved successfully, updateReactFlowGraph will handle placeholder')
+        logger.debug('📌 [WorkflowBuilder] Node saved successfully, updateReactFlowGraph will handle placeholder')
 
         // Only update configuring node if we opened the config modal
         if (needsConfiguration) {
@@ -4087,7 +4087,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         // If adding after a node (not replacing placeholder), create edge and handle insertion
         // Note: Using previousNodeId which was saved before setSelectedNodeId(null) was called
         if (previousNodeId && !isReplacingPlaceholder) {
-          console.log('🔗 [WorkflowBuilder] Inserting node after:', previousNodeId)
+          logger.debug('🔗 [WorkflowBuilder] Inserting node after:', previousNodeId)
 
           // Find what was connected after the selected node
           const afterNode = currentNodes.find((n: any) => n.id === previousNodeId)
@@ -4112,7 +4112,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               targetHandle: oldEdge.targetHandle
             })
 
-            console.log('🔗 [WorkflowBuilder] Inserted between', previousNodeId, 'and', nextNodeId)
+            logger.debug('🔗 [WorkflowBuilder] Inserted between', previousNodeId, 'and', nextNodeId)
           } else {
             // We're adding at the end
             await actions.connectEdge({
@@ -4120,7 +4120,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               targetId: newNodeId,
               sourceHandle: 'source'
             })
-            console.log('🔗 [WorkflowBuilder] Added at end after', previousNodeId)
+            logger.debug('🔗 [WorkflowBuilder] Added at end after', previousNodeId)
           }
         }
       }
@@ -4229,7 +4229,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const centerY = isFinite(centerYRaw) ? centerYRaw : 200
 
     if (shouldResetToPlaceholders) {
-      console.log('🔄 [WorkflowBuilder] All nodes deleted, resetting to placeholder state')
+      logger.debug('🔄 [WorkflowBuilder] All nodes deleted, resetting to placeholder state')
 
       // Reset to placeholder state (Zapier-style, centered)
       const placeholderNodes = [
@@ -4293,7 +4293,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       )
 
       if (!hasRealTrigger && !hasTriggerPlaceholder && updatedNodes.length > 0) {
-        console.log('🔄 [WorkflowBuilder] No trigger found, adding trigger placeholder')
+        logger.debug('🔄 [WorkflowBuilder] No trigger found, adding trigger placeholder')
 
         // Find the topmost node to place trigger placeholder above it
         const sortedNodes = [...updatedNodes].sort((a: any, b: any) => a.position.y - b.position.y)
@@ -4364,7 +4364,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     })
 
     if (deletedTrigger && flowState?.workflowStatus === 'active') {
-      console.log('[WorkflowBuilder] Trigger deleted from active workflow, auto-deactivating')
+      logger.debug('[WorkflowBuilder] Trigger deleted from active workflow, auto-deactivating')
       actions.deactivateWorkflow().then((result) => {
         toast({
           title: "Workflow Deactivated",
@@ -4372,7 +4372,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           variant: "default",
         })
       }).catch((error: any) => {
-        console.error('[WorkflowBuilder] Failed to auto-deactivate workflow:', error)
+        logger.error('[WorkflowBuilder] Failed to auto-deactivate workflow:', error)
       })
     }
   }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode, flowState?.workflowStatus])
@@ -4433,7 +4433,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // Open integrations panel with correct mode
     openIntegrationsPanel(isTrigger ? 'trigger' : 'action')
 
-    console.log(`[WorkflowBuilder] Opening integrations panel to change ${isTrigger ? 'trigger' : 'action'} node:`, nodeId)
+    logger.debug(`[WorkflowBuilder] Opening integrations panel to change ${isTrigger ? 'trigger' : 'action'} node:`, nodeId)
   }, [builder?.nodes, openIntegrationsPanel])
 
   const handleBackToIntegrations = useCallback(() => {
@@ -4616,11 +4616,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     const node = reactFlowProps?.nodes?.find((n: any) => n.id === nodeId)
     if (node) {
-      console.log('🔧 [WorkflowBuilder] Opening configuration for node:', nodeId, node)
+      logger.debug('🔧 [WorkflowBuilder] Opening configuration for node:', nodeId, node)
 
       // Check if this is a placeholder node
       if (node.data?.isPlaceholder) {
-        console.log('📌 [WorkflowBuilder] Placeholder node clicked, opening integrations panel')
+        logger.debug('📌 [WorkflowBuilder] Placeholder node clicked, opening integrations panel')
 
         // Check if this is the first node in the workflow (trigger position)
         // First node has no incoming edges
@@ -4642,17 +4642,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       const nodeType = node.data?.type || node.data?.nodeType || nodeId.split('-')[0]
       const nodeInfo = getNodeByType(nodeType)
 
-      console.log('🔧 [WorkflowBuilder] Looking up node info:', { nodeType, found: !!nodeInfo, configSchemaLength: nodeInfo?.configSchema?.length })
+      logger.debug('🔧 [WorkflowBuilder] Looking up node info:', { nodeType, found: !!nodeInfo, configSchemaLength: nodeInfo?.configSchema?.length })
 
       if (nodeInfo && nodeInfo.configSchema && nodeInfo.configSchema.length > 0) {
-        console.log('🚀 [WorkflowBuilder] Prefetching config data for:', nodeType)
+        logger.debug('🚀 [WorkflowBuilder] Prefetching config data for:', nodeType)
         // Don't await - let it load in parallel with modal opening
         prefetchNodeConfig(
           nodeType,
           nodeInfo.providerId || '',
           nodeInfo.configSchema
         ).catch(err => {
-          console.warn('⚠️ [WorkflowBuilder] Prefetch failed (non-critical):', err)
+          logger.warn('⚠️ [WorkflowBuilder] Prefetch failed (non-critical):', err)
         })
       }
 
@@ -4661,17 +4661,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       setConfiguringNode(node)
     } else {
-      console.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
+      logger.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
     }
   }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId, configuringNode])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
-    console.log('💾 [WorkflowBuilder] Saving configuration for node:', nodeId, config)
-    console.log('💾 [WorkflowBuilder] __validationState in config:', config.__validationState)
+    logger.debug('💾 [WorkflowBuilder] Saving configuration for node:', nodeId, config)
+    logger.debug('💾 [WorkflowBuilder] __validationState in config:', config.__validationState)
 
     if (!actions || !builder) {
-      console.warn('💾 [WorkflowBuilder] No actions or builder available to save config')
+      logger.warn('💾 [WorkflowBuilder] No actions or builder available to save config')
       return
     }
 
@@ -4684,7 +4684,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           timestamp: Date.now()
         });
         if (stored) {
-          console.log('💾 [WorkflowBuilder] Cached config locally for instant reopen');
+          logger.debug('💾 [WorkflowBuilder] Cached config locally for instant reopen');
         }
       }
 
@@ -4707,12 +4707,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         return node
       })
       builder.setNodes(updatedNodes)
-      console.log('✅ [WorkflowBuilder] Updated node validation state instantly')
+      logger.debug('✅ [WorkflowBuilder] Updated node validation state instantly')
 
       // Update the node with the new config (debounced 600ms for API persistence)
       actions.updateConfig(nodeId, config)
     } catch (error: any) {
-      console.error('💾 [WorkflowBuilder] Error saving config:', error)
+      logger.error('💾 [WorkflowBuilder] Error saving config:', error)
       toast({
         title: "Failed to save configuration",
         description: error?.message ?? "Unable to save node configuration",
@@ -4794,19 +4794,19 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const startExecutionPolling = useCallback((executionId: string) => {
     if (executionPollIntervalRef.current) return // Already polling
 
-    console.log('[POLL] Starting execution polling for:', executionId)
+    logger.debug('[POLL] Starting execution polling for:', executionId)
 
     const pollExecution = async () => {
       try {
         const response = await fetch(`/api/workflows/${flowId}/execution-status/${executionId}`)
         if (!response.ok) {
-          console.log('[POLL] Response not ok:', response.status)
+          logger.debug('[POLL] Response not ok:', response.status)
           return
         }
 
         const data = await response.json()
         const progress = data.progress
-        console.log('[POLL] Got progress:', progress)
+        logger.debug('[POLL] Got progress:', progress)
 
         if (!progress) return
 
@@ -4816,10 +4816,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         // Sync current running/paused node
         if (progress.currentNodeId && progress.currentNodeId !== lastSynced.currentNodeId) {
           if (progress.status === 'paused') {
-            console.log('[POLL] Setting node paused:', progress.currentNodeId)
+            logger.debug('[POLL] Setting node paused:', progress.currentNodeId)
             setNodePaused(progress.currentNodeId, undefined, progress.currentNodeName)
           } else {
-            console.log('[POLL] Setting node running:', progress.currentNodeId)
+            logger.debug('[POLL] Setting node running:', progress.currentNodeId)
             setNodeRunning(progress.currentNodeId, undefined, progress.currentNodeName)
           }
           lastSyncedProgressRef.current.currentNodeId = progress.currentNodeId
@@ -4845,7 +4845,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                            nodeOutput.message ||
                            nodeOutput.preview ||
                            'Completed'
-            console.log('[POLL] Setting node completed:', nodeId, { executionTimeMs, preview })
+            logger.debug('[POLL] Setting node completed:', nodeId, { executionTimeMs, preview })
             setNodeCompletedWithDetails(nodeId, nodeOutput, preview, executionTimeMs)
           })
           lastSyncedProgressRef.current.completedNodes = [...progress.completedNodes]
@@ -4857,14 +4857,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           progress.failedNodes.forEach((failed: { nodeId: string; error: string }) => {
             const nodeOutput = nodeOutputs[failed.nodeId] || {}
             const executionTimeMs = nodeOutput.metadata?.executionTime || 0
-            console.log('[POLL] Setting node failed:', failed.nodeId)
+            logger.debug('[POLL] Setting node failed:', failed.nodeId)
             setNodeFailedWithDetails(failed.nodeId, failed.error, executionTimeMs)
           })
         }
 
         // Check if execution completed or failed
         if (progress.status === 'completed' || progress.status === 'failed') {
-          console.log('[POLL] Execution finished:', progress.status)
+          logger.debug('[POLL] Execution finished:', progress.status)
           stopExecutionPolling()
           finishTestFlow(progress.status === 'completed' ? 'completed' : 'error', progress.errorMessage)
           toast({
@@ -4875,7 +4875,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         }
         // Note: Don't stop polling when paused - we want to detect when it resumes
       } catch (error) {
-        console.error('[POLL] Error polling execution status:', error)
+        logger.error('[POLL] Error polling execution status:', error)
       }
     }
 
@@ -4927,11 +4927,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
   // Handler for when user starts a test from the dialog
   const handleRunTestFromDialog = useCallback(async (config: TestModeConfig, mockVariation?: string) => {
-    console.log('[TEST] handleRunTestFromDialog called', { config, mockVariation })
+    logger.debug('[TEST] handleRunTestFromDialog called', { config, mockVariation })
     setIsTestModeDialogOpen(false)
 
     if (!builder?.nodes) {
-      console.log('[TEST] No builder nodes, returning early')
+      logger.debug('[TEST] No builder nodes, returning early')
       return
     }
 
@@ -4954,7 +4954,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     let timerInterval: NodeJS.Timeout | null = null
 
     try {
-      console.log('[TEST] Starting test execution', {
+      logger.debug('[TEST] Starting test execution', {
         waitForTrigger,
         hasTriggerNode: !!triggerNode,
         nodeCount: nodes.length,
@@ -4980,7 +4980,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       // If waiting for real trigger, start listening
       if (waitForTrigger && triggerNode) {
-        console.log('[TEST] Waiting for real trigger')
+        logger.debug('[TEST] Waiting for real trigger')
         startListening(config)
 
         toast({
@@ -5023,18 +5023,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
         // Check if aborted
         if (abortController.signal.aborted) {
-          console.log('[TEST] Test was aborted')
+          logger.debug('[TEST] Test was aborted')
           return
         }
 
-        console.log('[TEST] Trigger API response status:', triggerResponse.status)
+        logger.debug('[TEST] Trigger API response status:', triggerResponse.status)
 
         if (!triggerResponse.ok) {
           throw new Error('Failed to activate trigger')
         }
 
         const triggerResult = await triggerResponse.json()
-        console.log('[TEST] Trigger result:', triggerResult)
+        logger.debug('[TEST] Trigger result:', triggerResult)
 
         if (!triggerResult.testSessionId) {
           throw new Error('Missing test session ID')
@@ -5095,7 +5095,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             if (!line.startsWith('data: ')) continue
             try {
               const event = JSON.parse(line.slice(6))
-              console.log('[TEST] Trigger stream event:', event)
+              logger.debug('[TEST] Trigger stream event:', event)
 
               if (event.type === 'trigger_received') {
                 triggerEventData = event.data
@@ -5125,7 +5125,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                 throw new Error(event.message || 'Trigger stream error')
               }
             } catch (parseError) {
-              console.log('[TEST] Trigger stream parse error:', parseError, 'Line:', line)
+              logger.debug('[TEST] Trigger stream parse error:', parseError, 'Line:', line)
             }
           }
 
@@ -5144,7 +5144,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           return
         }
 
-        console.log('[SSE] Trigger event received:', { triggerEventData, testSessionId: triggerResult.testSessionId })
+        logger.debug('[SSE] Trigger event received:', { triggerEventData, testSessionId: triggerResult.testSessionId })
 
         if (isMountedRef.current) {
           toast({
@@ -5156,11 +5156,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       // Check if aborted before continuing
       if (abortController.signal.aborted) {
-        console.log('[TEST] Test was aborted before SSE execution')
+        logger.debug('[TEST] Test was aborted before SSE execution')
         return
       }
 
-      console.log('[SSE] Starting workflow execution phase')
+      logger.debug('[SSE] Starting workflow execution phase')
 
       // Execute the workflow with SSE streaming for real-time updates
       setIsFlowTesting(true)
@@ -5168,7 +5168,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       // Reset test flow state for execution phase
       resetTestFlow()
 
-      console.log('[SSE] Starting SSE execution stream', {
+      logger.debug('[SSE] Starting SSE execution stream', {
         workflowId: flowId,
         hasTriggerData: !!triggerEventData,
         skipTrigger: !waitForTrigger
@@ -5196,28 +5196,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.log('[SSE] Response not OK:', response.status, errorText)
+        logger.debug('[SSE] Response not OK:', response.status, errorText)
         throw new Error(`Workflow execution failed: ${response.status}`)
       }
 
-      console.log('[SSE] Response received, status:', response.status)
+      logger.debug('[SSE] Response received, status:', response.status)
 
       // Read SSE stream for real-time node updates
       const reader = response.body?.getReader()
       const decoder = new TextDecoder()
 
       if (!reader) {
-        console.log('[SSE] No reader available')
+        logger.debug('[SSE] No reader available')
         throw new Error('No response stream available')
       }
 
-      console.log('[SSE] Starting to read stream...')
+      logger.debug('[SSE] Starting to read stream...')
       let buffer = ''
 
       while (true) {
         // Check if aborted
         if (abortController.signal.aborted) {
-          console.log('[SSE] Stream reading aborted')
+          logger.debug('[SSE] Stream reading aborted')
           reader.cancel()
           break
         }
@@ -5225,12 +5225,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         const { done, value } = await reader.read()
 
         if (done) {
-          console.log('[SSE] Stream done')
+          logger.debug('[SSE] Stream done')
           break
         }
 
         const chunk = decoder.decode(value, { stream: true })
-        console.log('[SSE] Received chunk:', chunk.length, 'chars')
+        logger.debug('[SSE] Received chunk:', chunk.length, 'chars')
         buffer += chunk
 
         // Parse SSE events from buffer
@@ -5241,17 +5241,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           if (line.startsWith('data: ')) {
             try {
               const event = JSON.parse(line.slice(6))
-              console.log('[SSE] Event received:', event)
+              logger.debug('[SSE] Event received:', event)
 
               switch (event.type) {
                 case 'workflow_started':
-                  console.log('[SSE] Workflow started, executionId:', event.executionId)
+                  logger.debug('[SSE] Workflow started, executionId:', event.executionId)
                   // Store executionId for potential polling after HITL pause
                   pausedExecutionIdRef.current = event.executionId
                   break
 
                 case 'node_started':
-                  console.log('[SSE] Setting node running:', event.nodeId)
+                  logger.debug('[SSE] Setting node running:', event.nodeId)
                   setNodeRunning(
                     event.nodeId,
                     event.nodeType,
@@ -5261,7 +5261,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   break
 
                 case 'node_completed':
-                  console.log('[SSE] Setting node completed:', event.nodeId)
+                  logger.debug('[SSE] Setting node completed:', event.nodeId)
                   setNodeCompletedWithDetails(
                     event.nodeId,
                     event.output,
@@ -5273,7 +5273,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   break
 
                 case 'node_failed':
-                  console.log('[SSE] Setting node failed:', event.nodeId, event.error)
+                  logger.debug('[SSE] Setting node failed:', event.nodeId, event.error)
                   setNodeFailedWithDetails(
                     event.nodeId,
                     event.error || 'Unknown error',
@@ -5284,7 +5284,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   break
 
                 case 'node_paused':
-                  console.log('[SSE] Setting node paused:', event.nodeId)
+                  logger.debug('[SSE] Setting node paused:', event.nodeId)
                   setNodePaused(
                     event.nodeId,
                     event.nodeType,
@@ -5294,7 +5294,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   break
 
                 case 'workflow_paused':
-                  console.log('[SSE] Workflow paused at:', event.pausedAt)
+                  logger.debug('[SSE] Workflow paused at:', event.pausedAt)
                   // Note: setNodePaused already sets testFlowStatus to 'paused'
                   // Show toast notification
                   toast({
@@ -5303,13 +5303,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   })
                   // Start polling for execution status to detect when workflow resumes
                   if (pausedExecutionIdRef.current) {
-                    console.log('[SSE] Starting polling for resumed execution:', pausedExecutionIdRef.current)
+                    logger.debug('[SSE] Starting polling for resumed execution:', pausedExecutionIdRef.current)
                     startExecutionPolling(pausedExecutionIdRef.current)
                   }
                   break
 
                 case 'workflow_completed':
-                  console.log('[SSE] Workflow completed')
+                  logger.debug('[SSE] Workflow completed')
                   stopExecutionPolling() // Stop polling if it was running
                   finishTestFlow('completed')
                   // Deactivate the test webhook now that workflow is complete
@@ -5321,7 +5321,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   break
 
                 case 'workflow_failed':
-                  console.log('[SSE] Workflow failed:', event.error)
+                  logger.debug('[SSE] Workflow failed:', event.error)
                   stopExecutionPolling() // Stop polling if it was running
                   finishTestFlow('error', event.error)
                   // Deactivate the test webhook even on failure
@@ -5334,10 +5334,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   break
 
                 default:
-                  console.log('[SSE] Unknown event type:', event.type)
+                  logger.debug('[SSE] Unknown event type:', event.type)
               }
             } catch (parseError) {
-              console.log('[SSE] Parse error:', parseError, 'Line:', line)
+              logger.debug('[SSE] Parse error:', parseError, 'Line:', line)
             }
           }
         }
@@ -5346,10 +5346,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     } catch (error: any) {
       // Don't show error for aborted requests
       if (error.name === 'AbortError' || abortController.signal.aborted) {
-        console.log('[TEST] Test was aborted')
+        logger.debug('[TEST] Test was aborted')
         return
       }
-      console.log('[TEST] Error in test execution:', error)
+      logger.debug('[TEST] Error in test execution:', error)
       if (isMountedRef.current) {
         finishTestFlow('error', error.message)
         toast({
@@ -5487,7 +5487,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               if (!line.startsWith('data: ')) continue
               try {
                 const event = JSON.parse(line.slice(6))
-                console.log('[TEST] Trigger stream event:', event)
+                logger.debug('[TEST] Trigger stream event:', event)
 
                 if (event.type === 'trigger_received') {
                   triggerData = event.data
@@ -5503,7 +5503,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   throw new Error(event.message || 'Trigger stream error')
                 }
               } catch (parseError) {
-                console.log('[TEST] Trigger stream parse error:', parseError, 'Line:', line)
+                logger.debug('[TEST] Trigger stream parse error:', parseError, 'Line:', line)
               }
             }
 
@@ -5638,7 +5638,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       }
 
     } catch (error: any) {
-      console.error('❌ [WorkflowBuilder] Test workflow error:', error)
+      logger.error('❌ [WorkflowBuilder] Test workflow error:', error)
 
       // Clear running states
       const clearedNodes = builder.nodes.map((n: any) => ({
@@ -5757,7 +5757,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           }
         })
         .catch((error) => {
-          console.error("Failed to save user prompt:", error)
+          logger.error("Failed to save user prompt:", error)
         })
     }
 
@@ -5935,7 +5935,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       await continueWithPlanGeneration(result, finalPrompt, allProviderMetadata.length > 0 ? allProviderMetadata : undefined)
 
     } catch (error: any) {
-      console.error('[WorkflowBuilderV2] Error in handleSubmitUserMessage:', error)
+      logger.error('[WorkflowBuilderV2] Error in handleSubmitUserMessage:', error)
       // Mark request as failed for potential retry
       updatePendingRequest(requestId, { status: 'failed' })
 
@@ -5984,7 +5984,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           nodeMapping[buildMachine.plan[index].id] = edit.node.id
           // Cache the actual node object
           nodesCache.push(edit.node)
-          console.log(`[handleBuild] Mapped plan node "${buildMachine.plan[index].id}" -> ReactFlow node "${edit.node.id}"`)
+          logger.debug(`[handleBuild] Mapped plan node "${buildMachine.plan[index].id}" -> ReactFlow node "${edit.node.id}"`)
         }
       })
 
@@ -5995,18 +5995,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         nodesCache,
       }))
 
-      console.log('[handleBuild] Cached nodes count:', nodesCache.length)
+      logger.debug('[handleBuild] Cached nodes count:', nodesCache.length)
 
       // STEP 2: Add nodes ONE AT A TIME with animation
       // Extract node edits (connect edges will be created sequentially)
       const nodeEdits = buildMachine.edits.filter((e: any) => e.op === 'addNode')
 
-      console.log('[handleBuild] Adding', nodeEdits.length, 'nodes sequentially with animation')
+      logger.debug('[handleBuild] Adding', nodeEdits.length, 'nodes sequentially with animation')
 
       // STEP 3: Animate nodes appearing one by one
       setTimeout(async () => {
         if (!reactFlowInstanceRef.current || !builder?.setNodes || !builder?.setEdges) {
-          console.error('[handleBuild Animation] Missing required refs')
+          logger.error('[handleBuild Animation] Missing required refs')
           return
         }
 
@@ -6029,7 +6029,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         const safeCenterX = isFinite(centerX) ? centerX : 600
         const safeCenterY = isFinite(centerY) ? centerY : 200
 
-        console.log('[handleBuild] Node positioning (vertical layout like placeholders):', {
+        logger.debug('[handleBuild] Node positioning (vertical layout like placeholders):', {
           agentPanelWidth,
           panelWidth,
           centerX: safeCenterX,
@@ -6104,7 +6104,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           })
         }
 
-        console.log('[handleBuild] Preparing to add nodes one at a time:', {
+        logger.debug('[handleBuild] Preparing to add nodes one at a time:', {
           count: allNodes.length,
           positions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
           edges: allEdges.map(e => ({ id: e.id, source: e.source, target: e.target }))
@@ -6120,7 +6120,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         // Add nodes one at a time
         for (let i = 0; i < allNodes.length; i++) {
           const node = allNodes[i]
-          console.log(`[handleBuild] Adding node ${i + 1}/${allNodes.length}:`, node.id)
+          logger.debug(`[handleBuild] Adding node ${i + 1}/${allNodes.length}:`, node.id)
 
           // Add the node
           builder.setNodes(prev => [...prev, node])
@@ -6135,7 +6135,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           await wait(700)
         }
 
-        console.log('[handleBuild] All nodes added, waiting before zoom animation')
+        logger.debug('[handleBuild] All nodes added, waiting before zoom animation')
 
         // Force positions to stay fixed - check multiple times
         // React Flow sometimes repositions nodes after initial render
@@ -6143,7 +6143,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           const currentNodes = reactFlowInstanceRef.current?.getNodes()
           if (!currentNodes) return false
 
-          console.log('[handleBuild] Position check:',
+          logger.debug('[handleBuild] Position check:',
             currentNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }))
           )
 
@@ -6154,7 +6154,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           })
 
           if (needsFixing) {
-            console.log('[handleBuild] ⚠️ Positions changed! Forcing back to Y=' + BASE_Y)
+            logger.debug('[handleBuild] ⚠️ Positions changed! Forcing back to Y=' + BASE_Y)
             const fixedNodes = currentNodes.map(node => {
               const originalNode = allNodes.find(n => n.id === node.id)
               if (originalNode) {
@@ -6191,7 +6191,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         // Log actual node positions after render
         if (reactFlowInstanceRef.current) {
           const currentNodes = reactFlowInstanceRef.current.getNodes()
-          console.log('[handleBuild] Actual node positions after render:',
+          logger.debug('[handleBuild] Actual node positions after render:',
             currentNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }))
           )
         }
@@ -6199,12 +6199,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         const firstNode = allNodes[0]
 
         // STEP 6: Transition first node to ready state after all nodes visible
-        console.log('[handleBuild] Transitioning first node to ready state')
+        logger.debug('[handleBuild] Transitioning first node to ready state')
         const firstPlanNode = buildMachine.plan[0]
         // Use allNodes[0].id directly instead of relying on state mapping
         const firstReactNodeId = allNodes[0]?.id
 
-        console.log('[handleBuild] First node transition:', {
+        logger.debug('[handleBuild] First node transition:', {
           firstPlanNode: firstPlanNode?.id,
           firstReactNodeId,
           firstNodeFromArray: allNodes[0]?.id,
@@ -6213,14 +6213,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         })
 
         if (firstReactNodeId && reactFlowInstanceRef.current) {
-          console.log('[handleBuild] ✨ TRANSITIONING NODE FROM SKELETON TO READY:', firstReactNodeId)
+          logger.debug('[handleBuild] ✨ TRANSITIONING NODE FROM SKELETON TO READY:', firstReactNodeId)
 
           setNodeState(reactFlowInstanceRef.current, firstReactNodeId, 'ready')
           builder.setNodes((current: any[]) => {
             const working = current && current.length > 0 ? current : (buildMachine.nodesCache ?? [])
             const updated = working.map(node => {
               if (node.id === firstReactNodeId) {
-                console.log('[handleBuild] 🎯 Updating node data:', {
+                logger.debug('[handleBuild] 🎯 Updating node data:', {
                   nodeId: node.id,
                   oldState: node.data?.state,
                   newState: 'ready',
@@ -6239,18 +6239,18 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               }
               return node
             })
-            console.log('[handleBuild] Updated nodes count:', updated.length)
+            logger.debug('[handleBuild] Updated nodes count:', updated.length)
             return updated
           })
 
           // Wait longer for state transition to be visible before zoom
           await wait(600)
         } else {
-          console.log('[handleBuild] ⚠️ Cannot transition first node - missing ID or instance')
+          logger.debug('[handleBuild] ⚠️ Cannot transition first node - missing ID or instance')
         }
 
         // STEP 7: Fit view to show ALL nodes, accounting for agent panel
-        console.log('[handleBuild] Starting fitView animation to show all nodes')
+        logger.debug('[handleBuild] Starting fitView animation to show all nodes')
         if (reactFlowInstanceRef.current && allNodes.length > 0) {
           const instance = reactFlowInstanceRef.current
 
@@ -6264,9 +6264,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
           // Guard against NaN values
           if (!isFinite(centerX) || !isFinite(centerY)) {
-            console.warn('[handleBuild] Skipping fitView - invalid center values:', { centerX, centerY, minX, maxX, minY, maxY })
+            logger.warn('[handleBuild] Skipping fitView - invalid center values:', { centerX, centerY, minX, maxX, minY, maxY })
           } else {
-            console.log('[handleBuild] Fitting view to show all nodes:', {
+            logger.debug('[handleBuild] Fitting view to show all nodes:', {
               nodeCount: allNodes.length,
               nodePositions: allNodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y })),
               boundingBox: { minX, maxX, minY, maxY },
@@ -6296,7 +6296,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         // STEP 9: Save nodes and edges to database
         // This prevents the workflow from being reset when updateConfig is called later
         try {
-          console.log('[handleBuild] Saving nodes to database...')
+          logger.debug('[handleBuild] Saving nodes to database...')
 
           // Convert React Flow nodes to Flow schema format for applyEdits
           const saveNodeEdits = allNodes.map((node) => ({
@@ -6333,13 +6333,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           }))
 
           const allSaveEdits = [...saveNodeEdits, ...saveEdgeEdits]
-          console.log('[handleBuild] Saving', allSaveEdits.length, 'edits to database (', saveNodeEdits.length, 'nodes,', saveEdgeEdits.length, 'edges)')
+          logger.debug('[handleBuild] Saving', allSaveEdits.length, 'edits to database (', saveNodeEdits.length, 'nodes,', saveEdgeEdits.length, 'edges)')
 
           // Save to database but skip updating React Flow graph (we already have the correct state)
           await actions.applyEdits(allSaveEdits, { skipGraphUpdate: true })
-          console.log('[handleBuild] ✅ Nodes and edges saved to database successfully')
+          logger.debug('[handleBuild] ✅ Nodes and edges saved to database successfully')
         } catch (saveError: any) {
-          console.error('[handleBuild] Failed to save nodes to database:', saveError)
+          logger.error('[handleBuild] Failed to save nodes to database:', saveError)
           // Don't fail the whole build - the nodes are still displayed, just not persisted
           // User can try saving again or the next config update will attempt to save
         }
@@ -6364,30 +6364,30 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [actions, agentPanelWidth, buildMachine, builder?.nodes, builder?.setNodes, isIntegrationConnected, persistOrQueueStatus, toast, transitionTo, setBuildMachine])
 
   const handleContinueNode = useCallback(async () => {
-    console.log('[handleContinueNode] Starting...')
+    logger.debug('[handleContinueNode] Starting...')
     const currentIndex = buildMachine.progress.currentIndex
-    console.log('[handleContinueNode] currentIndex:', currentIndex)
-    console.log('[handleContinueNode] buildMachine.nodeMapping:', buildMachine.nodeMapping)
-    console.log('[handleContinueNode] buildMachine.nodesCache:', buildMachine.nodesCache)
+    logger.debug('[handleContinueNode] currentIndex:', currentIndex)
+    logger.debug('[handleContinueNode] buildMachine.nodeMapping:', buildMachine.nodeMapping)
+    logger.debug('[handleContinueNode] buildMachine.nodesCache:', buildMachine.nodesCache)
 
     if (currentIndex < 0 || !buildMachine.plan[currentIndex]) {
-      console.log('[handleContinueNode] Invalid index or no plan node')
+      logger.debug('[handleContinueNode] Invalid index or no plan node')
       return
     }
     if (!builder?.setNodes) {
-      console.log('[handleContinueNode] No builder setNodes')
+      logger.debug('[handleContinueNode] No builder setNodes')
       return
     }
 
     const planNode = buildMachine.plan[currentIndex]
-    console.log('[handleContinueNode] planNode:', planNode)
+    logger.debug('[handleContinueNode] planNode:', planNode)
 
     // Use the mapping to find the ReactFlow node ID
     const reactFlowNodeId = buildMachine.nodeMapping?.[planNode.id]
-    console.log('[handleContinueNode] Looking for ReactFlow node ID:', reactFlowNodeId)
+    logger.debug('[handleContinueNode] Looking for ReactFlow node ID:', reactFlowNodeId)
 
     if (!reactFlowNodeId) {
-      console.log('[handleContinueNode] No mapping found for plan node:', planNode.id)
+      logger.debug('[handleContinueNode] No mapping found for plan node:', planNode.id)
       toast({
         title: "Node mapping error",
         description: "Could not find the workflow node mapping. Please try rebuilding.",
@@ -6400,16 +6400,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     let reactFlowNode = buildMachine.nodesCache?.find(n => n.id === reactFlowNodeId)
 
     if (!reactFlowNode) {
-      console.log('[handleContinueNode] Node not in cache, checking builder.nodes...')
+      logger.debug('[handleContinueNode] Node not in cache, checking builder.nodes...')
       reactFlowNode = builder.nodes?.find(n => n.id === reactFlowNodeId)
     }
 
-    console.log('[handleContinueNode] reactFlowNode:', reactFlowNode)
+    logger.debug('[handleContinueNode] reactFlowNode:', reactFlowNode)
 
     if (!reactFlowNode) {
-      console.log('[handleContinueNode] No reactFlowNode found with ID:', reactFlowNodeId)
-      console.log('[handleContinueNode] builder.nodes:', builder.nodes)
-      console.log('[handleContinueNode] nodesCache:', buildMachine.nodesCache)
+      logger.debug('[handleContinueNode] No reactFlowNode found with ID:', reactFlowNodeId)
+      logger.debug('[handleContinueNode] builder.nodes:', builder.nodes)
+      logger.debug('[handleContinueNode] nodesCache:', buildMachine.nodesCache)
       toast({
         title: "Node not found",
         description: "Could not find the workflow node. Please try rebuilding.",
@@ -6418,7 +6418,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       return
     }
 
-    console.log('[handleContinueNode] Transitioning to PREPARING_NODE')
+    logger.debug('[handleContinueNode] Transitioning to PREPARING_NODE')
     transitionTo(BuildState.PREPARING_NODE)
 
     try {
@@ -6602,7 +6602,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           if (isTrigger) {
             // For triggers: just validate configuration
             // Webhooks are created on workflow activation, not during testing
-            console.log('[WorkflowBuilderV2] 📋 Validating trigger configuration:', planNode.nodeId)
+            logger.debug('[WorkflowBuilderV2] 📋 Validating trigger configuration:', planNode.nodeId)
 
             // Check if connection exists
             const connectionId = userConfig.connection
@@ -6619,7 +6619,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             await wait(600) // Brief pause to show testing state
           } else {
             // For actions: execute REAL API call
-            console.log('[WorkflowBuilderV2] 🧪 Executing real action test:', planNode.nodeId)
+            logger.debug('[WorkflowBuilderV2] 🧪 Executing real action test:', planNode.nodeId)
 
             // Use the complete config from the node, which includes both user config and AI-generated values
             const completeConfig = reactFlowNode.data.config || userConfig
@@ -6635,10 +6635,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             })
           }
 
-          console.log('[WorkflowBuilderV2] Test result:', testResult)
+          logger.debug('[WorkflowBuilderV2] Test result:', testResult)
 
         } catch (error: any) {
-          console.error('[WorkflowBuilderV2] Test failed:', error)
+          logger.error('[WorkflowBuilderV2] Test failed:', error)
           testResult = {
             success: false,
             message: error.message || 'Test failed',
@@ -6966,7 +6966,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       for (const routerNode of routerNodes) {
         // Skip if already processing this router
         if (processingRoutersRef.current.has(routerNode.id)) {
-          console.log('[Path Router] Already processing router:', routerNode.id)
+          logger.debug('[Path Router] Already processing router:', routerNode.id)
           continue
         }
 
@@ -6981,7 +6981,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         if (!hasPathConditions) {
           // Mark as processing
           processingRoutersRef.current.add(routerNode.id)
-          console.log('[Path Router] Auto-creating 2 paths for router:', routerNode.id)
+          logger.debug('[Path Router] Auto-creating 2 paths for router:', routerNode.id)
 
           try {
             // Create Path A (left) - 250px to the left
@@ -7035,9 +7035,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               })
             }
 
-            console.log('[Path Router] Successfully created 2 paths')
+            logger.debug('[Path Router] Successfully created 2 paths')
           } catch (error) {
-            console.error('[Path Router] Failed to auto-create paths:', error)
+            logger.error('[Path Router] Failed to auto-create paths:', error)
           } finally {
             // Always remove from processing set
             processingRoutersRef.current.delete(routerNode.id)
@@ -7257,7 +7257,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
                   // Guard against NaN values - skip viewport adjustment if calculations are invalid
                   if (!isFinite(nodesCenterX) || !isFinite(nodesCenterY) || !isFinite(minX) || !isFinite(maxX)) {
-                    console.warn('[Viewport Init] Skipping viewport adjustment - invalid node bounds:', { minX, maxX, minY, maxY, nodesCenterX, nodesCenterY })
+                    logger.warn('[Viewport Init] Skipping viewport adjustment - invalid node bounds:', { minX, maxX, minY, maxY, nodesCenterX, nodesCenterY })
                     return
                   }
 
@@ -7279,7 +7279,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
                   // Final NaN guard before setting viewport
                   if (!isFinite(viewportX) || !isFinite(viewportY)) {
-                    console.warn('[Viewport Init] Skipping viewport adjustment - invalid viewport position:', { viewportX, viewportY })
+                    logger.warn('[Viewport Init] Skipping viewport adjustment - invalid viewport position:', { viewportX, viewportY })
                     return
                   }
 
@@ -7437,12 +7437,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                 const age = Date.now() - timestamp;
                 // Use cache if less than 5 minutes old
                 if (age < 5 * 60 * 1000) {
-                  console.log('⚡ [WorkflowBuilder] Loaded config from cache for instant reopen');
+                  logger.debug('⚡ [WorkflowBuilder] Loaded config from cache for instant reopen');
                   initialData = { ...config };
                 }
               }
             } catch (e) {
-              console.warn('Failed to load cached config:', e);
+              logger.warn('Failed to load cached config:', e);
             }
           }
         }
