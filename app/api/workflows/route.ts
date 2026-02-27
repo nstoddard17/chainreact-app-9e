@@ -227,7 +227,7 @@ export async function GET(request: NextRequest) {
         const nodesByWorkflowId = new Map<string, any[]>()
         for (const node of allNodes) {
           const existing = nodesByWorkflowId.get(node.workflow_id) || []
-          // Transform node to expected format for ConnectedNodesDisplay
+          // Transform node to expected format for ConnectedNodesDisplay and validation
           existing.push({
             id: node.id,
             type: node.node_type,
@@ -236,6 +236,7 @@ export async function GET(request: NextRequest) {
               providerId: node.provider_id || 'core',
               title: node.label || node.config?.label || 'Node',
               label: node.label || node.config?.label || 'Node',
+              config: node.config || {},
             }
           })
           nodesByWorkflowId.set(node.workflow_id, existing)
