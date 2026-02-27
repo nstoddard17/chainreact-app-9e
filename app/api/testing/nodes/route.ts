@@ -99,6 +99,11 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!
+    )
+
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 

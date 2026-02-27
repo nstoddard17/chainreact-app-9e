@@ -395,6 +395,7 @@ async function processNotifications(
   headers: any,
   requestId: string | undefined
 ): Promise<void> {
+  const supabase = getSupabase()
   logger.info('🔄 Starting processNotifications with', notifications.length, 'notifications')
 
   for (const change of notifications) {

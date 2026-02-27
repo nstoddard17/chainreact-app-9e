@@ -14,7 +14,14 @@ interface ExecuteFilterContext {
  * Execute Filter node - Stops workflow if conditions are NOT met
  * Returns success if filter passes, stops workflow if filter fails
  */
-export async function executeFilter(context: ExecuteFilterContext) {
+export async function executeFilter(context: ExecuteFilterContext): Promise<{
+  success: boolean
+  filterPassed?: boolean
+  stopWorkflow?: boolean
+  reason?: string
+  error?: string
+  data?: Record<string, any>
+}> {
   try {
     const { config, previousOutputs } = context
     const { conditions, stopMessage } = config

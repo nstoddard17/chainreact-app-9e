@@ -86,6 +86,43 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return errorResponse('Workflow must have at least one action', 400)
     }
 
+    // Validate node configurations against their schemas
+    const { ALL_NODE_COMPONENTS } = await import('@/lib/workflows/nodes')
+    const { getMissingRequiredFields } = await import('@/lib/workflows/validation/fieldVisibility')
+
+    const configurationErrors: string[] = []
+    for (const node of (nodesData || [])) {
+      const nodeType = (node as any).node_type
+      if (!nodeType || nodeType === 'ai_agent') continue
+
+      const component = ALL_NODE_COMPONENTS.find((c: any) => c.type === nodeType)
+      if (!component?.configSchema?.length) continue
+
+      const nodeInfo = {
+        type: nodeType,
+        providerId: (node as any).provider_id,
+        configSchema: component.configSchema
+      }
+
+      const values = (node as any).config || {}
+      const missing = getMissingRequiredFields(nodeInfo, values)
+
+      if (missing.length > 0) {
+        const nodeTitle = component.title || nodeType
+        configurationErrors.push(
+          `${nodeTitle} is missing required field${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`
+        )
+      }
+    }
+
+    if (configurationErrors.length > 0) {
+      logger.warn('❌ Workflow has unconfigured nodes:', configurationErrors)
+      return errorResponse(
+        `Workflow has unconfigured nodes: ${configurationErrors.join('; ')}`,
+        400
+      )
+    }
+
     // Convert nodes to format expected by TriggerLifecycleManager
     const nodes = (nodesData || []).map((n: any) => ({
       id: n.id,

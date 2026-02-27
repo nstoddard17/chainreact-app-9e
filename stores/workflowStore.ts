@@ -799,10 +799,12 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         })
       }
 
-      const isComplete = hasTrigger && hasActions && ensuredConnections.length > 0
+      const isStructurallyComplete = hasTrigger && hasActions && ensuredConnections.length > 0
+      const currentStatus = currentWorkflow.status || 'draft'
 
-      // Update status: 'active' if complete, 'draft' if incomplete
-      const newStatus = isComplete ? 'active' : 'draft'
+      // Preserve existing status on save. Only the activation API should promote to 'active'.
+      // If structure is broken (no trigger/action/connections), downgrade to 'draft'.
+      const newStatus = isStructurallyComplete ? (currentStatus || 'draft') : 'draft'
 
       // Validate the data structure before sending
       if (!Array.isArray(nodesForUpdate) || !Array.isArray(ensuredConnections)) {
@@ -859,7 +861,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
               workflow_name: currentWorkflow.name,
               old_status: currentWorkflow.status,
               new_status: newStatus,
-              reason: isComplete ? "workflow_completed" : "workflow_incomplete"
+              reason: isStructurallyComplete ? "workflow_saved" : "workflow_incomplete"
             },
             created_at: new Date().toISOString()
           })

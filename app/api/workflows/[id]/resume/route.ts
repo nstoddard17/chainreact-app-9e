@@ -141,7 +141,7 @@ export async function POST(
     const nextNodes = edges
       .filter((edge: any) => edge.source === pausedNodeId)
       .map((edge: any) => nodes.find((n: any) => n.id === edge.target))
-      .filter(Boolean)
+      .filter((n: any): n is NonNullable<typeof n> => n != null)
 
     logger.info('[Resume] Found next nodes to execute', {
       count: nextNodes.length,

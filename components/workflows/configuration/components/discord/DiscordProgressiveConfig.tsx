@@ -21,7 +21,7 @@ interface DiscordProgressiveConfigProps {
   handleConnectDiscord: () => void;
   handleInviteBot: (guildId: string) => void;
   handleAddBotToServer: (guildId: string) => void;
-  handleDynamicLoad: (fieldName: string) => void;
+  handleDynamicLoad: (fieldName: string, dependsOn?: string, dependsOnValue?: any, forceRefresh?: boolean, silent?: boolean) => void;
   workflowData?: any;
   currentNodeId?: string;
   loadOptions: (fieldName: string, parentField?: string, parentValue?: any) => Promise<void>;

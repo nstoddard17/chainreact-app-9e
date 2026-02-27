@@ -26,6 +26,7 @@ export interface ActionParams {
 export interface ActionResult {
   success: boolean
   output?: Record<string, any>
+  data?: any
   message?: string
   error?: string
 }

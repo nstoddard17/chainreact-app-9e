@@ -88,10 +88,19 @@ export function validateGoogleIntegration(integration: any): void {
  * Make authenticated request to Google API
  */
 export async function makeGoogleApiRequest(
-  url: string, 
-  accessToken: string, 
-  options: RequestInit = {}
+  url: string,
+  accessToken: string,
+  methodOrOptions?: string | RequestInit,
+  body?: string
 ): Promise<Response> {
+  // Support both calling conventions:
+  //   makeGoogleApiRequest(url, token, { method: 'POST', body: '...' })
+  //   makeGoogleApiRequest(url, token, 'POST', '{"body": "..."}')
+  const options: RequestInit =
+    typeof methodOrOptions === 'string'
+      ? { method: methodOrOptions, ...(body !== undefined ? { body } : {}) }
+      : methodOrOptions ?? {}
+
   const response = await fetch(url, {
     ...options,
     headers: {

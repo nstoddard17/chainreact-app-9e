@@ -8,18 +8,19 @@ export interface ConfigField {
   required?: boolean
   placeholder?: string
   description?: string
-  options?: { value: string; label: string }[] | string[]
+  options?: { value: string; label: string; color?: string }[] | string[]
   dynamic?: string | boolean // Allow any dynamic field identifier
   accept?: string // For file inputs, specify accepted file types
   maxSize?: number // For file inputs, specify max file size in bytes
   defaultValue?: string | number | boolean // Default value for the field
   tableName?: string // For Airtable record fields, specify which table to fetch records from
   uiTab?: "basic" | "advanced" | "monetization" // For tabbed interfaces, specify which tab this field should appear in
-  defaultOptions?: { value: string; label: string }[] // Default options for select fields
+  defaultOptions?: { value: string; label: string; color?: string }[] // Default options for select fields
   dependsOn?: string // Field that this field depends on
   hasVariablePicker?: boolean // Whether the field should show a variable picker
   multiline?: boolean // For text fields, whether to show as multiline
   useRawPayload?: boolean // For Discord rich text, whether to use raw payload
+  disabled?: boolean // Whether the field is disabled
   [key: string]: any
 }
 
@@ -30,7 +31,7 @@ export interface NodeField {
   required?: boolean
   placeholder?: string
   defaultValue?: any
-  options?: { value: string; label: string }[] | string[]
+  options?: { value: string; label: string; color?: string }[] | string[]
   description?: string
   dependsOn?: string
   // Additional properties used in the codebase
@@ -41,12 +42,13 @@ export interface NodeField {
   creatable?: boolean
   readonly?: boolean
   hidden?: boolean
+  disabled?: boolean
   // Value constraints
   min?: number
   max?: number
   // UI organization properties
   uiTab?: "basic" | "advanced" | "monetization"
-  defaultOptions?: { value: string; label: string }[]
+  defaultOptions?: { value: string; label: string; color?: string }[]
   // New field for output data descriptions
   outputType?: "string" | "number" | "array" | "object" | "boolean"
   // Variable picker support
@@ -74,7 +76,7 @@ export interface OutputField {
   name: string
   label: string
   type: string
-  description: string
+  description?: string
   example?: any
 }
 
@@ -112,4 +114,6 @@ export interface NodeComponent {
   billableTest?: boolean
   /** Cost in tasks for testing this node (defaults to 1 if billableTest is true) */
   testCost?: number
+  /** Integration provider required for this node (e.g., 'microsoft-excel') */
+  requiredIntegration?: string
 }

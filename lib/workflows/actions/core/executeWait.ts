@@ -8,6 +8,7 @@ import { logger } from '@/lib/utils/logger'
 export interface ActionResult {
   success: boolean
   output?: Record<string, any>
+  data?: any
   metadata?: Record<string, any>
   selectedPaths?: string[]
   message?: string

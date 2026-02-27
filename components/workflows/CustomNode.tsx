@@ -406,7 +406,11 @@ function CustomNode({ id, data, selected }: NodeProps) {
     }
 
     // Path 2: Fallback check using FieldVisibilityEngine (respects visibility conditions)
-    if (!component?.configSchema || !config) return false
+    if (!component?.configSchema) return false
+    // If config is empty/undefined, check if there are any required fields at all
+    if (!config || (typeof config === 'object' && Object.keys(config).length === 0)) {
+      return component.configSchema.some((field: any) => field.required || field.validation?.required)
+    }
 
     try {
       const nodeInfo = {

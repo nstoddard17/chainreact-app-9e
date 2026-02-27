@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get user token (check multiple Microsoft providers)
-    const { data: integrations } = await supabase
+    const { data: integrations } = await getSupabase()
       .from('integrations')
       .select('access_token, refresh_token, provider')
       .eq('user_id', userId)
@@ -103,6 +103,8 @@ export async function POST(req: NextRequest) {
 // Endpoint to check all subscriptions (for cron job)
 export async function GET(req: NextRequest) {
   try {
+    const supabase = getSupabase()
+
     // Verify cron secret for security
     const authHeader = req.headers.get('authorization')
     if (!authHeader || authHeader !== `Bearer ${process.env.CRON_SECRET_TOKEN}`) {
@@ -195,6 +197,7 @@ export async function GET(req: NextRequest) {
 // Helper function to notify user of subscription issues
 async function notifySubscriptionIssue(userId: string, message: string): Promise<void> {
   try {
+    const supabase = getSupabase()
     await supabase.from('notifications').insert({
       user_id: userId,
       type: 'microsoft_graph_subscription_issue',

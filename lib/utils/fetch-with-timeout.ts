@@ -60,14 +60,14 @@ export async function fetchWithTimeout(
  * ```
  */
 export async function queryWithTimeout<T>(
-  queryPromise: Promise<T>,
+  queryPromise: PromiseLike<T> | Promise<T>,
   timeoutMs: number = 8000
 ): Promise<T> {
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error(`Query timed out after ${timeoutMs}ms`)), timeoutMs)
   )
 
-  return Promise.race([queryPromise, timeoutPromise])
+  return Promise.race([Promise.resolve(queryPromise), timeoutPromise])
 }
 
 /**

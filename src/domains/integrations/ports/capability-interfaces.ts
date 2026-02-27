@@ -797,6 +797,7 @@ export interface InvoiceInfo {
   currency: string
   status: string
   description?: string
+  subscription?: string
   dueDate?: Date
   paidAt?: Date
   createdAt: Date

@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
     const workflowId = req.nextUrl.searchParams.get('workflowId')
 
     // Find matching workflows with this Gumroad trigger type
+    const supabase = getSupabase()
     let query = supabase
       .from('trigger_resources')
       .select('workflow_id, user_id, config')

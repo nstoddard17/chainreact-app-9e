@@ -50,6 +50,7 @@ type PlannerEdit =
   | { op: "moveNode"; nodeId: string; position: { x: number; y: number } }
   | { op: "updateNode"; nodeId: string; updates: { title?: string; description?: string } }
   | { op: "replaceNode"; oldNodeId: string; newNode: FlowNode; preserveConfig?: string[] }
+  | { op: "disconnectEdge"; sourceId: string; targetId: string }
 
 interface AgentResult {
   edits: PlannerEdit[]
@@ -484,6 +485,12 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
 
         break
       }
+      case "disconnectEdge": {
+        working.edges = working.edges.filter(
+          (edge) => !(edge.from.nodeId === edit.sourceId && edge.to.nodeId === edit.targetId)
+        )
+        break
+      }
       case "reorderNodes": {
         reorderLinearChain(working, edit.nodeIds)
         break
@@ -689,6 +696,156 @@ function flowToReactFlowEdges(flow: Flow): ReactFlowEdge[] {
   }
 
   return deduplicatedEdges
+}
+
+/**
+ * Cleans up stale/transitive edges left over from a pre-fix insertion bug.
+ *
+ * The old insertion code added A→NewNode and NewNode→B edges but never removed
+ * the original A→B edge.  This function detects edges that are "shortcuts" over
+ * an intermediate path and removes them so the workflow renders as a clean chain.
+ *
+ * Only applies to non-branching source nodes (skips path / ai_router nodes).
+ */
+function cleanupStaleEdges(
+  edges: ReactFlowEdge[],
+  nodes: ReactFlowNode[]
+): ReactFlowEdge[] {
+  // Build adjacency: source → [targets]
+  const outgoing = new Map<string, string[]>()
+  for (const edge of edges) {
+    const targets = outgoing.get(edge.source) || []
+    targets.push(edge.target)
+    outgoing.set(edge.source, targets)
+  }
+
+  // Quick BFS reachability check (bounded depth to avoid cycles)
+  function isReachable(from: string, to: string, maxDepth = 10): boolean {
+    if (maxDepth <= 0) return false
+    const targets = outgoing.get(from)
+    if (!targets) return false
+    for (const t of targets) {
+      if (t === to) return true
+      if (isReachable(t, to, maxDepth - 1)) return true
+    }
+    return false
+  }
+
+  const staleKeys = new Set<string>()
+
+  for (const [source, targets] of outgoing) {
+    if (targets.length <= 1) continue
+
+    // Don't touch branching nodes (path / ai_router) – they legitimately fan-out
+    const sourceNode = nodes.find((n) => n.id === source)
+    const nodeType = (sourceNode?.data as any)?.type
+    if (nodeType === "path" || nodeType === "ai_router") continue
+
+    // For every pair, check if one target is reachable from the other
+    for (const tA of targets) {
+      for (const tB of targets) {
+        if (tA === tB) continue
+        // If tA can reach tB, then source→tB is the stale "shortcut"
+        if (isReachable(tA, tB)) {
+          staleKeys.add(`${source}->${tB}`)
+        }
+      }
+    }
+  }
+
+  if (staleKeys.size > 0) {
+    logger.debug(
+      `[cleanupStaleEdges] Removing ${staleKeys.size} stale edge(s):`,
+      Array.from(staleKeys)
+    )
+  }
+
+  return edges.filter((e) => !staleKeys.has(`${e.source}->${e.target}`))
+}
+
+/**
+ * Normalizes positions for simple linear (chain) workflows.
+ *
+ * Walks the edge chain from the root node and re-spaces every node at
+ * DEFAULT_VERTICAL_SPACING (180 px) intervals, keeping the root node's
+ * position as the anchor.  Non-linear workflows (branches, multiple
+ * incoming/outgoing edges) are left untouched.
+ */
+function normalizeLinearPositions(
+  nodes: ReactFlowNode[],
+  edges: ReactFlowEdge[]
+): void {
+  if (nodes.length < 2) return
+
+  // Build maps
+  const outgoing = new Map<string, string>()  // source → single target
+  const incoming = new Map<string, string>()  // target → single source
+  let isLinear = true
+
+  for (const edge of edges) {
+    // Skip placeholder edges
+    if (edge.source.includes("placeholder") || edge.target.includes("placeholder")) continue
+
+    if (outgoing.has(edge.source)) {
+      isLinear = false
+      break
+    }
+    if (incoming.has(edge.target)) {
+      isLinear = false
+      break
+    }
+    outgoing.set(edge.source, edge.target)
+    incoming.set(edge.target, edge.source)
+  }
+
+  if (!isLinear) return
+
+  // Find root: a real node with no incoming edge
+  const realNodes = nodes.filter(
+    (n) => !n.id.includes("placeholder") && n.type !== "trigger_placeholder" && n.type !== "action_placeholder"
+  )
+  const root = realNodes.find((n) => !incoming.has(n.id))
+  if (!root) return
+
+  // Walk the chain
+  const ordered: ReactFlowNode[] = [root]
+  let current = root
+  while (outgoing.has(current.id)) {
+    const nextId = outgoing.get(current.id)!
+    const next = nodes.find((n) => n.id === nextId)
+    if (!next || ordered.includes(next)) break
+    ordered.push(next)
+    current = next
+  }
+
+  // Only normalize if the entire chain was walked (all real nodes accounted for)
+  if (ordered.length !== realNodes.length) return
+
+  // Check if positions actually need fixing (detect overlaps or inconsistent gaps)
+  let needsFix = false
+  for (let i = 1; i < ordered.length; i++) {
+    const gap = ordered[i].position.y - ordered[i - 1].position.y
+    // Bad if: overlap, too close, too far, or X misaligned
+    if (gap < 100 || gap > DEFAULT_VERTICAL_SPACING * 1.5 || ordered[i].position.x !== ordered[0].position.x) {
+      needsFix = true
+      break
+    }
+  }
+
+  if (!needsFix) return
+
+  logger.debug(
+    `[normalizeLinearPositions] Re-spacing ${ordered.length} nodes in linear chain`
+  )
+
+  const baseX = ordered[0].position.x
+  const baseY = ordered[0].position.y
+
+  for (let i = 1; i < ordered.length; i++) {
+    const newPos = { x: baseX, y: baseY + i * DEFAULT_VERTICAL_SPACING }
+    ordered[i].position = newPos
+    ;(ordered[i] as any).positionAbsolute = newPos
+  }
 }
 
 /**
@@ -1039,6 +1196,12 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
       let edges = flowToReactFlowEdges(flow)
 
+      // --- Fix pre-existing workflows ---
+      // 1. Remove stale transitive edges (A→B when A→C→B exists) from old insertion bug
+      edges = cleanupStaleEdges(edges, graphNodes)
+      // 2. Re-space linear chains evenly if they have overlaps or inconsistent gaps
+      normalizeLinearPositions(graphNodes, edges)
+
       // Zapier-style placeholder nodes: If workflow is empty, add trigger + action placeholders
       // If workflow has only a trigger, add just the action placeholder
       // Note: onConfigure handler will be added by WorkflowBuilderV2 when it enriches nodes
@@ -1191,11 +1354,22 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         const edgeKey = (edge: ReactFlowEdge) => `${edge.source}->${edge.target}`
         const existingEdges = new Set(edges.map(edgeKey))
 
+        // Build sets of nodes that already have explicit edges for conservative synthetic creation
+        const nodesWithOutgoing = new Set(edges.map(e => e.source))
+        const nodesWithIncoming = new Set(edges.map(e => e.target))
+
         for (let i = 0; i < sortedLinearNodes.length - 1; i++) {
           const current = sortedLinearNodes[i]
           const next = sortedLinearNodes[i + 1]
           const key = `${current.id}->${next.id}`
           if (existingEdges.has(key)) {
+            continue
+          }
+
+          // Don't create synthetic edges if either node already has explicit connections
+          // This prevents duplicating edges when nodes are connected via non-adjacent paths
+          // (e.g., after insertion where NodeA→NewNode→NodeB, don't also create NodeA→NodeB)
+          if (nodesWithOutgoing.has(current.id) || nodesWithIncoming.has(next.id)) {
             continue
           }
 
@@ -1214,6 +1388,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
           } as ReactFlowEdge)
           existingEdges.add(key)
+          nodesWithOutgoing.add(current.id)
+          nodesWithIncoming.add(next.id)
         }
       }
 

@@ -16,6 +16,8 @@ const getSupabase = () => createClient(
 )
 
 export async function GET(request: NextRequest) {
+  const supabase = getSupabase()
+
   try {
     // Get the user ID from the query parameter
     const userId = request.nextUrl.searchParams.get("userId")

@@ -214,7 +214,8 @@ export async function GET(request: NextRequest) {
         supabaseService
           .from('workflow_nodes')
           .select('id, workflow_id, node_type, label, provider_id, config')
-          .in('workflow_id', workflowIds),
+          .in('workflow_id', workflowIds)
+          .order('display_order', { ascending: true }),
         8000
       )
 

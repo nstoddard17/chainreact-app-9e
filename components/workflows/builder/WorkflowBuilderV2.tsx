@@ -39,6 +39,7 @@ import {
 } from "@/src/lib/workflows/builder/BuildState"
 import { actionTestService } from "@/lib/workflows/testing/ActionTestService"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
+import { validateWorkflowNodes } from "@/lib/workflows/validation/workflow"
 import type { NodeComponent } from "@/lib/workflows/nodes/types"
 import { getNodeByType } from "@/lib/workflows/nodes/registry"
 import { ConfigurationModal } from "@/components/workflows/configuration"
@@ -105,6 +106,7 @@ import {
   type WorkflowDraftState,
 } from "@/hooks/workflows/builder/useWorkflowDraftAutoSave"
 import { optionsPrefetchService } from "@/lib/workflows/configuration/optionsPrefetchService"
+import { addNodeEdit, oldConnectToEdge, generateId } from "@/src/lib/workflows/compat/v2Adapter"
 
 type PendingChatMessage = {
   localId: string
@@ -332,7 +334,7 @@ async function planWorkflowWithTemplates(
         rationale: `Created from template: ${match.template.description}`,
       },
       usedTemplate: true,
-      promptId: promptId || undefined,
+      promptId: undefined, // No analytics for template matches
     }
   }
 
@@ -2690,28 +2692,29 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // Use same X position as the node we're adding after to maintain alignment
     const position = {
       x: afterNode.position.x,
-      y: afterNode.position.y + 180
+      y: afterNode.position.y + LINEAR_NODE_VERTICAL_GAP
     }
 
     try {
-      // Add the new node - addNode returns the node ID
-      const newNodeId = await actions.addNode(nodeType, position)
+      // Use atomic batch: addNode + disconnect old edge (if inserting) + connect new edges
+      const nodeId = generateId(nodeType.replace(/\W+/g, "-") || "node")
+      const addEdit = addNodeEdit(nodeType, position, nodeId)
+      const edits: any[] = [addEdit]
 
-      if (newNodeId) {
-        // Connect the previous node to the new node
-        await actions.connectEdge({
-          sourceId: afterNodeId,
-          targetId: newNodeId,
-          sourceHandle: sourceHandle || 'source'
-        })
-
-        // Auto-open configuration for Path Condition nodes
-        if (nodeType === 'path_condition') {
-          setTimeout(() => {
-            handleConfigureNode(newNodeId)
-          }, 100)
-        }
+      // Check if inserting between two nodes (afterNode has an outgoing edge)
+      const existingEdge = builder.edges.find((e: any) => e.source === afterNodeId)
+      if (existingEdge) {
+        // Remove old edge, create two new ones
+        const nextNodeId = existingEdge.target
+        edits.push({ op: "disconnectEdge", sourceId: afterNodeId, targetId: nextNodeId })
+        edits.push(oldConnectToEdge(afterNodeId, nodeId, sourceHandle || 'source'))
+        edits.push(oldConnectToEdge(nodeId, nextNodeId, 'source', existingEdge.targetHandle || undefined))
+      } else {
+        // Adding at end - just connect
+        edits.push(oldConnectToEdge(afterNodeId, nodeId, sourceHandle || 'source'))
       }
+
+      await actions.applyEdits(edits)
 
       toast({
         title: "Node added",
@@ -2857,14 +2860,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         } else if (incomingEdges.length === 0 && triggerNodeId) {
           nextEdges.push(makeLinearEdge(triggerNodeId, firstNodeId))
         }
-        if (triggerNodeId) {
-          const hasTriggerEdge = nextEdges.some(
-            (edge) => edge.source === triggerNodeId && edge.target === firstNodeId
-          )
-          if (!hasTriggerEdge) {
-            nextEdges.push(makeLinearEdge(triggerNodeId, firstNodeId, incomingEdges[0]))
-          }
-        }
+        // Note: removed redundant second trigger-edge block that could create
+        // duplicate incoming edges when the incoming edge source != triggerNodeId
       }
 
       for (let i = 0; i < orderedNodeIds.length - 1; i++) {
@@ -3860,8 +3857,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       const afterNode = currentNodes.find((n: any) => n.id === selectedNodeId)
       if (afterNode) {
         position = {
-          x: afterNode.position.x, // Use same X as the node we're adding after (maintains alignment)
-          y: afterNode.position.y + 180 // Add 180px vertical spacing after the node
+          x: afterNode.position.x,
+          y: afterNode.position.y + LINEAR_NODE_VERTICAL_GAP
         }
         logger.debug('📌 [WorkflowBuilder] Adding node after:', selectedNodeId, 'at position:', position)
       }
@@ -3921,14 +3918,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         newNodes = newNodes.filter(n => n.id !== selectedNodeId)
       }
 
-      const insertIndex = newNodes.findIndex(n => n.position.y > position.y)
+      // Use >= to catch nodes at the same Y position (prevents overlap)
+      const insertIndex = newNodes.findIndex(n => n.position.y >= position.y)
       if (insertIndex === -1) {
         // Adding at the end - no shift needed
         newNodes.push(optimisticNode)
       } else {
-        // Inserting between nodes - shift all nodes below down to make room
-        const verticalShift = 180 // Same as vertical spacing constant
-        newNodes = newNodes.map((node, idx) => {
+        // Inserting between nodes - shift all nodes at or below down to make room
+        const verticalShift = LINEAR_NODE_VERTICAL_GAP
+        newNodes = newNodes.map((node) => {
           if (node.position && node.position.y >= position.y) {
             return {
               ...node,
@@ -3940,7 +3938,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           }
           return node
         })
-        // Now insert the new node
+        // Now insert the new node (all shifted nodes are now > position.y)
         const newInsertIndex = newNodes.findIndex(n => n.position.y > position.y)
         if (newInsertIndex === -1) {
           newNodes.push(optimisticNode)
@@ -4068,11 +4066,39 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         }
         // Note: Edges are automatically updated by replaceNode - no manual reconnection needed
       } else {
-        // Not changing an existing node - use regular addNode
-        logger.debug('📌 [WorkflowBuilder] Saving node:', nodeData.type, 'at position:', position)
-        newNodeId = await actions.addNode(nodeData.type, position)
+        // Not changing an existing node - use atomic batch operation
+        // This ensures addNode + edge changes happen in a single applyEdits call,
+        // preventing stale edges and double plus buttons
+        const nodeId = generateId(nodeData.type.replace(/\W+/g, "-") || "node")
+        const addEdit = addNodeEdit(nodeData.type, position, nodeId)
 
-        logger.debug('📌 [WorkflowBuilder] Node saved successfully, updateReactFlowGraph will handle placeholder')
+        const edits: any[] = [addEdit]
+
+        // If adding after a node (not replacing placeholder), include edge operations
+        if (previousNodeId && !isReplacingPlaceholder) {
+          logger.debug('🔗 [WorkflowBuilder] Building atomic insert after:', previousNodeId)
+
+          const oldEdge = builder.edges.find((e: any) => e.source === previousNodeId)
+
+          if (oldEdge) {
+            // Inserting between two nodes: remove old edge, add two new ones
+            const nextNodeId = oldEdge.target
+            edits.push({ op: "disconnectEdge", sourceId: previousNodeId, targetId: nextNodeId })
+            edits.push(oldConnectToEdge(previousNodeId, nodeId, oldEdge.sourceHandle || 'source'))
+            edits.push(oldConnectToEdge(nodeId, nextNodeId, 'source', oldEdge.targetHandle))
+            logger.debug('🔗 [WorkflowBuilder] Atomic insert between', previousNodeId, 'and', nextNodeId)
+          } else {
+            // Adding at the end
+            edits.push(oldConnectToEdge(previousNodeId, nodeId, 'source'))
+            logger.debug('🔗 [WorkflowBuilder] Atomic add at end after', previousNodeId)
+          }
+        }
+
+        logger.debug('📌 [WorkflowBuilder] Applying atomic edits:', edits.length, 'ops for', nodeData.type)
+        await actions.applyEdits(edits)
+        newNodeId = nodeId
+
+        logger.debug('📌 [WorkflowBuilder] Node saved successfully via atomic batch')
 
         // Only update configuring node if we opened the config modal
         if (needsConfiguration) {
@@ -4082,46 +4108,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             }
             return current
           })
-        }
-
-        // If adding after a node (not replacing placeholder), create edge and handle insertion
-        // Note: Using previousNodeId which was saved before setSelectedNodeId(null) was called
-        if (previousNodeId && !isReplacingPlaceholder) {
-          logger.debug('🔗 [WorkflowBuilder] Inserting node after:', previousNodeId)
-
-          // Find what was connected after the selected node
-          const afterNode = currentNodes.find((n: any) => n.id === previousNodeId)
-          const oldEdge = builder.edges.find((e: any) => e.source === previousNodeId)
-
-          if (oldEdge) {
-            // We're inserting between two nodes
-            const nextNodeId = oldEdge.target
-
-            // Create edge from previous node to new node
-            await actions.connectEdge({
-              sourceId: previousNodeId,
-              targetId: newNodeId,
-              sourceHandle: oldEdge.sourceHandle || 'source'
-            })
-
-            // Create edge from new node to next node
-            await actions.connectEdge({
-              sourceId: newNodeId,
-              targetId: nextNodeId,
-              sourceHandle: 'source',
-              targetHandle: oldEdge.targetHandle
-            })
-
-            logger.debug('🔗 [WorkflowBuilder] Inserted between', previousNodeId, 'and', nextNodeId)
-          } else {
-            // We're adding at the end
-            await actions.connectEdge({
-              sourceId: previousNodeId,
-              targetId: newNodeId,
-              sourceHandle: 'source'
-            })
-            logger.debug('🔗 [WorkflowBuilder] Added at end after', previousNodeId)
-          }
         }
       }
     } catch (error: any) {
@@ -4474,7 +4460,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     // Use same X position as the original node to maintain alignment
     const newPosition = {
       x: nodeToDuplicate.position.x,
-      y: nodeToDuplicate.position.y + 180,
+      y: nodeToDuplicate.position.y + LINEAR_NODE_VERTICAL_GAP,
     }
 
     // Create duplicate with "(Copy)" suffix
@@ -4747,6 +4733,38 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         variant: result?.success ? "default" : "destructive",
       })
     } else {
+      // Validate node configurations before activation
+      if (builder?.nodes) {
+        const workflowForValidation = {
+          id: flowId || '',
+          name: '',
+          nodes: builder.nodes as any,
+          connections: [],
+        } as any
+
+        const validationResult = validateWorkflowNodes(workflowForValidation, ALL_NODE_COMPONENTS)
+
+        if (validationResult.invalidNodeIds.length > 0) {
+          // Build descriptive error messages from the validation result
+          const invalidNodeNames = validationResult.nodes
+            .filter(n => validationResult.invalidNodeIds.includes(n.id))
+            .map(n => {
+              const title = n.data?.title || n.data?.label || n.data?.type || 'Unknown node'
+              const missing = n.data?.validationState?.missingRequired || []
+              return missing.length > 0
+                ? `${title} (missing: ${missing.join(', ')})`
+                : title
+            })
+
+          toast({
+            title: "Cannot publish workflow",
+            description: `${invalidNodeNames.length} node${invalidNodeNames.length > 1 ? 's have' : ' has'} missing required fields: ${invalidNodeNames.join('; ')}`,
+            variant: "destructive",
+          })
+          return
+        }
+      }
+
       // Activate workflow
       const result = await actions?.activateWorkflow()
       toast({
@@ -4757,7 +4775,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         variant: result?.success ? "default" : "destructive",
       })
     }
-  }, [hasPlaceholders, flowState?.workflowStatus, actions, toast])
+  }, [hasPlaceholders, flowState?.workflowStatus, actions, toast, builder?.nodes, flowId])
 
   // Get test store actions
   const {
@@ -6154,7 +6172,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           })
 
           if (needsFixing) {
-            logger.debug('[handleBuild] ⚠️ Positions changed! Forcing back to Y=' + BASE_Y)
+            logger.debug('[handleBuild] ⚠️ Positions changed! Forcing back to original Y positions')
             const fixedNodes = currentNodes.map(node => {
               const originalNode = allNodes.find(n => n.id === node.id)
               if (originalNode) {
@@ -6162,7 +6180,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
                   ...node,
                   position: {
                     ...node.position,
-                    y: BASE_Y, // Force all nodes to same Y
+                    y: originalNode.position.y, // Force back to original Y
                   }
                 }
               }

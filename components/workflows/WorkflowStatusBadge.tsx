@@ -17,6 +17,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
+import { getMissingRequiredFields } from '@/lib/workflows/validation/fieldVisibility'
 
 export type WorkflowStatusType = 'active' | 'paused' | 'draft' | 'error' | 'incomplete'
 
@@ -78,8 +80,28 @@ export function validateWorkflow(workflow: any): WorkflowValidation {
     issues.push('No action nodes configured')
   }
 
-  // NOTE: "unconfigured nodes" check removed - can't validate accurately without schemas
-  // Detailed node validation happens in the builder (where schemas are available) and activation API
+  // Check node configurations against their schemas
+  const allWorkflowNodes = [...triggerNodes, ...actionNodes]
+  for (const node of allWorkflowNodes) {
+    const nodeType = node.data?.type || node.metadata?.type
+    if (!nodeType || nodeType === 'ai_agent') continue
+
+    const component = ALL_NODE_COMPONENTS.find((c: any) => c.type === nodeType)
+    if (!component?.configSchema?.length) continue
+
+    const config = node.data?.config || node.metadata?.config || {}
+    const nodeInfo = {
+      type: nodeType,
+      providerId: node.data?.providerId || component.providerId,
+      configSchema: component.configSchema
+    }
+
+    const missing = getMissingRequiredFields(nodeInfo, config)
+    if (missing.length > 0) {
+      const title = node.data?.title || node.data?.label || component.title || nodeType
+      issues.push(`${title}: missing ${missing.join(', ')}`)
+    }
+  }
 
   return { isValid: issues.length === 0, issues }
 }

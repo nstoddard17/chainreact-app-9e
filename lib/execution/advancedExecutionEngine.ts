@@ -1037,7 +1037,7 @@ export class AdvancedExecutionEngine {
         }
       }
 
-      const nextNodes = nextConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter(Boolean);
+      const nextNodes = nextConnections.map((c: any) => nodes.find((n: any) => n.id === c.target)).filter((n): n is NonNullable<typeof n> => n != null);
       
       // Add next nodes to queue only if they haven't been executed and aren't already in queue
       for (const nextNode of nextNodes) {

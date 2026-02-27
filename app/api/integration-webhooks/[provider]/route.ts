@@ -98,7 +98,11 @@ async function processWebhook(
   provider: string
 ): Promise<any> {
   const startTime = Date.now()
-  
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!
+  )
+
   try {
     // Log the webhook execution
     const { data: execution, error: logError } = await supabase

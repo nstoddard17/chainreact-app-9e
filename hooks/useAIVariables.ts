@@ -14,7 +14,7 @@ export interface AIVariable {
   label: string
   value: string
   description?: string
-  category: 'trigger' | 'node' | 'ai' | 'system'
+  category?: 'trigger' | 'node' | 'ai' | 'system'
   icon?: string
 }
 

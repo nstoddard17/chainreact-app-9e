@@ -44,8 +44,9 @@ export interface TriggerDeactivationContext {
 export interface TriggerHealthStatus {
   healthy: boolean
   details?: string
+  message?: string
   expiresAt?: string
-  lastChecked: string
+  lastChecked?: string
 }
 
 /**

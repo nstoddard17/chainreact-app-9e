@@ -282,6 +282,7 @@ async function updateUserUsageTotals(userId: string, tokensUsed: number, cost: n
 
 async function updateMonthlyStats(userId: string, tokensUsed: number, cost: number): Promise<void> {
   try {
+    const supabase = createAdminClient();
     const currentDate = new Date();
     const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
 
@@ -336,6 +337,7 @@ export async function getTopAIUsers(limit: number = 10): Promise<Array<{
   month: string;
 }>> {
   try {
+    const supabase = createAdminClient();
     const currentDate = new Date();
     const monthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
 
@@ -369,6 +371,7 @@ export async function getAIUsageByWorkflow(
   limit: number = 50
 ): Promise<AIUsageLogEntry[]> {
   try {
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('ai_usage_logs')
       .select('*')

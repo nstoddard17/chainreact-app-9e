@@ -150,6 +150,11 @@ async function executeWorkflow(workflowId: string, userId: string, triggerData: 
   try {
     logger.info(`🚀 Executing workflow ${workflowId}`)
 
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SECRET_KEY!
+    )
+
     // Get workflow details
     const { data: workflow, error: workflowError } = await supabase
       .from('workflows')

@@ -265,6 +265,28 @@ export class WorkflowExecutionService {
       })
     }
 
+    // Helper to deduct tasks for all nodes that executed (completed or failed)
+    const deductTasksForExecutedNodes = async () => {
+      if (testMode) return
+      try {
+        const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
+        const allExecutedNodeIds = [
+          ...completedNodeIds,
+          ...failedNodeIds.map((f: any) => f.nodeId)
+        ]
+        const executedNodesList = nodes.filter((n: any) => allExecutedNodeIds.includes(n.id))
+        if (executedNodesList.length > 0) {
+          await deductExecutionTasks(userId, executedNodesList, executionId, false)
+        }
+      } catch (taskError) {
+        logger.warn('[WorkflowExecutionService] Task deduction failed (non-blocking)', {
+          executionId,
+          error: taskError instanceof Error ? taskError.message : String(taskError)
+        })
+      }
+    }
+
+    try {
     for (const startNode of startingNodes) {
       logger.info(`🎯 Executing ${skipTriggers ? 'action' : 'trigger'} node: ${startNode.id} (${startNode.data.type})`)
 
@@ -336,6 +358,9 @@ export class WorkflowExecutionService {
           )
         }
 
+        // Deduct tasks for nodes that completed before the pause
+        await deductTasksForExecutedNodes()
+
         // Return immediately with pause status
         return {
           results: [result],
@@ -367,6 +392,46 @@ export class WorkflowExecutionService {
 
       results.push(result)
     }
+    } catch (executionError) {
+      // Workflow crashed midway - still deduct for nodes that already executed
+      logger.error('[WorkflowExecutionService] Execution loop crashed', {
+        executionId,
+        completedCount: completedNodeIds.length,
+        failedCount: failedNodeIds.length,
+        error: executionError instanceof Error ? executionError.message : String(executionError)
+      })
+
+      await deductTasksForExecutedNodes()
+
+      // Update session to failed status
+      await supabase
+        .from("workflow_execution_sessions")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          execution_time_ms: Date.now() - new Date(executionRecord.started_at).getTime(),
+          error_message: executionError instanceof Error ? executionError.message : 'Unknown error',
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", executionId)
+
+      await progressTracker.complete(false, executionError instanceof Error ? executionError.message : 'Unknown error')
+
+      if (executionHistoryId) {
+        try {
+          await executionHistoryService.completeExecution(
+            executionHistoryId,
+            'failed',
+            results,
+            executionError instanceof Error ? executionError.message : 'Unknown error'
+          )
+        } catch (historyError) {
+          logger.error('Failed to complete execution history on crash:', historyError)
+        }
+      }
+
+      throw executionError
+    }
 
     logger.info(`✅ Workflow execution completed with ${results.length} results`)
 
@@ -374,25 +439,8 @@ export class WorkflowExecutionService {
     const hasErrors = failedNodeIds.length > 0
     await progressTracker.complete(!hasErrors, hasErrors ? 'Workflow execution completed with errors' : undefined)
 
-    // Deduct tasks for executed nodes (skip for test/sandbox mode)
-    if (!testMode) {
-      try {
-        const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
-        const allExecutedNodeIds = [
-          ...completedNodeIds,
-          ...failedNodeIds.map((f: any) => f.nodeId)
-        ]
-        const executedNodesList = nodes.filter((n: any) => allExecutedNodeIds.includes(n.id))
-        if (executedNodesList.length > 0) {
-          await deductExecutionTasks(userId, executedNodesList, executionId, false)
-        }
-      } catch (taskError) {
-        logger.warn('[WorkflowExecutionService] Task deduction failed (non-blocking)', {
-          executionId,
-          error: taskError instanceof Error ? taskError.message : String(taskError)
-        })
-      }
-    }
+    // Deduct tasks for all executed nodes (completed + failed)
+    await deductTasksForExecutedNodes()
 
     // Update workflow_execution_sessions record to completed status
     const finalStatus = hasErrors ? "failed" : "completed"

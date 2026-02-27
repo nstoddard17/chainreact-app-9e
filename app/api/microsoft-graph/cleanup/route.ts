@@ -94,6 +94,8 @@ export async function POST() {
 }
 
 export async function GET() {
+  const supabase = getSupabase()
+
   // Get current stats
   const { count: queueCount } = await supabase
     .from('microsoft_webhook_queue')

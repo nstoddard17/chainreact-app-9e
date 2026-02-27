@@ -76,24 +76,23 @@ function shouldLog(messageLevel: LogLevel, currentLevel: LogLevel): boolean {
 /**
  * Format log message with consistent structure
  */
-function formatMessage(level: LogLevel, message: string, meta?: any): string {
+function formatMessage(level: LogLevel, message: string, ...args: any[]): string {
   const timestamp = formatTimestamp()
   const levelName = LOG_LEVEL_NAMES[level]
 
   let output = `${timestamp} [${levelName}] ${message}`
 
-  // Add metadata if present
-  if (meta !== undefined) {
-    if (typeof meta === 'object' && meta !== null) {
+  // Add all extra arguments
+  for (const arg of args) {
+    if (arg === undefined) continue
+    if (typeof arg === 'object' && arg !== null) {
       try {
-        // Pretty print objects for readability
-        output += ` ${JSON.stringify(meta)}`
+        output += ` ${JSON.stringify(arg)}`
       } catch (err) {
-        // Handle circular references
         output += ` [Object with circular reference]`
       }
     } else {
-      output += ` ${meta}`
+      output += ` ${arg}`
     }
   }
 
@@ -127,45 +126,45 @@ class Logger {
   /**
    * ERROR: Critical failures, unrecoverable errors
    */
-  error(message: string, meta?: any): void {
+  error(message: string, ...args: any[]): void {
     if (shouldLog(LogLevel.ERROR, this.currentLevel)) {
-      console.error(formatMessage(LogLevel.ERROR, message, meta))
+      console.error(formatMessage(LogLevel.ERROR, message, ...args))
     }
   }
 
   /**
    * WARN: Potential issues, recoverable errors
    */
-  warn(message: string, meta?: any): void {
+  warn(message: string, ...args: any[]): void {
     if (shouldLog(LogLevel.WARN, this.currentLevel)) {
-      console.warn(formatMessage(LogLevel.WARN, message, meta))
+      console.warn(formatMessage(LogLevel.WARN, message, ...args))
     }
   }
 
   /**
    * INFO: Important user-facing events (production default)
    */
-  info(message: string, meta?: any): void {
+  info(message: string, ...args: any[]): void {
     if (shouldLog(LogLevel.INFO, this.currentLevel)) {
-      console.log(formatMessage(LogLevel.INFO, message, meta))
+      console.log(formatMessage(LogLevel.INFO, message, ...args))
     }
   }
 
   /**
    * DEBUG: Technical details for debugging
    */
-  debug(message: string, meta?: any): void {
+  debug(message: string, ...args: any[]): void {
     if (shouldLog(LogLevel.DEBUG, this.currentLevel)) {
-      console.log(formatMessage(LogLevel.DEBUG, message, meta))
+      console.log(formatMessage(LogLevel.DEBUG, message, ...args))
     }
   }
 
   /**
    * TRACE: Everything (variable dumps, full payloads)
    */
-  trace(message: string, meta?: any): void {
+  trace(message: string, ...args: any[]): void {
     if (shouldLog(LogLevel.TRACE, this.currentLevel)) {
-      console.log(formatMessage(LogLevel.TRACE, message, meta))
+      console.log(formatMessage(LogLevel.TRACE, message, ...args))
     }
   }
 

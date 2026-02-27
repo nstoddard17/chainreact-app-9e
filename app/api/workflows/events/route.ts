@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
         const nextNodes = edges
           .filter((edge: any) => edge.source === pausedNodeId)
           .map((edge: any) => nodes.find((n: any) => n.id === edge.target))
-          .filter(Boolean)
+          .filter((n: any): n is NonNullable<typeof n> => n != null)
 
         if (nextNodes.length === 0) {
           logger.info(`[Events] No more nodes after wait node - marking as completed`)

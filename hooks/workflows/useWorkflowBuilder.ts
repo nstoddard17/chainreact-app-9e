@@ -657,10 +657,9 @@ export function useWorkflowBuilder() {
     })
   }, [executionHook.nodeStatuses, executionHook.activeExecutionNodeId, executionHook.isExecuting, executionHook.isListeningForWebhook, executionHook.isPaused])
 
-  // Validate nodes when they change and an AI Agent is present
+  // Validate nodes when they change (runs for ALL workflows, not just AI Agent)
   useEffect(() => {
-    const hasAIAgent = nodes.some((node: Node) => node.data?.type === 'ai_agent')
-    if (!hasAIAgent || nodes.length === 0) {
+    if (nodes.length === 0) {
       return
     }
 

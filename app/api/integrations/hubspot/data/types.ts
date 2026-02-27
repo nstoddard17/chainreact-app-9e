@@ -160,24 +160,24 @@ export interface HubSpotProperty {
 }
 
 export interface HubSpotJobTitle {
-  id: string
+  id?: string
   label: string
   value: string
-  displayOrder: number
+  displayOrder?: number
 }
 
 export interface HubSpotDepartment {
-  id: string
+  id?: string
   label: string
   value: string
-  displayOrder: number
+  displayOrder?: number
 }
 
 export interface HubSpotIndustry {
-  id: string
+  id?: string
   label: string
   value: string
-  displayOrder: number
+  displayOrder?: number
 }
 
 export interface HubSpotApiError extends Error {
