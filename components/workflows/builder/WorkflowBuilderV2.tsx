@@ -2887,6 +2887,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const moveNodeToIndex = useCallback((nodeId: string, targetSlot: number) => {
     const data = getReorderableData()
     if (!data || !builder?.setNodes) {
+      logger.warn('[Reorder] moveNodeToIndex: no data or setNodes', { hasData: !!data, hasSetNodes: !!builder?.setNodes })
       return
     }
     const { ids, positions, spacing } = data
@@ -2894,6 +2895,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     const currentIndex = ids.indexOf(nodeId)
     if (currentIndex === -1) {
+      logger.warn('[Reorder] moveNodeToIndex: node not found in reorderable list', { nodeId, ids })
       return
     }
 
@@ -2944,19 +2946,23 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
   }, [builder?.nodes, builder?.setNodes, getReorderableData, syncReorderEdges])
 
-  const commitReorderChanges = useCallback((orderedIds: string[]) => {
+  const commitReorderChanges = useCallback(async (orderedIds: string[]) => {
     if (!actions?.applyEdits || orderedIds.length < 2) {
+      logger.warn('[Reorder] Skipping commit - no applyEdits or insufficient nodes', { hasApplyEdits: !!actions?.applyEdits, count: orderedIds.length })
       return
     }
     logger.debug('[Reorder] Committing order', orderedIds)
-    actions.applyEdits([{ op: "reorderNodes", nodeIds: orderedIds }]).catch((error) => {
+    try {
+      await actions.applyEdits([{ op: "reorderNodes", nodeIds: orderedIds }])
+      logger.debug('[Reorder] Successfully saved reorder')
+    } catch (error: any) {
       logger.error("[WorkflowBuilderV2] Failed to persist reorder", error)
       toast({
         title: "Unable to reorder nodes",
         description: error?.message ?? "Please try again.",
         variant: "destructive",
       })
-    })
+    }
   }, [actions, toast])
 
   const flushDragVisualState = useCallback(() => {
@@ -3100,7 +3106,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       }
       const finalSlot = dragVisualStateRef.current.slot ?? reorderDragStartIndex ?? 0
       const finishedNodeId = activeReorderDrag.nodeId
+      logger.debug('[Reorder] Pointer up', { nodeId: finishedNodeId, finalSlot, startIndex: reorderDragStartIndex })
       const reorderResult = moveNodeToIndex(finishedNodeId, finalSlot)
+      logger.debug('[Reorder] moveNodeToIndex result', { changed: reorderResult?.changed, newOrder: reorderResult?.newOrder })
       setActiveReorderDrag(null)
       dragStartRef.current = null
       setReorderDragStartIndex(null)
@@ -3110,6 +3118,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       setReorderDragOffset(0)
       if (reorderResult?.changed) {
         commitReorderChanges(reorderResult.newOrder)
+      } else {
+        logger.debug('[Reorder] No change detected, skipping save')
       }
       if (suppressNodeClickTimeoutRef.current) {
         clearTimeout(suppressNodeClickTimeoutRef.current)

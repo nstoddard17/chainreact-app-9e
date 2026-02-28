@@ -1686,7 +1686,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       // Queue this request to run after the previous one completes
       const previousRequest = applyEditsQueue.current
 
-      const thisRequest = previousRequest.then(async () => {
+      // Use .catch().then() so a failed previous request doesn't permanently break the queue
+      const thisRequest = previousRequest.catch(() => undefined).then(async () => {
         if (!edits || edits.length === 0) {
           const current = await ensureFlow()
           return current
