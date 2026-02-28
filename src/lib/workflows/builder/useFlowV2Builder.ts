@@ -285,15 +285,6 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
   const incomingEdges = Array.from(incomingEdgeMap.values())
   const outgoingEdges = Array.from(outgoingEdgeMap.values())
 
-  if (incomingEdges.length > 1 || outgoingEdges.length > 1) {
-    logger.warn("[useFlowV2Builder] Skipping reorder due to branching connections", {
-      orderedNodeIds,
-      incoming: incomingEdges.length,
-      outgoing: outgoingEdges.length,
-    })
-    return
-  }
-
   const getNodePosition = (nodeId: string): number => {
     const node = flow.nodes.find((n) => n.id === nodeId)
     if (!node) return Number.MAX_SAFE_INTEGER
@@ -310,15 +301,16 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
   const firstNodeId = deduped[0]
   const lastNodeId = deduped[deduped.length - 1]
 
-  const boundaryIncoming = incomingEdges[0]
-  if (boundaryIncoming && firstNodeId) {
-    nextEdges.push({
-      ...boundaryIncoming,
-      to: {
-        ...boundaryIncoming.to,
-        nodeId: firstNodeId,
-      },
-    })
+  for (const boundaryIncoming of incomingEdges) {
+    if (firstNodeId) {
+      nextEdges.push({
+        ...boundaryIncoming,
+        to: {
+          ...boundaryIncoming.to,
+          nodeId: firstNodeId,
+        },
+      })
+    }
   }
 
   const pickTemplateEdge = (): FlowEdge | undefined => {
@@ -351,15 +343,16 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
     nextEdges.push(newEdge)
   }
 
-  const boundaryOutgoing = outgoingEdges[0]
-  if (boundaryOutgoing && lastNodeId) {
-    nextEdges.push({
-      ...boundaryOutgoing,
-      from: {
-        ...boundaryOutgoing.from,
-        nodeId: lastNodeId,
-      },
-    })
+  for (const boundaryOutgoing of outgoingEdges) {
+    if (lastNodeId) {
+      nextEdges.push({
+        ...boundaryOutgoing,
+        from: {
+          ...boundaryOutgoing.from,
+          nodeId: lastNodeId,
+        },
+      })
+    }
   }
 
   flow.edges = nextEdges

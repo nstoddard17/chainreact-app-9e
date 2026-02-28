@@ -2775,8 +2775,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       const preservedEdges: any[] = []
       const internalEdges: any[] = []
-      const incomingEdges: any[] = []
-      const outgoingEdges: any[] = []
+      const incomingEdgeMap = new Map<string, any>()
+      const outgoingEdgeMap = new Map<string, any>()
 
       for (const edge of currentEdges) {
         const fromInSet = reorderSet.has(edge.source)
@@ -2788,28 +2788,26 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         }
 
         if (!fromInSet && toInSet) {
-          incomingEdges.push(edge)
+          incomingEdgeMap.set(`${edge.source}->${edge.target}`, edge)
           continue
         }
 
         if (fromInSet && !toInSet) {
-          outgoingEdges.push(edge)
+          outgoingEdgeMap.set(`${edge.source}->${edge.target}`, edge)
           continue
         }
 
         preservedEdges.push(edge)
       }
 
+      const incomingEdges = Array.from(incomingEdgeMap.values())
+      const outgoingEdges = Array.from(outgoingEdgeMap.values())
+
       if (
         internalEdges.length === 0 &&
         incomingEdges.length === 0 &&
         outgoingEdges.length === 0
       ) {
-        return currentEdges
-      }
-
-      if (incomingEdges.length > 1 || outgoingEdges.length > 1) {
-        // Multiple boundary edges imply branching – skip local rewiring to avoid breaking the graph.
         return currentEdges
       }
 
@@ -2851,17 +2849,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       const nextEdges = [...preservedEdges]
       const firstNodeId = orderedNodeIds[0]
       if (firstNodeId) {
-        if (incomingEdges.length === 1) {
-          const incoming = incomingEdges[0]
-          nextEdges.push({
-            ...incoming,
-            target: firstNodeId,
-          })
-        } else if (incomingEdges.length === 0 && triggerNodeId) {
+        if (incomingEdges.length > 0) {
+          for (const incoming of incomingEdges) {
+            nextEdges.push({
+              ...incoming,
+              target: firstNodeId,
+            })
+          }
+        } else if (triggerNodeId) {
           nextEdges.push(makeLinearEdge(triggerNodeId, firstNodeId))
         }
-        // Note: removed redundant second trigger-edge block that could create
-        // duplicate incoming edges when the incoming edge source != triggerNodeId
       }
 
       for (let i = 0; i < orderedNodeIds.length - 1; i++) {
@@ -2872,12 +2869,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       }
 
       const lastNodeId = orderedNodeIds[orderedNodeIds.length - 1]
-      if (lastNodeId && outgoingEdges.length === 1) {
-        const outgoing = outgoingEdges[0]
-        nextEdges.push({
-          ...outgoing,
-          source: lastNodeId,
-        })
+      if (lastNodeId) {
+        for (const outgoing of outgoingEdges) {
+          nextEdges.push({
+            ...outgoing,
+            source: lastNodeId,
+          })
+        }
       }
 
       return nextEdges
