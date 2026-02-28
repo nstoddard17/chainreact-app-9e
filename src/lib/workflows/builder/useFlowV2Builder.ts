@@ -256,8 +256,8 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
 
   const reorderSet = new Set(deduped)
   const preservedEdges: FlowEdge[] = []
-  const incomingEdges: FlowEdge[] = []
-  const outgoingEdges: FlowEdge[] = []
+  const incomingEdgeMap = new Map<string, FlowEdge>()
+  const outgoingEdgeMap = new Map<string, FlowEdge>()
   const internalEdgeMap = new Map<string, FlowEdge>()
 
   for (const edge of flow.edges) {
@@ -270,17 +270,20 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
     }
 
     if (!fromInSet && toInSet) {
-      incomingEdges.push(edge)
+      incomingEdgeMap.set(`${edge.from.nodeId}->${edge.to.nodeId}`, edge)
       continue
     }
 
     if (fromInSet && !toInSet) {
-      outgoingEdges.push(edge)
+      outgoingEdgeMap.set(`${edge.from.nodeId}->${edge.to.nodeId}`, edge)
       continue
     }
 
     preservedEdges.push(edge)
   }
+
+  const incomingEdges = Array.from(incomingEdgeMap.values())
+  const outgoingEdges = Array.from(outgoingEdgeMap.values())
 
   if (incomingEdges.length > 1 || outgoingEdges.length > 1) {
     logger.warn("[useFlowV2Builder] Skipping reorder due to branching connections", {
