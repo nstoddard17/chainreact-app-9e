@@ -71,6 +71,7 @@ interface FlowV2BuilderContentProps {
   // Add node between/after
   onAddNodeAfter?: (afterNodeId: string | null) => void
   disablePhantomOverlay?: boolean
+  isReordering?: boolean
 
   // Children for overlays (e.g., PathLabelsOverlay)
   children?: React.ReactNode
@@ -105,6 +106,7 @@ export function FlowV2BuilderContent({
   onCancelBuild,
   onAddNodeAfter,
   disablePhantomOverlay,
+  isReordering,
   children,
 }: FlowV2BuilderContentProps) {
   const reactFlowInstance = useRef<any>(null)
@@ -344,6 +346,7 @@ export function FlowV2BuilderContent({
                 onAddNodeAfter(afterNodeId)
               }
             }}
+            isReordering={isReordering}
           />
         )}
           </ReactFlow>

@@ -3697,6 +3697,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         data: {
           ...edge.data,
           onInsertNode: handleInsertNodeOnEdge,
+          isReordering: !!activeReorderDrag,
         }
       }))
 
@@ -7320,6 +7321,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             onCancelBuild={handleCancelBuild}
             onAddNodeAfter={handleAddNodeAfterClick}
             disablePhantomOverlay={Boolean(activeReorderDrag)}
+            isReordering={!!activeReorderDrag}
           >
             {/* Path Labels Overlay - Zapier-style floating pills */}
             <PathLabelsOverlay

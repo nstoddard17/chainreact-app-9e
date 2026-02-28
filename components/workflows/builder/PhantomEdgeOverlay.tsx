@@ -12,6 +12,7 @@ interface PhantomEdgeOverlayProps {
   nodes: any[]
   edges?: any[]
   onAddNode: (afterNodeId: string | null) => void
+  isReordering?: boolean
 }
 
 /**
@@ -20,7 +21,7 @@ interface PhantomEdgeOverlayProps {
  * Uses ReactFlow Panel to position a vertical dashed line in flow coordinates
  * Plus button at the end of the line, matching FlowEdge styling
  */
-export function PhantomEdgeOverlay({ nodes, edges = [], onAddNode }: PhantomEdgeOverlayProps) {
+export function PhantomEdgeOverlay({ nodes, edges = [], onAddNode, isReordering = false }: PhantomEdgeOverlayProps) {
   const lastNodeInfo = useMemo(() => {
     if (!nodes || nodes.length === 0) {
       return null
@@ -102,36 +103,38 @@ export function PhantomEdgeOverlay({ nodes, edges = [], onAddNode }: PhantomEdge
           }}
         />
 
-        {/* Plus button */}
-        <div
-          style={{
-            position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${centerX}px, ${buttonY}px)`,
-            pointerEvents: 'all',
-          }}
-          className="nodrag nopan"
-        >
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onAddNode(lastNodeInfo.id)
+        {/* Plus button - hidden during reorder drag */}
+        {!isReordering && (
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${centerX}px, ${buttonY}px)`,
+              pointerEvents: 'all',
             }}
-            className="
-              group flex items-center justify-center
-              w-8 h-8 rounded-full
-              bg-white dark:bg-gray-800
-              border-2 border-gray-300 dark:border-gray-600
-              hover:border-blue-500 dark:hover:border-blue-400
-              hover:bg-blue-50 dark:hover:bg-blue-900/20
-              transition-all duration-200
-              shadow-md hover:shadow-lg
-              cursor-pointer
-            "
-            aria-label="Add node after"
+            className="nodrag nopan"
           >
-            <Plus className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
-          </button>
-        </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onAddNode(lastNodeInfo.id)
+              }}
+              className="
+                group flex items-center justify-center
+                w-8 h-8 rounded-full
+                bg-white dark:bg-gray-800
+                border-2 border-gray-300 dark:border-gray-600
+                hover:border-blue-500 dark:hover:border-blue-400
+                hover:bg-blue-50 dark:hover:bg-blue-900/20
+                transition-all duration-200
+                shadow-md hover:shadow-lg
+                cursor-pointer
+              "
+              aria-label="Add node after"
+            >
+              <Plus className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+            </button>
+          </div>
+        )}
       </EdgeLabelRenderer>
     </>
   )
