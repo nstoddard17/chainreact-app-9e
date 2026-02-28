@@ -63,6 +63,15 @@ import { getGoogleCalendarFreeBusy } from './google-calendar/getFreeBusy'
 
 // Google Drive actions
 import { uploadGoogleDriveFile } from './googleDrive/uploadFile'
+import { getGoogleDriveFile } from './googleDrive/getFile'
+import { shareGoogleDriveFile } from './googleDrive/shareFile'
+import { copyGoogleDriveFile } from './googleDrive/copyFile'
+import { moveGoogleDriveFile } from './googleDrive/moveFile'
+import { deleteGoogleDriveFile } from './googleDrive/deleteFile'
+import { createGoogleDriveFolder } from './googleDrive/createFolder'
+import { searchGoogleDriveFiles } from './googleDrive/searchFiles'
+import { listGoogleDriveFiles } from './googleDrive/listFiles'
+import { getGoogleDriveFileMetadata } from './googleDrive/getFileMetadata'
 
 // Google Docs actions
 import {
@@ -825,6 +834,28 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Google Drive actions - wrapped to handle new calling convention
   "google_drive_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
     uploadGoogleDriveFile(params.config, params.userId, params.input),
+
+  // Google Drive actions - new colon-style IDs (match node schema types)
+  "google-drive:create_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    uploadGoogleDriveFile(params.config, params.userId, params.input),
+  "google-drive:get_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGoogleDriveFile(params.config, params.userId, params.input),
+  "google-drive:share_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    shareGoogleDriveFile(params.config, params.userId, params.input),
+  "google-drive:copy_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    copyGoogleDriveFile(params.config, params.userId, params.input),
+  "google-drive:move_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    moveGoogleDriveFile(params.config, params.userId, params.input),
+  "google-drive:delete_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    deleteGoogleDriveFile(params.config, params.userId, params.input),
+  "google-drive:create_folder": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGoogleDriveFolder(params.config, params.userId, params.input),
+  "google-drive:search_files": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    searchGoogleDriveFiles(params.config, params.userId, params.input),
+  "google-drive:list_files": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    listGoogleDriveFiles(params.config, params.userId, params.input),
+  "google-drive:get_file_metadata": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    getGoogleDriveFileMetadata(params.config, params.userId, params.input),
 
   // Google Docs actions - wrapped to handle new calling convention
   "google_docs_action_create_document": (params: { config: any; userId: string; input: Record<string, any> }) =>

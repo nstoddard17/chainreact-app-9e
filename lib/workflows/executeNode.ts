@@ -639,10 +639,11 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
   }
 
   // For encryption-dependent handlers, check if encryption key is available
-  if (!hasEncryptionKey && 
-      (type.startsWith('gmail_') || 
-       type.startsWith('google_sheets_') || 
+  if (!hasEncryptionKey &&
+      (type.startsWith('gmail_') ||
+       type.startsWith('google_sheets_') ||
        type.startsWith('google_drive_') ||
+       type.startsWith('google-drive:') ||
        type.startsWith('airtable_'))) {
     logger.warn(`Encryption key missing, running ${type} in test mode`)
     return { 
