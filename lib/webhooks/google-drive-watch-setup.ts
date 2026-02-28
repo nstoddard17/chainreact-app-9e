@@ -274,16 +274,17 @@ export async function getGoogleDriveChanges(
     )
 
     // Get the integration to fetch access token
+    // Don't filter by provider - all Google services share OAuth tokens, so the
+    // integration may be stored under any Google provider (gmail, google-drive, etc.)
     const { data: integration, error } = await supabase
       .from('integrations')
       .select('access_token')
       .eq('id', integrationId)
       .eq('user_id', userId)
-      .eq('provider', provider)
       .single()
 
     if (error || !integration) {
-      throw new Error(`${provider === 'google-sheets' ? 'Google Sheets' : 'Google Drive'} integration not found`)
+      throw new Error(`Google integration not found for id ${integrationId}`)
     }
 
     // Decrypt and set up OAuth

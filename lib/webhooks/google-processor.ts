@@ -664,6 +664,17 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     return { processed: true, eventType: 'drive.notification' }
   }
 
+  // Skip sync notifications - these are initial handshakes sent immediately after files.watch()
+  // Processing them pollutes the in-memory dedup Map and wastes a changes.list call
+  const resourceState = event.eventData?.resourceState
+    || event.eventData?.headers?.['x-goog-resource-state']
+  if (resourceState === 'sync') {
+    logger.info('[Google Drive] Sync notification acknowledged (initial handshake)', {
+      channelId: event.eventData?.channelId || event.eventData?.headers?.['x-goog-channel-id']
+    })
+    return { processed: true, eventType: 'drive.sync' }
+  }
+
   const { getGoogleDriveChanges } = await import('./google-drive-watch-setup')
   const supabase = await createSupabaseServiceClient()
   const providerContext: string | null = metadata?.provider || metadata?.contextProvider || null
@@ -863,7 +874,8 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       // Skip repeated fetches for same token on a burst of identical notifications
       return { processed: true, ignored: true, reason: 'duplicate_page_token' }
     }
-    lastDrivePageTokenProcessed.set(channelId, subscription.page_token)
+    // Don't set here - set AFTER processing with the NEW token to avoid
+    // incorrectly deduping the first real event after a sync notification
   }
   const fetchLogLabel = isSheetsWatch ? '[Google Sheets] Fetching changes' : '[Google Drive] Fetching changes'
   logger.info(fetchLogLabel, { hasPageToken: !!subscription.page_token, updatedAt: subscription?.updated_at })
@@ -1049,6 +1061,11 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
         .eq('provider_id', subscriptionProviderFilter)
         .eq('external_id', channelId)
     }
+  }
+
+  // Update in-memory dedup with the NEW token after processing
+  if (channelId) {
+    lastDrivePageTokenProcessed.set(channelId, nextPageToken || subscription.page_token)
   }
 
   if (isSheetsWatch) {
@@ -1834,6 +1851,12 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
     }
 
     if (!triggerResources || triggerResources.length === 0) {
+      logger.info('[Google Drive] No matching trigger resources found', {
+        triggerType,
+        userId,
+        changeType,
+        resourceId
+      })
       return
     }
 
@@ -1857,6 +1880,11 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
     }
 
     if (!workflows || workflows.length === 0) {
+      logger.info('[Google Drive] No active workflows found for trigger resources', {
+        workflowIds,
+        triggerType,
+        changeType
+      })
       return
     }
 
@@ -1978,6 +2006,14 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
       })
 
       if (matchingTriggers.length === 0) {
+        logger.info('[Google Drive] No matching trigger nodes in workflow', {
+          workflowId: workflow.id,
+          triggerType,
+          changeType,
+          resourceId,
+          parentIds,
+          totalNodes: nodes.length
+        })
         continue
       }
 

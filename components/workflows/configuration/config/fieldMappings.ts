@@ -510,6 +510,10 @@ const googleDriveMappings: Record<string, FieldMapping> = {
     fileId: "google-drive-files-and-folders",
     destinationFolderId: "google-drive-folders",
   },
+  "google-drive:copy_file": {
+    fileId: "google-drive-files",
+    destinationFolderId: "google-drive-folders",
+  },
   "google-drive:delete_file": {
     fileId: "google-drive-files-and-folders",
   },
