@@ -561,6 +561,7 @@ export async function processGoogleEvent(event: GoogleWebhookEvent): Promise<any
     }
 
     // Process based on service
+    console.log(`[Google Webhook] Routing to service: ${event.service}, hasMetadata: userId=${metadata?.userId ? 'yes' : 'no'}, integrationId=${metadata?.integrationId ? 'yes' : 'no'}`)
     switch (event.service) {
       case 'gmail':
         return await processGmailEvent(event, metadata)
@@ -576,6 +577,7 @@ export async function processGoogleEvent(event: GoogleWebhookEvent): Promise<any
         return await processGenericGoogleEvent(event)
     }
   } catch (error) {
+    console.error('[Google Webhook] Error processing event:', error)
     logger.error('Error processing Google webhook event:', error)
     throw error
   }
@@ -668,10 +670,9 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   // Processing them pollutes the in-memory dedup Map and wastes a changes.list call
   const resourceState = event.eventData?.resourceState
     || event.eventData?.headers?.['x-goog-resource-state']
+  console.log(`[Google Drive] Processing webhook: resourceState=${resourceState}, userId=${metadata.userId}, channelId=${event.eventData?.channelId || event.eventData?.headers?.['x-goog-channel-id']}`)
   if (resourceState === 'sync') {
-    logger.info('[Google Drive] Sync notification acknowledged (initial handshake)', {
-      channelId: event.eventData?.channelId || event.eventData?.headers?.['x-goog-channel-id']
-    })
+    console.log('[Google Drive] Sync notification acknowledged (initial handshake)')
     return { processed: true, eventType: 'drive.sync' }
   }
 
@@ -690,15 +691,20 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   let subscriptionMetadata: any = null
 
   // Step 1: Try trigger_resources FIRST (modern source of truth, channel-scoped)
+  console.log(`[Google Drive] Subscription lookup: channelId=${channelId}, isSheetsWatch=${isSheetsWatch}`)
   if (channelId) {
     const providerFilter = isSheetsWatch ? 'google-sheets' : 'google-drive'
-    const { data: triggerResource } = await supabase
+    const { data: triggerResource, error: trError } = await supabase
       .from('trigger_resources')
       .select('id, config, updated_at')
       .eq('provider_id', providerFilter)
       .eq('external_id', channelId)
       .eq('status', 'active')
       .maybeSingle()
+
+    if (trError) {
+      console.log(`[Google Drive] trigger_resources query error:`, trError.message)
+    }
 
     if (triggerResource?.config) {
       subscription = {
@@ -708,6 +714,9 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
       }
       subscriptionSource = 'trigger_resources'
       subscriptionMetadata = triggerResource.config
+      console.log(`[Google Drive] Subscription found in trigger_resources, hasPageToken=${!!subscription.page_token}`)
+    } else {
+      console.log(`[Google Drive] No subscription in trigger_resources for channelId=${channelId}`)
     }
   }
 
@@ -861,6 +870,7 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   }
 
   if (!subscription?.page_token) {
+    console.log(`[Google Drive] No page token found, subscriptionSource=${subscriptionSource}, skipping change fetch`)
     logger.info('Google Drive subscription missing page token, skipping change fetch', {
       userId: metadata.userId,
       integrationId: metadata.integrationId
@@ -871,25 +881,34 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
   if (channelId) {
     const lastToken = lastDrivePageTokenProcessed.get(channelId)
     if (lastToken && lastToken === subscription.page_token) {
-      // Skip repeated fetches for same token on a burst of identical notifications
+      console.log(`[Google Drive] Dedup: same page token as last processed, skipping`)
       return { processed: true, ignored: true, reason: 'duplicate_page_token' }
     }
     // Don't set here - set AFTER processing with the NEW token to avoid
     // incorrectly deduping the first real event after a sync notification
   }
+  console.log(`[Google Drive] Fetching changes with pageToken, subscriptionSource=${subscriptionSource}`)
   const fetchLogLabel = isSheetsWatch ? '[Google Sheets] Fetching changes' : '[Google Drive] Fetching changes'
   logger.info(fetchLogLabel, { hasPageToken: !!subscription.page_token, updatedAt: subscription?.updated_at })
   const integrationProvider = isSheetsWatch ? 'google-sheets' : 'google-drive'
-  const changes = await getGoogleDriveChanges(
-    metadata.userId,
-    metadata.integrationId,
-    subscription.page_token,
-    integrationProvider
-  )
+  let changes: any
+  try {
+    changes = await getGoogleDriveChanges(
+      metadata.userId,
+      metadata.integrationId,
+      subscription.page_token,
+      integrationProvider
+    )
+  } catch (changesError: any) {
+    console.error(`[Google Drive] Failed to fetch changes: ${changesError.message}`)
+    throw changesError
+  }
+  const changesCount = Array.isArray(changes.changes) ? changes.changes.length : 0
+  console.log(`[Google Drive] Changes fetched: count=${changesCount}, nextPageToken=${changes.nextPageToken ? 'yes' : 'no'}`)
   const watchStartTs = subscription?.updated_at ? new Date(subscription.updated_at).getTime() : null
   const fetchedLogLabel = isSheetsWatch ? '[Google Sheets] Changes fetched' : '[Google Drive] Changes fetched'
   logger.info(fetchedLogLabel, {
-    count: Array.isArray(changes.changes) ? changes.changes.length : 0,
+    count: changesCount,
     nextPageToken: (changes.nextPageToken ? `${String(changes.nextPageToken).slice(0, 8) }...` : null)
   })
   let processedChanges = 0
@@ -1792,6 +1811,7 @@ async function triggerMatchingCalendarWorkflows(changeType: CalendarChangeType, 
 }
 
 async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveItem: any, metadata: any, options?: { parentIds?: string[]; isFolder?: boolean; webhookHeaders?: Record<string, string> }) {
+  console.log(`[Google Drive] triggerMatchingDriveWorkflows: changeType=${changeType}, itemId=${driveItem?.id}, userId=${metadata?.userId}`)
   if (!driveItem) {
     console.debug('[Google Drive] Change payload missing drive item details, skipping')
     return
@@ -1851,14 +1871,11 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
     }
 
     if (!triggerResources || triggerResources.length === 0) {
-      logger.info('[Google Drive] No matching trigger resources found', {
-        triggerType,
-        userId,
-        changeType,
-        resourceId
-      })
+      console.log(`[Google Drive] No matching trigger resources: triggerType=${triggerType}, userId=${userId}, changeType=${changeType}`)
       return
     }
+
+    console.log(`[Google Drive] Found ${triggerResources.length} trigger resources for ${triggerType}`)
 
     const workflowIds = triggerResources
       .map((config) => config.workflow_id)
@@ -1875,18 +1892,16 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
       .eq('status', 'active')
 
     if (workflowsError) {
-      logger.error('[Google Drive] Failed to fetch workflows:', workflowsError)
+      console.error('[Google Drive] Failed to fetch workflows:', workflowsError.message)
       return
     }
 
     if (!workflows || workflows.length === 0) {
-      logger.info('[Google Drive] No active workflows found for trigger resources', {
-        workflowIds,
-        triggerType,
-        changeType
-      })
+      console.log(`[Google Drive] No active workflows found for workflowIds=${workflowIds.join(',')}`)
       return
     }
+
+    console.log(`[Google Drive] Found ${workflows.length} active workflows to check`)
 
     // Load nodes and edges for all workflows in batch
     const [driveNodesResult, driveEdgesResult] = await Promise.all([
@@ -2006,14 +2021,7 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
       })
 
       if (matchingTriggers.length === 0) {
-        logger.info('[Google Drive] No matching trigger nodes in workflow', {
-          workflowId: workflow.id,
-          triggerType,
-          changeType,
-          resourceId,
-          parentIds,
-          totalNodes: nodes.length
-        })
+        console.log(`[Google Drive] No matching trigger nodes in workflow ${workflow.id}: triggerType=${triggerType}, parentIds=${JSON.stringify(parentIds)}, totalNodes=${nodes.length}`)
         continue
       }
 
@@ -2035,6 +2043,7 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
       }
 
       try {
+        console.log(`[Google Drive] Executing workflow ${workflow.id} for ${changeType} on ${resourceId}`)
         markDriveChangeProcessed(workflow.id, resourceId, changeType, lastUpdated)
 
         const executionEngine = new AdvancedExecutionEngine()
