@@ -20,7 +20,7 @@
   --canvas-padding: 64px;   /* fit padding */
 
   /* Node Cards */
-  --node-width: 300px;      /* base node width */
+  --node-width: 360px;      /* base node width - matches CustomNode w-[360px] */
   --node-radius: 12px;
   --node-gap-x: 160px;      /* horizontal gap between columns */
   --node-gap-y: 96px;       /* vertical gap between rows */

@@ -601,7 +601,7 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
     const isTrigger = metadata.isTrigger ?? catalogNode?.isTrigger ?? false
     // Pre-calculate fallback Y based on ORIGINAL array order (not sorted order)
     const fallbackY = 120 + originalIndex * 180
-    return { node, isTrigger, metadata, catalogNode, fallbackY }
+    return { node, isTrigger, metadata, catalogNode, fallbackY, originalIndex }
   })
 
   // Sort nodes: triggers first, then actions
@@ -623,8 +623,8 @@ function flowToReactFlowNodes(flow: Flow, onDelete?: (nodeId: string) => void): 
     if (a.isTrigger && !b.isTrigger) return -1
     if (!a.isTrigger && b.isTrigger) return 1
 
-    // Keep original order for same type
-    return 0
+    // Stable tiebreaker: preserve original array order
+    return a.originalIndex - b.originalIndex
   })
 
   return sortedNodes.map(({ node, isTrigger, metadata, catalogNode, fallbackY }) => {
@@ -818,8 +818,15 @@ function normalizeLinearPositions(
     current = next
   }
 
-  // Only normalize if the entire chain was walked (all real nodes accounted for)
-  if (ordered.length !== realNodes.length) return
+  // If not all nodes were walked via edges, append unconnected nodes sorted by Y
+  // This fixes overlapping when some edges are missing
+  if (ordered.length < realNodes.length) {
+    const orderedIds = new Set(ordered.map(n => n.id))
+    const unconnected = realNodes
+      .filter(n => !orderedIds.has(n.id))
+      .sort((a, b) => a.position.y - b.position.y)
+    ordered.push(...unconnected)
+  }
 
   // Check if positions actually need fixing (detect overlaps or inconsistent gaps)
   let needsFix = false
@@ -838,8 +845,13 @@ function normalizeLinearPositions(
     `[normalizeLinearPositions] Re-spacing ${ordered.length} nodes in linear chain`
   )
 
-  const baseX = ordered[0].position.x
+  const baseX = LINEAR_STACK_X
   const baseY = ordered[0].position.y
+
+  // Also align root node X to prevent viewport-dependent drift
+  const rootPos = { x: baseX, y: baseY }
+  ordered[0].position = rootPos
+  ;(ordered[0] as any).positionAbsolute = rootPos
 
   for (let i = 1; i < ordered.length; i++) {
     const newPos = { x: baseX, y: baseY + i * DEFAULT_VERTICAL_SPACING }
@@ -1347,7 +1359,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           if (aIsTrigger && !bIsTrigger) return -1
           if (!aIsTrigger && bIsTrigger) return 1
 
-          return 0
+          // Stable tiebreaker: preserve graphNodes array order
+          return graphNodes.indexOf(a) - graphNodes.indexOf(b)
         })
 
       if (sortedLinearNodes.length >= 2) {
@@ -1388,8 +1401,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
           } as ReactFlowEdge)
           existingEdges.add(key)
-          nodesWithOutgoing.add(current.id)
-          nodesWithIncoming.add(next.id)
+          // Don't add to nodesWithOutgoing/nodesWithIncoming - those track real edges only
+          // Adding synthetic edges here would block the next iteration from creating needed edges
         }
       }
 
