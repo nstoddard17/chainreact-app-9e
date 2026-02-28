@@ -1012,7 +1012,6 @@ export function FlowV2AgentPanel({
         }
 
         const result = await response.json()
-        console.log(`[FlowV2AgentPanel] Received data for ${field.name}:`, result)
 
         // Extract options from response (API returns { data: [...], success: true })
         const options = Array.isArray(result.data) ? result.data : result.data || []
@@ -1032,22 +1031,11 @@ export function FlowV2AgentPanel({
       newOptions[fieldName] = options
     })
 
-    // DEBUG: Log exactly what we're storing
-    console.log(`[FlowV2AgentPanel] 📦 Storing options for node ${nodeId}:`, {
-      fieldNames: Object.keys(newOptions),
-      optionCounts: Object.fromEntries(Object.entries(newOptions).map(([k, v]) => [k, (v as any[]).length])),
-      sampleData: Object.fromEntries(Object.entries(newOptions).map(([k, v]) => [k, (v as any[]).slice(0, 2)]))
-    })
-
     setNodesDynamicOptions(prev => {
       const next = {
         ...prev,
         [nodeId]: { ...prev[nodeId], ...newOptions }
       }
-      console.log(`[FlowV2AgentPanel] 📦 State after update for ${nodeId}:`, {
-        nodeKeys: Object.keys(next),
-        fieldKeys: next[nodeId] ? Object.keys(next[nodeId]) : 'undefined'
-      })
       return next
     })
 
@@ -1080,7 +1068,6 @@ export function FlowV2AgentPanel({
     // Remove from loading ref (allow future reloads if needed)
     loadingNodesRef.current.delete(nodeId)
 
-    console.log('[FlowV2AgentPanel] ✅ Finished loading dynamic options for node:', nodeId, newOptions)
   }, [getNodeSchema, nodeConfigs, onNodeConfigChange, refreshIntegrations])
 
   // Auto-save default connections to nodeConfigs when they're auto-selected
@@ -1170,7 +1157,6 @@ export function FlowV2AgentPanel({
 
     // Start validation - show loading state
     setIsValidatingProviders(true)
-    console.log(`[FlowV2AgentPanel] 🔍 Starting validation for ${providersToValidate.length} providers:`, providersToValidate)
 
     // Validate all providers in parallel and wait for completion
     const validateProvider = async (providerId: string): Promise<void> => {
@@ -1179,14 +1165,12 @@ export function FlowV2AgentPanel({
         int.id.toLowerCase() === providerId.toLowerCase() && int.isConnected
       )
       if (providerConnections.length === 0) {
-        console.log(`[FlowV2AgentPanel] ⏭️ No connection for ${providerId}, skipping validation`)
         return // No connection to validate
       }
 
       const connection = providerConnections[0]
       const connectionId = connection.integrationId || connection.id
 
-      console.log(`[FlowV2AgentPanel] 🔍 Validating ${providerId} connection:`, connectionId)
 
       try {
         // Make a lightweight API call to validate the token

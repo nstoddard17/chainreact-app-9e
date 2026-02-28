@@ -86,7 +86,8 @@ export const validateWorkflowNodes = (
       isAIAgent: node.data?.type === 'ai_agent',
       isChainChild: !!node.data?.parentAIAgentId,
       hasConfigSchema: !!nodeInfo.configSchema?.length,
-      values
+      fieldCount: Object.keys(values || {}).length,
+      fieldNames: Object.keys(values || {}).filter(k => !k.startsWith('_'))
     })
 
     // Skip validation only for AI Agent nodes themselves

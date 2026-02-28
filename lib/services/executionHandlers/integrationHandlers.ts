@@ -71,7 +71,7 @@ export class IntegrationNodeHandlers {
         case 'microsoft-outlook_trigger_email_flagged':
           // Email triggers - in production, webhooks provide real data
           logger.info(`📧 Outlook email trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
-          logger.info('📧 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
+          logger.debug('[Outlook] Email trigger context', { source: context.data?.source, hasResourceData: !!context.data?.resourceData })
 
           // Check if we have real email data from webhook
           if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
@@ -178,7 +178,7 @@ export class IntegrationNodeHandlers {
         case 'microsoft-outlook_trigger_calendar_event_start':
           // Calendar triggers - in production, webhooks provide real data
           logger.info(`📅 Outlook calendar trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
-          logger.info('📅 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
+          logger.debug('[Outlook] Calendar trigger context', { source: context.data?.source, hasResourceData: !!context.data?.resourceData })
 
           // Check if we have real calendar data from webhook
           if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
@@ -281,7 +281,7 @@ export class IntegrationNodeHandlers {
         case 'microsoft-outlook_trigger_updated_contact':
           // Contact triggers - in production, webhooks provide real data
           logger.info(`👤 Outlook contact trigger (${nodeType}) executing in mode:`, context.testMode ? 'test' : 'live')
-          logger.info('👤 Outlook trigger context data:', JSON.stringify(context.data, null, 2))
+          logger.debug('[Outlook] Contact trigger context', { source: context.data?.source, hasResourceData: !!context.data?.resourceData })
 
           // Check if we have real contact data from webhook
           if (context.data?.source === 'microsoft-graph-webhook' && context.data?.resourceData?.id) {
@@ -603,8 +603,8 @@ export class IntegrationNodeHandlers {
 
     const config = node.data.config || {}
 
-    logger.info("📦 OneDrive config received:", JSON.stringify(config, null, 2))
-    logger.info("📦 Node data:", JSON.stringify(node.data, null, 2))
+    logger.debug('[OneDrive] Config received', { fields: Object.keys(config) })
+    logger.debug('[OneDrive] Node type:', node.data?.type)
 
     // Process OneDrive file upload
 
@@ -655,17 +655,13 @@ export class IntegrationNodeHandlers {
 
   private async executeDiscordAction(node: any, context: ExecutionContext) {
     logger.info("💬 Executing Discord action")
-    logger.info(`   Node type: "${node.data.type}"`)
-    logger.info(`   User ID: ${context.userId}`)
-    logger.info(`🔍 [INTEGRATION DEBUG] Full context:`)
-    logger.info(`   context.userId: ${context.userId}`)
-    logger.info(`   context.data:`, JSON.stringify(context.data, null, 2))
+    logger.debug(`[Discord] Node type: "${node.data.type}"`)
+    logger.debug('[Discord] Context', { dataKeys: Object.keys(context.data || {}) })
 
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    logger.info(`🔍 [INTEGRATION DEBUG] Node config:`)
-    logger.info(JSON.stringify(config, null, 2))
+    logger.debug('[Discord] Config fields', { fields: Object.keys(config) })
 
     // Import the actual Discord action handlers
     const { sendDiscordMessage } = await import("@/lib/workflows/actions/discord")
@@ -1164,8 +1160,8 @@ export class IntegrationNodeHandlers {
     const nodeType = node.data.type
     const config = node.data.config || {}
 
-    logger.info(`   Excel action type: ${nodeType}`)
-    logger.info(`   Config:`, JSON.stringify(config, null, 2))
+    logger.debug(`[Excel] Action type: ${nodeType}`)
+    logger.debug('[Excel] Config fields', { fields: Object.keys(config) })
 
     // Handle different Microsoft Excel action types
     switch (nodeType) {

@@ -1082,9 +1082,15 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
     }
   }
 
-  // Update in-memory dedup with the NEW token after processing
+  // Only update dedup map when token actually advanced (changes were found and consumed).
+  // When changes.list returns no changes, nextPageToken equals the input token.
+  // Updating the map in that case would cause the NEXT legitimate webhook to be falsely deduped.
   if (channelId) {
-    lastDrivePageTokenProcessed.set(channelId, nextPageToken || subscription.page_token)
+    if (nextPageToken && nextPageToken !== subscription.page_token) {
+      lastDrivePageTokenProcessed.set(channelId, nextPageToken)
+    } else {
+      console.log(`[Google Drive] Token unchanged (${changesCount} changes), not updating dedup map`)
+    }
   }
 
   if (isSheetsWatch) {

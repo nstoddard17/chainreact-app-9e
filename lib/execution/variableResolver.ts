@@ -87,7 +87,7 @@ export function replaceTemplateVariables(template: string, data: any): any {
 
     // Fallback to direct path resolution
     const value = getNestedValue(data, trimmedPath)
-    logger.info(`🔧 Direct path result: "${value}"`)
+    logger.debug('[variableResolver] Direct path resolved', { hasValue: value !== undefined })
     return value !== undefined ? value : match
   })
 }
@@ -111,15 +111,15 @@ function resolveDiscordMessageField(fieldName: string, data: any): any {
       return authorName
     case 'Guild Name':
       const guildName = data?.message?.guildName || data?.message?.guildId || ''
-      logger.info(`🔧 Found Guild Name: "${guildName}"`)
+      logger.debug('[variableResolver] Found Guild Name', { length: guildName.length })
       return guildName
     case 'Message ID':
       const messageId = data?.message?.messageId || ''
-      logger.info(`🔧 Found Message ID: "${messageId}"`)
+      logger.debug('[variableResolver] Found Message ID', { hasValue: !!messageId })
       return messageId
     case 'Timestamp':
       const timestamp = data?.message?.timestamp || ''
-      logger.info(`🔧 Found Timestamp: "${timestamp}"`)
+      logger.debug('[variableResolver] Found Timestamp', { hasValue: !!timestamp })
       return timestamp
     default:
       logger.info(`🔧 Unknown Discord message field: "${fieldName}"`)
@@ -185,21 +185,21 @@ function resolveAIAgentField(fieldName: string, data: any): any {
   for (const [key, value] of Object.entries(data)) {
     if (value && typeof value === 'object' && (value as any).output) {
       const nodeResult = value as any
-      logger.info(`🔧 Checking node result ${key}:`, JSON.stringify(nodeResult, null, 2))
+      logger.debug('[variableResolver] Checking node result', { key, outputKeys: Object.keys(nodeResult.output || {}) })
 
       // Check if this looks like an AI agent result
       if (nodeResult.output) {
         // Handle specific field requests
         if (fieldName === 'Email Subject' && nodeResult.output.subject) {
-          logger.info(`🔧 Found AI Agent subject: "${nodeResult.output.subject}"`)
+          logger.debug('[variableResolver] Found AI Agent subject', { length: nodeResult.output.subject?.length })
           return nodeResult.output.subject
         }
         if (fieldName === 'Email Body' && nodeResult.output.body) {
-          logger.info(`🔧 Found AI Agent body: "${nodeResult.output.body}"`)
+          logger.debug('[variableResolver] Found AI Agent body', { length: nodeResult.output.body?.length })
           return nodeResult.output.body
         }
         if ((fieldName === 'AI Agent Output' || fieldName === 'output') && nodeResult.output.output) {
-          logger.info(`🔧 Found AI Agent output: "${nodeResult.output.output}"`)
+          logger.debug('[variableResolver] Found AI Agent output', { length: nodeResult.output.output?.length })
           return nodeResult.output.output
         }
       }

@@ -213,7 +213,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
 
       // If this is a trigger node but missing type, log full data
       if (isTrigger && !nodeData.type) {
-        logger.info(`      ⚠️ Trigger node missing data.type! Full data:`, JSON.stringify(nodeData).substring(0, 300))
+        logger.warn(`[WebhookProcessor] Trigger node missing data.type`, { nodeKeys: Object.keys(nodeData), isTrigger: nodeData.isTrigger, providerId: nodeData.providerId })
       }
 
       if (!isTrigger) {

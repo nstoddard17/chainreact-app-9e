@@ -41,7 +41,7 @@ export class WebhookTriggerLifecycle implements TriggerLifecycle {
 
     logger.info(`🔔 Activating webhook trigger for workflow ${workflowId}`, {
       triggerType,
-      config
+      configFields: Object.keys(config || {})
     })
 
     // Generate unique webhook ID (used in URL)

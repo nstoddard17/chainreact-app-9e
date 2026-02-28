@@ -10,7 +10,7 @@ export class GmailIntegrationService {
   async execute(node: any, context: ExecutionContext): Promise<any> {
     const nodeType = node.data.type
     logger.info(`📧 GmailIntegrationService - nodeType: ${nodeType}`)
-    logger.info(`📌 GmailIntegrationService - Context userId: ${context.userId}`)
+    logger.debug('[GmailIntegrationService] Context ready')
 
     switch (nodeType) {
       case "gmail_action_send_email":
@@ -41,21 +41,14 @@ export class GmailIntegrationService {
     logger.info("📧 Executing Gmail send email")
     logger.info("📧 [GmailIntegrationService] Raw node data keys:", Object.keys(node.data || {}))
 
-    // CRITICAL DEBUG - will show in console
-    console.error('[DEBUG] GmailIntegrationService.executeSendEmail called')
-    console.error('[DEBUG] context.data keys:', Object.keys(context.data || {}))
-    console.error('[DEBUG] Does context.data contain action-1760677115194?', !!(context.data && context.data['action-1760677115194']))
-
     const config = node.data.config || {}
-    console.error('[DEBUG] config.to BEFORE resolve:', config.to)
-    
-    // Debug raw config
-    logger.info('📧 [GmailIntegrationService] Raw config:', {
+
+    logger.debug('[GmailIntegrationService] Attachment config', {
       sourceType: config.sourceType,
-      uploadedFiles: config.uploadedFiles,
-      fileUrl: config.fileUrl,
-      fileFromNode: config.fileFromNode,
-      attachments: config.attachments
+      hasFiles: !!config.uploadedFiles,
+      hasFileUrl: !!config.fileUrl,
+      hasFileFromNode: !!config.fileFromNode,
+      hasAttachments: !!config.attachments
     });
     
     // Resolve all config values including the new attachment fields
@@ -84,17 +77,12 @@ export class GmailIntegrationService {
       trackClicks: config.trackClicks
     }
     
-    // Debug resolved config
-    logger.info('📧 [GmailIntegrationService] Resolved config:', {
+    logger.debug('[GmailIntegrationService] Resolved attachment config', {
       sourceType: resolvedConfig.sourceType,
-      uploadedFiles: resolvedConfig.uploadedFiles,
-      fileUrl: resolvedConfig.fileUrl,
-      fileFromNode: resolvedConfig.fileFromNode,
-      attachments: resolvedConfig.attachments
+      hasFiles: !!resolvedConfig.uploadedFiles,
+      hasFileUrl: !!resolvedConfig.fileUrl,
+      hasFileFromNode: !!resolvedConfig.fileFromNode
     });
-
-    console.error('[DEBUG] resolvedConfig.to AFTER resolve:', resolvedConfig.to)
-    console.error('[DEBUG] resolvedConfig.body AFTER resolve:', resolvedConfig.body)
 
     if (!resolvedConfig.to || !resolvedConfig.subject) {
       throw new Error("Gmail send email requires 'to' and 'subject' fields")
@@ -465,7 +453,7 @@ export class GmailIntegrationService {
         const [, nodeId, fieldPath] = singleMatch
         const resolved = this.resolveVariablePath(nodeId, fieldPath, context.data)
         if (resolved !== undefined) {
-          logger.info(`✅ Resolved ${value} to:`, resolved)
+          logger.debug('[GmailIntegrationService] Resolved variable')
           return resolved
         }
       }
@@ -475,7 +463,7 @@ export class GmailIntegrationService {
       resolvedValue = resolvedValue.replace(/{{([^.]+)\.([^}]+)}}/g, (match, nodeId, fieldPath) => {
         const resolved = this.resolveVariablePath(nodeId, fieldPath, context.data)
         if (resolved !== undefined) {
-          logger.info(`✅ Resolved ${match} to:`, resolved)
+          logger.debug('[GmailIntegrationService] Resolved embedded variable')
           return String(resolved)
         }
         logger.warn(`⚠️ Could not resolve variable: ${match}`)
