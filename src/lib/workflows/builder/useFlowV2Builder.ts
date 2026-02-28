@@ -1367,22 +1367,11 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         const edgeKey = (edge: ReactFlowEdge) => `${edge.source}->${edge.target}`
         const existingEdges = new Set(edges.map(edgeKey))
 
-        // Build sets of nodes that already have explicit edges for conservative synthetic creation
-        const nodesWithOutgoing = new Set(edges.map(e => e.source))
-        const nodesWithIncoming = new Set(edges.map(e => e.target))
-
         for (let i = 0; i < sortedLinearNodes.length - 1; i++) {
           const current = sortedLinearNodes[i]
           const next = sortedLinearNodes[i + 1]
           const key = `${current.id}->${next.id}`
           if (existingEdges.has(key)) {
-            continue
-          }
-
-          // Don't create synthetic edges if either node already has explicit connections
-          // This prevents duplicating edges when nodes are connected via non-adjacent paths
-          // (e.g., after insertion where NodeA→NewNode→NodeB, don't also create NodeA→NodeB)
-          if (nodesWithOutgoing.has(current.id) || nodesWithIncoming.has(next.id)) {
             continue
           }
 
@@ -1401,8 +1390,6 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             },
           } as ReactFlowEdge)
           existingEdges.add(key)
-          // Don't add to nodesWithOutgoing/nodesWithIncoming - those track real edges only
-          // Adding synthetic edges here would block the next iteration from creating needed edges
         }
       }
 
