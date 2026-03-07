@@ -785,7 +785,7 @@ export function GenericConfiguration({
         previewLimit: 100, // Always fetch max, we'll limit display in UI
       };
 
-      const response = await fetch(`/api/integrations/google-drive/data`, {
+      const response = await fetch(`/api/integrations/fetch-user-data`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -793,7 +793,7 @@ export function GenericConfiguration({
         },
         body: JSON.stringify({
           integrationId,
-          dataType: 'search-preview',
+          dataType: 'google-drive-search-preview',
           options: { searchConfig }
         })
       });
@@ -838,7 +838,7 @@ export function GenericConfiguration({
         previewLimit: 100, // Always fetch max, we'll limit display in UI
       };
 
-      const response = await fetch(`/api/integrations/google-drive/data`, {
+      const response = await fetch(`/api/integrations/fetch-user-data`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -846,7 +846,7 @@ export function GenericConfiguration({
         },
         body: JSON.stringify({
           integrationId,
-          dataType: 'list-files-preview',
+          dataType: 'google-drive-list-files-preview',
           options: listConfig
         })
       });

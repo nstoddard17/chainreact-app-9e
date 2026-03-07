@@ -123,6 +123,278 @@ export const getGoogleDriveFiles: GoogleDataHandler<GoogleDriveFile> = async (in
 }
 
 /**
+ * Fetch Google Drive files AND folders combined (with group labels)
+ * Used by move_file and delete_file actions
+ */
+export const getGoogleDriveFilesAndFolders: GoogleDataHandler = async (integration: GoogleIntegration, options?: any) => {
+  try {
+    validateGoogleIntegration(integration)
+    logger.info("📁📄 [Google Drive] Fetching files and folders")
+
+    const accessToken = getGoogleAccessToken(integration)
+
+    // Fetch folders and files in parallel
+    const [foldersResponse, filesResponse] = await Promise.all([
+      makeGoogleApiRequest(
+        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("mimeType='application/vnd.google-apps.folder' and trashed=false")}&pageSize=200&fields=files(id,name,parents,modifiedTime)&orderBy=name`,
+        accessToken
+      ),
+      makeGoogleApiRequest(
+        `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("mimeType!='application/vnd.google-apps.folder' and trashed=false")}&pageSize=200&fields=files(id,name,mimeType,parents,modifiedTime)&orderBy=name`,
+        accessToken
+      )
+    ])
+
+    const foldersData = await foldersResponse.json()
+    const filesData = await filesResponse.json()
+    const rawFolders = foldersData.files || []
+    const rawFiles = filesData.files || []
+
+    // Build folder hierarchy for path display
+    const folderMap = new Map<string, any>()
+    rawFolders.forEach((folder: any) => {
+      folderMap.set(folder.id, { id: folder.id, name: folder.name, parents: folder.parents })
+    })
+
+    const getFolderPath = (folderId: string, visited = new Set<string>()): string => {
+      if (visited.has(folderId)) return ''
+      visited.add(folderId)
+      const folder = folderMap.get(folderId)
+      if (!folder) return ''
+      if (!folder.parents || folder.parents.length === 0) return folder.name
+      const parentPath = getFolderPath(folder.parents[0], visited)
+      return parentPath ? `${parentPath} / ${folder.name}` : folder.name
+    }
+
+    const folders = rawFolders.map((folder: any) => ({
+      value: folder.id,
+      label: getFolderPath(folder.id),
+      id: folder.id,
+      name: folder.name,
+      group: '📁 Folders',
+      modifiedTime: folder.modifiedTime
+    }))
+
+    const files = rawFiles.map((file: any) => ({
+      value: file.id,
+      label: file.name,
+      id: file.id,
+      name: file.name,
+      mimeType: file.mimeType,
+      group: '📄 Files',
+      modifiedTime: file.modifiedTime
+    }))
+
+    const combined = [...folders, ...files]
+    logger.info(`✅ [Google Drive] Retrieved ${folders.length} folders and ${files.length} files`)
+    return combined
+
+  } catch (error: any) {
+    logger.error("❌ [Google Drive] Error fetching files and folders:", error)
+    throw error
+  }
+}
+
+/**
+ * Search Google Drive files with preview
+ * Used by search_files action
+ */
+export const getGoogleDriveSearchPreview: GoogleDataHandler = async (integration: GoogleIntegration, options?: any) => {
+  try {
+    validateGoogleIntegration(integration)
+    logger.info("🔍 [Google Drive] Running search preview")
+
+    const accessToken = getGoogleAccessToken(integration)
+    const searchConfig = options?.searchConfig || {}
+    const searchMode = searchConfig.searchMode || 'simple'
+    let queryParts: string[] = ['trashed=false']
+
+    if (searchConfig.folderId) {
+      queryParts.push(`'${searchConfig.folderId}' in parents`)
+    }
+
+    if (searchMode === 'simple') {
+      const fileName = searchConfig.fileName
+      const exactMatch = searchConfig.exactMatch || false
+      if (fileName) {
+        const escaped = fileName.replace(/'/g, "\\'")
+        queryParts.push(exactMatch ? `name = '${escaped}'` : `name contains '${escaped}'`)
+      }
+    } else if (searchMode === 'advanced') {
+      if (searchConfig.fileName) {
+        queryParts.push(`name contains '${searchConfig.fileName.replace(/'/g, "\\'")}'`)
+      }
+      if (searchConfig.fileType && searchConfig.fileType !== 'any') {
+        if (searchConfig.fileType.endsWith('/*')) {
+          queryParts.push(`mimeType contains '${searchConfig.fileType.replace('/*', '')}'`)
+        } else {
+          queryParts.push(`mimeType='${searchConfig.fileType}'`)
+        }
+      }
+      if (searchConfig.modifiedTime && searchConfig.modifiedTime !== 'any') {
+        const now = new Date()
+        let startDate: Date
+        switch (searchConfig.modifiedTime) {
+          case 'today': startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()); break
+          case 'week': startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break
+          case 'month': startDate = new Date(now.getFullYear(), now.getMonth(), 1); break
+          case 'year': startDate = new Date(now.getFullYear(), 0, 1); break
+          default: startDate = new Date(0)
+        }
+        queryParts.push(`modifiedDate >= '${startDate.toISOString()}'`)
+      }
+      if (searchConfig.owner && searchConfig.owner !== 'any') {
+        if (searchConfig.owner === 'me') queryParts.push(`'me' in owners`)
+        else if (searchConfig.owner === 'shared') queryParts.push(`sharedWithMe=true`)
+      }
+    } else if (searchMode === 'query') {
+      if (searchConfig.customQuery) {
+        queryParts = [searchConfig.customQuery, 'trashed=false']
+      }
+    }
+
+    const previewLimit = Math.min(searchConfig.previewLimit || 10, 100)
+    const query = queryParts.join(' and ')
+
+    const response = await makeGoogleApiRequest(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,modifiedTime,createdTime,size,owners,webViewLink)&pageSize=${previewLimit}&orderBy=modifiedTime desc`,
+      accessToken
+    )
+    const data = await response.json()
+    const files = (data.files || []).map((file: any) => ({
+      id: file.id,
+      name: file.name,
+      mimeType: file.mimeType,
+      modifiedTime: file.modifiedTime,
+      createdTime: file.createdTime,
+      size: file.size,
+      owner: file.owners?.[0]?.displayName || file.owners?.[0]?.emailAddress || 'Unknown',
+      webViewLink: file.webViewLink
+    }))
+
+    // Get total count
+    const countResponse = await makeGoogleApiRequest(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&pageSize=100`,
+      accessToken
+    )
+    const countData = await countResponse.json()
+    const totalCount = countData.files?.length || 0
+    const hasMore = totalCount >= 100
+
+    // Build preview text
+    let previewText = ''
+    if (totalCount === 0) {
+      previewText = 'No files found matching your search criteria.\n\nTry adjusting your search terms or using partial matches instead of exact match.'
+    } else {
+      const searchSummary: string[] = []
+      if (searchConfig.fileName) searchSummary.push(`Name: "${searchConfig.fileName}"${searchConfig.exactMatch ? ' (exact)' : ' (contains)'}`)
+      if (searchConfig.fileType && searchConfig.fileType !== 'any') searchSummary.push(`Type: ${searchConfig.fileType}`)
+      if (searchConfig.modifiedTime && searchConfig.modifiedTime !== 'any') searchSummary.push(`Modified: ${searchConfig.modifiedTime}`)
+      if (searchConfig.owner && searchConfig.owner !== 'any') searchSummary.push(`Owner: ${searchConfig.owner}`)
+      const summary = searchSummary.length > 0 ? `Search criteria: ${searchSummary.join(', ')}\n\n` : ''
+      previewText = `${summary}Found ${totalCount}${hasMore ? '+' : ''} file${totalCount === 1 ? '' : 's'}:\n\n${files.map((f: any, i: number) => `${i + 1}. ${f.name}`).join('\n')}${hasMore ? '\n\n...and more' : ''}`
+    }
+
+    logger.info(`✅ [Google Drive] Search preview found ${totalCount}${hasMore ? '+' : ''} files`)
+    return { files, totalCount, hasMore, previewText } as any
+
+  } catch (error: any) {
+    logger.error("❌ [Google Drive] Error in search preview:", error)
+    throw error
+  }
+}
+
+/**
+ * List Google Drive files with preview
+ * Used by list_files action
+ */
+export const getGoogleDriveListFilesPreview: GoogleDataHandler = async (integration: GoogleIntegration, options?: any) => {
+  try {
+    validateGoogleIntegration(integration)
+    logger.info("📋 [Google Drive] Running list files preview")
+
+    const accessToken = getGoogleAccessToken(integration)
+    const listConfig = options || {}
+    const queryParts: string[] = ['trashed=false']
+
+    if (listConfig.folderId) {
+      queryParts.push(`'${listConfig.folderId}' in parents`)
+    }
+
+    if (listConfig.fileTypeFilter) {
+      switch (listConfig.fileTypeFilter) {
+        case 'files_only': queryParts.push("mimeType != 'application/vnd.google-apps.folder'"); break
+        case 'folders_only': queryParts.push("mimeType = 'application/vnd.google-apps.folder'"); break
+        case 'documents': queryParts.push("(mimeType contains 'document' or mimeType contains 'pdf')"); break
+        case 'images': queryParts.push("mimeType contains 'image/'"); break
+        case 'videos': queryParts.push("mimeType contains 'video/'"); break
+      }
+    }
+
+    let orderBy = 'name'
+    if (listConfig.orderBy) {
+      switch (listConfig.orderBy) {
+        case 'name': orderBy = 'name'; break
+        case 'name_desc': orderBy = 'name desc'; break
+        case 'modifiedTime': orderBy = 'modifiedTime desc'; break
+        case 'modifiedTime_desc': orderBy = 'modifiedTime'; break
+        case 'createdTime': orderBy = 'createdTime desc'; break
+        case 'folder': orderBy = 'folder,name'; break
+        default: orderBy = 'name'
+      }
+    }
+
+    const previewLimit = Math.min(listConfig.previewLimit || 10, 100)
+    const query = queryParts.join(' and ')
+
+    const response = await makeGoogleApiRequest(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,modifiedTime,createdTime,size,owners,webViewLink)&pageSize=${previewLimit}&orderBy=${encodeURIComponent(orderBy)}`,
+      accessToken
+    )
+    const data = await response.json()
+    const files = (data.files || []).map((file: any) => ({
+      id: file.id,
+      name: file.name,
+      mimeType: file.mimeType,
+      modifiedTime: file.modifiedTime,
+      createdTime: file.createdTime,
+      size: file.size,
+      owner: file.owners?.[0]?.displayName || file.owners?.[0]?.emailAddress || 'Unknown',
+      webViewLink: file.webViewLink
+    }))
+
+    // Get total count
+    const countResponse = await makeGoogleApiRequest(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id)&pageSize=100`,
+      accessToken
+    )
+    const countData = await countResponse.json()
+    const totalCount = countData.files?.length || 0
+    const hasMore = totalCount >= 100
+
+    // Build preview text
+    let previewText = ''
+    if (totalCount === 0) {
+      previewText = 'No files found in this folder.\n\nThe folder may be empty or your filters may be too restrictive.'
+    } else {
+      const filterSummary: string[] = []
+      if (listConfig.fileTypeFilter && listConfig.fileTypeFilter !== 'all') {
+        filterSummary.push(`Filter: ${listConfig.fileTypeFilter}`)
+      }
+      const summary = filterSummary.length > 0 ? `${filterSummary.join(', ')}\n\n` : ''
+      previewText = `${summary}Found ${totalCount}${hasMore ? '+' : ''} item${totalCount === 1 ? '' : 's'}:\n\n${files.map((f: any, i: number) => `${i + 1}. ${f.name}`).join('\n')}${hasMore ? '\n\n...and more' : ''}`
+    }
+
+    logger.info(`✅ [Google Drive] List preview found ${totalCount}${hasMore ? '+' : ''} files`)
+    return { files, totalCount, hasMore, previewText } as any
+
+  } catch (error: any) {
+    logger.error("❌ [Google Drive] Error in list files preview:", error)
+    throw error
+  }
+}
+
+/**
  * Fetch Google Docs documents for the authenticated user
  */
 export const getGoogleDocsDocuments: GoogleDataHandler<GoogleDriveFile> = async (integration: GoogleIntegration, options?: any) => {

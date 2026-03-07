@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Loader2, FolderOpen, FileText, FileSpreadsheet, FileImage, File, Grid, List, Check, ChevronDown, Search } from 'lucide-react'
 import { useIntegrationStore } from '@/stores/integrationStore'
+import { supabase } from '@/utils/supabaseClient'
 import {
   Dialog,
   DialogContent,
@@ -402,15 +403,21 @@ export function NotionBlockFields({
     setLoadingGoogleDrive(true)
     
     try {
+      // Get auth token for fetch-user-data endpoint
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       // Fetch Google Drive files (including folders)
-      const response = await fetch('/api/integrations/google-drive/data', {
+      const response = await fetch('/api/integrations/fetch-user-data', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           integrationId: googleDriveIntegration.id,
-          dataType: 'files',
+          dataType: 'google-drive-files',
           options: {
-            // Include folders and common file types
             mimeType: 'application/vnd.google-apps.folder,application/vnd.google-apps.document,application/vnd.google-apps.spreadsheet,application/vnd.google-apps.presentation,application/pdf',
             maxResults: 100
           }

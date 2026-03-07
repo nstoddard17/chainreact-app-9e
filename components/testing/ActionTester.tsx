@@ -66,7 +66,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
   const providers = React.useMemo(() => {
     const providerSet = new Set<string>()
     ALL_NODE_COMPONENTS
-      .filter(node => node.type.includes('_action_'))
+      .filter(node => node.isTrigger === false)
       .forEach(node => {
         if (node.providerId) {
           providerSet.add(node.providerId)
@@ -81,7 +81,7 @@ export function ActionTester({ userId }: ActionTesterProps) {
     return ALL_NODE_COMPONENTS
       .filter(node =>
         node.providerId === selectedProvider &&
-        node.type.includes('_action_')
+        node.isTrigger === false
       )
       .sort((a, b) => a.title.localeCompare(b.title))
   }, [selectedProvider])

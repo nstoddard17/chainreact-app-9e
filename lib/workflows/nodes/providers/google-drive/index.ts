@@ -236,11 +236,13 @@ export const googleDriveNodes: NodeComponent[] = [
     description: "Creates a new file in Google Drive.",
     icon: Upload,
     isTrigger: false,
+    testable: true,
+    producesOutput: true,
     providerId: "google-drive",
     category: "Google Drive",
     configSchema: [
-      { 
-        name: "fileName", 
+      {
+        name: "fileName",
         label: "File Name", 
         type: "text", 
         required: true,
@@ -356,6 +358,7 @@ export const googleDriveNodes: NodeComponent[] = [
     description: "Retrieve a file from Google Drive",
     icon: Download,
     isTrigger: false,
+    testable: true,
     providerId: "google-drive",
     category: "Google Drive",
     producesOutput: true,

@@ -83,8 +83,8 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
 
         logger.info('[GoogleDriveOptionsLoader] Using data type:', dataType)
 
-        // Use POST endpoint for new data handler
-        const response = await fetch(`/api/integrations/google-drive/data`, {
+        // Use unified fetch-user-data endpoint
+        const response = await fetch(`/api/integrations/fetch-user-data`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
@@ -129,7 +129,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     }
 
     try {
-      const response = await fetch(`/api/integrations/google-drive/data`, {
+      const response = await fetch(`/api/integrations/fetch-user-data`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -168,9 +168,9 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     }
 
     const fieldDataTypeMap: Record<string, string> = {
-      folderId: 'folders',
-      parentFolderId: 'folders',
-      fileId: 'files',
+      folderId: 'google-drive-folders',
+      parentFolderId: 'google-drive-folders',
+      fileId: 'google-drive-files',
     }
 
     return fieldDataTypeMap[fieldName] || null

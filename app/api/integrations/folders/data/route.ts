@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     // Map storage service to the appropriate provider endpoint
     const providerMap: Record<string, string> = {
-      'google_drive': '/api/integrations/google-drive/data',
+      'google_drive': '/api/integrations/google/data',
       'onedrive': '/api/integrations/onedrive/data',
       'dropbox': '/api/integrations/dropbox/data'
     }

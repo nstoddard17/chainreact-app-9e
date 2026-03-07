@@ -8,6 +8,8 @@ export const createFolderActionSchema: NodeComponent = {
   providerId: "google-drive",
   category: "Google Drive",
   isTrigger: false,
+  testable: true,
+  producesOutput: true,
   requiredScopes: ["https://www.googleapis.com/auth/drive"],
   configSchema: [
     {
