@@ -398,13 +398,49 @@ export const googleDriveNodes: NodeComponent[] = [
         name: "file",
         label: "File",
         type: "object",
-        description: "The complete file object ready for use as an attachment (includes content, filename, mimeType, and size properties)"
+        description: "The file object for use as an attachment (null if file exceeds 50MB download limit)"
       },
-      { 
-        name: "fileName", 
-        label: "File Name", 
-        type: "string", 
-        description: "The name of the file (for convenience)" 
+      {
+        name: "fileName",
+        label: "File Name",
+        type: "string",
+        description: "The name of the file"
+      },
+      {
+        name: "fileId",
+        label: "File ID",
+        type: "string",
+        description: "Google Drive file ID"
+      },
+      {
+        name: "size",
+        label: "File Size (bytes)",
+        type: "number",
+        description: "Size of the file in bytes"
+      },
+      {
+        name: "mimeType",
+        label: "MIME Type",
+        type: "string",
+        description: "The file's MIME type"
+      },
+      {
+        name: "webViewLink",
+        label: "View Link",
+        type: "string",
+        description: "URL to view the file in Google Drive"
+      },
+      {
+        name: "webContentLink",
+        label: "Download Link",
+        type: "string",
+        description: "Direct download URL for the file"
+      },
+      {
+        name: "tooLargeForDownload",
+        label: "Too Large For Download",
+        type: "boolean",
+        description: "True if the file exceeds the 50MB inline download limit"
       }
     ]
   },

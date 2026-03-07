@@ -198,6 +198,9 @@ export async function sendGmailEmail(
         // Check for Google Drive Get File structure: {file: {content, filename, mimeType}}
         if (fileFromNode.file && fileFromNode.file.content) {
           attachmentList = [fileFromNode.file]; // Use the file object directly
+        } else if (fileFromNode.file && fileFromNode.file.filePath && !fileFromNode.file.content) {
+          // Storage reference from Google Drive (file too large for inline base64)
+          attachmentList = [fileFromNode.file]; // Has filePath, name, mimeType - handled by filePath download logic below
         } else if (fileFromNode.content) {
           // Direct file object with content
           attachmentList = [fileFromNode];
