@@ -15,6 +15,7 @@ const googleDocsActionCreateDocument: NodeComponent = {
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
+  testable: true,
   requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive"],
   configSchema: [
     // Document tab fields
@@ -223,6 +224,7 @@ const googleDocsActionUpdateDocument: NodeComponent = {
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
+  testable: true,
   requiredScopes: ["https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/drive"],
   configSchema: [
     {
@@ -333,6 +335,7 @@ const googleDocsActionShareDocument: NodeComponent = {
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
+  testable: true,
   requiredScopes: ["https://www.googleapis.com/auth/drive"],
   configSchema: [
     {
@@ -470,6 +473,7 @@ const googleDocsActionGetDocument: NodeComponent = {
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
+  testable: true,
   requiredScopes: ["https://www.googleapis.com/auth/documents.readonly"],
   configSchema: [
     {
@@ -526,6 +530,7 @@ const googleDocsActionExportDocument: NodeComponent = {
   providerId: "google-docs",
   category: "Productivity",
   isTrigger: false,
+  testable: true,
   requiredScopes: ["https://www.googleapis.com/auth/documents.readonly", "https://www.googleapis.com/auth/drive"],
   configSchema: [
     {
