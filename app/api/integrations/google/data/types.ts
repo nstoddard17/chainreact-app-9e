@@ -93,6 +93,8 @@ export interface GoogleDriveFile {
   id: string
   name: string
   value: string
+  label?: string
+  group?: string
   parent_ids?: string[]
   created_time?: string
   modified_time?: string

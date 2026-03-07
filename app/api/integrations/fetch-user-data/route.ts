@@ -14,6 +14,17 @@ const getSupabase = () => createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+/**
+ * Check if a provider is a Google-related provider.
+ * Covers google-drive, google-sheets, google-calendar, gmail, youtube, etc.
+ */
+function isGoogleProvider(provider: string | undefined): boolean {
+  if (!provider) return false;
+  const googleProviders = ['google', 'google-drive', 'google-docs', 'google-sheets',
+    'google-calendar', 'google-analytics', 'gmail', 'youtube'];
+  return googleProviders.includes(provider.toLowerCase()) || provider.toLowerCase().startsWith('google');
+}
+
 interface DataFetcher {
   [key: string]: (integration: any, options?: any) => Promise<any[] | { data: any[], error?: { message: string } }>
 }
@@ -298,8 +309,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Route Google (Drive/Docs/Sheets) requests to dedicated Google data API
-    // Check if provider starts with 'google' (covers google, google-docs, google-drive, google-sheets, etc.)
-    if (integration.provider?.startsWith('google')) {
+    // Covers google-drive, google-sheets, gmail, youtube, etc.
+    if (isGoogleProvider(integration.provider)) {
       // Check if the dataType is a Google-related data type
       if (dataType.startsWith('google-') || 
           dataType === 'google-calendars' || 
@@ -417,11 +428,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Route Google requests to dedicated Google data API
-    if (integration.provider.startsWith('google') && (
+    if (isGoogleProvider(integration.provider) && (
       dataType === 'google-drive-folders' ||
       dataType === 'google-drive-files' ||
+      dataType === 'google-drive-files-and-folders' ||
+      dataType === 'google-drive-search-preview' ||
+      dataType === 'google-drive-list-files-preview' ||
       dataType === 'google-docs-documents' ||
+      dataType === 'google-docs-content' ||
       dataType === 'google-calendars' ||
+      dataType === 'google-calendar-events' ||
       dataType === 'google-contacts' ||
       dataType === 'google-sheets_spreadsheets' ||
       dataType === 'google-sheets_sheets' ||
@@ -1228,7 +1244,8 @@ export async function POST(req: NextRequest) {
     try {
       logger.info(`🔍 [SERVER] Calling dataFetcher for ${dataType}...`);
       const data = await dataFetcher(integration, options);
-      logger.info(`✅ [SERVER] Data fetch successful for ${dataType}, result length:`, data?.length || 'unknown');
+      const resultLength = Array.isArray(data) ? data.length : (data as any)?.data?.length;
+      logger.info(`✅ [SERVER] Data fetch successful for ${dataType}, result length:`, resultLength ?? 'unknown');
       return jsonResponse({ data });
     } catch (error: any) {
       logger.error(`❌ [SERVER] Error calling dataFetcher for ${dataType}:`, error);

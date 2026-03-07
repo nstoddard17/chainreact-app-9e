@@ -254,13 +254,13 @@ export const getGoogleSheetsColumns: GoogleDataHandler<GoogleSheetColumn> = asyn
     for (let i = 0; i < maxColumns; i++) {
       const letter = String.fromCharCode(65 + (i % 26)) + (i >= 26 ? Math.floor(i / 26) : '')
       const headerValue = headers[i] || `Column ${letter}`
-      const sampleValues = sampleRows.map(row => row[i]).filter(Boolean).slice(0, 3)
-      
+      const sampleValues = sampleRows.map((row: any) => row[i]).filter(Boolean).slice(0, 3)
+
       // Analyze data type from sample values
       let dataType = 'text'
       if (sampleValues.length > 0) {
-        const numericCount = sampleValues.filter(val => !isNaN(val) && !isNaN(parseFloat(val))).length
-        const dateCount = sampleValues.filter(val => !isNaN(Date.parse(val))).length
+        const numericCount = sampleValues.filter((val: any) => !isNaN(val) && !isNaN(parseFloat(val))).length
+        const dateCount = sampleValues.filter((val: any) => !isNaN(Date.parse(val))).length
         
         if (numericCount / sampleValues.length > 0.5) {
           dataType = 'number'
@@ -329,8 +329,8 @@ export const getGoogleSheetsColumnValues: GoogleDataHandler<{ id: string; name: 
       columnData = columns[columnIndex] || []
     } else {
       // Search by header name
-      const headers = columns.map(col => col[0])
-      columnIndex = headers.findIndex(header => header === filterColumn)
+      const headers = columns.map((col: any) => col[0])
+      columnIndex = headers.findIndex((header: any) => header === filterColumn)
       if (columnIndex >= 0) {
         columnData = columns[columnIndex] || []
       }
@@ -411,7 +411,7 @@ export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhanc
 
     const headers = rows[0] || []
     const dataRows = rows.slice(1)
-    const maxColumns = Math.max(...rows.map(row => row.length))
+    const maxColumns = Math.max(...rows.map((row: any) => row.length))
 
     // Analyze each column
     const columnAnalysis: GoogleSheetColumn[] = []
@@ -421,7 +421,7 @@ export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhanc
     for (let colIndex = 0; colIndex < maxColumns; colIndex++) {
       const letter = String.fromCharCode(65 + (colIndex % 26)) + (colIndex >= 26 ? Math.floor(colIndex / 26) : '')
       const headerValue = headers[colIndex] || `Column ${letter}`
-      const columnData = dataRows.map(row => row[colIndex]).filter(val => val !== undefined && val !== null && val !== '')
+      const columnData = dataRows.map((row: any) => row[colIndex]).filter((val: any) => val !== undefined && val !== null && val !== '')
       
       // Data type analysis
       let dataType = 'text'
@@ -430,7 +430,7 @@ export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhanc
       const totalValues = columnData.length
 
       if (totalValues > 0) {
-        columnData.forEach(value => {
+        columnData.forEach((value: any) => {
           if (!isNaN(value) && !isNaN(parseFloat(value))) numericValues++
           if (!isNaN(Date.parse(value))) dateValues++
         })
@@ -439,7 +439,7 @@ export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhanc
           dataType = 'number'
         } else if (dateValues / totalValues > 0.7) {
           dataType = 'date'
-        } else if (columnData.some(val => typeof val === 'boolean' || val === 'true' || val === 'false')) {
+        } else if (columnData.some((val: any) => typeof val === 'boolean' || val === 'true' || val === 'false')) {
           dataType = 'boolean'
         }
       }
@@ -453,11 +453,11 @@ export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhanc
       }
 
       if (dataType === 'number') {
-        const numbers = columnData.map(val => parseFloat(val)).filter(num => !isNaN(num))
+        const numbers = columnData.map((val: any) => parseFloat(val)).filter((num: any) => !isNaN(num))
         if (numbers.length > 0) {
           stats.min = Math.min(...numbers)
           stats.max = Math.max(...numbers)
-          stats.average = numbers.reduce((a, b) => a + b, 0) / numbers.length
+          stats.average = numbers.reduce((a: any, b: any) => a + b, 0) / numbers.length
         }
       }
 
@@ -481,7 +481,7 @@ export const getGoogleSheetsEnhancedPreview: GoogleDataHandler<GoogleSheetEnhanc
       sampleData: dataRows.slice(0, Math.min(previewRows, 10)),
       totalRows: dataRows.length,
       totalColumns: maxColumns,
-      hasHeaders: headers.length > 0 && headers.some(h => h && h.trim() !== ''),
+      hasHeaders: headers.length > 0 && headers.some((h: any) => h && h.trim() !== ''),
       dataTypes: dataTypes,
       columnStats: columnStats
     }

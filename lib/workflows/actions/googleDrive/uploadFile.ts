@@ -3,6 +3,7 @@ import { resolveValue } from '../core/resolveValue'
 import { ActionResult } from '../core/executeWait'
 import { FileStorageService } from "@/lib/storage/fileStorage"
 import { deleteWorkflowTempFiles } from '@/lib/utils/workflowFileCleanup'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { google } from 'googleapis'
 import fetch from 'node-fetch'
 import { Readable } from 'stream'
@@ -95,64 +96,88 @@ export async function uploadGoogleDriveFile(
     if (sourceType === 'node' && fileFromNode) {
       // Handle file from previous node
       try {
-        // fileFromNode could be:
-        // 1. A base64 string
-        // 2. An object with { data, fileName, mimeType }
-        // 3. An array of such objects
-        
-        const processNodeFile = (fileData: any) => {
-          if (typeof fileData === 'string') {
-            // Base64 string
-            const isBase64 = fileData.match(/^data:([^;]+);base64,(.+)$/);
-            if (isBase64) {
-              const mimeType = isBase64[1];
-              const base64Data = isBase64[2];
-              return {
-                name: fileName || 'file-from-node',
-                data: Buffer.from(base64Data, 'base64'),
-                mimeType: mimeType || 'application/octet-stream'
-              };
-            } 
+        // Check for Google Drive Get File output: {file: {content/filePath, filename, mimeType}, ...}
+        if (fileFromNode.file && typeof fileFromNode.file === 'object') {
+          if (fileFromNode.file.content) {
+            // Inline base64 content (files ≤25MB)
+            filesToUpload.push({
+              name: fileFromNode.file.filename || fileFromNode.fileName || fileName || 'file-from-node',
+              data: Buffer.from(fileFromNode.file.content, 'base64'),
+              mimeType: fileFromNode.file.mimeType || fileFromNode.mimeType || mimeType || 'application/octet-stream'
+            });
+          } else if (fileFromNode.file.filePath && fileFromNode.file.isStorageRef) {
+            // Storage reference (files 25-50MB) - download from Supabase Storage
+            const supabase = createAdminClient()
+            const { data: storageFile, error: storageError } = await supabase.storage
+              .from('workflow-files')
+              .download(fileFromNode.file.filePath)
+
+            if (storageError || !storageFile) {
+              throw new Error(`Failed to download from storage: ${storageError?.message}`)
+            }
+
+            const buffer = await storageFile.arrayBuffer()
+            if (fileFromNode.file.isTemporary) {
+              cleanupPaths.add(fileFromNode.file.filePath)
+            }
+
+            filesToUpload.push({
+              name: fileFromNode.file.filename || fileFromNode.fileName || fileName || 'file-from-node',
+              data: Buffer.from(buffer),
+              mimeType: fileFromNode.file.mimeType || fileFromNode.mimeType || mimeType || 'application/octet-stream'
+            });
+          }
+        } else {
+          // Generic node file handling (base64 strings, {data, fileName, mimeType} objects, etc.)
+          const processNodeFile = (fileData: any) => {
+            if (typeof fileData === 'string') {
+              // Base64 string
+              const isBase64 = fileData.match(/^data:([^;]+);base64,(.+)$/);
+              if (isBase64) {
+                const detectedMime = isBase64[1];
+                const base64Data = isBase64[2];
+                return {
+                  name: fileName || 'file-from-node',
+                  data: Buffer.from(base64Data, 'base64'),
+                  mimeType: detectedMime || 'application/octet-stream'
+                };
+              }
               // Plain base64 without data URL prefix
               return {
                 name: fileName || 'file-from-node',
                 data: Buffer.from(fileData, 'base64'),
                 mimeType: mimeType || 'application/octet-stream'
               };
-            
-          } else if (fileData && typeof fileData === 'object') {
-            // Object with file data
-            const fileBuffer = fileData.data 
-              ? (typeof fileData.data === 'string' 
-                  ? Buffer.from(fileData.data, 'base64')
-                  : Buffer.from(fileData.data))
-              : Buffer.from('');
-              
-            return {
-              name: fileData.fileName || fileData.name || fileName || 'file-from-node',
-              data: fileBuffer,
-              mimeType: fileData.mimeType || fileData.type || mimeType || 'application/octet-stream'
-            };
-          }
-          return null;
-        };
+            } else if (fileData && typeof fileData === 'object') {
+              // Object with file data
+              const fileBuffer = fileData.data
+                ? (typeof fileData.data === 'string'
+                    ? Buffer.from(fileData.data, 'base64')
+                    : Buffer.from(fileData.data))
+                : fileData.content
+                  ? Buffer.from(fileData.content, 'base64')
+                  : Buffer.from('');
 
-        if (Array.isArray(fileFromNode)) {
-          // Multiple files from node
-          for (const file of fileFromNode) {
-            const processed = processNodeFile(file);
-            if (processed) {
-              filesToUpload.push(processed);
+              return {
+                name: fileData.fileName || fileData.filename || fileData.name || fileName || 'file-from-node',
+                data: fileBuffer,
+                mimeType: fileData.mimeType || fileData.type || mimeType || 'application/octet-stream'
+              };
             }
-          }
-        } else {
-          // Single file from node
-          const processed = processNodeFile(fileFromNode);
-          if (processed) {
-            filesToUpload.push(processed);
+            return null;
+          };
+
+          if (Array.isArray(fileFromNode)) {
+            for (const file of fileFromNode) {
+              const processed = processNodeFile(file);
+              if (processed) filesToUpload.push(processed);
+            }
+          } else {
+            const processed = processNodeFile(fileFromNode);
+            if (processed) filesToUpload.push(processed);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         logger.error('Error processing file from node:', error)
         return {
           success: false,

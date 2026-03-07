@@ -199,7 +199,7 @@ export const getGoogleDriveFilesAndFolders: GoogleDataHandler = async (integrati
  * Search Google Drive files with preview
  * Used by search_files action
  */
-export const getGoogleDriveSearchPreview: GoogleDataHandler = async (integration: GoogleIntegration, options?: any) => {
+export const getGoogleDriveSearchPreview = async (integration: GoogleIntegration, options?: any) => {
   try {
     validateGoogleIntegration(integration)
     logger.info("🔍 [Google Drive] Running search preview")
@@ -296,7 +296,7 @@ export const getGoogleDriveSearchPreview: GoogleDataHandler = async (integration
     }
 
     logger.info(`✅ [Google Drive] Search preview found ${totalCount}${hasMore ? '+' : ''} files`)
-    return { files, totalCount, hasMore, previewText } as any
+    return { files, totalCount, hasMore, previewText }
 
   } catch (error: any) {
     logger.error("❌ [Google Drive] Error in search preview:", error)
@@ -308,7 +308,7 @@ export const getGoogleDriveSearchPreview: GoogleDataHandler = async (integration
  * List Google Drive files with preview
  * Used by list_files action
  */
-export const getGoogleDriveListFilesPreview: GoogleDataHandler = async (integration: GoogleIntegration, options?: any) => {
+export const getGoogleDriveListFilesPreview = async (integration: GoogleIntegration, options?: any) => {
   try {
     validateGoogleIntegration(integration)
     logger.info("📋 [Google Drive] Running list files preview")
@@ -386,7 +386,7 @@ export const getGoogleDriveListFilesPreview: GoogleDataHandler = async (integrat
     }
 
     logger.info(`✅ [Google Drive] List preview found ${totalCount}${hasMore ? '+' : ''} files`)
-    return { files, totalCount, hasMore, previewText } as any
+    return { files, totalCount, hasMore, previewText }
 
   } catch (error: any) {
     logger.error("❌ [Google Drive] Error in list files preview:", error)
@@ -444,7 +444,7 @@ export const getGoogleDocsDocuments: GoogleDataHandler<GoogleDriveFile> = async 
 /**
  * Fetch Google Docs document content/preview
  */
-export const getGoogleDocsContent: GoogleDataHandler<any> = async (integration: GoogleIntegration, options?: any) => {
+export const getGoogleDocsContent = async (integration: GoogleIntegration, options?: any) => {
   try {
     validateGoogleIntegration(integration)
     const { documentId, previewOnly = true } = options || {}

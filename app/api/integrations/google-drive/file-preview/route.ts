@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
       // Since textareas can't render images, we'll return metadata and indicate it's an image
       try {
         // Get image metadata and create a descriptive preview
-        const sizeInKB = Math.round((file.size || 0) / 1024)
+        const sizeInKB = Math.round(Number(file.size || 0) / 1024)
         const sizeInMB = (sizeInKB / 1024).toFixed(2)
         const displaySize = sizeInKB > 1024 ? `${sizeInMB} MB` : `${sizeInKB} KB`
         

@@ -198,7 +198,7 @@ export async function getGoogleDriveFile(
 
         // Register in workflow_files table with 1-hour expiration (cron safety net for orphans)
         const expiresAt = new Date(Date.now() + STORAGE_EXPIRATION_MS)
-        await supabase.from('workflow_files').insert({
+        await (supabase as any).from('workflow_files').insert({
           file_name: finalFileName,
           file_type: finalMimeType,
           file_size: fileBuffer.length,

@@ -97,7 +97,12 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
         })
 
         if (!response.ok) {
-          logger.error('[GoogleDriveOptionsLoader] Failed to fetch files')
+          const errorBody = await response.text().catch(() => 'unknown')
+          logger.error('[GoogleDriveOptionsLoader] Failed to fetch files:', {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorBody
+          })
           return []
         }
 
@@ -140,7 +145,12 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
       })
 
       if (!response.ok) {
-        logger.error(`[GoogleDriveOptionsLoader] Failed to fetch ${dataType}`)
+        const errorBody = await response.text().catch(() => 'unknown')
+        logger.error(`[GoogleDriveOptionsLoader] Failed to fetch ${dataType}:`, {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody
+        })
         return []
       }
 
@@ -170,6 +180,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     const fieldDataTypeMap: Record<string, string> = {
       folderId: 'google-drive-folders',
       parentFolderId: 'google-drive-folders',
+      destinationFolderId: 'google-drive-folders',
       fileId: 'google-drive-files',
     }
 
@@ -195,6 +206,7 @@ export class GoogleDriveOptionsLoader implements ProviderOptionsLoader {
     const supportedFields = [
       'folderId',
       'parentFolderId',
+      'destinationFolderId',
       'fileId',
       'filePreview'
     ]
