@@ -717,6 +717,22 @@ export const actionHandlerRegistry: Record<string, Function> = {
     generateContent(params.config, params.userId, params.input),
   "ai_action_classify": (params: { config: any; userId: string; input: Record<string, any> }) =>
     classifyContent(params.config, params.userId, params.input),
+
+  // AI node schema aliases — schema types use ai_* but handlers are registered as ai_action_*
+  "ai_prompt": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    generateContent(params.config, params.userId, params.input),
+  "ai_summarize": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    summarizeContent(params.config, params.userId, params.input),
+  "ai_extract": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    extractInformation(params.config, params.userId, params.input),
+  "ai_classify": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    classifyContent(params.config, params.userId, params.input),
+  "ai_sentiment": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    analyzeSentiment(params.config, params.userId, params.input),
+  "ai_translate": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    translateText(params.config, params.userId, params.input),
+  "ai_generate": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    generateContent(params.config, params.userId, params.input),
   
   // Gmail actions - mixed signatures (sendGmailEmail already uses params)
   "gmail_action_send_email": sendGmailEmail,

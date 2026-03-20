@@ -22,6 +22,7 @@ let lastKnownIntegrationsCache: any[] = []
 interface SetupTabProps {
   nodeInfo: any
   initialData?: Record<string, any>
+  initialDynamicOptions?: Record<string, any[]>
   onSave: (data: Record<string, any>) => void
   onCancel: () => void
   onBack?: () => void
@@ -32,6 +33,8 @@ interface SetupTabProps {
   isTemplateEditing?: boolean
   templateDefaults?: Record<string, any>
   isReopen?: boolean
+  onAutoFillTestData?: (andTest?: boolean) => void
+  isTestingNode?: boolean
 }
 
 /**

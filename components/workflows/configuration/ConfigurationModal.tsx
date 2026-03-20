@@ -591,6 +591,7 @@ export function ConfigurationModal({
     setTestDataAnalysis(null)
   }, [])
 
+
   const getRouterChainHints = useCallback(() => {
     if (!workflowData || !currentNodeId) return [] as string[];
 

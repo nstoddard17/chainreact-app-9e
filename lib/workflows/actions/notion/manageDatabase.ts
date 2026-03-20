@@ -395,10 +395,15 @@ async function executeNotionManageDatabaseInternal(
 
       return restoreResult.output;
 
-    case 'sync':
-      // Sync database entries (simplified version)
-      // This would need more complex implementation based on sync direction
-      throw new Error('Database sync operation not yet implemented');
+    case 'sync': {
+      // Delegate to the dedicated sync handler
+      const { notionSyncDatabaseEntries } = await import('./handlers')
+      const syncResult = await notionSyncDatabaseEntries(config, context)
+      if (!syncResult.success) {
+        throw new Error(syncResult.message || 'Failed to sync database entries')
+      }
+      return syncResult.output;
+    }
 
     default:
       throw new Error(`Unknown operation: ${operation}`);

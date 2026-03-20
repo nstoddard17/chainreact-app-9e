@@ -133,9 +133,8 @@ export async function sendGmailEmail(
     }
 
     if (trackOpens && bodyIsHtml) {
-      // Add invisible tracking pixel (would need backend to actually track)
-      const trackingId = `${userId}_${Date.now()}`
-      finalBody += `<img src="https://your-tracking-domain.com/track/open/${trackingId}" width="1" height="1" style="display:none;" />`
+      // Open tracking requires a dedicated tracking endpoint — not yet available
+      logger.warn('📧 [sendGmailEmail] trackOpens requested but tracking endpoint is not configured — skipping')
     }
 
     // Build MIME message
@@ -188,8 +187,34 @@ export async function sendGmailEmail(
         }
       }
     } else if (sourceType === 'url' && fileUrl) {
-      // Handle file from URL - would need to download first
-      // File from URL not yet implemented
+      // Download file from URL and attach
+      try {
+        const response = await fetch(fileUrl)
+        if (!response.ok) {
+          logger.warn('📧 [sendGmailEmail] Failed to download file from URL', { fileUrl, status: response.status })
+        } else {
+          const arrayBuffer = await response.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+          const contentType = response.headers.get('content-type') || 'application/octet-stream'
+          // Extract filename from URL or Content-Disposition header
+          const disposition = response.headers.get('content-disposition')
+          let urlFilename = 'attachment'
+          if (disposition) {
+            const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+            if (filenameMatch) urlFilename = filenameMatch[1].replace(/['"]/g, '')
+          } else {
+            const urlPath = new URL(fileUrl).pathname
+            urlFilename = urlPath.split('/').pop() || 'attachment'
+          }
+          attachmentList = [{
+            data: buffer.toString('base64'),
+            fileName: urlFilename,
+            mimeType: contentType
+          }]
+        }
+      } catch (urlError: any) {
+        logger.warn('📧 [sendGmailEmail] Error downloading file from URL', { fileUrl, error: urlError.message })
+      }
     } else if (sourceType === 'node' && fileFromNode) {
       // Handle file from previous node (variable reference)
       
@@ -396,10 +421,7 @@ export async function sendGmailEmail(
 
     // Handle scheduled send
     if (scheduleSend) {
-      // Gmail doesn't have native scheduled send via API
-      // Would need to implement with a job queue
-      // Scheduled send requested but not implemented yet
-      // For now, send immediately
+      logger.warn('📧 [sendGmailEmail] Scheduled send requested but Gmail API does not support native scheduling — sending immediately', { scheduleSend })
     }
 
     // Send the email

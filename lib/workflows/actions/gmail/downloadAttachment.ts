@@ -343,13 +343,56 @@ async function uploadToStorage(params: {
     }
 
     case 'onedrive': {
-      // TODO: Implement OneDrive upload
-      throw new Error('OneDrive upload not yet implemented')
+      const { uploadFileToOneDrive } = await import('../onedrive')
+      const result = await uploadFileToOneDrive(
+        {
+          sourceType: 'node',
+          fileFromNode: {
+            data: base64Data,
+            fileName: filename,
+            mimeType: mimeType
+          },
+          fileName: filename,
+          folderId: folderId || undefined,
+        },
+        userId,
+        {}
+      )
+
+      if (!result.success || !result.output) {
+        throw new Error(result.message || 'Failed to upload to OneDrive')
+      }
+
+      return {
+        fileId: result.output.id || result.output.fileId || '',
+        fileUrl: result.output.webUrl || result.output.fileUrl || ''
+      }
     }
 
     case 'dropbox': {
-      // TODO: Implement Dropbox upload
-      throw new Error('Dropbox upload not yet implemented')
+      const { uploadDropboxFile } = await import('../dropbox/uploadFile')
+      const result = await uploadDropboxFile(
+        {
+          sourceType: 'node',
+          fileFromNode: {
+            data: base64Data,
+            fileName: filename,
+            mimeType: mimeType
+          },
+          fileName: filename,
+          path: folderId || '',
+        },
+        { userId }
+      )
+
+      if (!result.success || !result.output) {
+        throw new Error(result.message || 'Failed to upload to Dropbox')
+      }
+
+      return {
+        fileId: result.output.id || result.output.fileId || '',
+        fileUrl: result.output.path_display || result.output.fileUrl || ''
+      }
     }
 
     default:
