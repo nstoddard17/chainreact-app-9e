@@ -45,18 +45,33 @@ export async function onenoteGetPageContent(
     }
 
     // Get the page content (returns HTML)
-    const contentResponse = await fetch(contentEndpoint, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'text/html'
+    // OneNote content endpoint is eventually consistent - retry on 404
+    let contentResponse: Response | null = null
+    let content = ''
+    const maxRetries = 3
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      contentResponse = await fetch(contentEndpoint, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'text/html'
+        }
+      })
+
+      if (contentResponse.ok) {
+        content = await contentResponse.text()
+        break
       }
-    })
-    
-    if (!contentResponse.ok) {
+
+      // Retry on 404 (eventual consistency) but not on other errors
+      if (contentResponse.status === 404 && attempt < maxRetries - 1) {
+        logger.info(`[OneNote] Page content not yet available (attempt ${attempt + 1}/${maxRetries}), retrying...`)
+        await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)))
+        continue
+      }
+
       throw new Error(`Failed to get page content: ${contentResponse.status}`)
     }
-    
-    const content = await contentResponse.text()
 
     // Also get page metadata
     const page = await makeGraphRequest(

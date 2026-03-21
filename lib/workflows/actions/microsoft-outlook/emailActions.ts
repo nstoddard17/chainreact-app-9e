@@ -350,10 +350,18 @@ export async function deleteOutlookEmail(
 ): Promise<ActionResult> {
   try {
     const resolvedConfig = resolveValue(config, input)
-    const { emailId, permanentDelete } = resolvedConfig
+    let { emailId, permanentDelete } = resolvedConfig
 
     if (!emailId) {
       throw new Error('Email ID is required')
+    }
+
+    // Handle array inputs (e.g., from search results)
+    if (Array.isArray(emailId)) {
+      emailId = emailId[0]?.id || emailId[0]
+    }
+    if (typeof emailId === 'object' && emailId?.id) {
+      emailId = emailId.id
     }
 
     let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
@@ -403,6 +411,11 @@ export async function deleteOutlookEmail(
           errorMessage = `Failed to delete email: ${errorJson.error.message}`
         }
       } catch {}
+
+      // Provide more helpful error for "not found" scenarios
+      if (response.status === 404 || errorMessage.includes('not found in the store')) {
+        throw new Error('Email not found. It may have already been moved or deleted.')
+      }
       throw new Error(errorMessage)
     }
 
@@ -430,13 +443,21 @@ export async function addOutlookCategories(
 ): Promise<ActionResult> {
   try {
     const resolvedConfig = resolveValue(config, input)
-    const { emailId, categories } = resolvedConfig
+    let { emailId, categories } = resolvedConfig
 
     if (!emailId) {
       throw new Error('Email ID is required')
     }
     if (!categories) {
       throw new Error('Categories are required')
+    }
+
+    // Handle array inputs (e.g., from search results)
+    if (Array.isArray(emailId)) {
+      emailId = emailId[0]?.id || emailId[0]
+    }
+    if (typeof emailId === 'object' && emailId?.id) {
+      emailId = emailId.id
     }
 
     let accessToken = await getDecryptedAccessToken(userId, "microsoft-outlook")
@@ -480,6 +501,11 @@ export async function addOutlookCategories(
           errorMessage = `Failed to add categories: ${errorJson.error.message}`
         }
       } catch {}
+
+      // Provide more helpful error for "not found" scenarios
+      if (response.status === 404 || errorMessage.includes('not found in the store')) {
+        throw new Error('Email not found. It may have been moved or deleted. Please provide a current email ID.')
+      }
       throw new Error(errorMessage)
     }
 

@@ -417,6 +417,8 @@ export const NODE_TYPE_OVERRIDES: Record<string, Record<string, any>> = {
     input: 'The quick brown fox jumps over the lazy dog. This is a common pangram used in testing.',
     inputText: 'The quick brown fox jumps over the lazy dog.',
     input_text: 'The quick brown fox jumps over the lazy dog.',
+    inputData: 'The quick brown fox jumps over the lazy dog. This is a common pangram used in testing.',
+    contentType: 'custom',
   },
   ai_summarize: {
     text: 'The quick brown fox jumps over the lazy dog. This is a common pangram used in testing that contains every letter of the English alphabet. It has been widely used since at least the late 19th century for typewriter and keyboard testing.',
@@ -464,6 +466,8 @@ export const NODE_TYPE_OVERRIDES: Record<string, Record<string, any>> = {
     input: 'automated software testing',
     inputText: 'automated software testing',
     input_text: 'automated software testing',
+    inputData: 'automated software testing',
+    contentType: 'custom',
     type: 'paragraph',
     topic: 'automated software testing',
   },
@@ -545,7 +549,7 @@ export const NODE_TYPE_OVERRIDES: Record<string, Record<string, any>> = {
   github_action_create_gist: {
     description: '[TEST] Automated test gist',
     files: { 'test.txt': { content: 'Test gist content from ChainReact automated testing' } },
-    public: false,
+    isPublic: false,
     filename: 'test.txt',
     content: 'Test gist content from ChainReact automated testing',
   },
@@ -607,6 +611,9 @@ export const NODE_TYPE_OVERRIDES: Record<string, Record<string, any>> = {
     reminder_text: '[TEST] Reminder from automated testing',
     time: '5',
     time_unit: 'minutes',
+    timeType: 'relative',
+    relativeTime: '5',
+    relativeUnit: 'minutes',
   },
   slack_action_upload_file: {
     channels: '#test-automation',

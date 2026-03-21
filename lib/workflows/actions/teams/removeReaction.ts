@@ -76,7 +76,7 @@ export async function removeTeamsReaction(
     const accessToken = await decrypt(integration.access_token)
 
     // First, get the current user's ID from Microsoft Graph
-    const meResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+    const meResponse = await fetch('https://graph.microsoft.com/beta/me', {
       headers: {
         'Authorization': `Bearer ${accessToken}`
       }
@@ -95,9 +95,9 @@ export async function removeTeamsReaction(
     // Get the message to find the user's reactions
     let getMessageEndpoint: string
     if (messageType === 'channel') {
-      getMessageEndpoint = `https://graph.microsoft.com/v1.0/teams/${teamId}/channels/${channelId}/messages/${messageId}`
+      getMessageEndpoint = `https://graph.microsoft.com/beta/teams/${teamId}/channels/${channelId}/messages/${messageId}`
     } else {
-      getMessageEndpoint = `https://graph.microsoft.com/v1.0/chats/${chatId}/messages/${messageId}`
+      getMessageEndpoint = `https://graph.microsoft.com/beta/chats/${chatId}/messages/${messageId}`
     }
 
     const messageResponse = await fetch(getMessageEndpoint, {
@@ -138,9 +138,9 @@ export async function removeTeamsReaction(
     // Construct the unsetReaction endpoint
     let unsetEndpoint: string
     if (messageType === 'channel') {
-      unsetEndpoint = `https://graph.microsoft.com/v1.0/teams/${teamId}/channels/${channelId}/messages/${messageId}/unsetReaction`
+      unsetEndpoint = `https://graph.microsoft.com/beta/teams/${teamId}/channels/${channelId}/messages/${messageId}/unsetReaction`
     } else {
-      unsetEndpoint = `https://graph.microsoft.com/v1.0/chats/${chatId}/messages/${messageId}/unsetReaction`
+      unsetEndpoint = `https://graph.microsoft.com/beta/chats/${chatId}/messages/${messageId}/unsetReaction`
     }
 
     // Remove all of the user's reactions

@@ -49,7 +49,7 @@ export async function inviteUsersToChannel(params: {
     })
 
     // Helper function to call Slack API
-    const callSlackApi = async (endpoint: string, payload: any) => {
+    const callSlackApiLocal = async (endpoint: string, payload: any) => {
       const response = await fetch(`https://slack.com/api/${endpoint}`, {
         method: 'POST',
         headers: {
@@ -59,6 +59,13 @@ export async function inviteUsersToChannel(params: {
         body: JSON.stringify(payload)
       })
       return response.json()
+    }
+
+    // Ensure the bot is in the channel before inviting others
+    // This prevents "cant_invite" and "not_in_channel" errors
+    const joinResult = await callSlackApiLocal('conversations.join', { channel })
+    if (!joinResult.ok && joinResult.error !== 'method_not_supported_for_channel_type') {
+      logger.info('[Slack Invite Users] Bot join attempt:', joinResult.error || 'success')
     }
 
     // Track results
@@ -73,7 +80,7 @@ export async function inviteUsersToChannel(params: {
       users: userIds.join(',')
     }
 
-    const result = await callSlackApi('conversations.invite', invitePayload)
+    const result = await callSlackApiLocal('conversations.invite', invitePayload)
 
     if (result.ok) {
       // All users were invited successfully
@@ -103,7 +110,7 @@ export async function inviteUsersToChannel(params: {
         logger.info('[Slack Invite Users] Bulk invite failed, trying individual invites:', result.error)
 
         for (const uid of userIds) {
-          const singleResult = await callSlackApi('conversations.invite', {
+          const singleResult = await callSlackApiLocal('conversations.invite', {
             channel: channel,
             users: uid
           })
@@ -120,14 +127,14 @@ export async function inviteUsersToChannel(params: {
     }
 
     // Get channel info for the response
-    const channelInfo = await callSlackApi('conversations.info', { channel })
+    const channelInfo = await callSlackApiLocal('conversations.info', { channel })
     const channelName = channelInfo.ok ? channelInfo.channel?.name : channel
 
     // Send welcome message if configured and at least one user was invited
     if (customWelcomeMessage && invitedUsers.length > 0) {
       logger.info('[Slack Invite Users] Sending welcome message')
 
-      await callSlackApi('chat.postMessage', {
+      await callSlackApiLocal('chat.postMessage', {
         channel: channel,
         text: customWelcomeMessage
       })

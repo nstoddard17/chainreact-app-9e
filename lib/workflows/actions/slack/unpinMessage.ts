@@ -27,7 +27,17 @@ export async function unpinMessage(params: {
 
     const result = await callSlackApi('pins.remove', accessToken, { channel, timestamp })
 
-    if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
+    if (!result.ok) {
+      // If message is not pinned, treat as success (idempotent operation)
+      if (result.error === 'no_pin' || result.error === 'message_not_found') {
+        return {
+          success: true,
+          output: { success: true, channel, messageId, alreadyUnpinned: true },
+          message: 'Message was not pinned or already unpinned'
+        }
+      }
+      throw new Error(getSlackErrorMessage(result.error, result))
+    }
 
     return {
       success: true,

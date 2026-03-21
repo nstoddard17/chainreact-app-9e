@@ -59,6 +59,11 @@ export const SKIP_ACTIONS: Record<string, string> = {
   'facebook_action_update_post': 'Requires pages_manage_posts permission not available in test app',
   'extract_website_data': 'Fetch fails in serverless environment due to network restrictions',
   'teams_action_create_group_chat': 'Requires real Microsoft 365 users in directory',
+  'teams_action_send_chat_message': 'Depends on create_group_chat which requires real Microsoft 365 users',
+  'teams_action_add_member_to_team': 'Requires real Microsoft 365 users in organization directory',
+  'google-drive:create_file': 'Requires real file upload which is not supported in automated testing',
+  'onedrive_action_upload_file': 'Requires real file upload which is not supported in automated testing',
+  'tavily_search': 'Requires TAVILY_API_KEY environment variable not configured',
   'microsoft-outlook_action_get_attachment': 'Prereq sends email without attachments - always fails',
 }
 
@@ -294,20 +299,20 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'microsoft-outlook_action_update_calendar_event': {
     prereqNodeType: 'microsoft-outlook_action_create_calendar_event',
     prereqConfig: { subject: '[TEST-PREREQ] Event for update', startDateTime: new Date(Date.now() + 86400000).toISOString(), endDateTime: new Date(Date.now() + 90000000).toISOString() },
-    outputMapping: { eventId: 'eventId' },
+    outputMapping: { eventId: 'eventIdManual' },
     testConfigOverrides: { eventSelectionMode: 'manual', subject: '[TEST] Updated Outlook event' },
   },
   'microsoft-outlook_action_add_attendees': {
     prereqNodeType: 'microsoft-outlook_action_create_calendar_event',
     prereqConfig: { subject: '[TEST-PREREQ] Event for add attendees', startDateTime: new Date(Date.now() + 86400000).toISOString(), endDateTime: new Date(Date.now() + 90000000).toISOString() },
-    outputMapping: { eventId: 'eventId' },
+    outputMapping: { eventId: 'eventIdManual' },
     testConfigOverrides: { eventSelectionMode: 'manual', attendees: 'test@chainreact.app' },
     cacheKey: 'outlook_cal_for_attendees',
   },
   'microsoft-outlook_action_delete_calendar_event': {
     prereqNodeType: 'microsoft-outlook_action_create_calendar_event',
     prereqConfig: { subject: '[TEST-PREREQ] Event for delete', startDateTime: new Date(Date.now() + 86400000).toISOString(), endDateTime: new Date(Date.now() + 90000000).toISOString() },
-    outputMapping: { eventId: 'eventId' },
+    outputMapping: { eventId: 'eventIdManual' },
     testConfigOverrides: { eventSelectionMode: 'manual' },
     cacheKey: 'outlook_cal_for_delete',
   },
@@ -319,14 +324,14 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'microsoft-outlook_action_update_contact': {
     prereqNodeType: 'microsoft-outlook_action_create_contact',
     prereqConfig: { givenName: 'TestPrereq', surname: 'Contact', emailAddress: `test-${Date.now()}@chainreact.app` },
-    outputMapping: { id: 'contactId' },
-    testConfigOverrides: { contactSelectionMode: 'manual', contactIdManual: '', givenName: 'UpdatedTest' },
+    outputMapping: { id: 'contactIdManual' },
+    testConfigOverrides: { contactSelectionMode: 'manual', givenName: 'UpdatedTest' },
   },
   'microsoft-outlook_action_delete_contact': {
     prereqNodeType: 'microsoft-outlook_action_create_contact',
     prereqConfig: { givenName: 'TestPrereq', surname: 'ForDelete', emailAddress: `test-del-${Date.now()}@chainreact.app` },
-    outputMapping: { id: 'contactId' },
-    testConfigOverrides: { contactSelectionMode: 'manual', contactIdManual: '' },
+    outputMapping: { id: 'contactIdManual' },
+    testConfigOverrides: { contactSelectionMode: 'manual' },
     cacheKey: 'outlook_contact_for_delete',
   },
 
@@ -407,77 +412,77 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'notion_action_update_page': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for update' },
-    outputMapping: { id: 'page_id', url: 'page_url' },
+    outputMapping: { page_id: 'page_id', url: 'page_url' },
   },
   'notion_action_append_to_page': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for append' },
-    outputMapping: { id: 'page_id' },
+    outputMapping: { page_id: 'page_id' },
     testConfigOverrides: { content: '[TEST] Appended content block' },
   },
   'notion_action_get_page_details': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for get details' },
-    outputMapping: { id: 'page_id' },
+    outputMapping: { page_id: 'page_id' },
   },
   'notion_action_duplicate_page': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for duplicate' },
-    outputMapping: { id: 'page_id' },
+    outputMapping: { page_id: 'page_id' },
   },
   'notion_action_get_page_with_children': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for children' },
-    outputMapping: { id: 'page_id' },
+    outputMapping: { page_id: 'page_id' },
   },
   'notion_action_list_page_content': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for list content' },
-    outputMapping: { id: 'block_id' },
+    outputMapping: { page_id: 'block_id' },
   },
   'notion_action_append_page_content': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for append content' },
-    outputMapping: { id: 'page_id' },
+    outputMapping: { page_id: 'page_id' },
     testConfigOverrides: { contentType: 'paragraph', content: '[TEST] Appended paragraph' },
   },
   'notion_action_get_page_property': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for get property' },
-    outputMapping: { id: 'page_id' },
+    outputMapping: { page_id: 'page_id' },
     testConfigOverrides: { propertyName: 'title' },
   },
   'notion_action_add_block': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for add block' },
-    outputMapping: { id: 'page_id' },
+    outputMapping: { page_id: 'page_id' },
     testConfigOverrides: { blockType: 'paragraph', content: '[TEST] Block content' },
   },
   'notion_action_get_block': {
     prereqNodeType: 'notion_action_add_block',
     prereqConfig: { blockType: 'paragraph', content: '[TEST-PREREQ] Block for get' },
-    outputMapping: { id: 'block_id' },
+    outputMapping: { block_id: 'block_id' },
   },
   'notion_action_get_block_children': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for block children' },
-    outputMapping: { id: 'block_id' },
+    outputMapping: { page_id: 'block_id' },
   },
   'notion_action_create_comment': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for comment' },
-    outputMapping: { id: 'page_id' },
+    outputMapping: { page_id: 'page_id' },
     testConfigOverrides: { content: '[TEST] Comment from automated test' },
   },
   'notion_action_list_comments': {
     prereqNodeType: 'notion_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for list comments' },
-    outputMapping: { id: 'block_id' },
+    outputMapping: { page_id: 'block_id' },
   },
   'notion_action_delete_page_content': {
     prereqNodeType: 'notion_action_add_block',
     prereqConfig: { blockType: 'paragraph', content: '[TEST-PREREQ] Block to delete' },
-    outputMapping: { id: 'blockIds' },
+    outputMapping: { block_id: 'blockIds' },
     cacheKey: 'notion_block_for_delete',
   },
 
@@ -485,41 +490,41 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'notion_action_update_database_info': {
     prereqNodeType: 'notion_action_create_database',
     prereqConfig: { title: '[TEST-PREREQ] DB for update info' },
-    outputMapping: { id: 'database_id' },
+    outputMapping: { database_id: 'database_id' },
     testConfigOverrides: { title: '[TEST] Updated DB title' },
   },
   'notion_action_update_database_schema': {
     prereqNodeType: 'notion_action_create_database',
     prereqConfig: { title: '[TEST-PREREQ] DB for schema update' },
-    outputMapping: { id: 'database_id' },
+    outputMapping: { database_id: 'database_id' },
     testConfigOverrides: { propertyName: 'TestColumn', propertyType: 'rich_text' },
   },
   'notion_action_advanced_query': {
     prereqNodeType: 'notion_action_create_database',
     prereqConfig: { title: '[TEST-PREREQ] DB for query' },
-    outputMapping: { id: 'database_id' },
+    outputMapping: { database_id: 'database_id' },
   },
   'notion_action_find_or_create_item': {
     prereqNodeType: 'notion_action_create_database',
     prereqConfig: { title: '[TEST-PREREQ] DB for find/create' },
-    outputMapping: { id: 'database_id' },
+    outputMapping: { database_id: 'database_id' },
     testConfigOverrides: { searchProperty: 'Name', searchValue: '[TEST] Item', createIfNotFound: true },
   },
   'notion_action_update_database_item': {
     prereqNodeType: 'notion_action_find_or_create_item',
     prereqConfig: { searchProperty: 'Name', searchValue: '[TEST-PREREQ] Item for update', createIfNotFound: true },
-    outputMapping: { id: 'item_id' },
+    outputMapping: { page_id: 'item_id' },
   },
   'notion_action_archive_database_item': {
     prereqNodeType: 'notion_action_find_or_create_item',
     prereqConfig: { searchProperty: 'Name', searchValue: '[TEST-PREREQ] Item for archive', createIfNotFound: true },
-    outputMapping: { id: 'item_id' },
+    outputMapping: { page_id: 'item_id' },
     cacheKey: 'notion_item_for_archive',
   },
   'notion_action_restore_database_item': {
     prereqNodeType: 'notion_action_archive_database_item',
     prereqConfig: {},
-    outputMapping: { id: 'item_id' },
+    outputMapping: { page_id: 'item_id' },
   },
 
   // ── Notion standalone with dynamic resolution ──
@@ -644,6 +649,28 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     outputMapping: { 'channels.0.id': 'channel' },
   },
 
+  // ── Slack reminder ──
+  'slack_action_add_reminder': {
+    prereqNodeType: 'slack_action_list_users',
+    prereqConfig: {},
+    outputMapping: {},
+    testConfigOverrides: { text: '[TEST] Reminder from automated test', timeType: 'relative', relativeTime: '30', relativeUnit: 'minutes' },
+  },
+
+  // ── Slack file ops ──
+  'slack_action_download_file': {
+    prereqNodeType: 'slack_action_upload_file',
+    prereqConfig: { content: 'Test file for download', filename: 'test-download.txt', title: '[TEST-PREREQ] File for download' },
+    outputMapping: { 'file.id': 'fileId' },
+    cacheKey: 'slack_file_for_download',
+  },
+  'slack_action_get_file_info': {
+    prereqNodeType: 'slack_action_upload_file',
+    prereqConfig: { content: 'Test file for info', filename: 'test-info.txt', title: '[TEST-PREREQ] File for info' },
+    outputMapping: { 'file.id': 'fileId' },
+    cacheKey: 'slack_file_for_info',
+  },
+
   // ── Slack channel member ops ──
   'slack_action_invite_users_to_channel': {
     prereqNodeType: 'slack_action_list_users',
@@ -678,7 +705,8 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'discord_action_delete_message': {
     prereqNodeType: 'discord_action_send_message',
     prereqConfig: { message: '[TEST-PREREQ] Message for delete' },
-    outputMapping: { id: 'messageIds', channel_id: 'channelId' },
+    outputMapping: { id: 'messageId', channel_id: 'channelId' },
+    testConfigOverrides: { selectionMode: 'specific' },
     cacheKey: 'discord_msg_for_delete',
   },
 
@@ -781,13 +809,13 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'teams_action_update_meeting': {
     prereqNodeType: 'teams_action_schedule_meeting',
     prereqConfig: { subject: '[TEST-PREREQ] Meeting for update', startTime: new Date(Date.now() + 86400000).toISOString(), endTime: new Date(Date.now() + 90000000).toISOString() },
-    outputMapping: { meetingId: 'meetingId' },
+    outputMapping: { eventId: 'meetingId' },
     testConfigOverrides: { subject: '[TEST] Updated meeting' },
   },
   'teams_action_end_meeting': {
     prereqNodeType: 'teams_action_schedule_meeting',
     prereqConfig: { subject: '[TEST-PREREQ] Meeting for cancel', startTime: new Date(Date.now() + 86400000).toISOString(), endTime: new Date(Date.now() + 90000000).toISOString() },
-    outputMapping: { meetingId: 'meetingId' },
+    outputMapping: { eventId: 'meetingId' },
     cacheKey: 'teams_meeting_for_cancel',
   },
 
@@ -829,13 +857,14 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   },
   'shopify_action_update_inventory': {
     prereqNodeType: 'shopify_action_create_product',
-    prereqConfig: { title: '[TEST-PREREQ] Product for inventory', product_type: 'Test', status: 'DRAFT' },
-    outputMapping: { variant_id: 'variant_id' },
-    // inventoryItemId needs to be resolved from variant
+    prereqConfig: { title: '[TEST-PREREQ] Product for inventory', product_type: 'Test', status: 'ACTIVE' },
+    outputMapping: { variant_id: 'inventory_item_id' },
+    testConfigOverrides: { adjustment_type: 'set', quantity: '10' },
+    // Note: inventory_item_id should ideally come from inventory query, but variant_id is used as fallback
   },
   'shopify_action_create_order': {
     prereqNodeType: 'shopify_action_create_product',
-    prereqConfig: { title: '[TEST-PREREQ] Product for order', product_type: 'Test', status: 'DRAFT', variants: JSON.stringify([{ price: '10.00' }]) },
+    prereqConfig: { title: '[TEST-PREREQ] Product for order', product_type: 'Test', status: 'ACTIVE' },
     outputMapping: { variant_gid: 'variant_gid' },
     testConfigOverrides: { email: 'test@chainreact.app' }, // line_items resolved from variant_gid prereq
     cacheKey: 'shopify_product_for_order',
@@ -844,6 +873,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'shopify_action_create_order',
     prereqConfig: {},
     outputMapping: { order_id: 'order_id' },
+    testConfigOverrides: { action: 'add_note', note: '[TEST] Status update' },
   },
   'shopify_action_add_order_note': {
     prereqNodeType: 'shopify_action_create_order',
@@ -920,9 +950,11 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     outputMapping: { itemId: 'itemId' },
   },
   'monday_action_update_item': {
-    prereqNodeType: 'monday_action_create_item',
-    prereqConfig: { itemName: '[TEST-PREREQ] Item for update' },
-    outputMapping: { itemId: 'itemId' },
+    prereqNodeType: 'monday_action_add_column',
+    prereqConfig: { columnTitle: '[TEST-PREREQ] Column for update', columnType: 'text' },
+    outputMapping: { columnId: 'columnId' },
+    additionalCacheMapping: { 'monday_action_create_item': { itemId: 'itemId' }, 'monday_action_create_board': { boardId: 'boardId' } },
+    testConfigOverrides: { columnValue: '[TEST] Updated value' },
   },
   'monday_action_create_update': {
     prereqNodeType: 'monday_action_create_item',
@@ -953,10 +985,11 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     additionalCacheMapping: { 'monday_action_create_board': { boardId: 'boardId' } },
   },
   'monday_action_move_item': {
-    prereqNodeType: 'monday_action_create_item',
-    prereqConfig: { itemName: '[TEST-PREREQ] Item for move' },
-    outputMapping: { itemId: 'itemId', groupId: 'groupId' },
-    additionalCacheMapping: { 'monday_action_create_board': { boardId: 'boardId' } },
+    prereqNodeType: 'monday_action_create_group',
+    prereqConfig: { groupTitle: '[TEST-PREREQ] Target group for move' },
+    outputMapping: { groupId: 'targetGroupId' },
+    additionalCacheMapping: { 'monday_action_create_item': { itemId: 'itemId' }, 'monday_action_create_board': { boardId: 'sourceBoardId' } },
+    cacheKey: 'monday_group_for_move',
   },
   'monday_action_archive_item': {
     prereqNodeType: 'monday_action_create_item',
@@ -976,14 +1009,19 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     outputMapping: { 'users.0.id': 'userId' },
   },
   'monday_action_add_file': {
-    prereqNodeType: 'monday_action_create_item',
-    prereqConfig: { itemName: '[TEST-PREREQ] Item for file' },
-    outputMapping: { itemId: 'itemId' },
+    prereqNodeType: 'monday_action_add_column',
+    prereqConfig: { columnTitle: '[TEST-PREREQ] File column', columnType: 'file' },
+    outputMapping: { columnId: 'columnId' },
+    additionalCacheMapping: { 'monday_action_create_item': { itemId: 'itemId' } },
+    testConfigOverrides: { sourceType: 'url', fileUrl: 'https://httpbin.org/robots.txt', fileName: 'test-file.txt' },
+    cacheKey: 'monday_column_for_file',
   },
   'monday_action_download_file': {
-    prereqNodeType: 'monday_action_create_item',
-    prereqConfig: { itemName: '[TEST-PREREQ] Item for download' },
-    outputMapping: { itemId: 'itemId' },
+    prereqNodeType: 'monday_action_add_column',
+    prereqConfig: { columnTitle: '[TEST-PREREQ] File column for download', columnType: 'file' },
+    outputMapping: { columnId: 'columnId' },
+    additionalCacheMapping: { 'monday_action_create_item': { itemId: 'itemId' } },
+    cacheKey: 'monday_column_for_download',
   },
 
   // ╔══════════════════════════════════════════════════════════════════════╗
@@ -1005,13 +1043,13 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'onedrive_action_create_sharing_link': {
     prereqNodeType: 'onedrive_action_create_folder',
     prereqConfig: { folderName: '[TEST-PREREQ] Folder for sharing link' },
-    outputMapping: { id: 'itemId' },
-    testConfigOverrides: { itemType: 'folder', linkType: 'view', scope: 'anonymous' },
+    outputMapping: { id: 'folderIdToShare' },
+    testConfigOverrides: { itemType: 'folder', linkType: 'view', linkScope: 'anonymous' },
   },
   'onedrive_action_send_sharing_invitation': {
     prereqNodeType: 'onedrive_action_create_folder',
     prereqConfig: { folderName: '[TEST-PREREQ] Folder for sharing invitation' },
-    outputMapping: { id: 'itemId' },
+    outputMapping: { id: 'folderIdToShare' },
     testConfigOverrides: { itemType: 'folder', recipients: 'test@chainreact.app', role: 'read', sendInvitation: true },
     cacheKey: 'onedrive_folder_for_invite',
   },
@@ -1099,7 +1137,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqConfig: {},
     outputMapping: {},
     // audience_id resolved dynamically
-    testConfigOverrides: { type: 'regular', subject_line: '[TEST] Campaign', from_name: 'ChainReact Test', reply_to: 'test@chainreact.app' },
+    testConfigOverrides: { type: 'regular', subject_line: '[TEST] Campaign', from_name: 'ChainReact Test', reply_to: 'test@chainreact.app', html_content: '<p>[TEST] Campaign content from automated testing</p>' },
   },
   'mailchimp_action_get_campaign': {
     prereqNodeType: 'mailchimp_action_create_campaign',
@@ -1182,11 +1220,11 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     cacheKey: 'onenote_section_for_list_pages',
   },
   'microsoft-onenote_action_copy_page': {
-    prereqNodeType: 'microsoft-onenote_action_create_page',
-    prereqConfig: { title: '[TEST-PREREQ] Page for copy', content: '<p>Content to copy</p>' },
-    outputMapping: { id: 'pageId' },
-    additionalCacheMapping: { 'microsoft-onenote_action_create_section': { id: 'destinationSectionId' } },
-    cacheKey: 'onenote_page_for_copy',
+    prereqNodeType: 'microsoft-onenote_action_create_section',
+    prereqConfig: { displayName: `[TEST-PREREQ] Destination section for copy ${Date.now()}` },
+    outputMapping: { id: 'destinationSectionId' },
+    additionalCacheMapping: { 'microsoft-onenote_action_create_page': { id: 'pageId' } },
+    cacheKey: 'onenote_section_for_copy_dest',
   },
   'microsoft-onenote_action_delete_page': {
     prereqNodeType: 'microsoft-onenote_action_create_page',
@@ -1228,13 +1266,13 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'ai_summarize',
     prereqConfig: {},
     outputMapping: {},
-    testConfigOverrides: { prompt: 'Write a one-sentence greeting', input: 'Hello, please generate a test response.' },
+    testConfigOverrides: { inputData: 'Hello, please generate a test response.', contentType: 'custom', prompt: 'Write a one-sentence greeting' },
   },
   'ai_generate': {
     prereqNodeType: 'ai_summarize',
     prereqConfig: {},
     outputMapping: {},
-    testConfigOverrides: { input: 'Generate a one-line test response for automated testing.', prompt: 'Generate content' },
+    testConfigOverrides: { inputData: 'Generate a one-line test response for automated testing.', contentType: 'custom', prompt: 'Generate content' },
   },
 
   // ╔══════════════════════════════════════════════════════════════════════╗
@@ -1261,7 +1299,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'github_action_create_issue',
     prereqConfig: {},
     outputMapping: {},
-    testConfigOverrides: { description: '[TEST] Gist from automated test', filename: 'test.txt', content: 'Test gist content', public: false },
+    testConfigOverrides: { description: '[TEST] Gist from automated test', filename: 'test.txt', content: 'Test gist content', isPublic: false },
   },
 
   // ╔══════════════════════════════════════════════════════════════════════╗
@@ -1676,7 +1714,36 @@ export async function resolveDynamicConfig(
 
   // ── Shopify: Build line_items from variant_gid ──
   if (providerId === 'shopify' && testConfig.variant_gid && (!testConfig.line_items || (Array.isArray(testConfig.line_items) && testConfig.line_items.length === 0))) {
-    testConfig.line_items = [{ variant_id: testConfig.variant_gid, quantity: 1 }]
+    testConfig.line_items = [{ variant_id: testConfig.variant_gid, quantity: 1, price: '10.00' }]
+  }
+
+  // ── Shopify: Resolve location_id for inventory actions ──
+  if (providerId === 'shopify' && !testConfig.location_id) {
+    const shopifyCacheKey = `shopify_location_${userId}`
+    if (dynamicCache.has(shopifyCacheKey)) {
+      testConfig.location_id = dynamicCache.get(shopifyCacheKey)!
+    } else {
+      try {
+        const accessToken = await getDecryptedAccessToken(userId, 'shopify')
+        if (accessToken) {
+          const locRes = await fetch('https://shopify-proxy.chainreact.app/api/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+            body: JSON.stringify({ query: '{ locations(first: 1) { edges { node { id legacyResourceId } } } }' }),
+          })
+          if (locRes.ok) {
+            const locData = await locRes.json()
+            const locationId = locData?.data?.locations?.edges?.[0]?.node?.legacyResourceId
+            if (locationId) {
+              testConfig.location_id = locationId
+              dynamicCache.set(shopifyCacheKey, locationId)
+            }
+          }
+        }
+      } catch (err: any) {
+        logger.error('[testChains] Failed to resolve Shopify location:', err.message)
+      }
+    }
   }
 
   return testConfig
@@ -1786,7 +1853,7 @@ export async function resolvePrereqs(
 
   // Post-prereq: build Shopify line_items from variant_gid if available
   if (testConfig.variant_gid && (!testConfig.line_items || (Array.isArray(testConfig.line_items) && testConfig.line_items.length === 0))) {
-    testConfig.line_items = [{ variant_id: testConfig.variant_gid, quantity: 1 }]
+    testConfig.line_items = [{ variant_id: testConfig.variant_gid, quantity: 1, price: '10.00' }]
   }
 
   return true

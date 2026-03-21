@@ -5,13 +5,34 @@ import { logger } from '@/lib/utils/logger'
 
 export async function onenoteCopyPage(
   params: {
-    sourcePageId: string
-    targetNotebookId: string
-    targetSectionId: string
+    sourcePageId?: string
+    targetNotebookId?: string
+    targetSectionId?: string
+    destinationSectionId?: string
+    pageId?: string
   },
   context: ExecutionContext
 ) {
-  const { sourcePageId, targetNotebookId, targetSectionId } = params
+  // Accept both targetSectionId and destinationSectionId, and pageId as alias for sourcePageId
+  const sourcePageId = params.sourcePageId || params.pageId
+  const targetSectionId = params.targetSectionId || params.destinationSectionId
+  const targetNotebookId = params.targetNotebookId
+
+  if (!sourcePageId) {
+    return {
+      success: false,
+      output: {},
+      error: 'Source page ID is required'
+    }
+  }
+
+  if (!targetSectionId) {
+    return {
+      success: false,
+      output: {},
+      error: 'Target section ID is required (provide targetSectionId or destinationSectionId)'
+    }
+  }
 
   if (context.testMode) {
     logger.info("[TEST MODE] Would copy OneNote page:", { sourcePageId, targetSectionId })
@@ -27,24 +48,27 @@ export async function onenoteCopyPage(
 
   try {
     const accessToken = await getOneNoteAccessToken(context.userId)
-    
+
     // Copy the page to the target section
+    // Only include id (destination section ID) - omit null siteCollectionId/siteId
+    // as sending null values causes "Invalid destination Entity ID" errors
+    const copyBody: Record<string, string> = { id: targetSectionId }
+    if (targetNotebookId) {
+      copyBody.groupId = targetNotebookId
+    }
+
     const copyOperation = await makeGraphRequest(
       `https://graph.microsoft.com/v1.0/me/onenote/pages/${sourcePageId}/copyToSection`,
       accessToken,
       {
         method: 'POST',
-        body: JSON.stringify({
-          id: targetSectionId,
-          siteCollectionId: null,
-          siteId: null
-        })
+        body: JSON.stringify(copyBody)
       }
     )
 
     // The copy operation returns a location header with the operation status URL
     // In production, you might want to poll this URL to check the operation status
-    
+
     return {
       success: true,
       output: {

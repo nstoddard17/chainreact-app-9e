@@ -18,7 +18,7 @@ export async function createMicrosoftExcelRow(
   try {
     // Resolve configuration with workflow variables
     const resolvedConfig = resolveValue(config, input)
-    let { workbookId, worksheetName, insertPosition = 'append', specificRow, hasHeaders = 'yes', columnMapping } = resolvedConfig
+    let { workbookId, worksheetName, insertPosition = 'append', specificRow, hasHeaders = 'yes', columnMapping, values: inputValues } = resolvedConfig
 
     // Normalize hasHeaders to boolean
     const useHeaders = hasHeaders === 'yes' || hasHeaders === true
@@ -30,20 +30,44 @@ export async function createMicrosoftExcelRow(
       specificRow,
       hasHeaders,
       useHeaders,
-      columnMapping
+      columnMapping,
+      inputValues
     })
 
     // Transform columnMapping from array format to object format if needed
     // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
     // But we need: { "Name": "John" } or { "A": "John" } for letter columns
     if (Array.isArray(columnMapping)) {
-      logger.info('📊 [Excel Create Row] Converting array format to object format');
-      const mappingObject: Record<string, any> = {};
-      for (const item of columnMapping) {
-        if (item && item.column && item.value !== undefined) {
-          mappingObject[item.column] = item.value;
+      // Check if it's [{column, value}] format or plain values array
+      if (columnMapping.length > 0 && typeof columnMapping[0] === 'object' && columnMapping[0]?.column) {
+        logger.info('📊 [Excel Create Row] Converting array format to object format');
+        const mappingObject: Record<string, any> = {};
+        for (const item of columnMapping) {
+          if (item && item.column && item.value !== undefined) {
+            mappingObject[item.column] = item.value;
+          }
         }
+        columnMapping = mappingObject;
+      } else {
+        // Plain values array like ['Value1', 'Value2'] - convert to column letter mapping
+        logger.info('📊 [Excel Create Row] Converting plain values array to column letter mapping');
+        const mappingObject: Record<string, any> = {};
+        columnMapping.forEach((val: any, idx: number) => {
+          const colLetter = String.fromCharCode(65 + idx); // A, B, C...
+          mappingObject[colLetter] = val;
+        });
+        columnMapping = mappingObject;
       }
+    }
+
+    // If no columnMapping but values array is provided, convert it
+    if ((!columnMapping || Object.keys(columnMapping).length === 0) && Array.isArray(inputValues) && inputValues.length > 0) {
+      logger.info('📊 [Excel Create Row] Using values array as column mapping fallback');
+      const mappingObject: Record<string, any> = {};
+      inputValues.forEach((val: any, idx: number) => {
+        const colLetter = String.fromCharCode(65 + idx);
+        mappingObject[colLetter] = val;
+      });
       columnMapping = mappingObject;
     }
 

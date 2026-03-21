@@ -3,6 +3,10 @@ import { decrypt } from '@/lib/security/encryption'
 import { ActionResult } from '../index'
 import { logger } from '@/lib/utils/logger'
 
+// Microsoft Graph setReaction expects specific reaction type strings
+// Using beta endpoint as v1.0 has issues with reaction type validation
+const VALID_REACTION_TYPES = ['like', 'angry', 'sad', 'laugh', 'heart', 'surprised'] as const
+
 /**
  * Add an emoji reaction to a Microsoft Teams message
  *
@@ -30,6 +34,15 @@ export async function addTeamsReaction(
       return {
         success: false,
         error: 'Missing required fields: messageType and reactionType are required'
+      }
+    }
+
+    // Validate and normalize reaction type
+    const normalizedReaction = reactionType.toLowerCase().trim()
+    if (!VALID_REACTION_TYPES.includes(normalizedReaction as any)) {
+      return {
+        success: false,
+        error: `Invalid reaction type: "${reactionType}". Valid types are: ${VALID_REACTION_TYPES.join(', ')}`
       }
     }
 
@@ -75,11 +88,12 @@ export async function addTeamsReaction(
     const accessToken = await decrypt(integration.access_token)
 
     // Construct API endpoint based on message type
+    // Use beta endpoint as v1.0 has issues with setReaction payload validation
     let endpoint: string
     if (messageType === 'channel') {
-      endpoint = `https://graph.microsoft.com/v1.0/teams/${teamId}/channels/${channelId}/messages/${messageId}/setReaction`
+      endpoint = `https://graph.microsoft.com/beta/teams/${teamId}/channels/${channelId}/messages/${messageId}/setReaction`
     } else {
-      endpoint = `https://graph.microsoft.com/v1.0/chats/${chatId}/messages/${messageId}/setReaction`
+      endpoint = `https://graph.microsoft.com/beta/chats/${chatId}/messages/${messageId}/setReaction`
     }
 
     // Add the reaction
@@ -90,7 +104,7 @@ export async function addTeamsReaction(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        reactionType: reactionType
+        reactionType: normalizedReaction
       })
     })
 

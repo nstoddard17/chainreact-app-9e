@@ -21,6 +21,14 @@ export async function removeUserFromChannel(params: {
     const accessToken = workspace
       ? await getSlackToken(workspace, true, useUserToken)
       : await getSlackToken(userId, false, useUserToken)
+
+    // Ensure the bot is in the channel before trying to kick
+    // conversations.kick requires the bot to be a member of the channel
+    const joinResult = await callSlackApi('conversations.join', accessToken, { channel })
+    if (!joinResult.ok && joinResult.error !== 'method_not_supported_for_channel_type') {
+      logger.info('[Slack Remove User] Bot join attempt:', joinResult.error || 'success')
+    }
+
     const result = await callSlackApi('conversations.kick', accessToken, { channel, user })
 
     if (!result.ok) throw new Error(getSlackErrorMessage(result.error, result))
