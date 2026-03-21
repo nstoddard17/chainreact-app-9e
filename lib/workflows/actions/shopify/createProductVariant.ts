@@ -49,9 +49,6 @@ export async function createShopifyProductVariant(
             price
             sku
             barcode
-            weight
-            weightUnit
-            inventoryQuantity
             selectedOptions {
               name
               value

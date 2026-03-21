@@ -72,7 +72,11 @@ export async function updateShopifyOrderStatus(
           selectedStore
         )
 
-        const fulfillmentOrders = orderData.order.fulfillmentOrders.edges.map((edge: any) => edge.node)
+        if (!orderData?.order) {
+          throw new Error(`Order not found: ${orderGid}`)
+        }
+
+        const fulfillmentOrders = (orderData.order.fulfillmentOrders?.edges || []).map((edge: any) => edge.node)
 
         if (!fulfillmentOrders || fulfillmentOrders.length === 0) {
           throw new Error('No fulfillment orders found for this order')
@@ -161,6 +165,11 @@ export async function updateShopifyOrderStatus(
         `
 
         const orderData = await makeShopifyGraphQLRequest(integration, orderQuery, { id: orderGid }, selectedStore)
+
+        if (!orderData?.order) {
+          throw new Error(`Order not found: ${orderGid}`)
+        }
+
         const existingTags = orderData.order.tags || []
         const newTagsArray = tags.split(',').map((t: string) => t.trim())
         const mergedTags = [...new Set([...existingTags, ...newTagsArray])]
@@ -207,6 +216,11 @@ export async function updateShopifyOrderStatus(
         `
 
         const orderData = await makeShopifyGraphQLRequest(integration, orderQuery, { id: orderGid }, selectedStore)
+
+        if (!orderData?.order) {
+          throw new Error(`Order not found: ${orderGid}`)
+        }
+
         const existingNote = orderData.order.note || ''
         const updatedNote = existingNote ? `${existingNote}\n\n${note}` : note
 

@@ -176,6 +176,15 @@ export async function executeExtractWebsiteData(
       };
     }
 
+    // Validate URL is reachable (basic connectivity check)
+    if (!parsedUrl.protocol.startsWith('http')) {
+      return {
+        success: false,
+        output: {},
+        message: 'Only HTTP and HTTPS URLs are supported'
+      };
+    }
+
     logger.info('[ExtractWebsiteData] Fetching website', {
       url,
       extractionMethod,
@@ -316,6 +325,26 @@ export async function executeExtractWebsiteData(
       extractedData = await extractWithCss(html, cssSelectors);
       logger.info('[ExtractWebsiteData] CSS extraction completed', {
         fieldsExtracted: Object.keys(extractedData).length
+      });
+    } else if (extractionMethod === 'full_text') {
+      // Full text extraction using Cheerio - no AI needed
+      const $ = cheerio.load(html);
+      // Remove script and style elements
+      $('script, style, noscript').remove();
+      const title = $('title').text().trim();
+      const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
+      const metaDescription = $('meta[name="description"]').attr('content') || '';
+      const headings = $('h1, h2, h3').map((_, el) => $(el).text().trim()).get();
+
+      extractedData = {
+        title,
+        text: bodyText,
+        metaDescription,
+        headings,
+        wordCount: bodyText.split(/\s+/).filter(Boolean).length,
+      };
+      logger.info('[ExtractWebsiteData] Full text extraction completed', {
+        textLength: bodyText.length
       });
     } else {
       // AI extraction using OpenAI

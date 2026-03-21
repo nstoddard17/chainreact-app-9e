@@ -33,6 +33,9 @@ next-env.d.ts
 # Test credentials file
 .test-credentials
 .test-credentials.json
+
+# Systematic test cache (tracks previously passed tests)
+.test-cache.json
 nul
 
 # Workflow execution logs (may contain sensitive data)

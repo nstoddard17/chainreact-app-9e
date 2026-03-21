@@ -80,6 +80,11 @@ export async function executeParseFile(
       if (!detectedType) {
         detectedType = detectFileTypeFromUrl(fileUrl);
       }
+
+      // Fallback: detect from Content-Type header
+      if (!detectedType) {
+        detectedType = detectFileTypeFromContentType(response.headers.get('content-type'));
+      }
     } else if (fileBase64) {
       // Parse base64 data
       const base64Data = fileBase64.includes(',')
@@ -97,12 +102,17 @@ export async function executeParseFile(
       }
     }
 
+    // Last resort: try to detect from buffer content
+    if (!detectedType) {
+      detectedType = detectFileTypeFromContent(fileBuffer);
+    }
+
     // Validate file type
     if (!detectedType) {
       return {
         success: false,
         output: {},
-        message: 'Could not detect file type. Please specify fileType parameter (csv, excel, pdf, json)'
+        message: 'Could not detect file type. Please specify fileType parameter (csv, excel, pdf, json, txt)'
       };
     }
 
@@ -133,11 +143,20 @@ export async function executeParseFile(
         parsedData = await parseJSON(fileBuffer);
         break;
 
+      case 'txt':
+      case 'text':
+        parsedData = {
+          text: fileBuffer.toString('utf-8'),
+          lineCount: fileBuffer.toString('utf-8').split('\n').length,
+          charCount: fileBuffer.toString('utf-8').length,
+        };
+        break;
+
       default:
         return {
           success: false,
           output: {},
-          message: `Unsupported file type: ${detectedType}. Supported types: csv, excel, pdf, json`
+          message: `Unsupported file type: ${detectedType}. Supported types: csv, excel, pdf, json, txt`
         };
     }
 
@@ -335,6 +354,7 @@ function detectFileTypeFromUrl(url: string): string | null {
   if (extension === 'xlsx' || extension === 'xls') return 'excel';
   if (extension === 'pdf') return 'pdf';
   if (extension === 'json') return 'json';
+  if (extension === 'txt') return 'txt';
 
   return null;
 }
@@ -349,6 +369,58 @@ function detectFileTypeFromPath(path: string): string | null {
   if (extension === 'xlsx' || extension === 'xls') return 'excel';
   if (extension === 'pdf') return 'pdf';
   if (extension === 'json') return 'json';
+  if (extension === 'txt') return 'txt';
+
+  return null;
+}
+
+/**
+ * Detect file type from Content-Type header
+ */
+function detectFileTypeFromContentType(contentType: string | null): string | null {
+  if (!contentType) return null;
+  const ct = contentType.toLowerCase();
+
+  if (ct.includes('text/csv')) return 'csv';
+  if (ct.includes('spreadsheetml') || ct.includes('ms-excel')) return 'excel';
+  if (ct.includes('application/pdf')) return 'pdf';
+  if (ct.includes('application/json')) return 'json';
+  if (ct.includes('text/plain')) return 'txt';
+
+  return null;
+}
+
+/**
+ * Detect file type from buffer content (magic bytes / heuristics)
+ */
+function detectFileTypeFromContent(buffer: Buffer): string | null {
+  if (buffer.length < 4) return 'txt';
+
+  // PDF magic bytes: %PDF
+  if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+    return 'pdf';
+  }
+
+  // XLSX/ZIP magic bytes: PK (0x504B)
+  if (buffer[0] === 0x50 && buffer[1] === 0x4B) {
+    return 'excel';
+  }
+
+  // Try to detect JSON
+  const start = buffer.toString('utf-8', 0, Math.min(100, buffer.length)).trim();
+  if (start.startsWith('{') || start.startsWith('[')) {
+    return 'json';
+  }
+
+  // If it's valid UTF-8 text, treat as txt
+  try {
+    const text = buffer.toString('utf-8');
+    if (text && !text.includes('\ufffd')) {
+      return 'txt';
+    }
+  } catch {
+    // Not valid UTF-8
+  }
 
   return null;
 }

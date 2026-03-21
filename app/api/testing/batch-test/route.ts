@@ -120,6 +120,15 @@ const PREREQUISITE_MAP: Record<string, {
     outputMapping: { messageId: 'messageId', threadId: 'threadId' },
   },
 
+  // Google Analytics: Send Event needs a real API secret from a created measurement secret
+  'google_analytics_action_send_event': {
+    prereqNodeType: 'google_analytics_action_create_measurement_secret',
+    prereqConfig: {
+      displayName: '[TEST-PREREQ] API Secret for send event test - safe to delete',
+    },
+    outputMapping: { secret_value: 'apiSecret' },
+  },
+
   // GitHub: Add comment needs a real issue number from a created issue
   'github_action_add_comment': {
     prereqNodeType: 'github_action_create_issue',
@@ -160,6 +169,8 @@ const SKIP_ACTIONS: Record<string, string> = {
   'facebook_action_upload_video': 'Requires a real video file upload - test manually via /test-actions',
   'github_action_create_repository': 'Would create a new repository each run - TEST-Repository already exists',
   'github_action_create_pull_request': 'Requires a branch with commits - test manually via /test-actions',
+  'google_analytics_action_create_measurement_secret': 'Creates a real API secret each run - tested as prerequisite of send_event',
+  'google_analytics_action_create_conversion_event': 'Creates a real conversion event each run - test manually via /test-actions',
 }
 
 /**
@@ -218,6 +229,77 @@ async function resolveDynamicConfig(
       }
     } catch (err: any) {
       logger.error('[batch-test] Failed to resolve GitHub repository:', err.message)
+    }
+  }
+
+  // Google Analytics: Resolve accountId, propertyId, measurementId from the Admin API
+  if (providerId === 'google-analytics') {
+    const gaCacheKey = `ga_resolved_${userId}`
+    if (dynamicCache.has(gaCacheKey)) {
+      const cached = JSON.parse(dynamicCache.get(gaCacheKey)!)
+      if (!testConfig.accountId) testConfig.accountId = cached.accountId
+      if (!testConfig.propertyId) testConfig.propertyId = cached.propertyId
+      if (!testConfig.measurementId) testConfig.measurementId = cached.measurementId
+      if (!testConfig.dataStreamId) testConfig.dataStreamId = cached.dataStreamId
+      return testConfig
+    }
+    try {
+      const accessToken = await getDecryptedAccessToken(userId, 'google-analytics')
+
+      // Fetch account summaries (includes properties)
+      const summariesRes = await fetch(
+        'https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200',
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      )
+      if (summariesRes.ok) {
+        const summariesData = await summariesRes.json()
+        const summaries = summariesData.accountSummaries || []
+        if (summaries.length > 0) {
+          const firstAccount = summaries[0]
+          const accountId = firstAccount.account?.replace('accounts/', '') || ''
+          if (!testConfig.accountId) testConfig.accountId = accountId
+
+          // Pick first property from this account
+          const properties = firstAccount.propertySummaries || []
+          if (properties.length > 0) {
+            const propertyResource = properties[0].property || ''
+            const propertyId = propertyResource.replace('properties/', '')
+            if (!testConfig.propertyId) testConfig.propertyId = propertyId
+
+            // Fetch data streams to get measurementId and dataStreamId
+            const streamsRes = await fetch(
+              `https://analyticsadmin.googleapis.com/v1beta/properties/${propertyId}/dataStreams?pageSize=200`,
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            )
+            if (streamsRes.ok) {
+              const streamsData = await streamsRes.json()
+              const webStreams = (streamsData.dataStreams || []).filter(
+                (s: any) => s.type === 'WEB_DATA_STREAM' && s.webStreamData?.measurementId
+              )
+              if (webStreams.length > 0) {
+                const stream = webStreams[0]
+                if (!testConfig.measurementId) testConfig.measurementId = stream.webStreamData.measurementId
+                // Extract dataStreamId from resource name (properties/{id}/dataStreams/{streamId})
+                const streamIdMatch = stream.name?.match(/dataStreams\/(.+)/)
+                if (streamIdMatch && !testConfig.dataStreamId) {
+                  testConfig.dataStreamId = streamIdMatch[1]
+                }
+              }
+            }
+          }
+
+          // Cache resolved values
+          dynamicCache.set(gaCacheKey, JSON.stringify({
+            accountId: testConfig.accountId,
+            propertyId: testConfig.propertyId,
+            measurementId: testConfig.measurementId,
+            dataStreamId: testConfig.dataStreamId,
+          }))
+          logger.debug(`[batch-test] Resolved Google Analytics: account=${testConfig.accountId}, property=${testConfig.propertyId}, measurement=${testConfig.measurementId}`)
+        }
+      }
+    } catch (err: any) {
+      logger.error('[batch-test] Failed to resolve Google Analytics config:', err.message)
     }
   }
 

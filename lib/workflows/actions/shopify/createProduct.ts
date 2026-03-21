@@ -61,7 +61,6 @@ export async function createShopifyProduct(
                   id
                   price
                   sku
-                  inventoryQuantity
                 }
               }
             }
@@ -80,16 +79,6 @@ export async function createShopifyProduct(
         descriptionHtml: bodyHtml,
         vendor,
         productType,
-        variants: [
-          {
-            price: String(price),
-            sku,
-            inventoryQuantities: {
-              availableQuantity: Number(inventoryQuantity),
-              locationId: 'gid://shopify/Location/primary' // Will use default location
-            }
-          }
-        ]
       }
     }
 

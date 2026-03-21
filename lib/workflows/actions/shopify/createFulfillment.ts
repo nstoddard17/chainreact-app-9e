@@ -70,7 +70,11 @@ export async function createShopifyFulfillment(
       selectedStore
     )
 
-    const fulfillmentOrders = orderData.order.fulfillmentOrders.edges.map((edge: any) => edge.node)
+    if (!orderData?.order) {
+      throw new Error(`Order not found: ${orderGid}`)
+    }
+
+    const fulfillmentOrders = (orderData.order.fulfillmentOrders?.edges || []).map((edge: any) => edge.node)
 
     if (!fulfillmentOrders || fulfillmentOrders.length === 0) {
       throw new Error('No fulfillment orders found for this order')
@@ -133,6 +137,11 @@ export async function createShopifyFulfillment(
     const result = await makeShopifyGraphQLRequest(integration, mutation, {
       fulfillment: fulfillmentInput
     }, selectedStore)
+
+    if (!result?.fulfillmentCreateV2?.fulfillment) {
+      const userErrors = result?.fulfillmentCreateV2?.userErrors
+      throw new Error(userErrors?.length ? userErrors.map((e: any) => e.message).join(', ') : 'Failed to create fulfillment - no fulfillment returned')
+    }
 
     const fulfillment = result.fulfillmentCreateV2.fulfillment
     const shopDomain = getShopDomain(integration, selectedStore)

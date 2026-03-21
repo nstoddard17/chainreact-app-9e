@@ -9,6 +9,7 @@ import { logger } from '@/lib/utils/logger'
  * Example: gid://shopify/Customer/123456789 → 123456789
  */
 function extractNumericId(id: string): string {
+  if (!id) return ''
   if (id.includes('gid://')) {
     return id.split('/').pop() || id
   }
@@ -19,6 +20,7 @@ function extractNumericId(id: string): string {
  * Convert numeric ID to Shopify GID format
  */
 function toCustomerGid(id: string): string {
+  if (!id) throw new Error('Customer ID is required')
   if (id.includes('gid://shopify/')) {
     return id
   }
@@ -88,7 +90,7 @@ export async function updateShopifyCustomer(
     if (firstName) variables.input.firstName = firstName
     if (lastName) variables.input.lastName = lastName
     if (phone) variables.input.phone = phone
-    if (tags) variables.input.tags = tags.split(',').map((t: string) => t.trim())
+    if (tags) variables.input.tags = typeof tags === 'string' ? tags.split(',').map((t: string) => t.trim()) : tags
     if (note) variables.input.note = note
     if (acceptsMarketing !== undefined && acceptsMarketing !== '') {
       variables.input.emailMarketingConsent = {
@@ -98,6 +100,11 @@ export async function updateShopifyCustomer(
 
     // 5. Make GraphQL request
     const result = await makeShopifyGraphQLRequest(integration, mutation, variables, selectedStore)
+
+    if (!result?.customerUpdate?.customer) {
+      const userErrors = result?.customerUpdate?.userErrors
+      throw new Error(userErrors?.length ? userErrors.map((e: any) => e.message).join(', ') : 'Failed to update customer - no customer returned')
+    }
 
     const customer = result.customerUpdate.customer
     const shopDomain = getShopDomain(integration, selectedStore)

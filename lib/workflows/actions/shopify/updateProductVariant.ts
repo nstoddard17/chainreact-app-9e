@@ -98,6 +98,14 @@ export async function updateShopifyProductVariant(
     `
 
     const variantData = await makeShopifyGraphQLRequest(integration, variantQuery, { id: variantGid }, selectedStore)
+
+    if (!variantData?.productVariant) {
+      throw new Error(`Product variant not found: ${variantGid}`)
+    }
+    if (!variantData.productVariant.product) {
+      throw new Error(`Product not found for variant: ${variantGid}`)
+    }
+
     const productGid = variantData.productVariant.product.id
 
     const variables = {
@@ -107,6 +115,11 @@ export async function updateShopifyProductVariant(
 
     // 5. Make GraphQL request
     const result = await makeShopifyGraphQLRequest(integration, mutation, variables, selectedStore)
+
+    if (!result?.productVariantsBulkUpdate?.productVariants?.length) {
+      const userErrors = result?.productVariantsBulkUpdate?.userErrors
+      throw new Error(userErrors?.length ? userErrors.map((e: any) => e.message).join(', ') : 'Failed to update variant - no variant returned')
+    }
 
     const variant = result.productVariantsBulkUpdate.productVariants[0]
     const shopDomain = getShopDomain(integration, selectedStore)

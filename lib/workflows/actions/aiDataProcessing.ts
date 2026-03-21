@@ -418,8 +418,8 @@ export async function classifyContent(
   input: any
 ): Promise<ActionResult> {
   try {
-    const { inputText, categories, confidence = false } = config
-    
+    const { inputText, categories: rawCategories, confidence = false } = config
+
     if (!inputText) {
       return {
         success: false,
@@ -427,6 +427,13 @@ export async function classifyContent(
         message: 'No input text provided for classification'
       }
     }
+
+    // Normalize categories: accept string (comma-separated) or array
+    const categories: string[] = Array.isArray(rawCategories)
+      ? rawCategories
+      : typeof rawCategories === 'string'
+        ? rawCategories.split(',').map((c: string) => c.trim()).filter(Boolean)
+        : []
 
     if (!categories || categories.length === 0) {
       return {

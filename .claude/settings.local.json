@@ -73,7 +73,14 @@
       "WebFetch(domain:rudrastyh.com)",
       "Bash(npm run:*)",
       "WebSearch",
-      "WebFetch(domain:developers.facebook.com)"
+      "WebFetch(domain:developers.facebook.com)",
+      "Bash(while read:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/**)",
+      "Bash(done)",
+      "Bash(for dir:*)",
+      "Read(//c/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/$dir/**)",
+      "Bash(ls \"c:/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/app/\\(app\\)/test-actions/\")"
     ],
     "deny": [],
     "ask": [],

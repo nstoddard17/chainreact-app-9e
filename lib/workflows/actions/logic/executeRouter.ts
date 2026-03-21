@@ -20,11 +20,25 @@ interface ExecuteRouterContext {
 export async function executeRouter(context: ExecuteRouterContext) {
   try {
     const { config, previousOutputs } = context
-    const { mode, conditions, stopMessage } = config
+    const { mode, conditions: rawConditions, stopMessage } = config
 
-    if (!conditions || conditions.length === 0) {
+    if (!rawConditions || rawConditions.length === 0) {
       throw new Error('No routing conditions configured')
     }
+
+    // Normalize conditions: if flat Condition[] is passed, wrap into a ConditionalPath[]
+    const conditions: ConditionalPath[] = rawConditions.map((item: any, index: number) => {
+      if (item.conditions && Array.isArray(item.conditions)) {
+        return item // Already a ConditionalPath
+      }
+      // Flat Condition object — wrap it into a ConditionalPath
+      return {
+        id: item.id || `path_${index}`,
+        name: item.name || `Path ${index + 1}`,
+        conditions: [item],
+        logicOperator: item.logicOperator || 'and',
+      } as ConditionalPath
+    })
 
     const isFilterMode = mode === 'filter'
 
@@ -138,7 +152,7 @@ function executeRouterMode(
 function evaluatePathConditions(path: ConditionalPath, data: Record<string, any>): boolean {
   const { conditions, logicOperator } = path
 
-  if (conditions.length === 0) {
+  if (!conditions || conditions.length === 0) {
     return true // No conditions = pass through
   }
 

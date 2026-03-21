@@ -9,6 +9,7 @@ import { logger } from '@/lib/utils/logger'
  * Example: gid://shopify/Product/123456789 → 123456789
  */
 function extractNumericId(id: string): string {
+  if (!id) return ''
   if (id.includes('gid://')) {
     return id.split('/').pop() || id
   }
@@ -20,6 +21,7 @@ function extractNumericId(id: string): string {
  * Example: 123456789 → gid://shopify/Product/123456789
  */
 function toProductGid(id: string): string {
+  if (!id) throw new Error('Product ID is required')
   if (id.includes('gid://shopify/')) {
     return id
   }
@@ -88,13 +90,18 @@ export async function updateShopifyProduct(
     if (bodyHtml) variables.input.descriptionHtml = bodyHtml
     if (vendor) variables.input.vendor = vendor
     if (productType) variables.input.productType = productType
-    if (tags) variables.input.tags = tags.split(',').map((t: string) => t.trim())
+    if (tags) variables.input.tags = typeof tags === 'string' ? tags.split(',').map((t: string) => t.trim()) : tags
     if (published !== undefined && published !== '') {
       variables.input.status = published === 'true' ? 'ACTIVE' : 'DRAFT'
     }
 
     // 5. Make GraphQL request
     const result = await makeShopifyGraphQLRequest(integration, mutation, variables, selectedStore)
+
+    if (!result?.productUpdate?.product) {
+      const userErrors = result?.productUpdate?.userErrors
+      throw new Error(userErrors?.length ? userErrors.map((e: any) => e.message).join(', ') : 'Failed to update product - no product returned')
+    }
 
     const product = result.productUpdate.product
     const shopDomain = getShopDomain(integration, selectedStore)

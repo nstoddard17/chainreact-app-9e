@@ -330,12 +330,23 @@ export async function refreshTokenForProvider(
     }
 
     if (!response.ok) {
-      const errorMessage = responseData.error_description || responseData.error || `HTTP ${response.status} - ${response.statusText}`
+      // Normalize responseData.error - some providers (e.g., Stripe) return error as an object
+      // like { type: "invalid_grant", message: "..." } instead of a plain string
+      const rawError = responseData.error
+      const errorType = typeof rawError === 'object' && rawError !== null
+        ? (rawError.type || rawError.code || rawError.error || '')
+        : (rawError || '')
+      const errorMessageFromObject = typeof rawError === 'object' && rawError !== null
+        ? (rawError.message || rawError.error_description || JSON.stringify(rawError))
+        : rawError
+      const errorMessageRaw = responseData.error_description || errorMessageFromObject || `HTTP ${response.status} - ${response.statusText}`
+      // Ensure errorMessage is always a string to prevent [object Object] in error messages
+      const errorMessage = typeof errorMessageRaw === 'string' ? errorMessageRaw : JSON.stringify(errorMessageRaw)
       logger.error(
         `❌ ${provider}: Token refresh failed (ID: ${integration.id?.substring(0, 8)}...)`, {
           status: response.status,
           error: errorMessage,
-          errorType: responseData.error,
+          errorType: errorType,
           errorDescription: responseData.error_description,
           responseKeys: Object.keys(responseData)
         }
@@ -345,7 +356,7 @@ export async function refreshTokenForProvider(
       }
 
       // Check for specific error codes that indicate an invalid refresh token
-      const isInvalidGrant = responseData.error === "invalid_grant"
+      const isInvalidGrant = errorType === "invalid_grant"
       const isInvalidOrExpiredToken = isInvalidGrant || response.status === 401
 
       // Provider-specific error handling
@@ -354,8 +365,8 @@ export async function refreshTokenForProvider(
 
       // Special handling for Gmail and Google services
       if (provider === "gmail" || provider.startsWith("google")) {
-        if (verbose) logger.info(`Google error type: ${responseData.error}`)
-        if (responseData.error === "invalid_grant") {
+        if (verbose) logger.info(`Google error type: ${errorType}`)
+        if (errorType === "invalid_grant") {
           finalErrorMessage = `Google refresh token has been revoked or expired. This can happen if you changed your password, revoked access, or haven't used this integration in over 6 months. Please reconnect your ${provider} account in Settings → Integrations.`
           needsReauth = true
         }
@@ -363,11 +374,11 @@ export async function refreshTokenForProvider(
 
       // Special handling for Discord errors
       else if (provider === "discord") {
-        if (verbose) logger.info(`Discord error type: ${responseData.error}`)
-        if (responseData.error === "invalid_scope") {
+        if (verbose) logger.info(`Discord error type: ${errorType}`)
+        if (errorType === "invalid_scope") {
           finalErrorMessage = "Discord authentication scopes have changed. Please reconnect your Discord account in Settings → Integrations."
           needsReauth = true
-        } else if (responseData.error === "invalid_grant") {
+        } else if (errorType === "invalid_grant") {
           finalErrorMessage = "Discord refresh token expired or invalid. Please reconnect your Discord account in Settings → Integrations."
           needsReauth = true
         }
@@ -375,8 +386,8 @@ export async function refreshTokenForProvider(
 
       // Special handling for Airtable errors
       else if (provider === "airtable") {
-        if (verbose) logger.info(`Airtable error type: ${responseData.error}`)
-        if (responseData.error === "invalid_grant") {
+        if (verbose) logger.info(`Airtable error type: ${errorType}`)
+        if (errorType === "invalid_grant") {
           finalErrorMessage = "Airtable refresh token expired or invalid. User must re-authorize."
           needsReauth = true
         }
@@ -384,23 +395,23 @@ export async function refreshTokenForProvider(
 
       // Special handling for Microsoft-related providers (Teams, OneDrive, Excel, etc.)
       else if (provider === "teams" || provider === "onedrive" || provider === "microsoft-excel" || provider.startsWith("microsoft")) {
-        if (verbose) logger.info(`Microsoft error type: ${responseData.error}`)
-        if (responseData.error === "invalid_grant") {
+        if (verbose) logger.info(`Microsoft error type: ${errorType}`)
+        if (errorType === "invalid_grant") {
           finalErrorMessage = `${provider} refresh token expired or invalid. User must re-authorize.`
           needsReauth = true
         }
       }
-      
+
       // Special handling for TikTok
       else if (provider === "tiktok") {
-        if (verbose) logger.info(`TikTok error type: ${responseData.error}`)
-        
+        if (verbose) logger.info(`TikTok error type: ${errorType}`)
+
         // Common TikTok error patterns
-        if (responseData.error === "invalid_client") {
+        if (errorType === "invalid_client") {
           finalErrorMessage = "TikTok client credentials are invalid or expired."
-        } else if (responseData.error === "invalid_request") {
+        } else if (errorType === "invalid_request") {
           finalErrorMessage = "TikTok refresh token request was invalid."
-        } else if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
+        } else if (errorType === "invalid_response" || errorType === "invalid_response_format") {
           finalErrorMessage = responseData.error_description || "TikTok returned an invalid response."
           needsReauth = true; // HTML responses usually indicate an expired token
         } else if (response.status === 401) {
@@ -408,12 +419,12 @@ export async function refreshTokenForProvider(
           needsReauth = true;
         }
       }
-      
+
       // Special handling for Kit
       else if (provider === "kit") {
-        if (verbose) logger.info(`Kit error type: ${responseData.error}`)
-        
-        if (responseData.error === "invalid_response" || responseData.error === "invalid_response_format") {
+        if (verbose) logger.info(`Kit error type: ${errorType}`)
+
+        if (errorType === "invalid_response" || errorType === "invalid_response_format") {
           finalErrorMessage = responseData.error_description || "Kit returned an invalid response."
           needsReauth = true; // HTML responses usually indicate an expired token
         } else if (response.status === 401) {
@@ -421,14 +432,14 @@ export async function refreshTokenForProvider(
           needsReauth = true;
         }
       }
-      
+
       // Special handling for PayPal
       else if (provider === "paypal") {
-        if (verbose) logger.info(`PayPal error type: ${responseData.error}`)
-        
-        if (responseData.error === "invalid_client") {
+        if (verbose) logger.info(`PayPal error type: ${errorType}`)
+
+        if (errorType === "invalid_client") {
           finalErrorMessage = "PayPal client credentials are invalid. Please check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET."
-        } else if (responseData.error === "invalid_grant") {
+        } else if (errorType === "invalid_grant") {
           finalErrorMessage = "PayPal refresh token expired or invalid. User must re-authorize."
           needsReauth = true
         } else if (response.status === 401) {

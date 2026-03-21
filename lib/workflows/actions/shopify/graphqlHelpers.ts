@@ -8,7 +8,8 @@
  * Example: gid://shopify/Product/123456789 → 123456789
  */
 export function extractNumericId(gid: string): string {
-  if (gid && gid.includes('gid://shopify/')) {
+  if (!gid) return ''
+  if (gid.includes('gid://shopify/')) {
     return gid.split('/').pop() || gid
   }
   return gid
@@ -18,6 +19,7 @@ export function extractNumericId(gid: string): string {
  * Convert numeric ID to Shopify GID format
  */
 export function toGid(type: string, id: string | number): string {
+  if (id === null || id === undefined) throw new Error(`${type} ID is required`)
   const idStr = String(id)
   if (idStr.includes('gid://shopify/')) {
     return idStr
