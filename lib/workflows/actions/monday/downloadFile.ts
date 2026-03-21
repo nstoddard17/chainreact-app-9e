@@ -246,9 +246,73 @@ export async function downloadMondayFile(
       }
 
       if (fileColumn.type !== 'file') {
-        throw new Error(`Column ${columnId} is not a file column (type: ${fileColumn.type})`)
+        // Column isn't a file column — fall back to searching all item files
+        logger.warn(`[Monday] Column ${columnId} is type "${fileColumn.type}", not "file". Falling back to item files.`)
+        const fallbackQuery = `
+          query($itemId: [ID!]) {
+            items(ids: $itemId) {
+              id
+              name
+              column_values {
+                id
+                type
+                value
+              }
+              assets {
+                id
+                name
+                url
+                public_url
+                file_size
+                file_extension
+              }
+              updates(limit: 100) {
+                id
+                assets {
+                  id
+                  name
+                  url
+                  public_url
+                  file_size
+                  file_extension
+                }
+              }
+            }
+          }
+        `
+        const fbResponse = await fetch('https://api.monday.com/v2', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'API-Version': '2024-01'
+          },
+          body: JSON.stringify({ query: fallbackQuery, variables: { itemId: [itemId.toString()] } })
+        })
+        if (fbResponse.ok) {
+          const fbData = await fbResponse.json()
+          const fbItem = fbData.data?.items?.[0]
+          if (fbItem) {
+            const allAssets = [
+              ...(fbItem.assets || []),
+              ...(fbItem.updates || []).flatMap((u: any) => u.assets || [])
+            ]
+            if (allAssets.length > 0) {
+              asset = fileId
+                ? allAssets.find((a: any) => a.id?.toString() === fileId.toString()) || allAssets[0]
+                : allAssets[0]
+            }
+          }
+        }
+        if (!asset) {
+          throw new Error(`Column ${columnId} is not a file column (type: ${fileColumn.type}) and no item files found`)
+        }
       }
 
+      // If we already found an asset via fallback, skip file column parsing
+      if (asset) {
+        // Asset was found via fallback — skip to output
+      } else {
       // Parse file value
       let files = []
       if (fileColumn.value) {
@@ -315,6 +379,7 @@ export async function downloadMondayFile(
       if (!asset) {
         throw new Error('File asset not found')
       }
+      } // end else (no fallback asset)
     }
 
     logger.info('✅ Monday.com file retrieved successfully', { itemId, columnId, assetId: asset.id, userId })

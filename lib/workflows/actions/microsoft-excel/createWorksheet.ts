@@ -49,6 +49,12 @@ export async function createMicrosoftExcelWorksheet(
     // Decrypt access token
     const accessToken = await decrypt(integration.access_token)
 
+    // Sanitize worksheet name: Excel forbids \ / ? * [ ] and names > 31 chars
+    const sanitizedName = (worksheetName || 'Sheet')
+      .replace(/[\\/?*\[\]]/g, '')
+      .trim()
+      .slice(0, 31) || 'Sheet'
+
     // Create the worksheet using Microsoft Graph API
     const createUrl = `${GRAPH_API_BASE}/me/drive/items/${workbookId}/workbook/worksheets`
 
@@ -59,7 +65,7 @@ export async function createMicrosoftExcelWorksheet(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        name: worksheetName
+        name: sanitizedName
       })
     })
 

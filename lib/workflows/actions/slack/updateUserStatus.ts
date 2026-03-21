@@ -25,11 +25,47 @@ export async function updateUserStatus(params: {
     const profile: any = {}
     if (statusText !== undefined) profile.status_text = statusText
     if (statusEmoji !== undefined) profile.status_emoji = statusEmoji
-    if (statusExpiration) {
-      // Convert to Unix timestamp if it's a date string
-      profile.status_expiration = typeof statusExpiration === 'number'
-        ? statusExpiration
-        : Math.floor(new Date(statusExpiration).getTime() / 1000)
+
+    // Handle expiration from select dropdown or direct values
+    if (statusExpiration && statusExpiration !== '0') {
+      const now = Math.floor(Date.now() / 1000)
+      if (typeof statusExpiration === 'number') {
+        profile.status_expiration = statusExpiration
+      } else if (/^\d+$/.test(statusExpiration)) {
+        // Numeric string from select: minutes to add
+        const minutes = parseInt(statusExpiration, 10)
+        if (minutes > 0) {
+          profile.status_expiration = now + minutes * 60
+        }
+      } else if (statusExpiration === 'today') {
+        const endOfDay = new Date()
+        endOfDay.setHours(23, 59, 59, 0)
+        profile.status_expiration = Math.floor(endOfDay.getTime() / 1000)
+      } else if (statusExpiration === 'week') {
+        const endOfWeek = new Date()
+        const daysUntilSunday = 7 - endOfWeek.getDay()
+        endOfWeek.setDate(endOfWeek.getDate() + daysUntilSunday)
+        endOfWeek.setHours(23, 59, 59, 0)
+        profile.status_expiration = Math.floor(endOfWeek.getTime() / 1000)
+      } else if (statusExpiration === 'custom') {
+        // Use customExpiration field (minutes)
+        const customMinutes = parseInt(config.customExpiration, 10)
+        if (customMinutes > 0) {
+          profile.status_expiration = now + customMinutes * 60
+        }
+      } else {
+        // Try parsing as date string
+        const parsed = new Date(statusExpiration).getTime()
+        if (!isNaN(parsed)) {
+          profile.status_expiration = Math.floor(parsed / 1000)
+        }
+      }
+    }
+
+    // Validate that at least one profile field is set
+    if (Object.keys(profile).length === 0) {
+      profile.status_text = ''
+      profile.status_emoji = ''
     }
 
     const result = await callSlackApi('users.profile.set', accessToken, { profile })

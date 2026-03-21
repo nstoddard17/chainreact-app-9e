@@ -87,11 +87,12 @@ export async function addTeamsReaction(
     const accessToken = await decrypt(integration.access_token)
 
     // Construct API endpoint based on message type
+    // Use beta endpoint — setReaction is not fully supported on v1.0
     let endpoint: string
     if (messageType === 'channel') {
-      endpoint = `https://graph.microsoft.com/v1.0/teams/${teamId}/channels/${channelId}/messages/${messageId}/setReaction`
+      endpoint = `https://graph.microsoft.com/beta/teams/${teamId}/channels/${channelId}/messages/${messageId}/setReaction`
     } else {
-      endpoint = `https://graph.microsoft.com/v1.0/chats/${chatId}/messages/${messageId}/setReaction`
+      endpoint = `https://graph.microsoft.com/beta/chats/${chatId}/messages/${messageId}/setReaction`
     }
 
     // Add the reaction
