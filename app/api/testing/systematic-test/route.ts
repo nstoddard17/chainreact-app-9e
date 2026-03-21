@@ -31,6 +31,7 @@ import {
   SKIP_ACTIONS,
   resolveDynamicConfig,
   resolvePrereqs,
+  dedupTestNames,
 } from '@/lib/workflows/testing/testChains'
 
 // ── Types ───────────────────────────────────────────────────────────────
@@ -524,6 +525,7 @@ export async function POST(request: NextRequest) {
       })
 
       await resolveDynamicConfig(providerId, user.id, testConfig)
+      dedupTestNames(testConfig)
 
       const integrationId = integrationMap.get(providerId)
       if (integrationId) {

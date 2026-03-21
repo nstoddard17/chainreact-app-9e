@@ -36,6 +36,26 @@ export function extractNestedValue(obj: any, path: string): any {
   return path.split('.').reduce((acc, key) => acc?.[key], obj)
 }
 
+/**
+ * Append a short runtime timestamp to name fields that cause "already exists" errors.
+ * Only stamps values that start with '[TEST' or 'test-' to avoid corrupting real IDs.
+ */
+const DEDUP_FIELDS = ['channelName', 'worksheetName', 'displayName', 'notebookName', 'newName', 'name', 'sectionName']
+export function dedupTestNames(config: Record<string, any>): void {
+  const ts = Date.now().toString(36).slice(-5)
+  for (const field of DEDUP_FIELDS) {
+    const val = config[field]
+    if (val && typeof val === 'string') {
+      if (val.startsWith('[TEST')) {
+        config[field] = `${val}-${ts}`
+      } else if (val.startsWith('test-')) {
+        // Slack-compatible names (lowercase, no spaces)
+        config[field] = `${val}-${ts}`
+      }
+    }
+  }
+}
+
 // ── Skip actions ─────────────────────────────────────────────────────────
 
 export const SKIP_ACTIONS: Record<string, string> = {
@@ -65,6 +85,8 @@ export const SKIP_ACTIONS: Record<string, string> = {
   'onedrive_action_upload_file': 'Requires real file upload which is not supported in automated testing',
   'tavily_search': 'Requires TAVILY_API_KEY environment variable not configured',
   'microsoft-outlook_action_get_attachment': 'Prereq sends email without attachments - always fails',
+  'github_action_add_comment': 'Requires a valid issue number — 422 Validation Failed',
+  'twitter_action_post_tweet': 'Twitter/X API unreliable (503s) — manually tested',
   // Stripe — manually tested, skip in automated runs
   'stripe_action_create_customer': 'Manually tested — Stripe integration verified',
   'stripe_action_update_customer': 'Manually tested — Stripe integration verified',
@@ -370,7 +392,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'microsoft_excel_action_create_workbook',
     prereqConfig: { title: '[TEST-PREREQ] Workbook for worksheet tests' },
     outputMapping: { workbookId: 'workbookId' },
-    testConfigOverrides: { worksheetName: 'TEST Worksheet' },
+    testConfigOverrides: { worksheetName: '[TEST] Worksheet' },
   },
   'microsoft_excel_action_rename_worksheet': {
     prereqNodeType: 'microsoft_excel_action_create_worksheet',
@@ -750,7 +772,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'teams_action_create_team',
     prereqConfig: { displayName: '[TEST-PREREQ] Team for channel', description: 'Auto-created for testing' },
     outputMapping: { teamId: 'teamId' },
-    testConfigOverrides: { channelName: '[TEST] Channel', description: 'Test channel' },
+    testConfigOverrides: { channelName: '[TEST] Channel', description: 'Test channel created by automated testing' },
   },
   'teams_action_get_channel_details': {
     prereqNodeType: 'teams_action_create_channel',
@@ -1055,6 +1077,12 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   // ║  ONEDRIVE                                                           ║
   // ╚══════════════════════════════════════════════════════════════════════╝
 
+  'onedrive_action_find_item_by_id': {
+    prereqNodeType: 'onedrive_action_create_folder',
+    prereqConfig: { folderName: '[TEST-PREREQ] Folder for find by ID' },
+    outputMapping: { id: 'itemId' },
+    testConfigOverrides: { includeMetadata: false },
+  },
   'onedrive_action_get_file': {
     prereqNodeType: 'onedrive_action_create_folder',
     prereqConfig: { folderName: '[TEST-PREREQ] Folder for get file' },
@@ -1834,6 +1862,9 @@ export async function resolvePrereqs(
   // Resolve dynamic config for the prereq
   await resolveDynamicConfig(prereqProviderId, userId, prereqConfig)
 
+  // Dedup name fields to avoid "already exists" errors on re-runs
+  dedupTestNames(prereqConfig)
+
   // Inject integration ID
   if (integrationId) {
     prereqConfig.workspace = prereqConfig.workspace || integrationId
@@ -1877,6 +1908,9 @@ export async function resolvePrereqs(
 
   // Apply static overrides
   if (prereq.testConfigOverrides) Object.assign(testConfig, prereq.testConfigOverrides)
+
+  // Dedup test config name fields after overrides applied
+  dedupTestNames(testConfig)
 
   // Post-prereq: build Shopify line_items from variant_gid if available
   if (testConfig.variant_gid && (!testConfig.line_items || (Array.isArray(testConfig.line_items) && testConfig.line_items.length === 0))) {

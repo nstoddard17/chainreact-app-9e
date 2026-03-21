@@ -615,6 +615,10 @@ export const NODE_TYPE_OVERRIDES: Record<string, Record<string, any>> = {
     relativeTime: '5',
     relativeUnit: 'minutes',
   },
+  slack_action_create_channel: {
+    channelName: 'test-auto-channel',
+    is_private: false,
+  },
   slack_action_upload_file: {
     channels: '#test-automation',
     channel: '#test-automation',
@@ -710,6 +714,9 @@ export const NODE_TYPE_OVERRIDES: Record<string, Record<string, any>> = {
   },
 
   // ── OneNote actions ─────────────────────────────────────────────────
+  'microsoft-onenote_action_create_notebook': {
+    displayName: '[TEST] Notebook',
+  },
   onenote_action_get_notebook: {
     notebookId: 'test-notebook-id',
     notebook_id: 'test-notebook-id',
