@@ -43,7 +43,9 @@ export async function createGmailDraftReply(
     )
 
     if (!originalResponse.ok) {
-      throw new Error(`Failed to fetch original message: ${originalResponse.status}`)
+      const errorBody = await originalResponse.json().catch(() => ({ error: { message: originalResponse.statusText } }))
+      const errorMsg = errorBody?.error?.message || originalResponse.statusText
+      throw new Error(`Failed to fetch original message (${originalResponse.status}): ${errorMsg}. messageId="${messageId}"`)
     }
 
     const originalMessage = await originalResponse.json()

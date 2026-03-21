@@ -1,4 +1,4 @@
-import { GitBranch, Plus, GitPullRequest, FileText, MessageSquare } from "lucide-react"
+import { GitBranch, Plus, GitPullRequest, FileText, MessageSquare, GitBranchPlus } from "lucide-react"
 import { NodeComponent } from "../../types"
 
 // Import GitHub action metadata if it exists
@@ -281,6 +281,56 @@ export const githubNodes: NodeComponent[] = [
       { name: "url", label: "PR URL", type: "string", description: "The web URL of the pull request" },
       { name: "state", label: "PR State", type: "string", description: "The current state (open/closed)" },
       { name: "draft", label: "Is Draft", type: "boolean", description: "Whether the PR is a draft" }
+    ]
+  },
+  {
+    type: "github_action_create_branch",
+    title: "Create Branch",
+    description: "Create a new branch in a GitHub repository",
+    icon: GitBranchPlus,
+    providerId: "github",
+    requiredScopes: ["repo"],
+    category: "Developer",
+    isTrigger: false,
+    configSchema: [
+      {
+        name: "repository",
+        label: "Repository",
+        type: "combobox",
+        required: true,
+        dynamic: "github_repositories",
+        loadOnMount: true,
+        placeholder: "Select a repository",
+        description: "Select the repository where you want to create the branch"
+      },
+      {
+        name: "branchName",
+        label: "Branch Name",
+        type: "text",
+        required: true,
+        dependsOn: "repository",
+        placeholder: "e.g., feature/my-feature",
+        description: "Name for the new branch"
+      },
+      {
+        name: "sourceBranch",
+        label: "Source Branch",
+        type: "combobox",
+        required: false,
+        dynamic: "github_branches",
+        dependsOn: "repository",
+        defaultValue: "main",
+        placeholder: "Branch to create from (default: main)",
+        description: "The existing branch to create the new branch from"
+      }
+    ],
+    outputSchema: [
+      { name: "branchName", label: "Branch Name", type: "string", description: "The name of the created branch" },
+      { name: "sha", label: "Commit SHA", type: "string", description: "The SHA of the commit the branch points to" },
+      { name: "ref", label: "Git Ref", type: "string", description: "The full git reference (refs/heads/...)" },
+      { name: "repository", label: "Repository", type: "string", description: "The repository (owner/repo)" },
+      { name: "sourceBranch", label: "Source Branch", type: "string", description: "The branch it was created from" },
+      { name: "url", label: "Branch URL", type: "string", description: "URL to view the branch on GitHub" }
     ]
   },
   {

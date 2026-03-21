@@ -174,8 +174,19 @@ export async function createFacebookPost(
       Object.assign(payload, monetizationData)
     }
 
+    // Generate appsecret_proof for server-side calls
+    const crypto = require('crypto')
+    const appSecret = process.env.FACEBOOK_CLIENT_SECRET
+    if (!appSecret) {
+      throw new Error("Facebook app secret not configured")
+    }
+    const appsecretProof = crypto
+      .createHmac('sha256', appSecret)
+      .update(pageAccessToken)
+      .digest('hex')
+
     // Create the post
-    const response = await fetch(`https://graph.facebook.com/v18.0/${pageId}/feed`, {
+    const response = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed?appsecret_proof=${appsecretProof}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${pageAccessToken}`,
@@ -186,7 +197,8 @@ export async function createFacebookPost(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw new Error(`Facebook API error: ${response.status} - ${errorData.error?.message || response.statusText}`)
+      const fbError = errorData.error
+      throw new Error(`Facebook API error: ${response.status} - ${fbError?.message || response.statusText}${fbError?.error_user_msg ? ` (${fbError.error_user_msg})` : ''}${fbError?.error_subcode ? ` [subcode: ${fbError.error_subcode}]` : ''}`)
     }
 
     const result = await response.json()
@@ -519,11 +531,35 @@ export async function getFacebookPageInsights(
       pageId,
       metric,
       period,
-      periodCount
+      periodCount,
+      dateRange,
+      since,
+      until
     } = resolvedConfig
 
-    if (!pageId || !metric || !period || !periodCount) {
-      throw new Error("Page ID, metric, period, and period count are required")
+    if (!pageId || !metric || !period) {
+      throw new Error("Page ID, metric, and period are required")
+    }
+
+    // Derive periodCount from dateRange if not explicitly provided
+    let resolvedPeriodCount = periodCount
+    if (!resolvedPeriodCount && dateRange) {
+      switch (dateRange) {
+        case 'today': resolvedPeriodCount = 1; break
+        case 'yesterday': resolvedPeriodCount = 2; break
+        case 'last_7_days': resolvedPeriodCount = 7; break
+        case 'last_14_days': resolvedPeriodCount = 14; break
+        case 'last_28_days': resolvedPeriodCount = 28; break
+        case 'last_30_days': resolvedPeriodCount = 30; break
+        case 'last_90_days': resolvedPeriodCount = 90; break
+        case 'this_month': resolvedPeriodCount = new Date().getDate(); break
+        case 'last_month': resolvedPeriodCount = 30; break
+        case 'custom': resolvedPeriodCount = 30; break
+        default: resolvedPeriodCount = 7; break
+      }
+    }
+    if (!resolvedPeriodCount) {
+      resolvedPeriodCount = 7 // Default to 7 days
     }
 
     // Get Facebook integration
@@ -561,22 +597,27 @@ export async function getFacebookPageInsights(
       .update(pageAccessToken)
       .digest('hex')
 
-    // Build the insights URL - calculate the since date based on periodCount
+    // Build the insights URL - calculate the since date based on resolvedPeriodCount
     const now = new Date();
     let sinceDate: Date;
-    
-    switch (period) {
-      case 'day':
-        sinceDate = new Date(now.getTime() - (periodCount * 24 * 60 * 60 * 1000));
-        break;
-      case 'week':
-        sinceDate = new Date(now.getTime() - (periodCount * 7 * 24 * 60 * 60 * 1000));
-        break;
-      case 'month':
-        sinceDate = new Date(now.getTime() - (periodCount * 30 * 24 * 60 * 60 * 1000));
-        break;
-      default:
-        sinceDate = new Date(now.getTime() - (periodCount * 24 * 60 * 60 * 1000));
+
+    // Use custom since/until dates if provided
+    if (since && until) {
+      sinceDate = new Date(since);
+    } else {
+      switch (period) {
+        case 'day':
+          sinceDate = new Date(now.getTime() - (resolvedPeriodCount * 24 * 60 * 60 * 1000));
+          break;
+        case 'week':
+          sinceDate = new Date(now.getTime() - (resolvedPeriodCount * 7 * 24 * 60 * 60 * 1000));
+          break;
+        case 'month':
+          sinceDate = new Date(now.getTime() - (resolvedPeriodCount * 30 * 24 * 60 * 60 * 1000));
+          break;
+        default:
+          sinceDate = new Date(now.getTime() - (resolvedPeriodCount * 24 * 60 * 60 * 1000));
+      }
     }
     
     const sinceTimestamp = Math.floor(sinceDate.getTime() / 1000);
@@ -602,11 +643,11 @@ export async function getFacebookPageInsights(
         pageId: pageId,
         metric: metric,
         period: period,
-        periodCount: periodCount,
+        periodCount: resolvedPeriodCount,
         insights: result.data || [],
         facebookResponse: result
       },
-      message: `Successfully retrieved ${metric} insights for the last ${periodCount} ${period}(s)`
+      message: `Successfully retrieved ${metric} insights for the last ${resolvedPeriodCount} ${period}(s)`
     }
 
   } catch (error: any) {

@@ -336,6 +336,18 @@ function generateMockResponse(actionType: string, config: any, input: any): any 
         created: true
       }
 
+    case "github_action_create_branch":
+      return {
+        ...baseResponse,
+        ref: `refs/heads/${config.branchName || "test-branch"}`,
+        branchName: config.branchName || "test-branch",
+        sha: `sha_${Date.now()}`,
+        repository: config.repository || "owner/repo",
+        sourceBranch: config.sourceBranch || "main",
+        url: `https://github.com/owner/repo/tree/${config.branchName || "test-branch"}`,
+        created: true
+      }
+
     case "discord_action_send_message":
       return {
         ...baseResponse,

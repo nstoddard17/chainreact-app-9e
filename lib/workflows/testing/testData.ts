@@ -155,13 +155,19 @@ export const TEST_DATA: TestDataConfig = {
 
   // Development tools
   github: {
-    repoName: 'test-repo',
-    owner: 'chainreact-test', // Test organization
-    issueTitle: '[TEST] Automated Test Issue',
-    issueBody: 'This issue was created by automated testing. Please close.',
-    prTitle: '[TEST] Automated Test PR',
-    prBody: 'This PR was created by automated testing. Do not merge.',
-    branch: 'test-automation',
+    repository: '', // Dynamically resolved to user's TEST-Repository
+    name: 'TEST-Repository', // For create_repository action
+    title: '[TEST] Automated Test Issue',
+    body: 'This issue was created by automated testing. Please close.',
+    branchName: `test-automation-${Date.now()}`, // Unique branch name per run
+    sourceBranch: 'main',
+    head: 'test-automation',
+    base: 'main',
+    filename: 'test-file.txt',
+    content: '// Test content created by ChainReact automated testing',
+    isPrivate: true,
+    autoInit: true,
+    isPublic: false,
   },
 
   // CRM & Marketing
@@ -200,8 +206,14 @@ export const TEST_DATA: TestDataConfig = {
   },
 
   facebook: {
-    message: '[TEST] Automated Facebook post test',
-    pageId: 'test-page-id', // Will be configured
+    message: '[TEST] Automated Facebook post test - safe to delete',
+    pageId: '', // Dynamically resolved from user's connected pages
+    metric: 'page_media_view',
+    period: 'day',
+    dateRange: 'last_7_days',
+    caption: '[TEST] Automated photo caption',
+    title: '[TEST] Automated video title',
+    description: '[TEST] Automated video description',
   },
 
   // AI actions
@@ -263,6 +275,19 @@ export function buildTestConfig(
   // Fill in any required fields that are missing
   if (node.configSchema) {
     for (const field of node.configSchema) {
+      // Skip conditionally-required fields whose parent condition isn't met
+      // (e.g., productLinkUrl is required only when enableMonetization=true)
+      if (field.visibilityCondition) {
+        const parentField = field.visibilityCondition.field
+        const parentValue = config[parentField]
+        const expectedValue = field.visibilityCondition.value
+        const operator = field.visibilityCondition.operator
+
+        // If parent field isn't set or doesn't match the visibility condition, skip
+        if (operator === 'equals' && parentValue !== expectedValue) continue
+        if (operator === 'isNotEmpty' && !parentValue) continue
+      }
+
       if (field.required && !config[field.name]) {
         // Provide sensible defaults based on field type
         switch (field.type) {

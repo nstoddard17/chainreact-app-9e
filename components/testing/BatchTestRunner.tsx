@@ -49,6 +49,7 @@ export function BatchTestRunner() {
   const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set())
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set())
   const [filterMode, setFilterMode] = useState<'all' | 'connected'>('connected')
+  const [resultFilter, setResultFilter] = useState<'all' | 'passed' | 'failed'>('all')
   const abortRef = useRef(false)
 
   // Load integrations on mount
@@ -188,6 +189,56 @@ export function BatchTestRunner() {
   const stopTests = useCallback(() => {
     abortRef.current = true
   }, [])
+
+  // Retest only the failed ones
+  const retestFailed = useCallback(async () => {
+    const failedTypes = results.filter(r => !r.success).map(r => r.nodeType)
+    if (failedTypes.length === 0) return
+
+    // Remove old failed results, keep passed ones
+    setResults(prev => prev.filter(r => r.success))
+    setStatus('running')
+    setResultFilter('all')
+    abortRef.current = false
+
+    const batchSize = 5
+    for (let i = 0; i < failedTypes.length; i += batchSize) {
+      if (abortRef.current) break
+
+      const batch = failedTypes.slice(i, i + batchSize)
+      setCurrentTest(batch[0])
+
+      try {
+        const response = await fetchWithTimeout('/api/testing/batch-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nodeTypes: batch }),
+        }, 180000)
+
+        const data = await response.json()
+
+        if (data.results) {
+          setResults(prev => [...prev, ...data.results])
+        }
+      } catch (error: any) {
+        for (const nodeType of batch) {
+          const node = ALL_NODE_COMPONENTS.find(n => n.type === nodeType)
+          setResults(prev => [...prev, {
+            nodeType,
+            nodeTitle: node?.title || nodeType,
+            providerId: node?.providerId || 'unknown',
+            success: false,
+            duration: 0,
+            message: `Request failed: ${error.message}`,
+            error: error.message,
+          }])
+        }
+      }
+    }
+
+    setCurrentTest(null)
+    setStatus('done')
+  }, [results])
 
   // Copy error details for sharing
   const copyErrorDetails = useCallback((result: TestResult) => {
@@ -369,33 +420,64 @@ export function BatchTestRunner() {
         <div className="flex-1 flex flex-col min-h-0">
           {/* Results header */}
           {results.length > 0 && (
-            <div className="px-4 py-3 border-b flex items-center gap-3">
-              <div className="flex items-center gap-4 text-sm">
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  {passed} passed
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <XCircle className="h-4 w-4 text-red-500" />
-                  {failed} failed
-                </span>
-                <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Clock className="h-4 w-4" />
-                  {Math.round(results.reduce((s, r) => s + r.duration, 0) / 1000)}s total
-                </span>
+            <div className="px-4 py-3 border-b space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    {passed} passed
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <XCircle className="h-4 w-4 text-red-500" />
+                    {failed} failed
+                  </span>
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    {Math.round(results.reduce((s, r) => s + r.duration, 0) / 1000)}s total
+                  </span>
+                </div>
+                <div className="ml-auto flex items-center gap-1.5">
+                  {failed > 0 && status === 'done' && (
+                    <Button size="sm" variant="default" onClick={retestFailed} className="text-xs h-7 gap-1.5">
+                      <RotateCcw className="h-3 w-3" />
+                      Retest {failed} Failed
+                    </Button>
+                  )}
+                  {failed > 0 && (
+                    <Button size="sm" variant="outline" onClick={copyAllFailures} className="text-xs h-7 gap-1.5">
+                      <Copy className="h-3 w-3" />
+                      Copy Failures
+                    </Button>
+                  )}
+                  {status === 'done' && (
+                    <Button size="sm" variant="ghost" onClick={() => { setResults([]); setStatus('idle'); setResultFilter('all') }} className="text-xs h-7 gap-1.5">
+                      <RotateCcw className="h-3 w-3" />
+                      Reset
+                    </Button>
+                  )}
+                </div>
               </div>
-              {failed > 0 && (
-                <Button size="sm" variant="outline" onClick={copyAllFailures} className="ml-auto text-xs h-7 gap-1.5">
-                  <Copy className="h-3 w-3" />
-                  Copy All Failures
+              {/* Result filter tabs */}
+              <div className="flex gap-1">
+                <Button
+                  size="sm" variant={resultFilter === 'all' ? 'secondary' : 'ghost'}
+                  onClick={() => setResultFilter('all')} className="text-xs h-6 px-2"
+                >
+                  All ({results.length})
                 </Button>
-              )}
-              {status === 'done' && (
-                <Button size="sm" variant="ghost" onClick={() => { setResults([]); setStatus('idle') }} className="text-xs h-7 gap-1.5">
-                  <RotateCcw className="h-3 w-3" />
-                  Reset
+                <Button
+                  size="sm" variant={resultFilter === 'failed' ? 'secondary' : 'ghost'}
+                  onClick={() => setResultFilter('failed')} className="text-xs h-6 px-2"
+                >
+                  Failed ({failed})
                 </Button>
-              )}
+                <Button
+                  size="sm" variant={resultFilter === 'passed' ? 'secondary' : 'ghost'}
+                  onClick={() => setResultFilter('passed')} className="text-xs h-6 px-2"
+                >
+                  Passed ({passed})
+                </Button>
+              </div>
             </div>
           )}
 
@@ -423,7 +505,9 @@ export function BatchTestRunner() {
             )}
 
             <div className="p-2 space-y-1">
-              {results.map((result, i) => {
+              {results
+              .filter(r => resultFilter === 'all' ? true : resultFilter === 'failed' ? !r.success : r.success)
+              .map((result, i) => {
                 const isErrorExpanded = expandedErrors.has(result.nodeType)
 
                 return (

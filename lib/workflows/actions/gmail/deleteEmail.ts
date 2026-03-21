@@ -95,8 +95,17 @@ export async function deleteGmailEmail(
 
     logger.info(`[Gmail Delete] Successfully ${permanentDelete ? 'permanently deleted' : 'moved to trash'} ${successCount}/${messageIds.length} email(s)`)
 
+    if (successCount === 0) {
+      const firstError = results.find(r => !r.success)?.error || 'Unknown error'
+      return {
+        success: false,
+        message: `Failed to delete email: ${firstError}`,
+        error: firstError,
+      }
+    }
+
     return {
-      success: successCount > 0,
+      success: true,
       output: {
         ...input,
         messageIds,

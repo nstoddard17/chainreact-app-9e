@@ -295,6 +295,7 @@ import {
   createGitHubIssue,
   createGitHubRepository,
   createGitHubPullRequest,
+  createGitHubBranch,
   createGitHubGist,
   addGitHubComment,
 } from './github'
@@ -1341,6 +1342,8 @@ export const actionHandlerRegistry: Record<string, Function> = {
     createGitHubRepository(params.config, params.userId, params.input),
   "github_action_create_pull_request": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createGitHubPullRequest(params.config, params.userId, params.input),
+  "github_action_create_branch": (params: { config: any; userId: string; input: Record<string, any> }) =>
+    createGitHubBranch(params.config, params.userId, params.input),
   "github_action_create_gist": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createGitHubGist(params.config, params.userId, params.input),
   "github_action_add_comment": (params: { config: any; userId: string; input: Record<string, any> }) =>

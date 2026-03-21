@@ -382,6 +382,44 @@ export const OUTPUT_SCHEMA_FALLBACKS: Record<string, OutputField[]> = {
       description: "Whether GitHub reports the pull request as mergeable.",
     },
   ],
+  github_action_create_branch: [
+    {
+      name: "branchName",
+      label: "Branch Name",
+      type: "string",
+      description: "Name of the created branch.",
+    },
+    {
+      name: "sha",
+      label: "Commit SHA",
+      type: "string",
+      description: "SHA of the commit the branch points to.",
+    },
+    {
+      name: "ref",
+      label: "Git Ref",
+      type: "string",
+      description: "Full git reference path (refs/heads/...).",
+    },
+    {
+      name: "repository",
+      label: "Repository",
+      type: "string",
+      description: "Full name of the repository (owner/repo).",
+    },
+    {
+      name: "sourceBranch",
+      label: "Source Branch",
+      type: "string",
+      description: "The branch it was created from.",
+    },
+    {
+      name: "url",
+      label: "Branch URL",
+      type: "string",
+      description: "URL to view the branch on GitHub.",
+    },
+  ],
   github_action_create_gist: [
     {
       name: "gistId",

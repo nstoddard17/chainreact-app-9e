@@ -117,6 +117,11 @@ const OUTPUT_SCHEMA_REGISTRY: Record<string, OutputField[]> = {
     { name: 'title', label: 'Title', type: 'string' },
     { name: 'url', label: 'URL', type: 'string' }
   ],
+  'github_action_create_branch': [
+    { name: 'branchName', label: 'Branch Name', type: 'string' },
+    { name: 'sha', label: 'Commit SHA', type: 'string' },
+    { name: 'url', label: 'Branch URL', type: 'string' }
+  ],
 
   // Trello Actions
   'trello_action_create_card': [

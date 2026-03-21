@@ -294,6 +294,10 @@ export const DOWNSTREAM_VARIABLE_MAP: Record<string, DownstreamVariable[]> = {
     { name: 'prTitle', label: 'PR Title', type: 'string', description: 'Title of the pull request' },
     { name: 'prBody', label: 'PR Body', type: 'string', description: 'Description of the pull request' },
   ],
+  'github_action_create_branch': [
+    { name: 'branchName', label: 'Branch Name', type: 'string', description: 'Name of the new branch' },
+    { name: 'sourceBranch', label: 'Source Branch', type: 'string', description: 'Branch it was created from' },
+  ],
   'github_action_add_comment': [
     { name: 'commentBody', label: 'Comment', type: 'string', description: 'Comment content to add' },
   ],

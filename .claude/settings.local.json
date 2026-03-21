@@ -71,7 +71,9 @@
       "Bash(npx stripe:*)",
       "WebFetch(domain:mailchimp.com)",
       "WebFetch(domain:rudrastyh.com)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "WebSearch",
+      "WebFetch(domain:developers.facebook.com)"
     ],
     "deny": [],
     "ask": [],

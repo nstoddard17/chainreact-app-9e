@@ -371,7 +371,7 @@ function generateGitHubAuthUrl(state: string): string {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${baseUrl}/api/integrations/github/callback`,
-    scope: "repo user:email read:org",
+    scope: "repo gist user:email read:org",
     state,
     response_type: "code",
   })

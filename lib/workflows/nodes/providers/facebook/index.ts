@@ -311,49 +311,36 @@ const facebookActionGetPageInsights: NodeComponent = {
     { name: "pageId", label: "Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true },
     
     // Metric selection - only visible after page selection
-    { name: "metric", label: "Metric", type: "select", required: true, defaultValue: "page_impressions", dependsOn: "pageId", options: [
-      // Engagement Metrics
-      { value: "page_engaged_users", label: "📊 Engaged Users" },
-      { value: "page_post_engagements", label: "📊 Post Engagements" },
-      { value: "page_consumptions", label: "📊 Page Clicks" },
-      { value: "page_consumptions_unique", label: "📊 Unique Page Clicks" },
-      { value: "page_negative_feedback", label: "📊 Negative Feedback" },
-      { value: "page_positive_feedback_by_type", label: "📊 Positive Feedback by Type" },
-      
-      // Reach & Impressions
-      { value: "page_impressions", label: "👁️ Page Impressions" },
-      { value: "page_impressions_unique", label: "👁️ Unique Page Impressions" },
-      { value: "page_impressions_paid", label: "👁️ Paid Impressions" },
-      { value: "page_impressions_organic", label: "👁️ Organic Impressions" },
-      { value: "page_impressions_viral", label: "👁️ Viral Impressions" },
+    // Updated March 2026: removed metrics deprecated Nov 15 2025 (page_impressions → page_media_view, page_fans → page_follows, etc.)
+    { name: "metric", label: "Metric", type: "select", required: true, defaultValue: "page_media_view", dependsOn: "pageId", options: [
+      // Views & Reach (replacements for deprecated impressions metrics)
+      { value: "page_media_view", label: "👁️ Page Media Views" },
+      { value: "page_total_media_view_unique", label: "👁️ Unique Page Media Views" },
       { value: "page_views_total", label: "👁️ Total Page Views" },
-      
-      // Page Fans & Followers
-      { value: "page_fans", label: "👥 Total Page Fans" },
-      { value: "page_fans_locale", label: "👥 Fans by Language" },
-      { value: "page_fans_city", label: "👥 Fans by City" },
-      { value: "page_fans_country", label: "👥 Fans by Country" },
-      { value: "page_fans_gender_age", label: "👥 Fans by Age and Gender" },
-      { value: "page_fan_adds", label: "👥 New Page Fans" },
-      { value: "page_fan_removes", label: "👥 Page Unfollows" },
-      { value: "page_fans_online", label: "👥 Fans Online" },
-      
-      // Post Performance
-      { value: "page_posts_impressions", label: "📝 Post Impressions" },
-      { value: "page_posts_impressions_unique", label: "📝 Unique Post Impressions" },
-      { value: "page_posts_impressions_paid", label: "📝 Paid Post Impressions" },
-      { value: "page_posts_impressions_organic", label: "📝 Organic Post Impressions" },
-      { value: "page_posts_impressions_viral", label: "📝 Viral Post Impressions" },
-      
+
+      // Engagement Metrics
+      { value: "page_post_engagements", label: "📊 Post Engagements" },
+      { value: "page_total_actions", label: "📊 Total Page Actions" },
+
+      // Page Followers (replacements for deprecated page_fans metrics)
+      { value: "page_follows", label: "👥 Total Page Followers" },
+      { value: "page_daily_follows", label: "👥 New Followers (Daily)" },
+      { value: "page_daily_follows_unique", label: "👥 Unique New Followers" },
+      { value: "page_daily_unfollows_unique", label: "👥 Unfollows" },
+      { value: "page_fan_adds", label: "👥 New Page Likes" },
+      { value: "page_fan_adds_unique", label: "👥 Unique New Page Likes" },
+      { value: "page_fan_removes", label: "👥 Page Unlikes" },
+
       // Video Metrics
       { value: "page_video_views", label: "🎥 Video Views" },
       { value: "page_video_views_paid", label: "🎥 Paid Video Views" },
       { value: "page_video_views_organic", label: "🎥 Organic Video Views" },
+      { value: "page_video_views_unique", label: "🎥 Unique Video Views" },
       { value: "page_video_views_autoplayed", label: "🎥 Autoplayed Video Views" },
       { value: "page_video_views_click_to_play", label: "🎥 Click-to-Play Video Views" },
       { value: "page_video_complete_views_30s", label: "🎥 30-Second Video Views" },
       { value: "page_video_repeat_views", label: "🎥 Repeat Video Views" },
-      
+
       // Reactions Breakdown
       { value: "page_actions_post_reactions_like_total", label: "❤️ Total Likes" },
       { value: "page_actions_post_reactions_love_total", label: "❤️ Total Love Reactions" },
@@ -361,22 +348,7 @@ const facebookActionGetPageInsights: NodeComponent = {
       { value: "page_actions_post_reactions_haha_total", label: "❤️ Total Haha Reactions" },
       { value: "page_actions_post_reactions_sorry_total", label: "❤️ Total Sad Reactions" },
       { value: "page_actions_post_reactions_anger_total", label: "❤️ Total Angry Reactions" },
-      
-      // Demographics & Reach
-      { value: "page_impressions_by_age_gender_unique", label: "📈 Reach by Age and Gender" },
-      { value: "page_impressions_by_country_unique", label: "📈 Reach by Country" },
-      { value: "page_impressions_by_city_unique", label: "📈 Reach by City" },
-      { value: "page_impressions_by_locale_unique", label: "📈 Reach by Language" },
-      
-      // CTA Clicks
-      { value: "page_call_phone_clicks", label: "☎️ Phone Call Clicks" },
-      { value: "page_get_directions_clicks", label: "📍 Get Directions Clicks" },
-      { value: "page_website_clicks", label: "🌐 Website Clicks" },
-      { value: "page_cta_clicks_logged_in", label: "🔘 Call-to-Action Button Clicks" },
-      
-      // Check-ins & Visits
-      { value: "page_places_checkin_total", label: "📍 Total Check-ins" },
-      { value: "page_places_checkin_mobile", label: "📍 Mobile Check-ins" }
+      { value: "page_actions_post_reactions_total", label: "❤️ All Reactions Total" },
     ]},
     
     // Time period settings - visible after page selection
@@ -384,8 +356,6 @@ const facebookActionGetPageInsights: NodeComponent = {
       { value: "day", label: "Daily" },
       { value: "week", label: "Weekly" },
       { value: "days_28", label: "28 Days" },
-      { value: "month", label: "Monthly" },
-      { value: "lifetime", label: "Lifetime (where available)" }
     ]},
     
     // Date range for custom period

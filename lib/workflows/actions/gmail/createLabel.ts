@@ -68,11 +68,39 @@ export async function createGmailLabel(
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: { message: response.statusText } }))
 
-      // Check if label already exists
+      // If label already exists, fetch it and return success (idempotent)
       if (response.status === 409 || error.error?.message?.includes('already exists')) {
+        try {
+          const labelsResponse = await fetch(
+            'https://www.googleapis.com/gmail/v1/users/me/labels',
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          )
+          if (labelsResponse.ok) {
+            const labelsData = await labelsResponse.json()
+            const existingLabel = (labelsData.labels || []).find(
+              (l: any) => l.name?.toLowerCase() === labelName.toLowerCase()
+            )
+            if (existingLabel) {
+              return {
+                success: true,
+                output: {
+                  ...input,
+                  labelId: existingLabel.id,
+                  labelName: existingLabel.name,
+                  success: true,
+                  alreadyExisted: true,
+                  createdAt: new Date().toISOString(),
+                },
+                message: `Label "${labelName}" already exists`,
+              }
+            }
+          }
+        } catch {
+          // Fall through to error
+        }
         return {
           success: false,
-          message: `Label "${labelName}" already exists`,
+          message: `Label "${labelName}" already exists but could not be retrieved`,
           error: 'Label already exists',
         }
       }

@@ -403,6 +403,117 @@ export async function createGitHubGist(
 }
 
 /**
+ * Create a new branch in a GitHub repository
+ */
+export async function createGitHubBranch(
+  config: any,
+  userId: string,
+  input: Record<string, any>
+): Promise<ActionResult> {
+  try {
+    const resolvedConfig = resolveValue(config, input)
+
+    const {
+      repository,
+      branchName,
+      sourceBranch = "main"
+    } = resolvedConfig
+
+    if (!repository || !branchName) {
+      throw new Error("Repository and branch name are required")
+    }
+
+    const { createSupabaseServerClient } = await import("@/utils/supabase/server")
+    const supabase = await createSupabaseServerClient()
+
+    const { data: integration } = await supabase
+      .from("integrations")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("provider", "github")
+      .eq("status", "connected")
+      .single()
+
+    if (!integration) {
+      throw new Error("GitHub integration not connected")
+    }
+
+    const accessToken = await getDecryptedAccessToken(userId, "github")
+
+    // Parse repository (format: owner/repo)
+    const [owner, repo] = repository.split('/')
+    if (!owner || !repo) {
+      throw new Error("Repository must be in format 'owner/repo'")
+    }
+
+    // Get the SHA of the source branch to branch from
+    const sourceResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${sourceBranch}`,
+      {
+        headers: {
+          Authorization: `token ${accessToken}`,
+          "Accept": "application/vnd.github.v3+json"
+        }
+      }
+    )
+
+    if (!sourceResponse.ok) {
+      const errorData = await sourceResponse.json().catch(() => ({}))
+      throw new Error(`Failed to get source branch "${sourceBranch}": ${sourceResponse.status} - ${errorData.message || sourceResponse.statusText}`)
+    }
+
+    const sourceRef = await sourceResponse.json()
+    const sha = sourceRef.object.sha
+
+    // Create the new branch ref
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/refs`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `token ${accessToken}`,
+          "Accept": "application/vnd.github.v3+json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ref: `refs/heads/${branchName}`,
+          sha: sha
+        })
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`GitHub API error: ${response.status} - ${errorData.message || response.statusText}`)
+    }
+
+    const result = await response.json()
+
+    return {
+      success: true,
+      output: {
+        ref: result.ref,
+        branchName: branchName,
+        sha: result.object.sha,
+        repository: repository,
+        sourceBranch: sourceBranch,
+        url: `https://github.com/${owner}/${repo}/tree/${branchName}`,
+        githubResponse: result
+      },
+      message: `Branch "${branchName}" created successfully in ${repository} from ${sourceBranch}`
+    }
+
+  } catch (error: any) {
+    logger.error("GitHub create branch error:", error)
+    return {
+      success: false,
+      output: {},
+      message: error.message || "Failed to create GitHub branch"
+    }
+  }
+}
+
+/**
  * Add a comment to a GitHub issue or pull request
  */
 export async function addGitHubComment(

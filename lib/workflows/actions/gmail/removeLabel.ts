@@ -94,8 +94,17 @@ export async function removeGmailLabel(
 
     logger.info(`[Gmail Remove Label] Successfully removed labels from ${successCount}/${messageIds.length} email(s)`)
 
+    if (successCount === 0) {
+      const firstError = results.find(r => !r.success)?.error || 'Unknown error'
+      return {
+        success: false,
+        message: `Failed to remove labels: ${firstError}`,
+        error: firstError,
+      }
+    }
+
     return {
-      success: successCount > 0,
+      success: true,
       output: {
         ...input,
         messageIds,

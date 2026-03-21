@@ -168,6 +168,15 @@ export async function applyGmailLabels(
 
     const successCount = results.filter(r => r.success).length
 
+    if (successCount === 0 && results.length > 0) {
+      const firstError = results.find(r => !r.success)?.error || 'Unknown error'
+      return {
+        success: false,
+        output: {},
+        message: `Failed to apply labels: ${firstError}`,
+      }
+    }
+
     return {
       success: successCount > 0,
       output: {
