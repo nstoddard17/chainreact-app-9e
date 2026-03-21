@@ -66,6 +66,7 @@ export const SKIP_ACTIONS: Record<string, string> = {
   'google_analytics_action_create_measurement_secret': 'Creates a real API secret each run (tested as prerequisite)',
   'google_analytics_action_create_conversion_event': 'Creates a real conversion event each run',
   'mailchimp_action_send_campaign': 'Would actually send a campaign email to subscribers',
+  'mailchimp_action_schedule_campaign': 'Campaign requires recipients and content before scheduling — Mailchimp API limitation',
   'slack_action_rename_channel': 'Destructive - would rename a real channel',
   'slack_action_archive_channel': 'Destructive - would archive a real channel',
   'slack_action_unarchive_channel': 'Requires a previously archived channel',
@@ -399,7 +400,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqConfig: { worksheetName: 'TEST-PREREQ Sheet to rename' },
     outputMapping: { worksheetId: 'worksheetId', worksheetName: 'worksheetName' },
     additionalCacheMapping: { 'microsoft_excel_action_create_workbook': { workbookId: 'workbookId' } },
-    testConfigOverrides: { newName: 'TEST Renamed sheet' },
+    testConfigOverrides: { newWorksheetName: 'TEST Renamed sheet' },
     cacheKey: 'excel_worksheet_for_rename',
   },
   'microsoft_excel_action_delete_worksheet': {
@@ -421,7 +422,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqConfig: { worksheetName: 'TEST-PREREQ Sheet for multi rows' },
     outputMapping: { worksheetName: 'worksheetName' },
     additionalCacheMapping: { 'microsoft_excel_action_create_workbook': { workbookId: 'workbookId' } },
-    testConfigOverrides: { rows: JSON.stringify([{ A: 'Row1', B: 'Val1' }, { A: 'Row2', B: 'Val2' }]) },
+    testConfigOverrides: { hasHeaders: 'no', rows: JSON.stringify([{ A: 'Row1', B: 'Val1' }, { A: 'Row2', B: 'Val2' }]) },
     cacheKey: 'excel_worksheet_for_multi_rows',
   },
   'microsoft-excel_action_export_sheet': {
@@ -817,7 +818,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqConfig: { message: '[TEST-PREREQ] Message for reaction' },
     outputMapping: { messageId: 'messageId', channelId: 'channelId' },
     additionalCacheMapping: { 'teams_action_create_team': { teamId: 'teamId' } },
-    testConfigOverrides: { reactionType: 'like' },
+    testConfigOverrides: { messageType: 'channel', reactionType: 'like' },
     cacheKey: 'teams_msg_for_reaction',
   },
   'teams_action_remove_reaction': {
@@ -943,7 +944,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   },
   'shopify_action_update_customer': {
     prereqNodeType: 'shopify_action_create_customer',
-    prereqConfig: { email: `test-upd-${Date.now()}@chainreact-test.app`, first_name: 'TestUpd', last_name: 'Customer' },
+    prereqConfig: {},
     outputMapping: { customer_id: 'customer_id' },
     testConfigOverrides: { first_name: 'UpdatedTest' },
   },
@@ -1067,8 +1068,9 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'monday_action_download_file': {
     prereqNodeType: 'monday_action_add_file',
     prereqConfig: {},
-    outputMapping: { columnId: 'columnId', itemId: 'itemId', fileName: 'fileName' },
+    outputMapping: { itemId: 'itemId' },
     additionalCacheMapping: { 'monday_action_create_item': { itemId: 'itemId' } },
+    testConfigOverrides: { columnId: '__item_files__' },
     cacheKey: 'monday_file_for_download',
   },
 

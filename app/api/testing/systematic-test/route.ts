@@ -25,7 +25,7 @@ import { executeAction } from '@/lib/workflows/executeNode'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { buildTestConfig } from '@/lib/workflows/testing/testData'
 import { logger } from '@/lib/utils/logger'
-import { loadCache, canSkipTest, recordTestResult, clearCache } from '@/lib/workflows/testing/testCache'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   PREREQUISITE_MAP,
   SKIP_ACTIONS,
@@ -52,7 +52,6 @@ interface ClassifiedResult {
   failureCategory?: FailureCategory
   failureReason?: string
   suggestedFix?: string
-  cachedPass?: boolean
 }
 
 // ── Failure classification ──────────────────────────────────────────────
@@ -172,8 +171,6 @@ function generateMarkdownReport(
   byProvider: Record<string, { passed: number; failed: number; total: number }>,
 ): string {
   const passed = results.filter(r => r.success).length
-  const freshPasses = results.filter(r => r.success && !r.cachedPass).length
-  const cachedPasses = results.filter(r => r.success && r.cachedPass).length
   const failed = results.filter(r => !r.success).length
   const skipped = results.filter(r => r.failureCategory === 'skipped').length
   const passRate = results.length > 0 ? Math.round((passed / results.length) * 100) : 0
@@ -183,7 +180,7 @@ function generateMarkdownReport(
     `# ChainReact Systematic Test Report`,
     ``,
     `**Date:** ${now}`,
-    `**Total:** ${results.length} | **Passed:** ${passed} (${freshPasses} new, ${cachedPasses} cached) | **Failed:** ${failed} | **Skipped:** ${skipped} | **Pass Rate:** ${passRate}%`,
+    `**Total:** ${results.length} | **Passed:** ${passed} | **Failed:** ${failed} | **Skipped:** ${skipped} | **Pass Rate:** ${passRate}%`,
     ``,
     `---`,
     ``,
@@ -298,22 +295,12 @@ function generateMarkdownReport(
   }
   lines.push(``)
 
-  // ── Freshly passed actions ──────────────────────────────────────────
-  const freshPassed = results.filter(r => r.success && !r.cachedPass)
-  if (freshPassed.length > 0) {
-    lines.push(`## Passed Actions (${freshPassed.length} newly verified)`, ``)
-    for (const r of freshPassed) {
+  // ── Passed actions ──────────────────────────────────────────
+  const passedActions = results.filter(r => r.success)
+  if (passedActions.length > 0) {
+    lines.push(`## Passed Actions (${passedActions.length})`, ``)
+    for (const r of passedActions) {
       lines.push(`- ✅ \`${r.nodeType}\` — ${r.nodeTitle} (${r.duration}ms)`)
-    }
-    lines.push(``)
-  }
-
-  // ── Cached passes (skipped — code unchanged) ─────────────────────
-  const cachedPassed = results.filter(r => r.success && r.cachedPass)
-  if (cachedPassed.length > 0) {
-    lines.push(`## Previously Passed (${cachedPassed.length} skipped — code unchanged)`, ``)
-    for (const r of cachedPassed) {
-      lines.push(`- ⏭️ \`${r.nodeType}\` — ${r.nodeTitle} (last passed: ${r.message.replace('Cached pass (', '').replace(')', '')})`)
     }
     lines.push(``)
   }
@@ -349,9 +336,9 @@ export async function GET() {
 </head><body>
   <h1>Systematic Action Tester</h1>
   <p>Tests <strong>every connected action</strong> with real API calls. Generates a categorized .md report you can give to Claude to fix issues.</p>
-  <p>Previously passed tests are skipped if the handler code hasn't changed.</p>
+  <p>Previously passed tests are skipped. Check "Force rerun" to re-test everything.</p>
   <label style="display:block;margin:12px 0;cursor:pointer;">
-    <input type="checkbox" id="forceRerun" style="margin-right:8px;"> Force rerun all tests (ignore cache)
+    <input type="checkbox" id="forceRerun" style="margin-right:8px;"> Force rerun all tests
   </label>
   <button id="btn" onclick="runTests()">Run Tests & Download Report</button>
   <div id="status"></div>
@@ -424,9 +411,13 @@ export async function POST(request: NextRequest) {
       forceRerun?: boolean
     }
 
-    // Load test cache from database
-    if (forceRerun) await clearCache()
-    const cache = await loadCache()
+    // If force rerun, clear all previous results from DB
+    if (forceRerun) {
+      try {
+        const admin = createAdminClient()
+        await admin.from('systematic_test_results').delete().neq('node_type', '')
+      } catch { /* table may not exist yet */ }
+    }
 
     // Get user's connected integrations
     const { data: integrations } = await supabase
@@ -468,8 +459,7 @@ export async function POST(request: NextRequest) {
       return aDestructive - bDestructive
     })
 
-    const cachedCount = targetNodes.filter(n => canSkipTest(cache, n.type, n.providerId || '')).length
-    logger.debug(`[systematic-test] Testing ${targetNodes.length} actions across ${new Set(targetNodes.map(n => n.providerId)).size} providers (${cachedCount} cached)`)
+    logger.debug(`[systematic-test] Testing ${targetNodes.length} actions across ${new Set(targetNodes.map(n => n.providerId)).size} providers`)
 
     const results: ClassifiedResult[] = []
     // Shared prereq output cache — prereqs that already ran are reused across tests
@@ -492,19 +482,32 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Check cache — skip if previously passed and code unchanged
+      // Check DB for previously passed result — skip unless force rerun
       if (!forceRerun) {
-        const cached = canSkipTest(cache, nodeType, providerId)
-        if (cached) {
-          results.push({
-            nodeType, nodeTitle: nodeComponent.title, providerId,
-            success: true, duration: cached.duration,
-            message: `Cached pass (${cached.passedAt})`,
-            cachedPass: true,
-          })
-          continue
+        try {
+          const admin = createAdminClient()
+          const { data: prevResult } = await admin
+            .from('systematic_test_results')
+            .select('status, duration_ms, tested_at')
+            .eq('node_type', nodeType)
+            .eq('provider_id', providerId)
+            .eq('status', 'passed')
+            .single()
+
+          if (prevResult) {
+            results.push({
+              nodeType, nodeTitle: nodeComponent.title, providerId,
+              success: true, duration: prevResult.duration_ms || 0,
+              message: `Previously passed (${prevResult.tested_at})`,
+            })
+            continue
+          }
+        } catch {
+          // Table may not exist or query failed — just run the test
         }
       }
+
+
 
       const noIntegrationNeeded = ['ai', 'logic', 'utility', 'automation']
       if (!noIntegrationNeeded.includes(providerId) && !integrationMap.has(providerId)) {
@@ -582,10 +585,21 @@ export async function POST(request: NextRequest) {
           result.failureCategory = classification.category
           result.failureReason = classification.reason
           result.suggestedFix = classification.suggestedFix
-          await recordTestResult(nodeType, providerId, nodeComponent.title, 'failed', duration, errorMsg)
-        } else {
-          await recordTestResult(nodeType, providerId, nodeComponent.title, 'passed', duration)
         }
+
+        // Record result in DB so passed tests can be skipped next run
+        try {
+          const admin = createAdminClient()
+          await admin.from('systematic_test_results').upsert({
+            node_type: nodeType,
+            provider_id: providerId,
+            node_title: nodeComponent.title,
+            status: success ? 'passed' : 'failed',
+            duration_ms: duration,
+            error_message: success ? null : (testResult.error || testResult.message || null),
+            tested_at: new Date().toISOString(),
+          }, { onConflict: 'node_type' })
+        } catch { /* table may not exist yet */ }
 
         results.push(result)
       } catch (error: any) {
@@ -593,7 +607,6 @@ export async function POST(request: NextRequest) {
         const errorMsg = error.message || 'Unknown error'
         const classification = classifyFailure(errorMsg, nodeType, providerId)
 
-        await recordTestResult(nodeType, providerId, nodeComponent.title, 'failed', duration, errorMsg)
         results.push({
           nodeType, nodeTitle: nodeComponent.title, providerId,
           success: false, duration,
