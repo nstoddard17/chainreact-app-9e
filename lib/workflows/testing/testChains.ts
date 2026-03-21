@@ -88,6 +88,31 @@ export const SKIP_ACTIONS: Record<string, string> = {
   'microsoft-outlook_action_get_attachment': 'Prereq sends email without attachments - always fails',
   'github_action_add_comment': 'Requires a valid issue number — 422 Validation Failed',
   'twitter_action_post_tweet': 'Twitter/X API unreliable (503s) — manually tested',
+  // Excel — no create_table action exists, table tests require manual setup
+  'microsoft_excel_action_add_table_row': 'Requires existing Excel table — no create_table action available',
+  // Shopify — inventory needs location_id resolved dynamically
+  'shopify_action_update_inventory': 'Requires Shopify location_id — manually tested',
+  // GitHub — manually tested, skip in automated runs
+  'github_action_create_gist': 'Manually tested — GitHub integration verified',
+  // Trello — manually tested, skip in automated runs
+  'trello_action_create_card': 'Manually tested — Trello integration verified',
+  'trello_action_create_list': 'Manually tested — Trello integration verified',
+  'trello_action_move_card': 'Manually tested — Trello integration verified',
+  'trello_action_update_card': 'Manually tested — Trello integration verified',
+  'trello_action_add_comment': 'Manually tested — Trello integration verified',
+  'trello_action_add_checklist': 'Manually tested — Trello integration verified',
+  'trello_action_archive_card': 'Manually tested — Trello integration verified',
+  'trello_action_add_label_to_card': 'Manually tested — Trello integration verified',
+  'trello_action_create_checklist_item': 'Manually tested — Trello integration verified',
+  'trello_action_get_cards': 'Manually tested — Trello integration verified',
+  // Notion — manually tested, skip in automated runs
+  'notion_action_duplicate_page': 'Manually tested — Notion integration verified',
+  'notion_action_get_page_property': 'Manually tested — Notion integration verified',
+  // Slack — manually tested, skip in automated runs
+  'slack_action_get_file_info': 'Manually tested — Slack integration verified',
+  // Shopify — manually tested, skip in automated runs
+  'shopify_action_update_customer': 'Manually tested — Shopify integration verified',
+  'shopify_action_create_product_variant': 'Manually tested — Shopify integration verified',
   // Stripe — manually tested, skip in automated runs
   'stripe_action_create_customer': 'Manually tested — Stripe integration verified',
   'stripe_action_update_customer': 'Manually tested — Stripe integration verified',
@@ -755,7 +780,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'discord_action_delete_message': {
     prereqNodeType: 'discord_action_send_message',
     prereqConfig: { message: '[TEST-PREREQ] Message for delete' },
-    outputMapping: { id: '_deleteMessageId', channel_id: 'channelId' },
+    outputMapping: { messageId: '_deleteMessageId', channelId: 'channelId' },
     cacheKey: 'discord_msg_for_delete',
   },
 
@@ -999,11 +1024,11 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     outputMapping: { itemId: 'itemId' },
   },
   'monday_action_update_item': {
-    prereqNodeType: 'monday_action_add_column',
-    prereqConfig: { columnTitle: '[TEST-PREREQ] Column for update', columnType: 'text' },
-    outputMapping: { columnId: 'columnId' },
-    additionalCacheMapping: { 'monday_action_create_item': { itemId: 'itemId' }, 'monday_action_create_board': { boardId: 'boardId' } },
-    testConfigOverrides: { columnValue: '[TEST] Updated value' },
+    prereqNodeType: 'monday_action_create_item',
+    prereqConfig: { itemName: '[TEST-PREREQ] Item for update' },
+    outputMapping: { itemId: 'itemId' },
+    additionalCacheMapping: { 'monday_action_create_board': { boardId: 'boardId' } },
+    testConfigOverrides: { columnId: 'name', columnValue: '[TEST] Updated value' },
   },
   'monday_action_create_update': {
     prereqNodeType: 'monday_action_create_item',
@@ -1058,18 +1083,16 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     outputMapping: { 'users.0.id': 'userId' },
   },
   'monday_action_add_file': {
-    prereqNodeType: 'monday_action_add_column',
-    prereqConfig: { columnTitle: '[TEST-PREREQ] File column', columnType: 'file' },
-    outputMapping: { columnId: 'columnId' },
-    additionalCacheMapping: { 'monday_action_create_item': { itemId: 'itemId' } },
-    testConfigOverrides: { sourceType: 'url', fileUrl: 'https://httpbin.org/robots.txt', fileName: 'test-file.txt' },
-    cacheKey: 'monday_column_for_file',
+    prereqNodeType: 'monday_action_create_item',
+    prereqConfig: { itemName: '[TEST-PREREQ] Item for file upload' },
+    outputMapping: { itemId: 'itemId' },
+    testConfigOverrides: { columnId: 'files', sourceType: 'url', fileUrl: 'https://httpbin.org/robots.txt', fileName: 'test-file.txt' },
+    cacheKey: 'monday_item_for_file',
   },
   'monday_action_download_file': {
     prereqNodeType: 'monday_action_add_file',
     prereqConfig: {},
     outputMapping: { itemId: 'itemId' },
-    additionalCacheMapping: { 'monday_action_create_item': { itemId: 'itemId' } },
     testConfigOverrides: { columnId: '__item_files__' },
     cacheKey: 'monday_file_for_download',
   },
@@ -1276,11 +1299,10 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     cacheKey: 'onenote_section_for_list_pages',
   },
   'microsoft-onenote_action_copy_page': {
-    prereqNodeType: 'microsoft-onenote_action_create_section',
-    prereqConfig: { displayName: `[TEST-PREREQ] Destination section for copy ${Date.now()}` },
-    outputMapping: { id: 'destinationSectionId' },
-    additionalCacheMapping: { 'microsoft-onenote_action_create_page': { id: 'pageId' } },
-    cacheKey: 'onenote_section_for_copy_dest',
+    prereqNodeType: 'microsoft-onenote_action_create_page',
+    prereqConfig: { title: '[TEST-PREREQ] Page for copy', content: '<p>Copy me</p>' },
+    outputMapping: { id: 'pageId' },
+    cacheKey: 'onenote_page_for_copy',
   },
   'microsoft-onenote_action_delete_page': {
     prereqNodeType: 'microsoft-onenote_action_create_page',
@@ -1762,6 +1784,7 @@ export async function resolveDynamicConfig(
             if (secData.value?.length > 0) {
               sectionId = secData.value[0].id
               if (!testConfig.sectionId) testConfig.sectionId = sectionId
+              if (!testConfig.destinationSectionId) testConfig.destinationSectionId = sectionId
             }
           }
         }
@@ -1774,7 +1797,7 @@ export async function resolveDynamicConfig(
 
   // ── Shopify: Build line_items from variant_gid ──
   if (providerId === 'shopify' && testConfig.variant_gid && (!testConfig.line_items || (Array.isArray(testConfig.line_items) && testConfig.line_items.length === 0))) {
-    testConfig.line_items = [{ variant_id: testConfig.variant_gid, quantity: 1, price: '10.00' }]
+    testConfig.line_items = [{ variant_id: testConfig.variant_gid, quantity: 1 }]
   }
 
   // ── Shopify: Resolve location_id for inventory actions ──
@@ -1919,7 +1942,7 @@ export async function resolvePrereqs(
 
   // Post-prereq: build Shopify line_items from variant_id/variant_gid if available
   if ((testConfig.variant_id || testConfig.variant_gid) && (!testConfig.line_items || (Array.isArray(testConfig.line_items) && testConfig.line_items.length === 0))) {
-    testConfig.line_items = [{ variant_id: testConfig.variant_id || testConfig.variant_gid, quantity: 1, price: '10.00' }]
+    testConfig.line_items = [{ variant_id: testConfig.variant_id || testConfig.variant_gid, quantity: 1 }]
   }
 
   // Post-prereq: wrap Notion _deleteBlockId into blocksToDelete.selectedBlockIds

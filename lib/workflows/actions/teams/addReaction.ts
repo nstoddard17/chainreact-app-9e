@@ -3,8 +3,17 @@ import { decrypt } from '@/lib/security/encryption'
 import { ActionResult } from '../index'
 import { logger } from '@/lib/utils/logger'
 
-// Microsoft Graph setReaction expects specific reaction type strings
-const VALID_REACTION_TYPES = ['like', 'angry', 'sad', 'laugh', 'heart', 'surprised'] as const
+// Microsoft Graph setReaction expects unicode emoji characters, not string names
+// See: https://learn.microsoft.com/en-us/graph/api/chatmessage-setreaction
+const REACTION_TYPE_TO_EMOJI: Record<string, string> = {
+  'like': '👍',
+  'heart': '❤️',
+  'laugh': '😂',
+  'surprised': '😮',
+  'sad': '😢',
+  'angry': '😠',
+}
+const VALID_REACTION_TYPES = Object.keys(REACTION_TYPE_TO_EMOJI)
 
 /**
  * Add an emoji reaction to a Microsoft Teams message
@@ -38,12 +47,13 @@ export async function addTeamsReaction(
 
     // Validate and normalize reaction type
     const normalizedReaction = reactionType.toLowerCase().trim()
-    if (!VALID_REACTION_TYPES.includes(normalizedReaction as any)) {
+    if (!VALID_REACTION_TYPES.includes(normalizedReaction)) {
       return {
         success: false,
         error: `Invalid reaction type: "${reactionType}". Valid types are: ${VALID_REACTION_TYPES.join(', ')}`
       }
     }
+    const reactionEmoji = REACTION_TYPE_TO_EMOJI[normalizedReaction]
 
     if (!messageId) {
       return {
@@ -87,12 +97,11 @@ export async function addTeamsReaction(
     const accessToken = await decrypt(integration.access_token)
 
     // Construct API endpoint based on message type
-    // Use beta endpoint — setReaction is not fully supported on v1.0
     let endpoint: string
     if (messageType === 'channel') {
-      endpoint = `https://graph.microsoft.com/beta/teams/${teamId}/channels/${channelId}/messages/${messageId}/setReaction`
+      endpoint = `https://graph.microsoft.com/v1.0/teams/${teamId}/channels/${channelId}/messages/${messageId}/setReaction`
     } else {
-      endpoint = `https://graph.microsoft.com/beta/chats/${chatId}/messages/${messageId}/setReaction`
+      endpoint = `https://graph.microsoft.com/v1.0/chats/${chatId}/messages/${messageId}/setReaction`
     }
 
     // Add the reaction
@@ -103,7 +112,7 @@ export async function addTeamsReaction(
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        reactionType: normalizedReaction
+        reactionType: reactionEmoji
       })
     })
 
