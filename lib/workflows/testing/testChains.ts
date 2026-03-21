@@ -49,6 +49,17 @@ export const SKIP_ACTIONS: Record<string, string> = {
   'slack_action_rename_channel': 'Destructive - would rename a real channel',
   'slack_action_archive_channel': 'Destructive - would archive a real channel',
   'slack_action_unarchive_channel': 'Requires a previously archived channel',
+  'gmail_action_get_attachment': 'Prereq sends email without attachments - always fails',
+  'gmail_action_download_attachment': 'Prereq sends email without attachments - always fails',
+  'google_calendar_action_move_event': 'Requires two different calendars - no secondary calendar available in test',
+  'mailchimp_action_create_audience': 'Requires premium API access not available on free plan',
+  'teams_action_edit_message': 'Requires ChannelMessage.ReadWrite scope (admin consent required)',
+  'teams_action_delete_message': 'Requires ChannelMessage.ReadWrite scope (admin consent required)',
+  'google-drive:copy_file': 'Requires file ownership permissions not available in test',
+  'facebook_action_update_post': 'Requires pages_manage_posts permission not available in test app',
+  'extract_website_data': 'Fetch fails in serverless environment due to network restrictions',
+  'teams_action_create_group_chat': 'Requires real Microsoft 365 users in directory',
+  'microsoft-outlook_action_get_attachment': 'Prereq sends email without attachments - always fails',
 }
 
 // ── Prerequisite map ─────────────────────────────────────────────────────
@@ -103,16 +114,8 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] for draft reply', body: 'Auto-prereq.' },
     outputMapping: { messageId: 'messageId', threadId: 'threadId' },
   },
-  'gmail_action_get_attachment': {
-    prereqNodeType: 'gmail_action_send_email',
-    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] for get attachment', body: 'Auto-prereq.' },
-    outputMapping: { messageId: 'messageId' },
-  },
-  'gmail_action_download_attachment': {
-    prereqNodeType: 'gmail_action_send_email',
-    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] for download attachment', body: 'Auto-prereq.' },
-    outputMapping: { messageId: 'messageId' },
-  },
+  // gmail_action_get_attachment and gmail_action_download_attachment moved to SKIP_ACTIONS
+  // because prereq sends email without attachments, causing guaranteed failure
 
   // ╔══════════════════════════════════════════════════════════════════════╗
   // ║  GOOGLE CALENDAR                                                    ║
@@ -245,41 +248,43 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   // ║  send_email doesn't return messageId, so we use fetch_emails        ║
   // ╚══════════════════════════════════════════════════════════════════════╝
 
+  // All Outlook email actions share ONE sent email (cacheKey: 'outlook_shared_email')
+  // delete_email runs last since it destroys the shared resource
   'microsoft-outlook_action_reply_to_email': {
-    prereqNodeType: 'microsoft-outlook_action_fetch_emails',
-    prereqConfig: { maxResults: '1' },
-    outputMapping: { 'messages.0.id': 'emailId' },
+    prereqNodeType: 'microsoft-outlook_action_send_email',
+    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] shared Outlook email', body: 'Auto-prereq for all Outlook email tests.' },
+    outputMapping: { messageId: 'emailId' },
     testConfigOverrides: { body: '[TEST] Automated reply - safe to delete' },
+    cacheKey: 'outlook_shared_email',
   },
   'microsoft-outlook_action_forward_email': {
-    prereqNodeType: 'microsoft-outlook_action_fetch_emails',
-    prereqConfig: { maxResults: '1' },
-    outputMapping: { 'messages.0.id': 'emailId' },
-    testConfigOverrides: { to: 'chainreactapp@gmail.com', comment: '[TEST] Forwarded for testing' },
-  },
-  'microsoft-outlook_action_delete_email': {
     prereqNodeType: 'microsoft-outlook_action_send_email',
-    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] for Outlook delete', body: 'Auto-prereq.' },
-    outputMapping: {},
-    // After send, we need to fetch the email to get the ID
-    cacheKey: 'outlook_send_for_delete',
+    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] shared Outlook email', body: 'Auto-prereq for all Outlook email tests.' },
+    outputMapping: { messageId: 'emailId' },
+    testConfigOverrides: { to: 'chainreactapp@gmail.com', comment: '[TEST] Forwarded for testing' },
+    cacheKey: 'outlook_shared_email',
   },
   'microsoft-outlook_action_add_categories': {
-    prereqNodeType: 'microsoft-outlook_action_fetch_emails',
-    prereqConfig: { maxResults: '1' },
-    outputMapping: { 'messages.0.id': 'emailId' },
+    prereqNodeType: 'microsoft-outlook_action_send_email',
+    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] shared Outlook email', body: 'Auto-prereq for all Outlook email tests.' },
+    outputMapping: { messageId: 'emailId' },
     testConfigOverrides: { categories: 'Blue category' },
+    cacheKey: 'outlook_shared_email',
   },
-  'microsoft-outlook_action_get_attachment': {
-    prereqNodeType: 'microsoft-outlook_action_fetch_emails',
-    prereqConfig: { maxResults: '1' },
-    outputMapping: { 'messages.0.id': 'emailId' },
-  },
+  // microsoft-outlook_action_get_attachment moved to SKIP_ACTIONS (no attachments in prereq email)
   'microsoft-outlook_action_move_email': {
-    prereqNodeType: 'microsoft-outlook_action_fetch_emails',
-    prereqConfig: { maxResults: '1' },
-    outputMapping: { 'messages.0.id': 'emailId' },
+    prereqNodeType: 'microsoft-outlook_action_send_email',
+    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] shared Outlook email', body: 'Auto-prereq for all Outlook email tests.' },
+    outputMapping: { messageId: 'emailId' },
+    cacheKey: 'outlook_shared_email',
     // destinationFolderId resolved dynamically
+  },
+  // delete_email MUST run last — it destroys the shared email
+  'microsoft-outlook_action_delete_email': {
+    prereqNodeType: 'microsoft-outlook_action_send_email',
+    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] shared Outlook email', body: 'Auto-prereq for all Outlook email tests.' },
+    outputMapping: { messageId: 'emailId' },
+    cacheKey: 'outlook_shared_email',
   },
 
   // ╔══════════════════════════════════════════════════════════════════════╗
@@ -333,33 +338,33 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'microsoft_excel_action_create_workbook',
     prereqConfig: { title: '[TEST-PREREQ] Workbook for worksheet tests' },
     outputMapping: { workbookId: 'workbookId' },
-    testConfigOverrides: { worksheetName: '[TEST] Worksheet' },
+    testConfigOverrides: { worksheetName: 'TEST Worksheet' },
   },
   'microsoft_excel_action_rename_worksheet': {
     prereqNodeType: 'microsoft_excel_action_create_worksheet',
-    prereqConfig: { worksheetName: '[TEST-PREREQ] Sheet to rename' },
+    prereqConfig: { worksheetName: 'TEST-PREREQ Sheet to rename' },
     outputMapping: { worksheetId: 'worksheetId', worksheetName: 'worksheetName' },
     additionalCacheMapping: { 'microsoft_excel_action_create_workbook': { workbookId: 'workbookId' } },
-    testConfigOverrides: { newName: '[TEST] Renamed sheet' },
+    testConfigOverrides: { newName: 'TEST Renamed sheet' },
     cacheKey: 'excel_worksheet_for_rename',
   },
   'microsoft_excel_action_delete_worksheet': {
     prereqNodeType: 'microsoft_excel_action_create_worksheet',
-    prereqConfig: { worksheetName: '[TEST-PREREQ] Sheet to delete' },
+    prereqConfig: { worksheetName: 'TEST-PREREQ Sheet to delete' },
     outputMapping: { worksheetId: 'worksheetId', worksheetName: 'worksheetName' },
     additionalCacheMapping: { 'microsoft_excel_action_create_workbook': { workbookId: 'workbookId' } },
     cacheKey: 'excel_worksheet_for_delete',
   },
   'microsoft_excel_action_add_row': {
     prereqNodeType: 'microsoft_excel_action_create_worksheet',
-    prereqConfig: { worksheetName: '[TEST-PREREQ] Sheet for rows' },
+    prereqConfig: { worksheetName: 'TEST-PREREQ Sheet for rows' },
     outputMapping: { worksheetName: 'worksheetName' },
     additionalCacheMapping: { 'microsoft_excel_action_create_workbook': { workbookId: 'workbookId' } },
     testConfigOverrides: { columnMapping: JSON.stringify([{ column: 'A', value: 'Test Name' }, { column: 'B', value: 'Test Value' }]) },
   },
   'microsoft_excel_action_add_multiple_rows': {
     prereqNodeType: 'microsoft_excel_action_create_worksheet',
-    prereqConfig: { worksheetName: '[TEST-PREREQ] Sheet for multi rows' },
+    prereqConfig: { worksheetName: 'TEST-PREREQ Sheet for multi rows' },
     outputMapping: { worksheetName: 'worksheetName' },
     additionalCacheMapping: { 'microsoft_excel_action_create_workbook': { workbookId: 'workbookId' } },
     testConfigOverrides: { rows: JSON.stringify([{ A: 'Row1', B: 'Val1' }, { A: 'Row2', B: 'Val2' }]) },
@@ -388,7 +393,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   },
   'microsoft_excel_action_add_table_row': {
     prereqNodeType: 'microsoft_excel_action_create_worksheet',
-    prereqConfig: { worksheetName: '[TEST-PREREQ] Sheet for table row' },
+    prereqConfig: { worksheetName: 'TEST-PREREQ Sheet for table row' },
     outputMapping: { worksheetName: 'worksheetName' },
     additionalCacheMapping: { 'microsoft_excel_action_create_workbook': { workbookId: 'workbookId' } },
     cacheKey: 'excel_worksheet_for_table',
@@ -555,7 +560,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'slack_action_get_thread_messages': {
     prereqNodeType: 'slack_action_send_message',
     prereqConfig: { message: '[TEST-PREREQ] Message for thread' },
-    outputMapping: { channel: 'channel', messageId: 'messageId' },
+    outputMapping: { channel: 'channel', timestamp: 'threadTs' },
   },
   'slack_action_add_reaction': {
     prereqNodeType: 'slack_action_send_message',
@@ -576,24 +581,26 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     outputMapping: { channel: 'channel', messageId: 'messageId' },
   },
   'slack_action_unpin_message': {
-    prereqNodeType: 'slack_action_send_message',
-    prereqConfig: { message: '[TEST-PREREQ] Message for unpin' },
+    prereqNodeType: 'slack_action_pin_message',
+    prereqConfig: {},
     outputMapping: { channel: 'channel', messageId: 'messageId' },
-    cacheKey: 'slack_msg_for_unpin',
+    cacheKey: 'slack_pin_for_unpin',
   },
 
   // ── Slack channel ops (dynamic channel resolution) ──
   'slack_action_set_channel_topic': {
-    prereqNodeType: 'slack_action_list_channels',
+    prereqNodeType: 'slack_action_join_channel',
     prereqConfig: {},
-    outputMapping: { 'channels.0.id': 'channel' },
+    outputMapping: { channel: 'channel' },
     testConfigOverrides: { topic: '[TEST] Topic set by automated test' },
+    cacheKey: 'slack_join_for_topic',
   },
   'slack_action_set_channel_purpose': {
-    prereqNodeType: 'slack_action_list_channels',
+    prereqNodeType: 'slack_action_join_channel',
     prereqConfig: {},
-    outputMapping: { 'channels.0.id': 'channel' },
+    outputMapping: { channel: 'channel' },
     testConfigOverrides: { purpose: '[TEST] Purpose set by automated test' },
+    cacheKey: 'slack_join_for_purpose',
   },
   'slack_action_get_channel_info': {
     prereqNodeType: 'slack_action_list_channels',
@@ -830,7 +837,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'shopify_action_create_product',
     prereqConfig: { title: '[TEST-PREREQ] Product for order', product_type: 'Test', status: 'DRAFT', variants: JSON.stringify([{ price: '10.00' }]) },
     outputMapping: { variant_gid: 'variant_gid' },
-    testConfigOverrides: { email: 'test@chainreact.app', line_items: '' }, // line_items set dynamically
+    testConfigOverrides: { email: 'test@chainreact.app' }, // line_items resolved from variant_gid prereq
     cacheKey: 'shopify_product_for_order',
   },
   'shopify_action_update_order_status': {
@@ -1044,7 +1051,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   'mailchimp_action_update_subscriber': {
     prereqNodeType: 'mailchimp_action_add_subscriber',
     prereqConfig: { email: `test-upd-${Date.now()}@chainreact-test.app`, status: 'subscribed', first_name: 'Test', last_name: 'UpdateSub' },
-    outputMapping: { email: 'email' },
+    outputMapping: { email: 'subscriber_email' },
     testConfigOverrides: { first_name: 'UpdatedTest' },
     cacheKey: 'mailchimp_sub_for_update',
   },
@@ -1072,7 +1079,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'mailchimp_action_add_subscriber',
     prereqConfig: { email: `test-evt-${Date.now()}@chainreact-test.app`, status: 'subscribed', first_name: 'Test', last_name: 'EvtSub' },
     outputMapping: { email: 'email' },
-    testConfigOverrides: { eventName: 'test_event' },
+    testConfigOverrides: { event_name: 'test_event' },
     cacheKey: 'mailchimp_sub_for_event',
   },
   'mailchimp_action_unsubscribe_subscriber': {
@@ -1178,7 +1185,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'microsoft-onenote_action_create_page',
     prereqConfig: { title: '[TEST-PREREQ] Page for copy', content: '<p>Content to copy</p>' },
     outputMapping: { id: 'pageId' },
-    // destinationSectionId resolved from create_section cache
+    additionalCacheMapping: { 'microsoft-onenote_action_create_section': { id: 'destinationSectionId' } },
     cacheKey: 'onenote_page_for_copy',
   },
   'microsoft-onenote_action_delete_page': {
@@ -1419,10 +1426,12 @@ export async function resolveDynamicConfig(
   }
 
   // ── Slack: Resolve channel ID ──
-  if (providerId === 'slack' && !testConfig.channel) {
+  if (providerId === 'slack' && (!testConfig.channel || testConfig.channel?.startsWith('#'))) {
     const cacheKey = `slack_channel_${userId}`
     if (dynamicCache.has(cacheKey)) {
-      testConfig.channel = dynamicCache.get(cacheKey)!
+      const channelId = dynamicCache.get(cacheKey)!
+      testConfig.channel = channelId
+      if (!testConfig.channels || testConfig.channels?.startsWith('#')) testConfig.channels = channelId
     } else {
       try {
         const accessToken = await getDecryptedAccessToken(userId, 'slack')
@@ -1436,6 +1445,7 @@ export async function resolveDynamicConfig(
             const testChannel = data.channels.find((c: any) => c.name === 'test-automation' || c.name === 'test' || c.name === 'general')
             const channel = testChannel || data.channels[0]
             testConfig.channel = channel.id
+            if (!testConfig.channels || testConfig.channels?.startsWith('#')) testConfig.channels = channel.id
             dynamicCache.set(cacheKey, channel.id)
           }
         }
@@ -1664,6 +1674,11 @@ export async function resolveDynamicConfig(
     }
   }
 
+  // ── Shopify: Build line_items from variant_gid ──
+  if (providerId === 'shopify' && testConfig.variant_gid && (!testConfig.line_items || (Array.isArray(testConfig.line_items) && testConfig.line_items.length === 0))) {
+    testConfig.line_items = [{ variant_id: testConfig.variant_gid, quantity: 1 }]
+  }
+
   return testConfig
 }
 
@@ -1768,6 +1783,11 @@ export async function resolvePrereqs(
 
   // Apply static overrides
   if (prereq.testConfigOverrides) Object.assign(testConfig, prereq.testConfigOverrides)
+
+  // Post-prereq: build Shopify line_items from variant_gid if available
+  if (testConfig.variant_gid && (!testConfig.line_items || (Array.isArray(testConfig.line_items) && testConfig.line_items.length === 0))) {
+    testConfig.line_items = [{ variant_id: testConfig.variant_gid, quantity: 1 }]
+  }
 
   return true
 }

@@ -28,6 +28,9 @@ export async function mailchimpCreateEvent(
     if (!email) throw new Error("Subscriber email is required")
     if (!eventName) throw new Error("Event name is required")
 
+    // Sanitize event name: Mailchimp only allows letters, numbers, underscores, and dashes
+    const sanitizedEventName = eventName.replace(/[^a-zA-Z0-9_-]/g, '_')
+
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
@@ -59,7 +62,7 @@ export async function mailchimpCreateEvent(
 
     // Build request body
     const requestBody: any = {
-      name: eventName,
+      name: sanitizedEventName,
       properties: properties
     }
 

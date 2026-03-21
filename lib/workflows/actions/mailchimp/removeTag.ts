@@ -18,7 +18,13 @@ export async function mailchimpRemoveTag(
     // Resolve dynamic values
     const audienceId = context.dataFlowManager.resolveVariable(config.audience_id)
     const email = context.dataFlowManager.resolveVariable(config.email)
-    const tags = context.dataFlowManager.resolveVariable(config.tags) || []
+    const rawTags = context.dataFlowManager.resolveVariable(config.tags) || []
+    // Handle tags as string (comma-separated) or array
+    const tags: string[] = Array.isArray(rawTags)
+      ? rawTags
+      : typeof rawTags === 'string'
+        ? rawTags.split(',').map((t: string) => t.trim()).filter(Boolean)
+        : []
 
     if (!audienceId) {
       throw new Error("Audience is required")

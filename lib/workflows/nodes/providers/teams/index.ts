@@ -574,12 +574,12 @@ export const teamsNodes: NodeComponent[] = [
       { name: "chatMessageId", label: "Message", type: "select", dynamic: "teams_messages", required: true, placeholder: "Select a message", dependsOn: "chatId", visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "dropdown" } },
       { name: "chatMessageIdManual", label: "Message ID", type: "text", required: true, placeholder: "Enter the message ID", supportsAI: true, visibilityCondition: { field: "chatMessageSelection", operator: "equals", value: "manual" } },
       { name: "reactionType", label: "Reaction", type: "select", required: true, options: [
-        { value: "👍", label: "👍 Like" },
-        { value: "❤️", label: "❤️ Heart" },
-        { value: "😂", label: "😂 Laugh" },
-        { value: "😮", label: "😮 Surprised" },
-        { value: "😢", label: "😢 Sad" },
-        { value: "😠", label: "😠 Angry" }
+        { value: "like", label: "👍 Like" },
+        { value: "heart", label: "❤️ Heart" },
+        { value: "laugh", label: "😂 Laugh" },
+        { value: "surprised", label: "😮 Surprised" },
+        { value: "sad", label: "😢 Sad" },
+        { value: "angry", label: "😠 Angry" }
       ] }
     ],
     outputSchema: [

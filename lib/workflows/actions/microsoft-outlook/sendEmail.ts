@@ -332,10 +332,29 @@ export async function sendOutlookEmail(
       await deleteWorkflowTempFiles(Array.from(cleanupPaths))
     }
 
+    // Try to retrieve the sent message ID from Sent Items
+    let messageId: string | undefined
+    try {
+      const sentRes = await fetch(
+        'https://graph.microsoft.com/v1.0/me/mailFolders/sentitems/messages?$top=1&$orderby=sentDateTime desc&$select=id,subject',
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+      )
+      if (sentRes.ok) {
+        const sentData = await sentRes.json()
+        if (sentData.value?.length > 0) {
+          messageId = sentData.value[0].id
+        }
+      }
+    } catch (e) {
+      // Non-critical — messageId is optional
+      logger.debug('[Outlook] Could not retrieve sent message ID:', e)
+    }
+
     return {
       success: true,
       output: {
         sent: true,
+        messageId,
         recipients: {
           to: emailData.message.toRecipients.map((r: any) => r.emailAddress.address),
           cc: emailData.message.ccRecipients.map((r: any) => r.emailAddress.address),

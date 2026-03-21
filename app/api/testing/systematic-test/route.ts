@@ -454,6 +454,14 @@ export async function POST(request: NextRequest) {
       return connectedProviders.has(pid)
     })
 
+    // Sort destructive actions (delete, archive) to run last so shared prereq resources
+    // aren't destroyed before other tests that depend on them
+    targetNodes.sort((a, b) => {
+      const aDestructive = /delete|archive/i.test(a.type) ? 1 : 0
+      const bDestructive = /delete|archive/i.test(b.type) ? 1 : 0
+      return aDestructive - bDestructive
+    })
+
     const cachedCount = forceRerun ? 0 : targetNodes.filter(n => canSkipTest(cache, n.type, n.providerId || '')).length
     logger.debug(`[systematic-test] Testing ${targetNodes.length} actions across ${new Set(targetNodes.map(n => n.providerId)).size} providers (${cachedCount} cached, ${forceRerun ? 'force rerun' : 'using cache'})`)
 
