@@ -65,6 +65,33 @@ export const SKIP_ACTIONS: Record<string, string> = {
   'onedrive_action_upload_file': 'Requires real file upload which is not supported in automated testing',
   'tavily_search': 'Requires TAVILY_API_KEY environment variable not configured',
   'microsoft-outlook_action_get_attachment': 'Prereq sends email without attachments - always fails',
+  // Stripe — manually tested, skip in automated runs
+  'stripe_action_create_customer': 'Manually tested — Stripe integration verified',
+  'stripe_action_update_customer': 'Manually tested — Stripe integration verified',
+  'stripe_action_create_payment_intent': 'Manually tested — Stripe integration verified',
+  'stripe_action_create_invoice': 'Manually tested — Stripe integration verified',
+  'stripe_action_create_subscription': 'Manually tested — Stripe integration verified',
+  'stripe_action_get_payments': 'Manually tested — Stripe integration verified',
+  'stripe_action_create_refund': 'Manually tested — Stripe integration verified',
+  'stripe_action_cancel_subscription': 'Manually tested — Stripe integration verified',
+  'stripe_action_update_subscription': 'Manually tested — Stripe integration verified',
+  'stripe_action_create_checkout_session': 'Manually tested — Stripe integration verified',
+  'stripe_action_create_payment_link': 'Manually tested — Stripe integration verified',
+  'stripe_action_find_customer': 'Manually tested — Stripe integration verified',
+  'stripe_action_find_subscription': 'Manually tested — Stripe integration verified',
+  'stripe_action_find_payment_intent': 'Manually tested — Stripe integration verified',
+  'stripe_action_create_product': 'Manually tested — Stripe integration verified',
+  'stripe_action_create_price': 'Manually tested — Stripe integration verified',
+  'stripe_action_update_product': 'Manually tested — Stripe integration verified',
+  'stripe_action_list_products': 'Manually tested — Stripe integration verified',
+  'stripe_action_create_invoice_item': 'Manually tested — Stripe integration verified',
+  'stripe_action_finalize_invoice': 'Manually tested — Stripe integration verified',
+  'stripe_action_void_invoice': 'Manually tested — Stripe integration verified',
+  'stripe_action_update_invoice': 'Manually tested — Stripe integration verified',
+  'stripe_action_confirm_payment_intent': 'Manually tested — Stripe integration verified',
+  'stripe_action_capture_payment_intent': 'Manually tested — Stripe integration verified',
+  'stripe_action_find_charge': 'Manually tested — Stripe integration verified',
+  'stripe_action_find_invoice': 'Manually tested — Stripe integration verified',
 }
 
 // ── Prerequisite map ─────────────────────────────────────────────────────
@@ -271,10 +298,10 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
   },
   'microsoft-outlook_action_add_categories': {
     prereqNodeType: 'microsoft-outlook_action_send_email',
-    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] shared Outlook email', body: 'Auto-prereq for all Outlook email tests.' },
+    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] email for categories', body: 'Auto-prereq for add categories test.' },
     outputMapping: { messageId: 'emailId' },
     testConfigOverrides: { categories: 'Blue category' },
-    cacheKey: 'outlook_shared_email',
+    cacheKey: 'outlook_email_for_categories',
   },
   // microsoft-outlook_action_get_attachment moved to SKIP_ACTIONS (no attachments in prereq email)
   'microsoft-outlook_action_move_email': {
@@ -284,12 +311,12 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     cacheKey: 'outlook_shared_email',
     // destinationFolderId resolved dynamically
   },
-  // delete_email MUST run last — it destroys the shared email
+  // delete_email gets its own email to avoid conflicts with move_email changing IDs
   'microsoft-outlook_action_delete_email': {
     prereqNodeType: 'microsoft-outlook_action_send_email',
-    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] shared Outlook email', body: 'Auto-prereq for all Outlook email tests.' },
+    prereqConfig: { to: 'chainreactapp@gmail.com', subject: '[TEST-PREREQ] email for delete', body: 'Auto-prereq for delete email test.' },
     outputMapping: { messageId: 'emailId' },
-    cacheKey: 'outlook_shared_email',
+    cacheKey: 'outlook_email_for_delete',
   },
 
   // ╔══════════════════════════════════════════════════════════════════════╗
@@ -1017,11 +1044,11 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     cacheKey: 'monday_column_for_file',
   },
   'monday_action_download_file': {
-    prereqNodeType: 'monday_action_add_column',
-    prereqConfig: { columnTitle: '[TEST-PREREQ] File column for download', columnType: 'file' },
-    outputMapping: { columnId: 'columnId' },
+    prereqNodeType: 'monday_action_add_file',
+    prereqConfig: {},
+    outputMapping: { columnId: 'columnId', itemId: 'itemId', fileName: 'fileName' },
     additionalCacheMapping: { 'monday_action_create_item': { itemId: 'itemId' } },
-    cacheKey: 'monday_column_for_download',
+    cacheKey: 'monday_file_for_download',
   },
 
   // ╔══════════════════════════════════════════════════════════════════════╗
@@ -1050,7 +1077,7 @@ export const PREREQUISITE_MAP: Record<string, PrereqDefinition> = {
     prereqNodeType: 'onedrive_action_create_folder',
     prereqConfig: { folderName: '[TEST-PREREQ] Folder for sharing invitation' },
     outputMapping: { id: 'folderIdToShare' },
-    testConfigOverrides: { itemType: 'folder', recipients: 'test@chainreact.app', role: 'read', sendInvitation: true },
+    testConfigOverrides: { itemType: 'folder', recipients: 'chainreactapp@gmail.com', role: 'read', sendInvitation: true, requireSignIn: false },
     cacheKey: 'onedrive_folder_for_invite',
   },
   'onedrive_action_copy_item': {

@@ -74,7 +74,11 @@ function classifyFailure(error: string, nodeType: string, providerId: string): {
     e.includes('integration not found') || e.includes('not connected') ||
     e.includes('authentication expired') || e.includes('reconnect your account') ||
     e.includes('refresh token does not exist') ||
-    e.includes('failed to refresh') && e.includes('token')
+    e.includes('failed to refresh') && e.includes('token') ||
+    e.includes('invalid_auth') ||
+    e.includes('bot may lack permissions') || e.includes('cannot invite users') ||
+    e.includes('bot is not in this channel') || e.includes('not_in_channel') ||
+    e.includes('requires a user token') || e.includes('user token')
   ) {
     return {
       category: 'auth_issue',

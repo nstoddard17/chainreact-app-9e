@@ -176,6 +176,7 @@ export async function addMondayFile(
     })
 
     // Make multipart API request to Monday.com file endpoint
+    // Use getBuffer() instead of stream for Node.js fetch compatibility
     const response = await fetch('https://api.monday.com/v2/file', {
       method: 'POST',
       headers: {
@@ -183,7 +184,7 @@ export async function addMondayFile(
         'API-Version': '2024-01',
         ...formData.getHeaders()
       },
-      body: formData as any
+      body: formData.getBuffer()
     })
 
     if (!response.ok) {

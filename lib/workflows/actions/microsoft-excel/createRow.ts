@@ -34,6 +34,15 @@ export async function createMicrosoftExcelRow(
       inputValues
     })
 
+    // Parse columnMapping if it's a JSON string (e.g. from test config or serialized form data)
+    if (typeof columnMapping === 'string') {
+      try {
+        columnMapping = JSON.parse(columnMapping)
+      } catch (e) {
+        // Not valid JSON, leave as-is
+      }
+    }
+
     // Transform columnMapping from array format to object format if needed
     // The UI component (MicrosoftExcelColumnMapper) outputs: [{ column: "Name", value: "John" }]
     // But we need: { "Name": "John" } or { "A": "John" } for letter columns
