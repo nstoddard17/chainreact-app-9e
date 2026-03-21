@@ -25,7 +25,7 @@ import { executeAction } from '@/lib/workflows/executeNode'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { buildTestConfig } from '@/lib/workflows/testing/testData'
 import { logger } from '@/lib/utils/logger'
-import { loadCache, saveCache, canSkipTest, recordPassedTest, removeFromCache } from '@/lib/workflows/testing/testCache'
+import { loadCache, canSkipTest, recordTestResult, clearCache } from '@/lib/workflows/testing/testCache'
 import {
   PREREQUISITE_MAP,
   SKIP_ACTIONS,
@@ -424,8 +424,9 @@ export async function POST(request: NextRequest) {
       forceRerun?: boolean
     }
 
-    // Load test cache
-    const cache = loadCache()
+    // Load test cache from database
+    if (forceRerun) await clearCache()
+    const cache = await loadCache()
 
     // Get user's connected integrations
     const { data: integrations } = await supabase
@@ -467,8 +468,8 @@ export async function POST(request: NextRequest) {
       return aDestructive - bDestructive
     })
 
-    const cachedCount = forceRerun ? 0 : targetNodes.filter(n => canSkipTest(cache, n.type, n.providerId || '')).length
-    logger.debug(`[systematic-test] Testing ${targetNodes.length} actions across ${new Set(targetNodes.map(n => n.providerId)).size} providers (${cachedCount} cached, ${forceRerun ? 'force rerun' : 'using cache'})`)
+    const cachedCount = targetNodes.filter(n => canSkipTest(cache, n.type, n.providerId || '')).length
+    logger.debug(`[systematic-test] Testing ${targetNodes.length} actions across ${new Set(targetNodes.map(n => n.providerId)).size} providers (${cachedCount} cached)`)
 
     const results: ClassifiedResult[] = []
     // Shared prereq output cache — prereqs that already ran are reused across tests
@@ -581,9 +582,9 @@ export async function POST(request: NextRequest) {
           result.failureCategory = classification.category
           result.failureReason = classification.reason
           result.suggestedFix = classification.suggestedFix
-          removeFromCache(cache, nodeType)
+          await recordTestResult(nodeType, providerId, nodeComponent.title, 'failed', duration, errorMsg)
         } else {
-          recordPassedTest(cache, nodeType, providerId, nodeComponent.title, duration)
+          await recordTestResult(nodeType, providerId, nodeComponent.title, 'passed', duration)
         }
 
         results.push(result)
@@ -592,7 +593,7 @@ export async function POST(request: NextRequest) {
         const errorMsg = error.message || 'Unknown error'
         const classification = classifyFailure(errorMsg, nodeType, providerId)
 
-        removeFromCache(cache, nodeType)
+        await recordTestResult(nodeType, providerId, nodeComponent.title, 'failed', duration, errorMsg)
         results.push({
           nodeType, nodeTitle: nodeComponent.title, providerId,
           success: false, duration,
@@ -605,9 +606,6 @@ export async function POST(request: NextRequest) {
         })
       }
     }
-
-    // Save cache with updated results
-    saveCache(cache)
 
     // Build categorized data
     const failuresByCategory: Record<FailureCategory, ClassifiedResult[]> = {
