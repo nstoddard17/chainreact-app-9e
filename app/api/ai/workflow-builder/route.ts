@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     const availableNodes = ALL_NODE_COMPONENTS.map(node => ({
       type: node.type,
       title: node.title,
-      name: node.name,
+      name: node.title,
       providerId: node.providerId,
       isTrigger: node.isTrigger,
       description: node.description || '',

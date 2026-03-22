@@ -80,7 +80,17 @@
       "Bash(done)",
       "Bash(for dir:*)",
       "Read(//c/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/$dir/**)",
-      "Bash(ls \"c:/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/app/\\(app\\)/test-actions/\")"
+      "Bash(ls \"c:/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/app/\\(app\\)/test-actions/\")",
+      "Bash(node -e \"console.log\\(process.version\\)\")",
+      "Bash(npx jest:*)",
+      "Bash(find /c/Users/marcu/source/repos/nstoddard17/chainreact-app-9e -type f \\\\\\(-name jest.config.* -o -name *.test.* -o -name *.spec.* -o -name PLAYWRIGHT.md -o -name playwright.config.* \\\\\\))",
+      "Bash(head -50 /c/Users/marcu/source/repos/nstoddard17/chainreact-app-9e/components/testing/hooks/*.ts)",
+      "Bash(npm list:*)",
+      "Bash(__NEW_LINE_f78963a9462ac864__ echo:*)",
+      "Bash(__NEW_LINE_f6e9afb4381a3b2d__ echo:*)",
+      "Bash(__NEW_LINE_90a0e048ea764cbd__ echo:*)",
+      "Bash(ENCRYPTION_KEY=\"ci-test-key-at-least-32-characters-long\" npx jest --config ./jest.config.cjs --testPathPattern=\"tokenRefreshService\" --verbose --forceExit)",
+      "Bash(ENCRYPTION_KEY=\"ci-test-key-at-least-32-characters-long\" npx jest --config ./jest.config.cjs --forceExit)"
     ],
     "deny": [],
     "ask": [],

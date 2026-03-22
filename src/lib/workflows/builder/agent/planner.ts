@@ -1151,8 +1151,9 @@ export async function planEdits({
 
       const llmResult = await planWithLLM(llmInput)
 
-      // Check if LLM result is usable
-      if (llmResult.confidence !== 'low' && llmResult.nodes.length > 0) {
+      // Check if LLM result is usable - accept any result that has nodes
+      // A low-confidence workflow is better than the pattern matcher returning nothing
+      if (llmResult.nodes.length > 0) {
         const plannerResult = llmOutputToPlannerResult(llmResult, existingNodeIds)
 
         logger.info('[Planner] LLM planning successful', {
@@ -1218,7 +1219,7 @@ async function planEditsWithPatterns({ prompt, flow }: { prompt: string; flow: F
     return {
       edits: [],
       prerequisites: [],
-      rationale: "Could not determine workflow intent from prompt. Try: 'when webhook received, post to Slack' or 'fetch https://example.com and summarize to Slack'",
+      rationale: "I couldn't build a workflow from that prompt. Try describing a specific automation like 'when I get an email, send to Slack' or a business goal like 'automate customer onboarding'.",
       deterministicHash: computeDeterministicHash([]),
     }
   }
@@ -1242,7 +1243,7 @@ async function planEditsWithPatterns({ prompt, flow }: { prompt: string; flow: F
     const catalogNode = findNodeInCatalog(type)
 
     if (!legacyDefinition && !catalogNode) {
-      console.warn(`Node definition not found for type: ${type}`)
+      logger.warn(`[Planner] Node definition not found for type: ${type}`)
       return null
     }
 
@@ -1404,7 +1405,7 @@ async function planEditsWithPatterns({ prompt, flow }: { prompt: string; flow: F
   // Validate draft before returning
   const validation = validateDraft(workingFlow)
   if (!validation.ok) {
-    console.error("Planner produced invalid flow:", validation.errors)
+    logger.error("[Planner] Produced invalid flow", { errors: validation.errors })
     return {
       edits: [],
       prerequisites: [],
@@ -1438,7 +1439,7 @@ async function planEditsWithPatterns({ prompt, flow }: { prompt: string; flow: F
 
 // Generate a professional, concise workflow name using AI
 async function generateWorkflowNameWithAI(prompt: string, planTemplate: PlanTemplate | null): Promise<string> {
-  console.log('[generateWorkflowNameWithAI] Input prompt:', prompt)
+  logger.debug('[generateWorkflowNameWithAI] Input prompt', { prompt })
   const maxLength = 50
 
   try {
@@ -1467,7 +1468,7 @@ Rules:
     })
 
     let name = response.choices[0]?.message?.content?.trim() || ''
-    console.log('[generateWorkflowNameWithAI] AI generated name:', name)
+    logger.debug('[generateWorkflowNameWithAI] AI generated name', { name })
 
     // Remove any quotes that might have been added
     name = name.replace(/^["']|["']$/g, '')
@@ -1475,20 +1476,20 @@ Rules:
     // Ensure it's not too long
     if (name.length > maxLength) {
       name = name.substring(0, maxLength).trim() + '...'
-      console.log('[generateWorkflowNameWithAI] Truncated to:', name)
+      logger.debug('[generateWorkflowNameWithAI] Truncated to', { name })
     }
 
     // Fallback if AI returned empty or very short
     if (name.length < 3) {
       const fallback = planTemplate?.description || 'New Workflow'
-      console.log('[generateWorkflowNameWithAI] AI name too short, using fallback:', fallback)
+      logger.debug('[generateWorkflowNameWithAI] AI name too short, using fallback', { fallback })
       return fallback
     }
 
-    console.log('[generateWorkflowNameWithAI] Final name:', name)
+    logger.debug('[generateWorkflowNameWithAI] Final name', { name })
     return name
   } catch (error) {
-    console.error('[generateWorkflowNameWithAI] Error generating name with AI:', error)
+    logger.error('[generateWorkflowNameWithAI] Error generating name with AI', { error })
 
     // Fallback to simple text manipulation if AI fails
     let name = prompt.trim()
@@ -1504,7 +1505,7 @@ Rules:
       return planTemplate?.description || 'New Workflow'
     }
 
-    console.log('[generateWorkflowNameWithAI] Using fallback name:', name)
+    logger.debug('[generateWorkflowNameWithAI] Using fallback name', { name })
     return name
   }
 }

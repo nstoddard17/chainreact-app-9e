@@ -8,6 +8,7 @@
 
 import type { PlanNode } from '@/src/lib/workflows/builder/BuildState'
 import { loadDynamicTemplates } from './dynamicTemplates'
+import { logger } from '@/lib/utils/logger'
 
 // Export PlanNode for use in other modules
 export type { PlanNode }
@@ -368,7 +369,7 @@ async function getAllTemplates(): Promise<WorkflowTemplate[]> {
       lastDynamicTemplateLoad = now
     } catch (error) {
       // Silently continue with just built-in templates - don't show error to user
-      console.warn('[TemplateMatching] Using built-in templates only (dynamic templates unavailable)')
+      logger.warn('[TemplateMatching] Using built-in templates only (dynamic templates unavailable)')
       dynamicTemplatesCache = []
       lastDynamicTemplateLoad = now // Mark as loaded to prevent retrying immediately
     }
@@ -409,16 +410,16 @@ export async function matchTemplate(
 /**
  * Estimate cost savings from template matching
  */
-export function estimateTemplateCoverage(prompts: string[]): {
+export async function estimateTemplateCoverage(prompts: string[]): Promise<{
   matched: number
   total: number
   savingsPercent: number
   estimatedSavings: number // in dollars
-} {
+}> {
   let matched = 0
 
   for (const prompt of prompts) {
-    if (matchTemplate(prompt)) {
+    if (await matchTemplate(prompt)) {
       matched++
     }
   }
@@ -438,11 +439,11 @@ export function estimateTemplateCoverage(prompts: string[]): {
  * Analytics: Track template usage
  */
 export function logTemplateMatch(templateId: string, prompt: string) {
-  console.log(`[Template Match] ✅ Used template "${templateId}" for prompt: "${prompt}"`)
-  console.log('[Template Match] Cost saved: $0.03 (no LLM call)')
+  logger.info(`[Template Match] Used template "${templateId}" for prompt: "${prompt}"`)
+  logger.debug('[Template Match] Cost saved: $0.03 (no LLM call)')
 }
 
 export function logTemplateMiss(prompt: string) {
-  console.log(`[Template Match] ❌ No template found for: "${prompt}"`)
-  console.log('[Template Match] Fallback to LLM (cost: ~$0.03)')
+  logger.info(`[Template Match] No template found for: "${prompt}"`)
+  logger.debug('[Template Match] Fallback to LLM (cost: ~$0.03)')
 }

@@ -1558,7 +1558,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     const planSummary = plan.map(p => p.title).join(' → ')
     let assistantText = plan.length > 0
       ? `Here's your workflow: ${planSummary}`
-      : 'I created a workflow based on your request.'
+      : 'I wasn\'t able to build a workflow for that request. Try describing what you want to automate, like:\n\n\u2022 "When I get an email, summarize it and send to Slack"\n\u2022 "Every day, check for inactive users and send a reminder email"\n\u2022 "When a new lead comes in, score it and notify my team"\n\nOr describe a business goal like "automate customer onboarding" and I\'ll design a workflow for you.'
 
     // Add task cost info if present
     if (result.taskCost && result.taskCost.tasksUsed > 0) {

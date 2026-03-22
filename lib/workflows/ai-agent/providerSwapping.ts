@@ -6,6 +6,7 @@
  */
 
 import type { PlanNode } from '@/src/lib/workflows/builder/BuildState'
+import { logger } from '@/lib/utils/logger'
 
 /**
  * Node type mapping for provider swapping
@@ -91,7 +92,7 @@ export function swapProviderInNode(
   const pattern = detectNodePattern(node.nodeType)
   if (!pattern) {
     // Unknown node type - just update providerId
-    console.warn(`[ProviderSwap] Unknown pattern for ${node.nodeType}, updating providerId only`)
+    logger.warn(`[ProviderSwap] Unknown pattern for ${node.nodeType}, updating providerId only`)
     return {
       ...node,
       providerId: newProviderId,
@@ -101,7 +102,7 @@ export function swapProviderInNode(
   // Get the new node type
   const newNodeType = PROVIDER_NODE_MAPPINGS[pattern][newProviderId]
   if (!newNodeType) {
-    console.warn(`[ProviderSwap] No mapping for ${pattern} + ${newProviderId}`)
+    logger.warn(`[ProviderSwap] No mapping for ${pattern} + ${newProviderId}`)
     return node
   }
 
