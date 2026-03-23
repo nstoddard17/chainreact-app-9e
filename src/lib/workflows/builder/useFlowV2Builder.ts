@@ -72,6 +72,8 @@ interface AgentResult {
   }
   /** Whether this result came from template cache */
   fromCache?: boolean
+  /** Clarifying questions to ask user when plan is empty */
+  clarifyingQuestions?: string[]
 }
 
 interface RunNodeSnapshot {
@@ -1767,6 +1769,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         tasksUsed?: number
         tasksLimit?: number
         fromCache?: boolean
+        clarifyingQuestions?: string[]
         errors?: string[]
       }>(flowApiUrl(flowId, '/edits'), {
         method: "POST",
@@ -1793,6 +1796,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         unsupportedFeatures: payload.unsupportedFeatures,
         taskCost: payload.taskCost,
         fromCache: payload.fromCache,
+        clarifyingQuestions: payload.clarifyingQuestions,
       }
 
       setFlowState((prev) => ({

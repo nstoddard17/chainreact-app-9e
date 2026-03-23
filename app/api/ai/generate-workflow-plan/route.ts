@@ -5,23 +5,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
 import type { WorkflowPlan, NodePlan } from '@/lib/workflows/ai/SequentialWorkflowBuilder'
+import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { AI_MODELS } from '@/lib/ai/models'
 import { logger } from '@/lib/utils/logger'
 import { checkRateLimit } from '@/lib/utils/rate-limit'
-
-let cachedOpenAIClient: OpenAI | null = null
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    logger.warn('[AI Workflow Plan] OPENAI_API_KEY is not configured')
-    return null
-  }
-  if (!cachedOpenAIClient) {
-    cachedOpenAIClient = new OpenAI({ apiKey })
-  }
-  return cachedOpenAIClient
-}
 
 // Node catalog for AI to choose from
 const NODE_CATALOG = `
@@ -127,8 +115,10 @@ export async function POST(req: NextRequest) {
 
   try {
     // Check if API key is configured
-    const openai = getOpenAIClient()
-    if (!openai) {
+    let openai;
+    try {
+      openai = getOpenAIClient()
+    } catch {
       return NextResponse.json(
         {
           error: 'AI service not configured. Please set OPENAI_API_KEY environment variable.',
@@ -149,7 +139,7 @@ export async function POST(req: NextRequest) {
 
     // Generate plan using OpenAI
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o', // Using gpt-4o for better workflow planning
+      model: AI_MODELS.planning, // Using planning model for better workflow planning
       messages: [
         {
           role: 'system',

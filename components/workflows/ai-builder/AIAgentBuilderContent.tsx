@@ -409,7 +409,7 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
   const router = useRouter()
   const { user, profile, updateProfile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
-  const { createWorkflow: createLegacyWorkflow } = useWorkflowStore()
+  const { createWorkflow: createLegacyWorkflow, invalidateCache } = useWorkflowStore()
   const { toast } = useToast()
   const createFlow = useCallback(
     async (name: string, description: string, options?: { prompt?: string }) => {
@@ -431,6 +431,9 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
         if (!flowId) {
           throw new Error("Flow v2 API did not return a flowId")
         }
+
+        // Invalidate cache so workflows list refreshes on navigation back
+        invalidateCache()
 
         if (options?.prompt && typeof window !== "undefined") {
           try {

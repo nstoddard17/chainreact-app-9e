@@ -3,18 +3,11 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import OpenAI from "openai"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
+import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { AI_MODELS } from '@/lib/ai/models'
 import { checkRateLimit } from '@/lib/utils/rate-limit'
 
 import { logger } from '@/lib/utils/logger'
-
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    logger.warn('[AI Compose] OPENAI_API_KEY is not configured')
-    return null
-  }
-  return new OpenAI({ apiKey })
-}
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 20 AI compose requests per minute per IP
@@ -27,8 +20,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const openai = getOpenAIClient()
-    if (!openai) {
+    let openai;
+    try {
+      openai = getOpenAIClient()
+    } catch {
       return errorResponse("AI not configured" , 500)
     }
  
@@ -84,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
     // Call OpenAI
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: AI_MODELS.fast,
       messages,
       max_tokens: 512,
       temperature: 0.7,

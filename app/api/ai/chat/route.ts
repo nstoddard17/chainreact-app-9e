@@ -2,25 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
-import OpenAI from 'openai'
 import { v4 as uuidv4 } from 'uuid'
 import { formatAIResponse, extractStructuredData } from "@/lib/ai/smart-formatter"
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 import { checkRateLimit } from '@/lib/utils/rate-limit'
 import { z } from 'zod'
 import { logger } from '@/lib/utils/logger'
-
-let cachedOpenAIClient: OpenAI | null = null
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    logger.warn('[AI Chat] OPENAI_API_KEY is not configured')
-    return null
-  }
-  if (!cachedOpenAIClient) {
-    cachedOpenAIClient = new OpenAI({ apiKey })
-  }
-  return cachedOpenAIClient
-}
 
 // Pricing configuration (per 1K tokens)
 const MODEL_PRICING: Record<string, { prompt: number; completion: number }> = {
@@ -145,8 +132,10 @@ export async function POST(request: NextRequest) {
     // This can be implemented later with proper subscription/plan management
 
     try {
-      const openai = getOpenAIClient()
-      if (!openai) {
+      let openai;
+      try {
+        openai = getOpenAIClient()
+      } catch {
         return errorResponse("AI service not configured" , 500)
       }
 

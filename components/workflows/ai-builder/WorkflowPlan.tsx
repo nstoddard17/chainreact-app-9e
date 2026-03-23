@@ -18,15 +18,17 @@ interface WorkflowPlanProps {
   isBuilding?: boolean // New prop to indicate building in progress
 }
 
+const PROVIDER_ICON_MAP: Record<string, string> = {
+  'automation': 'manual',
+  'outlook': 'microsoft-outlook',
+}
+
 function IntegrationIcon({ providerId }: { providerId: string }) {
   const [imageError, setImageError] = useState(false)
-  const iconPath = `/integrations/${providerId}.svg`
-
-  console.log('[IntegrationIcon] Rendering for providerId:', providerId, 'path:', iconPath, 'imageError:', imageError)
+  const mappedId = PROVIDER_ICON_MAP[providerId] || providerId
+  const iconPath = `/integrations/${mappedId}.svg`
 
   if (imageError) {
-    console.log('[IntegrationIcon] Showing fallback for:', providerId)
-    // Fallback if image fails to load
     return (
       <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/20 border border-border flex items-center justify-center">
         <span className="text-xs font-medium text-primary">{providerId.substring(0, 2).toUpperCase()}</span>
@@ -40,19 +42,13 @@ function IntegrationIcon({ providerId }: { providerId: string }) {
         src={iconPath}
         alt={providerId}
         className="w-full h-full object-contain"
-        onError={(e) => {
-          console.log('[IntegrationIcon] Image load error for:', providerId, e)
-          setImageError(true)
-        }}
-        onLoad={() => console.log('[IntegrationIcon] Image loaded successfully for:', providerId)}
+        onError={() => setImageError(true)}
       />
     </div>
   )
 }
 
 export function WorkflowPlan({ nodes, onContinue, className, isBuilding = false }: WorkflowPlanProps) {
-  console.log('[WorkflowPlan] Received nodes:', nodes)
-
   return (
     <div className={cn("space-y-3", className)}>
       {/* Header */}

@@ -17,15 +17,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
-import { getMissingRequiredFields } from '@/lib/workflows/validation/fieldVisibility'
+import { validateWorkflow, type WorkflowValidation } from '@/lib/workflows/validation/validateWorkflow'
+
+export { validateWorkflow, type WorkflowValidation }
 
 export type WorkflowStatusType = 'active' | 'paused' | 'draft' | 'error' | 'incomplete'
-
-interface WorkflowValidation {
-  isValid: boolean
-  issues: string[]
-}
 
 interface WorkflowStatusBadgeProps {
   status: string
@@ -33,77 +29,6 @@ interface WorkflowStatusBadgeProps {
   showLabel?: boolean
   size?: 'sm' | 'md' | 'lg'
   className?: string
-}
-
-// Validate workflow configuration
-export function validateWorkflow(workflow: any): WorkflowValidation {
-  const issues: string[] = []
-
-  // Get nodes from the workflow object
-  // Primary path: workflow.nodes (Workflow interface)
-  // Fallback: workflow.workflow_json.nodes (templates/legacy)
-  let nodes: any[] = []
-
-  if (Array.isArray(workflow?.nodes)) {
-    // Primary path: nodes directly on workflow object
-    nodes = workflow.nodes
-  } else if (workflow?.workflow_json) {
-    // Fallback: workflow_json (used in templates and some legacy contexts)
-    try {
-      const workflowData = typeof workflow.workflow_json === 'string'
-        ? JSON.parse(workflow.workflow_json)
-        : workflow.workflow_json
-      nodes = workflowData?.nodes || []
-    } catch (e) {
-      issues.push('Invalid workflow configuration')
-      return { isValid: false, issues }
-    }
-  }
-
-  // Helper to check isTrigger from either Flow or ReactFlow format
-  const isNodeTrigger = (node: any) =>
-    node.data?.isTrigger ?? node.metadata?.isTrigger ?? node.type?.includes('_trigger_')
-
-  // Helper to check if node is a valid workflow node (not a placeholder)
-  const isWorkflowNode = (node: any) =>
-    node.type === 'custom' || (node.type && !node.type.startsWith('add-'))
-
-  const triggerNodes = nodes.filter((node: any) => isNodeTrigger(node))
-  const hasTrigger = triggerNodes.length > 0
-  if (!hasTrigger) {
-    issues.push('No trigger node configured')
-  }
-
-  const actionNodes = nodes.filter((node: any) => !isNodeTrigger(node) && isWorkflowNode(node))
-  const hasAction = actionNodes.length > 0
-  if (!hasAction) {
-    issues.push('No action nodes configured')
-  }
-
-  // Check node configurations against their schemas
-  const allWorkflowNodes = [...triggerNodes, ...actionNodes]
-  for (const node of allWorkflowNodes) {
-    const nodeType = node.data?.type || node.metadata?.type
-    if (!nodeType || nodeType === 'ai_agent') continue
-
-    const component = ALL_NODE_COMPONENTS.find((c: any) => c.type === nodeType)
-    if (!component?.configSchema?.length) continue
-
-    const config = node.data?.config || node.metadata?.config || {}
-    const nodeInfo = {
-      type: nodeType,
-      providerId: node.data?.providerId || component.providerId,
-      configSchema: component.configSchema
-    }
-
-    const missing = getMissingRequiredFields(nodeInfo, config)
-    if (missing.length > 0) {
-      const title = node.data?.title || node.data?.label || component.title || nodeType
-      issues.push(`${title}: missing ${missing.join(', ')}`)
-    }
-  }
-
-  return { isValid: issues.length === 0, issues }
 }
 
 // Get status configuration based on workflow status and validation

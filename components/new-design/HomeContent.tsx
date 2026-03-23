@@ -79,6 +79,7 @@ import {
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { useToast } from "@/hooks/use-toast"
+import { validateWorkflow } from "@/lib/workflows/validation/validateWorkflow"
 import { logger } from "@/lib/utils/logger"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 import { OnboardingChecklist } from "@/components/dashboard/OnboardingChecklist"
@@ -265,47 +266,8 @@ export function HomeContent() {
     }
   }
 
-  // Check if workflow is complete and ready to activate
-  const validateWorkflow = (workflow: any) => {
-    const issues: string[] = []
-
-    // Parse nodes from workflow_json
-    let nodes = []
-    try {
-      const workflowData = typeof workflow.workflow_json === 'string'
-        ? JSON.parse(workflow.workflow_json)
-        : workflow.workflow_json
-      nodes = workflowData?.nodes || []
-    } catch (e) {
-      issues.push('Invalid workflow configuration')
-      return { isValid: false, issues }
-    }
-
-    // Must have at least one trigger
-    const hasTrigger = nodes.some((node: any) => node.data?.isTrigger === true)
-    if (!hasTrigger) {
-      issues.push('No trigger node')
-    }
-
-    // Must have at least one action
-    const hasAction = nodes.some((node: any) => node.data?.isTrigger !== true && node.type === 'custom')
-    if (!hasAction) {
-      issues.push('No action nodes')
-    }
-
-    // Check for unconfigured nodes
-    const unconfiguredNodes = nodes.filter((node: any) => {
-      if (node.type !== 'custom') return false
-      const config = node.data?.config || {}
-      const configKeys = Object.keys(config)
-      return configKeys.length === 0 || configKeys.every(key => !config[key])
-    })
-    if (unconfiguredNodes.length > 0) {
-      issues.push(`${unconfiguredNodes.length} unconfigured node${unconfiguredNodes.length > 1 ? 's' : ''}`)
-    }
-
-    return { isValid: issues.length === 0, issues }
-  }
+  // Workflow validation uses the shared schema-aware validateWorkflow from
+  // lib/workflows/validation/validateWorkflow.ts (imported at top of file)
 
   const filtered = workflows.filter(w => {
     const matchesSearch = w.name.toLowerCase().includes(searchQuery.toLowerCase())

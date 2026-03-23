@@ -1556,13 +1556,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     // Generate plan summary text for chat persistence
     const planSummary = plan.map(p => p.title).join(' → ')
-    let assistantText = plan.length > 0
-      ? `Here's your workflow: ${planSummary}`
-      : 'I wasn\'t able to build a workflow for that request. Try describing what you want to automate, like:\n\n\u2022 "When I get an email, summarize it and send to Slack"\n\u2022 "Every day, check for inactive users and send a reminder email"\n\u2022 "When a new lead comes in, score it and notify my team"\n\nOr describe a business goal like "automate customer onboarding" and I\'ll design a workflow for you.'
+    let assistantText: string
+    if (plan.length > 0) {
+      assistantText = `Here's your workflow: ${planSummary}`
+    } else if (result.clarifyingQuestions?.length > 0) {
+      assistantText = `I'd love to help build that workflow! To make sure I create the right one, I have a few questions:\n\n${
+        result.clarifyingQuestions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')
+      }\n\nJust answer these and I'll design the perfect workflow for you.`
+    } else {
+      assistantText = 'I wasn\'t able to build a workflow for that request. Could you describe what you want to automate more specifically? For example:\n\n\u2022 "When I get an email, summarize it and send to Slack"\n\u2022 "Every day, check for inactive users and send a reminder"\n\nOr tell me what apps you use and what you want to automate.'
+    }
 
     // Add task cost info if present
     if (result.taskCost && result.taskCost.tasksUsed > 0) {
       assistantText += `\n\n_Used ${result.taskCost.tasksUsed} task${result.taskCost.tasksUsed > 1 ? 's' : ''} • ${result.taskCost.remainingBalance ?? 'N/A'} remaining_`
+
+      // Sync the balance widget with the fresh value from the API response
+      // Without this, the widget shows stale tasks_used from page load
+      if (result.taskCost.remainingBalance != null) {
+        const authState = useAuthStore.getState()
+        if (authState.profile?.tasks_limit != null) {
+          const newTasksUsed = authState.profile.tasks_limit - result.taskCost.remainingBalance
+          useAuthStore.setState({
+            profile: { ...authState.profile, tasks_used: newTasksUsed }
+          })
+        }
+      }
     } else if (result.fromCache) {
       assistantText += '\n\n_Template reused - no tasks used_'
     }
@@ -1744,7 +1763,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
 
     await new Promise(resolve => setTimeout(resolve, 500))
-    transitionTo(BuildState.PLAN_READY)
+    if (plan.length > 0) {
+      transitionTo(BuildState.PLAN_READY)
+    } else {
+      // No plan generated - go back to IDLE so the conversational message is visible
+      transitionTo(BuildState.IDLE)
+      setBuildMachine(getInitialState())
+    }
     setIsAgentLoading(false)
   }, [actions, builder, chatPersistenceEnabled, enqueuePendingMessage, flowId, flowState?.flow, generateLocalId, replaceMessageByLocalId, transitionTo])
 

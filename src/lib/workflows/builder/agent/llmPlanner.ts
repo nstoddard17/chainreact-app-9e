@@ -46,6 +46,9 @@ import {
   NodeConfigurationResponseSchema,
 } from './llmPlannerSchemas'
 import { logger } from '../../../../../lib/utils/logger'
+import { callLLMWithRetry, parseLLMJson } from '../../../../../lib/ai/llm-retry'
+import { AI_MODELS } from '../../../../../lib/ai/models'
+import { truncateConversationHistory } from '../../../../../lib/ai/token-utils'
 
 // ============================================================================
 // CONSTANTS
@@ -56,21 +59,6 @@ const DEFAULT_LAYOUT = {
   startY: 100,
   nodeSpacingY: 160,
   branchSpacingX: 400,
-}
-
-// ============================================================================
-// OPENAI CLIENT (lazy initialization)
-// ============================================================================
-
-let _openai: OpenAI | null = null
-
-function getOpenAIClient(): OpenAI {
-  if (!_openai) {
-    _openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY!,
-    })
-  }
-  return _openai
 }
 
 // ============================================================================
@@ -181,10 +169,10 @@ async function selectNodes(
     },
   ]
 
-  // Add conversation history for refinement context
+  // Add conversation history for refinement context (token-aware)
   if (conversationHistory && conversationHistory.length > 0) {
-    const historyContext = conversationHistory
-      .slice(-5) // Last 5 messages for context
+    const truncated = truncateConversationHistory(conversationHistory, 1000)
+    const historyContext = truncated
       .map(msg => `${msg.role}: ${msg.content}`)
       .join('\n')
     messages.push({
@@ -194,20 +182,19 @@ async function selectNodes(
   }
 
   try {
-    const response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o',
+    const result = await callLLMWithRetry({
       messages,
-      response_format: { type: 'json_object' },
-      temperature: 0.3, // Lower temperature for more consistent planning
-      max_tokens: 2000,
+      model: AI_MODELS.planning,
+      temperature: 0.3,
+      maxTokens: 2000,
+      jsonMode: true,
+      timeoutMs: 30000,
+      maxRetries: 2,
+      fallbackModel: AI_MODELS.fast,
+      label: 'LLMPlanner:selectNodes',
     })
 
-    const content = response.choices[0]?.message?.content
-    if (!content) {
-      throw new Error('Empty response from LLM')
-    }
-
-    const parsed = JSON.parse(content)
+    const parsed = parseLLMJson(result.content, 'LLMPlanner:selectNodes')
 
     // Validate with Zod
     const validated = NodeSelectionResponseSchema.parse(parsed)
@@ -227,8 +214,13 @@ async function selectNodes(
       branchPoints: validated.branchPoints,
       workflowName: validated.workflowName,
     }
-  } catch (error) {
-    logger.error('[LLMPlanner] Node selection failed', { error })
+  } catch (error: any) {
+    logger.error('[LLMPlanner] Node selection failed', {
+      error: error?.message || String(error),
+      prompt: prompt?.substring(0, 100),
+      isZodError: error?.name === 'ZodError',
+      zodIssues: error?.issues?.map((i: any) => i.message),
+    })
     throw error
   }
 }
@@ -291,20 +283,19 @@ Configure each node appropriately.`,
   ]
 
   try {
-    const response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o',
+    const result = await callLLMWithRetry({
       messages,
-      response_format: { type: 'json_object' },
+      model: AI_MODELS.configuration,
       temperature: 0.2,
-      max_tokens: 3000,
+      maxTokens: 3000,
+      jsonMode: true,
+      timeoutMs: 30000,
+      maxRetries: 2,
+      fallbackModel: AI_MODELS.fast,
+      label: 'LLMPlanner:configureNodes',
     })
 
-    const content = response.choices[0]?.message?.content
-    if (!content) {
-      throw new Error('Empty response from LLM')
-    }
-
-    const parsed = JSON.parse(content)
+    const parsed = parseLLMJson(result.content, 'LLMPlanner:configureNodes')
     const validated = NodeConfigurationResponseSchema.parse(parsed)
 
     // Convert to our format
