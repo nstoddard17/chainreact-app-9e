@@ -103,26 +103,29 @@ export function FieldChecklistWithOverride({
     const isReadOnly = !field.override;
 
     // Format display value
-    const displayValue = useMemo(() => {
-      const val = field.override ? field.overrideValue : field.value;
+    const val = field.override ? field.overrideValue : field.value;
+    let displayValue: string;
 
-      if (val === null || val === undefined) return '(empty)';
-      if (Array.isArray(val)) {
-        if (val.length === 0) return '(empty array)';
-        // For arrays, show comma-separated values
-        return val.map(v => {
+    if (val === null || val === undefined) {
+      displayValue = '(empty)';
+    } else if (Array.isArray(val)) {
+      if (val.length === 0) {
+        displayValue = '(empty array)';
+      } else {
+        displayValue = val.map(v => {
           if (typeof v === 'object' && v !== null) {
             return v.name || v.label || v.id || JSON.stringify(v);
           }
           return String(v);
         }).join(', ');
       }
-      if (typeof val === 'object' && val !== null) {
-        return val.name || val.label || JSON.stringify(val);
-      }
-      if (typeof val === 'boolean') return val ? 'True' : 'False';
-      return String(val);
-    }, [field.override, field.overrideValue, field.value]);
+    } else if (typeof val === 'object' && val !== null) {
+      displayValue = val.name || val.label || JSON.stringify(val);
+    } else if (typeof val === 'boolean') {
+      displayValue = val ? 'True' : 'False';
+    } else {
+      displayValue = String(val);
+    }
 
     // Read-only display
     if (isReadOnly) {
