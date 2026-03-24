@@ -54,6 +54,13 @@ jobs:
     if: github.event_name == 'pull_request'
     env:
       NODE_OPTIONS: --max-old-space-size=4096
+      # Dummy env vars so next build doesn't crash on missing config
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+      SUPABASE_SECRET_KEY: dummy-secret-for-build
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: dummy-anon-key-for-build
+      OPENAI_API_KEY: dummy-key-for-build
+      STRIPE_CLIENT_SECRET: sk_test_dummy_for_build
+      ENCRYPTION_KEY: dummy-encryption-key-for-build-32ch
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
