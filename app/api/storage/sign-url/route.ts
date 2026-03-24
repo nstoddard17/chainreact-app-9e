@@ -1,11 +1,8 @@
 import { NextRequest } from 'next/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 import { logger } from '@/lib/utils/logger'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!
 
 const ALLOWED_BUCKETS = new Set(['workflow-files', 'trello-attachments', 'user-avatars'])
 
@@ -85,7 +82,7 @@ export async function POST(request: NextRequest) {
   const expires = Math.max(MIN_EXPIRY_SECONDS, Math.min(MAX_EXPIRY_SECONDS, expiresIn))
   const objectPath = rawPath.replace(/^\/+/, '')
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const supabase = createAdminClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser(token)
   if (authError || !user) {

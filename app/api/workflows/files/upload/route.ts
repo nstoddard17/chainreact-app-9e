@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { FileStorageService } from '@/lib/storage/fileStorage';
 
 import { logger } from '@/lib/utils/logger'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!;
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +16,7 @@ export async function POST(request: NextRequest) {
     const token = authHeader.replace('Bearer ', '');
     
     // Create Supabase client with the user's token
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createAdminClient();
     
     // Verify the user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -205,7 +202,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createAdminClient();
     
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
