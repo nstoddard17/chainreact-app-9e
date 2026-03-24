@@ -99,7 +99,9 @@
       "Bash(git push:*)",
       "Bash(git remote:*)",
       "Bash(npx next:*)",
-      "Bash(gh pr:*)"
+      "Bash(gh pr:*)",
+      "Bash(OPENAI_API_KEY=dummy-key-for-build STRIPE_CLIENT_SECRET=sk_test_dummy_key_for_build NODE_OPTIONS=--max-old-space-size=4096 npm run build)",
+      "Bash(OPENAI_API_KEY=dummy-key-for-build STRIPE_CLIENT_SECRET=sk_test_dummy_key_for_build NODE_OPTIONS=--max-old-space-size=4096 npx next build)"
     ],
     "deny": [],
     "ask": [],
