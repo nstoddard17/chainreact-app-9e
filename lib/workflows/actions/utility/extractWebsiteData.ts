@@ -2,13 +2,9 @@ import { ActionResult } from '../core/executeWait';
 import { resolveValue } from '../core/resolveValue';
 import { logger } from '@/lib/utils/logger';
 import * as cheerio from 'cheerio';
-import OpenAI from 'openai';
+import { getOpenAIClient } from '@/lib/ai/openai-client';
 import { createClient } from '@supabase/supabase-js';
 import { optionalImport } from '@/lib/utils/optionalImport';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // Helper to create supabase client inside handlers
 const getSupabase = () => createClient(
@@ -614,7 +610,7 @@ async function extractWithAI(
     : cleanedHtml;
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4-turbo-preview',
       messages: [
         {

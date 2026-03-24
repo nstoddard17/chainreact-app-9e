@@ -2,15 +2,10 @@ import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createClient } from "@supabase/supabase-js"
 import Stripe from "stripe"
+import { getStripeClient } from "@/lib/stripe/client"
 import { headers } from "next/headers"
 
 import { logger } from '@/lib/utils/logger'
-
-const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET || "", {
-  apiVersion: "2024-12-18.acacia",
-})
-
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
 // Map plan IDs to task limits (must match PLAN_LIMITS in plan-restrictions.ts)
 const PLAN_TASK_LIMITS: Record<string, number> = {
@@ -27,6 +22,8 @@ function getTaskLimitForPlan(planId: string): number {
 }
 
 export async function POST(request: NextRequest) {
+  const stripe = getStripeClient("2024-12-18.acacia")
+  const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!
   const body = await request.text()
   const sig = headers().get("stripe-signature")!
 

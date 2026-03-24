@@ -2,18 +2,9 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import Stripe from "stripe"
+import { getStripeClient } from "@/lib/stripe/client"
 
 import { logger } from '@/lib/utils/logger'
-
-if (!process.env.STRIPE_CLIENT_SECRET) {
-  logger.warn("STRIPE_CLIENT_SECRET environment variable is not set.")
-}
-
-const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET ?? "", {
-  apiVersion: "2025-05-28.basil",
-  typescript: true,
-})
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   cookies()
@@ -46,6 +37,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       return errorResponse("Subscription is not scheduled for cancellation" , 400)
     }
 
+    const stripe = getStripeClient()
     // Reactivate subscription in Stripe
     await stripe.subscriptions.update(subscription.stripe_subscription_id, {
       cancel_at_period_end: false,

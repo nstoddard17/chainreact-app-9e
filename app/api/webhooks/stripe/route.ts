@@ -3,20 +3,17 @@ import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import Stripe from "stripe"
+import { getStripeClient } from "@/lib/stripe/client"
 
 import { logger } from '@/lib/utils/logger'
-
-const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET!, {
-  apiVersion: "2025-05-28.basil",
-})
-
-// This webhook handles billing events for ChainReact subscriptions
-// Use /api/webhooks/stripe-integration for workflow triggers
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
 export async function POST(request: Request) {
   logger.info("[Stripe Billing Webhook] Received billing webhook request")
   
+  const stripe = getStripeClient()
+  // This webhook handles billing events for ChainReact subscriptions
+  // Use /api/webhooks/stripe-integration for workflow triggers
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
   const body = await request.text()
   const signature = request.headers.get("stripe-signature")!
 

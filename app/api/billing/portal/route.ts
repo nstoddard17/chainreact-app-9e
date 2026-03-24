@@ -2,11 +2,9 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import Stripe from "stripe"
+import { getStripeClient } from "@/lib/stripe/client"
 
 import { logger } from '@/lib/utils/logger'
-
-const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET!)
 
 // Helper function to get base URL from request
 function getBaseUrlFromRequest(request: NextRequest): string {
@@ -75,6 +73,7 @@ export async function POST(request: NextRequest) {
     const baseUrl = getBaseUrlFromRequest(request)
 
     // Create portal session
+    const stripe = getStripeClient()
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
       return_url: `${baseUrl}/settings?section=billing`,

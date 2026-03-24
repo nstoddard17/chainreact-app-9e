@@ -742,6 +742,16 @@ All AI/LLM infrastructure is centralized in `/lib/ai/`. Do NOT create inline Ope
 - `import { callLLMWithRetry } from '@/lib/ai/llm-retry'` — never raw `openai.chat.completions.create()`
 - All LLM calls MUST have timeout protection (enforced by `callLLMWithRetry`)
 
+### Lazy Client Initialization - MANDATORY
+**NEVER initialize API clients at module level.** Module-level `new Stripe(...)`, `new OpenAI(...)`, `new Resend(...)` etc. execute during `next build` and fail when env vars are missing (e.g., in CI).
+
+**Pattern:** Use lazy-initialized singleton helpers that create the client on first call:
+- **OpenAI:** `import { getOpenAIClient } from '@/lib/ai/openai-client'` — never `new OpenAI()`
+- **Stripe:** `import { getStripeClient } from '@/lib/stripe/client'` — never `new Stripe()`
+- **Resend:** Use `getResendClient()` in `lib/notifications/email.ts` — never `new Resend()` at module level
+
+**CI expects zero dummy env vars** — the build must pass without any API keys.
+
 ### Planning Pipeline
 
 **Entry point:** `planEdits()` in `src/lib/workflows/builder/agent/planner.ts`
@@ -859,4 +869,6 @@ const { loadOptions, dynamicOptions } = useDynamicOptions({
 - Use `callLLMWithRetry()` for ALL LLM calls — never raw OpenAI SDK
 - Use `AI_MODELS.planning/fast/utility` — never hardcode model strings
 - Use `getOpenAIClient()` from `lib/ai/openai-client.ts` — never `new OpenAI()`
+- Use `getStripeClient()` from `lib/stripe/client.ts` — never `new Stripe()` at module level
+- NEVER initialize API clients at module level — use lazy singleton helpers (breaks CI build)
 - Add AI planner helpers to `lib/ai/stream-workflow-helpers.ts` — never inline in route

@@ -1,10 +1,6 @@
-import { OpenAI } from "openai"
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 
 import { logger } from '@/lib/utils/logger'
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 export interface WorkflowGenerationRequest {
   prompt: string
@@ -632,7 +628,7 @@ Node positioning example:
 
 export async function generateWorkflow(request: WorkflowGenerationRequest): Promise<GeneratedWorkflow> {
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
@@ -717,7 +713,7 @@ export async function suggestNodeConfigurationWithVariables(nodeType: string, wo
     // Extract all available variables from the workflow
     const variables = extractWorkflowVariables(workflowData);
     
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
@@ -762,7 +758,7 @@ export async function suggestNodeConfigurationWithVariables(nodeType: string, wo
 
 export async function chatWithAI(message: string, context?: any): Promise<string> {
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
