@@ -2,13 +2,11 @@ import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/supabase"
 
 // Server-only admin client - DO NOT import this in client-side code
+// Does NOT throw on missing env vars so that `next build` succeeds in CI.
+// The client will fail at request time if env vars are actually missing.
 export const createAdminClient = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY
-
-  if (!supabaseUrl || !supabaseSecretKey) {
-    throw new Error("Missing Supabase URL or secret key for admin client")
-  }
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+  const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || ""
 
   return createClient<Database>(supabaseUrl, supabaseSecretKey, {
     auth: {
