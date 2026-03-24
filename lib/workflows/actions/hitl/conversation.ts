@@ -3,7 +3,7 @@
  * Manages conversational interaction with users using OpenAI
  */
 
-import OpenAI from 'openai'
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 export type ScenarioDescriptor = {
   type: 'email' | 'chat' | 'general'
   instructions: string
@@ -17,11 +17,6 @@ import type {
   HITLConfig
 } from './types'
 import { logger } from '@/lib/utils/logger'
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
 
 /**
  * Generate the system prompt for the AI assistant
@@ -140,7 +135,7 @@ export async function processConversationMessage(
     ]
 
     // Call OpenAI
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4',
       messages,
       tools,
@@ -288,7 +283,7 @@ export async function generateInitialAssistantOpening(
       }
     ]
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4',
       messages,
       temperature: 0.6,

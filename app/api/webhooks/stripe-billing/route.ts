@@ -2,15 +2,9 @@ import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import Stripe from "stripe"
+import { getStripeClient } from "@/lib/stripe/client"
 
 import { logger } from '@/lib/utils/logger'
-
-const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET!, {
-  apiVersion: "2025-05-28.basil",
-})
-
-// This webhook handles your business billing (subscriptions for ChainReact)
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
 // Helper function to safely convert timestamps to ISO strings
 function safeTimestampToISO(timestamp: number | null | undefined): string | null {
@@ -28,9 +22,13 @@ export async function POST(request: Request) {
   logger.info("[Stripe Billing Webhook] Received billing webhook request at:", new Date().toISOString())
   logger.info("[Stripe Billing Webhook] Headers:", Object.fromEntries(request.headers.entries()))
   
+  const stripe = getStripeClient()
+  // This webhook handles billing events for ChainReact subscriptions
+  // Use /api/webhooks/stripe-integration for workflow triggers
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
   const body = await request.text()
   const signature = request.headers.get("stripe-signature")!
-  
+
   logger.info("[Stripe Billing Webhook] Has signature:", !!signature)
   logger.info("[Stripe Billing Webhook] Body length:", body.length)
   logger.info("[Stripe Billing Webhook] Webhook secret configured:", !!webhookSecret)

@@ -15,10 +15,12 @@ const getSupabase = async () => {
 }
 const getAdminSupabase = () => createAdminClient()
 
-const ENCRYPTION_SECRET = process.env.ENCRYPTION_KEY
-
-if (!ENCRYPTION_SECRET) {
-  throw new Error("ENCRYPTION_KEY is not set in environment variables.")
+function getEncryptionSecret() {
+  const secret = process.env.ENCRYPTION_KEY
+  if (!secret) {
+    throw new Error("ENCRYPTION_KEY is not set in environment variables.")
+  }
+  return secret
 }
 
 // POST - Save an API Key
@@ -39,9 +41,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Provider and API key are required" , 400)
     }
 
-    if (!ENCRYPTION_SECRET) {
-      throw new Error("ENCRYPTION_KEY is not set.")
-    }
+    const ENCRYPTION_SECRET = getEncryptionSecret()
 
     // Validate API key before saving
     if (provider === 'manychat') {

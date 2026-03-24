@@ -20,6 +20,23 @@ export function GoogleSheetsUpdateFields({
   hasHeaders,
   action
 }: GoogleSheetsUpdateFieldsProps) {
+  const isSingleRow = action === 'update' && selectedRows.size === 1;
+  const selectedRowId = isSingleRow ? Array.from(selectedRows)[0] : undefined;
+  const selectedRowData = isSingleRow
+    ? previewData.find((row: any) => row.id === selectedRowId)
+    : undefined;
+
+  // Initialize values for all columns if not already set (must be called unconditionally)
+  React.useEffect(() => {
+    if (!isSingleRow || !selectedRowData?.fields) return;
+    Object.entries(selectedRowData.fields).forEach(([columnName, currentValue]) => {
+      const fieldKey = `column_${columnName}`;
+      if (values[fieldKey] === undefined) {
+        setValue(fieldKey, String(currentValue ?? ''));
+      }
+    });
+  }, [selectedRowId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Only show for update action when rows are selected
   if (action !== 'update' || selectedRows.size === 0) {
     return null;
@@ -27,24 +44,8 @@ export function GoogleSheetsUpdateFields({
 
   // Single row selected - show all columns as editable fields
   if (selectedRows.size === 1) {
-    const selectedRowId = Array.from(selectedRows)[0];
-    const selectedRowData = previewData.find((row: any) => row.id === selectedRowId);
-    
     if (!selectedRowData) return null;
-    
-    // Initialize values for all columns if not already set
-    React.useEffect(() => {
-      if (selectedRowData?.fields) {
-        Object.entries(selectedRowData.fields).forEach(([columnName, currentValue]) => {
-          const fieldKey = `column_${columnName}`;
-          // Only initialize if the value doesn't exist, to avoid overwriting user edits
-          if (values[fieldKey] === undefined) {
-            setValue(fieldKey, String(currentValue ?? ''));
-          }
-        });
-      }
-    }, [selectedRowId]); // Only re-initialize when selected row changes, not on every render
-    
+
     return (
       <div className="mt-4 space-y-4">
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">

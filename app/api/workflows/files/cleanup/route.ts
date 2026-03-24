@@ -1,11 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response';
 
 import { logger } from '@/lib/utils/logger'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!;
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +15,7 @@ export async function POST(request: Request) {
       return errorResponse('Unauthorized' , 401);
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createAdminClient();
 
     // Get expired temporary files (older than 24 hours)
     const { data: expiredFiles, error: queryError } = await supabase
@@ -134,7 +131,7 @@ export async function POST(request: Request) {
 // GET endpoint to check cleanup status
 export async function GET(request: Request) {
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createAdminClient();
     
     // Count expired files
     const { count: expiredCount } = await supabase

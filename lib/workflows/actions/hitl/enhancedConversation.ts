@@ -7,14 +7,10 @@
  * - Adaptive response generation
  */
 
-import OpenAI from 'openai'
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 import type { HITLConfig, ConversationMessage, ExtractedVariables } from './types'
 import { logger } from '@/lib/utils/logger'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
 
 /**
  * Format email data in a user-friendly way (like in an inbox)
@@ -149,7 +145,7 @@ Context: ${context.description}`
       ? generateEmailResponsePrompt(context.triggerData, context.actionData)
       : generateGeneralPrompt(input)
 
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4',
       messages: [
         { role: 'system', content: systemPrompt },
@@ -759,7 +755,7 @@ Add any other relevant variables based on what was discussed. Use camelCase for 
     }
 
     // Call OpenAI
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4',
       messages,
       tools,

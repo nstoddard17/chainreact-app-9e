@@ -1,19 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import OpenAI from "openai"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkUsageLimit, trackUsage } from "@/lib/usageTracking"
+import { getOpenAIClient } from '@/lib/ai/openai-client'
+import { AI_MODELS } from '@/lib/ai/models'
 import { checkRateLimit } from '@/lib/utils/rate-limit'
 import { logger } from '@/lib/utils/logger'
-
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    logger.warn('[AI Subject] OPENAI_API_KEY is not configured')
-    return null
-  }
-  return new OpenAI({ apiKey })
-}
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 60 subject generations per minute per IP
@@ -26,8 +18,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const openai = getOpenAIClient()
-    if (!openai) {
+    let openai;
+    try {
+      openai = getOpenAIClient()
+    } catch {
       return errorResponse("AI not configured" , 500)
     }
 
@@ -67,7 +61,7 @@ export async function POST(request: NextRequest) {
     
     // Generate subject line
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: AI_MODELS.fast,
       messages: [
         {
           role: 'system',

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { AdvancedExecutionEngine } from "../execution/advancedExecutionEngine"
 
 export interface TestCase {
@@ -47,7 +47,7 @@ export interface TestSuite {
 }
 
 export class WorkflowTestingFramework {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+  private supabase = createAdminClient()
   private executionEngine = new AdvancedExecutionEngine()
 
   async createTestSuite(workflowId: string, userId: string, name: string, description: string): Promise<TestSuite> {

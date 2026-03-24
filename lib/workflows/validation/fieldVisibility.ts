@@ -279,7 +279,8 @@ export const getMissingRequiredFields = (
     if (!isRequired) return
 
     const fieldValue = getValue(values, field.name)
-    if (isEmptyValue(fieldValue)) {
+    // If the config value is empty but the field has a defaultValue, treat it as filled
+    if (isEmptyValue(fieldValue) && isEmptyValue((field as any).defaultValue)) {
       missing.push(field.label || field.name)
     }
   })

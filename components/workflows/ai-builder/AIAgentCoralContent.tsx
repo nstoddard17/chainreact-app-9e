@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
+import { useWorkflowStore } from "@/stores/workflowStore"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { AIAgentPreferenceModal } from "../AIAgentPreferenceModal"
@@ -100,6 +101,10 @@ export function AIAgentCoralContent() {
       if (!flowId) {
         throw new Error("Flow v2 API did not return a flowId")
       }
+
+      // Invalidate the workflow store cache so the list page
+      // fetches fresh data when the user navigates back
+      useWorkflowStore.getState().invalidateCache()
 
       if (options?.prompt && typeof window !== "undefined") {
         try {

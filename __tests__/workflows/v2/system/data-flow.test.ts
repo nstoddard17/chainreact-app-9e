@@ -27,7 +27,7 @@ import { executeRun } from '@/src/lib/workflows/builder/runner/execute'
 import { registerNodeDefinition, clearNodeRunners } from '@/src/lib/workflows/builder/runner/registry'
 import type { NodeDefinition } from '@/src/lib/workflows/builder/nodes/types'
 import { z } from 'zod'
-import { InMemoryRunStore, buildFlow } from './helpers'
+import { InMemoryRunStore, buildFlow } from './helpers.support'
 
 // ─── Setup ──────────────────────────────────────────────────────────────────
 

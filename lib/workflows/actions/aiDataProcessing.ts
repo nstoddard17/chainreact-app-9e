@@ -4,11 +4,7 @@
  */
 
 import { ActionResult } from '@/actions'
-import { OpenAI } from 'openai'
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 
 /**
  * Summarize text content using AI
@@ -43,7 +39,7 @@ export async function summarizeContent(
     }
     prompt += `:\n\n${inputText}`
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -139,7 +135,7 @@ export async function extractInformation(
 
     userPrompt += `:\n\n${inputText}`
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
@@ -213,7 +209,7 @@ export async function analyzeSentiment(
     }
     prompt += `:\n\n${inputText}`
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -291,7 +287,7 @@ export async function translateText(
     }
     prompt += `:\n\n${inputText}`
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -366,7 +362,7 @@ export async function generateContent(
     
     prompt += `:\n\n${JSON.stringify(inputData, null, 2)}`
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -449,7 +445,7 @@ export async function classifyContent(
     }
     prompt += `:\n\n${inputText}`
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {

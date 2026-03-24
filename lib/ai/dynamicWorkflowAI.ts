@@ -1,4 +1,3 @@
-import { OpenAI } from "openai"
 import { generateObject } from "ai"
 import { openai as aiOpenAI } from "@ai-sdk/openai"
 import { z } from "zod"
@@ -6,12 +5,9 @@ import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { loadPromptOverrides } from "@/lib/ai/promptOverrides"
 import { NodeComponent } from "@/lib/workflows/nodes/types"
 import { nodeRegistry, getAllNodes, getNodeByType } from "@/lib/workflows/nodes/registry"
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 
 import { logger } from '@/lib/utils/logger'
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 export interface WorkflowGenerationRequest {
   prompt: string

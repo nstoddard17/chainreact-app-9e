@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import Stripe from 'stripe'
+import { getStripeClient } from "@/lib/stripe/client"
 
 import { logger } from '@/lib/utils/logger'
-
-const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET!, {
-  apiVersion: '2025-05-28.basil',
-})
 
 export async function POST(request: NextRequest) {
   try {
     const { amount, email } = await request.json()
 
+    const stripe = getStripeClient()
     if (!amount || amount <= 0) {
       return errorResponse('Invalid amount' , 400)
     }

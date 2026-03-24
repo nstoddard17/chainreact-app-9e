@@ -1,14 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 import { logger } from '@/lib/utils/logger'
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SECRET_KEY!
-
-const getSupabaseClient = () => {
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
 
 export interface StoredFile {
   id: string
@@ -35,7 +27,7 @@ export class FileStorageService {
     workflowId?: string
   ): Promise<StoredFile> {
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createAdminClient()
       
       // Validate file size
       if (file.size > this.MAX_FILE_SIZE) {
@@ -112,7 +104,7 @@ export class FileStorageService {
    */
   static async getFile(nodeId: string, userId: string, workflowId?: string): Promise<{ file: Blob; metadata: StoredFile } | null> {
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createAdminClient()
 
       // Build query
       let query = supabase
@@ -175,7 +167,7 @@ export class FileStorageService {
    */
   static async deleteFileByNode(nodeId: string, userId: string, workflowId?: string): Promise<boolean> {
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createAdminClient()
 
       // Build query
       let query = supabase
@@ -236,7 +228,7 @@ export class FileStorageService {
    */
   static async deleteFile(fileId: string, userId: string): Promise<boolean> {
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createAdminClient()
 
       // Get file metadata first
       const { data: metadata, error: metadataError } = await supabase
@@ -284,7 +276,7 @@ export class FileStorageService {
    */
   static async cleanupExpiredFiles(): Promise<number> {
     try {
-      const supabase = getSupabaseClient()
+      const supabase = createAdminClient()
 
       // Get expired files
       const { data: expiredFiles, error: queryError } = await supabase

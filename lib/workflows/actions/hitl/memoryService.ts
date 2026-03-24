@@ -3,7 +3,7 @@
  * Extracts learnings from conversations and stores them in user-controlled documents
  */
 
-import OpenAI from 'openai'
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 import { logger } from '@/lib/utils/logger'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { createClient } from '@supabase/supabase-js'
@@ -19,10 +19,6 @@ function getServiceRoleClient() {
     process.env.SUPABASE_SECRET_KEY!
   )
 }
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
 
 /**
  * Extract learnings from a completed HITL conversation
@@ -42,7 +38,7 @@ export async function extractLearningsFromConversation(
     const prompt = buildLearningExtractionPrompt(conversationHistory, contextData, memoryCategories)
 
     // Call OpenAI to analyze conversation and extract patterns
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4',
       messages: [
         {

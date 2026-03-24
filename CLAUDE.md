@@ -531,6 +531,8 @@ supabase db reset/pull/diff    # Local ops
 - `/app` - Routes, APIs, pages
 - `/components` - UI components
 - `/lib` - Database, integrations, workflows
+- `/lib/ai` - Shared AI/LLM utilities (client, retry, models, cache, helpers)
+- `/src/lib/workflows/builder/agent` - AI planner (llmPlanner, patterns, refinement, catalog)
 - `/stores` - Zustand state
 - `/scripts` - Production utilities & tools
 - `/scripts/trash` - One-off scripts (can be deleted)
@@ -717,6 +719,88 @@ setTimeout(() => {
 
 ---
 
+## 🤖 AI PLANNER ARCHITECTURE
+
+**Last Updated:** March 21, 2026
+
+### Shared AI Utilities (`/lib/ai/`)
+All AI/LLM infrastructure is centralized in `/lib/ai/`. Do NOT create inline OpenAI clients or hardcode model strings.
+
+| File | Purpose |
+|------|---------|
+| `openai-client.ts` | **Single shared OpenAI client.** Use `getOpenAIClient()` — never `new OpenAI()` |
+| `models.ts` | **Centralized model config.** Use `AI_MODELS.planning`, `.fast`, `.utility`, `.configuration` |
+| `llm-retry.ts` | **`callLLMWithRetry()`** — retry with exponential backoff, timeout, model fallback |
+| `token-utils.ts` | **Token-aware conversation history truncation** (replaces naive `.slice(-5)`) |
+| `plan-cache.ts` | **LLM planning result cache** (5-min TTL, 100 entry max, case-insensitive keys) |
+| `template-catalog.ts` | **DB template loader** — feeds published templates into planner context |
+| `stream-workflow-helpers.ts` | **Extracted SSE helpers** — node config, testing, formatting, auto-mapping |
+
+**Rules:**
+- `import { getOpenAIClient } from '@/lib/ai/openai-client'` — never inline clients
+- `import { AI_MODELS } from '@/lib/ai/models'` — never hardcode `'gpt-4o'` or `'gpt-4o-mini'`
+- `import { callLLMWithRetry } from '@/lib/ai/llm-retry'` — never raw `openai.chat.completions.create()`
+- All LLM calls MUST have timeout protection (enforced by `callLLMWithRetry`)
+
+### Lazy Client Initialization - MANDATORY
+**NEVER initialize API clients at module level.** Module-level `new Stripe(...)`, `new OpenAI(...)`, `new Resend(...)` etc. execute during `next build` and fail when env vars are missing (e.g., in CI).
+
+**Pattern:** Use lazy-initialized singleton helpers that create the client on first call:
+- **OpenAI:** `import { getOpenAIClient } from '@/lib/ai/openai-client'` — never `new OpenAI()`
+- **Stripe:** `import { getStripeClient } from '@/lib/stripe/client'` — never `new Stripe()`
+- **Resend:** Use `getResendClient()` in `lib/notifications/email.ts` — never `new Resend()` at module level
+
+**CI expects zero dummy env vars** — the build must pass without any API keys.
+
+### Planning Pipeline
+
+**Entry point:** `planEdits()` in `src/lib/workflows/builder/agent/planner.ts`
+
+```
+User Prompt
+    ↓
+1. Unsupported feature detection (LinkedIn, Salesforce, etc.)
+    ↓
+2. Refinement check (is this "add a filter" or "swap step 2"?)
+    ↓ (if not refinement)
+3. LLM Planner (3-stage pipeline in llmPlanner.ts)
+   ├─ Stage 1: Node selection (compact catalog → GPT-4o)
+   ├─ Stage 2: Node configuration (full schemas → GPT-4o)
+   └─ Stage 3: Edge & layout generation
+   └─ Results cached in plan-cache.ts
+    ↓ (if LLM fails or disabled)
+4. Pattern Fallback (4-tier, in planner.ts)
+   ├─ Tier 1: Fast-path patterns (10 templates, $0)
+   ├─ Tier 2: DB template keyword match ($0, self-growing)
+   ├─ Tier 3: Lightweight LLM (GPT-4o-mini + DB template context)
+   └─ Tier 4: Clarifying questions
+```
+
+### Self-Growing Template Pool
+Published workflow templates in the `templates` table are automatically available to the planner:
+- **Tier 2** matches prompt keywords against template name/description/tags ($0 cost)
+- **Tier 3** includes template catalog as LLM context for GPT-4o-mini planning
+
+As users create and publish templates, the planner's coverage grows without code changes.
+
+**Key files:**
+- Template catalog loader: `/lib/ai/template-catalog.ts`
+- Dynamic template system: `/lib/workflows/ai-agent/dynamicTemplates.ts`
+- Template matching (SSE flow): `/lib/workflows/ai-agent/templateMatching.ts`
+
+### SSE Streaming (`/app/api/ai/stream-workflow/route.ts`)
+Streams real-time events during workflow building. Now delegates to shared helpers in `/lib/ai/stream-workflow-helpers.ts`.
+
+**DO NOT add inline helper functions to the route file.** All helpers belong in `stream-workflow-helpers.ts`.
+
+### Tests
+AI planner tests: `__tests__/workflows/v2/agent/`
+- `planner.patterns.test.ts` — Fast-path pattern matching (14 tests)
+- `planner.llm-fallback.test.ts` — LLM fallback chain + plan validation (10 tests)
+- `shared-utilities.test.ts` — Models, cache, token utils, client singleton (18 tests)
+
+---
+
 ## 🗂️ AUTH STORE GUARDRAILS
 
 - `stores/authStore.ts` clears initialization watchdog as soon as session exists
@@ -782,3 +866,9 @@ const { loadOptions, dynamicOptions } = useDynamicOptions({
 - Use cascading fields for 5+ field forms
 - Optimize database queries with parallel execution
 - Add timeout protection to all network calls
+- Use `callLLMWithRetry()` for ALL LLM calls — never raw OpenAI SDK
+- Use `AI_MODELS.planning/fast/utility` — never hardcode model strings
+- Use `getOpenAIClient()` from `lib/ai/openai-client.ts` — never `new OpenAI()`
+- Use `getStripeClient()` from `lib/stripe/client.ts` — never `new Stripe()` at module level
+- NEVER initialize API clients at module level — use lazy singleton helpers (breaks CI build)
+- Add AI planner helpers to `lib/ai/stream-workflow-helpers.ts` — never inline in route

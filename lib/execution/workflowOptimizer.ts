@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export interface OptimizationSuggestion {
   id: string
@@ -23,7 +23,7 @@ export interface PerformanceMetrics {
 }
 
 export class WorkflowOptimizer {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+  private supabase = createAdminClient()
 
   async analyzeWorkflow(workflowId: string): Promise<{
     metrics: PerformanceMetrics

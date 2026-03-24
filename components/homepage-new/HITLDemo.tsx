@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Search,
   CheckCircle,
-  Database
+  Database,
+  Sparkles
 } from 'lucide-react'
 
 type DemoStep = 'trigger' | 'ai-analysis' | 'document-search' | 'hitl-conversation' | 'ai-response' | 'complete'

@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { ComplianceLogger } from "../security/complianceLogger"
 import { UserDeletionService } from "../services/userDeletionService"
 
@@ -18,7 +18,7 @@ export interface DataSubjectRequest {
 }
 
 export class GDPRService {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+  private supabase = createAdminClient()
   private complianceLogger = new ComplianceLogger()
 
   async submitDataSubjectRequest(

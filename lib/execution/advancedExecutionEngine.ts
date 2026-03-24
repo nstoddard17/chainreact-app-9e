@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { executeAction } from "@/lib/workflows/executeNode"
 import { mapWorkflowData, evaluateExpression, evaluateCondition } from "./variableResolver"
 import { ExecutionProgressTracker } from "./executionProgressTracker"
@@ -71,7 +71,7 @@ export interface SubWorkflow {
 }
 
 export class AdvancedExecutionEngine {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+  private supabase = createAdminClient()
   private progressTracker: ExecutionProgressTracker
 
   async createExecutionSession(

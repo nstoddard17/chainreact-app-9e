@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export interface EnterpriseIntegration {
   id: string
@@ -15,7 +15,7 @@ export interface EnterpriseIntegration {
 }
 
 export class EnterpriseIntegrationsService {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!)
+  private supabase = createAdminClient()
 
   async configureSalesforce(
     organizationId: string,

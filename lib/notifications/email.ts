@@ -5,7 +5,16 @@
 import { Resend } from 'resend'
 import { logger } from '@/lib/utils/logger'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+let _resend: Resend | null = null
+function getResendClient(): Resend {
+  if (!_resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set')
+    }
+    _resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return _resend
+}
 
 interface EmailOptions {
   to: string
@@ -37,7 +46,7 @@ export async function sendEmail(
     }
 
     // Send email
-    const result = await resend.emails.send({
+    const result = await getResendClient().emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'ChainReact <notifications@chainreact.app>',
       to: [to],
       subject,

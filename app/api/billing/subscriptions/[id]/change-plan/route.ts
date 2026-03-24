@@ -2,18 +2,9 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import Stripe from "stripe"
+import { getStripeClient } from "@/lib/stripe/client"
 
 import { logger } from '@/lib/utils/logger'
-
-if (!process.env.STRIPE_CLIENT_SECRET) {
-  logger.warn("STRIPE_CLIENT_SECRET environment variable is not set.")
-}
-
-const stripe = new Stripe(process.env.STRIPE_CLIENT_SECRET ?? "", {
-  apiVersion: "2025-05-28.basil",
-  typescript: true,
-})
 
 export async function POST(
   request: Request,
@@ -23,6 +14,7 @@ export async function POST(
   const supabase = await createSupabaseRouteHandlerClient()
 
   try {
+    const stripe = getStripeClient()
     const body = await request.json()
     const { newPlanId, billingCycle } = body
 

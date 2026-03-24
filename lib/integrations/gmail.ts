@@ -1,26 +1,32 @@
 import { google } from 'googleapis';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { decryptToken, encryptTokens } from '@/lib/integrations/tokenUtils';
 
 import { logger } from '@/lib/utils/logger'
 
-const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI
-);
+let _oauth2Client: InstanceType<typeof google.auth.OAuth2> | null = null;
+function getOAuth2Client() {
+  if (!_oauth2Client) {
+    _oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_REDIRECT_URI
+    );
+  }
+  return _oauth2Client;
+}
 
 export class GmailService {
-  private supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
+  private supabase = createAdminClient();
   private gmail;
 
   constructor(accessToken: string) {
-    oauth2Client.setCredentials({ access_token: accessToken });
-    this.gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    getOAuth2Client().setCredentials({ access_token: accessToken });
+    this.gmail = google.gmail({ version: 'v1', auth: getOAuth2Client() });
   }
 
   static async refreshToken(userId: string, integrationId: string): Promise<string | null> {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
+    const supabase = createAdminClient();
     
     const { data: integration, error } = await supabase
       .from('integrations')
@@ -42,8 +48,8 @@ export class GmailService {
     }
 
     try {
-      oauth2Client.setCredentials({ refresh_token: decryptedRefreshToken });
-      const { credentials } = await oauth2Client.refreshAccessToken();
+      getOAuth2Client().setCredentials({ refresh_token: decryptedRefreshToken });
+      const { credentials } = await getOAuth2Client().refreshAccessToken();
       const { access_token, expiry_date } = credentials;
 
       if (access_token) {
@@ -117,7 +123,7 @@ export class GmailService {
 
 export async function getGoogleContacts(accessToken: string) {
   const oauth2Client = new google.auth.OAuth2()
-  oauth2Client.setCredentials({ access_token: accessToken })
+  getOAuth2Client().setCredentials({ access_token: accessToken })
 
   const people = google.people({ version: "v1", auth: oauth2Client })
 
@@ -157,7 +163,7 @@ export async function getGoogleContacts(accessToken: string) {
 
 export async function getEnhancedGoogleContacts(accessToken: string) {
   const oauth2Client = new google.auth.OAuth2()
-  oauth2Client.setCredentials({ access_token: accessToken })
+  getOAuth2Client().setCredentials({ access_token: accessToken })
 
   const people = google.people({ version: "v1", auth: oauth2Client })
 

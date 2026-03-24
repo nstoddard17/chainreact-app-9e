@@ -1342,57 +1342,55 @@ export function FlowV2AgentPanel({
           {/* Chat messages */}
           <div ref={chatMessagesRef} className="flex-1 overflow-y-auto w-full overflow-x-hidden min-h-0 px-4">
             <div className="space-y-4 py-4 pb-8 w-full min-h-0">
-              {/* User messages - only shown in IDLE state (to prevent duplicates during build) */}
-              {buildMachine.state === BuildState.IDLE && agentMessages.filter(m => m && m.role === 'user').map((msg, index) => {
-                const text = (msg as any).text ?? (msg as any).content ?? ''
-                const created = (msg as any).createdAt ?? (msg as any).timestamp ?? null
-                let formattedTime: string | null = null
-                if (created) {
-                  const date = created instanceof Date ? created : new Date(created)
-                  if (!Number.isNaN(date.getTime())) {
-                    formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  }
-                }
-
-                return (
-                  <div key={`user-${index}`} className="flex justify-end w-full">
-                    <div
-                      className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900"
-                      style={{
-                        wordBreak: "break-word",
-                        overflowWrap: "anywhere"
-                    }}
-                  >
-                    <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
-                      {text}
-                    </p>
-                    {formattedTime && (
-                      <p className="text-xs opacity-70 mt-1">
-                        {formattedTime}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                )
-              })}
-
-              {/* Assistant messages - only shown in IDLE state if they have text content or interactive meta */}
+              {/* Chat messages — interleaved chronologically (user + assistant) */}
               {buildMachine.state === BuildState.IDLE && agentMessages.filter(m => {
-                if (!m || m.role !== 'assistant') return false
-                const text = (m as any).text ?? (m as any).content ?? ''
-                const meta = (m as any).meta ?? {}
-                // Show if has text OR has interactive components
-                return text.trim().length > 0 ||
-                       meta.providerDropdown ||
-                       meta.connectionStatus ||
-                       meta.nodeConfig ||
-                       meta.preferencesSave
+                if (!m) return false
+                if (m.role === 'user') return true
+                if (m.role === 'assistant') {
+                  const text = (m as any).text ?? (m as any).content ?? ''
+                  const meta = (m as any).meta ?? {}
+                  return text.trim().length > 0 ||
+                         meta.providerDropdown ||
+                         meta.connectionStatus ||
+                         meta.nodeConfig ||
+                         meta.preferencesSave
+                }
+                return false
               }).map((msg, index) => {
                 const text = (msg as any).text ?? (msg as any).content ?? ''
-                const meta = (msg as any).meta ?? {}
+                const created = (msg as any).createdAt ?? (msg as any).timestamp ?? null
+                const msgKey = (msg as any).id || (created instanceof Date ? created.toISOString() : created) || `msg-${index}`
 
+                // --- User message bubble ---
+                if (msg.role === 'user') {
+                  let formattedTime: string | null = null
+                  if (created) {
+                    const date = created instanceof Date ? created : new Date(created)
+                    if (!Number.isNaN(date.getTime())) {
+                      formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    }
+                  }
+                  return (
+                    <div key={msgKey} className="flex justify-end w-full">
+                      <div
+                        className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900"
+                        style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
+                      >
+                        <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
+                          {text}
+                        </p>
+                        {formattedTime && (
+                          <p className="text-xs opacity-70 mt-1">{formattedTime}</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                }
+
+                // --- Assistant message bubble ---
+                const meta = (msg as any).meta ?? {}
                 return (
-                  <div key={`assistant-${index}`} className="flex w-full flex-col gap-2">
+                  <div key={msgKey} className="flex w-full flex-col gap-2">
                     {/* Text bubble - with special styling for warnings */}
                     {text.trim().length > 0 && (
                       <div className={`max-w-[80%] rounded-lg px-4 py-3 ${
@@ -1479,10 +1477,11 @@ export function FlowV2AgentPanel({
               {/* Animated Build UI */}
               {buildMachine.state !== BuildState.IDLE && (
                 <div className="space-y-4 w-full">
-                  {/* User message */}
+                  {/* User messages during build */}
                   {agentMessages.filter(m => m && m.role === 'user').map((msg, index) => {
                     const text = (msg as any).text ?? (msg as any).content ?? ''
                     const created = (msg as any).createdAt ?? (msg as any).timestamp ?? null
+                    const msgKey = (msg as any).id || (created instanceof Date ? created.toISOString() : created) || `build-user-${index}`
                     let formattedTime: string | null = null
                     if (created) {
                       const date = created instanceof Date ? created : new Date(created)
@@ -1492,24 +1491,19 @@ export function FlowV2AgentPanel({
                     }
 
                     return (
-                      <div key={index} className="flex justify-end w-full">
+                      <div key={msgKey} className="flex justify-end w-full">
                         <div
                           className="max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-900"
-                          style={{
-                            wordBreak: "break-word",
-                            overflowWrap: "anywhere"
-                        }}
-                      >
-                        <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
-                          {text}
-                        </p>
-                        {formattedTime && (
-                          <p className="text-xs opacity-70 mt-1">
-                            {formattedTime}
+                          style={{ wordBreak: "break-word", overflowWrap: "anywhere" }}
+                        >
+                          <p className="text-sm whitespace-pre-wrap" style={{ wordBreak: "break-word" }}>
+                            {text}
                           </p>
-                        )}
+                          {formattedTime && (
+                            <p className="text-xs opacity-70 mt-1">{formattedTime}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
                     )
                   })}
 
@@ -1576,13 +1570,13 @@ export function FlowV2AgentPanel({
                     </div>
                   )}
 
-                  {/* Plan Ready - Show plan list and Build button (only visible when PLAN_READY or later) */}
+                  {/* Plan Ready - Show plan list and Build button (only visible when PLAN_READY or later AND plan has nodes) */}
                   {(buildMachine.state === BuildState.PLAN_READY ||
                     buildMachine.state === BuildState.BUILDING_SKELETON ||
                     buildMachine.state === BuildState.WAITING_USER ||
                     buildMachine.state === BuildState.PREPARING_NODE ||
                     buildMachine.state === BuildState.TESTING_NODE ||
-                    buildMachine.state === BuildState.COMPLETE) && (
+                    buildMachine.state === BuildState.COMPLETE) && buildMachine.plan.length > 0 && (
                     <div className="flex flex-col w-full gap-3">
                       <div className="flex w-full">
                         <div className="space-y-4 w-full overflow-visible min-w-0">

@@ -1,10 +1,6 @@
-import { OpenAI } from "openai"
+import { getOpenAIClient } from '@/lib/ai/openai-client'
 
 import { logger } from '@/lib/utils/logger'
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 export interface WorkflowGenerationRequest {
   prompt: string
@@ -339,7 +335,7 @@ export async function generateEnhancedWorkflow(request: WorkflowGenerationReques
     const aiAgentId = crypto.randomUUID()
 
     try {
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAIClient().chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {

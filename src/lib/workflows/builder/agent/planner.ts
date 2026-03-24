@@ -5,8 +5,11 @@ import { createHash } from "crypto"
 // Import the full node catalog for integration-specific nodes
 import { ALL_NODE_COMPONENTS } from "../../../../../lib/workflows/nodes"
 import type { NodeComponent } from "../../../../../lib/workflows/nodes/types"
-import OpenAI from "openai"
 import { logger } from "../../../../../lib/utils/logger"
+import { callLLMWithRetry, parseLLMJson } from "../../../../../lib/ai/llm-retry"
+import { AI_MODELS } from "../../../../../lib/ai/models"
+import { getCachedPlan, cachePlan } from "../../../../../lib/ai/plan-cache"
+import { getTemplateCatalog, formatTemplateCatalogForLLM } from "../../../../../lib/ai/template-catalog"
 // Import LLM planner and types
 import { planWithLLM, llmOutputToPlannerResult } from "./llmPlanner"
 import { parseRefinementIntent, looksLikeRefinement, applyRefinement } from "./refinementParser"
@@ -59,18 +62,10 @@ export interface PlannerResult {
     features: Array<{ feature: string; alternative?: string }>
     message: string
   }
+  /** Clarifying questions to ask user when plan is empty */
+  clarifyingQuestions?: string[]
 }
 
-// Lazy-initialize OpenAI client for workflow name generation
-let _openai: OpenAI | null = null
-function getOpenAI(): OpenAI {
-  if (!_openai) {
-    _openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY!,
-    })
-  }
-  return _openai
-}
 
 // Create a lookup map for quick node access
 const NODE_CATALOG_MAP = new Map<string, NodeComponent>(
@@ -150,151 +145,40 @@ interface PlanTemplate {
   configHints?: Record<string, Record<string, any>>
 }
 
+/**
+ * FAST-PATH PATTERN TEMPLATES
+ *
+ * Only the most common workflow patterns are kept here as a zero-cost
+ * fast path (no LLM call needed). All other requests fall through to
+ * a lightweight GPT-4o-mini call that can handle any prompt.
+ *
+ * Previously this was 60+ templates with 12-tier heuristic matching.
+ * Now it's ~10 templates with simple keyword matching.
+ */
 const INTENT_TO_PLAN: Record<string, PlanTemplate> = {
-  // Email → Slack using real integration nodes
-  "when i get an email": {
+  // Email → Slack (most common pattern)
+  "email to slack": {
     nodeTypes: ["gmail_trigger_new_email", "slack_action_send_message"],
     description: "Gmail trigger → Slack",
     configHints: {
-      "gmail_trigger_new_email": {
-        // Trigger all emails by default, user can refine later
-      },
       "slack_action_send_message": {
         message: "New email from {{trigger.from}}:\n\n*Subject:* {{trigger.subject}}\n\n{{trigger.snippet}}",
-      },
-    },
-  },
-
-  // Gmail → Slack (alias)
-  "when gmail": {
-    nodeTypes: ["gmail_trigger_new_email", "slack_action_send_message"],
-    description: "Gmail trigger → Slack",
-    configHints: {
-      "gmail_trigger_new_email": {},
-      "slack_action_send_message": {
-        message: "New email from {{trigger.from}}:\n\n*Subject:* {{trigger.subject}}\n\n{{trigger.snippet}}",
-      },
-    },
-  },
-
-  // Schedule → Fetch → Summarize → Slack
-  "on a schedule": {
-    nodeTypes: ["http.trigger", "http.request", "ai.generate", "slack_action_send_message"],
-    description: "Schedule trigger → HTTP Request → AI Summarize → Slack",
-    fallbackNote: "Using HTTP trigger for scheduling; configure cron externally or set up a schedule trigger service",
-    configHints: {
-      "slack_action_send_message": {
-        message: "{{ai_generate.summary}}",
       },
     },
   },
 
   // Webhook → Slack
-  "when a webhook is received": {
+  "webhook to slack": {
     nodeTypes: ["http.trigger", "slack_action_send_message"],
     description: "HTTP trigger → Slack",
     configHints: {
       "slack_action_send_message": {
         message: "Webhook received:\n```{{trigger.body}}```",
-      },
-    },
-  },
-
-  "when webhook received": {
-    nodeTypes: ["http.trigger", "slack_action_send_message"],
-    description: "HTTP trigger → Slack",
-    configHints: {
-      "slack_action_send_message": {
-        message: "Webhook received:\n```{{trigger.body}}```",
-      },
-    },
-  },
-
-  // Fetch URL → Summarize → Slack
-  "fetch http": {
-    nodeTypes: ["http.request", "ai.generate", "slack_action_send_message"],
-    description: "HTTP Request → AI Summarize → Slack",
-    configHints: {
-      "slack_action_send_message": {
-        message: "{{ai_generate.summary}}",
-      },
-    },
-  },
-
-  "fetch https": {
-    nodeTypes: ["http.request", "ai.generate", "slack_action_send_message"],
-    description: "HTTP Request → AI Summarize → Slack",
-    configHints: {
-      "slack_action_send_message": {
-        message: "{{ai_generate.summary}}",
-      },
-    },
-  },
-
-  // Generic AI + Slack
-  "summarize and post to slack": {
-    nodeTypes: ["http.trigger", "ai.generate", "slack_action_send_message"],
-    description: "HTTP trigger → AI Summarize → Slack",
-    configHints: {
-      "slack_action_send_message": {
-        message: "{{ai_generate.summary}}",
-      },
-    },
-  },
-
-  "ai to slack": {
-    nodeTypes: ["http.trigger", "ai.generate", "slack_action_send_message"],
-    description: "HTTP trigger → AI Generate → Slack",
-    configHints: {
-      "slack_action_send_message": {
-        message: "{{ai_generate.output}}",
-      },
-    },
-  },
-
-  // Discord patterns
-  "send to discord": {
-    nodeTypes: ["http.trigger", "discord_action_send_message"],
-    description: "HTTP trigger → Discord",
-    configHints: {
-      "discord_action_send_message": {
-        content: "{{trigger.body}}",
-      },
-    },
-  },
-
-  // Google Sheets → Discord
-  "google sheets discord": {
-    nodeTypes: ["google_sheets_trigger_new_row", "discord_action_send_message"],
-    description: "Google Sheets new row → Discord",
-    configHints: {
-      "discord_action_send_message": {
-        content: "New row added to Google Sheets:\n{{trigger.values}}",
-      },
-    },
-  },
-
-  "sheets to discord": {
-    nodeTypes: ["google_sheets_trigger_new_row", "discord_action_send_message"],
-    description: "Google Sheets new row → Discord",
-    configHints: {
-      "discord_action_send_message": {
-        content: "New row added to Google Sheets:\n{{trigger.values}}",
       },
     },
   },
 
   // Google Sheets → Slack
-  "google sheets slack": {
-    nodeTypes: ["google_sheets_trigger_new_row", "slack_action_send_message"],
-    description: "Google Sheets new row → Slack",
-    configHints: {
-      "slack_action_send_message": {
-        message: "New row added to Google Sheets:\n{{trigger.values}}",
-      },
-    },
-  },
-
   "sheets to slack": {
     nodeTypes: ["google_sheets_trigger_new_row", "slack_action_send_message"],
     description: "Google Sheets new row → Slack",
@@ -305,278 +189,52 @@ const INTENT_TO_PLAN: Record<string, PlanTemplate> = {
     },
   },
 
-  // Notion patterns
-  "create notion page": {
-    nodeTypes: ["http.trigger", "notion_action_create_page"],
-    description: "HTTP trigger → Create Notion page",
-    configHints: {
-      "notion_action_create_page": {
-        title: "{{trigger.title || 'New Page'}}",
-      },
-    },
-  },
-
-  // AI Agent + Email patterns
-  "summarize and email": {
-    nodeTypes: ["http.trigger", "ai_agent", "gmail_action_send_email"],
-    description: "HTTP trigger → AI Summarize → Email",
-    configHints: {
-      "ai_agent": {
-        prompt: "Summarize the following data:\n{{trigger.body}}",
-      },
-      "gmail_action_send_email": {
-        subject: "Summary Report",
-        body: "{{ai_agent.result}}",
-      },
-    },
-  },
-
-  "create report and email": {
-    nodeTypes: ["http.trigger", "ai_agent", "gmail_action_send_email"],
-    description: "HTTP trigger → AI Generate Report → Email",
-    configHints: {
-      "ai_agent": {
-        prompt: "Create a report based on:\n{{trigger.body}}",
-      },
-      "gmail_action_send_email": {
-        subject: "Report",
-        body: "{{ai_agent.result}}",
-      },
-    },
-  },
-
-  // ============================================
-  // SPECIALIZED AI NODES (like Zapier/Make.com)
-  // ============================================
-
-  // Summarize patterns
-  "summarize": {
-    nodeTypes: ["http.trigger", "ai_summarize", "slack_action_send_message"],
-    description: "HTTP trigger → Summarize Text → Slack",
-    configHints: {
-      "ai_summarize": {
-        text: "{{trigger.body}}",
-        format: "bullets",
-      },
-      "slack_action_send_message": {
-        message: "Summary:\n{{ai_summarize.summary}}",
-      },
-    },
-  },
-
-  "email summarize": {
+  // Email → Summarize → Slack
+  "email summarize slack": {
     nodeTypes: ["gmail_trigger_new_email", "ai_summarize", "slack_action_send_message"],
     description: "Gmail → Summarize → Slack",
     configHints: {
-      "ai_summarize": {
-        text: "{{trigger.body}}",
-        format: "bullets",
-      },
+      "ai_summarize": { text: "{{trigger.body}}", format: "bullets" },
       "slack_action_send_message": {
         message: "Email Summary from {{trigger.from}}:\n{{ai_summarize.summary}}",
       },
     },
   },
 
-  // Extract data patterns
-  "extract": {
-    nodeTypes: ["http.trigger", "ai_extract", "google_sheets_action_append_row"],
-    description: "HTTP trigger → Extract Data → Google Sheets",
-    configHints: {
-      "ai_extract": {
-        text: "{{trigger.body}}",
-        fieldsToExtract: "name\nemail\nphone\ncompany",
-      },
-    },
-  },
-
-  "extract from email": {
-    nodeTypes: ["gmail_trigger_new_email", "ai_extract", "google_sheets_action_append_row"],
-    description: "Gmail → Extract Data → Google Sheets",
-    configHints: {
-      "ai_extract": {
-        text: "{{trigger.body}}",
-        fieldsToExtract: "name\nemail\nphone\norder_number",
-      },
-    },
-  },
-
-  // Classify patterns
-  "classify": {
-    nodeTypes: ["http.trigger", "ai_classify"],
-    description: "HTTP trigger → Classify Text",
-    configHints: {
-      "ai_classify": {
-        text: "{{trigger.body}}",
-        categories: "bug_report\nfeature_request\nquestion\nfeedback",
-      },
-    },
-  },
-
-  "classify email": {
-    nodeTypes: ["gmail_trigger_new_email", "ai_classify", "slack_action_send_message"],
-    description: "Gmail → Classify → Slack",
-    configHints: {
-      "ai_classify": {
-        text: "{{trigger.subject}} {{trigger.body}}",
-        categories: "urgent\nnormal\nlow_priority",
-      },
-      "slack_action_send_message": {
-        message: "New {{ai_classify.category}} email from {{trigger.from}}: {{trigger.subject}}",
-      },
-    },
-  },
-
-  // Sentiment patterns
-  "sentiment": {
-    nodeTypes: ["http.trigger", "ai_sentiment"],
-    description: "HTTP trigger → Sentiment Analysis",
-    configHints: {
-      "ai_sentiment": {
-        text: "{{trigger.body}}",
-      },
-    },
-  },
-
-  "analyze sentiment": {
-    nodeTypes: ["gmail_trigger_new_email", "ai_sentiment", "slack_action_send_message"],
-    description: "Gmail → Sentiment Analysis → Slack",
-    configHints: {
-      "ai_sentiment": {
-        text: "{{trigger.body}}",
-      },
-      "slack_action_send_message": {
-        message: "Email from {{trigger.from}} - Sentiment: {{ai_sentiment.sentiment}} ({{ai_sentiment.score}})",
-      },
-    },
-  },
-
-  // Translate patterns
-  "translate": {
-    nodeTypes: ["http.trigger", "ai_translate"],
-    description: "HTTP trigger → Translate Text",
-    configHints: {
-      "ai_translate": {
-        text: "{{trigger.body}}",
-        targetLanguage: "spanish",
-      },
-    },
-  },
-
-  "translate email": {
-    nodeTypes: ["gmail_trigger_new_email", "ai_translate", "gmail_action_send_email"],
-    description: "Gmail → Translate → Reply",
-    configHints: {
-      "ai_translate": {
-        text: "{{trigger.body}}",
-        targetLanguage: "english",
-      },
-      "gmail_action_send_email": {
-        to: "{{trigger.from}}",
-        subject: "Re: {{trigger.subject}} (Translated)",
-        body: "{{ai_translate.translatedText}}",
-      },
-    },
-  },
-
-  // Generate content patterns
-  "generate": {
-    nodeTypes: ["http.trigger", "ai_generate"],
-    description: "HTTP trigger → Generate Content",
-    configHints: {
-      "ai_generate": {
-        contentType: "email",
-        instructions: "Write a professional response based on: {{trigger.body}}",
-      },
-    },
-  },
-
-  "generate email": {
-    nodeTypes: ["http.trigger", "ai_generate", "gmail_action_send_email"],
-    description: "HTTP trigger → Generate Email → Send",
-    configHints: {
-      "ai_generate": {
-        contentType: "email",
-        instructions: "Write a professional email about: {{trigger.body}}",
-      },
-      "gmail_action_send_email": {
-        subject: "{{ai_generate.subject}}",
-        body: "{{ai_generate.content}}",
-      },
-    },
-  },
-
-  // AI Prompt (custom) patterns
-  "ai prompt": {
-    nodeTypes: ["http.trigger", "ai_prompt"],
-    description: "HTTP trigger → Custom AI Prompt",
-    configHints: {
-      "ai_prompt": {
-        prompt: "{{trigger.body}}",
-      },
-    },
-  },
-
-  "custom ai": {
-    nodeTypes: ["http.trigger", "ai_prompt", "slack_action_send_message"],
-    description: "HTTP trigger → Custom AI → Slack",
-    configHints: {
-      "ai_prompt": {
-        prompt: "Analyze and respond to: {{trigger.body}}",
-      },
-      "slack_action_send_message": {
-        message: "{{ai_prompt.response}}",
-      },
-    },
-  },
-
-  // ============================================
-  // END SPECIALIZED AI NODES
-  // ============================================
-
-  // Transform + AI patterns
-  "transform and summarize": {
-    nodeTypes: ["http.trigger", "transformer", "ai_summarize", "slack_action_send_message"],
-    description: "HTTP trigger → Transform → Summarize → Slack",
-    configHints: {
-      "slack_action_send_message": {
-        message: "{{ai_summarize.summary}}",
-      },
-    },
-  },
-
-  // Format transformer + Slack (HTML to Slack markdown)
-  "format to slack": {
-    nodeTypes: ["http.trigger", "format_transformer", "slack_action_send_message"],
-    description: "HTTP trigger → Format Transformer → Slack",
-    configHints: {
-      "format_transformer": {
-        content: "{{trigger.body}}",
-        targetFormat: "slack_markdown",
-      },
-      "slack_action_send_message": {
-        message: "{{format_transformer.transformedContent}}",
-      },
-    },
-  },
-
-  // Gmail with formatting
-  "email to slack formatted": {
+  // Email with HTML formatting → Slack
+  "email formatted slack": {
     nodeTypes: ["gmail_trigger_new_email", "format_transformer", "slack_action_send_message"],
     description: "Gmail trigger → Format HTML → Slack",
     configHints: {
-      "format_transformer": {
-        content: "{{trigger.body}}",
-        targetFormat: "slack_markdown",
-      },
+      "format_transformer": { content: "{{trigger.body}}", targetFormat: "slack_markdown" },
       "slack_action_send_message": {
         message: "Email from {{trigger.from}}:\n\n*{{trigger.subject}}*\n\n{{format_transformer.transformedContent}}",
       },
     },
   },
 
-  // Airtable patterns
-  "airtable new record": {
+  // Webhook → Discord
+  "webhook to discord": {
+    nodeTypes: ["http.trigger", "discord_action_send_message"],
+    description: "HTTP trigger → Discord",
+    configHints: {
+      "discord_action_send_message": { content: "{{trigger.body}}" },
+    },
+  },
+
+  // Google Sheets → Discord
+  "sheets to discord": {
+    nodeTypes: ["google_sheets_trigger_new_row", "discord_action_send_message"],
+    description: "Google Sheets new row → Discord",
+    configHints: {
+      "discord_action_send_message": {
+        content: "New row added to Google Sheets:\n{{trigger.values}}",
+      },
+    },
+  },
+
+  // Airtable → Slack
+  "airtable to slack": {
     nodeTypes: ["airtable_trigger_new_record", "slack_action_send_message"],
     description: "Airtable new record → Slack",
     configHints: {
@@ -586,31 +244,8 @@ const INTENT_TO_PLAN: Record<string, PlanTemplate> = {
     },
   },
 
-  "airtable to notion": {
-    nodeTypes: ["airtable_trigger_new_record", "notion_action_create_page"],
-    description: "Airtable trigger → Create Notion page",
-    configHints: {
-      "notion_action_create_page": {
-        title: "{{trigger.fields.Name || 'New Entry'}}",
-      },
-    },
-  },
-
-  "airtable search notion": {
-    nodeTypes: ["airtable_trigger_new_record", "tavily_search", "notion_action_create_page"],
-    description: "Airtable trigger → Internet Search → Create Notion page",
-    configHints: {
-      "tavily_search": {
-        query: "{{trigger.fields.Name || trigger.fields.Company}}",
-      },
-      "notion_action_create_page": {
-        title: "{{trigger.fields.Name || 'Research Entry'}}",
-      },
-    },
-  },
-
-  // Notion patterns
-  "notion new page slack": {
+  // Notion → Slack
+  "notion to slack": {
     nodeTypes: ["notion_trigger_database_item_created", "slack_action_send_message"],
     description: "Notion new database item → Slack",
     configHints: {
@@ -620,33 +255,17 @@ const INTENT_TO_PLAN: Record<string, PlanTemplate> = {
     },
   },
 
-  // Internet search patterns
-  "search web": {
-    nodeTypes: ["http.trigger", "tavily_search", "slack_action_send_message"],
-    description: "HTTP trigger → Internet Search → Slack",
+  // Extract from email → Sheets
+  "extract email sheets": {
+    nodeTypes: ["gmail_trigger_new_email", "ai_extract", "google_sheets_action_append_row"],
+    description: "Gmail → Extract Data → Google Sheets",
     configHints: {
-      "tavily_search": {
-        query: "{{trigger.body.query}}",
-      },
-      "slack_action_send_message": {
-        message: "Search results:\n{{tavily_search.results}}",
+      "ai_extract": {
+        text: "{{trigger.body}}",
+        fieldsToExtract: "name\nemail\nphone\ncompany",
       },
     },
   },
-
-  "search and save to notion": {
-    nodeTypes: ["http.trigger", "tavily_search", "notion_action_create_page"],
-    description: "HTTP trigger → Internet Search → Notion",
-    configHints: {
-      "tavily_search": {
-        query: "{{trigger.body.query}}",
-      },
-      "notion_action_create_page": {
-        title: "Research: {{trigger.body.query}}",
-      },
-    },
-  },
-
 }
 
 // Normalize natural language input for deterministic matching
@@ -831,215 +450,245 @@ function detectUnsupportedFeatures(prompt: string): {
   }
 }
 
-// Find matching plan template
+/**
+ * Detect if a prompt is too vague to produce a useful workflow plan.
+ *
+ * Returns true if the prompt lacks specific apps AND specific actions,
+ * which means the LLM would have to guess everything — producing
+ * generic, unhelpful plans.
+ *
+ * $0 cost — pure heuristic, no LLM call.
+ */
+function isPromptTooVague(prompt: string, connectedIntegrations: string[]): boolean {
+  const n = prompt.toLowerCase()
+
+  // If user explicitly references their connected apps — not vague
+  if (/based on what i have|with my (connected|current)|using my apps|what i have connected/.test(n) && connectedIntegrations.length > 0) {
+    return false
+  }
+
+  // Check for specific app/integration mentions
+  const hasSpecificApp = /\b(gmail|emails?|slack|discord|notion|airtable|sheets|spreadsheet|stripe|hubspot|trello|github|webhook|teams|outlook|calendar|drive|dropbox|shopify|mailchimp|monday|twitter|facebook)\b/.test(n)
+
+  // Check for specific trigger/action verbs
+  const hasSpecificAction = /\b(send|create|update|delete|post|notify|forward|summarize|extract|classify|translate|fetch|schedule|when|every|new row|new record|new page|trigger|webhook|receive|incoming)\b/.test(n)
+
+  // Specific app + specific action = not vague
+  if (hasSpecificApp && hasSpecificAction) return false
+
+  // Connected integrations + action verb = not vague (we know what apps to use)
+  if (connectedIntegrations.length > 0 && hasSpecificAction) return false
+
+  // Specific app mention alone is enough (we can infer a reasonable trigger)
+  if (hasSpecificApp) return false
+
+  // Everything else is too vague — goal-oriented prompts without specifics
+  // Examples: "user retention", "improve engagement", "automate onboarding",
+  //           "help me with marketing", "create a workflow"
+  return true
+}
+
+/**
+ * Simple keyword-based pattern matching for fast-path templates.
+ *
+ * Only matches the ~10 most common patterns. Everything else falls through
+ * to the LLM fallback in planEditsWithPatterns.
+ */
 function matchIntentToPlan(prompt: string): PlanTemplate | null {
-  const normalized = normalizePrompt(prompt)
+  const n = normalizePrompt(prompt)
 
-  // ============================================
-  // EXPLICIT APP DETECTION (highest priority)
-  // These detect when user explicitly names an app
-  // ============================================
-  const mentionsGoogleSheets = /\b(google sheets?|gsheets?|spreadsheet)\b/.test(normalized)
-  const mentionsDiscord = /\b(discord)\b/.test(normalized)
-  const mentionsSlackExplicit = /\b(slack)\b/.test(normalized)
-  const mentionsAirtableExplicit = /\b(airtable)\b/.test(normalized)
-  const mentionsTeams = /\b(teams|microsoft teams|ms teams)\b/.test(normalized)
-  const mentionsTrello = /\b(trello)\b/.test(normalized)
-  const mentionsGitHub = /\b(github)\b/.test(normalized)
-  const mentionsStripe = /\b(stripe)\b/.test(normalized)
+  // Detect mentioned apps
+  const hasEmail = /\b(emails?|gmail)\b/.test(n)
+  const hasSlack = /\b(slack)\b/.test(n)
+  const hasDiscord = /\b(discord)\b/.test(n)
+  const hasSheets = /\b(google sheets?|gsheets?|spreadsheet)\b/.test(n)
+  const hasAirtable = /\b(airtable)\b/.test(n)
+  const hasNotion = /\b(notion)\b/.test(n)
+  const hasWebhook = /\b(webhook)\b/.test(n)
 
-  // Check heuristics FIRST for more specific patterns (schedule + fetch is more specific than just fetch)
-  const wantsSchedule = /\b(schedule|cron|every hour|every day|daily|hourly|weekly|every week|every two weeks)\b/.test(normalized)
-  const wantsEmail = /\b(email|gmail)\b/.test(normalized)
-  const wantsWebhook = /\b(webhook)\b/.test(normalized)
-  const wantsFetch = /\b(fetch|get|request)\b/.test(normalized)
-  const hasUrl = /\b(https?|url|example\.com)\b/.test(normalized)
-  const wantsAi = /\b(ai|summarize|summary|generate|gpt|llm|json|report|analyze)\b/.test(normalized)
-  // Only match Slack if explicitly mentioned OR generic terms WITHOUT explicit Discord/Teams mention
-  const wantsSlack = mentionsSlackExplicit || (
-    /\b(notify|post|send message)\b/.test(normalized) &&
-    !mentionsDiscord && !mentionsTeams
-  )
-  const wantsTransform = /\b(transform|format|convert|parse)\b/.test(normalized)
-  const wantsSendEmail = /\b(send email|email to|mail to|email me)\b/.test(normalized)
-  // Only match Airtable if explicitly mentioned - don't match generic "new row" terms
-  const wantsAirtable = mentionsAirtableExplicit
-  const wantsNotion = /\b(notion|notion page|notion database)\b/.test(normalized)
-  const wantsSearch = /\b(search|research|look up|find information|web search|internet)\b/.test(normalized)
+  // Detect desired actions
+  const wantsSummarize = /\b(summarize|summarise|summary|tldr|digest)\b/.test(n)
+  const wantsExtract = /\b(extract|pull out|parse data)\b/.test(n)
+  const wantsFormat = /\b(format|transform|convert)\b/.test(n)
 
-  // Specialized AI node heuristics
-  const wantsSummarize = /\b(summarize|summarise|summary|tldr|tl dr|key points|digest|brief)\b/.test(normalized)
-  const wantsExtract = /\b(extract|pull out|get data|parse data|scrape|find the|get the)\b/.test(normalized)
-  const wantsClassify = /\b(classify|categorize|categorise|sort into|label|tag|triage)\b/.test(normalized)
-  const wantsSentiment = /\b(sentiment|emotion|feeling|mood|positive|negative|tone)\b/.test(normalized)
-  const wantsTranslate = /\b(translate|translation|convert to|in spanish|in french|in german|to english|in chinese|in japanese)\b/.test(normalized)
-  const wantsGenerateContent = /\b(generate|write|draft|create|compose)\b/.test(normalized) && /\b(email|message|post|content|response|reply)\b/.test(normalized)
+  // Default destination
+  const dest = hasSlack ? 'slack' : hasDiscord ? 'discord' : null
 
-  // Priority 1: Schedule patterns
-  if (wantsSchedule && (wantsFetch || hasUrl) && wantsAi && wantsSlack) {
-    return INTENT_TO_PLAN["on a schedule"]
+  // Email + Summarize + Slack
+  if (hasEmail && wantsSummarize && dest === 'slack') {
+    return INTENT_TO_PLAN["email summarize slack"]
   }
 
-  // Priority 2: AI + Email patterns (report/summary via email)
-  if (wantsAi && wantsSendEmail) {
-    return INTENT_TO_PLAN["summarize and email"]
+  // Email + Extract → sheets
+  if (hasEmail && wantsExtract) {
+    return INTENT_TO_PLAN["extract email sheets"]
   }
 
-  // ============================================
-  // Priority 2.5: SPECIALIZED AI NODE PATTERNS
-  // These must be checked BEFORE generic email/slack patterns
-  // ============================================
-
-  // Summarize patterns (email → summarize → destination)
-  if (wantsEmail && wantsSummarize && wantsSlack) {
-    return INTENT_TO_PLAN["email summarize"]
-  }
-  if (wantsEmail && wantsSummarize) {
-    return INTENT_TO_PLAN["email summarize"]
-  }
-  if (wantsSummarize && wantsSlack) {
-    return INTENT_TO_PLAN["summarize"]
+  // Email + Format + Slack
+  if (hasEmail && wantsFormat && dest === 'slack') {
+    return INTENT_TO_PLAN["email formatted slack"]
   }
 
-  // Extract patterns (email → extract → sheets)
-  if (wantsEmail && wantsExtract) {
-    return INTENT_TO_PLAN["extract from email"]
-  }
-  if (wantsExtract) {
-    return INTENT_TO_PLAN["extract"]
+  // Email + Slack
+  if (hasEmail && dest === 'slack') {
+    return INTENT_TO_PLAN["email to slack"]
   }
 
-  // Classify patterns
-  if (wantsEmail && wantsClassify) {
-    return INTENT_TO_PLAN["classify email"]
-  }
-  if (wantsClassify) {
-    return INTENT_TO_PLAN["classify"]
-  }
+  // Google Sheets → Slack/Discord
+  if (hasSheets && dest === 'slack') return INTENT_TO_PLAN["sheets to slack"]
+  if (hasSheets && dest === 'discord') return INTENT_TO_PLAN["sheets to discord"]
 
-  // Sentiment patterns
-  if (wantsEmail && wantsSentiment) {
-    return INTENT_TO_PLAN["analyze sentiment"]
-  }
-  if (wantsSentiment) {
-    return INTENT_TO_PLAN["sentiment"]
-  }
+  // Airtable → Slack
+  if (hasAirtable && dest === 'slack') return INTENT_TO_PLAN["airtable to slack"]
 
-  // Translate patterns
-  if (wantsEmail && wantsTranslate) {
-    return INTENT_TO_PLAN["translate email"]
-  }
-  if (wantsTranslate) {
-    return INTENT_TO_PLAN["translate"]
-  }
+  // Notion → Slack
+  if (hasNotion && dest === 'slack') return INTENT_TO_PLAN["notion to slack"]
 
-  // Generate content patterns
-  if (wantsGenerateContent && wantsSendEmail) {
-    return INTENT_TO_PLAN["generate email"]
-  }
-  if (wantsGenerateContent) {
-    return INTENT_TO_PLAN["generate"]
-  }
+  // Webhook → Slack/Discord
+  if (hasWebhook && dest === 'slack') return INTENT_TO_PLAN["webhook to slack"]
+  if (hasWebhook && dest === 'discord') return INTENT_TO_PLAN["webhook to discord"]
 
-  // ============================================
-  // END SPECIALIZED AI NODE PATTERNS
-  // ============================================
-
-  // Priority 3: Email patterns (Gmail → Slack with formatting)
-  if (wantsEmail && wantsSlack && wantsTransform) {
-    return INTENT_TO_PLAN["email to slack formatted"]
-  }
-
-  if (wantsEmail && wantsSlack) {
-    return INTENT_TO_PLAN["when i get an email"]
-  }
-
-  // Priority 4: Transform patterns
-  if (wantsTransform && wantsAi && wantsSlack) {
-    return INTENT_TO_PLAN["transform and summarize"]
-  }
-
-  if (wantsTransform && wantsSlack) {
-    return INTENT_TO_PLAN["format to slack"]
-  }
-
-  // Priority 5: Airtable patterns (most specific first)
-  if (wantsAirtable && wantsSearch && wantsNotion) {
-    return INTENT_TO_PLAN["airtable search notion"]
-  }
-
-  if (wantsAirtable && wantsNotion) {
-    return INTENT_TO_PLAN["airtable to notion"]
-  }
-
-  if (wantsAirtable && wantsSlack) {
-    return INTENT_TO_PLAN["airtable new record"]
-  }
-
-  // Priority 6: Notion patterns
-  if (wantsNotion && wantsSlack) {
-    return INTENT_TO_PLAN["notion new page slack"]
-  }
-
-  // Priority 7: Search patterns
-  if (wantsSearch && wantsNotion) {
-    return INTENT_TO_PLAN["search and save to notion"]
-  }
-
-  if (wantsSearch && wantsSlack) {
-    return INTENT_TO_PLAN["search web"]
-  }
-
-  // Priority 8: Direct phrase match (for explicit patterns)
-  for (const [key, template] of Object.entries(INTENT_TO_PLAN)) {
-    if (normalized.includes(key)) {
-      return template
-    }
-  }
-
-  // Priority 9: Heuristic combinations
-  if (wantsFetch && hasUrl && wantsAi && wantsSlack) {
-    return INTENT_TO_PLAN["fetch http"]
-  }
-
-  if (wantsWebhook && wantsSlack) {
-    return INTENT_TO_PLAN["when a webhook is received"]
-  }
-
-  if (wantsAi && wantsSlack) {
-    return INTENT_TO_PLAN["ai to slack"]
-  }
-
-  // Priority 10: Google Sheets patterns
-  if (mentionsGoogleSheets && mentionsDiscord) {
-    return INTENT_TO_PLAN["google sheets discord"]
-  }
-
-  if (mentionsGoogleSheets && wantsSlack) {
-    return INTENT_TO_PLAN["google sheets slack"]
-  }
-
-  // Priority 11: Single app triggers without specific action
-  if (wantsAirtable) {
-    return INTENT_TO_PLAN["airtable new record"]
-  }
-
-  if (mentionsGoogleSheets) {
-    // Default Google Sheets to Slack
-    return INTENT_TO_PLAN["google sheets slack"]
-  }
-
-  // Priority 12: Discord output patterns (when no specific trigger)
-  if (mentionsDiscord) {
-    return INTENT_TO_PLAN["send to discord"]
-  }
-
-  // Default fallback: webhook → slack
-  if (wantsSlack || wantsWebhook) {
-    return INTENT_TO_PLAN["when a webhook is received"]
-  }
-
+  // No fast-path match — return null to trigger LLM fallback
   return null
+}
+
+/**
+ * Match user prompt against published DB templates by keyword overlap.
+ *
+ * $0 cost — no LLM call. Checks if the prompt mentions words from
+ * a template's name, description, tags, or integration list.
+ * Requires at least 2 keyword matches to avoid false positives.
+ */
+async function matchDBTemplate(prompt: string): Promise<PlanTemplate | null> {
+  try {
+    const templates = await getTemplateCatalog()
+    if (templates.length === 0) return null
+
+    const promptWords = new Set(
+      prompt.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length >= 3)
+    )
+
+    let bestMatch: { entry: typeof templates[0]; score: number } | null = null
+
+    for (const entry of templates) {
+      // Build searchable words from template metadata
+      const templateText = [
+        entry.name,
+        entry.description,
+        ...(entry.tags || []),
+        ...(entry.integrations || []),
+        entry.category || '',
+      ].join(' ').toLowerCase().replace(/[^\w\s]/g, ' ')
+
+      const templateWords = new Set(templateText.split(/\s+/).filter(w => w.length >= 3))
+
+      // Count overlapping words
+      let score = 0
+      for (const word of promptWords) {
+        if (templateWords.has(word)) score++
+      }
+
+      // Require at least 2 keyword matches to avoid false positives
+      if (score >= 2 && (!bestMatch || score > bestMatch.score)) {
+        bestMatch = { entry, score }
+      }
+    }
+
+    if (bestMatch && bestMatch.entry.nodeTypes.length >= 2) {
+      logger.info('[Planner] DB template match found', {
+        templateName: bestMatch.entry.name,
+        score: bestMatch.score,
+        nodeCount: bestMatch.entry.nodeTypes.length,
+      })
+      return {
+        nodeTypes: bestMatch.entry.nodeTypes,
+        description: bestMatch.entry.description || bestMatch.entry.name,
+      }
+    }
+
+    return null
+  } catch (error: any) {
+    logger.warn('[Planner] DB template matching failed', { error: error?.message })
+    return null
+  }
+}
+
+/**
+ * Lightweight LLM fallback for pattern planning.
+ *
+ * When fast-path patterns don't match, this uses a cheap GPT-4o-mini call
+ * to select node types from the catalog. The LLM also receives published
+ * workflow templates from the DB — so as users create templates, the pool
+ * of reference patterns grows organically.
+ *
+ * Returns a PlanTemplate or null.
+ */
+async function lightweightLLMPlan(prompt: string): Promise<PlanTemplate | null> {
+  try {
+    // Build a compact list of available node types
+    const nodeList = ALL_NODE_COMPONENTS
+      .map(n => `${n.type}: ${n.description || n.title}`)
+      .join('\n')
+
+    // Load published templates from DB for additional context
+    let templateContext = ''
+    try {
+      const dbTemplates = await getTemplateCatalog()
+      templateContext = formatTemplateCatalogForLLM(dbTemplates)
+    } catch {
+      // Non-critical — proceed without template context
+    }
+
+    const result = await callLLMWithRetry({
+      messages: [
+        {
+          role: 'system',
+          content: `You are a workflow automation planner. Given a user request, select 2-5 node types from the catalog to build a workflow. Return JSON: { "nodeTypes": ["type1", "type2"], "description": "brief description" }. ONLY use types from the catalog. Start with a trigger node.${templateContext ? '\n\nYou can also reference existing templates below for inspiration — reuse their node patterns when they match the user\'s intent.' : ''}`
+        },
+        {
+          role: 'user',
+          content: `Catalog:\n${nodeList}\n\n${templateContext ? `${templateContext}\n\n` : ''}Request: "${prompt}"`
+        }
+      ],
+      model: AI_MODELS.fast,
+      temperature: 0.3,
+      maxTokens: 500,
+      jsonMode: true,
+      maxRetries: 1,
+      fallbackModel: null,
+      timeoutMs: 15000,
+      label: 'Planner:lightweightFallback',
+    })
+
+    const parsed = parseLLMJson(result.content, 'Planner:lightweightFallback')
+
+    if (Array.isArray(parsed.nodeTypes) && parsed.nodeTypes.length >= 2) {
+      // Validate that all node types exist in the catalog
+      const validTypes = parsed.nodeTypes.filter((type: string) =>
+        ALL_NODE_COMPONENTS.some(n => n.type === type) ||
+        NODES[type] !== undefined
+      )
+
+      if (validTypes.length >= 2) {
+        logger.info('[Planner] Lightweight LLM fallback succeeded', {
+          nodeCount: validTypes.length,
+          types: validTypes,
+        })
+        return {
+          nodeTypes: validTypes,
+          description: parsed.description || 'AI-generated workflow plan',
+        }
+      }
+    }
+
+    logger.info('[Planner] Lightweight LLM fallback returned insufficient valid nodes')
+    return null
+  } catch (error: any) {
+    logger.warn('[Planner] Lightweight LLM fallback failed', {
+      error: error?.message || String(error),
+    })
+    return null
+  }
 }
 
 // Compute deterministic hash of edits
@@ -1076,6 +725,68 @@ export function checkPrerequisites(flow: Flow): string[] {
     }
   }
   return Array.from(new Set(requirements))
+}
+
+/**
+ * Generate clarifying questions when the planner can't produce a workflow.
+ * Uses GPT-4o-mini for contextual questions, with template-based fallback.
+ */
+async function generateClarifyingQuestions(prompt: string): Promise<string[]> {
+  try {
+    const result = await callLLMWithRetry({
+      messages: [
+        {
+          role: 'system',
+          content: `You are a workflow automation consultant at ChainReact. The user wants to automate something but their request needs more detail to build a specific workflow.
+
+Ask 2-3 short, specific clarifying questions. Your questions MUST:
+1. Reference the user's specific goal (e.g., "For your user retention workflow...")
+2. Ask what apps/tools they currently use for this process (email, CRM, messaging, etc.)
+3. Ask what should trigger this automation (schedule, new event, manual, etc.)
+4. Suggest concrete options they can pick from (e.g., "Do you use Gmail or Outlook for email?")
+
+Keep each question under 120 characters. Make questions specific to THEIR request — not generic.
+Return a JSON object with a "questions" key containing an array of question strings.`
+        },
+        { role: 'user', content: prompt }
+      ],
+      model: AI_MODELS.utility,
+      jsonMode: true,
+      temperature: 0.5,
+      maxTokens: 300,
+      maxRetries: 1,
+      fallbackModel: null,
+      label: 'Planner:clarifyingQuestions',
+    })
+    const parsed = parseLLMJson(result.content, 'Planner:clarifyingQuestions')
+    if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+      return parsed.questions.slice(0, 3)
+    }
+  } catch (error: any) {
+    logger.warn('[Planner] Failed to generate clarifying questions via LLM', {
+      error: error?.message || String(error),
+    })
+  }
+
+  // Fallback: template-based questions based on what's missing from the prompt
+  const lowerPrompt = prompt.toLowerCase()
+  const questions: string[] = []
+
+  if (!lowerPrompt.match(/gmail|outlook|email|slack|discord|teams|hubspot|notion|trello|asana|jira|salesforce|stripe/)) {
+    questions.push("What apps or tools do you currently use? (e.g., Gmail, Slack, HubSpot, Notion)")
+  }
+  if (!lowerPrompt.match(/when|trigger|every|schedule|new|receive|daily|weekly|monthly|incoming/)) {
+    questions.push("What should trigger this workflow? (e.g., on a schedule, when a new event happens)")
+  }
+  if (!lowerPrompt.match(/send|create|update|notify|post|add|move|assign|tag|score|delete/)) {
+    questions.push("What actions should happen? (e.g., send a notification, update a record, create a task)")
+  }
+
+  return questions.length > 0 ? questions : [
+    "What apps or tools do you use for this process today?",
+    "What should trigger this automation?",
+    "What's the most important action that should happen?",
+  ]
 }
 
 /**
@@ -1137,10 +848,38 @@ export async function planEdits({
     }
   }
 
+  // Check if prompt is too vague to produce a useful plan
+  // Ask clarifying questions instead of generating a garbage workflow
+  if (isPromptTooVague(prompt, connectedIntegrations)) {
+    logger.info('[Planner] Prompt too vague, asking clarifying questions', { prompt })
+    const questions = await generateClarifyingQuestions(prompt)
+    return {
+      edits: [],
+      prerequisites: [],
+      rationale: "",
+      deterministicHash: computeDeterministicHash([]),
+      clarifyingQuestions: questions,
+      planningMethod: 'pattern',
+      ...(unsupportedCheck.hasUnsupported && {
+        unsupportedFeatures: {
+          hasUnsupported: true,
+          features: unsupportedCheck.unsupportedList,
+          message: unsupportedCheck.message,
+        },
+      }),
+    }
+  }
+
   // Try LLM planner first (for complex requests)
   if (useLLM) {
     try {
       logger.info('[Planner] Attempting LLM-based planning', { prompt })
+
+      // Check cache first (only for new plans, not refinements)
+      const cachedResult = getCachedPlan<import("./types").LLMPlannerOutput>(
+        prompt,
+        connectedIntegrations
+      )
 
       const llmInput: LLMPlannerInput = {
         prompt,
@@ -1149,7 +888,12 @@ export async function planEdits({
         conversationHistory,
       }
 
-      const llmResult = await planWithLLM(llmInput)
+      const llmResult = cachedResult || await planWithLLM(llmInput)
+
+      // Cache the result for future identical prompts
+      if (!cachedResult && llmResult.nodes.length > 0) {
+        cachePlan(prompt, connectedIntegrations, llmResult)
+      }
 
       // Check if LLM result is usable - accept any result that has nodes
       // A low-confidence workflow is better than the pattern matcher returning nothing
@@ -1179,8 +923,13 @@ export async function planEdits({
         confidence: llmResult.confidence,
         nodeCount: llmResult.nodes.length,
       })
-    } catch (error) {
-      logger.warn('[Planner] LLM planner failed, falling back to patterns', { error })
+    } catch (error: any) {
+      logger.warn('[Planner] LLM planner failed, falling back to patterns', {
+        error: error?.message || String(error),
+        isZodError: error?.name === 'ZodError',
+        zodIssues: error?.issues?.map((i: any) => i.message),
+        prompt: prompt?.substring(0, 80),
+      })
     }
   }
 
@@ -1204,23 +953,39 @@ export async function planEdits({
 }
 
 /**
- * Pattern-based planning (original implementation)
- * Used as fallback when LLM planner fails or for simple patterns
+ * Pattern-based planning with LLM fallback
+ *
+ * 1. Try fast-path pattern matching (~10 common templates, $0 cost)
+ * 2. If no match, use a lightweight GPT-4o-mini call to select nodes
+ * 3. If LLM also fails, generate clarifying questions
  */
 async function planEditsWithPatterns({ prompt, flow }: { prompt: string; flow: Flow }): Promise<PlannerResult> {
   const edits: Edit[] = []
   const prerequisites: string[] = []
   const rationaleParts: string[] = []
 
-  // Match prompt to plan template
-  const planTemplate = matchIntentToPlan(prompt)
+  // Try fast-path pattern matching first
+  let planTemplate = matchIntentToPlan(prompt)
+
+  // If no fast-path match, try DB template keyword match ($0 cost)
+  if (!planTemplate) {
+    planTemplate = await matchDBTemplate(prompt)
+  }
+
+  // If still no match, try lightweight LLM fallback (~$0.001)
+  if (!planTemplate) {
+    logger.info('[Planner] No pattern/template match, trying lightweight LLM fallback', { prompt })
+    planTemplate = await lightweightLLMPlan(prompt)
+  }
 
   if (!planTemplate) {
+    const clarifyingQuestions = await generateClarifyingQuestions(prompt)
     return {
       edits: [],
       prerequisites: [],
-      rationale: "I couldn't build a workflow from that prompt. Try describing a specific automation like 'when I get an email, send to Slack' or a business goal like 'automate customer onboarding'.",
+      rationale: "",
       deterministicHash: computeDeterministicHash([]),
+      clarifyingQuestions,
     }
   }
 
@@ -1443,8 +1208,7 @@ async function generateWorkflowNameWithAI(prompt: string, planTemplate: PlanTemp
   const maxLength = 50
 
   try {
-    const response = await getOpenAI().chat.completions.create({
-      model: "gpt-4o-mini", // Cheap, fast model
+    const result = await callLLMWithRetry({
       messages: [
         {
           role: "system",
@@ -1463,11 +1227,15 @@ Rules:
           content: `Create a workflow name for this request: "${prompt}"`
         }
       ],
-      temperature: 0.3, // Lower temperature for more consistent names
-      max_tokens: 20, // Short response
+      model: AI_MODELS.utility,
+      temperature: 0.3,
+      maxTokens: 20,
+      maxRetries: 1,
+      fallbackModel: null,
+      label: 'Planner:workflowName',
     })
 
-    let name = response.choices[0]?.message?.content?.trim() || ''
+    let name = result.content?.trim() || ''
     logger.debug('[generateWorkflowNameWithAI] AI generated name', { name })
 
     // Remove any quotes that might have been added
