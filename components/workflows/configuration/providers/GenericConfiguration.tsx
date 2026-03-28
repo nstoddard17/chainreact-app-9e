@@ -556,14 +556,18 @@ export function GenericConfiguration({
         return elements;
       }
 
-      // Use AIFieldWrapper when connected to AI Agent, otherwise use FieldRenderer
-      const shouldUseAIWrapper = isConnectedToAIAgent === true;
+      // Auto-detect AI_FIELD placeholders in values (set by planner's field classification)
+      const currentValue = values[field.name];
+      const hasAIFieldPlaceholder = typeof currentValue === 'string' && currentValue.startsWith('{{AI_FIELD:');
+
+      // Use AIFieldWrapper when connected to AI Agent OR when field has AI_FIELD placeholder
+      const shouldUseAIWrapper = isConnectedToAIAgent === true || hasAIFieldPlaceholder;
 
       // Determine if AI should be enabled for this field
       // If field is explicitly excluded, AI should never be enabled
-      // Otherwise, check if field is individually set OR if _allFieldsAI is true
+      // Otherwise: auto-enabled if value is AI_FIELD placeholder, or individually set, or _allFieldsAI
       const isExcluded = isFieldExcludedFromAI(field.name);
-      const isAIEnabled = isExcluded ? false : (aiFields[field.name] || aiFields._allFieldsAI || false);
+      const isAIEnabled = isExcluded ? false : (hasAIFieldPlaceholder || aiFields[field.name] || aiFields._allFieldsAI || false);
 
       const Component = shouldUseAIWrapper ? AIFieldWrapper : FieldRenderer;
 
@@ -585,7 +589,7 @@ export function GenericConfiguration({
             setFieldValue={setValue}
             // Props specific to AIFieldWrapper
             isAIEnabled={isAIEnabled}
-            onAIToggle={isConnectedToAIAgent ? handleAIToggle : undefined}
+            onAIToggle={shouldUseAIWrapper ? handleAIToggle : undefined}
           />
         </div>
       );

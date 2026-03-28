@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
+import { redactSensitiveFields } from '@/lib/utils/redact-config'
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,14 +39,8 @@ export async function POST(request: NextRequest) {
       providerId
     })
 
-    // Sanitize config - remove sensitive fields
-    const sanitizedConfig = config ? Object.fromEntries(
-      Object.entries(config).filter(([key]) =>
-        !['accessToken', 'refresh_token', 'apiKey', 'secret', 'password', 'token', 'connection'].some(
-          sensitive => key.toLowerCase().includes(sensitive.toLowerCase())
-        )
-      )
-    ) : undefined
+    // Sanitize config - redact sensitive fields
+    const sanitizedConfig = redactSensitiveFields(config)
 
     // Store in database
     const { error: dbError } = await supabase

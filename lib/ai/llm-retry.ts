@@ -10,6 +10,7 @@
 
 import OpenAI from 'openai'
 import { getOpenAIClient } from './openai-client'
+import { getAnthropicClient } from './anthropic-client'
 import { AI_MODELS } from './models'
 import { logger } from '@/lib/utils/logger'
 
@@ -213,4 +214,125 @@ function isRetryableError(error: any): boolean {
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// ============================================================================
+// ANTHROPIC SDK SUPPORT
+// ============================================================================
+
+export interface AnthropicCallOptions {
+  /** Chat messages to send */
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+  /** System prompt */
+  system?: string
+  /** Model to use (defaults to AI_MODELS.anthropic.fast) */
+  model?: string
+  /** Max tokens for response */
+  maxTokens?: number
+  /** Temperature (0-1, defaults to 0.7) */
+  temperature?: number
+  /** Timeout in ms (defaults to 15000 — shorter for fast tasks) */
+  timeoutMs?: number
+  /** Max retry attempts (defaults to 2) */
+  maxRetries?: number
+  /** Label for logging */
+  label?: string
+}
+
+export interface AnthropicCallResult {
+  content: string
+  model: string
+  usage?: { inputTokens: number; outputTokens: number }
+  retryCount: number
+}
+
+/**
+ * Call an Anthropic model with retry, timeout, and structured logging.
+ *
+ * Same retry/backoff pattern as callLLMWithRetry, adapted for the Anthropic SDK.
+ * No model fallback (Haiku is already the cheapest tier).
+ */
+export async function callAnthropicWithRetry(
+  options: AnthropicCallOptions
+): Promise<AnthropicCallResult> {
+  const {
+    messages,
+    system,
+    model = AI_MODELS.anthropic.fast,
+    maxTokens = 300,
+    temperature = 0.7,
+    timeoutMs = 15000,
+    maxRetries = 2,
+    label = 'Anthropic',
+  } = options
+
+  const client = getAnthropicClient()
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+      try {
+        const response = await client.messages.create(
+          {
+            model,
+            max_tokens: maxTokens,
+            temperature,
+            messages,
+            ...(system && { system }),
+          },
+          { signal: controller.signal as any }
+        )
+
+        if (attempt > 0) {
+          logger.info(`[${label}] Succeeded on retry ${attempt}`, { model })
+        }
+
+        const content =
+          response.content[0]?.type === 'text'
+            ? response.content[0].text.trim()
+            : ''
+
+        if (!content) {
+          throw new Error('Empty response from Anthropic')
+        }
+
+        return {
+          content,
+          model,
+          usage: response.usage
+            ? {
+                inputTokens: response.usage.input_tokens,
+                outputTokens: response.usage.output_tokens,
+              }
+            : undefined,
+          retryCount: attempt,
+        }
+      } finally {
+        clearTimeout(timeoutId)
+      }
+    } catch (error: any) {
+      lastError = error
+
+      const retryable = isRetryableError(error)
+
+      logger.warn(`[${label}] Attempt ${attempt + 1}/${maxRetries + 1} failed`, {
+        model,
+        error: error?.message || String(error),
+        status: error?.status,
+        isRetryable: retryable,
+      })
+
+      if (!retryable || attempt === maxRetries) {
+        break
+      }
+
+      const delay = Math.min(1000 * Math.pow(2, attempt), 8000)
+      await sleep(delay)
+    }
+  }
+
+  throw lastError || new Error(`[${label}] All Anthropic call attempts failed`)
 }

@@ -480,6 +480,32 @@ interface TriggerLifecycle {
 - Slack/Discord/GitHub/Notion: 4 hours (auth test endpoints)
 - Others: 12 hours (use refresh as validation)
 
+### Agent Evaluation Framework
+
+**Purpose:** Measures React Agent quality — plan acceptance, correction rates, context effectiveness, and activation success.
+
+**Architecture:**
+- Single table `agent_eval_events` with 24 event types across 4 categories (funnel, quality, drafting, trust)
+- Client-side tracker singleton `lib/eval/agentEvalTracker.ts` — fire-and-forget, batched POSTs every 5s
+- Admin dashboard at `/admin` → "Agent Eval" tab
+
+**Key Files:**
+| File | Purpose |
+|------|---------|
+| `lib/eval/agentEvalTypes.ts` | Event names, types, `classifyFailure()`, `classifyPromptComplexity()` |
+| `lib/eval/agentEvalTracker.ts` | Client singleton: session/conversation IDs, batched flush |
+| `lib/eval/trackableDraftingUpdate.ts` | Wrapper emitting drafting events from `updateDraftingContext()` |
+| `app/api/admin/agent-eval/events/route.ts` | POST — batch event ingestion |
+| `app/api/admin/agent-eval/dashboard/route.ts` | GET — aggregated dashboard data + session detail |
+| `stores/agentEvalStore.ts` | Dashboard UI state |
+| `components/admin/agent-eval/` | Dashboard components (Funnel, Quality, Context, Trust, Sessions) |
+
+**Rules:**
+- `AGENT_VERSION` in `agentEvalTypes.ts` — bump when shipping agent changes
+- Use `agentEvalTracker.trackEvent()` — never insert directly into the table from client code
+- All events auto-attach session_id, conversation_id, turn_number, agent_version
+- `trackableDraftingUpdate` replaces direct `updateDraftingContext` calls in WorkflowBuilderV2
+
 ---
 
 ## 🔧 DEVELOPMENT SETUP

@@ -95,6 +95,45 @@ export interface NodeConfiguration {
 }
 
 // ============================================================================
+// FIELD CLASSIFICATION
+// ============================================================================
+
+/**
+ * Field mode for automatic classification:
+ * - deterministic: fixed config values (IDs, dropdowns, booleans)
+ * - mappable: should map from upstream outputSchema
+ * - generative: should use {{AI_FIELD:fieldName}} for runtime AI generation
+ */
+export type FieldMode = 'deterministic' | 'mappable' | 'generative'
+
+/**
+ * Result of classifying a single field
+ */
+export interface FieldClassification {
+  fieldName: string
+  mode: FieldMode
+  confidence: ConfigConfidence
+  reason: string
+  suggestedValue?: string
+  /** For mappable fields — source node for traceability */
+  sourceNodeId?: string
+  /** For mappable fields — source field name for traceability */
+  sourceField?: string
+}
+
+/**
+ * Pre-planning intent analysis result
+ */
+export interface IntentStrategy {
+  userGoal: string
+  interpretedStrategy: string
+  suggestedTrigger: string
+  suggestedActions: string[]
+  reasoning: string
+  confidence: ConfigConfidence
+}
+
+// ============================================================================
 // BRANCHING & CONDITIONAL LOGIC
 // ============================================================================
 

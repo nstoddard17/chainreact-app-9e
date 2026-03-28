@@ -7,9 +7,8 @@
  * Contains chat interface, staged chips, plan list, and build controls.
  */
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import {
   Select,
@@ -63,6 +62,7 @@ import { getProviderOptions } from "@/lib/workflows/ai-agent/providerDisambiguat
 import { getNodeConfigQuestions } from "@/lib/workflows/ai-agent/nodeConfigQuestions"
 import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from "../configuration/utils/connectionExemptions"
 import { ReasoningDisplay, PartialConfigBadge, StreamingReasoning } from "./ReasoningDisplay"
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import type { ReasoningStep, NodeConfiguration, ConfigConfidence } from "@/src/lib/workflows/builder/agent/types"
 import { looksLikeRefinement } from "@/src/lib/workflows/builder/agent/refinementParser"
 
@@ -180,6 +180,13 @@ export function FlowV2AgentPanel({
     onPreferencesSave,
     onPreferencesSkip,
   } = actions
+
+  // Auto-resize textarea for chat input
+  const { textareaRef: agentTextareaRef, resize: resizeAgentInput } = useAutoResizeTextarea({
+    minHeight: 36,
+    maxHeight: 200,
+    value: agentInput,
+  })
 
   // Use state for viewport dimensions to avoid hydration mismatch
   const [viewportDimensions, setViewportDimensions] = useState<{ height: number; width: number }>({ height: 0, width: 0 })
@@ -1509,10 +1516,8 @@ export function FlowV2AgentPanel({
 
                   {/* Status Badge - updates as state transitions through planning */}
                   {(buildMachine.state === BuildState.THINKING ||
-                    buildMachine.state === BuildState.SUBTASKS ||
-                    buildMachine.state === BuildState.COLLECT_NODES ||
-                    buildMachine.state === BuildState.OUTLINE ||
-                    buildMachine.state === BuildState.PURPOSE) && (
+                    buildMachine.state === BuildState.UNDERSTANDING ||
+                    buildMachine.state === BuildState.DESIGNING) && (
                     <div className="flex w-full">
                       <ChatStatusBadge
                         text={(() => {
@@ -1535,23 +1540,13 @@ export function FlowV2AgentPanel({
                   {/* Streaming Reasoning - show during planning phases when LLM is thinking */}
                   {isReasoningStreaming && reasoning && reasoning.length > 0 && (
                     buildMachine.state === BuildState.THINKING ||
-                    buildMachine.state === BuildState.SUBTASKS ||
-                    buildMachine.state === BuildState.COLLECT_NODES
+                    buildMachine.state === BuildState.UNDERSTANDING
                   ) && (
                     <div className="w-full max-w-[95%]">
                       <StreamingReasoning
                         steps={reasoning}
                         isStreaming={isReasoningStreaming}
                       />
-                    </div>
-                  )}
-
-                  {/* Outline text only shown during OUTLINE state, hidden once plan is ready */}
-                  {buildMachine.state === BuildState.OUTLINE && buildMachine.stagedText.outline && (
-                    <div className="flex w-full">
-                      <div className="text-sm text-muted-foreground">
-                        {buildMachine.stagedText.outline}
-                      </div>
                     </div>
                   )}
 
@@ -1578,6 +1573,17 @@ export function FlowV2AgentPanel({
                     buildMachine.state === BuildState.TESTING_NODE ||
                     buildMachine.state === BuildState.COMPLETE) && buildMachine.plan.length > 0 && (
                     <div className="flex flex-col w-full gap-3">
+                      {/* Brief "Plan ready" badge for smooth transition from planning badges */}
+                      {buildMachine.state === BuildState.PLAN_READY && (
+                        <div className="flex w-full">
+                          <ChatStatusBadge
+                            text={getBadgeForState(BuildState.PLAN_READY)?.text || ''}
+                            state="success"
+                            className="build-progress-badge"
+                            reducedMotion={typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches}
+                          />
+                        </div>
+                      )}
                       <div className="flex w-full">
                         <div className="space-y-4 w-full overflow-visible min-w-0">
                           <div className="w-full overflow-visible min-w-0">
@@ -2309,7 +2315,7 @@ export function FlowV2AgentPanel({
                 )}
               </div>
 
-              <div className="relative flex items-center gap-2">
+              <div className="relative flex items-end gap-2">
                 <div className="relative flex-1">
                   {agentInput === '' && (
                     <div className="absolute left-0 top-0 pointer-events-none px-3 py-2 text-sm text-muted-foreground leading-normal">
@@ -2321,22 +2327,30 @@ export function FlowV2AgentPanel({
                   )}
                   {/* Refinement indicator when user is typing a refinement command */}
                   {agentInput.trim() && buildMachine.plan.length > 0 && looksLikeRefinement(agentInput) && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-primary font-medium">
+                    <div className="absolute right-3 top-2 text-xs text-primary font-medium">
                       Refining...
                     </div>
                   )}
-                  <input
-                    type="text"
+                  <textarea
+                    ref={agentTextareaRef}
                     value={agentInput}
-                    onChange={(e) => onInputChange(e.target.value)}
+                    onChange={(e) => {
+                      onInputChange(e.target.value)
+                      resizeAgentInput()
+                    }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && agentInput.trim()) {
-                        onSubmit()
+                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault()
+                        if (agentInput.trim()) {
+                          onSubmit()
+                        }
                       }
                     }}
                     disabled={isAgentLoading}
-                    className="w-full border-0 shadow-none focus:outline-none focus:ring-0 text-sm text-foreground px-3 py-2 bg-transparent leading-normal"
-                    style={{ caretColor: 'currentColor' }}
+                    rows={1}
+                    aria-label="Chat message input"
+                    className="w-full border-0 shadow-none focus:outline-none focus:ring-0 text-sm text-foreground px-3 py-2 bg-transparent leading-normal resize-none"
+                    style={{ caretColor: 'currentColor', minHeight: '36px', maxHeight: '200px' }}
                   />
                 </div>
                 {/* Submit button */}

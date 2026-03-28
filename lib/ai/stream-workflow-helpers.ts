@@ -12,6 +12,7 @@
  */
 
 import { logger } from '@/lib/utils/logger'
+import { redactSensitiveFields } from '@/lib/utils/redact-config'
 import { callLLMWithRetry, parseLLMJson } from '@/lib/ai/llm-retry'
 import { AI_MODELS, selectModel } from '@/lib/ai/models'
 import { getOpenAIClient } from '@/lib/ai/openai-client'
@@ -249,9 +250,18 @@ ${formattedContext}
 Configuration Fields: ${JSON.stringify(simplifiedSchema, null, 2)}
 ${autoMappingPromptSection ? `${autoMappingPromptSection}\n` : ''}${clarificationContext}
 
+FIELD MODE PRIORITY:
+1. deterministic → set directly (IDs, dropdowns, booleans)
+2. mappable → map from upstream using {{nodeId.field}}
+3. text-based → use {{AI_FIELD:fieldName}} for runtime AI generation
+4. otherwise → leave for user
+
+CRITICAL RULE: NO TEXT FIELD SHOULD EVER BE EMPTY. If no mapping exists, use {{AI_FIELD:fieldName}}.
+
 Generate a complete configuration that:
 - Uses variables from previous nodes when appropriate (e.g., {{trigger.email}})
 - Fills all required fields
+- Uses {{AI_FIELD:fieldName}} for text fields that need content generation (messages, descriptions, summaries)
 - Uses sensible defaults for optional fields
 - Matches the user's goal
 ${autoMappingEntries.length ? '- When a field is blank, prefer one of the AUTO-MAPPING SUGGESTIONS tokens shown above' : ''}${clarificationContext ? '\n- CRITICAL: Use the exact values from USER PROVIDED CLARIFICATIONS above - these are not suggestions, they are required values the user has specified' : ''}
@@ -369,7 +379,7 @@ export async function generateNodeConfigFix({
     const systemPrompt = `You are fixing a configuration error in a workflow node.
 
 Node: ${node.title} (${node.type})
-Current Configuration: ${JSON.stringify(previousConfig, null, 2)}
+Current Configuration: ${JSON.stringify(redactSensitiveFields(previousConfig), null, 2)}
 Error: ${error}
 Error Details: ${errorDetails || 'None provided'}
 
@@ -932,8 +942,23 @@ function formatNodeContextForPrompt(
 
 function buildAutoMappingPrompt(entries: AutoMappingEntry[]): string {
   if (!entries || entries.length === 0) return ''
-  const lines = entries.map((entry) => `- ${entry.fieldLabel} (${entry.fieldKey}): ${entry.value}`)
-  return ['AUTO-MAPPING SUGGESTIONS (prefer these upstream tokens for blank fields):', ...lines].join('\n')
+
+  const mapped = entries.filter(e => e.suggestedMode !== 'ai_generated')
+  const aiGenerated = entries.filter(e => e.suggestedMode === 'ai_generated')
+
+  const sections: string[] = ['AUTO-MAPPING SUGGESTIONS:']
+
+  if (mapped.length > 0) {
+    sections.push('  Mapped from upstream:')
+    mapped.forEach(e => sections.push(`  - ${e.fieldLabel} (${e.fieldKey}): ${e.value}`))
+  }
+
+  if (aiGenerated.length > 0) {
+    sections.push('  AI-generated (no upstream match):')
+    aiGenerated.forEach(e => sections.push(`  - ${e.fieldLabel} (${e.fieldKey}): use ${e.value}`))
+  }
+
+  return sections.join('\n')
 }
 
 function buildTestPreview({ node, config, previousNodes, mockData }: any) {

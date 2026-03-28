@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { AIAgentPreferenceModal } from "../AIAgentPreferenceModal"
 import { PromptEnhancer } from "../ai-agent/PromptEnhancer"
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 
 const TYPING_PHRASES = [
   "Send me a Slack message when someone fills out my contact form",
@@ -130,6 +131,19 @@ export function AIAgentCoralContent() {
   const [hoveredExample, setHoveredExample] = useState<number | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+
+  // Auto-resize textarea hook
+  const { textareaRef: autoResizeRef, resize: resizeInput } = useAutoResizeTextarea({
+    minHeight: 48,
+    maxHeight: 200,
+    value: input,
+  })
+
+  // Merge inputRef with autoResizeRef
+  const mergedInputRef = useCallback((node: HTMLTextAreaElement | null) => {
+    ;(inputRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node
+    ;(autoResizeRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node
+  }, [autoResizeRef])
 
   const connectedProviders = getConnectedProviders()
 
@@ -477,19 +491,23 @@ export function AIAgentCoralContent() {
                       )}
 
                       <textarea
-                        ref={inputRef}
+                        ref={mergedInputRef}
                         value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        onChange={(e) => {
+                          setInput(e.target.value)
+                          resizeInput()
+                        }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
+                          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                             e.preventDefault()
-                            handleSendMessage()
+                            if (input.trim()) handleSendMessage()
                           }
                         }}
                         placeholder=""
                         rows={1}
-                        className="w-full h-full text-base text-white pl-5 pr-5 py-5 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none overflow-y-auto placeholder-transparent scrollbar-none"
-                        style={{ minHeight: '64px' }}
+                        aria-label="Describe your workflow"
+                        className="w-full text-base text-white pl-5 pr-5 py-5 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none placeholder-transparent scrollbar-none"
+                        style={{ minHeight: '64px', maxHeight: '200px' }}
                         disabled={isLoading}
                       />
                     </div>
@@ -669,21 +687,28 @@ export function AIAgentCoralContent() {
                 <div className="max-w-3xl mx-auto">
                   <div className="relative group">
                     <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/20 to-rose-500/20 rounded-xl opacity-0 group-focus-within:opacity-100 blur transition-all duration-300" />
-                    <div className="relative flex items-center bg-white/5 border border-white/10 rounded-xl overflow-hidden group-focus-within:border-orange-500/50">
-                      <input
+                    <div className="relative flex items-end bg-white/5 border border-white/10 rounded-xl overflow-hidden group-focus-within:border-orange-500/50">
+                      <textarea
+                        ref={mergedInputRef}
                         value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        onChange={(e) => {
+                          setInput(e.target.value)
+                          resizeInput()
+                        }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
+                          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                             e.preventDefault()
-                            handleSendMessage()
+                            if (input.trim()) handleSendMessage()
                           }
                         }}
                         placeholder="Describe your next step..."
-                        className="flex-1 h-12 px-4 bg-transparent border-0 outline-none text-white placeholder-white/30"
+                        rows={1}
+                        aria-label="Describe your next step"
+                        className="flex-1 px-4 py-3 bg-transparent border-0 outline-none text-white placeholder-white/30 resize-none"
+                        style={{ minHeight: '48px', maxHeight: '200px' }}
                         disabled={isLoading}
                       />
-                      <div className="flex items-center gap-2 mr-2">
+                      <div className="flex items-center gap-2 mr-2 mb-2">
                         <PromptEnhancer
                           prompt={input}
                           connectedIntegrations={connectedProviders}

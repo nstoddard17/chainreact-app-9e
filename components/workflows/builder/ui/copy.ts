@@ -6,17 +6,11 @@
  */
 
 export const Copy = {
-  // Agent thinking states
+  // Agent planning states
   thinking: "Agent is thinking…",
-  breakingDown: "Breaking down task…",
-  collectingNodes: "Collecting nodes…",
-  outliningFlow: "Outlining flow…",
-  definingPurpose: "Defining purpose…",
-
-  // Staged text content
-  subtasks: "Broke the task into smaller subtasks for retrieving relevant nodes",
-  collected: "Collected all relevant nodes for the flow",
-  outline: "Outline the flow to achieve the task",
+  understanding: "Analyzing your apps and triggers…",
+  designing: "Mapping actions and connections…",
+  designingExtended: "Optimizing your workflow…",
 
   // Plan UI
   planTitle: "Flow implementation plan.",
@@ -28,7 +22,7 @@ export const Copy = {
   // Building states
   buildingSkeleton: "Building the skeleton of the flow",
   agentBadge: "Agent building flow",
-  waitingUser: "Waiting for user action",
+  completeStep: "Complete this step to continue",
   preparingNode: "Preparing node…",
   testingNode: "Testing node…",
   flowReady: "Flow ready ✅",
@@ -63,16 +57,8 @@ export const Copy = {
 // Re-export individual categories for convenience
 export const AgentStates = {
   thinking: Copy.thinking,
-  breakingDown: Copy.breakingDown,
-  collectingNodes: Copy.collectingNodes,
-  outliningFlow: Copy.outliningFlow,
-  definingPurpose: Copy.definingPurpose,
-} as const
-
-export const StagedContent = {
-  subtasks: Copy.subtasks,
-  collected: Copy.collected,
-  outline: Copy.outline,
+  understanding: Copy.understanding,
+  designing: Copy.designing,
 } as const
 
 export const BuildActions = {

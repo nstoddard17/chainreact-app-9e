@@ -97,6 +97,8 @@ import { swapProviderInPlan, canSwapProviders, getProviderCategory } from "@/lib
 import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflows/ai-agent/templateMatching"
 import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
 import { logger } from '@/lib/utils/logger'
+import { agentEvalTracker } from '@/lib/eval/agentEvalTracker'
+import { AGENT_EVAL_EVENTS, classifyPromptComplexity } from '@/lib/eval/agentEvalTypes'
 import { safeLocalStorageSet } from '@/lib/utils/storage-cleanup'
 import { useAppContext } from "@/lib/contexts/AppContext"
 import { useChatPersistence } from "@/hooks/workflows/builder/useChatPersistence"
@@ -109,11 +111,12 @@ import {
 import { optionsPrefetchService } from "@/lib/workflows/configuration/optionsPrefetchService"
 import { addNodeEdit, oldConnectToEdge, generateId } from "@/src/lib/workflows/compat/v2Adapter"
 import {
-  updateDraftingContext,
+  updateDraftingContext as _updateDraftingContextRaw,
   type DraftingContext,
   type ProviderMeta as DraftingProviderMeta,
   type VagueTermInfo,
 } from "@/src/lib/workflows/builder/agent/draftingContext"
+import { trackableDraftingUpdate as updateDraftingContext } from "@/lib/eval/trackableDraftingUpdate"
 
 type PendingChatMessage = {
   localId: string
@@ -187,6 +190,52 @@ const NODE_DISPLAY_NAME_MAP: Record<string, string> = {
   'notify.dispatch': 'Notify.Dispatch',
   'mapper.node': 'Mapper',
   'logic.ifSwitch': 'Logic.IfSwitch',
+}
+
+/**
+ * Runs planning stage animations in parallel with the API call.
+ * Each stage has a minimum display time but advances early when the API responds.
+ * If the API is slow, DESIGNING holds with animated dots until the response arrives,
+ * and the badge text escalates after a few seconds to avoid feeling static.
+ */
+async function runPlanningStages<T>(
+  transitionTo: (state: BuildState) => void,
+  apiCall: () => Promise<T>,
+): Promise<T> {
+  let apiResult: { value: T } | undefined
+  let apiError: any
+
+  const apiPromise = apiCall().then(
+    r => { apiResult = { value: r }; return r },
+    e => { apiError = e; throw e }
+  )
+
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+  // Stage 1: UNDERSTANDING (min 600ms, advances early if API already done)
+  transitionTo(BuildState.UNDERSTANDING)
+  await delay(600)
+
+  // Stage 2: DESIGNING (min 600ms, then holds until API resolves)
+  transitionTo(BuildState.DESIGNING)
+  if (!apiResult && !apiError) {
+    await delay(600)
+  }
+
+  // If API still pending, wait for it (DESIGNING badge stays visible with dots)
+  if (!apiResult && !apiError) {
+    try {
+      await apiPromise
+    } catch {
+      // Error will be re-thrown below
+    }
+  }
+
+  if (apiError) {
+    throw apiError
+  }
+
+  return apiResult!.value
 }
 
 function getKadabraStyleNodeName(nodeType: string, providerId?: string, title?: string): string {
@@ -448,6 +497,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const { initialized: authInitialized, user } = useAuthStore()
   const { isIntegrationConnected } = useIntegrationSelection()
   const { prefetchNodeConfig } = usePrefetchConfig()
+
+  // Initialize agent eval tracker
+  useEffect(() => {
+    if (user?.id) {
+      agentEvalTracker.init(user.id)
+      agentEvalTracker.setFlowId(flowId)
+    }
+    return () => agentEvalTracker.destroy()
+  }, [user?.id, flowId])
 
   // Debug: Log when key initialization states change (helps diagnose stuck builds after restart)
   // Using derived booleans as deps instead of object refs to prevent infinite loops
@@ -1498,8 +1556,20 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [builder?.nodes?.length, isIntegrationsPanelOpen, getIntegrationsPanelWidth, isViewLocked, fitWorkflowToViewport])
 
   // Build state machine handlers (defined early for use in URL prompt handler)
+  const stateEnteredAtRef = useRef<number>(performance.now())
   const transitionTo = useCallback((nextState: BuildState) => {
     setBuildMachine(prev => {
+      const now = performance.now()
+      const duration = Math.round(now - stateEnteredAtRef.current)
+      stateEnteredAtRef.current = now
+
+      // Agent eval: track state transition
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.STATE_TRANSITION, {
+        from_state: prev.state,
+        to_state: nextState,
+        duration_in_prev_state_ms: duration,
+      })
+
       const badge = getBadgeForState(
         nextState,
         prev.plan[prev.progress.currentIndex]?.title
@@ -1585,6 +1655,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     if (plan.length > 0) {
       assistantText = `Here's your workflow: ${planSummary}`
     } else if (result.clarifyingQuestions?.length > 0) {
+      // Agent eval: track clarification asked
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.CLARIFICATION_ASKED, {
+        question_count: result.clarifyingQuestions.length,
+        clarification_types: ['goal'],
+      })
       assistantText = `I'd love to help build that workflow! To make sure I create the right one, I have a few questions:\n\n${
         result.clarifyingQuestions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')
       }\n\nJust answer these and I'll design the perfect workflow for you.`
@@ -1638,6 +1713,58 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         planOrder: planProviderOrder,
         reordered: orderedProviderMeta.map((p: any) => p.provider?.id)
       })
+    }
+
+    // Supplement: ensure ALL providers from plan nodes are in metadata
+    // This fixes refinement flows where only the new provider is detected from the follow-up prompt
+    // (e.g., "use teams instead" only detects Teams, but Gmail is still in the plan)
+    if (plan.length > 0) {
+      const metaArray: Array<{ category: any; provider: any; allProviders: any[] }> = Array.isArray(orderedProviderMeta)
+        ? orderedProviderMeta
+        : (orderedProviderMeta ? [orderedProviderMeta] : [])
+      const coveredProviderIds = new Set(metaArray.map(m => m.provider?.id).filter(Boolean))
+      const freshIntegrations = useIntegrationStore.getState().integrations
+      const supplemented = [...metaArray]
+
+      // Collect unique provider IDs from plan in order (for consistent badge ordering)
+      const planProviderIds: string[] = []
+      for (const planNode of plan) {
+        if (planNode.providerId && !planProviderIds.includes(planNode.providerId)) {
+          planProviderIds.push(planNode.providerId)
+        }
+      }
+
+      for (const pid of planProviderIds) {
+        if (coveredProviderIds.has(pid)) continue
+        coveredProviderIds.add(pid)
+
+        const category = PROVIDER_CATEGORIES.find(c => c.providers.includes(pid))
+        if (!category) continue
+
+        const providerOptions = getProviderOptions(
+          category,
+          freshIntegrations.map(i => ({ provider: i.provider, id: i.id, status: i.status }))
+        )
+        const selectedProvider = providerOptions.find(p => p.id === pid)
+        if (selectedProvider) {
+          supplemented.push({ category, provider: selectedProvider, allProviders: providerOptions })
+        }
+      }
+
+      if (supplemented.length > metaArray.length) {
+        // Re-sort supplemented list to match plan node order (trigger first, then actions)
+        orderedProviderMeta = supplemented.sort((a, b) => {
+          const aIdx = planProviderIds.indexOf(a.provider?.id)
+          const bIdx = planProviderIds.indexOf(b.provider?.id)
+          if (aIdx === -1) return 1
+          if (bIdx === -1) return -1
+          return aIdx - bIdx
+        })
+        logger.debug('[Provider Supplement] Added missing plan providers:', {
+          original: metaArray.map(m => m.provider?.id),
+          supplemented: (orderedProviderMeta as any[]).map(m => m.provider?.id),
+        })
+      }
     }
 
     const assistantMeta: Record<string, any> = {
@@ -1795,6 +1922,27 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         type: 'plan_generated',
         planNodeCount: plan.length,
       }))
+      // Agent eval: track plan generation
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.PLAN_GENERATED, {
+        node_count: plan.length,
+        plan_version: 1,
+      })
+
+      // Agent eval: detect duplicate nodes in plan
+      const nodeTypeCounts = new Map<string, number>()
+      for (const p of plan) {
+        const key = p.nodeType
+        nodeTypeCounts.set(key, (nodeTypeCounts.get(key) || 0) + 1)
+      }
+      for (const [nodeType, count] of nodeTypeCounts) {
+        if (count > 1) {
+          agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.DUPLICATE_NODE, {
+            node_type: nodeType,
+            duplicate_count: count,
+            failure_labels: ['structure_failure'],
+          })
+        }
+      }
       transitionTo(BuildState.PLAN_READY)
     } else {
       // No plan generated - go back to IDLE so the conversational message is visible
@@ -1969,30 +2117,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     transitionTo(BuildState.THINKING)
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      logger.debug('[Provider Selection] → SUBTASKS')
-      transitionTo(BuildState.SUBTASKS)
-
-      await new Promise(resolve => setTimeout(resolve, 800))
-      logger.debug('[Provider Selection] → COLLECT_NODES')
-      transitionTo(BuildState.COLLECT_NODES)
-
-      await new Promise(resolve => setTimeout(resolve, 800))
-      logger.debug('[Provider Selection] → OUTLINE')
-      transitionTo(BuildState.OUTLINE)
-
-      await new Promise(resolve => setTimeout(resolve, 800))
-      logger.debug('[Provider Selection] → PURPOSE')
-      transitionTo(BuildState.PURPOSE)
-
-      logger.debug('[Provider Selection] Calling planWorkflowWithTemplates...')
       // Pass the EMAIL provider for template matching (not notification)
       const providerConvoHistory = agentMessages
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ role: m.role as 'user' | 'assistant', content: m.text, timestamp: m.createdAt || '' }))
-      const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-        actions, modifiedPrompt, emailProviderId, user?.id, flowId,
-        { draftingContext, conversationHistory: providerConvoHistory }
+
+      const { result, usedTemplate, promptId } = await runPlanningStages(
+        transitionTo,
+        () => planWorkflowWithTemplates(
+          actions, modifiedPrompt, emailProviderId, user?.id, flowId,
+          { draftingContext, conversationHistory: providerConvoHistory }
+        )
       )
       logger.debug('[Provider Selection] ✅ Received result from askAgent:', {
         workflowName: result.workflowName,
@@ -2026,24 +2161,33 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       await useIntegrationStore.getState().connectIntegration(providerId)
 
       // Integration store will refresh integrations automatically on success
-      // After connection, automatically proceed with the provider selection
-      logger.debug('[Provider Connect] Connection successful, proceeding with provider selection')
+      logger.debug('[Provider Connect] Connection successful')
 
-      // Give a small delay for integrations to refresh
-      setTimeout(() => {
-        // Now that provider is connected, proceed with selection
-        handleProviderSelect(providerId)
-      }, 500)
+      // Only call handleProviderSelect during the initial disambiguation flow
+      // (when user is picking providers before a plan exists).
+      // In PLAN_READY state, the ProviderBadge auto-updates via
+      // 'integration-connected' events and the build button re-evaluates
+      // from the integration store — no need to re-run provider selection.
+      if (buildMachine.state !== BuildState.PLAN_READY) {
+        setTimeout(() => {
+          handleProviderSelect(providerId)
+        }, 500)
+      }
 
     } catch (error: any) {
       logger.error('[Provider Connect] Connection failed:', error)
+      // Agent eval: track provider connection blocker
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.PROVIDER_CONNECT_BLOCKER, {
+        provider_id: providerId,
+        was_connected: false,
+      })
       toast({
         title: "Connection Failed",
         description: error?.message || `Failed to connect ${providerId}`,
         variant: "destructive",
       })
     }
-  }, [toast, handleProviderSelect])
+  }, [toast, handleProviderSelect, buildMachine.state])
 
   const handleProviderChange = useCallback(async (newProviderId: string) => {
     logger.debug('[Provider Change] User changed provider to:', newProviderId)
@@ -2690,18 +2834,6 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             // Start the animated build process
             transitionTo(BuildState.THINKING)
 
-            await new Promise(resolve => setTimeout(resolve, 1000))
-            transitionTo(BuildState.SUBTASKS)
-
-            await new Promise(resolve => setTimeout(resolve, 800))
-            transitionTo(BuildState.COLLECT_NODES)
-
-            await new Promise(resolve => setTimeout(resolve, 800))
-            transitionTo(BuildState.OUTLINE)
-
-            await new Promise(resolve => setTimeout(resolve, 800))
-            transitionTo(BuildState.PURPOSE)
-
             // For template matching, we need the EMAIL provider specifically (templates like email-to-slack require it)
             // Extract email provider from specificApps (not allProviderMetadata which might be notification/slack)
             const emailApp = specificApps.find(app => app.category === 'email')
@@ -2711,9 +2843,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             const urlConvoHistory = agentMessages
               .filter(m => m.role === 'user' || m.role === 'assistant')
               .map(m => ({ role: m.role as 'user' | 'assistant', content: m.text, timestamp: m.createdAt || '' }))
-            const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-              actions, finalPrompt, emailProviderId, user?.id, flowId,
-              { draftingContext, conversationHistory: urlConvoHistory }
+
+            const { result, usedTemplate, promptId } = await runPlanningStages(
+              transitionTo,
+              () => planWorkflowWithTemplates(
+                actions, finalPrompt, emailProviderId, user?.id, flowId,
+                { draftingContext, conversationHistory: urlConvoHistory }
+              )
             )
 
             // Use helper function to generate plan and update UI (with ALL provider metadata if auto-selected)
@@ -3373,8 +3509,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         }
       }
 
+      // Agent eval: track node test result
+      const testPassed = result.testResult?.success !== false
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.NODE_TEST_RESULT, {
+        node_id: nodeId,
+        node_type: node?.data?.type,
+        passed: testPassed,
+        duration_ms: result.testResult?.executionTime,
+      })
+
       // Set node to passed or failed state
-      if (result.testResult?.success !== false) {
+      if (testPassed) {
         setNodeState(reactFlowInstanceRef.current, nodeId, 'passed')
         toast({
           title: "Test passed",
@@ -4445,8 +4590,19 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [actions, builder, toast, agentOpen, agentPanelWidth, configuringNode, flowState?.workflowStatus])
 
   const handleNodeDelete = useCallback(async (nodeId: string) => {
+    // Agent eval: track node removal as manual correction
+    if (buildMachine.state !== BuildState.IDLE) {
+      const node = builder?.nodes?.find((n: any) => n.id === nodeId)
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.MANUAL_CORRECTION, {
+        node_id: nodeId,
+        correction_type: 'node_remove',
+        severity: 'major',
+        node_type: node?.data?.type,
+        failure_labels: classifyFailure(AGENT_EVAL_EVENTS.MANUAL_CORRECTION, { correction_type: 'node_remove' }),
+      })
+    }
     await handleDeleteNodes([nodeId])
-  }, [handleDeleteNodes])
+  }, [handleDeleteNodes, buildMachine.state, builder?.nodes])
 
   // Handle node rename
   const handleNodeRename = useCallback(async (nodeId: string, newTitle: string) => {
@@ -4486,6 +4642,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     const node = builder.nodes.find((n: any) => n.id === nodeId)
     if (!node) return
+
+    // Agent eval: track node swap as manual correction
+    if (buildMachine.state !== BuildState.IDLE) {
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.MANUAL_CORRECTION, {
+        node_id: nodeId,
+        correction_type: 'node_swap',
+        severity: 'major',
+        node_type: node?.data?.type,
+        failure_labels: classifyFailure(AGENT_EVAL_EVENTS.MANUAL_CORRECTION, { correction_type: 'node_swap' }),
+      })
+    }
 
     // Determine if this is a trigger or action
     const nodeComponent = ALL_NODE_COMPONENTS.find(c => c.type === node.data?.type)
@@ -4860,8 +5027,25 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   // Handle confirmed activation after review dialog approval
   const handleConfirmActivation = useCallback(async () => {
     setIsActivatingAfterReview(true)
+    // Agent eval: track activation attempt
+    agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.ACTIVATION_ATTEMPTED, {
+      trigger_count: builder?.nodes?.filter((n: any) => n.data?.nodeType === 'trigger').length || 0,
+      action_count: builder?.nodes?.filter((n: any) => n.data?.nodeType === 'action').length || 0,
+    })
     try {
       const result = await actions?.activateWorkflow()
+      // Agent eval: track activation outcome
+      if (result?.success) {
+        agentEvalTracker.setSessionOutcome('activated')
+        agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.ACTIVATION_SUCCEEDED, {
+          turns_to_success: agentEvalTracker.getConversationId() ? undefined : undefined,
+        })
+      } else {
+        agentEvalTracker.setSessionOutcome('blocked')
+        agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.ACTIVATION_BLOCKED, {
+          reasons: [result?.message || 'unknown'],
+        })
+      }
       setShowActivationReview(false)
       toast({
         title: result?.success ? "Workflow Published" : "Activation Failed",
@@ -5843,6 +6027,42 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     setAgentInput("")
     setIsAgentLoading(true)
 
+    // Agent eval: track prompt submission
+    const isFirstTurn = agentMessages.filter(m => m.role === 'user').length === 0
+    if (isFirstTurn) {
+      agentEvalTracker.startConversation()
+    }
+    const connectedProviders = integrations.filter(i => i.status === 'connected').map(i => i.provider)
+    const promptType = classifyPromptComplexity(userPrompt.length, connectedProviders)
+    agentEvalTracker.setPromptType(promptType)
+
+    // Determine context type:
+    // - 'auto+drafting': draftingContext exists with resolved decisions
+    // - 'auto': existing workflow nodes provide implicit context (refinement)
+    // - 'none': fresh prompt with no prior context
+    const existingNodes = builder?.nodes?.length || 0
+    let contextType: 'none' | 'manual' | 'auto' | 'auto+drafting' = 'none'
+    if (draftingContext && draftingContext.resolved.length > 0) {
+      contextType = 'auto+drafting'
+    } else if (existingNodes > 0 || !isFirstTurn) {
+      contextType = 'auto'
+    }
+
+    const contextRoles: string[] = []
+    if (draftingContext) contextRoles.push('drafting_state')
+    if (existingNodes > 0) contextRoles.push('existing_workflow')
+    if (connectedProviders.length > 0) contextRoles.push('connected_integrations')
+
+    agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.PROMPT_SUBMITTED, {
+      prompt_length: userPrompt.length,
+      context_type: contextType,
+      context_node_count: existingNodes,
+      context_roles: contextRoles,
+      connected_integrations: connectedProviders,
+      turn_number: agentMessages.filter(m => m.role === 'user').length + 1,
+      prompt_text: agentEvalTracker.isSampled() ? userPrompt.substring(0, 500) : undefined,
+    })
+
     const userLocalId = generateLocalId()
     const createdAtIso = new Date().toISOString()
     const localUserMessage: ChatMessage = {
@@ -6036,37 +6256,26 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     transitionTo(BuildState.THINKING)
 
     try {
-      // Simulate staged progression through planning states
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      transitionTo(BuildState.SUBTASKS)
-
-      await new Promise(resolve => setTimeout(resolve, 800))
-      transitionTo(BuildState.COLLECT_NODES)
-
-      await new Promise(resolve => setTimeout(resolve, 800))
-      transitionTo(BuildState.OUTLINE)
-
-      await new Promise(resolve => setTimeout(resolve, 800))
-      transitionTo(BuildState.PURPOSE)
-
-      // Mark request as processing before API call
-      updatePendingRequest(requestId, { status: 'processing' })
-
       // For template matching, we need the EMAIL provider specifically (templates like email-to-slack require it)
       // Extract email provider from specificApps (not allProviderMetadata which might be notification/slack)
       const emailApp = specificApps.find(app => app.category === 'email')
       const emailProviderMeta = allProviderMetadata.find(m => m.category?.vagueTerm === 'email')
       const emailProviderId = emailApp?.provider || emailProviderMeta?.provider?.id
 
-      // Call actual askAgent API (template matching first)
-      // Use finalPrompt which may have auto-resolved terms (e.g., "Gmail" replacing "email")
+      // Mark request as processing before API call
+      updatePendingRequest(requestId, { status: 'processing' })
+
       // Build conversation history from current messages for LLM context
       const conversationHistoryForLLM = agentMessages
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ role: m.role as 'user' | 'assistant', content: m.text, timestamp: m.createdAt || '' }))
-      const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-        actions, finalPrompt, emailProviderId, user?.id, flowId,
-        { draftingContext: updatedCtx, conversationHistory: conversationHistoryForLLM }
+
+      const { result, usedTemplate, promptId } = await runPlanningStages(
+        transitionTo,
+        () => planWorkflowWithTemplates(
+          actions, finalPrompt, emailProviderId, user?.id, flowId,
+          { draftingContext: updatedCtx, conversationHistory: conversationHistoryForLLM }
+        )
       )
 
       // Request completed successfully - remove from pending
@@ -6114,6 +6323,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     // Update drafting context: plan approved by user
     setDraftingContext(prev => updateDraftingContext(prev, { type: 'plan_approved' }))
+
+    // Agent eval: track plan approval + build start
+    agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.PLAN_APPROVED, {
+      was_first_plan: true,
+      turns_to_approve: 1,
+    })
+    agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.BUILD_STARTED, {
+      node_count: buildMachine.plan.length,
+    })
 
     try {
       transitionTo(BuildState.BUILDING_SKELETON)
@@ -6891,6 +7109,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           ...prev,
           progress: { ...prev.progress, currentIndex: nextIndex, done: nextIndex },
         }))
+        // Agent eval: track build completion
+        agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.BUILD_COMPLETED, {
+          node_count: buildMachine.plan.length,
+          nodes_configured: nextIndex,
+        })
         transitionTo(BuildState.COMPLETE)
 
         // Add preferences save message if we collected any preferences during the build
@@ -6966,6 +7189,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         ...prev,
         progress: { ...prev.progress, currentIndex: nextIndex, done: nextIndex },
       }))
+      // Agent eval: track build completion (via skip)
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.BUILD_COMPLETED, {
+        node_count: buildMachine.plan.length,
+        nodes_configured: nextIndex,
+      })
       transitionTo(BuildState.COMPLETE)
 
       // Add preferences save message if we collected any preferences during the build
@@ -6995,6 +7223,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   }, [buildMachine.plan.length, buildMachine.progress.currentIndex, collectedPreferences, flowId, generateLocalId, transitionTo])
 
   const handleNodeConfigChange = useCallback((nodeId: string, fieldName: string, value: any) => {
+    // Agent eval: track manual correction when user changes a field during guided setup
+    if (buildMachine.state !== BuildState.IDLE) {
+      const isVarRef = typeof value === 'string' && value.includes('{{')
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.MANUAL_CORRECTION, {
+        node_id: nodeId,
+        field_name: fieldName,
+        correction_type: 'field_change',
+        severity: 'minor',
+        variable_ref: isVarRef ? value : undefined,
+        failure_labels: classifyFailure(AGENT_EVAL_EVENTS.MANUAL_CORRECTION, {
+          correction_type: 'field_change',
+          variable_ref: isVarRef ? value : undefined,
+        }),
+      })
+    }
     setNodeConfigs(prev => ({
       ...prev,
       [nodeId]: {
@@ -7002,7 +7245,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         [fieldName]: value
       }
     }))
-  }, [])
+  }, [buildMachine.state])
 
   const handleCancelBuild = useCallback(() => {
     transitionTo(BuildState.PLAN_READY)

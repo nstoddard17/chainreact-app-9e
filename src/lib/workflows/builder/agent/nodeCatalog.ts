@@ -364,39 +364,89 @@ export function getFullNodeSchemas(types: string[]): Map<string, NodeComponent> 
 }
 
 /**
- * Formats a node's config schema for LLM configuration prompts
+ * Formats a node's config schema for LLM configuration prompts.
+ * Enhanced with purpose, examples, and recommended_mode for intelligent field handling.
+ *
+ * @param node - The node component with configSchema
+ * @param classifications - Optional pre-computed field classifications for recommended_mode
  */
-export function formatConfigSchemaForLLM(node: NodeComponent): string {
+export function formatConfigSchemaForLLM(
+  node: NodeComponent,
+  classifications?: import('./types').FieldClassification[]
+): string {
   if (!node.configSchema || node.configSchema.length === 0) {
     return `${node.type}: No configuration needed`
   }
 
+  // Build a map of classifications by field name for quick lookup
+  const classMap = new Map<string, import('./types').FieldClassification>()
+  if (classifications) {
+    for (const c of classifications) {
+      classMap.set(c.fieldName, c)
+    }
+  }
+
   const fields = node.configSchema.map(field => {
-    const parts = [
+    const lines: string[] = []
+
+    // Line 1: field name, required/optional, type
+    const header = [
       `- ${field.name}`,
       field.required ? '(required)' : '(optional)',
       `: ${field.type}`,
     ]
 
-    if (field.description) {
-      parts.push(`- ${field.description}`)
-    }
-
     if (field.dynamic) {
-      parts.push('[dynamic - user selects from dropdown]')
+      header.push('[dynamic - user selects from dropdown]')
     }
 
+    lines.push(header.join(' '))
+
+    // Purpose: from schema metadata or inferred from description
+    const purpose = (field as any).purpose || field.description
+    if (purpose) {
+      lines.push(`  purpose: ${purpose}`)
+    }
+
+    // Examples: from schema metadata
+    const examples = (field as any).examples as string[] | undefined
+    if (examples && examples.length > 0) {
+      lines.push(`  examples: ${examples.slice(0, 2).join(', ')}`)
+    }
+
+    // Options (for select fields)
     if (field.options && Array.isArray(field.options) && field.options.length > 0) {
       const opts = field.options.slice(0, 5)
       const optLabels = opts.map(o => typeof o === 'string' ? o : o.label)
-      parts.push(`options: ${optLabels.join(', ')}${field.options.length > 5 ? '...' : ''}`)
+      lines.push(`  options: ${optLabels.join(', ')}${field.options.length > 5 ? '...' : ''}`)
     }
 
+    // Default value
     if (field.defaultValue !== undefined) {
-      parts.push(`default: ${JSON.stringify(field.defaultValue)}`)
+      lines.push(`  default: ${JSON.stringify(field.defaultValue)}`)
     }
 
-    return parts.join(' ')
+    // Constraints
+    const constraints: string[] = []
+    if ((field as any).min !== undefined) constraints.push(`min: ${(field as any).min}`)
+    if ((field as any).max !== undefined) constraints.push(`max: ${(field as any).max}`)
+    if ((field as any).accept) constraints.push(`accepts: ${(field as any).accept}`)
+    if ((field as any).maxSize) constraints.push(`maxSize: ${(field as any).maxSize}`)
+    if (constraints.length > 0) {
+      lines.push(`  constraints: ${constraints.join(', ')}`)
+    }
+
+    // Recommended mode from classification
+    const classification = classMap.get(field.name)
+    if (classification) {
+      let modeLine = `  recommended_mode: ${classification.mode}`
+      if (classification.suggestedValue) {
+        modeLine += ` → ${classification.suggestedValue}`
+      }
+      lines.push(modeLine)
+    }
+
+    return lines.join('\n')
   })
 
   return `${node.title} (${node.type}):\n${fields.join('\n')}`

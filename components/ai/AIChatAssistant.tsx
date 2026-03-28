@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { ChatTextarea } from "@/components/ui/chat-textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { MessageSquare, Send, X, Bot, User, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -37,7 +37,7 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -108,12 +108,6 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
 
   if (!isOpen) {
     return (
@@ -189,15 +183,17 @@ export function AIChatAssistant({ className }: AIChatAssistantProps) {
         </ScrollArea>
 
         <div className="border-t p-4">
-          <div className="flex gap-2">
-            <Input
+          <div className="flex gap-2 items-end">
+            <ChatTextarea
               ref={inputRef}
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onChange={(val) => setInputValue(val)}
+              onSend={handleSendMessage}
               placeholder="Ask about workflows..."
               disabled={isLoading}
               className="flex-1"
+              minHeight={40}
+              maxHeight={120}
             />
             <Button
               onClick={handleSendMessage}
