@@ -131,7 +131,7 @@ export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
 /**
  * Find workflows that match the webhook event criteria
  */
-async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
+export async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
   const supabase = await createSupabaseServiceClient()
 
   // Find all active workflows first
@@ -315,7 +315,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
  * Apply custom trigger filters (e.g., sender, subject, workspace, etc.)
  * Made async to support Slack workspace lookup
  */
-async function applyTriggerFilters(triggerNode: any, event: WebhookEvent): Promise<boolean> {
+export async function applyTriggerFilters(triggerNode: any, event: WebhookEvent): Promise<boolean> {
   const config = triggerNode.data?.triggerConfig || triggerNode.data?.config || {}
 
   // Slack specific filters - filter by workspace (team)
