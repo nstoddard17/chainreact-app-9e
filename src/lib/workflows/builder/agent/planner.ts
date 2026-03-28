@@ -20,6 +20,7 @@ import type {
   LLMPlannerInput,
   ExtendedPlannerResult,
 } from "./types"
+import type { DraftingContext } from "./draftingContext"
 
 export interface PlannerInput {
   prompt: string
@@ -28,6 +29,8 @@ export interface PlannerInput {
   connectedIntegrations?: string[]
   /** Conversation history for refinement context */
   conversationHistory?: ConversationMessage[]
+  /** Structured drafting state accumulated across conversation turns */
+  draftingContext?: DraftingContext
   /** Whether to prefer LLM planner (default: true) */
   useLLM?: boolean
 }
@@ -906,6 +909,7 @@ export async function planEdits({
   flow,
   connectedIntegrations = [],
   conversationHistory = [],
+  draftingContext,
   useLLM = true,
 }: PlannerInput): Promise<PlannerResult> {
   const existingNodeIds = new Set(flow.nodes.map((node) => node.id))
@@ -1037,6 +1041,7 @@ export async function planEdits({
         flow: { nodes: flow.nodes, edges: flow.edges },
         connectedIntegrations,
         conversationHistory,
+        draftingContext,
       }
 
       const llmResult = cachedResult || await planWithLLM(llmInput)

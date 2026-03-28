@@ -212,6 +212,8 @@ export async function POST(request: NextRequest) {
   const executeWorkflow = async () => {
     // Generate execution ID upfront for HITL support
     const executionId = crypto.randomUUID()
+    // Track executed nodes outside try block so catch can access for task deduction
+    const executedNodeIds = new Set<string>()
 
     try {
       console.log('[ExecuteStream] Started', {
@@ -258,7 +260,6 @@ export async function POST(request: NextRequest) {
       }
 
       const executionQueue: any[] = []
-      const executedNodeIds = new Set<string>()
       let currentData = inputData
       const previousResults: Record<string, any> = {}
 
@@ -523,6 +524,20 @@ export async function POST(request: NextRequest) {
           console.log('[ExecuteStream] Workflow is paused, not sending workflow_completed')
           // Don't send workflow_completed - the workflow_paused event was already sent
         } else {
+          // Deduct tasks for executed nodes
+          try {
+            const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
+            const executedNodesList = workflowNodes.filter((n: any) => executedNodeIds.has(n.id))
+            if (executedNodesList.length > 0) {
+              await deductExecutionTasks(user.id, executedNodesList, executionId, false)
+            }
+          } catch (taskError) {
+            logger.warn('[ExecuteStream] Task deduction failed (non-blocking)', {
+              executionId,
+              error: taskError instanceof Error ? taskError.message : String(taskError)
+            })
+          }
+
           await supabase
             .from('workflow_execution_sessions')
             .update({
@@ -541,6 +556,20 @@ export async function POST(request: NextRequest) {
 
     } catch (error: any) {
       logger.error('Stream execution error:', error)
+
+      // Deduct tasks for nodes that completed before the failure
+      try {
+        const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
+        const executedNodesList = workflowNodes.filter((n: any) => executedNodeIds.has(n.id))
+        if (executedNodesList.length > 0) {
+          await deductExecutionTasks(user.id, executedNodesList, executionId, false)
+        }
+      } catch (taskError) {
+        logger.warn('[ExecuteStream] Task deduction on failure path failed (non-blocking)', {
+          executionId,
+          error: taskError instanceof Error ? taskError.message : String(taskError)
+        })
+      }
 
       // Update execution status to failed
       await supabase

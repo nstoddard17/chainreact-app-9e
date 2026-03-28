@@ -33,6 +33,30 @@ const ConversationMessageSchema = z.object({
   }).optional(),
 })
 
+/**
+ * Drafting context schema — lightweight structured state across conversation turns
+ */
+const DraftingContextSchema = z.object({
+  goal: z.string(),
+  resolved: z.array(z.object({
+    key: z.string(),
+    label: z.string(),
+    value: z.string(),
+    source: z.enum(['explicit', 'inferred']),
+    resolvedAt: z.string(),
+  })),
+  openItems: z.array(z.object({
+    key: z.string(),
+    label: z.string(),
+    reason: z.string(),
+    priority: z.enum(['blocking', 'optional']),
+  })),
+  nextAction: z.string(),
+  phase: z.enum(['gathering', 'planning', 'refining', 'ready']),
+  turnCount: z.number(),
+  updatedAt: z.string(),
+}).optional()
+
 const EditsRequestSchema = z.object({
   prompt: z.string().min(1),
   flow: FlowSchema,
@@ -40,6 +64,8 @@ const EditsRequestSchema = z.object({
   connectedIntegrations: z.array(z.string()).optional(),
   /** Conversation history for refinement context */
   conversationHistory: z.array(ConversationMessageSchema).optional(),
+  /** Structured drafting state accumulated across conversation turns */
+  draftingContext: DraftingContextSchema,
   /** Whether to use LLM planner (default: true) */
   useLLM: z.boolean().optional(),
   /** Whether to check for cached templates first (default: true) */
@@ -264,6 +290,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       flow: parsed.data.flow,
       connectedIntegrations: parsed.data.connectedIntegrations,
       conversationHistory: parsed.data.conversationHistory,
+      draftingContext: parsed.data.draftingContext,
       useLLM: parsed.data.useLLM ?? true,
     })
 

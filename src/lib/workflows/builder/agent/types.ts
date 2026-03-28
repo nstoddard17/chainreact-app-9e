@@ -11,6 +11,7 @@
 
 import type { Edit, PlannerResult } from './planner'
 import type { Node, Edge } from '../schema'
+import type { DraftingContext } from './draftingContext'
 
 // ============================================================================
 // REASONING & TRANSPARENCY
@@ -158,6 +159,8 @@ export interface LLMPlannerInput {
   flow: { nodes: Node[]; edges: Edge[] }
   connectedIntegrations?: string[]
   conversationHistory?: ConversationMessage[]
+  /** Structured drafting state accumulated across conversation turns */
+  draftingContext?: DraftingContext
   /** If true, this is a refinement of an existing plan */
   isRefinement?: boolean
   /** Previous plan version for refinement context */

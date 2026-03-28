@@ -731,20 +731,44 @@ Be concise and practical. Focus on creating a working workflow.`
             // Add wait after configuration for all nodes
             await sleep(500)
 
-            // Step 3: Test node (skip for triggers)
+            // Step 3: Test node (validate triggers, execute actions)
             if (nodeComponent.isTrigger) {
-              logger.info('[STREAM] Skipping trigger test', {
+              logger.info('[STREAM] Validating trigger configuration', {
                 title: plannedNode.title
               })
 
-              // Skip testing for trigger nodes - they activate on events
-              node.data.aiStatus = 'ready'
-              node.data.aiBadgeText = 'Successful'
-              node.data.aiBadgeVariant = 'success'
-              node.data.executionStatus = 'completed'
+              // Validate trigger: check required fields are populated
+              const triggerSchema = nodeComponent.configSchema || []
+              const triggerConfig = node.data.config || {}
+              const missingRequired = triggerSchema
+                .filter((f: any) => f.required && !f.hidden && f.name !== 'connection')
+                .filter((f: any) => {
+                  const val = triggerConfig[f.name]
+                  return val === undefined || val === null || val === ''
+                })
+
+              const hasMissingFields = missingRequired.length > 0
+
+              if (hasMissingFields) {
+                const missingNames = missingRequired.map((f: any) => f.label || f.name).join(', ')
+                node.data.aiStatus = 'ready'
+                node.data.aiBadgeText = 'Review Settings'
+                node.data.aiBadgeVariant = 'warning'
+                node.data.executionStatus = 'completed'
+                node.data.needsSetup = true
+                node.data.firstMissingField = missingRequired[0]?.name
+                node.data.validationMessage = `Missing required: ${missingNames}`
+              } else {
+                node.data.aiStatus = 'ready'
+                node.data.aiBadgeText = 'Successful'
+                node.data.aiBadgeVariant = 'success'
+                node.data.executionStatus = 'completed'
+              }
 
               sendEvent('node_complete', {
-                message: `✅ ${plannedNode.title} configured (trigger will activate on events)`,
+                message: hasMissingFields
+                  ? `⚠️ ${plannedNode.title} needs setup (missing required fields)`
+                  : `✅ ${plannedNode.title} configured (trigger will activate on events)`,
                 nodeId: node.id,
                 nodeName: plannedNode.title,
                 nodeIndex: i,
@@ -752,7 +776,9 @@ Be concise and practical. Focus on creating a working workflow.`
                 skipTest: true,
                 testResult: {
                   success: true,
-                  message: 'Trigger configured - will activate when events occur'
+                  message: hasMissingFields
+                    ? 'Trigger needs manual configuration for required fields'
+                    : 'Trigger configured - will activate when events occur'
                 },
                 status: 'ready',
                 badgeText: node.data.aiBadgeText,

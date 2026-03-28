@@ -35,7 +35,7 @@ interface LegacyAdapterState {
 }
 
 interface LegacyAdapterActions {
-  askAgent: (prompt: string) => Promise<any>
+  askAgent: (prompt: string, context?: { draftingContext?: any; conversationHistory?: any[] }) => Promise<any>
   applyEdits: (edits: any[], options?: { skipGraphUpdate?: boolean }) => Promise<void>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   addNode: (type: string, position?: { x: number; y: number }) => Promise<void>

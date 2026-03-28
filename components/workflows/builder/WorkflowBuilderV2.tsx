@@ -108,6 +108,12 @@ import {
 } from "@/hooks/workflows/builder/useWorkflowDraftAutoSave"
 import { optionsPrefetchService } from "@/lib/workflows/configuration/optionsPrefetchService"
 import { addNodeEdit, oldConnectToEdge, generateId } from "@/src/lib/workflows/compat/v2Adapter"
+import {
+  updateDraftingContext,
+  type DraftingContext,
+  type ProviderMeta as DraftingProviderMeta,
+  type VagueTermInfo,
+} from "@/src/lib/workflows/builder/agent/draftingContext"
 
 type PendingChatMessage = {
   localId: string
@@ -260,7 +266,8 @@ async function planWorkflowWithTemplates(
   prompt: string,
   providerId?: string,
   userId?: string,
-  workflowId?: string
+  workflowId?: string,
+  agentContext?: { draftingContext?: DraftingContext | null; conversationHistory?: any[] }
 ): Promise<{ result: any; usedTemplate: boolean; promptId?: string }> {
   logger.debug('[planWorkflowWithTemplates] Starting...', { prompt, providerId })
 
@@ -374,7 +381,10 @@ async function planWorkflowWithTemplates(
 
   let result
   try {
-    result = await actions.askAgent(prompt)
+    result = await actions.askAgent(prompt, {
+      draftingContext: agentContext?.draftingContext ?? undefined,
+      conversationHistory: agentContext?.conversationHistory,
+    })
     logger.debug('[planWorkflowWithTemplates] ✅ askAgent returned:', { hasEdits: !!result?.edits })
   } catch (askError: any) {
     logger.error('[planWorkflowWithTemplates] ❌ askAgent FAILED:', askError?.message || askError)
@@ -631,6 +641,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const [agentOpen, setAgentOpen] = useState(true)
   const [agentInput, setAgentInput] = useState("")
   const [agentMessages, setAgentMessages] = useState<ChatMessage[]>([])
+  const [draftingContext, setDraftingContext] = useState<DraftingContext | null>(null)
   const [isAgentLoading, setIsAgentLoading] = useState(false)
   const [agentStatus, setAgentStatus] = useState("")
   const lastConfigNodeIdRef = useRef<string | null>(null)
@@ -937,6 +948,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       logger.debug('[DraftRestore] Restored pendingVagueTerms:', restoredDraft.pendingVagueTerms.length)
     }
 
+    // Restore drafting context
+    if (restoredDraft.draftingContext) {
+      setDraftingContext(restoredDraft.draftingContext)
+      logger.debug('[DraftRestore] Restored drafting context:', restoredDraft.draftingContext.phase)
+    }
+
     // Open the agent panel if we're in the middle of provider selection
     if (restoredDraft.awaitingProviderSelection || restoredDraft.pendingPrompt) {
       setAgentOpen(true)
@@ -971,6 +988,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       awaitingProviderSelection,
       providerCategory,
       pendingVagueTerms,
+      // Drafting context (structured conversation state)
+      draftingContext,
     }))
   }, [
     chatPersistenceEnabled,
@@ -988,6 +1007,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     awaitingProviderSelection,
     providerCategory,
     pendingVagueTerms,
+    // Drafting context
+    draftingContext,
   ])
 
   // Clear draft only when guided setup is COMPLETE (all nodes configured, flow ready)
@@ -1769,6 +1790,11 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     await new Promise(resolve => setTimeout(resolve, 500))
     if (plan.length > 0) {
+      // Update drafting context: plan was generated
+      setDraftingContext(prev => updateDraftingContext(prev, {
+        type: 'plan_generated',
+        planNodeCount: plan.length,
+      }))
       transitionTo(BuildState.PLAN_READY)
     } else {
       // No plan generated - go back to IDLE so the conversational message is visible
@@ -1865,6 +1891,14 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     newSelections.set(categoryToUse.vagueTerm, providerId)
     setProviderSelections(newSelections)
 
+    // Update drafting context with the provider selection
+    setDraftingContext(prev => updateDraftingContext(prev, {
+      type: 'provider_selected',
+      key: `${categoryToUse.vagueTerm}_provider`,
+      label: `${categoryToUse.vagueTerm} provider`,
+      value: providerId,
+    }))
+
     // Replace vague term with specific provider in prompt
     const modifiedPrompt = replaceVagueTermWithProvider(
       promptToUse,
@@ -1953,8 +1987,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       logger.debug('[Provider Selection] Calling planWorkflowWithTemplates...')
       // Pass the EMAIL provider for template matching (not notification)
+      const providerConvoHistory = agentMessages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.text, timestamp: m.createdAt || '' }))
       const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-        actions, modifiedPrompt, emailProviderId, user?.id, flowId
+        actions, modifiedPrompt, emailProviderId, user?.id, flowId,
+        { draftingContext, conversationHistory: providerConvoHistory }
       )
       logger.debug('[Provider Selection] ✅ Received result from askAgent:', {
         workflowName: result.workflowName,
@@ -2670,8 +2708,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             const emailProviderMeta = allProviderMetadata.find(m => m.category?.vagueTerm === 'email')
             const emailProviderId = emailApp?.provider || emailProviderMeta?.provider?.id
 
+            const urlConvoHistory = agentMessages
+              .filter(m => m.role === 'user' || m.role === 'assistant')
+              .map(m => ({ role: m.role as 'user' | 'assistant', content: m.text, timestamp: m.createdAt || '' }))
             const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-              actions, finalPrompt, emailProviderId, user?.id, flowId
+              actions, finalPrompt, emailProviderId, user?.id, flowId,
+              { draftingContext, conversationHistory: urlConvoHistory }
             )
 
             // Use helper function to generate plan and update UI (with ALL provider metadata if auto-selected)
@@ -4686,9 +4728,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       setConfiguringNode(node)
     } else {
-      logger.warn('🔧 [WorkflowBuilder] Node not found for configuration:', nodeId)
+      logger.warn('🔧 [WorkflowBuilder] Node not found in reactFlowProps for configuration:', nodeId, 'total nodes:', reactFlowProps?.nodes?.length)
+      // Graceful fallback: never silently swallow clicks — tell the user something happened
+      toast({
+        title: "Couldn't open configuration",
+        description: "Please try clicking the node again.",
+        variant: "destructive"
+      })
     }
-  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId, configuringNode])
+  }, [reactFlowProps?.nodes, reactFlowProps?.edges, prefetchNodeConfig, openIntegrationsPanel, setSelectedNodeId, configuringNode, toast])
 
   // Handle saving node configuration
   const handleSaveNodeConfig = useCallback(async (nodeId: string, config: Record<string, any>) => {
@@ -5970,6 +6018,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     // No vague terms needing selection - proceed with workflow generation
     // (finalPrompt may have auto-resolved specific apps like "Gmail" or "Slack")
+
+    // Initialize or update drafting context with provider info from this turn
+    const draftProviders: DraftingProviderMeta[] = allProviderMetadata.map(m => ({
+      category: m.category?.vagueTerm || 'unknown',
+      provider: m.provider?.id || '',
+      providerName: m.provider?.label || m.provider?.id || '',
+      isAutoSelected: false, // User explicitly mentioned these
+    }))
+    const updatedCtx = updateDraftingContext(draftingContext, {
+      type: 'init',
+      prompt: finalPrompt,
+      providers: draftProviders,
+    })
+    setDraftingContext(updatedCtx)
+
     transitionTo(BuildState.THINKING)
 
     try {
@@ -5997,8 +6060,13 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
       // Call actual askAgent API (template matching first)
       // Use finalPrompt which may have auto-resolved terms (e.g., "Gmail" replacing "email")
+      // Build conversation history from current messages for LLM context
+      const conversationHistoryForLLM = agentMessages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.text, timestamp: m.createdAt || '' }))
       const { result, usedTemplate, promptId } = await planWorkflowWithTemplates(
-        actions, finalPrompt, emailProviderId, user?.id, flowId
+        actions, finalPrompt, emailProviderId, user?.id, flowId,
+        { draftingContext: updatedCtx, conversationHistory: conversationHistoryForLLM }
       )
 
       // Request completed successfully - remove from pending
@@ -6043,6 +6111,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
   const handleBuild = useCallback(async () => {
     if (!actions || !buildMachine.edits || buildMachine.state !== BuildState.PLAN_READY) return
+
+    // Update drafting context: plan approved by user
+    setDraftingContext(prev => updateDraftingContext(prev, { type: 'plan_approved' }))
 
     try {
       transitionTo(BuildState.BUILDING_SKELETON)
@@ -6551,17 +6622,22 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           }
         }
 
-        // Fallback for trigger nodes or unknown patterns
-        if (normalizedName.includes('channel')) return ''
-        if (normalizedName.includes('email')) return ''
-        if (normalizedName.includes('subject')) return ''
-        if (normalizedName.includes('name')) return ''
-        if (normalizedName.includes('message') || normalizedName.includes('body') || field?.type === 'textarea') {
+        // For trigger nodes: use schema defaults where available, leave user-choice fields empty
+        if (!isActionNode) {
+          // Use schema default if available
+          if (field.defaultValue !== undefined) {
+            return field.defaultValue
+          }
+          // Boolean fields default to false
+          if (field.type === 'boolean' || field.type === 'checkbox') {
+            return false
+          }
+          // Dynamic fields (combobox, select with dynamic options) — leave empty for user
+          // Text/textarea fields — leave empty for user to configure
           return ''
         }
-        if (normalizedName.includes('title')) {
-          return ''
-        }
+
+        // Fallback for unknown action patterns
         return ''
       }
 
@@ -6582,6 +6658,15 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       if (reactFlowInstanceRef.current) {
         // Extract savedDynamicOptions from userConfig (special key set by FlowV2AgentPanel)
         const { __savedDynamicOptions__, ...regularConfig } = userConfig
+
+        // Apply schema defaults for trigger fields that aren't already configured
+        if (nodeComponent?.isTrigger && configSchema.length > 0) {
+          configSchema.forEach((field: any) => {
+            if (field?.defaultValue !== undefined && regularConfig[field.name] === undefined) {
+              regularConfig[field.name] = field.defaultValue
+            }
+          })
+        }
 
         applyNodeUpdate(node => ({
           ...node,
@@ -6674,7 +6759,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
         try {
           if (isTrigger) {
-            // For triggers: just validate configuration
+            // For triggers: validate configuration and check required fields
             // Webhooks are created on workflow activation, not during testing
             logger.debug('[WorkflowBuilderV2] 📋 Validating trigger configuration:', planNode.nodeId)
 
@@ -6684,10 +6769,38 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               throw new Error('No integration connected')
             }
 
-            testResult = {
-              success: true,
-              message: '✅ Trigger configuration validated',
-              testData: { validated: true, trigger: true }
+            // Check for missing required fields from schema
+            const triggerSchema = catalog?.configSchema || []
+            const currentConfig = reactFlowNode.data?.config || {}
+            const missingRequired = triggerSchema
+              .filter((f: any) => f.required && !f.hidden && f.name !== 'connection')
+              .filter((f: any) => {
+                const val = currentConfig[f.name] ?? userConfig[f.name]
+                return val === undefined || val === null || val === ''
+              })
+
+            if (missingRequired.length > 0) {
+              const firstMissing = missingRequired[0]
+              const missingNames = missingRequired.map((f: any) => f.label || f.name).join(', ')
+              logger.debug('[WorkflowBuilderV2] Trigger has missing required fields:', missingNames)
+
+              testResult = {
+                success: true, // Don't fail — let user complete manually
+                message: `Trigger configured. Missing required: ${missingNames}`,
+                testData: {
+                  validated: true,
+                  trigger: true,
+                  needsSetup: true,
+                  firstMissingField: firstMissing?.name,
+                  missingFields: missingRequired.map((f: any) => f.label || f.name)
+                }
+              }
+            } else {
+              testResult = {
+                success: true,
+                message: '✅ Trigger configuration validated',
+                testData: { validated: true, trigger: true }
+              }
             }
 
             await wait(600) // Brief pause to show testing state
@@ -6725,13 +6838,21 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         }
 
         if (testResult.success) {
-          setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, 'passed')
+          const triggerNeedsSetup = testResult.testData?.needsSetup === true
+          setNodeState(reactFlowInstanceRef.current, reactFlowNode.id, triggerNeedsSetup ? 'ready' : 'passed')
           applyNodeUpdate(node => ({
             ...node,
             data: {
               ...node.data,
-              aiStatus: 'ready',
-              state: 'passed',
+              aiStatus: triggerNeedsSetup ? 'ready' : 'ready',
+              state: triggerNeedsSetup ? 'ready' : 'passed',
+              needsSetup: triggerNeedsSetup,
+              firstMissingField: testResult.testData?.firstMissingField || null,
+              aiBadgeText: triggerNeedsSetup ? 'Review Settings' : undefined,
+              aiBadgeVariant: triggerNeedsSetup ? 'warning' : undefined,
+              validationMessage: triggerNeedsSetup
+                ? `Missing required: ${testResult.testData?.missingFields?.join(', ')}`
+                : undefined,
               testResult: testResult.testData // Store test data
             },
           }))
@@ -7560,6 +7681,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
             }}
             currentNodeId={configuringNode?.id}
             nodeTitle={configuringNode?.data?.title || null}
+            focusField={configuringNode?.data?.firstMissingField || undefined}
           />
         )
       })()}
