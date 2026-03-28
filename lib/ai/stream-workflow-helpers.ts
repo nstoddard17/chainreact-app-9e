@@ -190,7 +190,13 @@ export async function generateNodeConfig({
     // Check if we can skip AI call
     const hasAllRequiredFields = (() => {
       if (nodeComponent.isTrigger) {
-        return true
+        // Only skip LLM config for triggers with no required fields
+        const requiredFields = (nodeComponent.configSchema || [])
+          .filter((f: any) => f.required && !f.hidden && f.name !== 'connection')
+        if (requiredFields.length === 0) {
+          return true
+        }
+        // Fall through to LLM configuration for triggers with required fields
       }
       if (nodeComponent.type === 'slack_action_send_message') {
         const hasChannel = clarificationFieldValues.channel || clarificationFieldValues.channelId || clarificationFieldValues.slack_channel

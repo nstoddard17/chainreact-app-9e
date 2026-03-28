@@ -49,6 +49,7 @@ import { logger } from '../../../../../lib/utils/logger'
 import { callLLMWithRetry, parseLLMJson } from '../../../../../lib/ai/llm-retry'
 import { AI_MODELS } from '../../../../../lib/ai/models'
 import { truncateConversationHistory, summarizeConversation } from '../../../../../lib/ai/token-utils'
+import { formatDraftingContextForLLM, DRAFTING_CONTEXT_RULES, type DraftingContext } from './draftingContext'
 
 // ============================================================================
 // CONSTANTS
@@ -182,7 +183,8 @@ async function selectNodes(
   prompt: string,
   connectedIntegrations: string[],
   conversationHistory?: ConversationMessage[],
-  currentFlow?: { nodes: Node[]; edges: Edge[] }
+  currentFlow?: { nodes: Node[]; edges: Edge[] },
+  draftingContext?: DraftingContext
 ): Promise<{
   nodes: PlannedNode[]
   reasoning: ReasoningStep[]
@@ -202,8 +204,13 @@ async function selectNodes(
     : formatCatalogVerbose()
 
   // Build conversation context
+  // When drafting context is present, append the mandatory behavioral rules to the system prompt
+  const systemPrompt = draftingContext
+    ? `${NODE_SELECTION_SYSTEM_PROMPT}\n\n${DRAFTING_CONTEXT_RULES}`
+    : NODE_SELECTION_SYSTEM_PROMPT
+
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: NODE_SELECTION_SYSTEM_PROMPT },
+    { role: 'system', content: systemPrompt },
     {
       role: 'user',
       content: `AVAILABLE NODES (you MUST only use node types from this list):\n${catalog}\n\n${
@@ -220,6 +227,14 @@ async function selectNodes(
     messages.push({
       role: 'user',
       content: `${flowContext}\n\nThe user wants to MODIFY this existing workflow. Consider what already exists and make targeted changes rather than rebuilding from scratch.`,
+    })
+  }
+
+  // Add structured drafting context (authoritative summary of conversation state)
+  if (draftingContext) {
+    messages.push({
+      role: 'user',
+      content: formatDraftingContextForLLM(draftingContext),
     })
   }
 
@@ -681,7 +696,8 @@ export async function planWithLLM(input: LLMPlannerInput): Promise<LLMPlannerOut
       input.prompt,
       input.connectedIntegrations || [],
       input.conversationHistory,
-      input.flow
+      input.flow,
+      input.draftingContext
     )
 
     allReasoning.push(...selectionReasoning)

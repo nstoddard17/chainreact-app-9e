@@ -155,7 +155,7 @@ export interface FlowV2BuilderActions {
   load: () => Promise<void>
   loadRevision: (revisionId: string) => Promise<Flow>
   applyEdits: (edits: PlannerEdit[], options?: ApplyEditsOptions) => Promise<Flow>
-  askAgent: (prompt: string) => Promise<AgentResult>
+  askAgent: (prompt: string, context?: { draftingContext?: any; conversationHistory?: any[] }) => Promise<AgentResult>
   updateConfig: (nodeId: string, patch: Record<string, any>) => void
   updateFlowName: (name: string) => Promise<void>
   addNode: (type: string, position?: XYPosition, nodeId?: string) => Promise<string>
@@ -1747,7 +1747,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
   )
 
   const askAgent = useCallback(
-    async (prompt: string): Promise<AgentResult> => {
+    async (prompt: string, context?: { draftingContext?: any; conversationHistory?: any[] }): Promise<AgentResult> => {
       const flow = await ensureFlow()
       const payload = await fetchJson<{
         ok?: boolean
@@ -1779,6 +1779,8 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
           prompt,
           flow,
           connectedIntegrations: useIntegrationStore.getState().getConnectedProviders(),
+          ...(context?.draftingContext ? { draftingContext: context.draftingContext } : {}),
+          ...(context?.conversationHistory ? { conversationHistory: context.conversationHistory } : {}),
         }),
       }, 60000) // 60 second timeout for LLM planning
 

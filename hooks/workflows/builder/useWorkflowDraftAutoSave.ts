@@ -22,6 +22,7 @@ import { safeLocalStorageSet } from '@/lib/utils/storage-cleanup'
 import type { ChatMessage } from '@/lib/workflows/ai-agent/chat-service'
 import type { BuildStateMachine } from '@/src/lib/workflows/builder/BuildState'
 import { getInitialState } from '@/src/lib/workflows/builder/BuildState'
+import type { DraftingContext } from '@/src/lib/workflows/builder/agent/draftingContext'
 import { logger } from '@/lib/utils/logger'
 
 const DRAFT_KEY_PREFIX = 'workflow-draft-'
@@ -78,6 +79,9 @@ export interface WorkflowDraftState {
 
   // In-flight request tracking
   pendingRequests: PendingAgentRequest[]
+
+  // Drafting context (structured conversation state across turns)
+  draftingContext?: DraftingContext
 
   // Metadata
   lastUpdated: string
@@ -409,6 +413,8 @@ export function createDraftState(options: {
   awaitingProviderSelection?: boolean
   providerCategory?: any
   pendingVagueTerms?: any[]
+  // Drafting context
+  draftingContext?: DraftingContext | null
 }): WorkflowDraftState {
   return {
     agentMessages: options.agentMessages,
@@ -420,6 +426,7 @@ export function createDraftState(options: {
     selectedProviderId: options.selectedProviderId,
     workflowName: options.workflowName,
     pendingRequests: options.pendingRequests || [],
+    draftingContext: options.draftingContext ?? undefined,
     lastUpdated: new Date().toISOString(),
     // Provider disambiguation state
     awaitingProviderSelection: options.awaitingProviderSelection,

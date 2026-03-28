@@ -705,16 +705,19 @@ function CustomNode({ id, data, selected }: NodeProps) {
   
   // Check if this node has configuration options
   const nodeHasConfiguration = (): boolean => {
-    if (!component) return false
-
     // Manual triggers don't show configuration button - they open trigger selection on click
     if (type === 'manual') {
       return false
     }
 
-    // All nodes with a component definition should be configurable
-    // This includes triggers, actions, and any node with optional or required fields
-    return true
+    // If component is found in catalog, it's configurable
+    if (component) return true
+
+    // Allow config for any node with a valid type even without a catalog match
+    // (e.g., agent-built nodes) — handleNodeConfigure does its own lookup via getNodeByType
+    if (type && type !== 'placeholder') return true
+
+    return false
   }
 
   const handleConfigure = (e: React.MouseEvent) => {
