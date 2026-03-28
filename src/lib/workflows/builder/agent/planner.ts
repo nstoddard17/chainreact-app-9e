@@ -136,6 +136,101 @@ function validateDraft(flow: Flow): ValidationResult {
   }
 }
 
+// ============================================================================
+// UNDO / REVERT HELPERS
+// ============================================================================
+
+const UNDO_PATTERNS = [
+  /\b(undo|undo that|undo the last change)\b/i,
+  /\b(revert|revert that|revert the last change)\b/i,
+  /\b(change it back|put it back|go back)\b/i,
+  /\b(never ?mind|nevermind)\b/i,
+  /\brestore (?:the )?previous\b/i,
+]
+
+/** Quick check if prompt is an undo/revert request */
+export function looksLikeUndoRequest(prompt: string): boolean {
+  return UNDO_PATTERNS.some(p => p.test(prompt))
+}
+
+/** Walk conversation history in reverse to find the previous workflow snapshot */
+export function findPreviousSnapshot(
+  conversationHistory?: ConversationMessage[]
+): { nodes: Array<{ id: string; type: string; label: string }>; edges: Array<{ from: string; to: string }> } | null {
+  if (!conversationHistory || conversationHistory.length === 0) return null
+
+  // Collect all assistant messages with snapshots (most recent first)
+  const snapshots: string[] = []
+  for (let i = conversationHistory.length - 1; i >= 0; i--) {
+    const msg = conversationHistory[i]
+    if (msg.role === 'assistant' && msg.metadata?.workflowSnapshot) {
+      snapshots.push(msg.metadata.workflowSnapshot)
+    }
+  }
+
+  // We want the second-most-recent snapshot (the state BEFORE the last change)
+  // If only one snapshot exists, use it (better than nothing)
+  const snapshotStr = snapshots.length >= 2 ? snapshots[1] : snapshots[0]
+  if (!snapshotStr) return null
+
+  try {
+    return JSON.parse(snapshotStr)
+  } catch {
+    logger.error('[Planner] Failed to parse workflow snapshot for undo')
+    return null
+  }
+}
+
+/** Build Edit operations to restore a previous workflow snapshot */
+export function buildUndoEdits(
+  snapshot: { nodes: Array<{ id: string; type: string; label: string }>; edges: Array<{ from: string; to: string }> },
+  currentNodes: Node[]
+): Edit[] {
+  const edits: Edit[] = []
+
+  // Remove all current nodes
+  for (const node of currentNodes) {
+    edits.push({ op: 'removeNode', nodeId: node.id, reconnect: false })
+  }
+
+  // Add back snapshot nodes
+  for (let i = 0; i < snapshot.nodes.length; i++) {
+    const sNode = snapshot.nodes[i]
+    const restoredNode: Node = {
+      id: sNode.id,
+      type: sNode.type,
+      label: sNode.label || sNode.type,
+      config: {},
+      inPorts: [],
+      outPorts: [],
+      io: { inputSchema: undefined, outputSchema: undefined },
+      policy: { timeoutMs: 60000, retries: 0 },
+      costHint: 0,
+      metadata: {
+        position: { x: 400, y: 100 + i * 160 },
+        lane: 0,
+        branchIndex: i,
+      },
+    }
+    edits.push({ op: 'addNode', node: restoredNode })
+  }
+
+  // Reconnect edges from snapshot
+  for (const edge of snapshot.edges) {
+    edits.push({
+      op: 'connect',
+      edge: {
+        id: crypto.randomUUID(),
+        from: { nodeId: edge.from },
+        to: { nodeId: edge.to },
+        mappings: [],
+      },
+    })
+  }
+
+  return edits
+}
+
 // Enhanced intent → plan mapping with real integration nodes
 interface PlanTemplate {
   nodeTypes: (AllowedNodeType | string)[]  // Now supports both legacy and integration node types
@@ -815,6 +910,53 @@ export async function planEdits({
 
     // Still try to create a workflow with available integrations, but include the warning
     // The unsupported info will be passed through to let the UI decide how to handle it
+  }
+
+  // Check for undo/revert intent first (works even with 0 nodes)
+  if (looksLikeUndoRequest(prompt)) {
+    logger.info('[Planner] Detected undo request', { prompt })
+    const previousSnapshot = findPreviousSnapshot(conversationHistory)
+    if (previousSnapshot) {
+      const undoEdits = buildUndoEdits(previousSnapshot, flow.nodes)
+      return {
+        edits: undoEdits,
+        prerequisites: [],
+        rationale: 'Restored workflow to previous state',
+        deterministicHash: computeDeterministicHash(undoEdits),
+        reasoning: [{
+          step: 1,
+          phase: 'understanding',
+          thought: 'User requested undo — restoring previous workflow snapshot',
+          decision: 'Restoring from saved snapshot without LLM call',
+          confidence: 'high',
+        }],
+        planVersion: 1,
+        planningMethod: 'pattern',
+        ...(unsupportedCheck.hasUnsupported && {
+          unsupportedFeatures: {
+            hasUnsupported: true,
+            features: unsupportedCheck.unsupportedList,
+            message: unsupportedCheck.message,
+          },
+        }),
+      }
+    } else {
+      logger.info('[Planner] No previous snapshot available for undo')
+      return {
+        edits: [],
+        prerequisites: [],
+        rationale: "I don't have a previous version to restore. I can only undo changes made during this conversation.",
+        deterministicHash: computeDeterministicHash([]),
+        reasoning: [{
+          step: 1,
+          phase: 'understanding',
+          thought: 'User requested undo but no previous snapshot exists in conversation history',
+          confidence: 'medium',
+        }],
+        planVersion: 1,
+        planningMethod: 'pattern',
+      }
+    }
   }
 
   // Check if this is a refinement request

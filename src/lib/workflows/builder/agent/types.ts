@@ -184,6 +184,8 @@ export interface ChatMessageMeta {
   partialConfigs?: Record<string, NodeConfiguration>
   isRefinement?: boolean
   refinementType?: RefinementType
+  conversationSummary?: string  // Summary of older conversation context (for Feature 3)
+  summaryMessageCount?: number  // Number of messages when summary was generated
 }
 
 /**
@@ -255,6 +257,7 @@ export type RefinementType =
   | 'merge_branches'      // "combine the two paths"
   | 'reorder'             // "swap steps 2 and 3"
   | 'clarify'             // Not a modification, just explanation
+  | 'undo'                // "undo", "change it back", "revert"
 
 /**
  * Position reference for refinements
