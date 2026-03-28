@@ -48,7 +48,7 @@ import {
 import { logger } from '../../../../../lib/utils/logger'
 import { callLLMWithRetry, parseLLMJson } from '../../../../../lib/ai/llm-retry'
 import { AI_MODELS } from '../../../../../lib/ai/models'
-import { truncateConversationHistory } from '../../../../../lib/ai/token-utils'
+import { truncateConversationHistory, summarizeConversation } from '../../../../../lib/ai/token-utils'
 
 // ============================================================================
 // CONSTANTS
@@ -59,6 +59,33 @@ const DEFAULT_LAYOUT = {
   startY: 100,
   nodeSpacingY: 160,
   branchSpacingX: 400,
+}
+
+// ============================================================================
+// FLOW STATE FORMATTING
+// ============================================================================
+
+/**
+ * Creates a compact string representation of the current workflow for LLM context.
+ * Target: <200 tokens for a 10-node workflow.
+ */
+export function formatFlowStateForLLM(flow: { nodes: Node[]; edges: Edge[] }): string {
+  if (!flow.nodes || flow.nodes.length === 0) {
+    return 'CURRENT WORKFLOW: Empty (no nodes yet)'
+  }
+
+  const nodeList = flow.nodes.map((n, i) => {
+    const label = n.label && n.label !== n.type ? ` "${n.label}"` : ''
+    return `  ${i + 1}. ${n.type}${label}`
+  }).join('\n')
+
+  const edgeList = flow.edges.map(e => {
+    const fromNode = flow.nodes.find(n => n.id === e.from.nodeId)
+    const toNode = flow.nodes.find(n => n.id === e.to.nodeId)
+    return `  ${fromNode?.type || '?'} → ${toNode?.type || '?'}`
+  }).join('\n')
+
+  return `CURRENT WORKFLOW (${flow.nodes.length} nodes):\nNodes:\n${nodeList}${edgeList ? `\nConnections:\n${edgeList}` : ''}`
 }
 
 // ============================================================================
@@ -103,6 +130,13 @@ CONFIDENCE LEVELS:
 - "medium": This node is likely needed but could be skipped
 - "low": This node might be helpful but is optional
 
+MODIFYING EXISTING WORKFLOWS:
+When the user has an existing workflow (shown as CURRENT WORKFLOW), you should:
+- Understand what already exists before proposing changes
+- Only add/remove/modify nodes relevant to the user's request
+- Preserve existing nodes that are still needed
+- Reference existing nodes when creating connections
+
 VARIABLE REFERENCES:
 When nodes need to reference data from previous nodes, use:
 - {{trigger.fieldName}} for trigger outputs
@@ -137,7 +171,8 @@ FIELD CONFIGURATION:
 async function selectNodes(
   prompt: string,
   connectedIntegrations: string[],
-  conversationHistory?: ConversationMessage[]
+  conversationHistory?: ConversationMessage[],
+  currentFlow?: { nodes: Node[]; edges: Edge[] }
 ): Promise<{
   nodes: PlannedNode[]
   reasoning: ReasoningStep[]
@@ -169,15 +204,38 @@ async function selectNodes(
     },
   ]
 
-  // Add conversation history for refinement context (token-aware)
-  if (conversationHistory && conversationHistory.length > 0) {
-    const truncated = truncateConversationHistory(conversationHistory, 1000)
-    const historyContext = truncated
-      .map(msg => `${msg.role}: ${msg.content}`)
-      .join('\n')
+  // Add current workflow state context
+  if (currentFlow && currentFlow.nodes.length > 0) {
+    const flowContext = formatFlowStateForLLM(currentFlow)
     messages.push({
       role: 'user',
-      content: `Previous conversation:\n${historyContext}\n\nCurrent request: "${prompt}"`,
+      content: `${flowContext}\n\nThe user wants to MODIFY this existing workflow. Consider what already exists and make targeted changes rather than rebuilding from scratch.`,
+    })
+  }
+
+  // Add conversation history with summarization for longer conversations
+  if (conversationHistory && conversationHistory.length > 0) {
+    // Check for cached summary in the most recent assistant message metadata
+    const lastAssistant = [...conversationHistory].reverse().find(m => m.role === 'assistant')
+    const cachedSummary = (lastAssistant as any)?.metadata?.conversationSummary
+    const cachedMessageCount = (lastAssistant as any)?.metadata?.summaryMessageCount
+
+    const { summary, recentMessages, wasSummarized } = await summarizeConversation(
+      conversationHistory,
+      { recentMessageCount: 3, cachedSummary, cachedMessageCount }
+    )
+
+    let contextBlock = ''
+    if (wasSummarized && summary) {
+      contextBlock += `Summary of earlier conversation:\n${summary}\n\n`
+    }
+    if (recentMessages.length > 0) {
+      contextBlock += `Recent conversation:\n${recentMessages.map(m => `${m.role}: ${m.content}`).join('\n')}`
+    }
+
+    messages.push({
+      role: 'user',
+      content: `${contextBlock}\n\nCurrent request: "${prompt}"`,
     })
   }
 
@@ -232,7 +290,8 @@ async function selectNodes(
 async function configureNodes(
   nodes: PlannedNode[],
   prompt: string,
-  connectedIntegrations: string[]
+  connectedIntegrations: string[],
+  currentFlow?: { nodes: Node[]; edges: Edge[] }
 ): Promise<{
   configurations: Record<string, {
     config: Record<string, any>
@@ -271,7 +330,7 @@ async function configureNodes(
 
 Selected nodes (in order):
 ${nodes.map((n, i) => `${i + 1}. ${n.type}`).join('\n')}
-
+${currentFlow && currentFlow.nodes.length > 0 ? `\nExisting workflow context:\n${formatFlowStateForLLM(currentFlow)}\n` : ''}
 Node schemas:
 ${schemaContext}
 
@@ -611,7 +670,8 @@ export async function planWithLLM(input: LLMPlannerInput): Promise<LLMPlannerOut
     } = await selectNodes(
       input.prompt,
       input.connectedIntegrations || [],
-      input.conversationHistory
+      input.conversationHistory,
+      input.flow
     )
 
     allReasoning.push(...selectionReasoning)
@@ -646,7 +706,8 @@ export async function planWithLLM(input: LLMPlannerInput): Promise<LLMPlannerOut
     const { configurations, variableMappings } = await configureNodes(
       selectedNodes,
       input.prompt,
-      input.connectedIntegrations || []
+      input.connectedIntegrations || [],
+      input.flow
     )
 
     // Stage 3: Edge Generation

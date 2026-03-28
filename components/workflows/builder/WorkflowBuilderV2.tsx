@@ -814,6 +814,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     replaceMessageByLocalId,
     enqueuePendingMessage,
     persistOrQueueStatus,
+    createWorkflowSnapshot,
   } = useChatPersistence({
     flowId,
     flowState: flowState ? {
@@ -1617,7 +1618,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
     const assistantMeta: Record<string, any> = {
       plan: { edits: result.edits, nodeCount: plan.length },
-      taskCost: result.taskCost
+      taskCost: result.taskCost,
+      workflowSnapshot: flowState?.flow ? createWorkflowSnapshot(flowState.flow) : undefined,
     }
 
     // Include provider metadata if selected

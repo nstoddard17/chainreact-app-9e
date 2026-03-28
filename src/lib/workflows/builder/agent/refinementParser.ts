@@ -40,6 +40,19 @@ interface RefinementPattern {
 }
 
 const REFINEMENT_PATTERNS: RefinementPattern[] = [
+  // UNDO / REVERT patterns (checked first — highest priority)
+  {
+    type: 'undo',
+    patterns: [
+      /\b(undo|undo that|undo the last change)\b/i,
+      /\b(revert|revert that|revert the last change)\b/i,
+      /\b(change it back|put it back|go back)\b/i,
+      /\b(never mind|nevermind)\b/i,
+      /\brestore (?:the )?previous\b/i,
+    ],
+    extractors: {},
+  },
+
   // ADD NODE patterns
   {
     type: 'add_node',
@@ -418,6 +431,8 @@ export function looksLikeRefinement(prompt: string): boolean {
 
   // Explicit refinement patterns - must match specific modification syntax
   const refinementPatterns = [
+    // Undo / revert
+    /\b(undo|revert|change it back|put it back|go back|never ?mind|restore previous)\b/i,
     // Adding nodes at positions
     /\b(add|insert|put)\s+.+?\s+(before|after)\s+(step|node)?\s*\d+/i,
     /\b(add|insert)\s+.+?\s+(at the|to the)\s+(start|end|beginning)/i,
