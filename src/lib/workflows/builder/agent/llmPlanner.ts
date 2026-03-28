@@ -106,6 +106,16 @@ HANDLING DIFFERENT PROMPT TYPES:
 - Questions ("what would be good for X?") → Recommend AND build the best workflow. Explain why in reasoning.
 - Vague requests ("automate my CRM", "help with marketing") → Pick the highest-impact automation for that domain and build it.
 
+PROPOSE-FIRST PRINCIPLE:
+- ALWAYS propose a concrete workflow, even for vague or goal-oriented requests. Users refine after seeing a proposal.
+- When connected integrations are listed, build the workflow using ONLY those apps. Do not suggest disconnected providers.
+- For goal-oriented requests ("improve retention", "automate onboarding"), explain in reasoning:
+  1. What business outcome this workflow targets
+  2. Why you chose these specific trigger + action nodes
+  3. What the user might want to customize
+- NEVER return 0 nodes for a legitimate business/automation request. Make reasonable assumptions and note them in reasoning.
+- If a required detail is missing: make a reasonable default assumption, clearly state the assumption in your reasoning, and include at most ONE targeted follow-up question (e.g., "Which Slack channel should get alerts?"). Do NOT ask broad discovery questions.
+
 CRITICAL RULES:
 - You MUST only use node types from the catalog provided. NEVER invent node types that aren't in the list.
 - ALWAYS return at least a 2-node workflow for any legitimate business/automation request.
@@ -198,8 +208,8 @@ async function selectNodes(
       role: 'user',
       content: `AVAILABLE NODES (you MUST only use node types from this list):\n${catalog}\n\n${
         connectedIntegrations.length > 0
-          ? `The user has connected these integrations: ${connectedIntegrations.join(', ')}. STRONGLY prefer nodes from these providers when possible.`
-          : 'No integrations are connected yet. Use generic triggers (HTTP webhook, schedule) and note which integrations the user should connect for the best experience.'
+          ? `The user has connected these integrations: ${connectedIntegrations.join(', ')}. BUILD the workflow using ONLY these connected providers. Do not suggest disconnected providers. If the request is vague, pick the best automation using these specific apps and explain your reasoning.`
+          : 'No integrations are connected yet. Use schedule or webhook triggers. In your reasoning, recommend which integrations the user should connect.'
       }\n\nUser request: "${prompt}"\n\nDesign and build a workflow for this request. If the request is vague or open-ended, use your expertise to pick the best approach and explain your reasoning.`,
     },
   ]

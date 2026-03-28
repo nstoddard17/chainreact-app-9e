@@ -91,25 +91,50 @@ function formatObject(obj: Record<string, any>, indent = 0): string {
 }
 
 /**
+ * Tracks unresolved variable references encountered during resolveValue().
+ * Populated when an unresolvedCollector array is provided.
+ */
+export interface UnresolvedVariableRef {
+  reference: string
+  context: string
+}
+
+/**
+ * Resolves a value and returns both the resolved result and any unresolved variable references.
+ * Use this when you need to detect and surface unresolved {{...}} references.
+ */
+export function resolveValueWithTracking(
+  value: any,
+  input: Record<string, any>,
+  mockTriggerOutputs?: Record<string, any>
+): { resolved: any; unresolvedRefs: UnresolvedVariableRef[] } {
+  const unresolvedRefs: UnresolvedVariableRef[] = []
+  const resolved = resolveValue(value, input, mockTriggerOutputs, unresolvedRefs)
+  return { resolved, unresolvedRefs }
+}
+
+/**
  * Resolves a value from input data using template syntax
  * Supports {{*}}, {{data.field}}, {{trigger.field}}, {{NodeTitle.output}}, and {{variableName}} syntax for accessing nested properties
  * If a trigger variable is referenced and not present in input, uses mockTriggerOutputs if provided
+ * Pass unresolvedCollector to track any unresolved references (optional).
  */
 export function resolveValue(
   value: any,
   input: Record<string, any>,
-  mockTriggerOutputs?: Record<string, any>
+  mockTriggerOutputs?: Record<string, any>,
+  unresolvedCollector?: UnresolvedVariableRef[]
 ): any {
   // Handle arrays - recursively resolve each element
   if (Array.isArray(value)) {
-    return value.map(item => resolveValue(item, input, mockTriggerOutputs))
+    return value.map(item => resolveValue(item, input, mockTriggerOutputs, unresolvedCollector))
   }
 
   // Handle objects - recursively resolve each property value
   if (value && typeof value === 'object' && !(value instanceof Date)) {
     const resolved: Record<string, any> = {}
     for (const [key, val] of Object.entries(value)) {
-      resolved[key] = resolveValue(val, input, mockTriggerOutputs)
+      resolved[key] = resolveValue(val, input, mockTriggerOutputs, unresolvedCollector)
     }
     return resolved
   }
@@ -419,7 +444,15 @@ export function resolveValue(
     }
     
     // Fallback to direct input access using dot notation
-    return parts.reduce((acc: any, part: any) => acc && acc[part], input)
+    const fallbackResult = parts.reduce((acc: any, part: any) => acc && acc[part], input)
+    if (fallbackResult === undefined && unresolvedCollector) {
+      unresolvedCollector.push({
+        reference: `{{${key}}}`,
+        context: 'single template — resolved to undefined',
+      })
+      logger.warn(`⚠️ [RESOLVE_VALUE] Unresolved single-template variable: {{${key}}}`)
+    }
+    return fallbackResult
   }
   
   // Check if there are any templates embedded in the string
@@ -649,10 +682,17 @@ export function resolveValue(
         }
       }
 
-      // If we can't resolve it, return the original template
+      // If we can't resolve it, track and return the original template
+      if (unresolvedCollector) {
+        unresolvedCollector.push({
+          reference: match,
+          context: `embedded in string: "${value.length > 100 ? value.slice(0, 100) + '...' : value}"`,
+        })
+      }
+      logger.warn(`⚠️ [RESOLVE_VALUE] Unresolved variable: ${match}`)
       return match
     })
-    
+
     return resolvedValue
   }
   

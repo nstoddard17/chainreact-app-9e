@@ -6,6 +6,11 @@ import { ExecutionProgressTracker } from "@/lib/execution/executionProgressTrack
 import { TestModeConfig, TriggerTestMode, ActionTestMode } from "./testMode/types"
 
 import { logger } from '@/lib/utils/logger'
+import {
+  checkExecutionRateLimit,
+  checkCircuitBreaker,
+  pauseWorkflowForCircuitBreaker,
+} from '@/lib/workflows/execution/rateLimiter'
 
 export interface ExecutionContext {
   userId: string
@@ -56,6 +61,37 @@ export class WorkflowExecutionService {
 
     // Use provided client (e.g., service-role from webhook handlers) or fall back to cookie-based
     const supabase = supabaseClient || await createSupabaseRouteHandlerClient()
+
+    // Rate limit and circuit breaker checks (skip for test mode)
+    if (!testMode) {
+      const [rateLimitResult, circuitBreakerResult] = await Promise.all([
+        checkExecutionRateLimit(workflow.id, supabase),
+        checkCircuitBreaker(workflow.id, supabase),
+      ])
+
+      if (!rateLimitResult.allowed) {
+        logger.warn(`🚫 Workflow ${workflow.id} execution blocked by rate limit: ${rateLimitResult.reason}`)
+        return {
+          success: false,
+          error: rateLimitResult.reason,
+          rateLimited: true,
+        }
+      }
+
+      if (circuitBreakerResult.tripped) {
+        // Auto-pause the workflow
+        await pauseWorkflowForCircuitBreaker(
+          workflow.id,
+          supabase,
+          `${circuitBreakerResult.consecutiveFailures} consecutive failures`
+        )
+        return {
+          success: false,
+          error: `Workflow auto-paused: ${circuitBreakerResult.consecutiveFailures} consecutive failures. Please check your workflow configuration and reactivate.`,
+          circuitBreakerTripped: true,
+        }
+      }
+    }
 
     // Use workflowData if provided (current state), otherwise load from normalized tables
     let allNodes: any[] = []

@@ -1,9 +1,12 @@
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { getMissingRequiredFields } from './fieldVisibility'
+import { validateDataFlow, type UnresolvedReference } from './validateDataFlow'
 
 export interface WorkflowValidation {
   isValid: boolean
   issues: string[]
+  unresolvedReferences?: UnresolvedReference[]
+  dataFlowWarnings?: string[]
 }
 
 // Validate workflow configuration
@@ -123,5 +126,39 @@ export function validateWorkflow(workflow: any): WorkflowValidation {
     }
   }
 
-  return { isValid: issues.length === 0, issues }
+  // Data-flow validation: check all {{...}} references resolve to real nodes
+  let edges: any[] = []
+  if (Array.isArray(workflow?.edges)) {
+    edges = workflow.edges
+  } else if (Array.isArray(workflow?.connections)) {
+    edges = workflow.connections.map((c: any) => ({
+      source: c.source || c.source_node_id,
+      target: c.target || c.target_node_id,
+    }))
+  } else if (workflow?.workflow_json) {
+    try {
+      const wfData = typeof workflow.workflow_json === 'string'
+        ? JSON.parse(workflow.workflow_json)
+        : workflow.workflow_json
+      edges = (wfData?.edges || wfData?.connections || []).map((c: any) => ({
+        source: c.source || c.source_node_id,
+        target: c.target || c.target_node_id,
+      }))
+    } catch {
+      // Edge parsing failed — skip data-flow validation
+    }
+  }
+
+  const dataFlowResult = validateDataFlow(nodes, edges)
+
+  for (const ref of dataFlowResult.unresolvedReferences) {
+    issues.push(`${ref.nodeTitle}: ${ref.reference} — ${ref.reason}`)
+  }
+
+  return {
+    isValid: issues.length === 0,
+    issues,
+    unresolvedReferences: dataFlowResult.unresolvedReferences,
+    dataFlowWarnings: dataFlowResult.warnings,
+  }
 }

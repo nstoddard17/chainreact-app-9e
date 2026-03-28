@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
+import { executeWebhookWorkflow } from '@/lib/webhooks/execute'
 import {
   buildHubSpotTriggerData,
   shouldSkipByConfig,
@@ -127,8 +128,15 @@ export async function POST(req: NextRequest) {
       }
 
       logger.info(`⚡ Executing workflow ${resource.workflow_id}`)
-      await executeWorkflow(resource.workflow_id, resource.user_id, triggerData)
-      executed++
+      const execResult = await executeWebhookWorkflow({
+        workflowId: resource.workflow_id,
+        userId: resource.user_id,
+        provider: 'hubspot',
+        triggerType,
+        triggerData,
+        metadata: { subscriptionType: payload.subscriptionType, objectId: payload.objectId },
+      })
+      if (execResult.success) executed++
     }
 
     logger.info(`✅ Executed ${executed} workflow(s)`)
@@ -143,60 +151,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/**
- * Execute workflow with trigger data
- */
-async function executeWorkflow(workflowId: string, userId: string, triggerData: any): Promise<void> {
-  try {
-    logger.info(`🚀 Executing workflow ${workflowId}`)
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!
-    )
-
-    // Get workflow details
-    const { data: workflow, error: workflowError } = await supabase
-      .from('workflows')
-      .select('*')
-      .eq('id', workflowId)
-      .eq('status', 'active')
-      .single()
-
-    if (workflowError || !workflow) {
-      logger.error(`❌ Failed to get workflow ${workflowId}:`, workflowError)
-      return
-    }
-
-    logger.info(`⚡ Executing workflow "${workflow.name}"`)
-
-    // Import workflow execution service
-    const { WorkflowExecutionService } = await import('@/lib/services/workflowExecutionService')
-    const workflowExecutionService = new WorkflowExecutionService()
-
-    // Execute the workflow with trigger data as input
-    const executionResult = await workflowExecutionService.executeWorkflow(
-      workflow,
-      triggerData, // Pass trigger data as input
-      userId,
-      false, // testMode = false (real trigger)
-      null, // No workflow data override
-      true // skipTriggers = true (already triggered by webhook)
-    )
-
-    logger.info(`✅ Workflow execution completed:`, {
-      success: !!executionResult.results,
-      executionId: executionResult.executionId,
-      resultsCount: executionResult.results?.length || 0
-    })
-
-  } catch (error: any) {
-    logger.error(`❌ Failed to execute workflow ${workflowId}:`, {
-      message: error.message,
-      stack: error.stack
-    })
-  }
-}
+// Workflow execution is now handled by the shared executeWebhookWorkflow() helper
 
 /**
  * GET handler - returns endpoint info

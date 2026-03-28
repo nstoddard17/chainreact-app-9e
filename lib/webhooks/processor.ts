@@ -1,6 +1,6 @@
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
-import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 import { logWebhookEvent } from './event-logger'
+import { executeWebhookWorkflow } from './execute'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -131,7 +131,7 @@ export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
 /**
  * Find workflows that match the webhook event criteria
  */
-async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
+export async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
   const supabase = await createSupabaseServiceClient()
 
   // Find all active workflows first
@@ -315,7 +315,7 @@ async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]> {
  * Apply custom trigger filters (e.g., sender, subject, workspace, etc.)
  * Made async to support Slack workspace lookup
  */
-async function applyTriggerFilters(triggerNode: any, event: WebhookEvent): Promise<boolean> {
+export async function applyTriggerFilters(triggerNode: any, event: WebhookEvent): Promise<boolean> {
   const config = triggerNode.data?.triggerConfig || triggerNode.data?.config || {}
 
   // Slack specific filters - filter by workspace (team)
@@ -357,14 +357,39 @@ async function applyTriggerFilters(triggerNode: any, event: WebhookEvent): Promi
   
   // Discord specific filters
   if (event.provider === 'discord') {
-    if (config.channel_filter && event.eventData.channel_id) {
-      if (event.eventData.channel_id !== config.channel_filter) {
+    // Channel filter: config uses channelId (from configSchema) or channel_filter (legacy)
+    const channelFilter = config.channelId || config.channel_filter
+    const eventChannelId = event.eventData.channel_id || event.eventData.channelId
+    if (channelFilter && eventChannelId) {
+      if (eventChannelId !== channelFilter) {
         return false
       }
     }
-    
-    if (config.user_filter && event.eventData.author?.id) {
-      if (event.eventData.author.id !== config.user_filter) {
+
+    // Guild filter
+    const guildFilter = config.guildId || config.guild_filter
+    const eventGuildId = event.eventData.guild_id || event.eventData.guildId
+    if (guildFilter && eventGuildId) {
+      if (eventGuildId !== guildFilter) {
+        return false
+      }
+    }
+
+    // Author filter: config uses authorFilter (from configSchema) or user_filter (legacy)
+    const authorFilter = config.authorFilter || config.user_filter
+    const eventAuthorId = event.eventData.author?.id || event.eventData.authorId
+    if (authorFilter && eventAuthorId) {
+      if (eventAuthorId !== authorFilter) {
+        return false
+      }
+    }
+
+    // Content filter: keywords that must appear in message content
+    const contentFilter = config.contentFilter
+    if (contentFilter && Array.isArray(contentFilter) && contentFilter.length > 0) {
+      const content = (event.eventData.content || event.eventData.text || '').toLowerCase()
+      const hasMatch = contentFilter.some((keyword: string) => content.includes(keyword.toLowerCase()))
+      if (!hasMatch) {
         return false
       }
     }
@@ -469,42 +494,17 @@ async function applyTriggerFilters(triggerNode: any, event: WebhookEvent): Promi
 }
 
 /**
- * Execute workflow instantly with webhook data
+ * Execute workflow instantly with webhook data via shared helper
  */
 async function executeWorkflowInstantly(workflow: any, event: WebhookEvent): Promise<any> {
-  try {
-    const executionEngine = new AdvancedExecutionEngine()
-    
-    // Create execution session with webhook context
-    const executionSession = await executionEngine.createExecutionSession(
-      workflow.id,
-      workflow.user_id,
-      'webhook',
-      {
-        webhookEvent: event,
-        inputData: event.eventData,
-        triggerData: event.eventData,
-        timestamp: event.timestamp
-      }
-    )
-    
-    // Execute workflow with webhook data as input
-    const result = await executionEngine.executeWorkflowAdvanced(
-      executionSession.id,
-      event.eventData, // This becomes available as 'data' in action nodes
-      {
-        enableParallel: true,
-        maxConcurrency: 5
-      }
-    )
-    
-    logger.info(`✅ Workflow "${workflow.name}" executed successfully with webhook data`)
-    return result
-    
-  } catch (error) {
-    logger.error(`❌ Failed to execute workflow "${workflow.name}":`, error)
-    throw error
-  }
+  return executeWebhookWorkflow({
+    workflowId: workflow.id,
+    userId: workflow.user_id,
+    provider: event.provider,
+    triggerType: event.eventType,
+    triggerData: event.eventData,
+    metadata: { requestId: event.requestId },
+  })
 }
 
 /**

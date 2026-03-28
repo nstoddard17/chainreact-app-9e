@@ -16,7 +16,6 @@ import { sendGmailEmail } from './gmail/sendEmail'
 import { applyGmailLabels } from './gmail/applyLabels'
 import { searchGmailEmails } from './gmail'
 import { advancedGmailSearch } from './gmail/advancedSearch'
-import { fetchGmailMessage } from './gmail/fetchMessage'
 import { fetchGmailTriggerEmail } from './gmail/fetchTriggerEmail'
 import { markGmailAsRead } from './gmail/markAsRead'
 import { markGmailAsUnread } from './gmail/markAsUnread'
@@ -29,14 +28,24 @@ import { createGmailLabel } from './gmail/createLabel'
 import { replyToGmailEmail } from './gmail/replyToEmail'
 import { getGmailAttachment } from './gmail/getAttachment'
 import { downloadGmailAttachment } from './gmail/downloadAttachment'
-import { updateGmailSignature } from './gmail/updateSignature'
 
 // Google Sheets actions
-import { readGoogleSheetsData, exportGoogleSheetsData, createGoogleSheetsRow, updateGoogleSheetsRow, deleteGoogleSheetsRow, findGoogleSheetsRow, clearGoogleSheetsRange, formatGoogleSheetsRange, batchUpdateGoogleSheets, updateGoogleSheetsCell, getGoogleSheetsCellValue, createGoogleSpreadsheet } from './googleSheets'
+import {
+  exportGoogleSheetsData,
+  createGoogleSheetsRow,
+  updateGoogleSheetsRow,
+  deleteGoogleSheetsRow,
+  findGoogleSheetsRow,
+  clearGoogleSheetsRange,
+  formatGoogleSheetsRange,
+  batchUpdateGoogleSheets,
+  updateGoogleSheetsCell,
+  getGoogleSheetsCellValue,
+  createGoogleSpreadsheet
+} from './googleSheets'
 
 // Microsoft Excel actions
 import {
-  executeMicrosoftExcelUnifiedAction,
   createMicrosoftExcelRow,
   updateMicrosoftExcelRow,
   deleteMicrosoftExcelRow,
@@ -85,9 +94,7 @@ import {
 // Google Analytics actions
 import {
   sendGoogleAnalyticsEvent,
-  getGoogleAnalyticsRealtimeData,
   runGoogleAnalyticsReport,
-  getGoogleAnalyticsUserActivity,
   createGoogleAnalyticsMeasurementSecret,
   findGoogleAnalyticsConversion,
   createGoogleAnalyticsConversionEvent,
@@ -106,9 +113,8 @@ import {
   getAirtableRecord,
   getAirtableTableSchema,
   listAirtableRecords,
-  moveAirtableRecord,
   updateAirtableRecord,
-  updateMultipleAirtableRecords,
+  updateMultipleAirtableRecords
 } from './airtable'
 
 // Monday.com actions
@@ -159,7 +165,6 @@ import {
   slackActionRemoveUserFromChannel,
   slackActionGetUserInfo,
   slackActionListUsers,
-  slackActionFindUser,
   slackActionSendDirectMessage,
   slackActionUpdateMessage,
   slackActionRemoveReaction,
@@ -194,24 +199,10 @@ import {
 // Discord actions
 import {
   sendDiscordMessage,
-  sendDiscordDirectMessage,
-  createDiscordChannel,
-  createDiscordCategory,
-  deleteDiscordCategory,
   addDiscordRole,
   editDiscordMessage,
   fetchDiscordMessages,
   deleteDiscordMessage,
-  addDiscordReaction,
-  removeDiscordReaction,
-  editDiscordChannel,
-  deleteDiscordChannel,
-  listDiscordChannels,
-  fetchDiscordGuildMembers,
-  removeDiscordRole,
-  kickDiscordMember,
-  banDiscordMember,
-  unbanDiscordMember,
 } from './discord'
 
 // ManyChat actions
@@ -231,17 +222,11 @@ import {
   createManyChatSubscriber,
 } from './manychat'
 
-// Notion actions - existing (only keeping search for backward compatibility)
-import {
-  searchNotionPages,
-} from './notion'
-
 // Notion unified action handlers
 import { executeNotionManageDatabase } from './notion/manageDatabase'
 import { executeNotionManagePage } from './notion/managePage'
 import { executeNotionManageUsers } from './notion/manageUsers'
 import { executeNotionManageComments } from './notion/manageComments'
-import { executeNotionManageBlocks } from './notion/manageBlocks'
 import { executeNotionAdvancedQuery } from './notion/advancedQuery'
 import { executeNotionGetPageProperty } from './notion/getPageProperty'
 import { executeNotionUpdateDatabaseSchema } from './notion/updateDatabaseSchema'
@@ -250,13 +235,8 @@ import { executeNotionUpdateDatabaseSchema } from './notion/updateDatabaseSchema
 import {
   notionCreatePage,
   notionUpdatePage,
-  notionRetrievePage,
-  notionArchivePage,
   notionCreateDatabase,
-  notionQueryDatabase,
   notionUpdateDatabase,
-  notionAppendBlocks,
-  notionUpdateBlock,
   notionDeleteBlock,
   notionRetrieveBlockChildren,
   notionListUsers,
@@ -265,7 +245,6 @@ import {
   notionRetrieveComments,
   notionSearch,
   notionDuplicatePage,
-  notionSyncDatabaseEntries,
   notionAddBlock,
   notionGetBlock,
   notionGetBlockChildren,
@@ -275,7 +254,7 @@ import {
   notionArchiveDatabaseItem,
   notionRestoreDatabaseItem,
   notionGetPageProperty,
-  notionMakeApiCall,
+  notionMakeApiCall
 } from './notion/handlers'
 
 // Notion get page details action
@@ -310,7 +289,6 @@ import {
   deleteOutlookEmail,
   addOutlookCategories,
   getOutlookEmails,
-  searchOutlookEmail,
   createOutlookCalendarEvent,
   updateOutlookCalendarEvent,
   deleteOutlookCalendarEvent,
@@ -359,14 +337,6 @@ import {
   hubspotGetLineItems,
 } from './hubspot'
 
-// HubSpot dynamic actions
-import {
-  createHubSpotObject,
-  updateHubSpotObject,
-  upsertHubSpotObject,
-  refreshHubSpotProperties,
-} from './hubspotDynamic'
-
 // Microsoft OneNote actions
 // NOTE: deleteSection and deleteNotebook are NOT supported by Microsoft Graph API
 import {
@@ -411,7 +381,6 @@ import {
   addTeamsReaction,
   removeTeamsReaction,
   scheduleTeamsMeeting,
-  startTeamsMeeting,
   endTeamsMeeting,
   updateTeamsMeeting,
   createTeamsChannel,
@@ -443,7 +412,6 @@ import {
   sendDMHandler,
   followUserHandler,
   unfollowUserHandler,
-  deleteTweetHandler,
   searchTweetsHandler,
   getUserTimelineHandler,
   getMentionsHandler
@@ -489,7 +457,6 @@ import {
 // Utility actions
 import {
   formatTransformer,
-  executeFileUpload,
   executeExtractWebsiteData,
   executeTavilySearch,
   executeParseFile
@@ -503,9 +470,7 @@ import {
 import { executeWaitForEvent } from './automation/waitForEvent'
 
 // Logic control actions
-import { executePath } from './logic/executePath'
 import { executeRouter } from './logic/executeRouter'
-import { executeFilter } from './logic/executeFilter' // Legacy - for backward compatibility
 import { executeHttpRequest } from './logic/executeHttpRequest'
 import { executeLoop } from './logic/loop'
 
@@ -522,7 +487,6 @@ import {
 import { executeAIAgent } from '../aiAgent'
 
 // New "Get" actions with ExecutionContext pattern
-import { notionGetPages } from './notion/getPages'
 import { getTrelloCards } from './trello/getCards'
 import { getSlackMessages } from './slack/getMessages'
 import { getOnedriveFile } from './onedrive/getFile'
@@ -559,18 +523,6 @@ import { stripeCreatePaymentLink } from './stripe/createPaymentLink'
 import { stripeFindCustomer } from './stripe/findCustomer'
 import { stripeFindSubscription } from './stripe/findSubscription'
 import { stripeFindPaymentIntent } from './stripe/findPaymentIntent'
-import { stripeCreateProduct } from './stripe/createProduct'
-import { stripeCreatePrice } from './stripe/createPrice'
-import { stripeUpdateProduct } from './stripe/updateProduct'
-import { stripeListProducts } from './stripe/listProducts'
-import { stripeCreateInvoiceItem } from './stripe/createInvoiceItem'
-import { stripeFinalizeInvoice } from './stripe/finalizeInvoice'
-import { stripeVoidInvoice } from './stripe/voidInvoice'
-import { stripeUpdateInvoice } from './stripe/updateInvoice'
-import { stripeConfirmPaymentIntent } from './stripe/confirmPaymentIntent'
-import { stripeCapturePaymentIntent } from './stripe/capturePaymentIntent'
-import { stripeFindCharge } from './stripe/findCharge'
-import { stripeFindInvoice } from './stripe/findInvoice'
 import { handleStripeTriggerEvent } from './stripe/handleTriggerEvent'
 
 // Import resolveValue for wrapper functions
@@ -706,18 +658,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "ai_agent": executeAIAgentWrapper,
 
   // AI Data Processing actions - wrapped to handle new calling convention
-  "ai_action_summarize": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    summarizeContent(params.config, params.userId, params.input),
-  "ai_action_extract": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    extractInformation(params.config, params.userId, params.input),
-  "ai_action_sentiment": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    analyzeSentiment(params.config, params.userId, params.input),
-  "ai_action_translate": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    translateText(params.config, params.userId, params.input),
-  "ai_action_generate": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    generateContent(params.config, params.userId, params.input),
-  "ai_action_classify": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    classifyContent(params.config, params.userId, params.input),
 
   // AI node schema aliases — schema types use ai_* but handlers are registered as ai_action_*
   "ai_prompt": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -739,14 +679,10 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "gmail_action_send_email": sendGmailEmail,
   "gmail_action_add_label": (params: { config: any; userId: string; input: Record<string, any> }) =>
     applyGmailLabels(params.config, params.userId, params.input),
-  "gmail_action_apply_labels": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    applyGmailLabels(params.config, params.userId, params.input),
   "gmail_action_search_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
     searchGmailEmails(params.config, params.userId, params.input),
   "gmail_action_advanced_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
     advancedGmailSearch(params.config, params.userId, params.input),
-  "gmail_action_fetch_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    fetchGmailMessage(params.config, params.userId, params.input),
   "gmail_action_mark_as_read": (params: { config: any; userId: string; input: Record<string, any> }) =>
     markGmailAsRead(params.config, params.userId, params.input),
   "gmail_action_mark_as_unread": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -769,16 +705,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
     getGmailAttachment(params.config, params.userId, params.input),
   "gmail_action_download_attachment": (params: { config: any; userId: string; input: Record<string, any> }) =>
     downloadGmailAttachment(params.config, params.userId, params.input),
-  "gmail_action_update_signature": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    updateGmailSignature(params.config, params.userId, params.input),
 
   // Gmail trigger handler - fetches real email data for testing
   "gmail_trigger_new_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
     fetchGmailTriggerEmail(params.config, params.userId, params.input),
   
   // Google Sheets actions - wrapped to handle new calling convention
-  "google_sheets_action_read_data": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    readGoogleSheetsData(params.config, params.userId, params.input),
   "google_sheets_action_append_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createGoogleSheetsRow(params.config, params.userId, params.input),
   "google_sheets_action_update_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -803,8 +735,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     createGoogleSpreadsheet(params.config, params.userId, params.input),
 
   // Microsoft Excel actions - wrapped to handle new calling convention
-  "microsoft_excel_unified_action": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeMicrosoftExcelUnifiedAction(params.config, params.userId, params.input),
   "microsoft_excel_action_add_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createMicrosoftExcelRow(params.config, params.userId, params.input),
   "microsoft_excel_action_update_row": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -849,8 +779,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     getGoogleCalendarFreeBusy(params.config, params.userId, params.input),
 
   // Google Drive actions - wrapped to handle new calling convention
-  "google_drive_action_upload_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    uploadGoogleDriveFile(params.config, params.userId, params.input),
 
   // Google Drive actions - new colon-style IDs (match node schema types)
   "google-drive:create_file": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -888,9 +816,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
 
   // Google Analytics actions - wrapped with ExecutionContext pattern
   "google_analytics_action_send_event": createExecutionContextWrapper(sendGoogleAnalyticsEvent),
-  "google_analytics_action_get_realtime_data": createExecutionContextWrapper(getGoogleAnalyticsRealtimeData),
   "google_analytics_action_run_report": createExecutionContextWrapper(runGoogleAnalyticsReport),
-  "google_analytics_action_get_user_activity": createExecutionContextWrapper(getGoogleAnalyticsUserActivity),
   "google_analytics_action_create_measurement_secret": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createGoogleAnalyticsMeasurementSecret(params.config, params.userId, params.input),
   "google_analytics_action_find_conversion": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -900,8 +826,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "google_analytics_action_run_pivot_report": createExecutionContextWrapper(runGoogleAnalyticsPivotReport),
 
   // Airtable actions - wrapped to handle new calling convention
-  "airtable_action_move_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    moveAirtableRecord(params.config, params.userId, params.input),
   "airtable_action_create_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createAirtableRecord(params.config, params.userId, params.input),
   "airtable_action_update_record": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1005,7 +929,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "slack_action_remove_user_from_channel": slackActionRemoveUserFromChannel,
   "slack_action_get_user_info": slackActionGetUserInfo,
   "slack_action_list_users": slackActionListUsers,
-  "slack_action_find_user": slackActionFindUser,
   "slack_action_send_direct_message": slackActionSendDirectMessage,
   "slack_action_update_message": slackActionUpdateMessage,
   "slack_action_remove_reaction": slackActionRemoveReaction,
@@ -1047,44 +970,14 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Discord actions - wrapped to handle new calling convention
   "discord_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     sendDiscordMessage(params.config, params.userId, params.input),
-  "discord_action_send_direct_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    sendDiscordDirectMessage(params.config, params.userId, params.input),
-  "discord_action_create_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    createDiscordChannel(params.config, params.userId, params.input),
-  "discord_action_create_category": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    createDiscordCategory(params.config, params.userId, params.input),
-  "discord_action_delete_category": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    deleteDiscordCategory(params.config, params.userId, params.input),
-  "discord_action_add_role": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    addDiscordRole(params.config, params.userId, params.input),
   "discord_action_edit_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     editDiscordMessage(params.config, params.userId, params.input),
   "discord_action_fetch_messages": (params: { config: any; userId: string; input: Record<string, any> }) =>
     fetchDiscordMessages(params.config, params.userId, params.input),
   "discord_action_delete_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
     deleteDiscordMessage(params.config, params.userId, params.input),
-  "discord_action_add_reaction": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    addDiscordReaction(params.config, params.userId, params.input),
-  "discord_action_remove_reaction": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    removeDiscordReaction(params.config, params.userId, params.input),
-  "discord_action_update_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    editDiscordChannel(params.config, params.userId, params.input),
-  "discord_action_delete_channel": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    deleteDiscordChannel(params.config, params.userId, params.input),
-  "discord_action_list_channels": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    listDiscordChannels(params.config, params.userId, params.input),
-  "discord_action_fetch_guild_members": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    fetchDiscordGuildMembers(params.config, params.userId, params.input),
   "discord_action_assign_role": (params: { config: any; userId: string; input: Record<string, any> }) =>
     addDiscordRole(params.config, params.userId, params.input),
-  "discord_action_remove_role": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    removeDiscordRole(params.config, params.userId, params.input),
-  "discord_action_kick_member": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    kickDiscordMember(params.config, params.userId, params.input),
-  "discord_action_ban_member": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    banDiscordMember(params.config, params.userId, params.input),
-  "discord_action_unban_member": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    unbanDiscordMember(params.config, params.userId, params.input),
 
   // ManyChat actions - wrapped to handle new calling convention
   "manychat_action_send_message": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1115,8 +1008,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     sendManyChatDynamicMessage(params.config, params.userId, params.input),
 
   // Notion actions - search kept for backward compatibility
-  "notion_action_search_pages": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    searchNotionPages(params.config, params.userId, params.input),
 
   // Notion separate page actions - each operation is now its own action
   "notion_action_create_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1128,16 +1019,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
 
   // Notion unified actions (primary handlers) - wrapped to handle new calling convention
   // DEPRECATED: notion_action_manage_page - replaced by separate actions above
-  "notion_action_manage_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeNotionManagePage(params.config, params.userId, params.input),
-  "notion_action_manage_database": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeNotionManageDatabase(params.config, params.userId, params.input),
-  "notion_action_manage_users": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeNotionManageUsers(params.config, params.userId, params.input),
-  "notion_action_manage_comments": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeNotionManageComments(params.config, params.userId, params.input),
-  "notion_action_manage_blocks": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeNotionManageBlocks(params.config, params.userId, params.input),
   "notion_action_advanced_query": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeNotionAdvancedQuery(params.config, params.userId, params.input),
   "notion_action_get_page_property": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1149,14 +1030,7 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Note: All handlers in handlers.ts expect (config, context: ExecutionContext)
   // "notion_action_retrieve_page": Removed - using notion_action_get_page_details instead
   // "notion_action_archive_page": Removed - use notion_action_archive_database_item instead
-  "notion_action_query_database": createExecutionContextWrapper(notionQueryDatabase),
-  "notion_action_update_database": createExecutionContextWrapper(notionUpdateDatabase),
-  "notion_action_append_blocks": createExecutionContextWrapper(notionAppendBlocks),
-  "notion_action_update_block": createExecutionContextWrapper(notionUpdateBlock),
-  "notion_action_delete_block": createExecutionContextWrapper(notionDeleteBlock),
-  "notion_action_retrieve_block_children": createExecutionContextWrapper(notionRetrieveBlockChildren),
   "notion_action_list_users": createExecutionContextWrapper(notionListUsers),
-  "notion_action_retrieve_user": createExecutionContextWrapper(notionRetrieveUser),
   "notion_action_create_comment": createExecutionContextWrapper((config: any, context: any) =>
     notionCreateComment({
       ...config,
@@ -1166,16 +1040,9 @@ export const actionHandlerRegistry: Record<string, Function> = {
       parent_type: config.commentTarget || config.parent_type || 'page',
       discussion_id: config.discussionId || config.discussion_id,
     }, context)),
-  "notion_action_retrieve_comments": createExecutionContextWrapper((config: any, context: any) =>
-    notionRetrieveComments({
-      ...config,
-      // Map UI field names to handler expected fields
-      block_id: config.page || config.blockId || config.block_id,
-    }, context)),
   "notion_action_search": createExecutionContextWrapper(notionSearch),
   "notion_action_duplicate_page": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeNotionDuplicatePageAction(params.config, params.userId, params.input),
-  "notion_action_sync_database_entries": createExecutionContextWrapper(notionSyncDatabaseEntries),
   "notion_action_get_page_details": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeNotionGetPageDetailsAction(params.config, params.userId, params.input),
 
@@ -1255,11 +1122,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     }, context)),
 
   // Notion Page Content actions (new schema actions)
-  "notion_action_get_page_content": createExecutionContextWrapper((config: any, context: any) =>
-    notionRetrieveBlockChildren({
-      ...config,
-      block_id: config.pageId || config.page || config.block_id,
-    }, context)),
   "notion_action_list_page_content": createExecutionContextWrapper((config: any, context: any) =>
     notionRetrieveBlockChildren({
       ...config,
@@ -1366,8 +1228,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     addOutlookCategories(params.config, params.userId, params.input),
   "microsoft-outlook_action_fetch_emails": (params: { config: any; userId: string; input: Record<string, any> }) =>
     getOutlookEmails(params.config, params.userId, params.input),
-  "microsoft-outlook_action_search_email": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    searchOutlookEmail(params.config, params.userId, params.input),
   "microsoft-outlook_action_create_calendar_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createOutlookCalendarEvent(params.config, params.userId, params.input),
   "microsoft-outlook_action_update_calendar_event": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1414,8 +1274,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     removeTeamsReaction(params.config, params.userId, params.input),
   "teams_action_schedule_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
     scheduleTeamsMeeting(params.config, params.userId, params.input),
-  "teams_action_start_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    startTeamsMeeting(params.config, params.userId, params.input),
   "teams_action_end_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
     endTeamsMeeting(params.config, params.userId, params.input),
   "teams_action_update_meeting": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1432,8 +1290,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // HubSpot actions - wrapped to handle new calling convention
   "hubspot_action_create_contact": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createHubSpotContact(params.config, params.userId, params.input),
-  "hubspot_action_create_contact_dynamic": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    createHubSpotContact(params.config, params.userId, params.input),
   "hubspot_action_create_company": (params: { config: any; userId: string; input: Record<string, any> }) =>
     createHubSpotCompany(params.config, params.userId, params.input),
   "hubspot_action_create_deal": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1444,14 +1300,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     updateHubSpotDeal(params.config, params.userId, params.input),
 
   // HubSpot dynamic actions - wrapped to handle new calling convention
-  "hubspot_action_create_object": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    createHubSpotObject(params.config, params.userId, params.input),
-  "hubspot_action_update_object": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    updateHubSpotObject(params.config, params.userId, params.input),
-  "hubspot_action_upsert_object": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    upsertHubSpotObject(params.config, params.userId, params.input),
-  "hubspot_action_refresh_properties": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    refreshHubSpotProperties(params.config, params.userId, params.input),
 
   // HubSpot Get actions
   "hubspot_action_get_contacts": createExecutionContextWrapper(hubspotGetContacts),
@@ -1590,27 +1438,9 @@ export const actionHandlerRegistry: Record<string, Function> = {
   "stripe_action_find_customer": createExecutionContextWrapper(stripeFindCustomer),
   "stripe_action_find_subscription": createExecutionContextWrapper(stripeFindSubscription),
   "stripe_action_find_payment_intent": createExecutionContextWrapper(stripeFindPaymentIntent),
-  "stripe_action_create_product": createExecutionContextWrapper(stripeCreateProduct),
-  "stripe_action_create_price": createExecutionContextWrapper(stripeCreatePrice),
-  "stripe_action_update_product": createExecutionContextWrapper(stripeUpdateProduct),
-  "stripe_action_list_products": createExecutionContextWrapper(stripeListProducts),
-  "stripe_action_create_invoice_item": createExecutionContextWrapper(stripeCreateInvoiceItem),
-  "stripe_action_finalize_invoice": createExecutionContextWrapper(stripeFinalizeInvoice),
-  "stripe_action_void_invoice": createExecutionContextWrapper(stripeVoidInvoice),
-  "stripe_action_update_invoice": createExecutionContextWrapper(stripeUpdateInvoice),
-  "stripe_action_confirm_payment_intent": createExecutionContextWrapper(stripeConfirmPaymentIntent),
-  "stripe_action_capture_payment_intent": createExecutionContextWrapper(stripeCapturePaymentIntent),
-  "stripe_action_find_charge": createExecutionContextWrapper(stripeFindCharge),
-  "stripe_action_find_invoice": createExecutionContextWrapper(stripeFindInvoice),
 
   // Stripe trigger handlers - extract event data from webhook payload
   "stripe_trigger_new_payment": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    handleStripeTriggerEvent(params.config, params.userId, params.input),
-  "stripe_trigger_payment_failed": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    handleStripeTriggerEvent(params.config, params.userId, params.input),
-  "stripe_trigger_charge_succeeded": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    handleStripeTriggerEvent(params.config, params.userId, params.input),
-  "stripe_trigger_charge_failed": (params: { config: any; userId: string; input: Record<string, any> }) =>
     handleStripeTriggerEvent(params.config, params.userId, params.input),
   "stripe_trigger_refunded_charge": (params: { config: any; userId: string; input: Record<string, any> }) =>
     handleStripeTriggerEvent(params.config, params.userId, params.input),
@@ -1620,15 +1450,9 @@ export const actionHandlerRegistry: Record<string, Function> = {
     handleStripeTriggerEvent(params.config, params.userId, params.input),
   "stripe_trigger_subscription_deleted": (params: { config: any; userId: string; input: Record<string, any> }) =>
     handleStripeTriggerEvent(params.config, params.userId, params.input),
-  "stripe_trigger_invoice_created": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    handleStripeTriggerEvent(params.config, params.userId, params.input),
-  "stripe_trigger_invoice_paid": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    handleStripeTriggerEvent(params.config, params.userId, params.input),
   "stripe_trigger_invoice_payment_failed": (params: { config: any; userId: string; input: Record<string, any> }) =>
     handleStripeTriggerEvent(params.config, params.userId, params.input),
   "stripe_trigger_customer_created": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    handleStripeTriggerEvent(params.config, params.userId, params.input),
-  "stripe_trigger_customer_updated": (params: { config: any; userId: string; input: Record<string, any> }) =>
     handleStripeTriggerEvent(params.config, params.userId, params.input),
   "stripe_trigger_new_dispute": (params: { config: any; userId: string; input: Record<string, any> }) =>
     handleStripeTriggerEvent(params.config, params.userId, params.input),
@@ -1678,8 +1502,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
     followUserHandler(params.config, params.userId, params.input),
   "twitter_action_unfollow_user": (params: { config: any; userId: string; input: Record<string, any> }) =>
     unfollowUserHandler(params.config, params.userId, params.input),
-  "twitter_action_delete_tweet": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    deleteTweetHandler(params.config, params.userId, params.input),
   "twitter_action_search_tweets": (params: { config: any; userId: string; input: Record<string, any> }) =>
     searchTweetsHandler(params.config, params.userId, params.input),
   "twitter_action_get_user_timeline": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1726,10 +1548,6 @@ export const actionHandlerRegistry: Record<string, Function> = {
   // Utility actions - data transformation, web scraping, search, etc.
   "format_transformer": (params: { config: any; userId: string; input: Record<string, any> }) =>
     formatTransformer(params.config, params.userId, params.input),
-  "utility_action_format_transformer": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    formatTransformer(params.config, params.userId, params.input),
-  "file_upload": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeFileUpload(params.config, params.userId, params.input),
   "extract_website_data": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeExtractWebsiteData(params.config, params.userId, params.input),
   "tavily_search": (params: { config: any; userId: string; input: Record<string, any> }) =>
@@ -1744,30 +1562,12 @@ export const actionHandlerRegistry: Record<string, Function> = {
     executeDelayAction(params.config, params.userId, params.input),
 
   // Logic control actions - Path, Router (filter + multi-path), HTTP Request
-  "path": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executePath({
-      config: params.config,
-      previousOutputs: params.input,
-      trigger: params.input.trigger
-    }),
   "router": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeRouter({
       config: params.config,
       previousOutputs: params.input,
       trigger: params.input.trigger
     }),
-  "filter": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeFilter({
-      config: params.config,
-      previousOutputs: params.input,
-      trigger: params.input.trigger
-    }),  // Legacy - backward compatibility
-  "path_condition": (params: { config: any; userId: string; input: Record<string, any> }) =>
-    executeFilter({
-      config: params.config,
-      previousOutputs: params.input,
-      trigger: params.input.trigger
-    }),  // Legacy - backward compatibility
   "http_request": (params: { config: any; userId: string; input: Record<string, any> }) =>
     executeHttpRequest({
       config: params.config,
