@@ -69,6 +69,70 @@ export interface OAuthCallbackConfig {
   onSuccess?: (integrationId: string, state: OAuthState) => Promise<void>
   // GitHub returns URL-encoded by default, needs JSON Accept header
   useJsonResponse?: boolean
+
+  // --- Extensions for legacy provider support ---
+
+  /**
+   * PKCE support: if true, looks up code_verifier from pkce_flow table using raw state param.
+   * The code_verifier is passed to the token exchange and the pkce_flow record is cleaned up after.
+   */
+  requiresPkce?: boolean
+
+  /**
+   * Custom token exchange for providers that deviate from standard form-urlencoded POST.
+   * Examples: Notion (JSON body + Basic auth), Shopify (dynamic URL), Facebook (GET-based),
+   * Instagram (two-step short-to-long), PayPal (Basic auth + sandbox).
+   * When provided, replaces the default exchangeCodeForToken call entirely.
+   */
+  customTokenExchange?: (params: {
+    code: string
+    redirectUri: string
+    clientId: string
+    clientSecret: string
+    codeVerifier?: string
+    request: NextRequest
+    state: OAuthState
+  }) => Promise<any>
+
+  /**
+   * Custom state parser for providers that don't use base64-encoded JSON state.
+   * Example: Trello passes userId as a query param, not in state.
+   * When provided, replaces the default parseOAuthState call.
+   */
+  parseState?: (request: NextRequest) => OAuthState
+
+  /**
+   * Custom save logic for providers that deviate from standard integration storage.
+   * Examples: Notion (multi-workspace merge), Shopify (multi-store merge).
+   * When provided, replaces the default saveIntegration call entirely.
+   * Must return the integration ID.
+   */
+  customSave?: (params: {
+    state: OAuthState
+    provider: string
+    tokenData: TokenData
+    additionalData?: Record<string, any>
+    rawTokenResponse: any
+  }) => Promise<string>
+
+  /**
+   * Custom response builder for providers that don't use createPopupResponse.
+   * Example: Trello returns jsonResponse instead of popup HTML.
+   */
+  customResponse?: (params: {
+    type: 'success' | 'error'
+    provider: string
+    message: string
+    baseUrl: string
+    integrationId?: string
+  }) => Response
+
+  /**
+   * Use Basic auth header instead of client credentials in POST body.
+   * Used by: Notion, Airtable, Twitter, PayPal.
+   * Only applies when customTokenExchange is NOT provided.
+   */
+  useBasicAuth?: boolean
 }
 
 // ================================================================
@@ -85,81 +149,120 @@ export async function handleOAuthCallback(
 ) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
-  const state = url.searchParams.get('state')
+  const stateParam = url.searchParams.get('state')
   const error = url.searchParams.get('error')
   const baseUrl = getBaseUrl()
+  const startTime = Date.now()
 
-  logger.info(`🔍 ${config.provider} callback called:`, {
-    url: url.toString(),
+  // Helper to build response (supports custom response builders like Trello's jsonResponse)
+  const respond = (type: 'success' | 'error', message: string, integrationId?: string) => {
+    const duration = Date.now() - startTime
+    if (type === 'error') {
+      logger.error(`[IntegrationRoute] Callback failed`, { provider: config.provider, error: message, duration })
+    } else {
+      logger.info(`[IntegrationRoute] Callback success`, { provider: config.provider, duration })
+    }
+    if (config.customResponse) {
+      return config.customResponse({ type, provider: config.provider, message, baseUrl, integrationId })
+    }
+    return createPopupResponse(type, config.provider, message, baseUrl)
+  }
+
+  logger.info(`[IntegrationRoute] Callback called`, {
+    provider: config.provider,
     hasCode: !!code,
-    hasState: !!state,
+    hasState: !!stateParam,
     error,
-    userAgent: request.headers.get('user-agent'),
   })
 
   // Handle OAuth errors
   if (error) {
-    logger.error(`Error with ${config.provider} OAuth: ${error}`)
-    return createPopupResponse('error', config.provider, `OAuth Error: ${error}`, baseUrl)
+    return respond('error', `OAuth Error: ${error}`)
   }
 
-  // Validate required params
-  if (!code || !state) {
-    return createPopupResponse(
-      'error',
-      config.provider,
-      `No code or state provided for ${config.provider} OAuth.`,
-      baseUrl
-    )
+  // Validate required params (unless custom state parser handles it differently)
+  if (!code && !config.parseState) {
+    return respond('error', `No code provided for ${config.provider} OAuth.`)
+  }
+
+  if (!stateParam && !config.parseState) {
+    return respond('error', `No state provided for ${config.provider} OAuth.`)
   }
 
   try {
-    // Parse state
-    const stateObject = parseOAuthState(state)
+    // Parse state (custom parser for non-standard flows like Trello)
+    const stateObject = config.parseState
+      ? config.parseState(request)
+      : parseOAuthState(stateParam!)
 
     if (!stateObject.userId) {
-      return createPopupResponse(
-        'error',
-        config.provider,
-        `Missing userId in ${config.provider} state.`,
-        baseUrl
+      return respond('error', `Missing userId in ${config.provider} state.`)
+    }
+
+    logger.info(`[IntegrationRoute] Callback state`, {
+      provider: config.provider,
+      userId: stateObject.userId,
+      reconnect: stateObject.reconnect,
+      workspaceType: stateObject.workspaceType,
+    })
+
+    // PKCE: look up code_verifier from pkce_flow table
+    let codeVerifier: string | undefined
+    if (config.requiresPkce && stateParam) {
+      codeVerifier = await lookupPkceCodeVerifier(stateParam, config.provider)
+    }
+
+    // Exchange code for tokens
+    let rawTokenResponse: any
+    if (config.customTokenExchange) {
+      rawTokenResponse = await config.customTokenExchange({
+        code: code!,
+        redirectUri: config.getRedirectUri(baseUrl),
+        clientId: config.clientId,
+        clientSecret: config.clientSecret,
+        codeVerifier,
+        request,
+        state: stateObject,
+      })
+    } else {
+      rawTokenResponse = await exchangeCodeForToken(
+        code!,
+        config.tokenEndpoint,
+        config.clientId,
+        config.clientSecret,
+        config.getRedirectUri(baseUrl),
+        config.useJsonResponse,
+        config.useBasicAuth,
+        codeVerifier
       )
     }
 
-    logger.info(`${config.provider} OAuth callback state:`, {
-      userId: stateObject.userId,
-      provider: stateObject.provider,
-      reconnect: stateObject.reconnect,
-      integrationId: stateObject.integrationId,
-      workspaceType: stateObject.workspaceType,
-      workspaceId: stateObject.workspaceId,
-    })
-
-    // Exchange code for tokens
-    const tokenData = await exchangeCodeForToken(
-      code,
-      config.tokenEndpoint,
-      config.clientId,
-      config.clientSecret,
-      config.getRedirectUri(baseUrl),
-      config.useJsonResponse
-    )
-
     // Transform token data to standard format
-    const standardTokenData = config.transformTokenData(tokenData)
+    const standardTokenData = config.transformTokenData(rawTokenResponse)
 
     // Fetch additional integration data (e.g., email, avatar) if provided
     const additionalData = config.additionalIntegrationData
-      ? await config.additionalIntegrationData(tokenData, stateObject)
+      ? await config.additionalIntegrationData(rawTokenResponse, stateObject)
       : undefined
 
-    // Save integration to database
-    const integrationId = await saveIntegration(
-      stateObject,
-      config.provider,
-      standardTokenData,
-      additionalData
-    )
+    // Save integration to database (custom save for Notion/Shopify multi-account)
+    let integrationId: string
+    if (config.customSave) {
+      integrationId = await config.customSave({
+        state: stateObject,
+        provider: config.provider,
+        tokenData: standardTokenData,
+        additionalData,
+        rawTokenResponse,
+      })
+    } else {
+      integrationId = await saveIntegration(
+        stateObject,
+        config.provider,
+        standardTokenData,
+        additionalData
+      )
+    }
 
     // Auto-grant permissions based on workspace context
     await grantWorkspacePermissions(
@@ -172,18 +275,15 @@ export async function handleOAuthCallback(
       await config.onSuccess(integrationId, stateObject)
     }
 
-    logger.info(`✅ ${config.provider} integration successfully saved`)
+    // Clean up PKCE record after successful flow
+    if (config.requiresPkce && stateParam) {
+      await cleanupPkceRecord(stateParam, config.provider)
+    }
 
-    return createPopupResponse(
-      'success',
-      config.provider,
-      `${config.provider} connected successfully!`,
-      baseUrl
-    )
+    return respond('success', `${config.provider} connected successfully!`, integrationId)
   } catch (error) {
-    logger.error(`Error during ${config.provider} OAuth callback:`, error)
     const message = error instanceof Error ? error.message : 'An unexpected error occurred'
-    return createPopupResponse('error', config.provider, message, baseUrl)
+    return respond('error', message)
   }
 }
 
@@ -211,7 +311,9 @@ async function exchangeCodeForToken(
   clientId: string,
   clientSecret: string,
   redirectUri: string,
-  useJsonResponse?: boolean
+  useJsonResponse?: boolean,
+  useBasicAuth?: boolean,
+  codeVerifier?: string
 ): Promise<any> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/x-www-form-urlencoded',
@@ -222,16 +324,33 @@ async function exchangeCodeForToken(
     headers['Accept'] = 'application/json'
   }
 
+  // Basic auth: send credentials in Authorization header instead of body
+  // Used by: Notion, Airtable, Twitter, PayPal
+  if (useBasicAuth) {
+    headers['Authorization'] = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
+  }
+
+  const bodyParams: Record<string, string> = {
+    code,
+    redirect_uri: redirectUri,
+    grant_type: 'authorization_code',
+  }
+
+  // Only include client credentials in body when NOT using Basic auth
+  if (!useBasicAuth) {
+    bodyParams.client_id = clientId
+    bodyParams.client_secret = clientSecret
+  }
+
+  // PKCE: include code_verifier when available
+  if (codeVerifier) {
+    bodyParams.code_verifier = codeVerifier
+  }
+
   const tokenResponse = await fetch(tokenEndpoint, {
     method: 'POST',
     headers,
-    body: new URLSearchParams({
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
-    }),
+    body: new URLSearchParams(bodyParams),
   })
 
   if (!tokenResponse.ok) {
@@ -241,6 +360,43 @@ async function exchangeCodeForToken(
   }
 
   return tokenResponse.json()
+}
+
+/**
+ * Look up PKCE code_verifier from pkce_flow table
+ */
+async function lookupPkceCodeVerifier(rawState: string, provider: string): Promise<string | undefined> {
+  const supabase = createAdminClient()
+
+  const { data, error } = await supabase
+    .from('pkce_flow')
+    .select('code_verifier')
+    .eq('state', rawState)
+    .single()
+
+  if (error || !data?.code_verifier) {
+    logger.error(`[IntegrationRoute] PKCE lookup failed for ${provider}`, { error: error?.message })
+    return undefined
+  }
+
+  return data.code_verifier
+}
+
+/**
+ * Clean up PKCE record after successful OAuth flow
+ */
+async function cleanupPkceRecord(rawState: string, provider: string): Promise<void> {
+  const supabase = createAdminClient()
+
+  const { error } = await supabase
+    .from('pkce_flow')
+    .delete()
+    .eq('state', rawState)
+
+  if (error) {
+    // Non-fatal: log but don't throw
+    logger.error(`[IntegrationRoute] PKCE cleanup failed for ${provider}`, { error: error.message })
+  }
 }
 
 /**

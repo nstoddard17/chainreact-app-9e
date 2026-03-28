@@ -29,6 +29,7 @@ import {
   Check,
   Plus,
   Loader2,
+  AlertCircle,
 } from "lucide-react"
 import {
   Popover,
@@ -44,7 +45,8 @@ import {
 import { Copy } from "./ui/copy"
 import { ChatStatusBadge, type BadgeState } from "./ui/ChatStatusBadge"
 import { getProviderDisplayName } from "@/lib/workflows/builder/providerNames"
-import { useIntegrations } from "@/hooks/use-integrations"
+import { useIntegrations, type Integration } from "@/hooks/use-integrations"
+import { useIntegrationStore } from "@/stores/integrationStore"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { getFieldTypeIcon } from "./ui/FieldTypeIcons"
 import "./styles/FlowBuilder.anim.css"
@@ -64,6 +66,8 @@ import { isNodeTypeConnectionExempt, isProviderConnectionExempt } from "../confi
 import { ReasoningDisplay, PartialConfigBadge, StreamingReasoning } from "./ReasoningDisplay"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import type { ReasoningStep, NodeConfiguration, ConfigConfidence } from "@/src/lib/workflows/builder/agent/types"
+import { agentEvalTracker } from "@/lib/eval/agentEvalTracker"
+import { AGENT_EVAL_EVENTS } from "@/lib/eval/agentEvalTypes"
 import { looksLikeRefinement } from "@/src/lib/workflows/builder/agent/refinementParser"
 
 /**
@@ -75,6 +79,40 @@ function getProviderIconPath(providerId: string): string {
     'yahoo-mail': 'yahoo-mail',
   }
   return `/integrations/${iconMap[providerId] || providerId}.svg`
+}
+
+/**
+ * Centralized provider connection status — single source of truth for
+ * ProviderBadge, plan node indicators, warning CTA, and build gating.
+ */
+export interface ProviderConnectionStatus {
+  status: 'connected' | 'expired' | 'missing'
+  displayName: string
+  requiresConnection: boolean
+  providerId: string
+}
+
+export function getProviderConnectionStatus(
+  providerId: string,
+  integrations: Integration[],
+  isProviderExpiredFn: (id: string) => boolean
+): ProviderConnectionStatus {
+  const displayName = getProviderDisplayName(providerId)
+  const integration = integrations.find(
+    i => i.provider?.toLowerCase() === providerId.toLowerCase() && i.status === 'connected'
+  )
+  const expired = isProviderExpiredFn(providerId)
+
+  let status: ProviderConnectionStatus['status']
+  if (expired) {
+    status = 'expired'
+  } else if (!integration) {
+    status = 'missing'
+  } else {
+    status = 'connected'
+  }
+
+  return { status, displayName, requiresConnection: true, providerId }
 }
 
 interface PanelLayoutProps {
@@ -212,6 +250,12 @@ export function FlowV2AgentPanel({
   // Track whether provider validation is in progress (to show loading state before displaying connection status)
   const [isValidatingProviders, setIsValidatingProviders] = useState(false)
 
+  // Counter to force re-validation after OAuth reconnection
+  const [validationTrigger, setValidationTrigger] = useState(0)
+
+  // Track which providers are currently in the OAuth connecting flow
+  const [connectingProviders, setConnectingProviders] = useState<Set<string>>(new Set())
+
   // Track which connections are being reconnected (to avoid showing duplicate message during reconnect)
   const [reconnectingConnections, setReconnectingConnections] = useState<Record<string, boolean>>({})
 
@@ -241,14 +285,27 @@ export function FlowV2AgentPanel({
   useEffect(() => {
     const handleIntegrationEvent = async () => {
       // Clear ALL expired-related state when user reconnects
-      // This is necessary because:
       // 1. The new connection might have a different integrationId
       // 2. The old connectionId in expiredConnections won't match the new integration
       // 3. We need to let the provider be re-validated with fresh state
       validationExpiredAtRef.current = {}
       validatedProvidersRef.current.clear()
       setExpiredConnections({})
-      await refreshIntegrations()
+      setConnectingProviders(new Set())
+
+      // Refresh BOTH data sources in parallel for consistency
+      await Promise.all([
+        refreshIntegrations(),
+        useIntegrationStore.getState().fetchIntegrations(true)
+      ]).catch(err => {
+        console.error('[FlowV2AgentPanel] Failed to refresh integrations after OAuth:', err)
+      })
+
+      // Track OAuth success
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.PROVIDER_OAUTH_SUCCESS, {})
+
+      // Force re-validation with new token
+      setValidationTrigger(prev => prev + 1)
     }
 
     // Listen for both new connections and reconnections
@@ -632,7 +689,7 @@ export function FlowV2AgentPanel({
   // Wrapped in useCallback to prevent unnecessary re-renders and useEffect re-triggers
   const getProviderConnections = useCallback((providerId: string) => {
     return integrations.filter(int =>
-      int.id.toLowerCase() === providerId.toLowerCase() && int.isConnected
+      int.provider?.toLowerCase() === providerId.toLowerCase() && int.status === 'connected'
     )
   }, [integrations])
 
@@ -642,7 +699,7 @@ export function FlowV2AgentPanel({
   const isProviderExpired = (providerId: string): boolean => {
     // Find all integrations for this provider (including expired ones that are no longer "connected")
     const providerIntegrations = integrations.filter(int =>
-      int.id.toLowerCase() === providerId.toLowerCase()
+      int.provider?.toLowerCase() === providerId.toLowerCase()
     )
 
     // Check if any of this provider's connections are expired
@@ -1225,9 +1282,17 @@ export function FlowV2AgentPanel({
     }
 
     // Run all validations in parallel and wait for all to complete
+    const isRevalidation = validationTrigger > 0
     Promise.all(providersToValidate.map(validateProvider))
       .then(() => {
         console.log(`[FlowV2AgentPanel] ✅ All provider validations complete`)
+        // If this is a re-validation after OAuth and no providers ended up expired,
+        // track that build was enabled after recovery
+        if (isRevalidation && Object.keys(validationExpiredAtRef.current).length === 0) {
+          agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.BUILD_ENABLED_AFTER_RECOVERY, {
+            providers_validated: providersToValidate,
+          })
+        }
         // Refresh integrations to get updated status from database
         return refreshIntegrations()
       })
@@ -1238,7 +1303,30 @@ export function FlowV2AgentPanel({
       })
   // Use stable dependencies only - planProviderIdsKey is a string that only changes when actual provider IDs change
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildMachine.state, planProviderIdsKey])
+  }, [buildMachine.state, planProviderIdsKey, validationTrigger])
+
+  // Track CTA shown event when validation completes and providers are missing
+  const ctaShownRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (buildMachine.state !== BuildState.PLAN_READY || isValidatingProviders) return
+    const planNodes = buildMachine.plan || []
+    const providerIds = [...new Set(planNodes.map(n => n.providerId).filter(Boolean))]
+    const missing = providerIds.filter(id => {
+      const s = getProviderConnectionStatus(id!, integrations, isProviderExpired)
+      return s.status !== 'connected'
+    })
+    const key = missing.sort().join(',')
+    if (missing.length > 0 && key !== ctaShownRef.current) {
+      ctaShownRef.current = key
+      agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.PROVIDER_CONNECT_CTA_SHOWN, {
+        missing_count: missing.length,
+        missing_providers: missing,
+      })
+    } else if (missing.length === 0) {
+      ctaShownRef.current = null
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildMachine.state, isValidatingProviders, integrations])
 
   // Clear expired status when integrations update and provider becomes connected
   // This handles the case where user reconnects via OAuth
@@ -1766,6 +1854,29 @@ export function FlowV2AgentPanel({
                                                 <div className="pulse-dot" />
                                               </div>
                                             )}
+                                            {/* Connection status indicator for plan nodes */}
+                                            {buildMachine.state === BuildState.PLAN_READY && requiresConnection && planNode.providerId && (() => {
+                                              const provStatus = getProviderConnectionStatus(planNode.providerId, integrations, isProviderExpired)
+                                              if (provStatus.status === 'connected') {
+                                                return <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                                              }
+                                              const isCurrentlyConnecting = connectingProviders.has(planNode.providerId)
+                                              if (isCurrentlyConnecting) {
+                                                return <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin shrink-0" />
+                                              }
+                                              return (
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    onProviderConnect?.(planNode.providerId!)
+                                                  }}
+                                                  className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 shrink-0"
+                                                >
+                                                  <AlertCircle className="w-3 h-3" />
+                                                  {provStatus.status === 'expired' ? 'Reconnect' : 'Connect'}
+                                                </button>
+                                              )
+                                            })()}
                                           </div>
                                           {planNode.description && (
                                             <span className="text-xs text-muted-foreground break-words overflow-wrap-anywhere w-full">
@@ -2184,25 +2295,20 @@ export function FlowV2AgentPanel({
                         const allSelectedProviders = meta.allSelectedProviders || []
                         const singleProvider = meta.autoSelectedProvider?.provider
 
-                        // Get provider IDs from the message metadata
-                        const providerIds = [
+                        // Get unique provider IDs from the message metadata
+                        const providerIds = [...new Set([
                           ...allSelectedProviders.map((p: any) => p.provider?.id),
                           singleProvider?.id
-                        ].filter(Boolean)
+                        ].filter(Boolean))] as string[]
 
-                        // Check live integration status from the store
-                        const hasDisconnectedProvider = providerIds.some((providerId: string) => {
-                          const integration = integrations.find(
-                            i => i.id.toLowerCase() === providerId.toLowerCase() && i.isConnected
-                          )
-                          return !integration
-                        })
+                        // Use centralized status helper for all provider checks
+                        const providerStatuses = providerIds.map((id: string) =>
+                          getProviderConnectionStatus(id, integrations, isProviderExpired)
+                        )
+                        const missingProviders = providerStatuses.filter(s => s.status !== 'connected')
 
-                        // Also check if any provider has expired token (detected via validation)
-                        const hasExpiredProvider = providerIds.some((providerId: string) => isProviderExpired(providerId))
-
-                        // Disable build if validating, disconnected, or expired
-                        const isBuildDisabled = isValidatingProviders || hasDisconnectedProvider || hasExpiredProvider
+                        // Disable build if validating or any provider is disconnected/expired
+                        const isBuildDisabled = isValidatingProviders || missingProviders.length > 0
 
                         return (
                           <div className="space-y-2">
@@ -2211,11 +2317,27 @@ export function FlowV2AgentPanel({
                                 Verifying connections...
                               </p>
                             )}
-                            {!isValidatingProviders && (hasDisconnectedProvider || hasExpiredProvider) && (
-                              <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                                Connect all providers above to continue
-                              </p>
-                            )}
+                            {!isValidatingProviders && missingProviders.length > 0 && (() => {
+                              const count = missingProviders.length
+                              return (
+                                <div className="space-y-2">
+                                  <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
+                                    Connect {count} provider{count > 1 ? 's' : ''} to continue
+                                  </p>
+                                  {missingProviders.map((mp) => (
+                                    <Button
+                                      key={mp.providerId}
+                                      variant="outline"
+                                      size="sm"
+                                      className="w-full border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+                                      onClick={() => onProviderConnect?.(mp.providerId)}
+                                    >
+                                      {mp.status === 'expired' ? 'Reconnect' : 'Connect'} {mp.displayName}
+                                    </Button>
+                                  ))}
+                                </div>
+                              )
+                            })()}
                             <Button
                               onClick={onBuild}
                               variant="primary"
