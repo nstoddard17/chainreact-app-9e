@@ -38,6 +38,10 @@ export const AGENT_EVAL_EVENTS = {
   STATE_TRANSITION: 'agent.state_transition',
   TRIGGER_NEEDS_SETUP: 'agent.trigger_needs_setup',
   PROVIDER_CONNECT_BLOCKER: 'agent.provider_connect_blocker',
+  PROVIDER_CONNECT_CTA_SHOWN: 'agent.provider_connect_cta_shown',
+  PROVIDER_CONNECT_CTA_CLICKED: 'agent.provider_connect_cta_clicked',
+  PROVIDER_OAUTH_SUCCESS: 'agent.provider_oauth_success',
+  BUILD_ENABLED_AFTER_RECOVERY: 'agent.build_enabled_after_recovery',
   NODE_TEST_RESULT: 'agent.node_test_result',
 } as const
 

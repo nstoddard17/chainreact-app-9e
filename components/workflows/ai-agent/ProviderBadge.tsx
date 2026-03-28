@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react'
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, Check, ArrowRight, AlertCircle, Loader2 } from 'lucide-react'
 import type { ProviderOption } from '@/lib/workflows/ai-agent/providerDisambiguation'
@@ -22,8 +22,6 @@ function getProviderIconPath(providerId: string): string {
 function isConnectedStatus(status?: string): boolean {
   if (!status) return false
   const v = status.toLowerCase()
-  // Only truly connected statuses - 'expired' should show as disconnected
-  // so the user knows they need to reconnect
   return v === 'connected' ||
          v === 'authorized' ||
          v === 'active' ||
@@ -31,6 +29,13 @@ function isConnectedStatus(status?: string): boolean {
          v === 'ok' ||
          v === 'ready'
 }
+
+type ConnectionState = 'idle' | 'connecting' | 'just_connected'
+
+/** Timeout (ms) to reset connecting state if OAuth never completes */
+const CONNECTING_TIMEOUT_MS = 30_000
+/** Duration (ms) to show "Connected!" success state */
+const SUCCESS_DISPLAY_MS = 1_500
 
 interface ProviderBadgeProps {
   categoryName: string // "Email", "Calendar"
@@ -57,8 +62,21 @@ export function ProviderBadge({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [, forceUpdate] = useState({})
 
+  // Local transient connection state — store data remains source of truth
+  const [connectionState, setConnectionState] = useState<ConnectionState>('idle')
+  const connectingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Get live integration status from the store
   const { integrations, fetchIntegrations, getIntegrationByProvider } = useIntegrationStore()
+
+  // Clean up all timers on unmount
+  useEffect(() => {
+    return () => {
+      if (connectingTimeoutRef.current) clearTimeout(connectingTimeoutRef.current)
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current)
+    }
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -76,7 +94,6 @@ export function ProviderBadge({
 
   // Fetch integrations on mount to ensure we have latest status
   useEffect(() => {
-    // Fetch integrations to get current status - force refresh to ensure fresh data
     fetchIntegrations(true)
   }, [fetchIntegrations])
 
@@ -87,13 +104,30 @@ export function ProviderBadge({
       await fetchIntegrations(true)
       // Force re-render to pick up new status
       forceUpdate({})
+
+      // If this provider just connected, show success feedback
+      const detail = event.detail
+      const connectedId = detail?.providerId || detail?.provider
+      if (connectedId === selectedProvider.id || !connectedId) {
+        // Clear connecting timeout
+        if (connectingTimeoutRef.current) {
+          clearTimeout(connectingTimeoutRef.current)
+          connectingTimeoutRef.current = null
+        }
+
+        setConnectionState('just_connected')
+        successTimeoutRef.current = setTimeout(() => {
+          setConnectionState('idle')
+          successTimeoutRef.current = null
+        }, SUCCESS_DISPLAY_MS)
+      }
     }
 
-    window.addEventListener('integration-connected', handleIntegrationConnected as EventListener)
+    window.addEventListener('integration-connected', handleIntegrationConnected as unknown as EventListener)
     return () => {
-      window.removeEventListener('integration-connected', handleIntegrationConnected as EventListener)
+      window.removeEventListener('integration-connected', handleIntegrationConnected as unknown as EventListener)
     }
-  }, [fetchIntegrations])
+  }, [fetchIntegrations, selectedProvider.id])
 
   // Compute live connection status for all providers
   const providersWithLiveStatus = useMemo(() => {
@@ -116,6 +150,33 @@ export function ProviderBadge({
 
   // If forceExpired is true, treat as disconnected even if store shows connected
   const isDisconnected = forceExpired || !liveSelectedProvider.isConnected
+
+  // Handle connect/reconnect click with local state tracking
+  const handleConnectClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    setConnectionState('connecting')
+
+    // Set timeout to reset if OAuth never completes
+    connectingTimeoutRef.current = setTimeout(() => {
+      setConnectionState('idle')
+      connectingTimeoutRef.current = null
+    }, CONNECTING_TIMEOUT_MS)
+
+    try {
+      onConnect(selectedProvider.id)
+    } catch {
+      // Reset on sync error — async errors handled by WorkflowBuilderV2
+      setConnectionState('idle')
+      if (connectingTimeoutRef.current) {
+        clearTimeout(connectingTimeoutRef.current)
+        connectingTimeoutRef.current = null
+      }
+    }
+  }, [onConnect, selectedProvider.id])
+
+  // Determine what CTA text to show
+  const isExpired = forceExpired
+  const ctaVerb = isExpired ? 'Reconnect' : 'Connect'
 
   // Show loading state while validating
   if (isValidating) {
@@ -142,11 +203,65 @@ export function ProviderBadge({
     )
   }
 
+  // Show connecting state
+  if (connectionState === 'connecting' && isDisconnected) {
+    return (
+      <div className="relative inline-block w-full" ref={dropdownRef}>
+        <div className="w-full bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700 rounded-lg shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <img
+              src={getProviderIconPath(selectedProvider.id)}
+              alt={selectedProvider.displayName}
+              width={28}
+              height={28}
+              className="shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
+              <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
+            </div>
+            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 shrink-0">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-xs font-medium">Connecting...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show just-connected success state
+  if (connectionState === 'just_connected') {
+    return (
+      <div className="relative inline-block w-full" ref={dropdownRef}>
+        <div className="w-full bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <img
+              src={getProviderIconPath(selectedProvider.id)}
+              alt={selectedProvider.displayName}
+              width={28}
+              height={28}
+              className="shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
+              <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
+            </div>
+            <div className="flex items-center gap-2 text-green-600 dark:text-green-400 shrink-0">
+              <Check className="w-4 h-4" strokeWidth={2.5} />
+              <span className="text-xs font-semibold">Connected!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="relative inline-block w-full" ref={dropdownRef}>
       {/* Main badge - different layout for connected vs disconnected */}
       {isDisconnected ? (
-        // Disconnected state: Two-row layout with prominent Connect button
+        // Disconnected/expired state: Two-row layout with prominent Connect/Reconnect CTA
         <div className="w-full bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-lg shadow-sm overflow-hidden">
           {/* Top row: Provider info + change button */}
           <div
@@ -171,23 +286,23 @@ export function ProviderBadge({
             <div className="flex-1 min-w-0">
               <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{categoryName} Provider</div>
               <div className="font-semibold text-sm text-foreground">{selectedProvider.displayName}</div>
+              {isExpired && (
+                <div className="text-[10px] font-medium text-amber-600 dark:text-amber-400">Connection expired</div>
+              )}
             </div>
             <div className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors shrink-0">
               <span className="text-xs font-medium">Change</span>
               <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
             </div>
           </div>
-          {/* Bottom row: Connect CTA */}
+          {/* Bottom row: Connect/Reconnect CTA */}
           <div className="px-4 py-2.5 bg-amber-100/50 dark:bg-amber-900/30 border-t border-amber-200 dark:border-amber-800">
             <Button
               size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
-                onConnect(selectedProvider.id)
-              }}
+              onClick={handleConnectClick}
               className="w-full h-8 text-sm font-medium"
             >
-              Connect {selectedProvider.displayName}
+              {ctaVerb} {selectedProvider.displayName}
             </Button>
           </div>
         </div>

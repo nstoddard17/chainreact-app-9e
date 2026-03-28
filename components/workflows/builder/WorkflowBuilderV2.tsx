@@ -98,7 +98,7 @@ import { matchTemplate, logTemplateMatch, logTemplateMiss } from "@/lib/workflow
 import { logPrompt, updatePrompt } from "@/lib/workflows/ai-agent/promptAnalytics"
 import { logger } from '@/lib/utils/logger'
 import { agentEvalTracker } from '@/lib/eval/agentEvalTracker'
-import { AGENT_EVAL_EVENTS, classifyPromptComplexity } from '@/lib/eval/agentEvalTypes'
+import { AGENT_EVAL_EVENTS, classifyFailure, classifyPromptComplexity } from '@/lib/eval/agentEvalTypes'
 import { safeLocalStorageSet } from '@/lib/utils/storage-cleanup'
 import { useAppContext } from "@/lib/contexts/AppContext"
 import { useChatPersistence } from "@/hooks/workflows/builder/useChatPersistence"
@@ -2155,6 +2155,12 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
 
   const handleProviderConnect = useCallback(async (providerId: string) => {
     logger.debug('[Provider Connect] User clicked connect for:', providerId)
+
+    // Track CTA click
+    agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.PROVIDER_CONNECT_CTA_CLICKED, {
+      provider_id: providerId,
+      build_state: buildMachine.state,
+    })
 
     try {
       // Use integration store's connect function which opens OAuth popup

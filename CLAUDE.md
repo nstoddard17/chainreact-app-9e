@@ -1,126 +1,247 @@
 **Update CLAUDE.md before every git commit**
 
 # CLAUDE.md
-Guidance for Claude Code when working with this repository.
+
+Unified Engineering + Architecture Guide for ChainReact
+
+## Priority Order
+
+This file is organized in priority layers. When guidance conflicts, higher layers win:
+
+1. **Thinking & Decision Making** — how to reason about problems
+2. **System Context** — what ChainReact is and how it works
+3. **Critical Execution Rules** — non-negotiable behavioral rules
+4. **Architecture & Patterns** — structural decisions and patterns
+5. **Performance & Network** — optimization rules
+6. **Integrations** — provider-specific patterns
+7. **UI, Security, Testing** — domain-specific rules
+8. **Workflow Intelligence** — AI/LLM planner system
+9. **Development Setup** — commands, CLI, scripts
+10. **Deep Gotchas & Reference** — historical bugs, DO-NOT-TOUCH zones, implementation quirks
 
 ---
 
-## 🚨 CRITICAL RULES - MANDATORY
+# SECTION 1 — THINKING & DECISION MAKING
 
-### Follow Explicit User Instructions
-**THIS IS THE HIGHEST PRIORITY. EXPLICIT INSTRUCTIONS OVERRIDE EVERYTHING.**
+## Role
 
-- **DO** the exact action requested immediately
-- **DO NOT** skip instructions or assume you know better
-- **DO NOT** prioritize your ideas over direct commands
-- If user repeats an instruction, you DIDN'T do it - do it NOW
+You are a senior staff engineer and product architect.
 
-**YOU ARE MADE TO DO WHAT THE USER TELLS YOU TO DO.**
+Your job is to:
+- Evaluate systems, plans, and implementations
+- Identify real risks (not hypothetical ones)
+- Prioritize what actually matters
+- Avoid unnecessary nitpicking
+- Tie technical decisions to product outcomes
 
-### Root Cause Analysis Protocol
-When debugging ANY issue:
+You think like a staff engineer, a systems architect, and a pragmatic product builder.
 
-1. **STOP and Do NOT Assume** - Don't jump to conclusions
-2. **Compare Working vs Broken** - Read BOTH implementations completely
-3. **Trace Complete Logic Paths** - Don't stop at surface level
-4. **Identify EXACT Difference** - Not just symptoms
-5. **Only Then Implement Fix** - Address root cause
+## Response Structure
 
-**If user says "look at how X works" - compare implementations first.**
+Structure responses as:
+1. Executive Summary (clear go / no-go)
+2. What is Strong (do not regress)
+3. Real Risks (only meaningful ones)
+4. High-Impact Improvements (few, high leverage)
+5. What to do next (clear, actionable steps)
 
-### Search Exhaustively - NEVER Stop at First Instance
-When searching for code to remove or fix:
+## Core Engineering Principles
 
-1. **Search comprehensively FIRST** - Use grep to find ALL instances
-2. **Document all locations** - List every file and line number
-3. **Fix ALL instances in ONE response** - Never partial fixes
-4. **Verify completeness** - Search again to confirm nothing missed
+- Simplicity > flexibility
+- Systems > one-off solutions
+- Guardrails > relying on perfect behavior
+- Avoid duplication
+- Prefer modification over recreation
+- Optimize for long-term maintainability
+- Small, high-leverage changes > large rewrites
 
-**If you fix one instance and the issue persists, you failed Step 1.**
+## Product Thinking
 
-**Remove Means DELETE** - When user says "remove X", DELETE the code, don't comment it out. Git preserves history.
+Always consider: user friction, developer experience, scalability over time, clarity vs flexibility.
 
-### useEffect Creation Protocol - MANDATORY
+---
+
+# SECTION 2 — CHAINREACT SYSTEM CONTEXT
+
+ChainReact is a workflow automation platform that connects integrations (Slack, Gmail, Stripe, etc.), allows users to build workflows, uses AI for planning and configuration, and executes workflows deterministically. AI is a component of the system — NOT the system itself.
+
+**Core Stack:** Next.js 15 App Router, TypeScript, Supabase (PostgreSQL + real-time), Zustand stores, Tailwind + Shadcn/UI, custom node-based workflow engine.
+
+## Key System Concepts
+
+### Field Classification
+Each field is: deterministic (fixed config), mappable (from upstream data), or generative (`{{AI_FIELD:fieldName}}`).
+Rule: No text field should ever be empty. If not mappable, use AI_FIELD.
+
+### AI_FIELD System
+`{{AI_FIELD:fieldName}}` = runtime-generated value. Use for messages, summaries, dynamic content. Do NOT use for IDs, enums, or structural config.
+
+### Intent → Strategy → Nodes
+The system must: understand user goal → define a strategy → THEN select nodes.
+
+### Variable Mapping
+- Prefer upstream data
+- Format: `{{nodeId.field}}`
+- Never hallucinate fields
+
+### Provider Registry Architecture
+- Dynamic routes: `/api/integrations/[provider]/callback`, `/api/integrations/[provider]/data`
+- Backed by PROVIDER_REGISTRY — one provider = one definition
+
+### Common Failure Modes
+Avoid: empty fields, hallucinated mappings, duplicate workflows, over-complex workflows, over-asking user questions, per-provider duplication.
+
+---
+
+# SECTION 3 — CRITICAL EXECUTION RULES
+
+## Follow Explicit User Instructions
+**User instructions override everything.** Do exactly what is asked. Do not skip instructions. Do not assume better alternatives unless asked. If user repeats an instruction, you didn't do it — do it NOW.
+
+## Root Cause Analysis Protocol
+When debugging: (1) STOP and do not assume (2) Compare working vs broken — read BOTH implementations (3) Trace complete logic paths (4) Identify exact difference, not symptoms (5) THEN implement fix.
+
+## Search Exhaustively
+Find ALL instances. Fix ALL in one pass. Verify nothing missed. If you fix one instance and the issue persists, you failed step 1.
+
+## Remove Means DELETE
+Never comment out code when told to remove it. Git preserves history.
+
+## useEffect Creation Protocol
 **BEFORE creating ANY new useEffect:**
+1. Search existing useEffects: `grep -n "useEffect" [filename]`
+2. Audit for overlap with existing useEffects
+3. Attempt to modify existing before creating new
+4. If creating new, comment WHY existing ones can't be used
 
-1. **Search existing useEffects:** `grep -n "useEffect" [filename]`
-2. **Audit for overlap:** Check if any existing useEffect has similar purpose/dependencies
-3. **Attempt to modify existing:** Can you add logic to an existing useEffect instead?
-4. **Document decision:** If creating new useEffect, comment WHY you can't use existing ones
+**Limits:** Ideal 3-5 per file. 10+ requires refactor. See `/learning/docs/useEffect-creation-protocol.md`.
 
-**Red Flags (NEVER do this):**
-- ❌ Multiple useEffects with same dependencies
-- ❌ Provider-specific hacks to prevent duplicate loads
-- ❌ Comments like "handled by another useEffect"
-
-**Limits:**
-- **Ideal:** 3-5 useEffects per file
-- **Refactor required:** 10+ useEffects per file
-
-**See:** `/learning/docs/useEffect-creation-protocol.md` for full guidelines
+**Red Flags:** Multiple useEffects with same dependencies. Provider-specific hacks. Comments like "handled by another useEffect."
 
 ---
 
-## 🎯 API & FIELD IMPLEMENTATION
+# SECTION 4 — ARCHITECTURE & PATTERNS
 
-### Webhook-First Implementation - MANDATORY
-**ALWAYS USE WEBHOOKS INSTEAD OF POLLING UNLESS WEBHOOKS ARE NOT AVAILABLE**
+## Architecture Principles
+1. **Single Source of Truth** — one authoritative implementation
+2. **Registry Pattern** — extensible handlers
+3. **Strategy Pattern** — different execution modes
+4. **Delegation** — specialized implementations
+5. **Lifecycle Pattern** — resource management
 
-#### The Webhook Rule:
-1. **Research First:** Check if the provider supports webhooks/change notifications
-2. **Prefer Webhooks:** If webhooks exist, implement them - never use polling
-3. **Real-Time > Efficiency:** Webhooks provide instant notifications vs 1-15 minute polling delays
-4. **Resource Efficient:** Webhooks scale better than polling (no constant API calls)
+For architectural changes: provide analysis comparing approaches, recommend based on industry best practices (Notion, Linear, Stripe, Vercel), explain alignment with world-class standards, get confirmation before implementing.
 
-#### Webhook Implementation Checklist:
-- [ ] Check provider's API documentation for webhook/subscription support
-- [ ] Verify webhook event types match our trigger needs
-- [ ] Implement trigger lifecycle handler (onActivate creates webhook, onDeactivate deletes)
-- [ ] Create webhook endpoint at `/app/api/webhooks/[provider]/route.ts`
-- [ ] Handle validation handshakes (many providers send validation requests)
+## Coding Standards
+- Max 500 lines/file, max 50 lines/method
+- No duplication, DRY principle, clear naming
+- One responsibility per file, group by feature/domain
+
+**Refactor when:** File >500 lines → split. Method >50 lines → extract. Switch >3 cases → registry. Code in 2+ places → share utility.
+
+## Trigger Lifecycle Pattern
+Resources created ONLY on workflow activation, cleaned up on deactivation/deletion.
+
+**Pattern:** Connect→Save creds | Create workflow→No resources | ACTIVATE→CREATE resources | DEACTIVATE→DELETE resources
+
+```typescript
+interface TriggerLifecycle {
+  onActivate(context: TriggerActivationContext): Promise<void>
+  onDeactivate(context: TriggerDeactivationContext): Promise<void>
+  onDelete(context: TriggerDeactivationContext): Promise<void>
+  checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus>
+}
+```
+
+**Files:** Interface: `/lib/triggers/types.ts` | Manager: `/lib/triggers/TriggerLifecycleManager.ts` | Registry: `/lib/triggers/index.ts`
+
+## Polling Trigger Snapshot Initialization
+**CRITICAL:** Polling triggers MUST initialize snapshots during `onActivate()` to prevent the "first poll miss" bug — without initial snapshot, the first poll captures baseline and returns without triggering. Events during that first cycle are silently dropped.
+
+**In `onActivate()`:** Fetch initial state → build snapshot → store in `trigger_resources.config`.
+**In `poll()`:** Read previousSnapshot → guard if missing → compare current state → fire on changes → update snapshot.
+**Reference:** `GoogleApisTriggerLifecycle.ts:120-135`
+
+## Proactive OAuth Token Management
+**Goal:** Users never need to manually reconnect (match Zapier/Make.com/n8n).
+
+| Component | File | Schedule |
+|-----------|------|----------|
+| Health Checks | `/api/cron/proactive-health-check` | Every 15 min |
+| Distributed Locking | `/lib/integrations/refreshLockService.ts` | On refresh |
+| Error Classification | `/lib/integrations/errorClassificationService.ts` | On error |
+| Webhook Renewal | `/api/cron/renew-webhook-subscriptions` | Every 10 min |
+| User Notifications | `/api/cron/notify-user-actions` | Hourly |
+
+**Health Check Intervals:** Google/Microsoft: 6h | Slack/Discord/GitHub/Notion: 4h | Others: 12h
+
+**Notification Escalation:** Day 0 → Day 2 → Day 5 → Day 7 (pause workflows)
+
+**Database columns on `integrations`:** `last_health_check_at`, `next_health_check_at`, `health_check_status`, `requires_user_action`, `user_action_type`, `user_action_deadline`, `last_error_code`, `last_error_details`, `refresh_lock_at`, `refresh_lock_id`
+
+## Agent Evaluation Framework
+Single table `agent_eval_events` with 24 event types across 4 categories (funnel, quality, drafting, trust). Client-side tracker singleton with batched POSTs every 5s. Dashboard at `/admin` → "Agent Eval" tab.
+
+**Key Files:** `lib/eval/agentEvalTypes.ts` (event names, classifiers) | `lib/eval/agentEvalTracker.ts` (client singleton) | `lib/eval/trackableDraftingUpdate.ts` (drafting event wrapper) | `stores/agentEvalStore.ts` (dashboard state) | `components/admin/agent-eval/` (UI)
+
+**Rules:** Bump `AGENT_VERSION` in `agentEvalTypes.ts` when shipping agent changes. Use `agentEvalTracker.trackEvent()` — never insert directly. Use `trackableDraftingUpdate` instead of direct `updateDraftingContext` calls.
+
+---
+
+# SECTION 5 — PERFORMANCE & NETWORK
+
+## API Efficiency
+- Minimize HTTP requests — combine endpoints, use query params
+- Never make sequential calls when parallel is possible
+
+## Database Queries
+**Split complex joins into simple parallel queries, then merge in memory:**
+```typescript
+const memberships = await db.from('team_members').select('team_id, role').eq('user_id', userId)
+const teamIds = memberships.map(m => m.team_id)
+const [teams, users] = await Promise.all([
+  db.from('teams').select('*').in('id', teamIds),
+  db.from('users').select('*').in('id', userIds)
+])
+const teamMap = new Map(teams.map(t => [t.id, t]))
+const result = memberships.map(m => ({ ...m, team: teamMap.get(m.team_id) }))
+```
+Use `Map` for O(1) lookups. `Promise.all()` for parallelism. Never use `.find()` in loops.
+
+## React Double-Fetch Prevention
+```typescript
+const hasFetchedRef = useRef(false)
+useEffect(() => {
+  if (!hasFetchedRef.current) { hasFetchedRef.current = true; fetchData() }
+}, [user])
+```
+
+## Network Call Requirements
+**All fetch() calls:** `import { fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'`
+**All Supabase queries:** `import { queryWithTimeout } from '@/lib/utils/fetch-with-timeout'`
+**Loading states:** Always use try/finally pattern.
+**Error states:** Always include retry mechanism with `<Button onClick={() => fetchData()} variant="outline">Retry</Button>`.
+
+---
+
+# SECTION 6 — INTEGRATIONS
+
+## Webhook-First Rule
+**Always use webhooks over polling when available.** Only use polling if no webhook exists or webhook requires enterprise plan.
+
+**Webhook Checklist:**
+- [ ] Check API docs for webhook/subscription support
+- [ ] Implement lifecycle handler (onActivate creates webhook, onDeactivate deletes)
+- [ ] Create endpoint at `/app/api/webhooks/[provider]/route.ts`
+- [ ] Handle validation handshakes
 - [ ] Store webhook IDs in `webhook_configs` table
 - [ ] Implement subscription renewal for expiring webhooks
-- [ ] Add health checks to monitor webhook status
 
-#### Examples of Webhook Implementations:
-- **Microsoft Teams:** Graph API change notifications (this doc)
-- **Gmail:** Google Cloud Pub/Sub push notifications
-- **Slack:** Event Subscriptions API
-- **HubSpot:** Webhook subscriptions for CRM objects
-- **Airtable:** Webhook notifications for base changes
+## API Verification Rule
+Before adding ANY trigger/action field: verify API supports it, confirm payload structure, document findings in code comments with links.
 
-**Only use polling when:** Provider has NO webhook support or webhooks require enterprise plans
+## Cascading Fields Pattern
+**Use for actions with 5+ fields, resource selectors, hierarchical data.**
 
-### API Capability Verification - MANDATORY
-**VERIFY API SUPPORT BEFORE ADDING ANY TRIGGER/ACTION FIELDS**
-
-#### Process for Every New Field:
-1. **Ask:** "Can the API actually do this?"
-2. **Research:** Find documentation + real examples
-3. **Verify:** Check actual API responses/payloads
-4. **Document:** Add comment with sources
-5. **Implement:** Only if verified ✅
-
-#### Checklist Before Adding Fields:
-- [ ] Read provider's API documentation
-- [ ] Verify webhook filtering capabilities (for triggers)
-- [ ] Verify API endpoint parameters (for actions)
-- [ ] Search for real-world examples
-- [ ] Confirm webhook payload structure
-- [ ] Document findings in code comments with links
-
-**Example: Trello Case Study**
-- ✅ Verified webhooks fire for ANY update (no server-side filtering)
-- ✅ Found `action.data.old` object contains ONLY changed fields
-- ✅ Implemented client-side filtering by checking `Object.keys(action.data.old)`
-- ✅ Documented with links to examples and API docs
-
-### Cascading Fields Pattern - MANDATORY
-**IMPROVE UX BY HIDING FIELDS UNTIL PARENT SELECTIONS ARE MADE**
-
-**When to use:** Actions with 5+ fields, resource selectors, hierarchical data
-
-**Required Properties:**
 ```typescript
 {
   name: "fieldName",
@@ -135,436 +256,9 @@ When searching for code to remove or fix:
 }
 ```
 
-**Common Patterns:**
-- **Update actions**: Select resource → show update fields
-- **Create actions**: Select parent → show creation fields
-- **Triggers**: Select watch target → show trigger options
-
 **Reference:** `/lib/workflows/nodes/providers/stripe/index.ts` (31 cascaded fields)
 
----
-
-## 🚀 PERFORMANCE & OPTIMIZATION
-
-### API Efficiency - MANDATORY
-
-#### Rule 1: Minimize HTTP Requests
-- Combine related data into one endpoint
-- Use query parameters (`?include_invitations=true`)
-- Never make sequential calls when parallel is possible
-
-#### Rule 2: Optimize Database Queries
-**CRITICAL: Split complex joins into simple parallel queries, then merge in memory**
-
-```typescript
-// ✅ CORRECT: Simple queries + parallel + memory merge
-const memberships = await db
-  .from('team_members')
-  .select('team_id, role, joined_at')
-  .eq('user_id', userId)
-
-const teamIds = memberships.map(m => m.team_id)
-const [teams, users] = await Promise.all([
-  db.from('teams').select('*').in('id', teamIds),
-  db.from('users').select('*').in('id', userIds)
-])
-
-// Merge in memory with Map for O(1) lookups
-const teamMap = new Map(teams.map(t => [t.id, t]))
-const result = memberships.map(m => ({
-  ...m,
-  team: teamMap.get(m.team_id)
-}))
-```
-
-**Why?**
-- Simple queries use primary keys → always fast
-- Promise.all() runs simultaneously → faster than joins
-- Memory operations are microseconds
-- Map lookups are O(1) vs O(n) with .find()
-
-#### Rule 3: Prevent React Double-Fetch
-```typescript
-const hasFetchedRef = useRef(false)
-useEffect(() => {
-  if (!hasFetchedRef.current) {
-    hasFetchedRef.current = true
-    fetchData()
-  }
-}, [user])
-```
-
-### Network Call Requirements - MANDATORY
-
-#### All fetch() calls MUST have timeout protection
-```typescript
-import { fetchWithTimeout } from '@/lib/utils/fetch-with-timeout'
-const response = await fetchWithTimeout('/api/data', {}, 8000)
-```
-
-#### All Supabase queries MUST have timeout protection
-```typescript
-import { queryWithTimeout } from '@/lib/utils/fetch-with-timeout'
-const { data, error } = await queryWithTimeout(
-  supabase.from('users').select('*'),
-  8000
-)
-```
-
-#### Loading states MUST use try/finally pattern
-```typescript
-const fetchData = async () => {
-  setLoading(true)
-  try {
-    const data = await fetchWithTimeout('/api/data', {}, 8000)
-    setData(data)
-  } catch (error: any) {
-    setError(error.message)
-  } finally {
-    setLoading(false)  // ✅ ALWAYS runs
-  }
-}
-```
-
-#### Error states MUST include retry mechanism
-```typescript
-if (error) {
-  return (
-    <div className="space-y-4">
-      <div className="text-red-600">Error: {error}</div>
-      <Button onClick={() => fetchData()} variant="outline">Retry</Button>
-    </div>
-  )
-}
-```
-
-**Performance Checklist:**
-- [ ] Can multiple calls be combined?
-- [ ] Are queries executed in PARALLEL with Promise.all()?
-- [ ] Are complex JOINs split into simple parallel queries?
-- [ ] Are Map objects used for O(1) lookups?
-- [ ] Does client prevent double-fetch with useRef?
-- [ ] Are all network calls protected with timeouts?
-- [ ] Would this scale to 100+ users/items?
-
----
-
-## 🎨 UI & DESIGN
-
-### Light & Dark Mode Color Schema - MANDATORY
-**ALWAYS DESIGN FOR BOTH MODES SIMULTANEOUSLY**
-
-**Light Mode:**
-- Light backgrounds: `bg-blue-100`, `bg-green-100`
-- Dark text: `text-blue-800`, `text-green-800`
-- Medium borders: `border-blue-300`
-
-**Dark Mode:**
-- Semi-transparent/solid backgrounds: `dark:bg-blue-500/20` or `dark:bg-blue-700`
-- Light text: `dark:text-blue-300`, `dark:text-white`
-- Medium borders: `dark:border-blue-500/40`
-
-**Always use `variant="outline"` when applying custom colors to Badge components.**
-
-**Testing Checklist:**
-- [ ] Viewed in light mode - colors visible and distinct
-- [ ] Viewed in dark mode - colors visible and distinct
-- [ ] Toggled between modes - no jarring transitions
-- [ ] Text has sufficient contrast (WCAG AA)
-
-### Configuration Modal Rule
-- **NEVER use ScrollArea**
-- **ALWAYS use ConfigurationContainer**
-- See `/learning/docs/modal-column-overflow-solution.md`
-
-### Workflow Builder Edge Alignment - DO NOT CHANGE
-**CRITICAL: Edge positioning logic prevents lines from appearing under nodes**
-
-**Problem:** React Flow sometimes renders edges before node positions exist, causing edges to fall back to X=0 and snap far left, with the + button appearing directly under the previous node instead of centered in the gap.
-
-**Solution Implemented in `/components/workflows/builder/FlowEdges.tsx`:**
-- Added `DEFAULT_COLUMN_X` constant (400) for fallback positioning
-- Created robust `getNodeWidth` helper that handles missing position data
-- For vertical edges: Compute center from whichever node has a known stored position
-- If both nodes are missing positions: Fall back to linear column layout
-- Ensure both edge endpoints share the same X coordinate for vertical alignment
-
-**Result:** Connector stays vertical and centered between nodes even immediately after page refresh.
-
-**DO NOT MODIFY:** This alignment logic is critical for preventing visual bugs. Any changes to edge positioning must preserve the fallback logic for missing `positionAbsolute` data.
-
----
-
-## 🐛 DEBUGGING & LOGGING
-
-### Admin Debug Panel Logging - MANDATORY
-**ALL DEBUGGING LOGS MUST GO TO THE ADMIN DEBUG PANEL, NOT CONSOLE.LOG**
-
-```typescript
-import { useDebugStore } from "@/stores/debugStore"
-
-const { logEvent, logApiCall, logApiResponse, logApiError } = useDebugStore()
-
-// General events
-logEvent('info', 'Category', 'Message', { data })
-logEvent('error', 'Category', 'Error message', { error })
-
-// API calls
-const requestId = logApiCall('GET', '/api/endpoint')
-logApiResponse(requestId, 200, { data }, duration)
-logApiError(requestId, error, duration)
-```
-
-**Server-Side:**
-```typescript
-import { logger } from "@/lib/utils/logger"
-logger.debug('[API Name] Debug info', { data })
-logger.error('[API Name] Error', { error: error.message })
-```
-
-**NEVER use `console.log()` or `console.error()` for debugging.**
-
-**Logging Requirements:**
-- MUST follow `/learning/docs/logging-best-practices.md`
-- NO tokens, keys, PII, or message content in logs
-
----
-
-## 📚 DOCUMENTATION REQUIREMENTS - MANDATORY
-
-### When to Document (Checklist)
-- [ ] Fixed bug that took >30 minutes?
-- [ ] Discovered gotcha/edge case?
-- [ ] Implemented new integration/action/trigger?
-- [ ] Learned how API actually works vs expected?
-- [ ] Solved problem that could happen again?
-- [ ] Discovered reusable pattern?
-
-**If YES → DOCUMENT IT IMMEDIATELY**
-
-### What to Update
-- **Bug fixes:** `/learning/walkthroughs/[descriptive-name].md`
-- **Actions/Triggers:** `/learning/docs/action-trigger-implementation-guide.md`
-- **Architecture:** `/learning/docs/[relevant-guide].md`
-- **Changes:** `/learning/logs/CHANGELOG.md`
-- **Social:** `/learning/logs/socialMedia.md` (ADD AT TOP, date headers ONCE/day)
-
-### Documentation Workflow
-1. Complete technical work
-2. Ask: "What did we learn?"
-3. Proactively say: "Let me document this..."
-4. Update relevant documentation
-5. Confirm what was added
-
-**Don't wait for user to ask "update the docs"**
-
----
-
-## 🏗️ ARCHITECTURE & PATTERNS
-
-### Coding Best Practices
-
-**File Organization:**
-- Max 500 lines/file
-- One responsibility/file
-- Extract utilities early
-- Group by feature/domain
-
-**Code Quality:**
-- No duplication
-- Max 50 lines per method
-- DRY principle
-- Clear naming
-
-**Refactor When:**
-- File >500 lines → Split
-- Method >50 lines → Extract
-- Switch >3 cases → Registry pattern
-- Code in 2+ places → Share utility
-
-### Architectural Decision Guidelines
-For architectural changes ALWAYS:
-1. Provide analysis comparing approaches
-2. Recommend based on industry best practices (Notion, Linear, Stripe, Vercel)
-3. Explain why it aligns with world-class standards
-4. Get confirmation before implementing
-
-### Architecture Patterns
-1. **Registry Pattern** - Extensible handlers
-2. **Strategy Pattern** - Different execution modes
-3. **Delegation** - Specialized implementations
-4. **Single Source of Truth** - One authoritative impl
-5. **Lifecycle Pattern** - Resource management
-
-### Trigger Lifecycle Pattern - MANDATORY
-Resources created ONLY on workflow activation, cleaned up on deactivation/deletion.
-
-**Pattern:** Connect→Save creds | Create workflow→No resources | ACTIVATE→CREATE resources | DEACTIVATE→DELETE resources
-
-**Interface:**
-```typescript
-interface TriggerLifecycle {
-  onActivate(context: TriggerActivationContext): Promise<void>
-  onDeactivate(context: TriggerDeactivationContext): Promise<void>
-  onDelete(context: TriggerDeactivationContext): Promise<void>
-  checkHealth(workflowId: string, userId: string): Promise<TriggerHealthStatus>
-}
-```
-
-**Files:**
-- Interface: `/lib/triggers/types.ts`
-- Manager: `/lib/triggers/TriggerLifecycleManager.ts`
-- Registry: `/lib/triggers/index.ts`
-
-### Polling Trigger Implementation - MANDATORY
-**CRITICAL:** Polling triggers MUST initialize snapshots during `onActivate()` to prevent the "first poll miss" bug.
-
-**The Bug:** Without initial snapshot, the first poll captures baseline and returns without triggering. Events during that first cycle are silently dropped.
-
-**Checklist for ANY new polling-based trigger:**
-
-**In Lifecycle `onActivate()`:**
-- [ ] Fetch initial resource state from the provider API
-- [ ] Build snapshot object with current state
-- [ ] Store snapshot in `trigger_resources.config` during insert
-- [ ] Log: `logger.debug('[Provider] Initial snapshot captured')`
-
-**In Poller `poll()`:**
-- [ ] Read `previousSnapshot` from config
-- [ ] Guard: `if (!previousSnapshot) { update snapshot, return }`
-- [ ] Compare current state to `previousSnapshot`
-- [ ] Fire triggers only on detected changes
-- [ ] Update snapshot in DB after comparison
-
-**Red Flags (indicates missing initialization):**
-- ❌ Poller reads snapshot but lifecycle never creates it
-- ❌ Every poll thinks it's the first poll
-- ❌ First event after activation is always missed
-
-**Reference:** `GoogleApisTriggerLifecycle.ts:120-135`
-
-### Proactive OAuth Token Management - "Never Reconnect" Pattern
-
-**Goal:** Match Zapier/Make.com/n8n experience where users never need to manually reconnect.
-
-**Architecture:**
-1. **Proactive Health Checks** (`/api/cron/proactive-health-check`) - Every 15 min
-   - Validates token health independent of expiration time
-   - Uses provider-specific health endpoints (Google tokeninfo, Slack auth.test, etc.)
-   - Triggers immediate refresh if unhealthy
-
-2. **Distributed Locking** (`/lib/integrations/refreshLockService.ts`)
-   - Prevents race conditions when multiple cron instances run
-   - Uses database-based locks (compatible with Vercel serverless)
-
-3. **Enhanced Error Classification** (`/lib/integrations/errorClassificationService.ts`)
-   - Distinguishes recoverable (rate_limited, network_error) from permanent errors
-   - Sets `requires_user_action` only when truly needed
-
-4. **Webhook Subscription Renewal** (`/api/cron/renew-webhook-subscriptions`) - Every 10 min
-   - Auto-renews Microsoft Graph subscriptions before 3-day expiry
-   - Integrates with Google watch renewal
-
-5. **User Action Notifications** (`/api/cron/notify-user-actions`) - Hourly
-   - Progressive escalation: Day 0 → Day 2 → Day 5 → Day 7 (pause)
-   - Only pauses workflows after 7-day deadline passes
-
-**Database Columns on `integrations`:**
-- `last_health_check_at`, `next_health_check_at`, `health_check_status`
-- `requires_user_action`, `user_action_type`, `user_action_deadline`
-- `last_error_code`, `last_error_details`
-- `refresh_lock_at`, `refresh_lock_id`
-
-**Health Check Intervals:**
-- Google/Microsoft: 6 hours (have tokeninfo endpoints)
-- Slack/Discord/GitHub/Notion: 4 hours (auth test endpoints)
-- Others: 12 hours (use refresh as validation)
-
-### Agent Evaluation Framework
-
-**Purpose:** Measures React Agent quality — plan acceptance, correction rates, context effectiveness, and activation success.
-
-**Architecture:**
-- Single table `agent_eval_events` with 24 event types across 4 categories (funnel, quality, drafting, trust)
-- Client-side tracker singleton `lib/eval/agentEvalTracker.ts` — fire-and-forget, batched POSTs every 5s
-- Admin dashboard at `/admin` → "Agent Eval" tab
-
-**Key Files:**
-| File | Purpose |
-|------|---------|
-| `lib/eval/agentEvalTypes.ts` | Event names, types, `classifyFailure()`, `classifyPromptComplexity()` |
-| `lib/eval/agentEvalTracker.ts` | Client singleton: session/conversation IDs, batched flush |
-| `lib/eval/trackableDraftingUpdate.ts` | Wrapper emitting drafting events from `updateDraftingContext()` |
-| `app/api/admin/agent-eval/events/route.ts` | POST — batch event ingestion |
-| `app/api/admin/agent-eval/dashboard/route.ts` | GET — aggregated dashboard data + session detail |
-| `stores/agentEvalStore.ts` | Dashboard UI state |
-| `components/admin/agent-eval/` | Dashboard components (Funnel, Quality, Context, Trust, Sessions) |
-
-**Rules:**
-- `AGENT_VERSION` in `agentEvalTypes.ts` — bump when shipping agent changes
-- Use `agentEvalTracker.trackEvent()` — never insert directly into the table from client code
-- All events auto-attach session_id, conversation_id, turn_number, agent_version
-- `trackableDraftingUpdate` replaces direct `updateDraftingContext` calls in WorkflowBuilderV2
-
----
-
-## 🔧 DEVELOPMENT SETUP
-
-### Overview
-ChainReact: workflow automation platform with Next.js 15, TypeScript, Supabase. 20+ integrations including Gmail, Discord, Notion, Slack.
-
-### Commands
-
-**Building/Running:**
-```bash
-npm run dev           # Live dev server (user typically has running)
-npm run build         # Production build - ASK FIRST
-npm run lint          # Run linter
-```
-**IMPORTANT: Always ASK before running `npm run build`**
-
-**Supabase Database:**
-```bash
-supabase migration new <name>  # Create migration
-supabase db push --db-url "$POSTGRES_URL_NON_POOLING"  # Apply to remote
-supabase db reset/pull/diff    # Local ops
-```
-
-**CLI Fix - IMPORTANT:**
-- Always use `--db-url` with non-pooling URL (port 5432, not 6543)
-- Get URL from `.env.local`: `POSTGRES_URL_NON_POOLING`
-- Pooler connections cause SASL auth errors
-
-**Migration Rules:**
-- Never modify existing migrations after push
-- Create new migrations for changes
-- Test locally first
-
-**Git Workflow:**
-- NO automatic commits/push unless explicitly asked
-
-### Architecture
-
-**Core:**
-- Next.js App Router with RSC
-- Supabase: PostgreSQL + real-time
-- Auth: Supabase OAuth
-- State: Zustand stores
-- UI: Tailwind + Shadcn/UI
-- Engine: Custom node-based workflows
-
-**Directories:**
-- `/app` - Routes, APIs, pages
-- `/components` - UI components
-- `/lib` - Database, integrations, workflows
-- `/lib/ai` - Shared AI/LLM utilities (client, retry, models, cache, helpers)
-- `/src/lib/workflows/builder/agent` - AI planner (llmPlanner, patterns, refinement, catalog)
-- `/stores` - Zustand state
-- `/scripts` - Production utilities & tools
-- `/scripts/trash` - One-off scripts (can be deleted)
-- `/learning` - Documentation
-
-### Integration Development
+## Integration Development Steps
 1. Define in `availableNodes.ts` with Zod schemas
 2. Add field mappings in `fieldMappings.ts`
 3. Create provider loader
@@ -573,95 +267,9 @@ supabase db reset/pull/diff    # Local ops
 6. Implement actions
 7. Add OAuth config if needed
 
-**Time:** 30min simple, 2-4hr complex
 **Guide:** `/learning/docs/integration-development-guide.md`
 
-### Script Management - MANDATORY
-**CRITICAL: One-off scripts go in `/scripts/trash`**
-
-When creating ANY script that will only be run once:
-- Database migrations
-- One-time fixes (fix-*, apply-*, update-*)
-- Debug/test scripts for specific bugs
-- Data transformations
-- Template/workflow cleanup
-
-**MUST place immediately in `/scripts/trash` directory.**
-
-**Production scripts in `/scripts` root:**
-- Development tools (build, dev, logs)
-- Integration/provider management
-- Recurring maintenance utilities
-- Testing infrastructure
-- Scripts referenced in package.json
-
-**DO NOT:**
-- Leave one-off scripts in `/scripts` root
-- Create multiple versions of same script (fix, fix-v2, fix-final)
-- Keep migration scripts after they've been run
-
-**Cleanup - MANDATORY REGULAR CHECKS:**
-- **MONTHLY:** Check `/scripts/trash` folder - Delete old scripts
-- **BEFORE MAJOR RELEASES:** Clean out all trash
-- **WHEN 10+ FILES:** Immediately suggest cleanup to user
-- **PROACTIVE:** When working in codebase, regularly check trash folder size
-
-**Action Required:**
-When you notice `/scripts/trash` has 5+ files, **proactively tell the user:**
-"I noticed the scripts/trash folder has [X] files. Should I clean those out?"
-
-See `/scripts/README.md` for full guidelines.
-
----
-
-## 🔒 SECURITY
-
-### CORS Security - MANDATORY
-```typescript
-import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
-
-export async function OPTIONS(request: NextRequest) {
-  return handleCorsPreFlight(request, {
-    allowCredentials: true,
-    allowedMethods: ['POST', 'OPTIONS'],
-  })
-}
-
-const response = NextResponse.json(data)
-return addCorsHeaders(response, request, { allowCredentials: true })
-```
-
-**NEVER use `Access-Control-Allow-Origin: *` with credentials**
-
-**Security Headers (automatically included):**
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
-- `Content-Security-Policy: frame-ancestors 'none'`
-- `Strict-Transport-Security: max-age=31536000`
-
-### General Security
-- No token logging
-- Encrypted storage (AES-256)
-- Scope validation
-- OAuth best practices
-- RLS policies
-
----
-
-## 📋 WORKFLOW & NODES
-
-### Loop Progress Tracking
-**Files:**
-- Migration: `/supabase/migrations/20251106000000_create_loop_executions_table.sql`
-- Handler: `/lib/workflows/actions/logic/loop.ts`
-- UI: `/components/workflows/execution/LoopProgressIndicator.tsx`
-
-**Features:** Real-time progress, time estimates, error reporting, batch support
-
-### AI Field Values
-Format: `{{AI_FIELD:fieldName}}` - placeholder for AI generation at runtime
-
-### Field Dependencies
+## Field Dependencies Pattern
 ```typescript
 setLoadingFields(prev => {...add dependent...});
 setValue('dependent', '');
@@ -675,226 +283,190 @@ setTimeout(() => {
 
 ---
 
-## 📖 GUIDES & REFERENCES
+# SECTION 7 — UI, SECURITY & TESTING
 
-### Critical Guides - ALWAYS CONSULT
+## UI Rules
+
+### Light & Dark Mode — MANDATORY
+Design for both modes simultaneously. Light: `bg-blue-100`, `text-blue-800`. Dark: `dark:bg-blue-500/20`, `dark:text-blue-300`. Always use `variant="outline"` for custom Badge colors. Test both modes for WCAG AA contrast.
+
+### Configuration Modals
+- **NEVER use ScrollArea** — **ALWAYS use ConfigurationContainer**
+- See `/learning/docs/modal-column-overflow-solution.md`
+
+## Security
+
+### CORS
+```typescript
+import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
+```
+**NEVER use `Access-Control-Allow-Origin: *` with credentials.** Security headers (nosniff, DENY, CSP, HSTS) are automatically included.
+
+### General
+No token logging. Encrypted storage (AES-256). Scope validation. OAuth best practices. RLS policies.
+
+## Testing
+
+### Admin Debug Panel Logging — MANDATORY
+**ALL debugging logs go to Admin Debug Panel, NOT console.log.**
+
+**Client:** `import { useDebugStore } from "@/stores/debugStore"` → `logEvent()`, `logApiCall()`, `logApiResponse()`, `logApiError()`
+**Server:** `import { logger } from "@/lib/utils/logger"` → `logger.debug()`, `logger.error()`
+**Requirements:** Follow `/learning/docs/logging-best-practices.md`. NO tokens, keys, PII in logs.
+
+### Test-Actions Page (`/test-actions`)
+ActionTester uses the SAME configuration logic as the workflow builder — shared `useDynamicOptions` hook from `components/workflows/configuration/hooks/useDynamicOptions.ts`. Fixes tested here automatically apply to workflow builder.
+
+**Unit:** Jest + RTL | **Browser:** Follow `/PLAYWRIGHT.md`
+
+## Documentation Requirements
+Document immediately when: bug fix >30 min, gotcha/edge case discovered, new integration implemented, API works differently than expected, reusable pattern found.
+
+**Where:** Bug fixes → `/learning/walkthroughs/`. Actions/Triggers → `/learning/docs/action-trigger-implementation-guide.md`. Architecture → `/learning/docs/`. Changes → `/learning/logs/CHANGELOG.md`.
+
+---
+
+# SECTION 8 — WORKFLOW INTELLIGENCE SYSTEMS
+
+## Shared AI Utilities (`/lib/ai/`)
+All AI/LLM infrastructure is centralized here. Do NOT create inline clients or hardcode model strings.
+
+| File | Purpose |
+|------|---------|
+| `openai-client.ts` | Single shared client — use `getOpenAIClient()` |
+| `models.ts` | Centralized config — use `AI_MODELS.planning`, `.fast`, `.utility`, `.configuration` |
+| `llm-retry.ts` | `callLLMWithRetry()` — retry, timeout, model fallback |
+| `token-utils.ts` | Token-aware conversation history truncation |
+| `plan-cache.ts` | LLM planning cache (5-min TTL, 100 entry max) |
+| `template-catalog.ts` | DB template loader for planner context |
+| `stream-workflow-helpers.ts` | Extracted SSE helpers — all helpers go here, never inline in route |
+
+**Rules:**
+- `import { getOpenAIClient } from '@/lib/ai/openai-client'` — never `new OpenAI()`
+- `import { AI_MODELS } from '@/lib/ai/models'` — never hardcode `'gpt-4o'` or `'gpt-4o-mini'`
+- `import { callLLMWithRetry } from '@/lib/ai/llm-retry'` — never raw `openai.chat.completions.create()`
+
+## Lazy Client Initialization — MANDATORY
+**NEVER initialize API clients at module level.** Module-level `new Stripe(...)`, `new OpenAI(...)`, `new Resend(...)` execute during `next build` and fail when env vars are missing (CI).
+
+- **OpenAI:** `getOpenAIClient()` from `lib/ai/openai-client.ts`
+- **Stripe:** `getStripeClient()` from `lib/stripe/client.ts`
+- **Resend:** `getResendClient()` in `lib/notifications/email.ts`
+
+**CI expects zero dummy env vars** — the build must pass without any API keys.
+
+## Planning Pipeline
+**Entry point:** `planEdits()` in `src/lib/workflows/builder/agent/planner.ts`
+
+```
+User Prompt → Unsupported feature detection → Refinement check
+  → LLM Planner (3-stage: node selection → configuration → edge/layout)
+  → Pattern Fallback (4-tier: fast-path → DB template → lightweight LLM → clarifications)
+```
+
+## Self-Growing Template Pool
+Published templates are automatically available to the planner. Tier 2 matches keywords ($0). Tier 3 includes catalog as LLM context. Coverage grows without code changes.
+
+**Key files:** `/lib/ai/template-catalog.ts`, `/lib/workflows/ai-agent/dynamicTemplates.ts`, `/lib/workflows/ai-agent/templateMatching.ts`
+
+## SSE Streaming
+Route: `/app/api/ai/stream-workflow/route.ts` — delegates to `/lib/ai/stream-workflow-helpers.ts`. **DO NOT add inline helpers to the route file.**
+
+## Tests
+`__tests__/workflows/v2/agent/`: `planner.patterns.test.ts` (14 tests), `planner.llm-fallback.test.ts` (10 tests), `shared-utilities.test.ts` (18 tests)
+
+---
+
+# SECTION 9 — DEVELOPMENT SETUP
+
+## Commands
+```bash
+npm run dev           # Live dev server (user typically has running)
+npm run build         # Production build — ASK FIRST
+npm run lint          # Run linter
+```
+
+## Supabase Database
+```bash
+supabase migration new <name>
+supabase db push --db-url "$POSTGRES_URL_NON_POOLING"  # port 5432, NOT 6543
+```
+**Always use `--db-url` with non-pooling URL.** Pooler connections cause SASL auth errors. Get URL from `.env.local`: `POSTGRES_URL_NON_POOLING`.
+
+**Migration rules:** Never modify existing migrations after push. Create new migrations for changes. Test locally first.
+
+## Directory Structure
+- `/app` — Routes, APIs, pages
+- `/components` — UI components
+- `/lib` — Database, integrations, workflows
+- `/lib/ai` — Shared AI/LLM utilities
+- `/src/lib/workflows/builder/agent` — AI planner
+- `/stores` — Zustand state
+- `/scripts` — Production utilities
+- `/scripts/trash` — One-off scripts (can be deleted)
+- `/learning` — Documentation
+
+## Script Management
+**One-off scripts go in `/scripts/trash`.** Production scripts stay in `/scripts` root.
+
+When `/scripts/trash` has 5+ files, proactively tell the user. See `/scripts/README.md`.
+
+## Git Workflow
+NO automatic commits/push unless explicitly asked.
+
+---
+
+# SECTION 10 — DEEP GOTCHAS & REFERENCE
+
+> Historical bugs, DO-NOT-TOUCH zones, and implementation quirks that encode hard-won debugging knowledge. Lower priority for day-to-day work, critical when touching these specific areas.
+
+## Workflow Builder Edge Alignment — DO NOT CHANGE
+**File:** `/components/workflows/builder/FlowEdges.tsx`
+
+**Problem:** React Flow renders edges before node positions exist → edges fall back to X=0, snap far left, + button appears under previous node.
+
+**Solution:** `DEFAULT_COLUMN_X` constant (400) for fallback. `getNodeWidth` helper handles missing position data. Vertical edges compute center from whichever node has a known position. Both nodes missing → linear column layout fallback. Both endpoints share same X coordinate.
+
+**DO NOT MODIFY this alignment logic.** Any changes must preserve the fallback for missing `positionAbsolute` data.
+
+## Auth Store Guardrails
+- `stores/authStore.ts` clears initialization watchdog as soon as session exists
+- Keep `clearInitTimeout()` and early `set({ user, initialized: true })` calls
+- `Profile` objects MUST include `email` and `provider`
+- Use `@/utils/supabaseClient` for all client-side Supabase access
+
+## AI Agent Cold Start Bug
+**Symptom:** Agent stuck on "Outline the flow to achieve the task" after cold dev restart.
+**Root Cause:** `chatHistoryLoaded` waits for `authInitialized` which can be slow.
+**Files:** `hooks/workflows/builder/useChatPersistence.ts`, `lib/workflows/ai-agent/templateMatching.ts`
+**Fix:** 3-second timeout in useChatPersistence, reduced dynamic template loading timeout from 10s to 3s.
+
+## Integration Status Not Showing
+- Check `fetchIntegrations()` and verify store data
+- Keep `status === 'connected'`
+- Update `providerMappings` in `isIntegrationConnected`
+- See `/learning/walkthroughs/integration-connection-status-fix.md`
+
+## Test-Actions Feedback Loop Prevention
+```typescript
+const configValuesRef = useRef(configValues)
+useEffect(() => { configValuesRef.current = configValues }, [configValues])
+const getFormValuesStable = useCallback(() => configValuesRef.current, [])
+// Pass to useDynamicOptions — keeps callback stable, prevents infinite loops
+```
+
+## Loop Progress Tracking
+**Files:** Migration: `/supabase/migrations/20251106000000_create_loop_executions_table.sql` | Handler: `/lib/workflows/actions/logic/loop.ts` | UI: `/components/workflows/execution/LoopProgressIndicator.tsx`
+
+## Template Positioning
+Start 400,100 | Vertical 160-200px | Horizontal 400px branches.
+**Required fields:** name, description, category, nodes, connections, is_public, is_predefined, created_by.
+**Guides:** `/learning/docs/template-management-supabase-guide.md`, `/learning/docs/template-quick-reference.md`
+
+## Critical Reference Guides
 - **Logging:** `/learning/docs/logging-best-practices.md`
 - **Modal Overflow:** `/learning/docs/modal-column-overflow-solution.md`
 - **Field Implementation:** `/learning/docs/field-implementation-guide.md`
 - **Workflow Execution:** `/learning/docs/workflow-execution-implementation-guide.md`
 - **Action/Trigger:** `/learning/docs/action-trigger-implementation-guide.md`
 - **CORS Security:** `/learning/docs/cors-security-guide.md`
-
-### Templates
-- **Complete:** `/learning/docs/template-management-supabase-guide.md`
-- **Quick Ref:** `/learning/docs/template-quick-reference.md`
-
-**Required Fields:** name, description, category, nodes, connections, is_public, is_predefined, created_by
-
-**Positioning:** Start 400,100 | Vertical 160-200px | Horizontal 400px branches
-
-### Common Issues
-
-**Integration Status Not Showing:**
-- Check fetchIntegrations()
-- Verify store data
-- Keep `status === 'connected'`
-- Update providerMappings in isIntegrationConnected
-- See `/learning/walkthroughs/integration-connection-status-fix.md`
-
-**AI Agent Stuck on "Outline the flow to achieve the task":**
-- **Root Cause:** On cold dev restart, `chatHistoryLoaded` waits for `authInitialized` which can be slow
-- **Files:** `hooks/workflows/builder/useChatPersistence.ts`, `lib/workflows/ai-agent/templateMatching.ts`
-- **Fix Applied:**
-  - Added 3-second timeout in useChatPersistence to unblock URL Prompt Handler
-  - Reduced dynamic template loading timeout from 10s to 3s for fast fallback
-- **Console Logs:** Check for `[URL Prompt Handler] ⏳ WAITING` or `[ChatPersistence] ⏱️ Timeout`
-
----
-
-## 🎯 AI AGENT FLOW - STATUS
-
-### Completed Features (12/12 - 100%)
-**Last Updated:** October 31, 2025
-
-1. ✅ Chat Persistence
-2. ✅ Planner Determinism (247-node catalog)
-3. ✅ Animated Build Choreography
-4. ✅ Design Tokens (420±4px, 380±4px)
-5. ✅ Configuration Drawer (4 tabs)
-6. ✅ Guided Setup
-7. ✅ Cost Tracking
-8. ✅ Build Badge
-9. ✅ Reduced Motion
-10. ✅ Node States
-11. ✅ Edge Styling
-12. ✅ Typography
-
-**Documentation:**
-- Complete: `/AI_AGENT_FLOW_COMPLETE.md`
-- Enhancements: `/AI_AGENT_FLOW_ENHANCEMENTS.md`
-- Manual Actions: `/MANUAL_ACTIONS_REQUIRED.md`
-
-### Outstanding Enhancements (~28 hours)
-1. **Node Testing in Guided Setup** (4-5h)
-2. **Planner Node Descriptions** (2h)
-3. **Complete Output Schemas** (4-12h)
-4. **Runtime Execution States** (5-6h)
-5. **Sample Data Preview** (4-5h)
-6. **Actual Cost Tracking** (4h)
-
----
-
-## 🤖 AI PLANNER ARCHITECTURE
-
-**Last Updated:** March 21, 2026
-
-### Shared AI Utilities (`/lib/ai/`)
-All AI/LLM infrastructure is centralized in `/lib/ai/`. Do NOT create inline OpenAI clients or hardcode model strings.
-
-| File | Purpose |
-|------|---------|
-| `openai-client.ts` | **Single shared OpenAI client.** Use `getOpenAIClient()` — never `new OpenAI()` |
-| `models.ts` | **Centralized model config.** Use `AI_MODELS.planning`, `.fast`, `.utility`, `.configuration` |
-| `llm-retry.ts` | **`callLLMWithRetry()`** — retry with exponential backoff, timeout, model fallback |
-| `token-utils.ts` | **Token-aware conversation history truncation** (replaces naive `.slice(-5)`) |
-| `plan-cache.ts` | **LLM planning result cache** (5-min TTL, 100 entry max, case-insensitive keys) |
-| `template-catalog.ts` | **DB template loader** — feeds published templates into planner context |
-| `stream-workflow-helpers.ts` | **Extracted SSE helpers** — node config, testing, formatting, auto-mapping |
-
-**Rules:**
-- `import { getOpenAIClient } from '@/lib/ai/openai-client'` — never inline clients
-- `import { AI_MODELS } from '@/lib/ai/models'` — never hardcode `'gpt-4o'` or `'gpt-4o-mini'`
-- `import { callLLMWithRetry } from '@/lib/ai/llm-retry'` — never raw `openai.chat.completions.create()`
-- All LLM calls MUST have timeout protection (enforced by `callLLMWithRetry`)
-
-### Lazy Client Initialization - MANDATORY
-**NEVER initialize API clients at module level.** Module-level `new Stripe(...)`, `new OpenAI(...)`, `new Resend(...)` etc. execute during `next build` and fail when env vars are missing (e.g., in CI).
-
-**Pattern:** Use lazy-initialized singleton helpers that create the client on first call:
-- **OpenAI:** `import { getOpenAIClient } from '@/lib/ai/openai-client'` — never `new OpenAI()`
-- **Stripe:** `import { getStripeClient } from '@/lib/stripe/client'` — never `new Stripe()`
-- **Resend:** Use `getResendClient()` in `lib/notifications/email.ts` — never `new Resend()` at module level
-
-**CI expects zero dummy env vars** — the build must pass without any API keys.
-
-### Planning Pipeline
-
-**Entry point:** `planEdits()` in `src/lib/workflows/builder/agent/planner.ts`
-
-```
-User Prompt
-    ↓
-1. Unsupported feature detection (LinkedIn, Salesforce, etc.)
-    ↓
-2. Refinement check (is this "add a filter" or "swap step 2"?)
-    ↓ (if not refinement)
-3. LLM Planner (3-stage pipeline in llmPlanner.ts)
-   ├─ Stage 1: Node selection (compact catalog → GPT-4o)
-   ├─ Stage 2: Node configuration (full schemas → GPT-4o)
-   └─ Stage 3: Edge & layout generation
-   └─ Results cached in plan-cache.ts
-    ↓ (if LLM fails or disabled)
-4. Pattern Fallback (4-tier, in planner.ts)
-   ├─ Tier 1: Fast-path patterns (10 templates, $0)
-   ├─ Tier 2: DB template keyword match ($0, self-growing)
-   ├─ Tier 3: Lightweight LLM (GPT-4o-mini + DB template context)
-   └─ Tier 4: Clarifying questions
-```
-
-### Self-Growing Template Pool
-Published workflow templates in the `templates` table are automatically available to the planner:
-- **Tier 2** matches prompt keywords against template name/description/tags ($0 cost)
-- **Tier 3** includes template catalog as LLM context for GPT-4o-mini planning
-
-As users create and publish templates, the planner's coverage grows without code changes.
-
-**Key files:**
-- Template catalog loader: `/lib/ai/template-catalog.ts`
-- Dynamic template system: `/lib/workflows/ai-agent/dynamicTemplates.ts`
-- Template matching (SSE flow): `/lib/workflows/ai-agent/templateMatching.ts`
-
-### SSE Streaming (`/app/api/ai/stream-workflow/route.ts`)
-Streams real-time events during workflow building. Now delegates to shared helpers in `/lib/ai/stream-workflow-helpers.ts`.
-
-**DO NOT add inline helper functions to the route file.** All helpers belong in `stream-workflow-helpers.ts`.
-
-### Tests
-AI planner tests: `__tests__/workflows/v2/agent/`
-- `planner.patterns.test.ts` — Fast-path pattern matching (14 tests)
-- `planner.llm-fallback.test.ts` — LLM fallback chain + plan validation (10 tests)
-- `shared-utilities.test.ts` — Models, cache, token utils, client singleton (18 tests)
-
----
-
-## 🗂️ AUTH STORE GUARDRAILS
-
-- `stores/authStore.ts` clears initialization watchdog as soon as session exists
-- Keep `clearInitTimeout()` and early `set({ user, initialized: true })` calls
-- `Profile` objects MUST include `email` and `provider`
-- Use `@/utils/supabaseClient` for all client-side Supabase access
-
----
-
-## 🧪 TESTING
-
-### Test-Actions Page (`/test-actions`)
-
-**Purpose:** Test workflow action configuration and field loading WITHOUT building full workflows
-
-**CRITICAL:** ActionTester uses the SAME configuration logic as the workflow builder:
-- **Shared:** `useDynamicOptions` hook for field loading (imported from `components/workflows/configuration/hooks/useDynamicOptions.ts`)
-- **Shared:** Field validation, cascading fields, loadOnMount behavior
-- **Unique:** Test execution logic (executeTest, analyzeSchemaValidation, request/response viewing)
-
-**Pattern - Avoiding Feedback Loops:**
-```typescript
-// Create stable getFormValues callback using ref
-const configValuesRef = useRef(configValues)
-useEffect(() => {
-  configValuesRef.current = configValues
-}, [configValues])
-const getFormValuesStable = useCallback(() => configValuesRef.current, [])
-
-// Pass to useDynamicOptions - keeps callback stable
-const { loadOptions, dynamicOptions } = useDynamicOptions({
-  getFormValues: getFormValuesStable, // Never changes
-  // ... other props
-})
-```
-
-**Why This Matters:**
-- Fixes tested in test-actions automatically apply to workflow builder
-- No double work - test once, works everywhere
-- ConfigurationForm and ActionTester share the exact same field loading code path
-
-**Testing Workflow:**
-1. Test action configuration in `/test-actions`
-2. Verify field loading behavior (loadOnMount, cascading, dependent fields)
-3. Execute test to validate API integration
-4. Configuration behavior is identical to workflow builder
-
-**Unit:** Jest + RTL
-**Browser:** Follow `/PLAYWRIGHT.md` - Use Chrome, no new dev server, test from scratch
-
----
-
-## 📝 KEY REMINDERS
-
-- Update CLAUDE.md before every commit
-- Follow explicit user instructions without exception
-- Search exhaustively before claiming "done"
-- Design for light AND dark mode simultaneously
-- Use Admin Debug Panel for all logging
-- Document immediately after learning something significant
-- Ask before running `npm run build`
-- Verify API support before adding fields
-- Use cascading fields for 5+ field forms
-- Optimize database queries with parallel execution
-- Add timeout protection to all network calls
-- Use `callLLMWithRetry()` for ALL LLM calls — never raw OpenAI SDK
-- Use `AI_MODELS.planning/fast/utility` — never hardcode model strings
-- Use `getOpenAIClient()` from `lib/ai/openai-client.ts` — never `new OpenAI()`
-- Use `getStripeClient()` from `lib/stripe/client.ts` — never `new Stripe()` at module level
-- NEVER initialize API clients at module level — use lazy singleton helpers (breaks CI build)
-- Add AI planner helpers to `lib/ai/stream-workflow-helpers.ts` — never inline in route
