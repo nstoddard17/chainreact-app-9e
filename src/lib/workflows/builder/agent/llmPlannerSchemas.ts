@@ -251,15 +251,47 @@ const FlexibleUserRequiredFieldSchema = z.union([
   })),
 ])
 
+// Flexible fieldMode that accepts the LLM echoing back its classification
+const FieldModeSchema = z.enum(['deterministic', 'mappable', 'generative']).optional()
+
 export const NodeConfigurationResponseSchema = z.object({
   configurations: z.record(z.object({
     config: z.record(z.any()),
     confidence: FlexibleConfidenceSchema,
-    fieldConfidence: z.record(FlexibleFieldConfidenceSchema),
+    fieldConfidence: z.record(z.union([
+      z.object({
+        confidence: FlexibleConfidenceSchema,
+        reason: z.string(),
+        fieldMode: FieldModeSchema,
+      }),
+      z.number().transform((n) => ({
+        confidence: numericToStringConfidence(n),
+        reason: 'AI configured',
+        fieldMode: undefined,
+      })),
+      z.string().transform((s) => ({
+        confidence: numericToStringConfidence(s),
+        reason: 'AI configured',
+        fieldMode: undefined,
+      })),
+    ])),
     userRequiredFields: z.array(FlexibleUserRequiredFieldSchema),
     dynamicFields: z.array(z.string()),
   })),
   variableMappings: z.record(z.string()).optional().default({}), // nodeField -> sourceVariable
+})
+
+// ============================================================================
+// INTENT STRATEGY RESPONSE
+// ============================================================================
+
+export const IntentStrategyResponseSchema = z.object({
+  userGoal: z.string(),
+  interpretedStrategy: z.string(),
+  suggestedTrigger: z.string(),
+  suggestedActions: z.array(z.string()),
+  reasoning: z.string(),
+  confidence: ConfigConfidenceSchema,
 })
 
 // ============================================================================
@@ -269,3 +301,4 @@ export const NodeConfigurationResponseSchema = z.object({
 export type NodeSelectionResponse = z.infer<typeof NodeSelectionResponseSchema>
 export type NodeConfigurationResponse = z.infer<typeof NodeConfigurationResponseSchema>
 export type LLMPlannerOutputParsed = z.infer<typeof LLMPlannerOutputSchema>
+export type IntentStrategyResponse = z.infer<typeof IntentStrategyResponseSchema>

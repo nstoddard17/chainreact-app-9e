@@ -1,4 +1,5 @@
 import { logger } from '@/lib/utils/logger'
+import { isSensitiveKey } from '@/lib/utils/redact-config'
 
 /**
  * Logging Utility Functions
@@ -39,14 +40,7 @@ export function maskToken(token: string | null | undefined): string {
  * Keeps keys visible for debugging, redacts all values
  */
 export function redactConfig(config: Record<string, any>): Record<string, any> {
-  const sensitiveKeys = [
-    'token', 'password', 'secret', 'key', 'apikey', 'api_key',
-    'accesstoken', 'access_token', 'refreshtoken', 'refresh_token',
-    'bearer', 'authorization', 'auth', 'credentials', 'privatekey',
-    'private_key', 'clientsecret', 'client_secret', 'masterkey',
-    'master_key', 'sessionid', 'session_id', 'cookie'
-  ];
-
+  // PII keys are logging-specific (broader than LLM credential redaction)
   const piiKeys = [
     'email', 'phone', 'address', 'ssn', 'name', 'firstname', 'lastname',
     'to', 'from', 'cc', 'bcc', 'subject', 'body', 'message', 'content',
@@ -58,13 +52,10 @@ export function redactConfig(config: Record<string, any>): Record<string, any> {
   for (const [key, value] of Object.entries(config)) {
     const lowerKey = key.toLowerCase();
 
-    // Check if key is sensitive
-    const isSensitive = sensitiveKeys.some(sk => lowerKey.includes(sk));
-    const isPII = piiKeys.some(pk => lowerKey.includes(pk));
-
-    if (isSensitive) {
+    // Credential check uses shared utility (single source of truth)
+    if (isSensitiveKey(key)) {
       redacted[key] = '[REDACTED-SENSITIVE]';
-    } else if (isPII) {
+    } else if (piiKeys.some(pk => lowerKey.includes(pk))) {
       redacted[key] = '[REDACTED-PII]';
     } else if (typeof value === 'object' && value !== null) {
       // Recursively redact nested objects

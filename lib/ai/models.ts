@@ -20,10 +20,23 @@ export const AI_MODELS = {
 
   /** Model for transcription */
   transcription: 'whisper-1' as const,
+
+  /** Anthropic models */
+  anthropic: {
+    /** Fast/cheap Anthropic model for prompt enhancement, simple rewrites */
+    fast: 'claude-haiku-4-5-20251001' as const,
+    /** High-capability Anthropic model for complex planning */
+    planning: 'claude-sonnet-4-5-20241022' as const,
+  },
 } as const
 
-export type AIModelKey = keyof typeof AI_MODELS
+/** Top-level OpenAI model keys (excludes nested anthropic object) */
+export type AIModelKey = Exclude<keyof typeof AI_MODELS, 'anthropic'>
 export type AIModelId = (typeof AI_MODELS)[AIModelKey]
+
+/** Anthropic model keys */
+export type AnthropicModelKey = keyof typeof AI_MODELS.anthropic
+export type AnthropicModelId = (typeof AI_MODELS.anthropic)[AnthropicModelKey]
 
 /**
  * Select model based on task type and user preference.

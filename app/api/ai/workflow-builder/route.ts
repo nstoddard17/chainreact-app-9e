@@ -4,6 +4,7 @@ import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { checkRateLimit } from '@/lib/utils/rate-limit'
+import { summarizeConfigForLLM, redactSensitiveFields } from '@/lib/utils/redact-config'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,8 +70,25 @@ export async function POST(request: NextRequest) {
       requiredScopes: node.requiredScopes || []
     }))
 
+    // API-layer re-sanitization: always re-summarize config at the trust boundary
+    // even if frontend already provides configSummary (defense in depth)
+    const sanitizedContextNodes = contextNodes.map((n: any) => {
+      if (n.configSummary && !n.config) {
+        // Frontend already sent summary — trust but verify by stripping any raw values
+        return n
+      }
+      // Raw config was sent (legacy client or bug) — re-summarize server-side
+      const nodeDefinition = availableNodes.find((an: any) => an.type === n.type)
+      const schema = nodeDefinition?.configSchema
+      return {
+        ...n,
+        configSummary: summarizeConfigForLLM(redactSensitiveFields(n.config) as Record<string, any>, schema),
+        config: undefined, // Strip raw config — never forward to LLM
+      }
+    })
+
     // Build context for AI
-    const systemPrompt = buildSystemPrompt(availableNodes, connectedIntegrations, contextNodes)
+    const systemPrompt = buildSystemPrompt(availableNodes, connectedIntegrations, sanitizedContextNodes)
     const userMessage = message.trim()
 
     // Call OpenAI API (or your AI provider)
@@ -79,7 +97,7 @@ export async function POST(request: NextRequest) {
       userMessage,
       conversationHistory,
       availableNodes,
-      contextNodes
+      contextNodes: sanitizedContextNodes
     })
 
     // Parse AI response and determine action
@@ -103,13 +121,60 @@ function buildSystemPrompt(availableNodes: any[], connectedIntegrations: string[
     ? connectedIntegrations.join(', ')
     : 'None'
 
-  // Build context nodes section
+  // Build context nodes section with structured summaries (no raw config values)
   let contextSection = ''
   if (contextNodes.length > 0) {
-    contextSection = `\n\nContext Nodes (Current Workflow):\nThe user has selected the following nodes from their workflow for you to reference:\n${contextNodes.map(n => {
-      const configStr = n.config ? `\n  Configuration: ${JSON.stringify(n.config, null, 2)}` : ''
-      return `- ${n.title} (${n.type})${configStr}`
-    }).join('\n')}\n\nUse this context to:\n- Reference existing node configurations\n- Map data between nodes\n- Suggest connections based on available fields\n- Provide specific recommendations based on current setup`
+    const contextEntries = contextNodes.map((n: any, index: number) => {
+      // Use pre-computed configSummary (from frontend or re-sanitization above)
+      const configSummary = n.configSummary ?? { configured: [], missing: [], fields: {} }
+      const role = n.role || (n.isTrigger ? 'trigger' : 'upstream')
+      const position = n.position ?? (index + 1)
+
+      const lines: string[] = []
+      lines.push(`Node: ${n.type} [id: ${n.id}, role: ${role}, position: ${position}]`)
+
+      if (configSummary.configured?.length > 0) {
+        lines.push(`  Configured: ${configSummary.configured.join(', ')}`)
+      }
+      if (configSummary.missing?.length > 0) {
+        lines.push(`  Missing (required): ${configSummary.missing.join(', ')}`)
+      }
+      if (n.outputSchema?.length > 0) {
+        lines.push(`  Output schema: ${n.outputSchema.map((o: any) => `${o.name} (${o.type})`).join(', ')}`)
+      }
+
+      // Per-field detail
+      const fieldEntries = Object.entries(configSummary.fields || {})
+      if (fieldEntries.length > 0) {
+        lines.push('  Fields:')
+        for (const [name, field] of fieldEntries) {
+          const f = field as any
+          const reqLabel = f.required ? 'required' : 'optional'
+          const valueSuffix = f.value ? ` = ${f.value}` : ''
+          lines.push(`    ${name}: ${f.status} (${f.type}, ${reqLabel})${valueSuffix}`)
+        }
+      }
+
+      return lines.join('\n')
+    }).join('\n\n')
+
+    contextSection = `\n\nWORKFLOW CONTEXT (trigger → downstream):
+
+${contextEntries}
+
+Data flows: trigger (lowest position) → upstream nodes → current node.
+Variable references MUST use {{nodeId.field}} only when field exists in that node's output schema above.
+
+CONTEXT ENFORCEMENT RULES:
+1. When CONTEXT NODES are provided, use them as ground truth for existing configuration. Do NOT re-ask about information visible in the context.
+2. NEVER invent node types, field names, or providers not in the provided catalog. If no catalog node fits, say so.
+3. When modifying an existing workflow, you MUST modify/reconfigure existing nodes (by their id) rather than creating new replacements. Only add new nodes for genuinely new functionality. Creating a duplicate alongside an existing node is NEVER correct.
+4. Do NOT suggest providers the user hasn't connected unless explicitly asked.
+5. For required fields you cannot determine from context: leave them EMPTY and mark as userRequired. NEVER generate placeholder values like "your-value-here" or fabricated content.
+6. Variable references ({{nodeId.field}}) are ONLY valid when the field appears in that node's output schema. Do NOT reference fields not in the schema.
+7. You MUST incorporate context nodes into your response. Ignoring the provided context is INCORRECT — it represents the user's current work.
+8. Limit new node creation: add at most 3 new nodes per request unless explicitly asked for more.
+9. For any field where confidence is not high: mark it as userRequired rather than guessing.`
   }
 
   return `You are an expert workflow automation assistant for ChainReact.

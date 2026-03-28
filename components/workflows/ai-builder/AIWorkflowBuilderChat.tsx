@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { ChatTextarea } from "@/components/ui/chat-textarea"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils"
 import { logger } from "@/lib/utils/logger"
 import { useAuthStore } from "@/stores/authStore"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
+import { summarizeConfigForLLM } from "@/lib/utils/redact-config"
 import {
   Dialog,
   DialogContent,
@@ -63,9 +64,16 @@ interface WorkflowNode {
   }
 }
 
+interface WorkflowEdge {
+  source: string
+  target: string
+}
+
 interface AIWorkflowBuilderChatProps {
   workflowId?: string
   nodes?: WorkflowNode[]
+  edges?: WorkflowEdge[]
+  selectedNodeId?: string | null
   onNodeAdd?: (nodeType: string, config: any) => void
   onIntegrationPrompt?: (provider: string) => void
   connectedIntegrations?: string[]
@@ -80,6 +88,39 @@ interface AIWorkflowBuilderChatProps {
 const NODE_CATALOG_MAP = new Map(
   ALL_NODE_COMPONENTS.map((node) => [node.type, node])
 )
+
+/**
+ * BFS upstream traversal: returns node IDs upstream of the given node,
+ * ordered from nearest to farthest.
+ */
+function getUpstreamNodeIds(nodeId: string, edges: WorkflowEdge[]): string[] {
+  const upstream: string[] = []
+  const visited = new Set<string>()
+  const queue: string[] = [nodeId]
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    for (const edge of edges) {
+      if (edge.target === current && !visited.has(edge.source)) {
+        visited.add(edge.source)
+        upstream.push(edge.source)
+        queue.push(edge.source)
+      }
+    }
+  }
+
+  return upstream
+}
+
+/**
+ * Compute execution position for a node by counting its max depth from
+ * a root (node with no incoming edges). Returns 1-based position.
+ */
+function computeNodePosition(nodeId: string, edges: WorkflowEdge[]): number {
+  const incomingEdges = edges.filter(e => e.target === nodeId)
+  if (incomingEdges.length === 0) return 1
+  return 1 + Math.max(...incomingEdges.map(e => computeNodePosition(e.source, edges)))
+}
 
 // Helper to get outputSchema for a node type from the catalog
 function getOutputSchemaForNode(nodeType: string) {
@@ -98,6 +139,8 @@ function getOutputSchemaForNode(nodeType: string) {
 export function AIWorkflowBuilderChat({
   workflowId,
   nodes = [],
+  edges = [],
+  selectedNodeId,
   onNodeAdd,
   onIntegrationPrompt,
   connectedIntegrations = [],
@@ -132,9 +175,86 @@ export function AIWorkflowBuilderChat({
   const [isLoading, setIsLoading] = useState(false)
   const [showContextDialog, setShowContextDialog] = useState(false)
   const [contextNodes, setContextNodes] = useState<WorkflowNode[]>([])
+  const [autoContextNodeIds, setAutoContextNodeIds] = useState<Set<string>>(new Set())
+  const hasManuallyEditedContext = useRef(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const [hasProcessedInitialPrompt, setHasProcessedInitialPrompt] = useState(false)
+
+  /**
+   * Build context node payload with role and position for the API.
+   * Uses contextNodes if available, otherwise falls back to bounded auto-selection.
+   */
+  const buildContextPayload = (targetNodes: WorkflowNode[]) => {
+    // Determine which nodes are actual upstream of the selected node (vs fallback recent)
+    const upstreamIds = selectedNodeId
+      ? new Set(getUpstreamNodeIds(selectedNodeId, edges))
+      : new Set<string>()
+
+    return targetNodes.map(node => {
+      const catalogEntry = NODE_CATALOG_MAP.get(node.data.type)
+      const isTrigger = catalogEntry?.isTrigger ?? false
+      const isCurrentNode = node.id === selectedNodeId
+
+      // Assign role: trigger > current > upstream (if in upstream chain) > recent (fallback)
+      let role: 'trigger' | 'current' | 'upstream' | 'recent'
+      if (isTrigger) role = 'trigger'
+      else if (isCurrentNode) role = 'current'
+      else if (upstreamIds.has(node.id)) role = 'upstream'
+      else role = 'recent'
+
+      const position = edges.length > 0 ? computeNodePosition(node.id, edges) : 0
+
+      // Summarize config — never pass raw values to the API/LLM
+      const schema = catalogEntry?.configSchema?.map((f: any) => ({
+        name: f.name,
+        type: f.type,
+        label: f.label,
+        required: f.required,
+        dynamic: f.dynamic,
+        options: f.options,
+        supportsAI: f.supportsAI,
+      }))
+      const configSummary = summarizeConfigForLLM(node.data.config, schema)
+
+      return {
+        id: node.id,
+        type: node.data.type,
+        title: node.data.title,
+        providerId: node.data.providerId,
+        configSummary,
+        outputSchema: getOutputSchemaForNode(node.data.type),
+        isTrigger,
+        role,
+        position,
+      }
+    })
+  }
+
+  /**
+   * Get effective context nodes: use explicit selection, or fall back
+   * to bounded auto-selection (trigger + last 2 nodes).
+   */
+  const getEffectiveContextNodes = (): WorkflowNode[] => {
+    if (contextNodes.length > 0) return contextNodes
+
+    // Bounded fallback: trigger + last 2 chain-tail nodes
+    const triggerNode = nodes.find(n => {
+      const catalogEntry = NODE_CATALOG_MAP.get(n.data.type)
+      return catalogEntry?.isTrigger
+    })
+
+    const fallback: WorkflowNode[] = []
+    if (triggerNode) fallback.push(triggerNode)
+
+    const tailNodes = nodes
+      .filter(n => n.id !== triggerNode?.id)
+      .filter(n => !edges.some(e => e.source === n.id)) // no outgoing = tail
+      .slice(0, 2)
+
+    fallback.push(...tailNodes)
+    return fallback.slice(0, 3) // Max 3 in fallback
+  }
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -145,6 +265,67 @@ export function AIWorkflowBuilderChat({
       }
     }
   }, [messages])
+
+  // Auto-populate context nodes (trigger + selected node + upstream, max 4)
+  useEffect(() => {
+    if (hasManuallyEditedContext.current || nodes.length === 0) return
+
+    const triggerNode = nodes.find(n => {
+      const catalogEntry = NODE_CATALOG_MAP.get(n.data.type)
+      if (catalogEntry?.isTrigger) return true
+      // Fallback: node with no incoming edges
+      return edges.length > 0 && !edges.some(e => e.target === n.id)
+    })
+
+    const autoNodes: WorkflowNode[] = []
+    const autoIds = new Set<string>()
+
+    // Always include trigger
+    if (triggerNode) {
+      autoNodes.push(triggerNode)
+      autoIds.add(triggerNode.id)
+    }
+
+    if (selectedNodeId) {
+      // Include the selected node + up to 2 immediate upstream predecessors
+      const selectedNode = nodes.find(n => n.id === selectedNodeId)
+      if (selectedNode && !autoIds.has(selectedNode.id)) {
+        autoNodes.push(selectedNode)
+        autoIds.add(selectedNode.id)
+      }
+
+      const upstreamIds = getUpstreamNodeIds(selectedNodeId, edges)
+      for (const uid of upstreamIds) {
+        if (autoNodes.length >= 4) break
+        if (autoIds.has(uid)) continue
+        const upNode = nodes.find(n => n.id === uid)
+        if (upNode) {
+          autoNodes.push(upNode)
+          autoIds.add(upNode.id)
+        }
+      }
+    } else {
+      // No selection — include the last 2 nodes by chain position (tail of workflow)
+      const tailNodes = [...nodes]
+        .filter(n => !autoIds.has(n.id))
+        .sort((a, b) => (b.data?.config ? 1 : 0) - (a.data?.config ? 1 : 0))
+        // Prefer nodes at the end of the chain (no outgoing edges)
+        .sort((a, b) => {
+          const aHasOutgoing = edges.some(e => e.source === a.id)
+          const bHasOutgoing = edges.some(e => e.source === b.id)
+          return (aHasOutgoing ? 1 : 0) - (bHasOutgoing ? 1 : 0)
+        })
+
+      for (const node of tailNodes) {
+        if (autoNodes.length >= 4) break
+        autoNodes.push(node)
+        autoIds.add(node.id)
+      }
+    }
+
+    setContextNodes(autoNodes)
+    setAutoContextNodeIds(autoIds)
+  }, [nodes, edges, selectedNodeId])
 
   // Auto-send initial prompt if provided
   useEffect(() => {
@@ -200,16 +381,8 @@ export function AIWorkflowBuilderChat({
       try {
         logger.info('[AIWorkflowBuilderChat] Sending to API:', { workflowId, initialPrompt })
 
-        // Build context from existing workflow nodes so AI knows what variables are available
-        const existingNodesContext = nodes.map(node => ({
-          id: node.id,
-          type: node.data.type,
-          title: node.data.title,
-          providerId: node.data.providerId,
-          config: node.data.config,
-          outputSchema: getOutputSchemaForNode(node.data.type),
-          isTrigger: NODE_CATALOG_MAP.get(node.data.type)?.isTrigger ?? false
-        }))
+        // Build context using effective nodes (auto-selected or fallback)
+        const effectiveNodes = getEffectiveContextNodes()
 
         const response = await fetch('/api/ai/workflow-builder', {
           method: 'POST',
@@ -219,7 +392,7 @@ export function AIWorkflowBuilderChat({
             workflowId,
             connectedIntegrations,
             conversationHistory: [],
-            contextNodes: existingNodesContext
+            contextNodes: buildContextPayload(effectiveNodes)
           })
         })
 
@@ -286,7 +459,8 @@ export function AIWorkflowBuilderChat({
     setIsLoading(true)
 
     try {
-      // Call AI workflow builder API
+      // Call AI workflow builder API with effective context (auto or manual)
+      const effectiveNodes = getEffectiveContextNodes()
       const response = await fetch('/api/ai/workflow-builder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -295,15 +469,7 @@ export function AIWorkflowBuilderChat({
           workflowId,
           connectedIntegrations,
           conversationHistory: messages.slice(-5), // Last 5 messages for context
-          contextNodes: contextNodes.map(node => ({
-            id: node.id,
-            type: node.data.type,
-            title: node.data.title,
-            providerId: node.data.providerId,
-            config: node.data.config,
-            outputSchema: getOutputSchemaForNode(node.data.type),
-            isTrigger: NODE_CATALOG_MAP.get(node.data.type)?.isTrigger ?? false
-          }))
+          contextNodes: buildContextPayload(effectiveNodes)
         })
       })
 
@@ -659,26 +825,33 @@ export function AIWorkflowBuilderChat({
         {/* Context Nodes Display */}
         {contextNodes.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
-            {contextNodes.map((node) => (
-              <Badge
-                key={node.id}
-                variant="secondary"
-                className="pl-2 pr-1 py-1 gap-2"
-              >
-                <FileText className="w-3 h-3" />
-                <span className="text-xs">{node.data.title}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4 p-0 hover:bg-transparent"
-                  onClick={() => {
-                    setContextNodes(prev => prev.filter(n => n.id !== node.id))
-                  }}
+            {contextNodes.map((node) => {
+              const isAuto = autoContextNodeIds.has(node.id) && !hasManuallyEditedContext.current
+              return (
+                <Badge
+                  key={node.id}
+                  variant="secondary"
+                  className="pl-2 pr-1 py-1 gap-2"
                 >
-                  <X className="w-3 h-3" />
-                </Button>
-              </Badge>
-            ))}
+                  <FileText className="w-3 h-3" />
+                  <span className="text-xs">{node.data.title}</span>
+                  {isAuto && (
+                    <span className="text-[9px] text-muted-foreground/60 italic">auto</span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 p-0 hover:bg-transparent"
+                    onClick={() => {
+                      hasManuallyEditedContext.current = true
+                      setContextNodes(prev => prev.filter(n => n.id !== node.id))
+                    }}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </Badge>
+              )
+            })}
           </div>
         )}
 
@@ -699,20 +872,17 @@ export function AIWorkflowBuilderChat({
           )}
         </Button>
 
-        <div className="flex gap-2">
-          <Input
+        <div className="flex gap-2 items-end">
+          <ChatTextarea
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSendMessage()
-              }
-            }}
+            onChange={(val) => setInput(val)}
+            onSend={handleSendMessage}
             placeholder="Describe your workflow..."
             className="flex-1"
             disabled={isLoading}
+            minHeight={40}
+            maxHeight={200}
           />
           <Button
             onClick={handleSendMessage}
@@ -737,7 +907,7 @@ export function AIWorkflowBuilderChat({
           <DialogHeader>
             <DialogTitle>Add Workflow Nodes to Context</DialogTitle>
             <DialogDescription>
-              Select nodes to provide context to the AI. The AI will be able to read the configuration and values from these nodes.
+              Select nodes to provide context to the AI. Nodes are auto-selected based on your workflow structure — modify the selection to override.
             </DialogDescription>
           </DialogHeader>
 
@@ -756,6 +926,7 @@ export function AIWorkflowBuilderChat({
                           : "border-border hover:border-primary/50 hover:bg-accent"
                       )}
                       onClick={() => {
+                        hasManuallyEditedContext.current = true
                         if (isSelected) {
                           setContextNodes(prev => prev.filter(n => n.id !== node.id))
                         } else {
@@ -779,7 +950,12 @@ export function AIWorkflowBuilderChat({
                               </Badge>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground">{node.data.type}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs text-muted-foreground">{node.data.type}</p>
+                            {autoContextNodeIds.has(node.id) && !hasManuallyEditedContext.current && (
+                              <span className="text-[9px] text-muted-foreground/50 italic">auto-selected</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -23,6 +22,7 @@ import { useWorkflowStore } from "@/stores/workflowStore"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { AIAgentPreferenceModal } from "../AIAgentPreferenceModal"
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 
 // Typing animation phrases
 const TYPING_PHRASES = [
@@ -461,6 +461,19 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
+  // Auto-resize textarea hook
+  const { textareaRef: autoResizeRef, resize: resizeInput } = useAutoResizeTextarea({
+    minHeight: 48,
+    maxHeight: 200,
+    value: input,
+  })
+
+  // Merge inputRef with autoResizeRef
+  const mergedInputRef = useCallback((node: HTMLTextAreaElement | null) => {
+    ;(inputRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node
+    ;(autoResizeRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node
+  }, [autoResizeRef])
+
   const connectedProviders = getConnectedProviders()
 
   // Auto-focus input on page load
@@ -815,23 +828,22 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
                     </div>
                   )}
                   <textarea
-                    ref={inputRef}
+                    ref={mergedInputRef}
                     value={input}
                     onChange={(e) => {
                       setInput(e.target.value)
-                      // Auto-resize textarea
-                      e.target.style.height = 'auto'
-                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
+                      resizeInput()
                     }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                         e.preventDefault()
-                        handleSendMessage()
+                        if (input.trim()) handleSendMessage()
                       }
                     }}
                     placeholder=""
-                    rows={2}
-                    className="w-full text-base pl-4 pr-14 py-4 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-2xl transition-all duration-200 outline-none focus:outline-none focus:ring-0 focus:border-gray-200 dark:focus:border-zinc-700 shadow-md hover:shadow-lg focus:shadow-xl resize-none overflow-y-auto"
+                    rows={1}
+                    aria-label="Describe your workflow"
+                    className="w-full text-base pl-4 pr-14 py-4 bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-2xl transition-all duration-200 outline-none focus:outline-none focus:ring-0 focus:border-gray-200 dark:focus:border-zinc-700 shadow-md hover:shadow-lg focus:shadow-xl resize-none"
                     style={{ lineHeight: '1.5rem', minHeight: '56px', maxHeight: '200px' }}
                     disabled={isLoading}
                   />
@@ -996,23 +1008,22 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
                 <div className="max-w-3xl mx-auto">
                   <div className="relative">
                     <textarea
-                      ref={inputRef}
+                      ref={mergedInputRef}
                       value={input}
                       onChange={(e) => {
                         setInput(e.target.value)
-                        // Auto-resize textarea
-                        e.target.style.height = 'auto'
-                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
+                        resizeInput()
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
+                        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                           e.preventDefault()
-                          handleSendMessage()
+                          if (input.trim()) handleSendMessage()
                         }
                       }}
                       placeholder="Describe your next step..."
                       rows={1}
-                      className="w-full text-sm pl-4 pr-14 py-3 bg-background border border-input rounded-xl transition-all duration-200 outline-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none overflow-y-auto"
+                      aria-label="Describe your next step"
+                      className="w-full text-sm pl-4 pr-14 py-3 bg-background border border-input rounded-xl transition-all duration-200 outline-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 resize-none"
                       style={{ minHeight: '48px', maxHeight: '200px' }}
                       disabled={isLoading}
                     />

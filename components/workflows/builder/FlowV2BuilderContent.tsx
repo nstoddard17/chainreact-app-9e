@@ -242,7 +242,7 @@ export function FlowV2BuilderContent({
       case BuildState.BUILDING_SKELETON:
         return Copy.buildingSkeleton
       case BuildState.WAITING_USER:
-        return Copy.waitingUser
+        return Copy.completeStep
       case BuildState.PLAN_READY:
         return Copy.planReady
       case BuildState.COMPLETE:

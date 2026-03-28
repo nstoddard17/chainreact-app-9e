@@ -10,14 +10,7 @@ import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
 
-// Dynamic import for Anthropic SDK (optional dependency)
-let Anthropic: any
-try {
-  Anthropic = require('@anthropic-ai/sdk').default
-} catch {
-  // Anthropic SDK not installed, will use OpenAI as fallback
-  Anthropic = null
-}
+import { getAnthropicClient } from '@/lib/ai/anthropic-client'
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -92,11 +85,9 @@ export async function POST(req: NextRequest) {
         decision = completion.choices[0].message.content || '{}'
 
       } else if (model.includes('claude')) {
-        // Use Anthropic Claude if available
-        if (Anthropic) {
-          const anthropic = new Anthropic({
-            apiKey: process.env.ANTHROPIC_API_KEY
-          })
+        // Use Anthropic Claude via lazy singleton
+        try {
+          const anthropic = getAnthropicClient()
 
           const message = await anthropic.messages.create({
             model: model,
@@ -108,9 +99,9 @@ export async function POST(req: NextRequest) {
 
           const content = message.content[0]
           decision = content.type === 'text' ? content.text : '{}'
-        } else {
+        } catch {
           // Fallback to OpenAI if Anthropic not available
-          logger.warn('Anthropic SDK not installed, using OpenAI as fallback')
+          logger.warn('Anthropic client not available, using OpenAI as fallback')
           const openai = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY
           })

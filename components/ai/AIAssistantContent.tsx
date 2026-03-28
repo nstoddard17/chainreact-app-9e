@@ -1,10 +1,10 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
@@ -158,8 +158,21 @@ export default function AIAssistantContent() {
   const [showAIAssistantModal, setShowAIAssistantModal] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+
+  // Auto-resize textarea hook
+  const { textareaRef: autoResizeRef, resize: resizeInput } = useAutoResizeTextarea({
+    minHeight: 48,
+    maxHeight: 200,
+    value: input,
+  })
+
+  // Merge inputRef with autoResizeRef
+  const mergedInputRef = useCallback((node: HTMLTextAreaElement | null) => {
+    ;(inputRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node
+    ;(autoResizeRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node
+  }, [autoResizeRef])
   const abortControllerRef = useRef<AbortController | null>(null)
   const { toast } = useToast()
   const { integrations } = useIntegrationStore()
@@ -963,10 +976,10 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
-      handleSendMessage()
+      if (input.trim()) handleSendMessage()
     }
   }
 
@@ -1781,7 +1794,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
 
         {/* Input Area - At Bottom */}
         <div className="border-t bg-card px-8 py-4">
-          <div className="w-full flex gap-3">
+          <div className="w-full flex gap-3 items-end">
             {/* AI Assistant Button */}
             <Button
               onClick={() => setShowAIAssistantModal(true)}
@@ -1796,13 +1809,19 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
 
             {/* Input with inline microphone */}
             <div className="flex-1 relative">
-              <Input
-                ref={inputRef}
+              <textarea
+                ref={mergedInputRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onChange={(e) => {
+                  setInput(e.target.value)
+                  resizeInput()
+                }}
+                onKeyDown={handleKeyDown}
                 placeholder="Ask me anything about your integrations, workflows, or ChainReact..."
-                className="h-12 text-base pr-12"
+                rows={1}
+                aria-label="Ask about integrations, workflows, or ChainReact"
+                className="flex w-full rounded-md border border-input bg-background px-3 py-3 text-base pr-12 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                style={{ minHeight: '48px', maxHeight: '200px' }}
                 disabled={isLoading}
                 autoFocus
               />
@@ -1817,7 +1836,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                 }}
                 disabled={isLoading}
                 className={cn(
-                  "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-colors",
+                  "absolute right-2 bottom-2 p-2 rounded-lg transition-colors",
                   "hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed",
                   isDictating && "text-destructive hover:bg-destructive/10"
                 )}

@@ -14,11 +14,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Increase API body size limit to handle large workflow/chat payloads
-  // Default is ~1MB, this increases to 10MB
-  serverRuntimeConfig: {
-    maxRequestBodySize: '10mb',
-  },
   // Enable image optimization for better LCP
   images: {
     formats: ['image/webp', 'image/avif'],

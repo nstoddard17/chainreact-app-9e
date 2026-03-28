@@ -240,6 +240,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
       logger.info(`✅ Workflow activated: ${workflow.name} (${workflow.id})`)
 
+      // Agent eval: server-side activation success event (redundancy for client-side tracking)
+      const sessionId = request.headers.get('X-Agent-Session-Id')
+      const conversationId = request.headers.get('X-Agent-Conversation-Id')
+      if (sessionId && conversationId) {
+        try {
+          await serviceClient.from('agent_eval_events' as any).insert({
+            event_name: 'agent.activation_succeeded',
+            category: 'funnel',
+            session_id: sessionId,
+            conversation_id: conversationId,
+            user_id: user.id,
+            flow_id: workflow.id,
+            metadata: { server_side: true, trigger_count: triggerCount, action_count: actionCount },
+          })
+        } catch { /* best effort */ }
+      }
+
       return jsonResponse({
         ...activatedWorkflow,
         activation: {

@@ -11,10 +11,8 @@ export enum BuildState {
   // Planning phase
   IDLE = 'IDLE',
   THINKING = 'THINKING',
-  SUBTASKS = 'SUBTASKS',
-  COLLECT_NODES = 'COLLECT_NODES',
-  OUTLINE = 'OUTLINE',
-  PURPOSE = 'PURPOSE',
+  UNDERSTANDING = 'UNDERSTANDING',
+  DESIGNING = 'DESIGNING',
   PLAN_READY = 'PLAN_READY',
 
   // Building phase
@@ -44,8 +42,6 @@ export interface StagedText {
   thinking?: string
   subtasks?: string[]
   relevantNodes?: Array<{ title: string; description: string; providerId?: string }>
-  outline?: string
-  purpose?: string
 }
 
 export interface BuildProgress {
@@ -86,21 +82,18 @@ export const getBadgeForState = (state: BuildState, currentNodeTitle?: string): 
   switch (state) {
     case BuildState.THINKING:
       return { text: Copy.thinking, variant: 'blue', dots: true }
-    case BuildState.SUBTASKS:
-      return { text: Copy.subtasks, variant: 'blue', dots: false }
-    case BuildState.COLLECT_NODES:
-      return { text: Copy.collected, variant: 'blue', dots: false }
-    case BuildState.OUTLINE:
-    case BuildState.PURPOSE:
-      return { text: Copy.outline, variant: 'blue', dots: false }
+    case BuildState.UNDERSTANDING:
+      return { text: Copy.understanding, variant: 'blue', dots: true }
+    case BuildState.DESIGNING:
+      return { text: Copy.designing, variant: 'blue', dots: true }
     case BuildState.PLAN_READY:
-      return null // Hide badge when plan is ready
+      return { text: Copy.planReady, variant: 'green' }
     case BuildState.BUILDING_SKELETON:
       return { text: `${Copy.agentBadge} …`, variant: 'blue', dots: true }
     case BuildState.WAITING_USER:
       return {
         text: Copy.agentBadge,
-        subtext: Copy.waitingUser,
+        subtext: Copy.completeStep,
         variant: 'blue',
         spinner: true
       }
@@ -126,11 +119,9 @@ export const getBadgeForState = (state: BuildState, currentNodeTitle?: string): 
 export const canTransitionTo = (current: BuildState, next: BuildState): boolean => {
   const validTransitions: Record<BuildState, BuildState[]> = {
     [BuildState.IDLE]: [BuildState.THINKING],
-    [BuildState.THINKING]: [BuildState.SUBTASKS, BuildState.PLAN_READY],
-    [BuildState.SUBTASKS]: [BuildState.COLLECT_NODES],
-    [BuildState.COLLECT_NODES]: [BuildState.OUTLINE],
-    [BuildState.OUTLINE]: [BuildState.PURPOSE],
-    [BuildState.PURPOSE]: [BuildState.PLAN_READY],
+    [BuildState.THINKING]: [BuildState.UNDERSTANDING, BuildState.PLAN_READY],
+    [BuildState.UNDERSTANDING]: [BuildState.DESIGNING],
+    [BuildState.DESIGNING]: [BuildState.PLAN_READY],
     [BuildState.PLAN_READY]: [BuildState.BUILDING_SKELETON, BuildState.IDLE],
     [BuildState.BUILDING_SKELETON]: [BuildState.WAITING_USER, BuildState.PLAN_READY],
     [BuildState.WAITING_USER]: [BuildState.PREPARING_NODE, BuildState.COMPLETE, BuildState.PLAN_READY],
@@ -146,14 +137,10 @@ export const getStateLabel = (state: BuildState): string => {
   switch (state) {
     case BuildState.THINKING:
       return Copy.thinking
-    case BuildState.SUBTASKS:
-      return Copy.subtasks
-    case BuildState.COLLECT_NODES:
-      return Copy.collected
-    case BuildState.OUTLINE:
-      return Copy.outline
-    case BuildState.PURPOSE:
-      return Copy.outline
+    case BuildState.UNDERSTANDING:
+      return Copy.understanding
+    case BuildState.DESIGNING:
+      return Copy.designing
     case BuildState.PLAN_READY:
       return Copy.executePlan
     case BuildState.BUILDING_SKELETON:

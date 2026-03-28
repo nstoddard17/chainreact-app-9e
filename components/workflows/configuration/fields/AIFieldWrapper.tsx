@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useState } from "react";
-import { Bot, X, Lock } from "lucide-react";
+import { Bot, X, Lock, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FieldRenderer } from "./FieldRenderer";
 import {
@@ -85,6 +85,13 @@ export function AIFieldWrapper({
   // Check if field is non-editable (computed fields, auto-number, etc.)
   const isLocked = isNonEditable || field.computed || field.autoNumber || field.formula;
 
+  // Determine field mode for badge display
+  const fieldMode: 'fixed' | 'mapped' | 'ai-generated' = (() => {
+    if (typeof value === 'string' && value.startsWith('{{AI_FIELD:')) return 'ai-generated';
+    if (typeof value === 'string' && value.includes('{{') && value.includes('}}')) return 'mapped';
+    return 'fixed';
+  })();
+
   const enableAIMode = useCallback(() => {
     setIsAIMode(true);
     if (!(typeof value === 'string' && value.startsWith('{{AI_FIELD:'))) {
@@ -108,17 +115,27 @@ export function AIFieldWrapper({
     }
   };
 
-  // Render AI toggle button (to be passed to FieldRenderer)
-  const aiToggleButtonElement = supportsAI ? (
-    <button
-      type="button"
-      onClick={handleAIToggle}
-      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
-      title="Use AI to fill this field"
-    >
-      <Bot className="h-4 w-4" />
-    </button>
+  // Render field mode badge + AI toggle button (to be passed to FieldRenderer)
+  const fieldModeBadge = !isAIMode && fieldMode === 'mapped' ? (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" title="Mapped from workflow data">
+      <Link2 className="h-3 w-3" />
+      Mapped
+    </span>
   ) : null;
+
+  const aiToggleButtonElement = supportsAI ? (
+    <div className="flex items-center gap-1">
+      {fieldModeBadge}
+      <button
+        type="button"
+        onClick={handleAIToggle}
+        className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+        title="Use AI to fill this field"
+      >
+        <Bot className="h-4 w-4" />
+      </button>
+    </div>
+  ) : fieldModeBadge;
 
   return (
     <div className={cn(
@@ -136,9 +153,12 @@ export function AIFieldWrapper({
             </label>
           </div>
           <div className="bg-gray-700 text-gray-300 rounded-md px-3 py-2 flex items-center gap-2">
-            <Bot className="h-4 w-4 text-gray-400" />
-            <span className="text-sm flex-1">
-              Defined automatically by the model
+            <Bot className="h-4 w-4 text-purple-400" />
+            <span className="text-sm flex-1 flex items-center gap-2">
+              AI-Generated at runtime
+              <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-500/20 text-purple-300">
+                AI
+              </span>
             </span>
             {supportsAI && (
               <button

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/utils/supabase/server'
-
-const anthropic = new Anthropic()
+import { callAnthropicWithRetry } from '@/lib/ai/llm-retry'
+import { AI_MODELS } from '@/lib/ai/models'
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,6 +23,9 @@ export async function POST(request: NextRequest) {
       ? `The user has these integrations connected: ${connectedIntegrations.join(', ')}.`
       : 'The user has not connected any integrations yet.'
 
+    // Build dynamic examples based on connected integrations
+    const examples = buildDynamicExamples(connectedIntegrations || [])
+
     const systemPrompt = `You are a workflow automation assistant. Your job is to enhance user prompts to be more specific and actionable for creating automated workflows.
 
 ${integrationContext}
@@ -37,44 +39,106 @@ Guidelines for enhancing prompts:
 6. Use natural language, not technical jargon
 
 Examples:
-- "notify me about emails" → "When I receive a new email in Gmail, send me a Slack notification in #notifications with the sender name and subject line"
-- "save attachments" → "When I receive an email with attachments in Gmail, automatically save the files to my Google Drive in a folder called 'Email Attachments'"
-- "track expenses" → "When I receive an email with 'invoice' or 'receipt' in the subject, extract the details and add a new row to my Google Sheets expense tracker"
+${examples}
 
 Respond with ONLY the enhanced prompt, nothing else. No explanations, no quotes, just the improved prompt text.`
 
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 300,
+    const result = await callAnthropicWithRetry({
       messages: [
         {
           role: 'user',
-          content: `Enhance this workflow prompt: "${prompt}"`
-        }
+          content: `Enhance this workflow prompt: "${prompt}"`,
+        },
       ],
       system: systemPrompt,
+      model: AI_MODELS.anthropic.fast,
+      maxTokens: 300,
+      temperature: 0.7,
+      timeoutMs: 15000,
+      label: 'enhance-prompt',
     })
 
-    const enhancedPrompt = response.content[0].type === 'text'
-      ? response.content[0].text.trim()
-      : prompt
-
     // Calculate approximate cost (Haiku pricing)
-    const inputTokens = response.usage?.input_tokens || 0
-    const outputTokens = response.usage?.output_tokens || 0
+    const inputTokens = result.usage?.inputTokens || 0
+    const outputTokens = result.usage?.outputTokens || 0
     const cost = (inputTokens * 0.00025 + outputTokens * 0.00125) / 1000
 
     return NextResponse.json({
       original: prompt,
-      enhanced: enhancedPrompt,
+      enhanced: result.content,
       cost: cost.toFixed(6),
     })
 
   } catch (error: any) {
-    console.error('[enhance-prompt] Error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to enhance prompt' },
       { status: 500 }
     )
   }
+}
+
+// ---------------------------------------------------------------------------
+// Dynamic example generation
+// ---------------------------------------------------------------------------
+
+// Provider category mappings for example generation
+const PROVIDER_CATEGORIES: Record<string, string[]> = {
+  email: ['gmail', 'microsoft-outlook', 'outlook'],
+  storage: ['google-drive', 'dropbox', 'onedrive'],
+  spreadsheet: ['google-sheets', 'airtable'],
+  chat: ['slack', 'discord', 'microsoft-teams'],
+  crm: ['hubspot', 'salesforce'],
+  calendar: ['google-calendar', 'microsoft-calendar'],
+  payment: ['stripe'],
+  social: ['twitter', 'linkedin'],
+  docs: ['notion', 'google-docs'],
+}
+
+function findConnectedProvider(category: string, connected: string[]): string | null {
+  const providers = PROVIDER_CATEGORIES[category] || []
+  return providers.find(p => connected.includes(p)) || null
+}
+
+function providerDisplayName(provider: string): string {
+  const names: Record<string, string> = {
+    'gmail': 'Gmail',
+    'microsoft-outlook': 'Outlook',
+    'outlook': 'Outlook',
+    'google-drive': 'Google Drive',
+    'dropbox': 'Dropbox',
+    'onedrive': 'OneDrive',
+    'google-sheets': 'Google Sheets',
+    'airtable': 'Airtable',
+    'slack': 'Slack',
+    'discord': 'Discord',
+    'microsoft-teams': 'Teams',
+    'hubspot': 'HubSpot',
+    'salesforce': 'Salesforce',
+    'stripe': 'Stripe',
+    'notion': 'Notion',
+    'google-calendar': 'Google Calendar',
+    'microsoft-calendar': 'Outlook Calendar',
+    'twitter': 'Twitter',
+    'linkedin': 'LinkedIn',
+    'google-docs': 'Google Docs',
+  }
+  return names[provider] || provider
+}
+
+function buildDynamicExamples(connected: string[]): string {
+  const email = findConnectedProvider('email', connected)
+  const storage = findConnectedProvider('storage', connected)
+  const spreadsheet = findConnectedProvider('spreadsheet', connected)
+  const chat = findConnectedProvider('chat', connected)
+
+  const emailName = email ? providerDisplayName(email) : 'your email provider'
+  const storageName = storage ? providerDisplayName(storage) : 'your cloud storage'
+  const sheetName = spreadsheet ? providerDisplayName(spreadsheet) : 'your spreadsheet app'
+  const chatName = chat ? providerDisplayName(chat) : 'your chat app'
+
+  return [
+    `- "notify me about emails" → "When I receive a new email in ${emailName}, send me a ${chatName} notification in #notifications with the sender name and subject line"`,
+    `- "save attachments" → "When I receive an email with attachments in ${emailName}, automatically save the files to ${storageName} in a folder called 'Email Attachments'"`,
+    `- "track expenses" → "When I receive an email with 'invoice' or 'receipt' in the subject, extract the details and add a new row to my ${sheetName} expense tracker"`,
+  ].join('\n')
 }

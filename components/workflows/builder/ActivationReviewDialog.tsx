@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo } from "react"
+import React, { useMemo, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,8 @@ import {
   validateDataFlow,
   type DataFlowValidation,
 } from "@/lib/workflows/validation/validateDataFlow"
+import { agentEvalTracker } from '@/lib/eval/agentEvalTracker'
+import { AGENT_EVAL_EVENTS } from '@/lib/eval/agentEvalTypes'
 
 interface ActivationReviewDialogProps {
   open: boolean
@@ -66,6 +68,20 @@ export function ActivationReviewDialog({
     () => validateDataFlow(nodes, edges),
     [nodes, edges]
   )
+
+  // Agent eval: track invalid variable references when dialog opens
+  useEffect(() => {
+    if (open && dataFlowResult.unresolvedReferences.length > 0) {
+      for (const ref of dataFlowResult.unresolvedReferences) {
+        agentEvalTracker.trackEvent(AGENT_EVAL_EVENTS.INVALID_VARIABLE_REF, {
+          node_id: ref.nodeId,
+          field_name: ref.fieldName,
+          variable_ref: ref.reference,
+          failure_labels: ['mapping_failure'],
+        })
+      }
+    }
+  }, [open, dataFlowResult.unresolvedReferences])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

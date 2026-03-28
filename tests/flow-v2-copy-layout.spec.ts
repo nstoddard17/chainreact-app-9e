@@ -22,7 +22,7 @@ const COPY = {
   planReadyCta: "Build",
   buildingSkeleton: "Building the skeleton of the flow",
   agentBadge: "Agent building flow",
-  waitingUser: "Waiting for user action",
+  waitingUser: "Complete this step to continue",
   continue: "Continue",
   skip: "Skip",
   setupRequired: "Setup required",

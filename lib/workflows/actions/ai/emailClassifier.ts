@@ -5,7 +5,7 @@
  * matches the user's described intent.
  */
 
-import Anthropic from '@anthropic-ai/sdk'
+import { getAnthropicClient } from '@/lib/ai/anthropic-client'
 import { z } from 'zod'
 
 const ConfigSchema = z.object({
@@ -40,9 +40,7 @@ export async function executeEmailClassifier(config: Config): Promise<Classifica
   const requiredConfidence = thresholds[validated.matchThreshold]
 
   // Initialize Anthropic client
-  const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY
-  })
+  const anthropic = getAnthropicClient()
 
   // Build the prompt
   const systemPrompt = `You are an email classification assistant. Your job is to analyze email content and determine if it matches the user's described intent.

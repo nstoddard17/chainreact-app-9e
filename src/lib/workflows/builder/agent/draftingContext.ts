@@ -318,6 +318,7 @@ DRAFTING CONTEXT RULES (mandatory when DRAFTING CONTEXT is provided):
 6. Do NOT change a [confirmed] decision unless the user EXPLICITLY says to override it (e.g., "actually use Outlook instead of Gmail").
 7. If all blocking open items are unresolved, ask about them BEFORE generating a final workflow plan.
 8. Prefer the drafting context over re-parsing raw chat history — it is the authoritative summary of conversation state.
+9. When CONTEXT NODES are also provided alongside drafting context, treat them as ground truth for what already exists in the workflow. Do not re-ask about configured fields visible in the context.
 `.trim()
 
 // ============================================================================

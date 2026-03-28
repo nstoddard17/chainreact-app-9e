@@ -7,7 +7,7 @@
  * - Semantic content matching (requires AI classifier)
  */
 
-import Anthropic from '@anthropic-ai/sdk'
+import { getAnthropicClient } from '@/lib/ai/anthropic-client'
 
 export interface EmailFilterIntent {
   type: 'simple' | 'semantic' | 'hybrid'
@@ -76,9 +76,7 @@ Be precise. Extract email addresses exactly. For semantic intent, describe what 
  * Analyze a workflow prompt to detect email filtering intent
  */
 export async function detectEmailFilters(prompt: string): Promise<EmailFilterIntent> {
-  const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY
-  })
+  const anthropic = getAnthropicClient()
 
   try {
     const response = await anthropic.messages.create({

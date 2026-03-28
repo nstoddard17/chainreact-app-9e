@@ -3,7 +3,7 @@ import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine
 import { google } from 'googleapis'
 import { getDecryptedAccessToken } from '@/lib/workflows/actions/core/getDecryptedAccessToken'
 import { logInfo, logError, logSuccess, logWarning } from '@/lib/logging/backendLogger'
-import Anthropic from '@anthropic-ai/sdk'
+import { getAnthropicClient } from '@/lib/ai/anthropic-client'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -632,9 +632,7 @@ async function classifyEmailWithAI(
   const requiredConfidence = thresholds[confidence]
 
   try {
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY
-    })
+    const anthropic = getAnthropicClient()
 
     const systemPrompt = `You are an email classification assistant. Analyze email content and determine if it matches the user's intent.
 

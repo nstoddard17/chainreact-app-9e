@@ -21,6 +21,9 @@ export interface ConfigField {
   multiline?: boolean // For text fields, whether to show as multiline
   useRawPayload?: boolean // For Discord rich text, whether to use raw payload
   disabled?: boolean // Whether the field is disabled
+  purpose?: string // What this field is for (e.g., "The body text of the email to send")
+  examples?: string[] // Typical values (e.g., ["Hello {{trigger.name}}", "Order shipped"])
+  fieldCategory?: 'identifier' | 'content' | 'selector' | 'config' // Classification hint for automatic field mode selection
   [key: string]: any
 }
 
@@ -62,6 +65,9 @@ export interface NodeField {
   showWhen?: { [key: string]: any }
   showIf?: (values: any) => boolean
   helpText?: string
+  purpose?: string // What this field is for (e.g., "The body text of the email to send")
+  examples?: string[] // Typical values (e.g., ["Hello {{trigger.name}}", "Order shipped"])
+  fieldCategory?: 'identifier' | 'content' | 'selector' | 'config' // Classification hint for automatic field mode selection
 }
 
 export interface NodeOutputField {

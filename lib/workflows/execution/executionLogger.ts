@@ -9,6 +9,7 @@
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { logInfo } from '@/lib/logging/backendLogger'
 import { maskEmail, redactConfig } from '@/lib/utils/logging'
+import { isSensitiveKey } from '@/lib/utils/redact-config'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -49,17 +50,21 @@ export interface ErrorLog {
 }
 
 /**
- * Check if a field contains sensitive data that should be redacted
+ * Check if a field contains sensitive data that should be redacted.
+ * Uses shared credential check + logging-specific PII patterns.
  */
 function isSensitiveField(fieldName: string): boolean {
+  // Credential check from shared utility
+  if (isSensitiveKey(fieldName)) return true
+
+  // PII patterns specific to execution logging
   const lowerName = fieldName.toLowerCase()
-  const sensitiveFields = [
+  const piiFields = [
     'to', 'from', 'cc', 'bcc', 'email', 'emailaddress',
     'subject', 'body', 'message', 'content', 'text', 'html',
-    'token', 'password', 'secret', 'key', 'apikey',
     'phone', 'address', 'ssn'
   ]
-  return sensitiveFields.some(field => lowerName.includes(field))
+  return piiFields.some(field => lowerName.includes(field))
 }
 
 /**
