@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
+import { executeWebhookWorkflow } from '@/lib/webhooks/execute'
 
 // Helper to create supabase client inside handlers
 const getSupabase = () => createClient(
@@ -146,8 +147,15 @@ export async function POST(request: NextRequest) {
         userId: resource.user_id,
       })
 
-      await executeWorkflow(resource.workflow_id, resource.user_id, triggerOutput)
-      executed++
+      const execResult = await executeWebhookWorkflow({
+        workflowId: resource.workflow_id,
+        userId: resource.user_id,
+        provider: 'shopify',
+        triggerType,
+        triggerData: triggerOutput,
+        metadata: { requestId, topic: shopifyTopic, domain: shopifyDomain },
+      })
+      if (execResult.success) executed++
     }
 
     const duration = Date.now() - startTime
@@ -213,78 +221,7 @@ function verifyShopifyHmac(rawBody: string, hmacHeader: string | null): boolean 
   }
 }
 
-/**
- * Execute a workflow with trigger data
- * Follows the same pattern as Gumroad/HubSpot webhook handlers
- */
-async function executeWorkflow(workflowId: string, userId: string, triggerData: any): Promise<void> {
-  try {
-    const supabase = getSupabase()
-
-    // Load workflow, nodes, and edges with service-role client (bypasses RLS)
-    // Webhook context has no cookies, so cookie-based clients can't read nodes
-    const [workflowResult, nodesResult, edgesResult] = await Promise.all([
-      supabase.from('workflows').select('*').eq('id', workflowId).eq('status', 'active').single(),
-      supabase.from('workflow_nodes').select('*').eq('workflow_id', workflowId).order('display_order'),
-      supabase.from('workflow_edges').select('*').eq('workflow_id', workflowId),
-    ])
-
-    if (workflowResult.error || !workflowResult.data) {
-      logger.error(`[Shopify Webhook] Workflow ${workflowId} not found or inactive`)
-      return
-    }
-
-    const workflow = workflowResult.data
-
-    // Map to the format WorkflowExecutionService expects
-    const nodes = (nodesResult.data || []).map((n: any) => ({
-      id: n.id,
-      type: n.node_type,
-      position: { x: n.position_x, y: n.position_y },
-      data: {
-        type: n.node_type,
-        label: n.label,
-        config: n.config || {},
-        isTrigger: n.is_trigger,
-        providerId: n.provider_id,
-      },
-    }))
-
-    const edges = (edgesResult.data || []).map((e: any) => ({
-      id: e.id,
-      source: e.source_node_id,
-      target: e.target_node_id,
-      sourceHandle: e.source_port_id || 'source',
-      targetHandle: e.target_port_id || 'target',
-    }))
-
-    logger.info(`[Shopify Webhook] Loaded ${nodes.length} nodes and ${edges.length} edges for workflow ${workflowId}`)
-
-    const { WorkflowExecutionService } = await import('@/lib/services/workflowExecutionService')
-    const workflowExecutionService = new WorkflowExecutionService()
-
-    const executionResult = await workflowExecutionService.executeWorkflow(
-      workflow,
-      triggerData,
-      userId,
-      false,            // testMode
-      { nodes, edges }, // workflowData - pass nodes/edges directly to bypass RLS
-      true,             // skipTriggers (already triggered by webhook)
-      undefined,        // testModeConfig
-      supabase          // service-role client (bypasses RLS in webhook context)
-    )
-
-    logger.info('[Shopify Webhook] Workflow executed:', {
-      workflowId,
-      success: !!executionResult.results,
-      executionId: executionResult.executionId,
-    })
-  } catch (error: any) {
-    logger.error(`[Shopify Webhook] Failed to execute workflow ${workflowId}:`, {
-      message: error.message,
-    })
-  }
-}
+// Workflow execution is now handled by the shared executeWebhookWorkflow() helper
 
 /**
  * Transform Shopify webhook payload to workflow trigger output schema

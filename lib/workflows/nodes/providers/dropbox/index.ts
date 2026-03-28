@@ -10,6 +10,7 @@ const dropboxTriggerNewFile: NodeComponent = {
   providerId: "dropbox",
   category: "Storage",
   isTrigger: true,
+  comingSoon: true,
   producesOutput: true,
   requiredScopes: ["files.metadata.read"],
   configSchema: [

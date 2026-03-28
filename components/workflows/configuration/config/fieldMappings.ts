@@ -675,9 +675,6 @@ const outlookMappings: Record<string, FieldMapping> = {
   "microsoft-outlook_action_add_categories": {
     emailId: "outlook_messages",
   },
-  "microsoft-outlook_action_search_email": {
-    folderId: "outlook_folders",
-  },
   "microsoft-outlook_action_fetch_emails": {
     folderId: "outlook_folders",
   },
@@ -948,20 +945,6 @@ const onedriveMappings: Record<string, FieldMapping> = {
 
 // Microsoft Excel field mappings
 const microsoftExcelMappings: Record<string, FieldMapping> = {
-  "microsoft_excel_unified_action": {
-    workbookId: "microsoft-excel_workbooks",
-    worksheetName: "microsoft-excel_worksheets",
-    columnMapping: "microsoft_excel_column_mapper",
-    dataPreview: "microsoft_excel_data_preview",
-    updateColumn: "microsoft-excel_columns",
-    updateValue: "microsoft-excel_column_values",
-    matchColumn: "microsoft-excel_columns",
-    deleteColumn: "microsoft-excel_columns",
-    deleteValue: "microsoft-excel_column_values",
-    filterColumn: "microsoft-excel_columns",
-    filterValue: "microsoft-excel_column_values",
-    sortColumn: "microsoft-excel_columns",
-  },
   "microsoft-excel_action_export_sheet": {
     workbookId: "microsoft-excel_workbooks",
     worksheetName: "microsoft-excel_worksheets",

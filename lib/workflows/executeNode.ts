@@ -26,7 +26,7 @@ import {
 import { executeAIAgent } from './aiAgent'
 import { processAIFields as processAIFieldsForChains, ProcessingContext } from './ai/fieldProcessor'
 import { processAIFields, hasAIPlaceholders } from './ai/aiFieldProcessor'
-import { resolveValue } from './actions/core/resolveValue'
+import { resolveValue, resolveValueWithTracking } from './actions/core/resolveValue'
 
 import { logger } from '@/lib/utils/logger'
 // Re-export getIntegrationById for backward compatibility
@@ -417,7 +417,14 @@ export async function executeAction({ node, input, userId, workflowId, testMode,
     description: { value: 'Sample description text' },
   } : undefined
 
-  const processedConfig = resolveValue(aiProcessedConfig, input, mockTriggerOutputs)
+  const { resolved: processedConfig, unresolvedRefs } = resolveValueWithTracking(aiProcessedConfig, input, mockTriggerOutputs)
+
+  // Log unresolved variable references as warnings
+  if (unresolvedRefs.length > 0) {
+    logger.warn(`⚠️ [executeNode] ${type}: ${unresolvedRefs.length} unresolved variable reference(s):`,
+      unresolvedRefs.map(r => r.reference).join(', ')
+    )
+  }
 
   // Check if environment is properly configured
   const hasSupabaseConfig = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY

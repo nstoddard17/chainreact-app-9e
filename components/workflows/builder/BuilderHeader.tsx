@@ -64,6 +64,7 @@ import { WorkflowVersionsDialog } from "./WorkflowVersionsDialog"
 import { WorkflowHistoryDialog } from "./WorkflowHistoryDialog"
 import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog"
 import { WorkflowCommentsDialog } from "../comments/WorkflowCommentsDialog"
+import { ActivationReviewDialog } from "./ActivationReviewDialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface BuilderHeaderProps {
@@ -99,6 +100,11 @@ interface BuilderHeaderProps {
   setShowExecutionHistory?: (show: boolean) => void
   onSelectHistoryRun?: (runId: string) => Promise<void> | void
   activeRunId?: string | null
+  // Pre-activation review props (from useWorkflowSaveActions)
+  showActivationReview?: boolean
+  setShowActivationReview?: (show: boolean) => void
+  confirmActivation?: () => Promise<void>
+  nodes?: Array<any>
 }
 
 const BuilderHeaderComponent = ({
@@ -134,6 +140,10 @@ const BuilderHeaderComponent = ({
   setShowExecutionHistory,
   onSelectHistoryRun,
   activeRunId,
+  showActivationReview = false,
+  setShowActivationReview,
+  confirmActivation,
+  nodes: headerNodes,
 }: BuilderHeaderProps) => {
   const router = useRouter()
   const { toast } = useToast()
@@ -959,6 +969,17 @@ const BuilderHeaderComponent = ({
         onOpenChange={setShowCommentsDialog}
         workflowId={workflowId || ""}
       />
+
+      {/* Pre-Activation Review Dialog (legacy builder path) */}
+      {setShowActivationReview && confirmActivation && (
+        <ActivationReviewDialog
+          open={showActivationReview}
+          onOpenChange={setShowActivationReview}
+          onConfirm={confirmActivation}
+          isActivating={isUpdatingStatus}
+          nodes={headerNodes ?? []}
+        />
+      )}
     </>
   )
 }

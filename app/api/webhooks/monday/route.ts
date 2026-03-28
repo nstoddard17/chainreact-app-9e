@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createHmac } from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
+import { executeWebhookWorkflow } from '@/lib/webhooks/execute'
 
 /**
  * Monday.com Webhook Handler
@@ -269,12 +270,12 @@ async function triggerWorkflowsForEvent(
   const supabase = getSupabase()
 
   try {
-    if (workflowId && nodeId) {
+    if (workflowId) {
       logger.info(`[Monday Webhook] Triggering workflow ${workflowId}`)
 
       const { data: workflow } = await supabase
         .from('workflows')
-        .select('*')
+        .select('id, user_id, status')
         .eq('id', workflowId)
         .eq('status', 'active')
         .single()
@@ -284,39 +285,41 @@ async function triggerWorkflowsForEvent(
         return
       }
 
-      await supabase.from('workflow_execution_sessions').insert({
-        workflow_id: workflowId,
-        user_id: workflow.user_id,
-        status: 'pending',
-        trigger_data: payload,
-        webhook_event_id: eventId,
-        created_at: new Date().toISOString()
+      await executeWebhookWorkflow({
+        workflowId: workflow.id,
+        userId: workflow.user_id,
+        provider: 'monday',
+        triggerType,
+        triggerData: payload,
+        metadata: { eventId },
       })
 
-      logger.info(`[Monday Webhook] Queued execution for workflow ${workflowId}`)
+      logger.info(`[Monday Webhook] Executed workflow ${workflowId}`)
       return
     }
 
-    const { data: workflows } = await supabase
-      .from('workflows')
-      .select('*')
+    // Fallback: find workflows by trigger_resources table
+    const { data: resources } = await supabase
+      .from('trigger_resources')
+      .select('workflow_id, user_id')
+      .eq('provider_id', 'monday')
+      .eq('trigger_type', triggerType)
       .eq('status', 'active')
-      .contains('nodes', [{ type: triggerType }])
 
-    logger.info(`[Monday Webhook] Found ${workflows?.length || 0} matching workflows`)
+    logger.info(`[Monday Webhook] Found ${resources?.length || 0} matching trigger resources`)
 
-    if (workflows && workflows.length > 0) {
-      const executions = workflows.map(workflow => ({
-        workflow_id: workflow.id,
-        user_id: workflow.user_id,
-        status: 'pending',
-        trigger_data: payload,
-        webhook_event_id: eventId,
-        created_at: new Date().toISOString()
-      }))
-
-      await supabase.from('workflow_execution_sessions').insert(executions)
-      logger.info(`[Monday Webhook] Queued ${executions.length} executions`)
+    if (resources && resources.length > 0) {
+      for (const resource of resources) {
+        await executeWebhookWorkflow({
+          workflowId: resource.workflow_id,
+          userId: resource.user_id,
+          provider: 'monday',
+          triggerType,
+          triggerData: payload,
+          metadata: { eventId },
+        })
+      }
+      logger.info(`[Monday Webhook] Executed ${resources.length} workflow(s)`)
     }
   } catch (error: any) {
     logger.error('[Monday Webhook] Failed to trigger workflows:', error)

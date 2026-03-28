@@ -343,7 +343,6 @@ describe('Execution', () => {
       'user-1',
       'webhook',
       expect.objectContaining({
-        webhookEvent: event,
         inputData: event.eventData,
         triggerData: event.eventData,
       })

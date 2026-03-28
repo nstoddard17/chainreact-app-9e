@@ -361,6 +361,131 @@ export function normalizeWebhookEvent(provider: string, rawEvent: any, requestId
     }
 
 
+    case 'discord': {
+      const envelope = rawEvent || {}
+      // Discord gateway sends { t: 'MESSAGE_CREATE', d: { ... } }
+      // Or raw message data directly (from bot forwarding)
+      const eventName = envelope.t || envelope.type || ''
+      const eventPayload = envelope.d || envelope
+
+      // MESSAGE_CREATE → discord_trigger_new_message
+      if (eventName === 'MESSAGE_CREATE' || eventPayload.content !== undefined) {
+        const normalizedData = {
+          messageId: eventPayload.id || null,
+          content: eventPayload.content || '',
+          authorId: eventPayload.author?.id || null,
+          authorName: eventPayload.author?.username || null,
+          channelId: eventPayload.channel_id || null,
+          channelName: eventPayload.channel_name || null,
+          guildId: eventPayload.guild_id || null,
+          guildName: eventPayload.guild_name || null,
+          timestamp: eventPayload.timestamp || new Date().toISOString(),
+          attachments: eventPayload.attachments || [],
+          mentions: eventPayload.mentions || [],
+          // Preserve for trigger filter matching
+          channel_id: eventPayload.channel_id || null,
+          author: eventPayload.author || null,
+          _raw: envelope,
+        }
+
+        return {
+          eventType: 'discord_trigger_new_message',
+          normalizedData,
+          eventId: eventPayload.id || requestId,
+        }
+      }
+
+      // GUILD_MEMBER_ADD → discord_trigger_member_join
+      if (eventName === 'GUILD_MEMBER_ADD') {
+        const normalizedData = {
+          memberId: eventPayload.user?.id || null,
+          memberTag: eventPayload.user ? `${eventPayload.user.username}#${eventPayload.user.discriminator || '0'}` : null,
+          memberUsername: eventPayload.user?.username || null,
+          memberDiscriminator: eventPayload.user?.discriminator || null,
+          memberAvatar: eventPayload.user?.avatar || null,
+          guildId: eventPayload.guild_id || null,
+          guildName: null,
+          joinedAt: eventPayload.joined_at || new Date().toISOString(),
+          _raw: envelope,
+        }
+
+        return {
+          eventType: 'discord_trigger_member_join',
+          normalizedData,
+          eventId: eventPayload.user?.id || requestId,
+        }
+      }
+
+      // INTERACTION_CREATE → discord_trigger_slash_command
+      if (eventName === 'INTERACTION_CREATE' && eventPayload.type === 2) {
+        const normalizedData = {
+          commandName: eventPayload.data?.name || null,
+          commandId: eventPayload.data?.id || null,
+          userId: eventPayload.member?.user?.id || eventPayload.user?.id || null,
+          userName: eventPayload.member?.user?.username || eventPayload.user?.username || null,
+          channelId: eventPayload.channel_id || null,
+          guildId: eventPayload.guild_id || null,
+          options: eventPayload.data?.options || [],
+          _raw: envelope,
+        }
+
+        return {
+          eventType: 'discord_trigger_slash_command',
+          normalizedData,
+          eventId: eventPayload.id || requestId,
+        }
+      }
+
+      // Fallback for unknown Discord events
+      return {
+        eventType: 'discord_trigger_event',
+        normalizedData: rawEvent,
+        eventId: (rawEvent && (rawEvent.id || rawEvent.event_id)) || requestId,
+      }
+    }
+
+    case 'facebook': {
+      const fbEvent = rawEvent || {}
+      // Facebook sends: { object: 'page', entry: [{ id, changes: [{ field, value }] }] }
+      const entries = fbEvent.entry || []
+      if (entries.length === 0) {
+        return {
+          eventType: 'facebook_trigger_event',
+          normalizedData: fbEvent,
+          eventId: requestId,
+        }
+      }
+
+      const firstEntry = entries[0]
+      const firstChange = (firstEntry.changes || [])[0] || {}
+      const item = firstChange.value?.item || ''
+      const pageId = firstEntry.id
+
+      let eventType = 'facebook_trigger_event'
+      if (item === 'post' || item === 'status' || item === 'photo' || item === 'video' || item === 'share') {
+        eventType = 'facebook_trigger_new_post'
+      } else if (item === 'comment') {
+        eventType = 'facebook_trigger_new_comment'
+      }
+
+      const normalizedData = {
+        pageId,
+        postId: firstChange.value?.post_id || null,
+        message: firstChange.value?.message || null,
+        from: firstChange.value?.from || null,
+        createdTime: firstChange.value?.created_time || new Date().toISOString(),
+        item,
+        commentId: firstChange.value?.comment_id || null,
+        _raw: fbEvent,
+      }
+
+      return {
+        eventType,
+        normalizedData,
+        eventId: firstChange.value?.post_id || firstChange.value?.comment_id || requestId,
+      }
+    }
+
     default:
       return {
         eventType: `${provider}_trigger_event`,

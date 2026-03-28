@@ -6,6 +6,29 @@ import { getWebhookBaseUrl } from '@/lib/utils/getBaseUrl'
 import crypto from 'crypto'
 
 import { logger } from '@/lib/utils/logger'
+import { executeWebhookWorkflow } from '@/lib/webhooks/execute'
+
+/**
+ * Execute a Microsoft-triggered workflow via the shared execution helper.
+ * Replaces the previous pattern of HTTP calls to /api/workflows/execute.
+ */
+async function executeMicrosoftWorkflow(
+  workflowId: string,
+  userId: string,
+  triggerType: string,
+  inputData: any
+): Promise<void> {
+  const result = await executeWebhookWorkflow({
+    workflowId,
+    userId,
+    provider: 'microsoft',
+    triggerType,
+    triggerData: inputData,
+  })
+  if (!result.success) {
+    logger.error(`[Microsoft Webhook] Workflow execution failed: ${result.error}`, { workflowId, triggerType })
+  }
+}
 
 // Helper to create supabase client inside handlers
 const getSupabase = () => createClient(
@@ -691,50 +714,18 @@ async function processNotifications(
 
             for (const newWorksheet of newWorksheets) {
               if (workflowId) {
-                const base = getWebhookBaseUrl()
-                const executionUrl = `${base}/api/workflows/execute`
-
-                const executionPayload = {
-                  workflowId,
-                  testMode: false,
-                  executionMode: 'live',
-                  skipTriggers: true,
-                  inputData: {
-                    source: 'microsoft-excel-worksheet-created',
-                    subscriptionId: subId,
-                    triggerType,
-                    workbookId: triggerConfig.workbookId,
-                    worksheet: {
-                      id: newWorksheet.id,
-                      name: newWorksheet.name,
-                      position: newWorksheet.position
-                    }
-                  }
-                }
-
                 logger.info('[Microsoft Excel] Triggering workflow for new worksheet:', {
                   worksheetName: newWorksheet.name,
                   workflowId
                 })
 
-                const response = await fetch(executionUrl, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'x-user-id': userId
-                  },
-                  body: JSON.stringify(executionPayload)
+                await executeMicrosoftWorkflow(workflowId, userId, triggerType || 'microsoft_excel_trigger_new_worksheet', {
+                  source: 'microsoft-excel-worksheet-created',
+                  subscriptionId: subId,
+                  triggerType,
+                  workbookId: triggerConfig.workbookId,
+                  worksheet: { id: newWorksheet.id, name: newWorksheet.name, position: newWorksheet.position }
                 })
-
-                if (!response.ok) {
-                  const errorText = await response.text()
-                  logger.error('[Microsoft Excel] Workflow execution failed:', {
-                    status: response.status,
-                    error: errorText
-                  })
-                } else {
-                  logger.info('[Microsoft Excel] ✅ Workflow execution triggered successfully for worksheet:', newWorksheet.name)
-                }
               }
             }
           } else {
@@ -861,47 +852,19 @@ async function processNotifications(
             })
 
             if (workflowId) {
-              const base = getWebhookBaseUrl()
-              const executionUrl = `${base}/api/workflows/execute`
+              logger.info('[Microsoft Excel] Triggering workflow execution:', { workflowId })
 
-              const executionPayload = {
-                workflowId,
-                testMode: false,
-                executionMode: 'live',
-                skipTriggers: true,
-                inputData: {
-                  source: 'microsoft-excel-file-change',
-                  subscriptionId: subId,
-                  triggerType,
-                  workbookId: triggerConfig.workbookId,
-                  worksheetName: excelTableOrSheet,
-                  rowId: hasRowIdDiff ? newRowId : newRow?.id || null,
-                  values,
-                  rowData,
-                  columns: snapshot.columns
-                }
-              }
-
-              logger.info('[Microsoft Excel] Triggering workflow execution:', { executionUrl, workflowId })
-
-              const response = await fetch(executionUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-user-id': userId
-                },
-                body: JSON.stringify(executionPayload)
+              await executeMicrosoftWorkflow(workflowId, userId, triggerType || 'microsoft_excel_trigger_new_row', {
+                source: 'microsoft-excel-file-change',
+                subscriptionId: subId,
+                triggerType,
+                workbookId: triggerConfig.workbookId,
+                worksheetName: excelTableOrSheet,
+                rowId: hasRowIdDiff ? newRowId : newRow?.id || null,
+                values,
+                rowData,
+                columns: snapshot.columns
               })
-
-              if (!response.ok) {
-                const errorText = await response.text()
-                logger.error('[Microsoft Excel] Workflow execution failed:', {
-                  status: response.status,
-                  error: errorText
-                })
-              } else {
-                logger.info('[Microsoft Excel] ✅ Workflow execution triggered successfully')
-              }
             }
             continue
           }
@@ -923,50 +886,19 @@ async function processNotifications(
             })
 
             if (workflowId) {
-              const base = getWebhookBaseUrl()
-              const executionUrl = `${base}/api/workflows/execute`
+              logger.info('[Microsoft Excel] Triggering workflow for updated row:', { rowId: changedRowId, workflowId })
 
-              const executionPayload = {
-                workflowId,
-                testMode: false,
-                executionMode: 'live',
-                skipTriggers: true,
-                inputData: {
-                  source: 'microsoft-excel-file-change',
-                  subscriptionId: subId,
-                  triggerType,
-                  workbookId: triggerConfig.workbookId,
-                  worksheetName: excelTableOrSheet,
-                  rowId: changedRowId,
-                  values,
-                  rowData,
-                  columns: snapshot.columns
-                }
-              }
-
-              logger.info('[Microsoft Excel] Triggering workflow for updated row:', {
+              await executeMicrosoftWorkflow(workflowId, userId, triggerType || 'microsoft_excel_trigger_updated_row', {
+                source: 'microsoft-excel-file-change',
+                subscriptionId: subId,
+                triggerType,
+                workbookId: triggerConfig.workbookId,
+                worksheetName: excelTableOrSheet,
                 rowId: changedRowId,
-                workflowId
+                values,
+                rowData,
+                columns: snapshot.columns
               })
-
-              const response = await fetch(executionUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-user-id': userId
-                },
-                body: JSON.stringify(executionPayload)
-              })
-
-              if (!response.ok) {
-                const errorText = await response.text()
-                logger.error('[Microsoft Excel] Workflow execution failed:', {
-                  status: response.status,
-                  error: errorText
-                })
-              } else {
-                logger.info('[Microsoft Excel] ✅ Workflow execution triggered successfully for updated row')
-              }
             }
             continue
           }
@@ -1021,41 +953,15 @@ async function processNotifications(
 
         // Trigger workflow execution directly
         if (workflowId) {
-          const base = getWebhookBaseUrl()
-          const executionUrl = `${base}/api/workflows/execute`
+          logger.info('Triggering OneDrive workflow:', { workflowId })
 
-          const executionPayload = {
-            workflowId,
-            testMode: false,
-            executionMode: 'live',
-            skipTriggers: true,
-            inputData: {
-              source: 'microsoft-graph-onedrive',
-              subscriptionId: subId,
-              triggerType,
-              changeType,
-              onedrive: onedriveData
-            }
-          }
-
-          logger.info('Calling execution API for OneDrive trigger:', executionUrl)
-
-          const response = await fetch(executionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-user-id': userId
-            },
-            body: JSON.stringify(executionPayload)
+          await executeMicrosoftWorkflow(workflowId, userId, triggerType || 'onedrive_trigger_new_file', {
+            source: 'microsoft-graph-onedrive',
+            subscriptionId: subId,
+            triggerType,
+            changeType,
+            onedrive: onedriveData
           })
-
-          if (!response.ok) {
-            const errorText = await response.text()
-            logger.error('OneDrive workflow execution failed:', {
-              status: response.status,
-              error: errorText
-            })
-          }
         } else {
           logger.warn('Cannot trigger OneDrive workflow - missing workflowId')
         }
@@ -1628,58 +1534,16 @@ async function processNotifications(
         })
 
         try {
-          // Trigger workflow via workflow execution API
-          const base = getWebhookBaseUrl()
-          const executionUrl = `${base}/api/workflows/execute`
+          logger.info('📤 Triggering workflow execution:', { workflowId, triggerType })
 
-          const executionPayload = {
-            workflowId,
-            testMode: false,
-            executionMode: 'live',
-            skipTriggers: true, // Already triggered by webhook
-            inputData: {
-              source: 'microsoft-graph-webhook',
-              subscriptionId: subId,
-              resource,
-              changeType,
-              resourceData: change?.resourceData,
-              notificationPayload: change
-            }
-          }
-
-          logger.info('📤 Calling execution API:', executionUrl)
-          // SECURITY: Don't log full execution payload (contains resource data/PII)
-          logger.info('📦 Execution payload metadata:', {
-            workflowId: executionPayload.workflowId,
-            testMode: executionPayload.testMode,
-            executionMode: executionPayload.executionMode,
-            skipTriggers: executionPayload.skipTriggers,
-            hasInputData: !!executionPayload.inputData
+          await executeMicrosoftWorkflow(workflowId, userId, triggerType || 'microsoft_trigger_event', {
+            source: 'microsoft-graph-webhook',
+            subscriptionId: subId,
+            resource,
+            changeType,
+            resourceData: change?.resourceData,
+            notificationPayload: change
           })
-
-          const response = await fetch(executionUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-user-id': userId // Pass user context
-            },
-            body: JSON.stringify(executionPayload)
-          })
-
-          if (response.ok) {
-            const result = await response.json()
-            logger.info('✅ Workflow execution triggered:', {
-              workflowId,
-              executionId: result?.executionId,
-              status: result?.status
-            })
-          } else {
-            const errorText = await response.text()
-            logger.error('❌ Workflow execution failed:', {
-              status: response.status,
-              error: errorText
-            })
-          }
         } catch (execError) {
           logger.error('❌ Error triggering workflow:', execError)
         }

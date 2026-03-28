@@ -547,6 +547,97 @@ describe('Trello normalization', () => {
   })
 })
 
+// ─── Discord Normalization ───────────────────────────────────────────────────
+
+describe('Discord normalization', () => {
+  test('MESSAGE_CREATE event (gateway format) -> discord_trigger_new_message', () => {
+    const raw = {
+      t: 'MESSAGE_CREATE',
+      d: {
+        id: 'msg-1',
+        content: 'Hello world',
+        channel_id: 'ch-1',
+        guild_id: 'guild-1',
+        author: { id: 'user-1', username: 'testuser' },
+        timestamp: '2026-01-01T00:00:00Z',
+        attachments: [],
+        mentions: [],
+      },
+    }
+
+    const result = normalizeWebhookEvent('discord', raw, REQ_ID)
+    expect(result.eventType).toBe('discord_trigger_new_message')
+    expect(result.normalizedData.messageId).toBe('msg-1')
+    expect(result.normalizedData.content).toBe('Hello world')
+    expect(result.normalizedData.authorId).toBe('user-1')
+    expect(result.normalizedData.authorName).toBe('testuser')
+    expect(result.normalizedData.channelId).toBe('ch-1')
+    expect(result.normalizedData.guildId).toBe('guild-1')
+  })
+
+  test('raw message data (bot forwarding) -> discord_trigger_new_message', () => {
+    const raw = {
+      id: 'msg-2',
+      content: 'Direct message',
+      channel_id: 'ch-2',
+      guild_id: 'guild-2',
+      author: { id: 'user-2', username: 'botuser' },
+    }
+
+    const result = normalizeWebhookEvent('discord', raw, REQ_ID)
+    expect(result.eventType).toBe('discord_trigger_new_message')
+    expect(result.normalizedData.content).toBe('Direct message')
+  })
+
+  test('GUILD_MEMBER_ADD -> discord_trigger_member_join', () => {
+    const raw = {
+      t: 'GUILD_MEMBER_ADD',
+      d: {
+        user: { id: 'user-1', username: 'newmember', discriminator: '1234', avatar: 'abc' },
+        guild_id: 'guild-1',
+        joined_at: '2026-01-01T00:00:00Z',
+      },
+    }
+
+    const result = normalizeWebhookEvent('discord', raw, REQ_ID)
+    expect(result.eventType).toBe('discord_trigger_member_join')
+    expect(result.normalizedData.memberId).toBe('user-1')
+    expect(result.normalizedData.memberUsername).toBe('newmember')
+    expect(result.normalizedData.guildId).toBe('guild-1')
+    expect(result.normalizedData.memberTag).toBe('newmember#1234')
+  })
+
+  test('INTERACTION_CREATE (type 2) -> discord_trigger_slash_command', () => {
+    const raw = {
+      t: 'INTERACTION_CREATE',
+      d: {
+        id: 'interaction-1',
+        type: 2, // APPLICATION_COMMAND
+        data: { id: 'cmd-1', name: 'hello', options: [{ name: 'target', value: 'world' }] },
+        member: { user: { id: 'user-1', username: 'cmduser' } },
+        channel_id: 'ch-1',
+        guild_id: 'guild-1',
+      },
+    }
+
+    const result = normalizeWebhookEvent('discord', raw, REQ_ID)
+    expect(result.eventType).toBe('discord_trigger_slash_command')
+    expect(result.normalizedData.commandName).toBe('hello')
+    expect(result.normalizedData.userId).toBe('user-1')
+    expect(result.normalizedData.options).toHaveLength(1)
+  })
+
+  test('unknown Discord event -> discord_trigger_event fallback', () => {
+    const raw = {
+      t: 'UNKNOWN_EVENT',
+      d: { some: 'data' },
+    }
+
+    const result = normalizeWebhookEvent('discord', raw, REQ_ID)
+    expect(result.eventType).toBe('discord_trigger_event')
+  })
+})
+
 // ─── Default Normalization ───────────────────────────────────────────────────
 
 describe('Default normalization', () => {

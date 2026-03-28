@@ -63,6 +63,7 @@ export function useWorkflowSaveActions({
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const [showActivationReview, setShowActivationReview] = useState(false)
 
   // Refs to track save state and prevent cascading saves
   const justSavedRef = useRef(false)
@@ -326,9 +327,10 @@ export function useWorkflowSaveActions({
   }, [serializeWorkflowState, saveTemplateDraft, toast])
 
   /**
-   * Handle toggle live status - stable callback using refs
+   * Shared pre-flight checks for activation/deactivation.
+   * Returns the workflow if checks pass, or null if they fail.
    */
-  const handleToggleLive = useCallback(async () => {
+  const runPreflightChecks = useCallback((): { workflow: Workflow; isActivating: boolean } | null => {
     const {
       isTemplateEditing: isTemplate,
       currentWorkflow: workflow,
@@ -342,7 +344,7 @@ export function useWorkflowSaveActions({
         description: "Templates cannot be activated",
         variant: "destructive",
       })
-      return
+      return null
     }
 
     if (!workflow?.id) {
@@ -351,7 +353,7 @@ export function useWorkflowSaveActions({
         description: "No workflow to activate",
         variant: "destructive",
       })
-      return
+      return null
     }
 
     if (unsaved) {
@@ -360,11 +362,13 @@ export function useWorkflowSaveActions({
         description: "Please save your changes before activating the workflow",
         variant: "destructive",
       })
-      return
+      return null
     }
 
+    const isActivating = workflow.status !== 'active'
+
     // Check for validation errors when activating
-    if (workflow.status !== 'active') {
+    if (isActivating) {
       const nodesWithErrors = currentNodes.filter(node => {
         const validationState = node.data?.validationState
         if (!validationState || validationState.isValid) return false
@@ -385,15 +389,27 @@ export function useWorkflowSaveActions({
           description: `Cannot activate workflow. The following nodes have missing required fields: ${nodeNames}. Please configure all required fields before activating.`,
           variant: "destructive",
         })
-        return
+        return null
       }
     }
 
+    return { workflow: workflow as Workflow, isActivating }
+  }, [toast])
+
+  /**
+   * Executes the actual activate/deactivate API call.
+   * Called directly for deactivation, or after review dialog confirmation for activation.
+   */
+  const executeToggleLive = useCallback(async () => {
+    const workflow = propsRef.current.currentWorkflow
+    if (!workflow?.id) return
+
+    const isActivating = workflow.status !== 'active'
+    const endpoint = isActivating ? 'activate' : 'deactivate'
+
     try {
       setIsUpdatingStatus(true)
-
-      const isActivating = workflow.status !== 'active'
-      const endpoint = isActivating ? 'activate' : 'deactivate'
+      setShowActivationReview(false)
 
       logger.info(`${isActivating ? 'Activating' : 'Deactivating'} workflow:`, {
         workflowId: workflow.id,
@@ -431,10 +447,10 @@ export function useWorkflowSaveActions({
         variant: isActivating ? 'default' : 'secondary',
       })
     } catch (error: any) {
-      logger.error(`Error ${workflow.status === 'active' ? 'deactivating' : 'activating'} workflow:`, error)
+      logger.error(`Error ${endpoint} workflow:`, error)
       toast({
         title: "Error",
-        description: error?.message || `Failed to ${workflow.status === 'active' ? 'deactivate' : 'activate'} workflow`,
+        description: error?.message || `Failed to ${endpoint} workflow`,
         variant: "destructive",
       })
     } finally {
@@ -442,11 +458,31 @@ export function useWorkflowSaveActions({
     }
   }, [toast])
 
+  /**
+   * Handle toggle live status - stable callback using refs.
+   * Shows activation review dialog when activating; deactivates directly.
+   */
+  const handleToggleLive = useCallback(async () => {
+    const result = runPreflightChecks()
+    if (!result) return
+
+    if (result.isActivating) {
+      // Show review dialog before activating
+      setShowActivationReview(true)
+    } else {
+      // Deactivate directly (no review needed)
+      await executeToggleLive()
+    }
+  }, [runPreflightChecks, executeToggleLive])
+
   return {
     isSaving,
     isUpdatingStatus,
     handleSave,
     handleToggleLive,
+    showActivationReview,
+    setShowActivationReview,
+    confirmActivation: executeToggleLive,
     justSavedRef,
     serializeWorkflowState,
   }

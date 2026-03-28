@@ -38,7 +38,9 @@ const manychatTriggerNewSubscriber: NodeComponent = {
   providerId: "manychat",
   category: "Communication",
   isTrigger: true,
+  comingSoon: true,
   producesOutput: true,
+  configSchema: [],
   outputSchema: [
     {
       name: "subscriberId",
@@ -99,9 +101,10 @@ const manychatTriggerNewTaggedUser: NodeComponent = {
   providerId: "manychat",
   category: "Communication",
   isTrigger: true,
+  comingSoon: true,
   producesOutput: true,
   configSchema: [
-    { name: "tagId", label: "Tag", type: "combobox", required: true, placeholder: "Select a tag", description: "The tag to watch for" }
+    { name: "tagId", label: "Tag", type: "text", required: true, placeholder: "Enter a tag ID", description: "The tag to watch for" }
   ],
   outputSchema: [
     {
@@ -157,9 +160,10 @@ const manychatTriggerCustomFieldUpdated: NodeComponent = {
   providerId: "manychat",
   category: "Communication",
   isTrigger: true,
+  comingSoon: true,
   producesOutput: true,
   configSchema: [
-    { name: "fieldId", label: "Custom Field", type: "combobox", required: true, placeholder: "Select a custom field", description: "The custom field to watch for changes" }
+    { name: "fieldId", label: "Custom Field", type: "text", required: true, placeholder: "Enter a custom field ID", description: "The custom field to watch for changes" }
   ],
   outputSchema: [
     {
@@ -227,7 +231,9 @@ const manychatTriggerChatOpened: NodeComponent = {
   providerId: "manychat",
   category: "Communication",
   isTrigger: true,
+  comingSoon: true,
   producesOutput: true,
+  configSchema: [],
   outputSchema: [
     {
       name: "subscriberId",
@@ -317,7 +323,7 @@ const manychatActionTagSubscriber: NodeComponent = {
   isTrigger: false,
   configSchema: [
     { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to tag" },
-    { name: "tagId", label: "Tag", type: "combobox", required: true, placeholder: "Select a tag", description: "The tag to add to the subscriber" }
+    { name: "tagId", label: "Tag", type: "text", required: true, placeholder: "Enter a tag ID", description: "The tag to add to the subscriber" }
   ],
   outputSchema: [
     {
@@ -351,7 +357,7 @@ const manychatActionSendFlow: NodeComponent = {
   isTrigger: false,
   configSchema: [
     { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber to send the flow to" },
-    { name: "flowNs", label: "Flow", type: "combobox", required: true, placeholder: "Select a flow or enter flow namespace", description: "The flow namespace (e.g., content20220101000000_123456)" }
+    { name: "flowNs", label: "Flow", type: "text", required: true, placeholder: "Enter flow namespace (e.g., content20220101000000_123456)", description: "The flow namespace" }
   ],
   outputSchema: [
     {
@@ -385,7 +391,7 @@ const manychatActionSetCustomField: NodeComponent = {
   isTrigger: false,
   configSchema: [
     { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
-    { name: "fieldId", label: "Custom Field", type: "combobox", required: true, placeholder: "Select a custom field", description: "The custom field to set" },
+    { name: "fieldId", label: "Custom Field", type: "text", required: true, placeholder: "Enter a custom field ID", description: "The custom field to set" },
     { name: "fieldValue", label: "Field Value", type: "text", required: true, placeholder: "Enter field value", description: "The value to set for the custom field" }
   ],
   outputSchema: [
@@ -454,7 +460,7 @@ const manychatActionRemoveTag: NodeComponent = {
   isTrigger: false,
   configSchema: [
     { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
-    { name: "tagId", label: "Tag", type: "combobox", required: true, placeholder: "Select a tag", description: "The tag to remove from the subscriber" }
+    { name: "tagId", label: "Tag", type: "text", required: true, placeholder: "Enter a tag ID", description: "The tag to remove from the subscriber" }
   ],
   outputSchema: [
     {
@@ -488,7 +494,7 @@ const manychatActionSubscribeSequence: NodeComponent = {
   isTrigger: false,
   configSchema: [
     { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
-    { name: "sequenceId", label: "Sequence", type: "combobox", required: true, placeholder: "Select a sequence or enter sequence ID", description: "The sequence to subscribe the user to" }
+    { name: "sequenceId", label: "Sequence", type: "text", required: true, placeholder: "Enter sequence ID", description: "The sequence to subscribe the user to" }
   ],
   outputSchema: [
     {
@@ -522,7 +528,7 @@ const manychatActionUnsubscribeSequence: NodeComponent = {
   isTrigger: false,
   configSchema: [
     { name: "subscriberId", label: "Subscriber ID", type: "text", required: true, placeholder: "Enter subscriber ID", description: "The ID of the subscriber" },
-    { name: "sequenceId", label: "Sequence", type: "combobox", required: true, placeholder: "Select a sequence or enter sequence ID", description: "The sequence to unsubscribe the user from" }
+    { name: "sequenceId", label: "Sequence", type: "text", required: true, placeholder: "Enter sequence ID", description: "The sequence to unsubscribe the user from" }
   ],
   outputSchema: [
     {
@@ -599,7 +605,7 @@ const manychatActionFindByCustomField: NodeComponent = {
   isTrigger: false,
   producesOutput: true,
   configSchema: [
-    { name: "fieldId", label: "Custom Field", type: "combobox", required: true, placeholder: "Select a custom field", description: "The custom field to search by" },
+    { name: "fieldId", label: "Custom Field", type: "text", required: true, placeholder: "Enter a custom field ID", description: "The custom field to search by" },
     { name: "fieldValue", label: "Field Value", type: "text", required: true, placeholder: "Enter value to search for", description: "The value to search for" }
   ],
   outputSchema: [

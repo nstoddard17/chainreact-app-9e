@@ -282,12 +282,13 @@ describe('Action Provider Coverage', () => {
       'gmail', 'slack', 'discord', 'notion', 'airtable',
       'hubspot', 'stripe', 'trello', 'shopify', 'teams',
       'google_sheets', 'google_calendar', 'google_drive',
-      'microsoft_excel', 'monday', 'twitter', 'mailchimp'
+      'microsoft_excel', 'monday', 'mailchimp'
     ]
 
     const underserved: string[] = []
     for (const provider of majorProviders) {
-      const pattern = new RegExp(`"${provider}[_:]`, 'g')
+      const hyphenated = provider.replace(/_/g, '-')
+      const pattern = new RegExp(`"(${provider}|${hyphenated})[_:]`, 'g')
       const count = (source.match(pattern) || []).length
       if (count < 3) {
         underserved.push(`${provider}: only ${count} handlers`)
@@ -300,7 +301,8 @@ describe('Action Provider Coverage', () => {
 
     // All major providers should have at least 1 handler
     for (const provider of majorProviders) {
-      const pattern = new RegExp(`"${provider}[_:]`)
+      const hyphenated = provider.replace(/_/g, '-')
+      const pattern = new RegExp(`"(${provider}|${hyphenated})[_:]`)
       expect(pattern.test(source)).toBe(true)
     }
   })

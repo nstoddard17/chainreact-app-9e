@@ -123,6 +123,39 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
+    // Validate data-flow: ensure all {{...}} variable references resolve to real nodes
+    const { data: edgesData } = await serviceClient
+      .from('workflow_edges')
+      .select('source_node_id, target_node_id')
+      .eq('workflow_id', resolvedParams.id)
+
+    const { validateDataFlow } = await import('@/lib/workflows/validation/validateDataFlow')
+    const dataFlowNodes = (nodesData || []).map((n: any) => ({
+      id: n.id,
+      data: {
+        type: n.node_type,
+        title: n.node_type,
+        isTrigger: n.is_trigger,
+        config: n.config || {},
+      }
+    }))
+    const dataFlowEdges = (edgesData || []).map((e: any) => ({
+      source: e.source_node_id,
+      target: e.target_node_id,
+    }))
+    const dataFlowResult = validateDataFlow(dataFlowNodes, dataFlowEdges)
+
+    if (!dataFlowResult.isValid) {
+      const refErrors = dataFlowResult.unresolvedReferences.map(
+        (r) => `${r.nodeTitle}: ${r.reference} — ${r.reason}`
+      )
+      logger.warn('❌ Workflow has unresolved variable references:', refErrors)
+      return errorResponse(
+        `Workflow has unresolved variable references: ${refErrors.join('; ')}`,
+        400
+      )
+    }
+
     // Convert nodes to format expected by TriggerLifecycleManager
     const nodes = (nodesData || []).map((n: any) => ({
       id: n.id,
@@ -184,6 +217,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }
 
       logger.info('✅ All trigger resources activated successfully')
+
+      // Save activation snapshot for diff-on-edit feature
+      try {
+        const { createWorkflowSnapshot } = await import('@/lib/workflows/validation/workflowDiff')
+        const snapshot = createWorkflowSnapshot(
+          dataFlowNodes,
+          dataFlowEdges
+        )
+        await serviceClient
+          .from('workflow_activation_snapshots')
+          .insert({
+            workflow_id: workflow.id,
+            snapshot_json: snapshot,
+            activated_at: new Date().toISOString(),
+            created_by: user.id,
+          })
+      } catch (snapshotError) {
+        // Non-critical — don't fail activation if snapshot save fails
+        logger.warn('Failed to save activation snapshot:', snapshotError)
+      }
+
       logger.info(`✅ Workflow activated: ${workflow.name} (${workflow.id})`)
 
       return jsonResponse({

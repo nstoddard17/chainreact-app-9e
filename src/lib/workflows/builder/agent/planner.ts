@@ -562,6 +562,15 @@ function isPromptTooVague(prompt: string, connectedIntegrations: string[]): bool
     return false
   }
 
+  // Goal-oriented keywords that signal the user wants a workflow built
+  const hasGoalKeyword = /\b(retention|engage|onboard|marketing|sales|support|follow[- ]?up|automate|workflow|automation|process|monitor|track|alert|report|digest|backup|sync|integrat|pipeline|funnel|churn|lead|customer|order|invoice|payment|subscri|notify|remind|check|review|approve|escalat|assign|route|random|something|suggest|recommend|build|make|help)\b/.test(n)
+
+  // If user has 2+ connected integrations AND expresses a goal or automation intent,
+  // we have enough context to propose a concrete workflow — not vague
+  if (connectedIntegrations.length >= 2 && hasGoalKeyword) {
+    return false
+  }
+
   // Check for specific app/integration mentions
   const hasSpecificApp = /\b(gmail|emails?|slack|discord|notion|airtable|sheets|spreadsheet|stripe|hubspot|trello|github|webhook|teams|outlook|calendar|drive|dropbox|shopify|mailchimp|monday|twitter|facebook)\b/.test(n)
 

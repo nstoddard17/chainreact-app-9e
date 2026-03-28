@@ -526,6 +526,9 @@ export function useWorkflowBuilder() {
     isUpdatingStatus,
     handleSave,
     handleToggleLive,
+    showActivationReview,
+    setShowActivationReview,
+    confirmActivation,
     justSavedRef,
     // serializeWorkflowState - using local version below
   } = saveActionsHook
@@ -3558,6 +3561,9 @@ export function useWorkflowBuilder() {
     // Handlers
     handleSave,
     handleToggleLive,
+    showActivationReview,
+    setShowActivationReview,
+    confirmActivation,
     isUpdatingStatus,
     handleTriggerSelect,
     handleTriggerDialogClose,

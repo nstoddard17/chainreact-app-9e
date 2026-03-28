@@ -682,7 +682,7 @@ class DiscordGateway extends SimpleEventEmitter {
         }
       }
 
-      logger.info(`📤 Sending Discord message to workflow endpoint: ${baseUrl}/api/workflow/discord`)
+      logger.info(`📤 Sending Discord message to workflow endpoint: ${baseUrl}/api/webhooks/discord`)
       logger.info(`📨 Message details:`, {
         messageId: messageData.id,
         channelId: messageData.channel_id,
@@ -711,7 +711,7 @@ class DiscordGateway extends SimpleEventEmitter {
       let processed = false
 
       for (const candidateBaseUrl of candidateBaseUrls) {
-        const endpoint = `${candidateBaseUrl}/api/workflow/discord`
+        const endpoint = `${candidateBaseUrl}/api/webhooks/discord`
         try {
           const response = await fetch(endpoint, {
             method: 'POST',

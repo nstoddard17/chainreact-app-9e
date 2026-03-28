@@ -161,7 +161,7 @@ class DiscordBotService {
 
     try {
       // Send to ChainReact webhook endpoint
-      const response = await fetch(`${this.webhookUrl}/api/workflow/discord`, {
+      const response = await fetch(`${this.webhookUrl}/api/webhooks/discord`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

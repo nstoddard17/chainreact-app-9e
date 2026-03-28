@@ -21,6 +21,8 @@ import { WebhookTriggerLifecycle } from './providers/WebhookTriggerLifecycle'
 import { TeamsTriggerLifecycle } from './teams'
 import { MailchimpTriggerLifecycle } from './providers/MailchimpTriggerLifecycle'
 import { TrelloTriggerLifecycle } from './providers/TrelloTriggerLifecycle'
+import { FacebookTriggerLifecycle } from './providers/FacebookTriggerLifecycle'
+import { GitHubTriggerLifecycle } from './providers/GitHubTriggerLifecycle'
 import { registerPollingHandler } from './polling'
 import { microsoftExcelPollingHandler } from './pollers/microsoft-excel'
 import { microsoftOnenotePollingHandler } from './pollers/microsoft-onenote'
@@ -172,6 +174,22 @@ triggerLifecycleManager.registerProvider({
   lifecycle: new TrelloTriggerLifecycle(),
   requiresExternalResources: true,
   description: 'Trello webhooks for board, card, list, and comment events'
+})
+
+// Register Facebook provider
+triggerLifecycleManager.registerProvider({
+  providerId: 'facebook',
+  lifecycle: new FacebookTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'Facebook page webhooks for post and comment triggers'
+})
+
+// Register GitHub provider
+triggerLifecycleManager.registerProvider({
+  providerId: 'github',
+  lifecycle: new GitHubTriggerLifecycle(),
+  requiresExternalResources: true,
+  description: 'GitHub repository webhooks for commit and event triggers'
 })
 
 // TODO: Register remaining providers:

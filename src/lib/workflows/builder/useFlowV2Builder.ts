@@ -18,6 +18,7 @@ import { FlowSchema, type Flow, type FlowInterface, type Node as FlowNode, type 
 import { addNodeEdit, oldConnectToEdge, generateId } from "../compat/v2Adapter"
 import { ALL_NODE_COMPONENTS } from "../../../../lib/workflows/nodes"
 import { flowApiUrl } from "./api/paths"
+import { useIntegrationStore } from "@/stores/integrationStore"
 
 // Node components for nodeTypes
 import CustomNode from "@/components/workflows/CustomNode"
@@ -1777,6 +1778,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         body: JSON.stringify({
           prompt,
           flow,
+          connectedIntegrations: useIntegrationStore.getState().getConnectedProviders(),
         }),
       }, 60000) // 60 second timeout for LLM planning
 

@@ -419,7 +419,6 @@ const facebookActionSendMessage: NodeComponent = {
   requiredScopes: ["pages_messaging"],
   category: "Social",
   isTrigger: false,
-  comingSoon: true,
   configSchema: [
     { name: "pageId", label: "Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true },
     { name: "recipientId", label: "Conversation", type: "select", dynamic: "facebook_conversations", required: true, placeholder: "Select a conversation", dependsOn: "pageId", description: "Choose the conversation thread to send the message to" },
@@ -464,7 +463,6 @@ const facebookActionCommentOnPost: NodeComponent = {
   requiredScopes: ["pages_manage_posts"],
   category: "Social",
   isTrigger: false,
-  comingSoon: true,
   configSchema: [
     { name: "pageId", label: "Page", type: "select", dynamic: true, required: true, placeholder: "Select a Facebook page", loadOnMount: true, description: "The Facebook page where the post is located" },
     { name: "postId", label: "Post", type: "select", dynamic: "facebook_posts", required: true, placeholder: "Select a post", dependsOn: "pageId", description: "Choose which post to comment on" },

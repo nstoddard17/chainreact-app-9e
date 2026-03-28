@@ -811,11 +811,11 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
     // FIRST: Check for active test sessions waiting for Gmail triggers
     // Query without join - use test_mode_config for workflow data (avoids schema cache issues)
-    logger.info('[Gmail] Querying for test sessions with trigger_type=gmail_trigger_new_email, status=listening')
+    logger.info('[Gmail] Querying for test sessions with trigger_type like gmail_trigger_%, status=listening')
     const { data: testSessions, error: sessionError } = await supabase
       .from('workflow_test_sessions')
       .select('*')
-      .eq('trigger_type', 'gmail_trigger_new_email')
+      .like('trigger_type', 'gmail_trigger_%')
       .in('status', ['listening'])
 
     if (sessionError) {
@@ -934,7 +934,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
                 .from('trigger_resources')
                 .select('config')
                 .eq('workflow_id', session.workflow_id)
-                .eq('trigger_type', 'gmail_trigger_new_email')
+                .like('trigger_type', 'gmail_trigger_%')
                 .eq('test_session_id', session.id)
                 .eq('status', 'active')
                 .maybeSingle()
@@ -948,7 +948,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
                   .from('trigger_resources')
                   .select('config')
                   .eq('workflow_id', session.workflow_id)
-                  .eq('trigger_type', 'gmail_trigger_new_email')
+                  .like('trigger_type', 'gmail_trigger_%')
                   .eq('status', 'active')
                   .order('created_at', { ascending: false })
                   .limit(1)
@@ -1004,7 +1004,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
             historyId: event.eventData.historyId,
             timestamp: new Date().toISOString(),
             trigger: {
-              type: 'gmail_trigger_new_email',
+              type: session.trigger_type || 'gmail_trigger_new_email',
               from: flattenedEmailData.from,
               subject: flattenedEmailData.subject,
               body: flattenedEmailData.body || flattenedEmailData.content || '',
@@ -1082,12 +1082,11 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         }
       }))
 
-      // Find Gmail trigger nodes
+      // Find ALL Gmail trigger nodes (not just gmail_trigger_new_email)
       const gmailTriggerNodes = nodes.filter((node: any) => {
+        const nodeType = node.data?.type || node.data?.nodeType || node.type || ''
         const isGmailTrigger =
-          node.data?.type === 'gmail_trigger_new_email' ||
-          node.data?.nodeType === 'gmail_trigger_new_email' ||
-          node.type === 'gmail_trigger_new_email' ||
+          nodeType.startsWith('gmail_trigger_') ||
           node.data?.providerId === 'gmail'
 
         return node.data?.isTrigger && isGmailTrigger
@@ -1095,14 +1094,21 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
       if (gmailTriggerNodes.length === 0) continue
 
-      logger.info(`[Gmail Processor] Found ${gmailTriggerNodes.length} Gmail trigger(s) in workflow ${workflow.id}`)
+      // Get the actual trigger type from the node
+      const triggerNode = gmailTriggerNodes[0]
+      const triggerType = triggerNode.data?.type || triggerNode.data?.nodeType || triggerNode.type || 'gmail_trigger_new_email'
+
+      logger.info(`[Gmail Processor] Found ${gmailTriggerNodes.length} Gmail trigger(s) in workflow ${workflow.id}`, {
+        triggerType
+      })
 
       // Primary: Check trigger_resources table (source of truth for lifecycle-managed triggers)
+      // Match any Gmail trigger type for this workflow
       const { data: triggerResource, error: triggerError } = await supabase
         .from('trigger_resources')
-        .select('id, config')
+        .select('id, config, trigger_type')
         .eq('workflow_id', workflow.id)
-        .eq('trigger_type', 'gmail_trigger_new_email')
+        .like('trigger_type', 'gmail_trigger_%')
         .eq('status', 'active')
         .or('is_test.is.null,is_test.eq.false')
         .order('created_at', { ascending: false })
@@ -1123,7 +1129,9 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           config: triggerResource.config
         }
         watchConfig = triggerResource.config || {}
-        logger.info('✅ Found Gmail trigger in trigger_resources table')
+        logger.info('✅ Found Gmail trigger in trigger_resources table', {
+          resourceTriggerType: triggerResource.trigger_type
+        })
       } else {
         // Fallback: Check webhook_configs table (legacy data)
         logger.info('⚠️ No trigger_resources found, checking webhook_configs as fallback...')
@@ -1131,7 +1139,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           .from('webhook_configs')
           .select('id, config')
           .eq('workflow_id', workflow.id)
-          .eq('trigger_type', 'gmail_trigger_new_email')
+          .like('trigger_type', 'gmail_trigger_%')
           .eq('status', 'active')
           .order('updated_at', { ascending: false })
           .limit(1)
@@ -1169,15 +1177,42 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
 
       const dedupeToken = emailDetails.id || event.eventData.messageId || `${event.eventData.emailAddress || 'unknown'}-${event.eventData.historyId}`
 
-      // Check if email matches any trigger's filters
+      // Check if email matches any trigger's filters AND trigger-type-specific criteria
       let matchFound = false
-      for (const triggerNode of gmailTriggerNodes) {
-        const filters = resolveGmailTriggerFilters(triggerNode)
+      let matchedTriggerType = triggerType
 
-        logger.info(`Checking trigger node ${triggerNode.id} filters:`, filters)
+      for (const tNode of gmailTriggerNodes) {
+        const nodeType = tNode.data?.type || tNode.data?.nodeType || tNode.type || ''
+        const filters = resolveGmailTriggerFilters(tNode)
+
+        logger.info(`Checking trigger node ${tNode.id} (${nodeType}) filters:`, filters)
+
+        // Trigger-type-specific pre-checks
+        if (nodeType === 'gmail_trigger_new_attachment') {
+          if (!emailDetails.hasAttachments) {
+            logger.info(`  ❌ Skipping ${nodeType}: email has no attachments`)
+            continue
+          }
+        } else if (nodeType === 'gmail_trigger_new_starred_email') {
+          const labelIds = emailDetails.labelIds || []
+          if (!labelIds.includes('STARRED')) {
+            logger.info(`  ❌ Skipping ${nodeType}: email is not starred`)
+            continue
+          }
+        } else if (nodeType === 'gmail_trigger_new_labeled_email') {
+          const configuredLabel = tNode.data?.config?.labelId || tNode.data?.triggerConfig?.labelId || filters.label
+          if (configuredLabel) {
+            const labelIds = emailDetails.labelIds || []
+            if (!labelIds.includes(configuredLabel)) {
+              logger.info(`  ❌ Skipping ${nodeType}: email doesn't have label ${configuredLabel}`)
+              continue
+            }
+          }
+        }
 
         if (await checkEmailMatchesFilters(emailDetails, filters)) {
           matchFound = true
+          matchedTriggerType = nodeType
           break
         }
       }
@@ -1219,7 +1254,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
               ...event.eventData,
               emailDetails: emailDetails,
               trigger: {
-                type: 'gmail_trigger_new_email',
+                type: matchedTriggerType,
                 from: flattenedEmailData.from,
                 subject: flattenedEmailData.subject,
                 body: flattenedEmailData.body || flattenedEmailData.content || '',
@@ -1239,7 +1274,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           ...event.eventData,
           emailDetails: emailDetails,
           trigger: {
-            type: 'gmail_trigger_new_email',
+            type: matchedTriggerType,
             from: flattenedEmailData.from,
             subject: flattenedEmailData.subject,
             body: flattenedEmailData.body || flattenedEmailData.content || '',

@@ -915,7 +915,7 @@ export const notionUnifiedActions: NodeComponent[] = [
       {
         name: "value",
         label: "Property Value",
-        type: "any",
+        type: "object",
         description: "The value of the property"
       },
       {

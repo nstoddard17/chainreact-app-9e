@@ -49,6 +49,7 @@ import { Sparkles } from "lucide-react"
 import { FlowV2BuilderContent } from "./FlowV2BuilderContent"
 import { FlowV2AgentPanel } from "./FlowV2AgentPanel"
 import { NodeStateTestPanel } from "./NodeStateTestPanel"
+import { ActivationReviewDialog } from "./ActivationReviewDialog"
 import { PathLabelsOverlay } from "./PathLabelsOverlay"
 import { ProviderSelectionUI } from "../ai-agent/ProviderSelectionUI"
 import { ProviderBadge } from "../ai-agent/ProviderBadge"
@@ -468,6 +469,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const [nodeTestingName, setNodeTestingName] = useState<string | null>(null) // Name of node being tested
   const [isTestModeDialogOpen, setIsTestModeDialogOpen] = useState(false) // Test/Live mode dialog
   const [isDisconnectedDialogOpen, setIsDisconnectedDialogOpen] = useState(false) // Disconnected integrations dialog
+  const [showActivationReview, setShowActivationReview] = useState(false) // Pre-activation review dialog
+  const [isActivatingAfterReview, setIsActivatingAfterReview] = useState(false) // True during activation after review
   const [disconnectedIntegrations, setDisconnectedIntegrations] = useState<any[]>([]) // List of disconnected integrations
 
   // Ref to track if test is in progress and abort controller for cleanup
@@ -4801,8 +4804,17 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         }
       }
 
-      // Activate workflow
+      // Show activation review dialog before activating
+      setShowActivationReview(true)
+    }
+  }, [hasPlaceholders, flowState?.workflowStatus, actions, toast, builder?.nodes, flowId])
+
+  // Handle confirmed activation after review dialog approval
+  const handleConfirmActivation = useCallback(async () => {
+    setIsActivatingAfterReview(true)
+    try {
       const result = await actions?.activateWorkflow()
+      setShowActivationReview(false)
       toast({
         title: result?.success ? "Workflow Published" : "Activation Failed",
         description: result?.message || (result?.success
@@ -4810,8 +4822,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           : "Please try again."),
         variant: result?.success ? "default" : "destructive",
       })
+    } catch (error: any) {
+      toast({
+        title: "Activation Failed",
+        description: error?.message || "Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsActivatingAfterReview(false)
     }
-  }, [hasPlaceholders, flowState?.workflowStatus, actions, toast, builder?.nodes, flowId])
+  }, [actions, toast])
 
   // Get test store actions
   const {
@@ -7445,6 +7465,16 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           {/* <NodeStateTestPanel /> */}
         </div>
       </BuilderLayout>
+
+      {/* Pre-Activation Review Dialog */}
+      <ActivationReviewDialog
+        open={showActivationReview}
+        onOpenChange={setShowActivationReview}
+        onConfirm={handleConfirmActivation}
+        isActivating={isActivatingAfterReview}
+        nodes={builder?.nodes ?? []}
+        edges={(builder?.edges ?? []).map((e: any) => ({ source: e.source, target: e.target }))}
+      />
 
       {/* Test Mode Dialog */}
       <TestModeDialog
