@@ -951,7 +951,7 @@ export function AnalyticsContent() {
   const p95ExecutionTimeMs = dashboard?.p95ExecutionTimeMs || 0
   const hasPlacedWidgets = layout.some((row) => row.slots.some((slot) => !!slot.widgetId))
 
-  // Note: Page-level access control is handled by PageAccessGuard in the page component
+  // Note: Page-level access control is handled by AccessGuard in the page component
   return (
     <div className="space-y-6 pb-8">
       {/* Header with period selector */}

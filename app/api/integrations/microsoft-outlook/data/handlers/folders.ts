@@ -3,7 +3,6 @@
  * Fetches user's mail folders from Outlook with actual folder IDs
  */
 
-import { decryptToken } from '@/lib/integrations/tokenUtils'
 import { logger } from '@/lib/utils/logger'
 
 export interface OutlookFolder {
@@ -22,14 +21,10 @@ export async function getOutlookFolders(integration: any): Promise<OutlookFolder
     if (!integration.access_token) {
       throw new Error('No access token available')
     }
-    const accessToken = await decryptToken(integration.access_token)
-    if (!accessToken) {
-      throw new Error('Failed to decrypt access token')
-    }
 
     const response = await fetch('https://graph.microsoft.com/v1.0/me/mailFolders?$top=100', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${integration.access_token}`,
         'Content-Type': 'application/json'
       }
     })
@@ -37,7 +32,7 @@ export async function getOutlookFolders(integration: any): Promise<OutlookFolder
     if (!response.ok) {
       const errorText = await response.text()
       logger.error('[Outlook API] Failed to fetch folders:', errorText)
-      return getFallbackFolders(accessToken)
+      return getFallbackFolders(integration.access_token)
     }
 
     const data = await response.json()

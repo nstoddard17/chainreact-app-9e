@@ -3,7 +3,6 @@
  * Fetches user's contacts from Outlook for contact selection
  */
 
-import { decryptToken } from '@/lib/integrations/tokenUtils'
 import { logger } from '@/lib/utils/logger'
 
 export interface OutlookContact {
@@ -27,13 +26,8 @@ export async function getOutlookContacts(
   try {
     logger.info('[Outlook API] Fetching contacts for selection')
 
-    // Get decrypted access token
     if (!integration.access_token) {
       throw new Error('No access token available')
-    }
-    const accessToken = await decryptToken(integration.access_token)
-    if (!accessToken) {
-      throw new Error('Failed to decrypt access token')
     }
 
     const { search } = options
@@ -51,7 +45,7 @@ export async function getOutlookContacts(
 
     const response = await fetch(fullEndpoint, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${integration.access_token}`,
         'Content-Type': 'application/json'
       }
     })

@@ -107,6 +107,11 @@ export async function POST(request: NextRequest) {
       return errorResponse("Unauthorized" , 401)
     }
 
+    // Check feature entitlement (Pro plan or higher)
+    const { requireFeature } = await import('@/lib/utils/require-entitlement')
+    const entitlement = await requireFeature(user.id, 'aiAgents')
+    if (!entitlement.allowed) return entitlement.response
+
     logger.info("✅ User authenticated:", user.id)
     const { prompt, workflowId } = await request.json()
 

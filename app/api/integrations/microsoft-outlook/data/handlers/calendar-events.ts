@@ -3,7 +3,6 @@
  * Fetches user's calendar events from Outlook for event selection
  */
 
-import { decryptToken } from '@/lib/integrations/tokenUtils'
 import { logger } from '@/lib/utils/logger'
 
 export interface OutlookCalendarEvent {
@@ -28,13 +27,8 @@ export async function getOutlookCalendarEvents(
   try {
     logger.info('[Outlook API] Fetching calendar events for selection')
 
-    // Get decrypted access token
     if (!integration.access_token) {
       throw new Error('No access token available')
-    }
-    const accessToken = await decryptToken(integration.access_token)
-    if (!accessToken) {
-      throw new Error('Failed to decrypt access token')
     }
 
     const { calendarId, search } = options
@@ -69,7 +63,7 @@ export async function getOutlookCalendarEvents(
 
     const response = await fetch(fullEndpoint, {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${integration.access_token}`,
         'Content-Type': 'application/json',
         'Prefer': 'outlook.timezone="UTC"' // Ensure consistent timezone handling
       }

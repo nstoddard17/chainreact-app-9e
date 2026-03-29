@@ -76,6 +76,11 @@ export async function POST(request: NextRequest) {
       return errorResponse("Unauthorized", 401)
     }
 
+    // Check plan entitlement for team features
+    const { requireFeature } = await import('@/lib/utils/require-entitlement')
+    const entitlement = await requireFeature(user.id, 'teamSharing')
+    if (!entitlement.allowed) return entitlement.response
+
     const body = await request.json()
     const { name, description, organization_id } = body
 

@@ -9,61 +9,8 @@
 
 export type PlanTier = 'free' | 'pro' | 'beta' | 'team' | 'business' | 'enterprise'
 
-// Page access control - which plan is required for each page
-export type ProtectedPage =
-  | 'ai-assistant'
-  | 'analytics'
-  | 'teams'
-  | 'organization'
-
-export const PAGE_ACCESS_REQUIREMENTS: Record<ProtectedPage, PlanTier> = {
-  'ai-assistant': 'pro',
-  'analytics': 'pro',
-  'teams': 'business',
-  'organization': 'enterprise',
-}
-
-// Plan tier hierarchy for comparison
-const PLAN_HIERARCHY: Record<PlanTier, number> = {
-  'free': 0,
-  'pro': 1,
-  'beta': 1, // Beta testers get Pro-equivalent access
-  'team': 2,
-  'business': 3,
-  'enterprise': 4,
-}
-
-/**
- * Check if a plan tier meets or exceeds the required tier
- */
-export function hasPlanAccess(userPlan: PlanTier, requiredPlan: PlanTier): boolean {
-  return PLAN_HIERARCHY[userPlan] >= PLAN_HIERARCHY[requiredPlan]
-}
-
-/**
- * Check if user has access to a protected page
- * Admins always have access to all pages
- */
-export function hasPageAccess(
-  userPlan: PlanTier,
-  page: ProtectedPage,
-  isAdmin: boolean = false
-): boolean {
-  // Admins have access to everything
-  if (isAdmin) {
-    return true
-  }
-
-  const requiredPlan = PAGE_ACCESS_REQUIREMENTS[page]
-  return hasPlanAccess(userPlan, requiredPlan)
-}
-
-/**
- * Get the required plan for a page (for upgrade prompts)
- */
-export function getRequiredPlanForPage(page: ProtectedPage): PlanTier {
-  return PAGE_ACCESS_REQUIREMENTS[page]
-}
+// Route-level access control is handled by lib/access-policy/ (canonical source of truth).
+// This file only contains feature/resource limits and billing metadata.
 
 export interface PlanLimits {
   // Tasks
@@ -364,6 +311,16 @@ export const PLAN_FEATURES: Record<PlanTier, string[]> = {
     '99.99% SLA guarantee',
     'Dedicated success manager',
   ],
+}
+
+/**
+ * Get the task limit for a plan by ID.
+ * This is the single source of truth for plan → task limit mapping.
+ * Used by billing webhooks, task deduction, and UI.
+ */
+export function getTaskLimitForPlan(planId: string): number {
+  const normalized = planId === 'free-tier' ? 'free' : planId as PlanTier
+  return PLAN_LIMITS[normalized]?.tasksPerMonth ?? 100
 }
 
 // Economics summary for reference

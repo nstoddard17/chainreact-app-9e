@@ -3,9 +3,6 @@
  * Fetches contacts, suggested people, and recent correspondents from Outlook
  */
 
-import { decryptToken, encryptTokens } from '@/lib/integrations/tokenUtils'
-import { createSupabaseServiceClient } from '@/utils/supabase/server'
-
 import { logger } from '@/lib/utils/logger'
 
 export interface EmailRecipient {
@@ -21,7 +18,6 @@ export interface EmailRecipient {
 const modalCache = new Map<string, { data: EmailRecipient[], timestamp: number }>()
 const MODAL_CACHE_DURATION = 10 * 1000 // 10 seconds - just enough for a modal session
 
-const MICROSOFT_TOKEN_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
 const GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0'
 
 /**
@@ -51,102 +47,6 @@ function addRecipient(
   })
 }
 
-/**
- * Refresh the Outlook OAuth token for an integration and return the new access token
- */
-async function refreshOutlookAccessToken(integration: any): Promise<string> {
-  const refreshTokenEncrypted = integration.refresh_token
-  if (!refreshTokenEncrypted) {
-    throw new Error('No refresh token available for this Outlook integration')
-  }
-
-  const refreshToken = await decryptToken(refreshTokenEncrypted)
-  if (!refreshToken) {
-    throw new Error('Failed to decrypt Outlook refresh token')
-  }
-
-  const clientId = process.env.OUTLOOK_CLIENT_ID || process.env.MICROSOFT_CLIENT_ID
-  const clientSecret = process.env.OUTLOOK_CLIENT_SECRET || process.env.MICROSOFT_CLIENT_SECRET
-
-  if (!clientId || !clientSecret) {
-    throw new Error('Microsoft OAuth credentials are not configured')
-  }
-
-  const tokenResponse = await fetch(MICROSOFT_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-      scope: 'offline_access https://graph.microsoft.com/.default'
-    }).toString(),
-    cache: 'no-store'
-  })
-
-  if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text().catch(() => 'Unknown error')
-    throw new Error(`Microsoft token refresh failed: ${errorText}`)
-  }
-
-  const tokenData = await tokenResponse.json()
-  const newAccessToken: string = tokenData.access_token
-  const newRefreshToken: string | undefined = tokenData.refresh_token || refreshToken
-
-  const { encryptedAccessToken, encryptedRefreshToken } = await encryptTokens(newAccessToken, newRefreshToken)
-
-  const updates: Record<string, any> = {
-    access_token: encryptedAccessToken,
-    updated_at: new Date().toISOString()
-  }
-
-  if (encryptedRefreshToken) {
-    updates.refresh_token = encryptedRefreshToken
-  }
-
-  if (typeof tokenData.expires_in === 'number') {
-    updates.expires_at = new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
-  }
-
-  if (typeof tokenData.refresh_token_expires_in === 'number') {
-    updates.refresh_token_expires_at = new Date(Date.now() + tokenData.refresh_token_expires_in * 1000).toISOString()
-  }
-
-  if (typeof tokenData.scope === 'string') {
-    updates.scopes = tokenData.scope.split(' ')
-  }
-
-  const supabase = await createSupabaseServiceClient()
-  const { error: updateError } = await supabase
-    .from('integrations')
-    .update(updates)
-    .eq('id', integration.id)
-
-  if (updateError) {
-    throw new Error(`Failed to persist refreshed Outlook tokens: ${updateError.message}`)
-  }
-
-  // Keep the in-memory integration reference up-to-date
-  integration.access_token = updates.access_token
-  if (updates.refresh_token) {
-    integration.refresh_token = updates.refresh_token
-  }
-  if (updates.expires_at) {
-    integration.expires_at = updates.expires_at
-  }
-  if (updates.refresh_token_expires_at) {
-    integration.refresh_token_expires_at = updates.refresh_token_expires_at
-  }
-  if (updates.scopes) {
-    integration.scopes = updates.scopes
-  }
-
-  return newAccessToken
-}
-
 function buildGraphUrl(path: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) {
     return path
@@ -155,12 +55,9 @@ function buildGraphUrl(path: string): string {
   return `${GRAPH_BASE_URL}/${path.replace(/^\/?/, '')}`
 }
 
-function shouldAttemptRefresh(status: number): boolean {
-  return status === 401
-}
-
 /**
  * Fetch Outlook contacts and recent recipients
+ * Token refresh is handled by the dynamic route's refresh-and-retry mechanism.
  */
 export async function getOutlookEnhancedRecipients(integration: any): Promise<EmailRecipient[]> {
   try {
@@ -181,28 +78,14 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
       accountName: integration.account_name
     })
 
-    if (!integration.access_token && !integration.refresh_token) {
-      throw new Error('No access credentials available for this Outlook integration')
-    }
-
-    let accessToken = integration.access_token
-      ? await decryptToken(integration.access_token)
-      : null
-
-    if (!accessToken && integration.refresh_token) {
-      logger.info('[Outlook API] Access token missing, attempting refresh before fetching recipients')
-      accessToken = await refreshOutlookAccessToken(integration)
-    }
-
-    if (!accessToken) {
-      throw new Error('Failed to resolve Outlook access token')
+    if (!integration.access_token) {
+      throw new Error('No access token available for this Outlook integration')
     }
 
     const recipients = new Map<string, EmailRecipient>()
-    let attemptedRefresh = false
 
     const getHeaders = () => ({
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${integration.access_token}`,
       'Content-Type': 'application/json'
     })
 
@@ -226,26 +109,10 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
 
     const fetchGraph = async (path: string) => {
       const url = buildGraphUrl(path)
-      const response = await fetch(url, {
+      return await fetch(url, {
         headers: getHeaders(),
         cache: 'no-store'
       })
-
-      if (shouldAttemptRefresh(response.status) && !attemptedRefresh && integration.refresh_token) {
-        attemptedRefresh = true
-        logger.warn('[Outlook API] Access token expired. Refreshing and retrying request.')
-        try {
-          accessToken = await refreshOutlookAccessToken(integration)
-          return await fetch(url, {
-            headers: getHeaders(),
-            cache: 'no-store'
-          })
-        } catch (refreshError) {
-          logger.error('[Outlook API] Token refresh failed:', refreshError)
-        }
-      }
-
-      return response
     }
 
     // Fetch Outlook contacts (requires Contacts scope)

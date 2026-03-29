@@ -23,7 +23,7 @@ function WaitingConfirmationContent() {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [linkExpired, setLinkExpired] = useState(false)
   const autoSignInAttempted = useRef(false)
-  const { user, initialize } = useAuthStore()
+  const { user, boot } = useAuthStore()
 
   useEffect(() => {
     // Check if redirected here due to expired confirmation link
@@ -90,7 +90,7 @@ function WaitingConfirmationContent() {
         if (verifyData.session) {
           logger.info('Auto sign-in successful! Redirecting to workflows...')
           localStorage.removeItem('pendingSignup')
-          await initialize()
+          await boot()
 
           // Small delay to show the success state before redirect
           setTimeout(() => {
@@ -127,7 +127,7 @@ function WaitingConfirmationContent() {
           setIsPolling(false)
           clearInterval(pollInterval)
           localStorage.removeItem('pendingSignup')
-          await initialize()
+          await boot()
 
           // Auto-redirect since we already have a session
           setTimeout(() => {
@@ -164,7 +164,7 @@ function WaitingConfirmationContent() {
 
     // Clean up interval on unmount or when polling stops
     return () => clearInterval(pollInterval)
-  }, [userId, email, isPolling, isConfirmed, initialize, router])
+  }, [userId, email, isPolling, isConfirmed, boot, router])
 
   const handleResendEmail = async () => {
     if (resendCooldown > 0) return

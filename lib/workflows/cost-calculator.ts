@@ -283,6 +283,40 @@ export function formatTaskCount(tasks: number): string {
 }
 
 /**
+ * Conservative reservation estimate for loops.
+ * This is NOT actual cost — it's a pre-execution reservation.
+ * Actual usage may be lower if loop exits early or processes fewer items.
+ *
+ * @param innerNodes - Nodes inside the loop body
+ * @param maxIterations - Configured maximum iterations for the loop
+ * @returns Total estimated task cost for all iterations
+ */
+export function estimateLoopReservation(innerNodes: any[], maxIterations: number): number {
+  const innerCost = innerNodes.reduce((sum, n) => sum + getNodeTaskCost(n), 0)
+  // Hard cap at 500 iterations to prevent absurd overcharges
+  const cappedIterations = Math.min(Math.max(maxIterations, 1), 500)
+  return innerCost * cappedIterations
+}
+
+/**
+ * Check if a node is a loop node
+ */
+export function isLoopNode(node: any): boolean {
+  if (!node) return false
+  const nodeType = node.data?.type || node.type || ''
+  return nodeType.includes('loop') || nodeType.includes('for_each') || nodeType.includes('forEach')
+}
+
+/**
+ * Get the configured max iterations for a loop node
+ */
+export function getLoopMaxIterations(node: any): number {
+  if (!node) return 1
+  const config = node.data?.config || {}
+  return config.maxIterations || config.max_iterations || config.limit || 10
+}
+
+/**
  * Check if workflow cost exceeds remaining tasks
  */
 export function checkTaskBudget(

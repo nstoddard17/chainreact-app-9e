@@ -6,20 +6,7 @@ import { getStripeClient } from "@/lib/stripe/client"
 import { headers } from "next/headers"
 
 import { logger } from '@/lib/utils/logger'
-
-// Map plan IDs to task limits (must match PLAN_LIMITS in plan-restrictions.ts)
-const PLAN_TASK_LIMITS: Record<string, number> = {
-  'free-tier': 100,
-  'free': 100,
-  'pro': 750,
-  'team': 2000,
-  'business': 5000,
-  'enterprise': -1,
-}
-
-function getTaskLimitForPlan(planId: string): number {
-  return PLAN_TASK_LIMITS[planId] ?? 100
-}
+import { getTaskLimitForPlan } from '@/lib/utils/plan-restrictions'
 
 export async function POST(request: NextRequest) {
   const stripe = getStripeClient("2024-12-18.acacia")
@@ -113,7 +100,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Reset task usage for new plan and set task limit
+      // Reset task usage for new plan and set task limit (including billing_period_end)
       const taskLimit = getTaskLimitForPlan(planId)
       const { error: taskResetError } = await supabase
         .from("user_profiles")
@@ -121,6 +108,7 @@ export async function POST(request: NextRequest) {
           tasks_used: 0,
           tasks_limit: taskLimit,
           billing_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          billing_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
           plan: planId === 'free-tier' ? 'free' : planId,
         })
         .eq("id", userId)
@@ -190,13 +178,15 @@ export async function POST(request: NextRequest) {
 
       // Reset to free tier task limits
       if (subForUser?.user_id) {
+        const now = new Date()
         const { error: taskResetError } = await supabase
           .from("user_profiles")
           .update({
             tasks_used: 0,
             tasks_limit: 100,
             plan: 'free',
-            billing_period_start: new Date().toISOString(),
+            billing_period_start: now.toISOString(),
+            billing_period_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           })
           .eq("id", subForUser.user_id)
 
@@ -246,6 +236,7 @@ export async function POST(request: NextRequest) {
             tasks_used: 0,
             tasks_limit: taskLimit,
             billing_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+            billing_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
           })
           .eq("id", subData.user_id)
 

@@ -391,39 +391,61 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check task usage limits before execution (only for live/non-test mode)
+    // Billing target: always the workflow owner (creator-pays policy).
+    // The authenticated userId is used for access control and audit trail.
+    const billingUserId = workflow.user_id
+
+    // Atomic task deduction: check balance + reserve tasks in one transaction (only for live/non-test mode)
+    // This replaces the old pre-check + post-deduct pattern. Tasks are reserved upfront (conservative estimation).
+    let taskDeductionResult: any = null
     if (!effectiveTestMode) {
       try {
-        const { checkTaskBalance } = require('@/lib/workflows/taskDeduction')
-        const { getWorkflowTaskCost } = require('@/lib/workflows/cost-calculator')
+        const { deductTasksAtomic } = require('@/lib/workflows/taskDeduction')
         const actionNodes = nodes.filter((n: any) => !n.data?.isTrigger)
-        const estimatedCost = getWorkflowTaskCost(actionNodes)
 
-        if (estimatedCost.total > 0) {
-          const balanceCheck = await checkTaskBalance(userId, estimatedCost.total)
+        if (actionNodes.length > 0) {
+          taskDeductionResult = await deductTasksAtomic(
+            billingUserId,
+            actionNodes,
+            `exec_${workflowId}_${Date.now()}`, // Unique execution session ID for idempotency
+            false,
+            { workflowId, source: 'execute_route' }
+          )
 
-          if (!balanceCheck.allowed) {
-            logger.warn('[Execute Route] Task limit exceeded', {
+          if (taskDeductionResult.resultType === 'insufficient_balance' || taskDeductionResult.resultType === 'subscription_inactive') {
+            logger.warn('[Execute Route] Task deduction rejected', {
               userId,
               workflowId,
-              tasksNeeded: estimatedCost.total,
-              remaining: balanceCheck.remaining,
-              limit: balanceCheck.limit
+              resultType: taskDeductionResult.resultType,
+              error: taskDeductionResult.error
             })
             return errorResponse(
-              `Task limit reached. You need ${estimatedCost.total} task${estimatedCost.total !== 1 ? 's' : ''} but have ${balanceCheck.remaining} remaining. Upgrade your plan for more tasks.`,
+              taskDeductionResult.error,
               402,
-              { tasksNeeded: estimatedCost.total, remaining: balanceCheck.remaining, limit: balanceCheck.limit }
+              { tasksNeeded: taskDeductionResult.tasksDeducted || 0, remaining: taskDeductionResult.newBalance }
+            )
+          }
+
+          if (taskDeductionResult.resultType === 'billing_unavailable') {
+            logger.error('[Execute Route] Billing system unavailable', {
+              userId,
+              workflowId,
+              error: taskDeductionResult.error
+            })
+            return errorResponse(
+              taskDeductionResult.error,
+              503
             )
           }
         }
-      } catch (limitCheckError) {
-        // Fail open - don't block execution if limit check fails
-        logger.warn('[Execute Route] Task limit check failed (allowing execution)', {
+      } catch (deductionError) {
+        // Fail closed — do not allow execution if billing fails
+        logger.error('[Execute Route] Task deduction failed (blocking execution)', {
           userId,
           workflowId,
-          error: limitCheckError instanceof Error ? limitCheckError.message : String(limitCheckError)
+          error: deductionError instanceof Error ? deductionError.message : String(deductionError)
         })
+        return errorResponse('Billing system temporarily unavailable. Please retry.', 503)
       }
     }
 

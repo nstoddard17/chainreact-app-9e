@@ -1,12 +1,12 @@
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { AnalyticsContent } from "@/components/new-design/AnalyticsContent"
 import { PagePreloader } from "@/components/common/PagePreloader"
-import { PageAccessGuard } from "@/components/common/PageAccessGuard"
+import { AccessGuard } from "@/components/common/AccessGuard"
 
 export default function AnalyticsPage() {
   return (
     <NewAppLayout title="Analytics" subtitle="Monitor your workflow performance">
-      <PageAccessGuard page="analytics">
+      <AccessGuard pathname="/analytics">
         <PagePreloader
           pageType="analytics"
           loadingTitle="Loading Analytics"
@@ -16,7 +16,7 @@ export default function AnalyticsPage() {
         >
           <AnalyticsContent />
         </PagePreloader>
-      </PageAccessGuard>
+      </AccessGuard>
     </NewAppLayout>
   )
 }

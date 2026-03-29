@@ -65,7 +65,8 @@ export default function NodeTestHarnessPage() {
 
   // Integration store hooks
   const { fetchIntegrations, loading: integrationsLoading, integrations } = useIntegrationStore()
-  const { initialized: authInitialized } = useAuthStore()
+  const { phase: authPhase } = useAuthStore()
+  const authInitialized = authPhase === 'ready'
 
   // Fetch integrations once on mount (cached for 30 seconds per integrationStore)
   // This prevents repeated force fetches when config modals are opened

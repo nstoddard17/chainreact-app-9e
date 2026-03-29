@@ -75,6 +75,11 @@ export async function POST(request: NextRequest) {
       userId = user.id
     }
 
+    // Check feature entitlement (Pro plan or higher)
+    const { requireFeature } = await import('@/lib/utils/require-entitlement')
+    const entitlement = await requireFeature(userId, 'aiAgents')
+    if (!entitlement.allowed) return entitlement.response
+
     const rawBody = await request.json()
 
     // Validate input with Zod

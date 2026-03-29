@@ -1,7 +1,8 @@
 /**
  * AI Workflow Creation Cost Tracking
  *
- * Tracks the cost of AI-generated workflows and deducts tasks from user balance.
+ * Tracks the cost of AI-generated workflows and deducts tasks from user balance
+ * using the atomic deduct_tasks_if_available RPC.
  *
  * Cost Calculation:
  * - Base cost for AI planning: 1 task
@@ -10,8 +11,13 @@
  *   - 4-6 nodes: 1 additional task
  *   - 7+ nodes: 2 additional tasks
  * - LLM usage: Included in base cost
+ * - Cache hits: Free (template already paid for)
  *
  * Total range: 1-3 tasks per AI workflow creation
+ *
+ * Idempotency: Each planning request generates a unique planning_charge_id (UUID).
+ * This ensures that internal LLM retries (same charge ID) are idempotent,
+ * while genuine new requests (new charge ID) are billed separately.
  */
 
 import { logger } from '@/lib/utils/logger'
@@ -34,6 +40,8 @@ export interface AIWorkflowCostResult {
   }
   newBalance: number | null
   limitExceeded: boolean
+  applied: boolean
+  resultType: string
   errorMessage?: string
 }
 
@@ -53,7 +61,17 @@ export function calculateAIWorkflowTaskCost(nodeCount: number): number {
 }
 
 /**
- * Check if user has enough tasks available for AI workflow creation
+ * Generate a unique charge ID for a planning request.
+ * Each call to the /edits route should generate a new charge ID.
+ * Internal retries within the same request reuse the same charge ID (idempotent).
+ */
+export function generatePlanningChargeId(): string {
+  return `plan_${crypto.randomUUID()}`
+}
+
+/**
+ * @deprecated Use the atomic deductAIWorkflowTasks() instead.
+ * The atomic RPC handles both balance checking and deduction.
  */
 export async function checkAIWorkflowTaskBalance(
   userId: string
@@ -62,7 +80,6 @@ export async function checkAIWorkflowTaskBalance(
     const { createAdminClient } = await import('@/lib/supabase/admin')
     const supabase = createAdminClient()
 
-    // Get user's current task balance
     const { data: profile, error } = await supabase
       .from('user_profiles')
       .select('tasks_used, tasks_limit')
@@ -71,12 +88,17 @@ export async function checkAIWorkflowTaskBalance(
 
     if (error || !profile) {
       logger.warn('[AIWorkflowCost] Could not fetch user profile', { userId, error: error?.message })
-      // Allow if we can't check (fail open for now)
-      return { hasBalance: true, tasksUsed: 0, tasksLimit: 100 }
+      // Fail closed
+      return { hasBalance: false, tasksUsed: 0, tasksLimit: 0 }
     }
 
     const tasksUsed = profile.tasks_used ?? 0
     const tasksLimit = profile.tasks_limit ?? 100
+
+    // Enterprise unlimited
+    if (tasksLimit === -1) {
+      return { hasBalance: true, tasksUsed, tasksLimit }
+    }
 
     return {
       hasBalance: tasksUsed < tasksLimit,
@@ -85,16 +107,25 @@ export async function checkAIWorkflowTaskBalance(
     }
   } catch (error) {
     logger.error('[AIWorkflowCost] Error checking task balance', { userId, error })
-    return { hasBalance: true, tasksUsed: 0, tasksLimit: 100 }
+    // Fail closed
+    return { hasBalance: false, tasksUsed: 0, tasksLimit: 0 }
   }
 }
 
 /**
- * Deduct tasks from user's balance for AI workflow creation
+ * Atomically deduct tasks from user's balance for AI workflow creation.
+ * Uses the deduct_tasks_if_available RPC for serialized, idempotent billing.
+ *
+ * @param userId - User who owns the workflow
+ * @param nodeCount - Number of nodes generated (determines complexity cost)
+ * @param planningChargeId - Unique charge ID for this planning request (from generatePlanningChargeId)
+ * @param flowId - The workflow UUID (for analytics tracking)
+ * @param planningMethod - How the plan was generated
  */
 export async function deductAIWorkflowTasks(
   userId: string,
   nodeCount: number,
+  planningChargeId: string,
   flowId: string,
   planningMethod: 'llm' | 'pattern' | 'cache'
 ): Promise<AIWorkflowCostResult> {
@@ -119,72 +150,65 @@ export async function deductAIWorkflowTasks(
         tasksUsed: 0,
         breakdown: { base: 0, complexity: 0, total: 0 },
         newBalance: null,
-        limitExceeded: false
+        limitExceeded: false,
+        applied: false,
+        resultType: 'deducted'
       }
     }
 
     const totalCost = baseCost + complexityCost
 
-    // Get current balance
-    const { data: profile, error: fetchError } = await supabase
-      .from('user_profiles')
-      .select('tasks_used, tasks_limit')
-      .eq('id', userId)
-      .single()
+    // Atomic deduction via RPC
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('deduct_tasks_if_available', {
+      p_user_id: userId,
+      p_amount: totalCost,
+      p_execution_id: planningChargeId,
+      p_event_type: 'ai_workflow_creation',
+      p_node_breakdown: { base: baseCost, complexity: complexityCost, nodeCount, flowId },
+      p_workflow_id: flowId,
+      p_source: 'ai_planner'
+    })
 
-    if (fetchError || !profile) {
-      logger.error('[AIWorkflowCost] Could not fetch profile for deduction', { userId, error: fetchError?.message })
+    if (rpcError) {
+      logger.error('[AIWorkflowCost] Atomic deduction RPC failed', { userId, flowId, error: rpcError.message })
       return {
         tasksUsed: 0,
         breakdown: { base: baseCost, complexity: complexityCost, total: totalCost },
         newBalance: null,
         limitExceeded: false,
-        errorMessage: 'Could not verify task balance'
+        applied: false,
+        resultType: 'billing_unavailable',
+        errorMessage: 'Billing system temporarily unavailable. Please retry.'
       }
     }
 
-    const currentUsed = profile.tasks_used ?? 0
-    const limit = profile.tasks_limit ?? 100
-    const newUsed = currentUsed + totalCost
+    const result = Array.isArray(rpcResult) ? rpcResult[0] : rpcResult
 
-    // Check if limit would be exceeded
-    if (newUsed > limit) {
-      logger.warn('[AIWorkflowCost] Task limit would be exceeded', {
+    if (!result?.success) {
+      const isLimitExceeded = result?.result_type === 'insufficient_balance'
+      logger.warn('[AIWorkflowCost] Deduction rejected', {
         userId,
-        currentUsed,
-        limit,
-        costToDeduct: totalCost
+        flowId,
+        resultType: result?.result_type,
+        remaining: result?.remaining
       })
       return {
         tasksUsed: 0,
         breakdown: { base: baseCost, complexity: complexityCost, total: totalCost },
-        newBalance: limit - currentUsed,
-        limitExceeded: true,
-        errorMessage: `Task limit exceeded. You have ${limit - currentUsed} tasks remaining, but this operation requires ${totalCost} tasks.`
+        newBalance: result?.remaining ?? 0,
+        limitExceeded: isLimitExceeded,
+        applied: false,
+        resultType: result?.result_type ?? 'billing_unavailable',
+        errorMessage: isLimitExceeded
+          ? `Task limit exceeded. You need ${totalCost} tasks but have ${result?.remaining ?? 0} remaining.`
+          : result?.result_type === 'subscription_inactive'
+            ? 'Your subscription is inactive. Please update your billing to continue.'
+            : 'Billing error. Please retry.'
       }
     }
 
-    // Deduct tasks from profile
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('user_profiles')
-      .update({ tasks_used: newUsed })
-      .eq('id', userId)
-      .select('tasks_used, tasks_limit')
-      .single()
-
-    if (updateError) {
-      logger.error('[AIWorkflowCost] Failed to deduct tasks', { userId, error: updateError.message })
-      return {
-        tasksUsed: 0,
-        breakdown: { base: baseCost, complexity: complexityCost, total: totalCost },
-        newBalance: null,
-        limitExceeded: false,
-        errorMessage: 'Failed to deduct tasks'
-      }
-    }
-
-    // Log the cost for analytics
-    await supabase.from('ai_workflow_cost_logs').insert({
+    // Log the cost for analytics (non-blocking, separate from billing ledger)
+    supabase.from('ai_workflow_cost_logs').insert({
       user_id: userId,
       flow_id: flowId,
       tasks_used: totalCost,
@@ -194,7 +218,6 @@ export async function deductAIWorkflowTasks(
       created_at: new Date().toISOString()
     }).then(({ error }) => {
       if (error) {
-        // Non-blocking - just log the error
         logger.warn('[AIWorkflowCost] Failed to log cost (non-blocking)', { error: error.message })
       }
     })
@@ -202,17 +225,21 @@ export async function deductAIWorkflowTasks(
     logger.info('[AIWorkflowCost] Tasks deducted successfully', {
       userId,
       flowId,
+      planningChargeId,
       tasksDeducted: totalCost,
       nodeCount,
       planningMethod,
-      newBalance: limit - newUsed
+      applied: result.applied,
+      newBalance: result.remaining
     })
 
     return {
-      tasksUsed: totalCost,
+      tasksUsed: result.applied ? totalCost : 0,
       breakdown: { base: baseCost, complexity: complexityCost, total: totalCost },
-      newBalance: limit - newUsed,
-      limitExceeded: false
+      newBalance: result.current_tasks_limit === -1 ? null : (result.remaining ?? 0),
+      limitExceeded: false,
+      applied: result.applied ?? true,
+      resultType: result.result_type ?? 'deducted'
     }
 
   } catch (error: any) {
@@ -222,7 +249,9 @@ export async function deductAIWorkflowTasks(
       breakdown: { base: 0, complexity: 0, total: 0 },
       newBalance: null,
       limitExceeded: false,
-      errorMessage: error.message
+      applied: false,
+      resultType: 'billing_unavailable',
+      errorMessage: 'Billing system temporarily unavailable. Please retry.'
     }
   }
 }

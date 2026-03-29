@@ -130,6 +130,14 @@ export async function POST(req: NextRequest) {
 
     const { prompt, userId, organizationId } = await req.json()
 
+    // NOTE: This route lacks proper authentication - userId comes from the request body
+    // and is not verified against a session. Entitlement check uses unverified userId.
+    if (userId) {
+      const { requireFeature } = await import('@/lib/utils/require-entitlement')
+      const entitlement = await requireFeature(userId, 'aiAgents')
+      if (!entitlement.allowed) return entitlement.response
+    }
+
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json(
         { error: 'Prompt is required' },

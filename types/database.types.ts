@@ -52,6 +52,63 @@ export type Database = {
           },
         ]
       }
+      agent_eval_events: {
+        Row: {
+          agent_version: string
+          category: string
+          conversation_id: string
+          created_at: string
+          event_name: string
+          flow_id: string | null
+          id: string
+          llm_model: string | null
+          metadata: Json
+          planner_path: string | null
+          prompt_type: string | null
+          session_id: string
+          session_outcome: string | null
+          time_since_last_turn_ms: number | null
+          turn_number: number
+          user_id: string
+        }
+        Insert: {
+          agent_version?: string
+          category: string
+          conversation_id: string
+          created_at?: string
+          event_name: string
+          flow_id?: string | null
+          id?: string
+          llm_model?: string | null
+          metadata?: Json
+          planner_path?: string | null
+          prompt_type?: string | null
+          session_id: string
+          session_outcome?: string | null
+          time_since_last_turn_ms?: number | null
+          turn_number?: number
+          user_id: string
+        }
+        Update: {
+          agent_version?: string
+          category?: string
+          conversation_id?: string
+          created_at?: string
+          event_name?: string
+          flow_id?: string | null
+          id?: string
+          llm_model?: string | null
+          metadata?: Json
+          planner_path?: string | null
+          prompt_type?: string | null
+          session_id?: string
+          session_outcome?: string | null
+          time_since_last_turn_ms?: number | null
+          turn_number?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_assistant_waitlist: {
         Row: {
           created_at: string | null
@@ -1565,7 +1622,7 @@ export type Database = {
           last_sync_at: string | null
           organization_id: string
           provider: string
-          sync_frequency: unknown
+          sync_frequency: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1580,7 +1637,7 @@ export type Database = {
           last_sync_at?: string | null
           organization_id: string
           provider: string
-          sync_frequency?: unknown
+          sync_frequency?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1595,7 +1652,7 @@ export type Database = {
           last_sync_at?: string | null
           organization_id?: string
           provider?: string
-          sync_frequency?: unknown
+          sync_frequency?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1807,6 +1864,7 @@ export type Database = {
           step_number: number
           test_mode_preview: Json | null
           updated_at: string
+          warnings: Json | null
         }
         Insert: {
           completed_at?: string | null
@@ -1826,6 +1884,7 @@ export type Database = {
           step_number: number
           test_mode_preview?: Json | null
           updated_at?: string
+          warnings?: Json | null
         }
         Update: {
           completed_at?: string | null
@@ -1845,6 +1904,7 @@ export type Database = {
           step_number?: number
           test_mode_preview?: Json | null
           updated_at?: string
+          warnings?: Json | null
         }
         Relationships: [
           {
@@ -1923,7 +1983,7 @@ export type Database = {
           legal_basis: string
           organization_id: string
           processing_purpose: string
-          retention_period: unknown
+          retention_period: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1938,7 +1998,7 @@ export type Database = {
           legal_basis: string
           organization_id: string
           processing_purpose: string
-          retention_period?: unknown
+          retention_period?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1953,7 +2013,7 @@ export type Database = {
           legal_basis?: string
           organization_id?: string
           processing_purpose?: string
-          retention_period?: unknown
+          retention_period?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -3840,6 +3900,90 @@ export type Database = {
         }
         Relationships: []
       }
+      systematic_test_results: {
+        Row: {
+          code_hash: string | null
+          duration_ms: number | null
+          error_message: string | null
+          node_title: string | null
+          node_type: string
+          provider_id: string
+          status: string
+          tested_at: string | null
+        }
+        Insert: {
+          code_hash?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          node_title?: string | null
+          node_type: string
+          provider_id: string
+          status?: string
+          tested_at?: string | null
+        }
+        Update: {
+          code_hash?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          node_title?: string | null
+          node_type?: string
+          provider_id?: string
+          status?: string
+          tested_at?: string | null
+        }
+        Relationships: []
+      }
+      task_billing_events: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string
+          event_type: string
+          execution_id: string | null
+          id: string
+          metadata: Json
+          node_breakdown: Json
+          period_end_snapshot: string | null
+          period_start_snapshot: string | null
+          source: string
+          tasks_limit_snapshot: number
+          user_id: string
+          workflow_id: string | null
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string
+          event_type: string
+          execution_id?: string | null
+          id?: string
+          metadata?: Json
+          node_breakdown?: Json
+          period_end_snapshot?: string | null
+          period_start_snapshot?: string | null
+          source: string
+          tasks_limit_snapshot: number
+          user_id: string
+          workflow_id?: string | null
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          event_type?: string
+          execution_id?: string | null
+          id?: string
+          metadata?: Json
+          node_breakdown?: Json
+          period_end_snapshot?: string | null
+          period_start_snapshot?: string | null
+          source?: string
+          tasks_limit_snapshot?: number
+          user_id?: string
+          workflow_id?: string | null
+        }
+        Relationships: []
+      }
       team_activity: {
         Row: {
           activity_type: string
@@ -4698,6 +4842,7 @@ export type Database = {
         Row: {
           admin: boolean | null
           avatar_url: string | null
+          billing_period_end: string | null
           billing_period_start: string
           browser_automation_reset_at: string | null
           browser_automation_seconds_limit: number | null
@@ -4728,6 +4873,7 @@ export type Database = {
         Insert: {
           admin?: boolean | null
           avatar_url?: string | null
+          billing_period_end?: string | null
           billing_period_start?: string
           browser_automation_reset_at?: string | null
           browser_automation_seconds_limit?: number | null
@@ -4758,6 +4904,7 @@ export type Database = {
         Update: {
           admin?: boolean | null
           avatar_url?: string | null
+          billing_period_end?: string | null
           billing_period_start?: string
           browser_automation_reset_at?: string | null
           browser_automation_seconds_limit?: number | null
@@ -5208,6 +5355,38 @@ export type Database = {
           webhook_url?: string
         }
         Relationships: []
+      }
+      workflow_activation_snapshots: {
+        Row: {
+          activated_at: string
+          created_by: string | null
+          id: string
+          snapshot_json: Json
+          workflow_id: string
+        }
+        Insert: {
+          activated_at?: string
+          created_by?: string | null
+          id?: string
+          snapshot_json: Json
+          workflow_id: string
+        }
+        Update: {
+          activated_at?: string
+          created_by?: string | null
+          id?: string
+          snapshot_json?: Json
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_activation_snapshots_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workflow_comments: {
         Row: {
@@ -5960,6 +6139,8 @@ export type Database = {
       }
       workflows: {
         Row: {
+          circuit_breaker_tripped_at: string | null
+          consecutive_failure_threshold: number | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -5968,6 +6149,8 @@ export type Database = {
           folder_id: string | null
           id: string
           last_modified_by: string | null
+          max_executions_per_hour: number | null
+          max_executions_per_minute: number | null
           name: string
           original_folder_id: string | null
           owner_id: string | null
@@ -5979,6 +6162,8 @@ export type Database = {
           workspace_type: string | null
         }
         Insert: {
+          circuit_breaker_tripped_at?: string | null
+          consecutive_failure_threshold?: number | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -5987,6 +6172,8 @@ export type Database = {
           folder_id?: string | null
           id: string
           last_modified_by?: string | null
+          max_executions_per_hour?: number | null
+          max_executions_per_minute?: number | null
           name: string
           original_folder_id?: string | null
           owner_id?: string | null
@@ -5998,6 +6185,8 @@ export type Database = {
           workspace_type?: string | null
         }
         Update: {
+          circuit_breaker_tripped_at?: string | null
+          consecutive_failure_threshold?: number | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -6006,6 +6195,8 @@ export type Database = {
           folder_id?: string | null
           id?: string
           last_modified_by?: string | null
+          max_executions_per_hour?: number | null
+          max_executions_per_minute?: number | null
           name?: string
           original_folder_id?: string | null
           owner_id?: string | null
@@ -6258,6 +6449,25 @@ export type Database = {
           p_workflow_id: string
         }
         Returns: string
+      }
+      deduct_tasks_if_available: {
+        Args: {
+          p_amount: number
+          p_event_type?: string
+          p_execution_id?: string
+          p_node_breakdown?: Json
+          p_source?: string
+          p_user_id: string
+          p_workflow_id?: string
+        }
+        Returns: {
+          applied: boolean
+          current_tasks_limit: number
+          new_tasks_used: number
+          remaining: number
+          result_type: string
+          success: boolean
+        }[]
       }
       empty_user_trash: { Args: { user_uuid: string }; Returns: undefined }
       expire_old_team_invitations: { Args: never; Returns: undefined }
