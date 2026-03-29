@@ -46,95 +46,6 @@ export interface WorkflowConnection {
   targetHandle?: string
 }
 
-function ensureWorkflowConnections(
-  nodes: WorkflowNode[] = [],
-  rawConnections: WorkflowConnection[] = []
-): { connections: WorkflowConnection[]; addedConnections: WorkflowConnection[] } {
-  const validNodeIds = new Set(nodes.map((node) => node.id))
-  const existingConnections = Array.isArray(rawConnections)
-    ? rawConnections.filter((conn) => validNodeIds.has(conn.source) && validNodeIds.has(conn.target))
-    : []
-
-  if (nodes.length < 2) {
-    return { connections: existingConnections, addedConnections: [] }
-  }
-
-  const triggers = nodes.filter((node) => node.data?.isTrigger)
-  const nonTriggers = nodes.filter((node) => !node.data?.isTrigger)
-
-  if (triggers.length === 0 || nonTriggers.length === 0) {
-    return { connections: existingConnections, addedConnections: [] }
-  }
-
-  const hasOutgoingFromTrigger = triggers.every((trigger) =>
-    existingConnections.some((conn) => conn.source === trigger.id)
-  )
-
-  if (existingConnections.length > 0 && hasOutgoingFromTrigger) {
-    return { connections: existingConnections, addedConnections: [] }
-  }
-
-  const sortByPosition = (a: WorkflowNode, b: WorkflowNode) => {
-    const ay = a.position?.y ?? 0
-    const by = b.position?.y ?? 0
-    if (ay !== by) return ay - by
-    const ax = a.position?.x ?? 0
-    const bx = b.position?.x ?? 0
-    return ax - bx
-  }
-
-  const orderedTriggers = [...triggers].sort(sortByPosition)
-  const orderedActions = [...nonTriggers].sort(sortByPosition)
-
-  if (orderedActions.length === 0) {
-    return { connections: existingConnections, addedConnections: [] }
-  }
-
-  const dedupeKey = (conn: WorkflowConnection) => `${conn.source}->${conn.target}`
-  const seen = new Set(existingConnections.map(dedupeKey))
-  const generated: WorkflowConnection[] = []
-  const idSeed = `edge-auto-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-
-  orderedTriggers.forEach((trigger, index) => {
-    const preferredAction = orderedActions[index] || orderedActions[0]
-    if (!preferredAction) return
-    const candidate: WorkflowConnection = {
-      id: `${idSeed}-t${index}`,
-      source: trigger.id,
-      target: preferredAction.id,
-    }
-    const key = dedupeKey(candidate)
-    if (!seen.has(key)) {
-      generated.push(candidate)
-      seen.add(key)
-    }
-  })
-
-  for (let i = 0; i < orderedActions.length - 1; i++) {
-    const sourceNode = orderedActions[i]
-    const targetNode = orderedActions[i + 1]
-    const candidate: WorkflowConnection = {
-      id: `${idSeed}-a${i}`,
-      source: sourceNode.id,
-      target: targetNode.id,
-    }
-    const key = dedupeKey(candidate)
-    if (!seen.has(key)) {
-      generated.push(candidate)
-      seen.add(key)
-    }
-  }
-
-  if (generated.length === 0) {
-    return { connections: existingConnections, addedConnections: [] }
-  }
-
-  return {
-    connections: [...existingConnections, ...generated],
-    addedConnections: generated,
-  }
-}
-
 export interface Workflow {
   id: string
   name: string
@@ -860,19 +771,11 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       const hasTrigger = currentWorkflow.nodes.some(node => node.data?.isTrigger)
       const hasActions = currentWorkflow.nodes.some(node => !node.data?.isTrigger)
 
-      const timestamp = new Date().toISOString()
       const nodesForUpdate = JSON.parse(JSON.stringify(currentWorkflow.nodes || [])) as WorkflowNode[]
-      const existingConnections = JSON.parse(JSON.stringify(currentWorkflow.connections || [])) as WorkflowConnection[]
-      const { connections: ensuredConnections, addedConnections } = ensureWorkflowConnections(nodesForUpdate, existingConnections)
+      const connectionsForUpdate = JSON.parse(JSON.stringify(currentWorkflow.connections || [])) as WorkflowConnection[]
 
-      if (addedConnections.length > 0) {
-        logger.warn('⚠️ Auto-connected workflow nodes to prevent isolated triggers', {
-          workflowId: currentWorkflow.id,
-          addedConnections: addedConnections.map(({ source, target }) => ({ source, target }))
-        })
-      }
-
-      const isStructurallyComplete = hasTrigger && hasActions && ensuredConnections.length > 0
+      const hasConnections = connectionsForUpdate.length > 0
+      const isStructurallyComplete = hasTrigger && hasActions && hasConnections
       const currentStatus = currentWorkflow.status || 'draft'
 
       // Preserve existing status on save. Only the activation API should promote to 'active'.
@@ -880,34 +783,25 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       const newStatus = isStructurallyComplete ? (currentStatus || 'draft') : 'draft'
 
       // Validate the data structure before sending
-      if (!Array.isArray(nodesForUpdate) || !Array.isArray(ensuredConnections)) {
+      if (!Array.isArray(nodesForUpdate) || !Array.isArray(connectionsForUpdate)) {
         throw new Error("Invalid workflow data structure")
       }
 
-      const updateData = {
+      // Save through the normalized API path — writes to workflow_nodes + workflow_edges tables.
+      // Server-side auto-wiring handles edge generation if needed.
+      const responseData = await WorkflowService.updateWorkflow(currentWorkflow.id, {
         nodes: nodesForUpdate,
-        connections: ensuredConnections,
+        connections: connectionsForUpdate,
         status: newStatus,
-        updated_at: timestamp,
-      }
+      })
 
-      const { error } = await supabase
-        .from("workflows")
-        .update(updateData)
-        .eq("id", currentWorkflow.id)
-
-      if (error) {
-        logger.error("Error updating workflow:", error)
-        logger.error("Update data was:", updateData)
-        throw error
-      }
-
+      // Use server response (which may include auto-wired edges) as the source of truth
       const updatedWorkflowState: Workflow = {
         ...currentWorkflow,
-        nodes: nodesForUpdate,
-        connections: ensuredConnections,
-        status: newStatus,
-        updated_at: timestamp
+        nodes: responseData?.nodes || nodesForUpdate,
+        connections: responseData?.connections || connectionsForUpdate,
+        status: responseData?.status || newStatus,
+        updated_at: responseData?.updated_at || new Date().toISOString()
       }
 
       // Update the workflow in the list

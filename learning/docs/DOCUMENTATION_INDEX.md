@@ -1,6 +1,6 @@
 # Documentation Index - Quick Reference
 
-**Last Updated**: November 3, 2025
+**Last Updated**: March 29, 2026
 
 This document tells you which documentation files to reference for common tasks.
 
@@ -21,8 +21,8 @@ This document tells you which documentation files to reference for common tasks.
 
 ### Integration Testing
 **Primary Docs**:
-1. [/NODE_TESTING_SYSTEM.md](/NODE_TESTING_SYSTEM.md) - Automated testing for all 247 nodes
-2. [/ACTION_TRIGGER_TESTING.md](/ACTION_TRIGGER_TESTING.md) - Action/trigger testing implementation
+1. [NODE_TESTING_SYSTEM.md](/learning/logs/archive/NODE_TESTING_SYSTEM.md) - Automated testing for all 247 nodes
+2. [action-trigger-implementation-guide.md](action-trigger-implementation-guide.md) - Action/trigger testing implementation
 
 **When to Use**: Running node tests, adding new integrations, debugging test failures
 
@@ -60,23 +60,24 @@ curl -X POST http://localhost:3000/api/testing/nodes \
 
 ---
 
-### Integration Development
-**Primary Doc**: [integration-development-guide.md](integration-development-guide.md)
-- End-to-end integration setup
-- OAuth configuration
-- API handler implementation
-- Provider registration
+### Adding a New Integration (START HERE)
+**Primary Doc**: [complete-integration-guide-2025.md](complete-integration-guide-2025.md)
+- Complete step-by-step guide: OAuth, nodes, data handlers, actions, triggers
+- All file paths verified against current codebase (March 2026)
+- Quick reference checklist of all files to create/modify
 
-**When to Use**: Adding new integrations (Gmail, Slack, etc.), understanding integration architecture
+**When to Use**: Adding any new integration from scratch
 
-**Estimated Time**: 30 min (simple) to 4 hours (complex)
+**Estimated Time**: 2-3 hours (simple) to 8-12 hours (complex)
 
 ---
 
-### Action/Trigger Implementation
+### Action/Trigger Deep-Dive
 **Primary Doc**: [action-trigger-implementation-guide.md](action-trigger-implementation-guide.md)
-- Complete checklist for actions and triggers
-- Provider ID matching (critical!)
+- ActionResult interface, error handling patterns
+- Trigger lifecycle architecture (webhook, passive, polling)
+- Provider-specific notes (Microsoft Graph, Stripe, polling)
+- Troubleshooting guide
 - Lifecycle management
 - Troubleshooting common issues
 
@@ -106,9 +107,7 @@ curl -X POST http://localhost:3000/api/testing/nodes \
 
 ### AI Agent Flow
 **Primary Docs**:
-1. [/AI_AGENT_FLOW_COMPLETE.md](/AI_AGENT_FLOW_COMPLETE.md) - What's implemented
-2. [/AI_AGENT_FLOW_ENHANCEMENTS.md](/AI_AGENT_FLOW_ENHANCEMENTS.md) - Future enhancements
-3. [agent-flow-integration-complete.md](agent-flow-integration-complete.md) - Technical details
+1. [agent-flow-integration-complete.md](agent-flow-integration-complete.md) - Technical details
 
 **When to Use**: Understanding AI agent architecture, planning enhancements
 
@@ -139,8 +138,6 @@ curl -X POST http://localhost:3000/api/testing/nodes \
 - `field-implementation-guide.md` ✅ Current
 
 **Testing**:
-- `/NODE_TESTING_SYSTEM.md` (root) ✅ Current
-- `/ACTION_TRIGGER_TESTING.md` (root) ✅ Current
 - `phase2b-testing-guide.md` ✅ Current
 
 **Integration Development**:
@@ -153,8 +150,6 @@ curl -X POST http://localhost:3000/api/testing/nodes \
 - `template-quick-reference.md` ✅ Current
 
 **AI Agent**:
-- `/AI_AGENT_FLOW_COMPLETE.md` (root) ✅ Current
-- `/AI_AGENT_FLOW_ENHANCEMENTS.md` (root) ✅ Current
 - `agent-flow-integration-complete.md` ✅ Current
 
 **Other**:
@@ -189,12 +184,12 @@ After completing ANY of these:
 | What Changed | Update This File |
 |-------------|------------------|
 | Configuration UI | `configuration-modal-tabs-qa-summary.md` |
-| Node testing | `/NODE_TESTING_SYSTEM.md` |
+| Node testing | `/learning/logs/archive/NODE_TESTING_SYSTEM.md` |
 | Action/trigger implementation | `action-trigger-implementation-guide.md` |
 | New integration | `integration-development-guide.md` |
 | Field types | `field-implementation-guide.md` |
 | Template structure | `template-quick-reference.md` |
-| AI agent features | `/AI_AGENT_FLOW_COMPLETE.md` |
+| AI agent features | `agent-flow-integration-complete.md` |
 | Bug fix walkthrough | `/learning/walkthroughs/[descriptive-name].md` |
 | Major feature | `/learning/logs/CHANGELOG.md` |
 | Social media update | `/learning/logs/socialMedia.md` (ADD AT TOP) |
@@ -241,7 +236,7 @@ These files are outdated and can be removed:
 4. After completion, update: `configuration-modal-tabs-qa-summary.md` changelog
 
 ### "I want to test all nodes"
-1. Read: `/NODE_TESTING_SYSTEM.md`
+1. Read: `/learning/logs/archive/NODE_TESTING_SYSTEM.md`
 2. Run: Quick validation first (2-5 seconds)
 3. Fix: Failed nodes
 4. Run: Full test with real APIs (careful!)
@@ -263,7 +258,7 @@ These files are outdated and can be removed:
 
 1. **[/CLAUDE.md](/CLAUDE.md)** - Project-wide rules (MANDATORY)
 2. **[configuration-modal-tabs-qa-summary.md](configuration-modal-tabs-qa-summary.md)** - UI reference
-3. **[/NODE_TESTING_SYSTEM.md](/NODE_TESTING_SYSTEM.md)** - Testing guide
+3. **[NODE_TESTING_SYSTEM.md](/learning/logs/archive/NODE_TESTING_SYSTEM.md)** - Testing guide
 4. **[integration-development-guide.md](integration-development-guide.md)** - Integration basics
 5. **[action-trigger-implementation-guide.md](action-trigger-implementation-guide.md)** - Action/trigger checklist
 

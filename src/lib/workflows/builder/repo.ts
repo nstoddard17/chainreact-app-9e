@@ -857,6 +857,34 @@ export class FlowRepository {
   }
 
   /**
+  /**
+   * Get the latest revision for a workflow (for concurrency checks).
+   */
+  async getLatestRevision(flowId: string): Promise<FlowRevisionRecord | null> {
+    const { data } = await this.withFallback((client) =>
+      client
+        .from(WORKFLOWS_REVISIONS_TABLE)
+        .select('*')
+        .eq('flow_id', flowId)
+        .order('version', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    )
+
+    if (!data) return null
+
+    return {
+      id: data.id,
+      flowId: data.flow_id,
+      version: data.version,
+      graph: data.graph,
+      createdAt: data.created_at,
+      published: data.published ?? false,
+      publishedAt: data.published_at ?? null,
+    }
+  }
+
+  /**
    * Atomic save: nodes + edges + revision snapshot (called on every autosave)
    * This is the main entry point for saving workflow changes.
    * @param flowId - The workflow ID

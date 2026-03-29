@@ -55,7 +55,7 @@ function isTriggerConfigured(config: Record<string, any> | undefined | null): bo
 
 const ApplyEditsSchema = z.object({
   flow: FlowSchema,
-  // Note: version is no longer used - saveGraph auto-increments versions
+  expectedVersion: z.number().optional(),
 })
 
 export async function POST(request: Request, context: { params: Promise<{ flowId: string }> }) {
@@ -136,9 +136,25 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
   }
 
   try {
-    // Use saveGraph to save to normalized tables (workflow_nodes, workflow_edges)
+    // Concurrency check: reject stale writes before any graph persistence.
+    // If the client sends expectedVersion and it doesn't match the current version,
+    // return 409 Conflict with the current flow so the client can reconcile.
+    if (typeof parsed.data.expectedVersion === 'number') {
+      const currentRevision = await repository.getLatestRevision(flowId)
+      const currentVersion = currentRevision?.version ?? 0
+      if (parsed.data.expectedVersion !== currentVersion) {
+        logger.info(`[apply-edits] Version conflict: client=${parsed.data.expectedVersion}, server=${currentVersion}`)
+        return NextResponse.json({
+          ok: false,
+          error: 'Version conflict',
+          currentVersion,
+          flow: currentRevision?.graph ?? null,
+        }, { status: 409 })
+      }
+    }
+
+    // Save to normalized tables (workflow_nodes, workflow_edges)
     // AND create a revision snapshot for history
-    // Pass user.id to associate nodes/edges with the user for RLS
     const revision = await repository.saveGraph(flowId, flow, user.id)
 
     // Track trigger activation errors - if activation fails on an active workflow,

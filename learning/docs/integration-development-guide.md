@@ -1,571 +1,394 @@
-# Integration Development Guide
+# Dynamic Fields & Options Architecture Guide
+**Updated: March 2026 — Current Architecture**
 
-## Overview
+This guide supplements the [Complete Integration Guide](./complete-integration-guide-2025.md) with deep-dive details on how dynamic field loading works — the system that powers select dropdowns, cascading fields, and options loading in the workflow configuration UI.
 
-This guide provides a complete walkthrough for adding new integrations to ChainReact following the refactored architecture. After the major refactoring of `useDynamicOptions`, we now have a clean, modular pattern that makes adding new providers straightforward.
+---
 
 ## Table of Contents
+
 1. [Architecture Overview](#architecture-overview)
-2. [Step-by-Step Integration Guide](#step-by-step-integration-guide)
-3. [Common Patterns](#common-patterns)
-4. [Testing Your Integration](#testing-your-integration)
-5. [Troubleshooting](#troubleshooting)
+2. [How Dynamic Fields Work (End-to-End)](#how-dynamic-fields-work)
+3. [Field Mappings](#field-mappings)
+4. [Data Handler Registry](#data-handler-registry)
+5. [Provider Options Loaders](#provider-options-loaders)
+6. [Common Patterns](#common-patterns)
+7. [Testing & Troubleshooting](#testing--troubleshooting)
+
+---
 
 ## Architecture Overview
 
-### Current Structure After Refactoring
+### Key Files
 
 ```
 components/workflows/configuration/
 ├── hooks/
-│   ├── useDynamicOptions.ts (legacy - 1,234 lines)
-│   └── useDynamicOptionsRefactored.ts (new - 343 lines)
+│   └── useDynamicOptions.ts              # Main hook (2,596 lines) — orchestrates all field loading
 ├── providers/
-│   ├── discord/
-│   │   └── discordOptionsLoader.ts
-│   ├── airtable/
-│   │   └── airtableOptionsLoader.ts
-│   ├── [your-provider]/
-│   │   └── [provider]OptionsLoader.ts
-│   ├── types.ts (interfaces)
-│   └── registry.ts (provider registration)
+│   ├── types.ts                          # ProviderOptionsLoader interface
+│   ├── registry.ts                       # Provider loader registry
+│   └── {provider}/
+│       └── {provider}OptionsLoader.ts    # Provider-specific loading logic
 ├── config/
-│   └── fieldMappings.ts (field-to-resource mappings)
+│   └── fieldMappings.ts                  # Maps field names to data handler keys
 └── utils/
-    ├── fieldFormatters.ts (data formatting)
-    ├── requestManager.ts (request handling)
-    └── cacheManager.ts (caching layer)
+    ├── fieldFormatters.ts                # Data formatting utilities
+    └── requestManager.ts                 # Request deduplication
+
+lib/integrations/
+├── data-handler-registry.ts              # Central handler registry
+├── data-handler-registry-init.ts         # All provider registrations
+└── data-route-handler.ts                 # Shared API route handler
+
+app/api/integrations/{provider}/data/
+├── route.ts                              # Thin adapter
+├── types.ts                              # Provider types
+├── utils.ts                              # Token handling, API helpers
+└── handlers/
+    ├── index.ts                          # Handler map export
+    └── {dataType}.ts                     # Individual handlers
 ```
 
-## Step-by-Step Integration Guide
+---
 
-### Step 1: Define Your Integration in availableNodes.ts
+## How Dynamic Fields Work
 
-First, add your integration's actions and triggers to `lib/workflows/availableNodes.ts`:
+When a user opens a node's configuration modal and a `select` field has `dynamic: "yourprovider_boards"`:
+
+```
+1. ConfigurationForm renders field with dynamic="yourprovider_boards"
+     ↓
+2. useDynamicOptions hook picks up the field
+     ↓
+3. Hook checks fieldMappings.ts to resolve "yourprovider_boards" data type
+     ↓
+4. Hook checks provider registry for a custom ProviderOptionsLoader
+     ↓
+5. If custom loader exists → loader.loadOptions() handles everything
+   If no custom loader → hook makes POST to /api/integrations/{provider}/data
+     ↓
+6. data/route.ts delegates to handleIntegrationDataRequest()
+     ↓
+7. data-route-handler.ts looks up handler from data-handler-registry
+     ↓
+8. Handler fetches from external API, formats response
+     ↓
+9. Options returned as { value, label }[] to the select field
+```
+
+For **dependent fields** (e.g., "groups" depends on "boards"):
+- The parent field's value change triggers the child field to reload
+- `dependsOn` property tells the hook which parent to watch
+- `dynamicParent` tells the API which field value to pass as a filter
+
+---
+
+## Field Mappings
+
+**File:** `components/workflows/configuration/config/fieldMappings.ts`
+
+Maps each node type's fields to their data handler keys:
 
 ```typescript
-// Example: Adding a Notion integration
-{
-  id: 'notion_action_create_page',
-  type: 'action',
-  category: 'Notion',
-  name: 'Create Page',
-  description: 'Create a new page in Notion',
-  icon: NotionIcon,
-  color: 'bg-black',
-  textColor: 'text-white',
-  providerId: 'notion',
-  fields: [
-    {
-      name: 'databaseId',
-      label: 'Database',
-      type: 'select',
-      required: true,
-      dynamic: true, // This triggers dynamic loading
-      placeholder: 'Select a database'
-    },
-    {
-      name: 'title',
-      label: 'Page Title',
-      type: 'text',
-      required: true
-    },
-    // Add more fields as needed
-  ],
-  schema: z.object({
-    databaseId: z.string().min(1, 'Database is required'),
-    title: z.string().min(1, 'Title is required')
-  })
+// Each node type defines which fields map to which data endpoints
+const yourproviderMappings: Record<string, FieldMapping> = {
+  yourprovider_trigger_new_record: {
+    boardId: "yourprovider_boards",       // fieldName → data handler key
+    groupId: "yourprovider_groups",
+  },
+  yourprovider_action_create_record: {
+    boardId: "yourprovider_boards",
+    groupId: "yourprovider_groups",
+  },
+}
+
+// Export merged with all other providers
+export const fieldToResourceMap: NodeFieldMappings = {
+  ...gmailMappings,
+  ...discordMappings,
+  ...yourproviderMappings,
+  default: defaultMappings,
 }
 ```
 
-### Step 2: Add Field Mappings
+**The data handler key (e.g., `"yourprovider_boards"`) must match a key in the handler registry** at `app/api/integrations/yourprovider/data/handlers/index.ts`.
 
-Update `components/workflows/configuration/config/fieldMappings.ts`:
+---
+
+## Data Handler Registry
+
+### Central Registry
+
+**File:** `lib/integrations/data-handler-registry.ts`
+
+Defines how each provider's data requests are processed:
 
 ```typescript
-// Add your provider's field mappings
-const notionMappings: Record<string, FieldMapping> = {
-  notion_action_create_page: {
-    databaseId: "notion_databases",
-    parentPage: "notion_pages",
-  },
-  notion_action_update_page: {
-    pageId: "notion_pages",
-    databaseId: "notion_databases",
-  },
-  // Add more as needed
-};
-
-// Don't forget to add to the main export
-export const fieldToResourceMap: NodeFieldMappings = {
-  ...existingMappings,
-  ...notionMappings,
-  default: defaultMappings,
-};
+interface ProviderDataConfig {
+  dbProviderName: string | string[]     // Provider name(s) in integrations table
+  tokenDecryption: 'decryptToken' | 'decrypt-with-key' | 'none'
+  decryptRefreshToken: boolean
+  validStatuses: string[]               // e.g., ['connected', 'active']
+  tokenRefresh: 'none' | 'refresh-and-retry'
+  transformHandlerCall?: (handler, integration, decryptedToken, options) => Promise<any>
+}
 ```
 
-### Step 3: Create Provider Options Loader
+### Initialization
 
-Create `components/workflows/configuration/providers/notion/notionOptionsLoader.ts`:
+**File:** `lib/integrations/data-handler-registry-init.ts`
 
 ```typescript
-import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types';
+// Standard provider (token handled in handler utils)
+registerDataProvider('yourprovider', yourproviderHandlers, {
+  dbProviderName: 'yourprovider',
+  tokenDecryption: 'none',
+  decryptRefreshToken: false,
+  validStatuses: ['connected', 'active'],
+  tokenRefresh: 'none',
+})
 
-export class NotionOptionsLoader implements ProviderOptionsLoader {
-  private supportedFields = [
-    'databaseId',
-    'pageId',
-    'parentPage',
-    // Add all fields that need dynamic loading
-  ];
+// Provider with auto-decryption (Slack)
+registerDataProvider('slack', slackHandlers, {
+  dbProviderName: 'slack',
+  tokenDecryption: 'decryptToken',
+  decryptRefreshToken: true,
+  validStatuses: ['connected', 'active', 'authorized'],
+  tokenRefresh: 'none',
+})
+
+// Provider with custom handler call (GitHub — different function signature)
+registerDataProvider('github', githubHandlers, {
+  dbProviderName: 'github',
+  tokenDecryption: 'decrypt-with-key',
+  decryptRefreshToken: false,
+  validStatuses: ['connected', 'active'],
+  tokenRefresh: 'none',
+  transformHandlerCall: async (handler, integration, decryptedToken, options) => {
+    return handler(decryptedToken!, options)  // GitHub takes (token, options) not (integration, options)
+  },
+})
+```
+
+### Shared Route Handler
+
+**File:** `lib/integrations/data-route-handler.ts`
+
+All data routes delegate to this shared handler:
+
+```typescript
+export async function handleIntegrationDataRequest(
+  provider: string,
+  req: NextRequest
+): Promise<Response>
+```
+
+It handles: handler lookup, integration fetch, status validation, token decryption, error handling, retry on auth failure, and structured logging.
+
+### Per-Provider Data Route
+
+**File:** `app/api/integrations/yourprovider/data/route.ts`
+
+```typescript
+import { type NextRequest } from 'next/server'
+import { handleIntegrationDataRequest } from '@/lib/integrations/data-route-handler'
+
+export async function POST(req: NextRequest) {
+  return handleIntegrationDataRequest('yourprovider', req)
+}
+```
+
+This is a thin adapter — all logic lives in the shared handler.
+
+---
+
+## Provider Options Loaders
+
+For most providers, field mappings + data handlers are sufficient. Custom options loaders are needed for:
+- Complex debouncing/deduplication
+- Multi-step field dependency chains
+- Client-side data transformation
+- Special loading behavior (previews, linked records)
+
+### Interface
+
+**File:** `components/workflows/configuration/providers/types.ts`
+
+```typescript
+interface LoadOptionsParams {
+  fieldName: string
+  nodeType: string
+  providerId: string
+  integrationId?: string
+  dependsOn?: string
+  dependsOnValue?: any
+  forceRefresh?: boolean
+  extraOptions?: Record<string, any>
+  formValues?: Record<string, any>
+  signal?: AbortSignal
+}
+
+interface ProviderOptionsLoader {
+  canHandle(fieldName: string, providerId: string): boolean
+  loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]>
+  formatOptions?(data: any[]): FormattedOption[]
+  getFieldDependencies?(fieldName: string): string[]
+  clearCache?(): void
+}
+```
+
+### Implementation Example
+
+**File:** `components/workflows/configuration/providers/yourprovider/yourproviderOptionsLoader.ts`
+
+```typescript
+import { ProviderOptionsLoader, LoadOptionsParams, FormattedOption } from '../types'
+
+export class YourProviderOptionsLoader implements ProviderOptionsLoader {
+  private supportedFields = ['boardId', 'groupId']
 
   canHandle(fieldName: string, providerId: string): boolean {
-    return providerId === 'notion' && this.supportedFields.includes(fieldName);
+    return providerId === 'yourprovider' && this.supportedFields.includes(fieldName)
   }
 
   async loadOptions(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { fieldName, integrationId, signal, dependsOnValue } = params;
+    const { fieldName, integrationId, dependsOnValue, signal } = params
+    if (!integrationId) return []
 
-    switch (fieldName) {
-      case 'databaseId':
-        return this.loadDatabases(params);
-      
-      case 'pageId':
-        return this.loadPages(params);
-      
-      case 'parentPage':
-        return this.loadParentPages(params);
-      
-      default:
-        return [];
-    }
-  }
+    const dataType = fieldName === 'boardId' ? 'yourprovider_boards' : 'yourprovider_groups'
 
-  private async loadDatabases(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    const { integrationId, signal } = params;
-    
-    if (!integrationId) {
-      console.log('🔍 [Notion] Cannot load databases without integrationId');
-      return [];
-    }
-
-    try {
-      const response = await fetch('/api/integrations/notion/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          integrationId,
-          dataType: 'notion_databases',
-          options: {}
-        }),
-        signal
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load databases: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const databases = result.data || [];
-
-      return databases.map((db: any) => ({
-        value: db.id,
-        label: db.title || db.name || db.id,
-        icon: db.icon,
-        properties: db.properties // Store for later use
-      }));
-    } catch (error) {
-      console.error('❌ [Notion] Error loading databases:', error);
-      return [];
-    }
-  }
-
-  private async loadPages(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    // Implementation for loading pages
-    // Similar pattern to loadDatabases
-    return [];
-  }
-
-  private async loadParentPages(params: LoadOptionsParams): Promise<FormattedOption[]> {
-    // Implementation for loading parent pages
-    return [];
-  }
-
-  // Define field dependencies
-  getFieldDependencies(fieldName: string): string[] {
-    switch (fieldName) {
-      case 'pageId':
-        return ['databaseId']; // Pages depend on selected database
-      
-      default:
-        return [];
-    }
-  }
-}
-```
-
-### Step 4: Register Your Provider
-
-Update `components/workflows/configuration/providers/registry.ts`:
-
-```typescript
-import { NotionOptionsLoader } from './notion/notionOptionsLoader';
-
-class ProviderRegistryImpl implements IProviderRegistry {
-  private registerDefaultLoaders(): void {
-    // Existing registrations...
-    
-    // Add your new provider
-    this.register('notion', new NotionOptionsLoader());
-  }
-}
-```
-
-### Step 5: Create API Data Handler
-
-Create the backend handler at `app/api/integrations/notion/data/route.ts`:
-
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-
-export async function POST(request: NextRequest) {
-  try {
-    const { integrationId, dataType, options } = await request.json();
-    
-    // Verify user has access to this integration
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: integration } = await supabase
-      .from('integrations')
-      .select('*')
-      .eq('id', integrationId)
-      .single();
-
-    if (!integration) {
-      return NextResponse.json({ error: 'Integration not found' }, { status: 404 });
-    }
-
-    // Handle different data types
-    switch (dataType) {
-      case 'notion_databases':
-        return handleGetDatabases(integration);
-      
-      case 'notion_pages':
-        return handleGetPages(integration, options);
-      
-      default:
-        return NextResponse.json({ error: 'Unknown data type' }, { status: 400 });
-    }
-  } catch (error) {
-    console.error('Error in Notion data handler:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-async function handleGetDatabases(integration: any) {
-  // Make API call to Notion
-  const response = await fetch('https://api.notion.com/v1/search', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${integration.access_token}`,
-      'Notion-Version': '2022-06-28',
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      filter: { property: 'object', value: 'database' }
-    })
-  });
-
-  const data = await response.json();
-  
-  // Format the response
-  const databases = data.results.map((db: any) => ({
-    id: db.id,
-    title: db.title?.[0]?.plain_text || 'Untitled',
-    icon: db.icon,
-    properties: db.properties
-  }));
-
-  return NextResponse.json({ data: databases });
-}
-```
-
-### Step 6: Add Custom Field Formatters (if needed)
-
-If your provider has unique field types, add formatters to `components/workflows/configuration/utils/fieldFormatters.ts`:
-
-```typescript
-function formatNotionDatabase(data: any[]): FormattedOption[] {
-  return data.map((item: any) => ({
-    value: item.id,
-    label: item.title || 'Untitled',
-    icon: item.icon?.emoji || item.icon?.url,
-    properties: item.properties,
-    createdTime: item.created_time,
-    lastEditedTime: item.last_edited_time
-  }));
-}
-
-// Add to the fieldFormatters mapping
-const fieldFormatters: Record<string, (data: any[]) => FormattedOption[]> = {
-  // ... existing formatters
-  databaseId: formatNotionDatabase,
-  pageId: formatNotionPage,
-};
-```
-
-### Step 7: Implement Action Handler
-
-Create the action handler at `lib/workflows/actions/notion/createPage.ts`:
-
-```typescript
-export async function createNotionPage(
-  nodeData: any,
-  executionData: any,
-  integration: any
-) {
-  const { databaseId, title, properties } = nodeData;
-
-  try {
-    const response = await fetch('https://api.notion.com/v1/pages', {
+    const response = await fetch('/api/integrations/yourprovider/data', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${integration.access_token}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        parent: { database_id: databaseId },
-        properties: {
-          title: {
-            title: [{
-              text: { content: title }
-            }]
-          },
-          ...properties
-        }
-      })
-    });
+        integrationId,
+        dataType,
+        options: { parentId: dependsOnValue },
+      }),
+      signal,
+    })
 
-    if (!response.ok) {
-      throw new Error(`Notion API error: ${response.status}`);
-    }
+    if (!response.ok) return []
+    const result = await response.json()
+    return result.data || []
+  }
 
-    const page = await response.json();
-    
-    return {
-      success: true,
-      data: {
-        pageId: page.id,
-        url: page.url,
-        createdTime: page.created_time
-      }
-    };
-  } catch (error) {
-    console.error('Error creating Notion page:', error);
-    throw error;
+  getFieldDependencies(fieldName: string): string[] {
+    if (fieldName === 'groupId') return ['boardId']
+    return []
   }
 }
 ```
 
-### Step 8: Register Action Handler
+### Registration
 
-Update `lib/workflows/executeNode.ts`:
+**File:** `components/workflows/configuration/providers/registry.ts`
 
 ```typescript
-import { createNotionPage } from './actions/notion/createPage';
+import { YourProviderOptionsLoader } from './yourprovider/yourproviderOptionsLoader'
 
-// In the executeNode function, add your handler
-case 'notion_action_create_page':
-  result = await createNotionPage(nodeData, executionData, integration);
-  break;
+// In registerDefaultLoaders():
+this.register('yourprovider', new YourProviderOptionsLoader())
 ```
+
+The registry supports **multiple loaders per provider** (e.g., HubSpot has two — one for standard fields, one for dynamic custom properties).
+
+### Currently Registered Providers
+
+Discord, Airtable, HubSpot (x2), Gmail, Slack, Facebook, OneNote, Notion, Google Drive, Google Sheets, Dropbox, Outlook, Teams, Google Calendar, Excel, AI, GitHub, Monday, Mailchimp, Twitter, Google Analytics, Gumroad, Storage, ManyChat, Stripe
+
+---
 
 ## Common Patterns
 
-### Pattern 1: Dependent Fields
+### Pattern: Dependent Field Loading
 
-When field B depends on field A:
+When "Groups" dropdown depends on which "Board" is selected:
 
+**In node schema:**
 ```typescript
-getFieldDependencies(fieldName: string): string[] {
-  switch (fieldName) {
-    case 'childField':
-      return ['parentField'];
-    default:
-      return [];
-  }
+{
+  name: "groupId",
+  dynamic: "yourprovider_groups",
+  dynamicParent: "boardId",
+  dependsOn: "boardId",
+  hidden: { $deps: ["boardId"], $condition: { boardId: { $exists: false } } },
 }
 ```
 
-### Pattern 2: Linked/Related Records
+**In data handler:**
+```typescript
+export const getGroups: DataHandler = async (integration, options) => {
+  const { parentId } = options || {}  // parentId comes from dynamicParent field value
+  if (!parentId) return []
 
-For fields that reference records in another table (like Airtable linked records):
+  const data = await makeApiRequest(`/boards/${parentId}/groups`, accessToken)
+  return data.map(g => ({ value: g.id, label: g.name }))
+}
+```
+
+### Pattern: Linked/Dynamic Records
+
+For fields that reference records in another table:
 
 ```typescript
 if (fieldName.startsWith('dynamic_field_')) {
-  // Handle dynamic field loading
-  const fieldId = fieldName.replace('dynamic_field_', '');
-  return this.loadDynamicFieldOptions(fieldId, params);
+  const fieldId = fieldName.replace('dynamic_field_', '')
+  return this.loadDynamicFieldOptions(fieldId, params)
 }
 ```
 
-### Pattern 3: Caching Expensive Operations
+### Pattern: Format Options Response
 
-The cache manager automatically handles caching, but you can control TTL:
-
-```typescript
-// In useDynamicOptionsRefactored.ts, when setting cache
-cacheManager.set(
-  cacheKey, 
-  options, 
-  30 * 60 * 1000, // 30 minutes TTL for expensive operations
-  dependencies
-);
-```
-
-## Testing Your Integration
-
-### 1. Unit Test the Options Loader
+All data handlers should return `{ value, label }[]` format:
 
 ```typescript
-// providers/notion/__tests__/notionOptionsLoader.test.ts
-import { NotionOptionsLoader } from '../notionOptionsLoader';
-
-describe('NotionOptionsLoader', () => {
-  const loader = new NotionOptionsLoader();
-
-  test('should handle notion fields', () => {
-    expect(loader.canHandle('databaseId', 'notion')).toBe(true);
-    expect(loader.canHandle('randomField', 'notion')).toBe(false);
-    expect(loader.canHandle('databaseId', 'other')).toBe(false);
-  });
-
-  test('should return field dependencies', () => {
-    expect(loader.getFieldDependencies('pageId')).toEqual(['databaseId']);
-  });
-});
+return items.map(item => ({
+  value: item.id,
+  label: item.name || item.title || item.id,
+  description: item.description,    // Optional — shown as subtitle
+  icon: item.icon,                  // Optional — shown as icon
+}))
 ```
 
-### 2. Test the API Handler
+---
 
-```typescript
-// Use Thunder Client or Postman to test:
-POST /api/integrations/notion/data
-{
-  "integrationId": "your-integration-id",
-  "dataType": "notion_databases",
-  "options": {}
-}
+## Testing & Troubleshooting
+
+### Test Dynamic Fields Manually
+
+```bash
+# Test data handler directly
+curl -X POST http://localhost:3000/api/integrations/yourprovider/data \
+  -H "Content-Type: application/json" \
+  -d '{"integrationId": "your-id", "dataType": "yourprovider_boards", "options": {}}'
 ```
 
-### 3. Test in the UI
+### Common Issues
 
-1. Add a workflow node with your new integration
-2. Open the configuration modal
-3. Verify dynamic fields load correctly
-4. Check that dependent fields update properly
-5. Save and execute the workflow
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| "Unsupported data type" | Missing field mapping | Add to `fieldMappings.ts` |
+| Empty dropdown | Handler returns `[]` | Check API response, token validity |
+| Dependent field won't load | Missing `dependsOn`/`dynamicParent` | Add both properties to field schema |
+| Options load but don't show | Wrong format | Return `{ value, label }[]` |
+| Field loads on every keystroke | Missing debounce | Use custom ProviderOptionsLoader with debounce |
+| "Integration not found" | Wrong `dbProviderName` | Check `data-handler-registry-init.ts` matches DB |
 
-## Troubleshooting
+### Debug Checklist
 
-### Issue: Fields Not Loading
+1. **Field mapping exists?** → `fieldMappings.ts` has entry for your node type + field name
+2. **Handler registered?** → `data-handler-registry-init.ts` has `registerDataProvider()` call
+3. **Handler exported?** → `handlers/index.ts` exports the handler with matching key
+4. **Data route exists?** → `app/api/integrations/yourprovider/data/route.ts` exists
+5. **API returns data?** → Test handler directly with curl
+6. **Format correct?** → Response is `{ data: [{ value, label }] }`
 
-**Check:**
-1. Field mapping exists in `fieldMappings.ts`
-2. Provider loader is registered in `registry.ts`
-3. API handler returns data in correct format
-4. Integration has valid access token
-
-### Issue: Dependent Fields Not Updating
-
-**Check:**
-1. `getFieldDependencies` returns correct dependencies
-2. Parent field value is being passed correctly
-3. Cache isn't preventing updates (try with `forceRefresh: true`)
-
-### Issue: API Errors
-
-**Check:**
-1. Integration credentials are valid
-2. API endpoint is correct
-3. Request format matches provider's API requirements
-4. Error handling is in place
-
-### Issue: TypeScript Errors
-
-**Check:**
-1. All imports are correct
-2. Types are properly defined
-3. Provider implements all required interface methods
-
-## Best Practices
-
-1. **Always Handle Errors Gracefully**
-   - Return empty array instead of throwing in options loaders
-   - Log errors with context for debugging
-   - Provide user-friendly error messages
-
-2. **Optimize API Calls**
-   - Use pagination for large datasets
-   - Implement proper caching strategies
-   - Batch requests when possible
-
-3. **Follow Naming Conventions**
-   - Provider IDs: lowercase with hyphens (e.g., 'microsoft-teams')
-   - Field names: camelCase (e.g., 'databaseId')
-   - Resource types: provider_resource (e.g., 'notion_databases')
-
-4. **Document Your Integration**
-   - Add JSDoc comments to functions
-   - Document any quirks or limitations
-   - Update this guide with provider-specific notes
-
-5. **Test Thoroughly**
-   - Test with expired tokens
-   - Test with no data
-   - Test with large datasets
-   - Test cancellation/abort scenarios
-
-## Checklist for New Integration
-
-- [ ] Define nodes in `availableNodes.ts`
-- [ ] Add field mappings in `fieldMappings.ts`
-- [ ] Create provider options loader
-- [ ] Register provider in `registry.ts`
-- [ ] Add custom formatters if needed
-- [ ] Create API data handler
-- [ ] Implement action/trigger handlers
-- [ ] Register handlers in `executeNode.ts`
-- [ ] Add provider to OAuth config if needed
-- [ ] Write unit tests
-- [ ] Test in development environment
-- [ ] Document any special requirements
-- [ ] Update this guide with provider-specific notes
-
-## Time Estimates
-
-Based on the refactored architecture:
-- **Simple provider** (1-3 fields): 30-45 minutes
-- **Medium provider** (4-8 fields): 1-2 hours  
-- **Complex provider** (linked records, dependencies): 2-4 hours
-- **With OAuth setup**: Add 1-2 hours
-
-## Next Steps
-
-After implementing your integration:
-1. Test all workflows thoroughly
-2. Add monitoring for API usage
-3. Implement rate limiting if needed
-4. Add to provider documentation
-5. Create example workflows
-6. Add to marketing materials
+---
 
 ## Related Documentation
 
-- [Refactoring Guide](./refactoring-guide.md)
-- [Field Implementation Guide](./field-implementation-guide.md)
-- [Action/Trigger Implementation Guide](./action-trigger-implementation-guide.md)
-- [useDynamicOptions Migration Guide](./useDynamicOptions-migration-guide.md)
+- [Complete Integration Guide](./complete-integration-guide-2025.md) — Step-by-step for new integrations
+- [Action/Trigger Deep-Dive](./action-trigger-implementation-guide.md) — Error handling, trigger lifecycle
+- [Field Implementation Guide](./field-implementation-guide.md) — All field types and validation

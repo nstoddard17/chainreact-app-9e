@@ -17,7 +17,7 @@ export async function addShopifyOrderNote(
   try {
     // 1. Get and validate integration
     const integrationId = await resolveValue(config.integration_id || config.integrationId, input)
-    const integration = await getIntegrationById(integrationId)
+    const integration = await getIntegrationById(integrationId, { userId })
     validateShopifyIntegration(integration)
 
     // 2. Resolve all config values (including shopify_store for multi-store support)

@@ -301,6 +301,273 @@ async function handleGmailAttachmentAdded(eventData: any): Promise<any> {
 }
 
 /**
+ * Shared helper: fetch a Gmail message by ID and parse into standard emailDetails shape.
+ * Both fetchGmailMessageDetails() and fetchEmailDetails() use this to avoid duplication.
+ */
+async function parseGmailMessage(gmail: any, messageId: string): Promise<any> {
+  const message = await gmail.users.messages.get({
+    userId: 'me',
+    id: messageId,
+    format: 'full'
+  })
+
+  const headers = message.data.payload?.headers || []
+  const emailDetails: any = {
+    id: message.data.id,
+    messageId: message.data.id,
+    threadId: message.data.threadId,
+    labelIds: message.data.labelIds,
+    snippet: message.data.snippet,
+    internalDate: message.data.internalDate
+  }
+
+  headers.forEach((header: any) => {
+    const name = header.name.toLowerCase()
+    if (name === 'from') emailDetails.from = header.value
+    if (name === 'to') emailDetails.to = header.value
+    if (name === 'cc') emailDetails.cc = header.value
+    if (name === 'subject') emailDetails.subject = header.value
+    if (name === 'date') emailDetails.date = header.value
+    if (name === 'delivered-to') emailDetails.deliveredTo = header.value
+  })
+
+  emailDetails.hasAttachments = false
+  if (message.data.payload?.parts) {
+    emailDetails.hasAttachments = message.data.payload.parts.some(
+      (part: any) => part.filename && part.filename.length > 0
+    )
+  }
+
+  let body = ''
+  if (message.data.payload?.parts) {
+    for (const part of message.data.payload.parts) {
+      if (part.mimeType === 'text/plain' && part.body?.data) {
+        body += Buffer.from(part.body.data, 'base64').toString('utf-8')
+      }
+    }
+  } else if (message.data.payload?.body?.data) {
+    body = Buffer.from(message.data.payload.body.data, 'base64').toString('utf-8')
+  }
+  emailDetails.body = body
+
+  return emailDetails
+}
+
+type RecoveryOutcome = 'RECOVERY_NONE' | 'RECOVERY_UNIQUE_MATCH' | 'RECOVERY_AMBIGUOUS' | 'RECOVERY_WEAK'
+
+/**
+ * Shared recovery helper: attempt to find the message that triggered a Pub/Sub notification
+ * when gmail.users.history.list() returns no results.
+ *
+ * Conservative by design: false negatives are acceptable, false positives are not.
+ * Returns a recovered message only when there is one uniquely high-confidence candidate.
+ */
+async function attemptMessageRecovery(
+  gmail: any,
+  emailAddress: string,
+  publishTime: string | undefined,
+  logSessionId: string
+): Promise<{ emailDetails: any; outcome: RecoveryOutcome } | null> {
+  try {
+    logger.info('[Recovery] Attempting message recovery', { emailAddress })
+
+    // Query recent inbox candidates (last 2 minutes)
+    const twoMinutesAgo = Math.floor((Date.now() - 2 * 60 * 1000) / 1000)
+    const messagesResponse = await gmail.users.messages.list({
+      userId: 'me',
+      labelIds: ['INBOX'],
+      q: `after:${twoMinutesAgo}`,
+      maxResults: 5
+    })
+
+    const messages = messagesResponse.data.messages
+    if (!messages || messages.length === 0) {
+      logger.info('[Recovery] outcome=RECOVERY_NONE — no recent inbox candidates')
+      logInfo(logSessionId, 'Recovery outcome', { outcome: 'RECOVERY_NONE', reason: 'no recent inbox candidates' })
+      return null
+    }
+
+    logger.info('[Recovery] Found candidates, scoring', { candidateCount: messages.length })
+
+    // Parse the publish time for temporal correlation
+    const pubTime = publishTime ? new Date(publishTime).getTime() : Date.now()
+
+    // Score each candidate
+    type ScoredCandidate = { emailDetails: any; score: number; signals: string[] }
+    const scored: ScoredCandidate[] = []
+
+    for (const msg of messages) {
+      try {
+        const emailDetails = await parseGmailMessage(gmail, msg.id)
+        let score = 0
+        const signals: string[] = []
+
+        // Primary signal 1: freshness — internalDate within 90s of publish time
+        const internalDate = emailDetails.internalDate ? parseInt(emailDetails.internalDate, 10) : 0
+        const timeDiffMs = Math.abs(pubTime - internalDate)
+        if (timeDiffMs <= 90_000) {
+          score += 2
+          signals.push(`fresh(${Math.round(timeDiffMs / 1000)}s)`)
+        }
+
+        // Primary signal 2: new-mail indicators — has both INBOX and UNREAD labels
+        const labels: string[] = emailDetails.labelIds || []
+        if (labels.includes('INBOX') && labels.includes('UNREAD')) {
+          score += 2
+          signals.push('inbox+unread')
+        }
+
+        // Supporting signal: recipient/header evidence
+        // Not required (alias/BCC/forwarding can break this), but strengthens confidence
+        const lowerEmail = emailAddress.toLowerCase()
+        const toField = (emailDetails.to || '').toLowerCase()
+        const ccField = (emailDetails.cc || '').toLowerCase()
+        const deliveredTo = (emailDetails.deliveredTo || '').toLowerCase()
+        if (toField.includes(lowerEmail) || ccField.includes(lowerEmail) || deliveredTo.includes(lowerEmail)) {
+          score += 1
+          signals.push('recipient-match')
+        }
+
+        scored.push({ emailDetails, score, signals })
+      } catch (err: any) {
+        logger.info('[Recovery] Failed to parse candidate message', { messageId: msg.id, error: err?.message })
+      }
+    }
+
+    // A candidate is "strong" if it passes both primary signals (score >= 4)
+    const strongCandidates = scored.filter(c => c.score >= 4)
+
+    if (strongCandidates.length === 0) {
+      // Check if there are any candidates that passed at least one primary signal
+      const weakCandidates = scored.filter(c => c.score >= 2)
+      const outcome: RecoveryOutcome = weakCandidates.length > 0 ? 'RECOVERY_WEAK' : 'RECOVERY_NONE'
+      logger.info(`[Recovery] outcome=${outcome}`, {
+        totalCandidates: scored.length,
+        weakCandidates: weakCandidates.length,
+        scores: scored.map(c => ({ score: c.score, signals: c.signals }))
+      })
+      logInfo(logSessionId, 'Recovery outcome', { outcome, totalCandidates: scored.length, weakCandidates: weakCandidates.length })
+      return null
+    }
+
+    if (strongCandidates.length > 1) {
+      logger.info('[Recovery] outcome=RECOVERY_AMBIGUOUS — multiple strong candidates', {
+        strongCount: strongCandidates.length,
+        scores: strongCandidates.map(c => ({ score: c.score, signals: c.signals }))
+      })
+      logInfo(logSessionId, 'Recovery outcome', { outcome: 'RECOVERY_AMBIGUOUS', strongCount: strongCandidates.length })
+      return null
+    }
+
+    // Exactly 1 strong candidate
+    const match = strongCandidates[0]
+    logger.info('[Recovery] outcome=RECOVERY_UNIQUE_MATCH', {
+      score: match.score,
+      signals: match.signals,
+      hasFrom: !!match.emailDetails.from,
+      subjectLength: match.emailDetails.subject?.length || 0,
+      hasAttachments: match.emailDetails.hasAttachments
+    })
+    logInfo(logSessionId, 'Recovery outcome', {
+      outcome: 'RECOVERY_UNIQUE_MATCH',
+      score: match.score,
+      signals: match.signals
+    })
+
+    return { emailDetails: match.emailDetails, outcome: 'RECOVERY_UNIQUE_MATCH' }
+  } catch (error: any) {
+    logger.error('[Recovery] Failed during message recovery', { error: error?.message })
+    logError(logSessionId, 'Recovery failed', { error: error?.message })
+    return null
+  }
+}
+
+type CheckpointOutcome = 'CHECKPOINT_ADVANCED_VIA_HISTORY' | 'CHECKPOINT_ADVANCED_VIA_RECOVERY' | 'CHECKPOINT_PRESERVED_UNCERTAIN'
+
+/**
+ * Shared helper: persist a new historyId checkpoint to the canonical source.
+ * One place for checkpoint advancement policy and logging.
+ */
+async function updateStoredHistoryId(
+  configSource: GmailConfigSource,
+  newHistoryId: string,
+  reason: CheckpointOutcome,
+  logSessionId: string
+): Promise<void> {
+  const supabase = await createSupabaseServiceClient()
+
+  logger.info(`[Checkpoint] ${reason}`, {
+    workflowId: configSource.workflowId,
+    newHistoryId,
+    source: configSource.source,
+    configId: configSource.configId
+  })
+  logInfo(logSessionId, `Checkpoint decision: ${reason}`, {
+    workflowId: configSource.workflowId,
+    newHistoryId,
+    configId: configSource.configId
+  })
+
+  if (configSource.source === 'trigger_resources') {
+    const { error: updateError } = await supabase
+      .from('trigger_resources')
+      .update({ config: { ...configSource.config, resourceId: newHistoryId } })
+      .eq('id', configSource.configId)
+
+    if (updateError) {
+      logger.error('[Checkpoint] Failed to write historyId to trigger_resources', {
+        workflowId: configSource.workflowId, workflowName: configSource.workflowName,
+        configId: configSource.configId, newHistoryId, error: updateError.message
+      })
+      return
+    }
+
+    const { data: readBack } = await supabase
+      .from('trigger_resources')
+      .select('config')
+      .eq('id', configSource.configId)
+      .single()
+
+    const persistedConfig = readBack?.config as Record<string, unknown> | null
+    if (persistedConfig?.resourceId !== newHistoryId) {
+      logger.error('[Checkpoint] Write-back verification failed in trigger_resources', {
+        workflowId: configSource.workflowId, workflowName: configSource.workflowName,
+        configId: configSource.configId, expected: newHistoryId, actual: persistedConfig?.resourceId
+      })
+    }
+  } else {
+    const existingWatch = (configSource.config as WebhookConfigsConfig).watch || {}
+    const { error: updateError } = await supabase
+      .from('webhook_configs')
+      .update({ config: { ...configSource.config, watch: { ...existingWatch, historyId: newHistoryId } } })
+      .eq('id', configSource.configId)
+
+    if (updateError) {
+      logger.error('[Checkpoint] Failed to write historyId to webhook_configs', {
+        workflowId: configSource.workflowId, workflowName: configSource.workflowName,
+        configId: configSource.configId, newHistoryId, error: updateError.message
+      })
+      return
+    }
+
+    const { data: readBack } = await supabase
+      .from('webhook_configs')
+      .select('config')
+      .eq('id', configSource.configId)
+      .single()
+
+    const persistedConfig = readBack?.config as Record<string, unknown> | null
+    const persistedWatch = persistedConfig?.watch as Record<string, unknown> | undefined
+    if (persistedWatch?.historyId !== newHistoryId) {
+      logger.error('[Checkpoint] Write-back verification failed in webhook_configs', {
+        workflowId: configSource.workflowId, workflowName: configSource.workflowName,
+        configId: configSource.configId, expected: newHistoryId, actual: persistedWatch?.historyId
+      })
+    }
+  }
+}
+
+/**
  * Fetch Gmail message details using an integration's access token
  * This is used for test mode execution
  */
@@ -343,28 +610,51 @@ async function fetchGmailMessageDetails(
     logInfo(logSessionId, 'Gmail profile fetched', { emailAddress })
     logger.info(`📧 [fetchGmailMessageDetails] Gmail account: ${emailAddress}`)
 
-    // Fetch recent history
+    // Fetch recent history — broaden to include both messageAdded and labelAdded
+    const startHistoryIdStr = String(historyId)
+    logger.info('[fetchGmailMessageDetails] historyId used for history.list', {
+      startHistoryId: startHistoryIdStr,
+      integrationId: integration.id
+    })
+
     const historyRequest: any = {
       userId: 'me',
-      historyTypes: ['messageAdded'],
-      startHistoryId: String(historyId)
+      historyTypes: ['messageAdded', 'labelAdded'],
+      startHistoryId: startHistoryIdStr
     }
 
     logInfo(logSessionId, 'Fetching Gmail history', historyRequest)
     const history = await gmail.users.history.list(historyRequest)
 
+    const historyLength = history.data.history?.length || 0
+    logger.info(`📚 [fetchGmailMessageDetails] History response:`, { historyLength })
+
     if (!history.data.history || history.data.history.length === 0) {
-      const message = 'No new messages found in Gmail history'
-      logger.info(`ℹ️ [fetchGmailMessageDetails] ${message}`)
-      logWarning(logSessionId, message, { historyId })
+      logger.info('[fetchGmailMessageDetails] Empty history — attempting recovery', { historyId: startHistoryIdStr })
+      logWarning(logSessionId, 'No history entries, attempting recovery', { historyId })
+
+      const recovery = await attemptMessageRecovery(gmail, emailAddress || '', undefined, logSessionId)
+      if (recovery && recovery.outcome === 'RECOVERY_UNIQUE_MATCH') {
+        logger.info('[fetchGmailMessageDetails] Recovery succeeded', {
+          hasFrom: !!recovery.emailDetails.from,
+          subjectLength: recovery.emailDetails.subject?.length || 0
+        })
+        return recovery.emailDetails
+      }
+
+      logger.info('[fetchGmailMessageDetails] No confident recovery', { outcome: recovery?.outcome || 'null' })
       return null
     }
 
-    // Find the first new message
+    // Expand extraction — include labelsAdded alongside messagesAdded
     const messageId = history.data.history
-      ?.flatMap(entry => entry.messagesAdded || entry.messages || [])
-      ?.map(entry => entry.message || entry)
-      ?.find(msg => msg?.id)?.id
+      ?.flatMap((entry: any) => [
+        ...(entry.messagesAdded || []),
+        ...(entry.labelsAdded || []),
+        ...(entry.messages || [])
+      ])
+      ?.map((entry: any) => entry.message || entry)
+      ?.find((msg: any) => msg?.id)?.id
 
     if (!messageId) {
       const message = 'No message ID found in Gmail history'
@@ -376,52 +666,7 @@ async function fetchGmailMessageDetails(
     logInfo(logSessionId, 'Found Gmail message', { messageId })
     logger.info(`📧 [fetchGmailMessageDetails] Found message ID: ${messageId}`)
 
-    // Fetch the full message details
-    const message = await gmail.users.messages.get({
-      userId: 'me',
-      id: messageId,
-      format: 'full'
-    })
-
-    // Extract email details
-    const headers = message.data.payload?.headers || []
-    const emailDetails: any = {
-      id: message.data.id,
-      messageId: message.data.id, // Same as id, provided for compatibility with Gmail actions
-      threadId: message.data.threadId,
-      labelIds: message.data.labelIds,
-      snippet: message.data.snippet
-    }
-
-    // Parse headers
-    headers.forEach((header: any) => {
-      const name = header.name.toLowerCase()
-      if (name === 'from') emailDetails.from = header.value
-      if (name === 'to') emailDetails.to = header.value
-      if (name === 'subject') emailDetails.subject = header.value
-      if (name === 'date') emailDetails.date = header.value
-    })
-
-    // Check for attachments
-    emailDetails.hasAttachments = false
-    if (message.data.payload?.parts) {
-      emailDetails.hasAttachments = message.data.payload.parts.some(
-        (part: any) => part.filename && part.filename.length > 0
-      )
-    }
-
-    // Extract body
-    let body = ''
-    if (message.data.payload?.parts) {
-      for (const part of message.data.payload.parts) {
-        if (part.mimeType === 'text/plain' && part.body?.data) {
-          body += Buffer.from(part.body.data, 'base64').toString('utf-8')
-        }
-      }
-    } else if (message.data.payload?.body?.data) {
-      body = Buffer.from(message.data.payload.body.data, 'base64').toString('utf-8')
-    }
-    emailDetails.body = body
+    const emailDetails = await parseGmailMessage(gmail, messageId)
 
     logSuccess(logSessionId, 'Successfully fetched Gmail message details', {
       from: emailDetails.from,
@@ -434,7 +679,7 @@ async function fetchGmailMessageDetails(
       hasFrom: !!emailDetails.from,
       subjectLength: emailDetails.subject?.length || 0,
       hasAttachments: emailDetails.hasAttachments,
-      bodyLength: body.length
+      bodyLength: emailDetails.body?.length || 0
     })
 
     return emailDetails
@@ -532,84 +777,56 @@ async function fetchEmailDetails(
       return null
     }
 
+    // 4a: Explicit historyId decision-state logging
+    const notifHistoryId = String(notification.historyId)
+    const storedBig = BigInt(startHistoryId)
+    const notifBig = BigInt(notifHistoryId)
+    const comparison = storedBig < notifBig ? 'STORED_BEHIND'
+                     : storedBig === notifBig ? 'EQUAL'
+                     : 'STORED_AHEAD'
+
+    logger.info('[fetchEmailDetails] historyId state', {
+      comparison,
+      storedStartHistoryId: startHistoryId,
+      notificationHistoryId: notifHistoryId,
+      workflowId: configSource.workflowId,
+      workflowName: configSource.workflowName,
+      source: configSource.source
+    })
+    logInfo(sessionId, 'historyId state', { comparison, storedStartHistoryId: startHistoryId, notificationHistoryId: notifHistoryId })
+
+    // 4b: Handle non-behind states — history.list would return nothing
+    if (comparison !== 'STORED_BEHIND') {
+      logger.info(`[fetchEmailDetails] ${comparison} — skipping history.list, attempting recovery`, {
+        workflowId: configSource.workflowId
+      })
+
+      const recovery = await attemptMessageRecovery(gmail, notification.emailAddress, undefined, sessionId)
+      if (recovery && recovery.outcome === 'RECOVERY_UNIQUE_MATCH') {
+        await updateStoredHistoryId(configSource, notifHistoryId, 'CHECKPOINT_ADVANCED_VIA_RECOVERY', sessionId)
+        return recovery.emailDetails
+      }
+
+      logger.info('[fetchEmailDetails] CHECKPOINT_PRESERVED_UNCERTAIN — no confident recovery', {
+        workflowId: configSource.workflowId,
+        recoveryResult: recovery?.outcome || 'null'
+      })
+      logInfo(sessionId, 'Checkpoint decision: CHECKPOINT_PRESERVED_UNCERTAIN', {
+        workflowId: configSource.workflowId,
+        comparison
+      })
+      return null
+    }
+
+    // 4c: Broaden history query — include both messageAdded and labelAdded
     const historyRequest: any = {
       userId: 'me',
-      historyTypes: ['messageAdded'],
+      historyTypes: ['messageAdded', 'labelAdded'],
       startHistoryId: startHistoryId
     }
 
     logInfo(sessionId, 'Requesting Gmail history', historyRequest)
     const history = await gmail.users.history.list(historyRequest)
-
-    const supabase = await createSupabaseServiceClient()
-
-    if (history.data.historyId) {
-      const newHistoryId = String(history.data.historyId)
-
-      if (configSource.source === 'trigger_resources') {
-        const { error: updateError } = await supabase
-          .from('trigger_resources')
-          .update({ config: { ...configSource.config, resourceId: newHistoryId } })
-          .eq('id', configSource.configId)
-
-        if (updateError) {
-          logger.error('[fetchEmailDetails] Failed to write historyId to trigger_resources', {
-            workflowId: configSource.workflowId, workflowName: configSource.workflowName,
-            configId: configSource.configId, newHistoryId, error: updateError.message
-          })
-        } else {
-          const { data: readBack } = await supabase
-            .from('trigger_resources')
-            .select('config')
-            .eq('id', configSource.configId)
-            .single()
-
-          const persistedConfig = readBack?.config as Record<string, unknown> | null
-          if (persistedConfig?.resourceId === newHistoryId) {
-            logInfo(sessionId, 'historyId persisted in trigger_resources', {
-              workflowId: configSource.workflowId, newHistoryId, configId: configSource.configId
-            })
-          } else {
-            logger.error('[fetchEmailDetails] historyId write-back verification failed in trigger_resources', {
-              workflowId: configSource.workflowId, workflowName: configSource.workflowName,
-              configId: configSource.configId, expected: newHistoryId, actual: persistedConfig?.resourceId
-            })
-          }
-        }
-      } else {
-        const existingWatch = configSource.config.watch || {}
-        const { error: updateError } = await supabase
-          .from('webhook_configs')
-          .update({ config: { ...configSource.config, watch: { ...existingWatch, historyId: newHistoryId } } })
-          .eq('id', configSource.configId)
-
-        if (updateError) {
-          logger.error('[fetchEmailDetails] Failed to write historyId to webhook_configs', {
-            workflowId: configSource.workflowId, workflowName: configSource.workflowName,
-            configId: configSource.configId, newHistoryId, error: updateError.message
-          })
-        } else {
-          const { data: readBack } = await supabase
-            .from('webhook_configs')
-            .select('config')
-            .eq('id', configSource.configId)
-            .single()
-
-          const persistedConfig = readBack?.config as Record<string, unknown> | null
-          const persistedWatch = persistedConfig?.watch as Record<string, unknown> | undefined
-          if (persistedWatch?.historyId === newHistoryId) {
-            logInfo(sessionId, 'historyId persisted in webhook_configs', {
-              workflowId: configSource.workflowId, newHistoryId, configId: configSource.configId
-            })
-          } else {
-            logger.error('[fetchEmailDetails] historyId write-back verification failed in webhook_configs', {
-              workflowId: configSource.workflowId, workflowName: configSource.workflowName,
-              configId: configSource.configId, expected: newHistoryId, actual: persistedWatch?.historyId
-            })
-          }
-        }
-      }
-    }
 
     const historyInfo = {
       historyLength: history.data.history?.length || 0
@@ -617,21 +834,44 @@ async function fetchEmailDetails(
     logger.info(`📚 History response:`, historyInfo)
     logInfo(sessionId, 'Gmail history response received', historyInfo)
 
+    // 4e: Recover on empty history
     if (!history.data.history || history.data.history.length === 0) {
-      const message = 'No new messages in history'
-      logger.info(message)
-      logWarning(sessionId, message)
+      logger.info('[fetchEmailDetails] Empty history despite STORED_BEHIND — attempting recovery', {
+        workflowId: configSource.workflowId,
+        startHistoryId,
+        notificationHistoryId: notifHistoryId
+      })
+
+      const recovery = await attemptMessageRecovery(gmail, notification.emailAddress, undefined, sessionId)
+      if (recovery && recovery.outcome === 'RECOVERY_UNIQUE_MATCH') {
+        await updateStoredHistoryId(configSource, notifHistoryId, 'CHECKPOINT_ADVANCED_VIA_RECOVERY', sessionId)
+        return recovery.emailDetails
+      }
+
+      logger.info('[fetchEmailDetails] CHECKPOINT_PRESERVED_UNCERTAIN — empty history, no confident recovery', {
+        workflowId: configSource.workflowId,
+        recoveryResult: recovery?.outcome || 'null'
+      })
+      logInfo(sessionId, 'Checkpoint decision: CHECKPOINT_PRESERVED_UNCERTAIN', {
+        workflowId: configSource.workflowId,
+        reason: 'empty_history_no_recovery'
+      })
       return null
     }
 
+    // 4d: Expand history result extraction — include labelsAdded alongside messagesAdded
     const messageId = history.data.history
-      ?.flatMap(entry => entry.messagesAdded || entry.messages || [])
-      ?.map(entry => entry.message || entry)
-      ?.find(msg => msg?.id)?.id
+      ?.flatMap((entry: any) => [
+        ...(entry.messagesAdded || []),
+        ...(entry.labelsAdded || []),
+        ...(entry.messages || [])
+      ])
+      ?.map((entry: any) => entry.message || entry)
+      ?.find((msg: any) => msg?.id)?.id
 
     if (!messageId) {
-      const message = 'No message ID found in history'
-      logger.info(message)
+      const message = 'No message ID found in history entries'
+      logger.info(message, { historyLength: history.data.history?.length })
       logWarning(sessionId, message, {
         historyLength: history.data.history?.length
       })
@@ -641,53 +881,13 @@ async function fetchEmailDetails(
     logger.info(`📧 Found message ID: ${messageId}`)
     logInfo(sessionId, 'Found Gmail message ID', { messageId })
 
-    const message = await gmail.users.messages.get({
-      userId: 'me',
-      id: messageId,
-      format: 'full'
-    })
+    const emailDetails = await parseGmailMessage(gmail, messageId)
 
     logInfo(sessionId, 'Fetched full Gmail message', {
       messageId,
-      threadId: message.data.threadId,
-      labelCount: message.data.labelIds?.length || 0
+      threadId: emailDetails.threadId,
+      labelCount: emailDetails.labelIds?.length || 0
     })
-
-    const headers = message.data.payload?.headers || []
-    const emailDetails: any = {
-      id: message.data.id,
-      messageId: message.data.id, // Same as id, provided for compatibility with Gmail actions
-      threadId: message.data.threadId,
-      labelIds: message.data.labelIds,
-      snippet: message.data.snippet
-    }
-
-    headers.forEach((header: any) => {
-      const name = header.name.toLowerCase()
-      if (name === 'from') emailDetails.from = header.value
-      if (name === 'to') emailDetails.to = header.value
-      if (name === 'subject') emailDetails.subject = header.value
-      if (name === 'date') emailDetails.date = header.value
-    })
-
-    emailDetails.hasAttachments = false
-    if (message.data.payload?.parts) {
-      emailDetails.hasAttachments = message.data.payload.parts.some(
-        (part: any) => part.filename && part.filename.length > 0
-      )
-    }
-
-    let body = ''
-    if (message.data.payload?.parts) {
-      for (const part of message.data.payload.parts) {
-        if (part.mimeType === 'text/plain' && part.body?.data) {
-          body += Buffer.from(part.body.data, 'base64').toString('utf-8')
-        }
-      }
-    } else if (message.data.payload?.body?.data) {
-      body = Buffer.from(message.data.payload.body.data, 'base64').toString('utf-8')
-    }
-    emailDetails.body = body
 
     // SECURITY: Don't log email addresses or subject content (PII)
     const summary = {
@@ -699,6 +899,11 @@ async function fetchEmailDetails(
 
     logger.info('📧 Fetched email details:', summary)
     logSuccess(sessionId, 'Successfully fetched email details', summary)
+
+    // 4f: Normal history succeeded — advance checkpoint
+    if (history.data.historyId) {
+      await updateStoredHistoryId(configSource, String(history.data.historyId), 'CHECKPOINT_ADVANCED_VIA_HISTORY', sessionId)
+    }
 
     return emailDetails
   } catch (error: any) {

@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     if (filterContext && filterContext !== 'all') {
       let query = supabaseService
         .from("workflows")
-        .select('*')
+        .select('id, name, description, status, user_id, workspace_type, workspace_id, created_at, updated_at, created_by, last_modified_by, deleted_at, folder_id')
 
       // Include or exclude trashed workflows based on parameter
       // When includeTrash is true, return ALL workflows (active + deleted)
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
 
       // 1. Personal workflows (with timeout protection)
       let personalQuery = applyPersonalWorkspaceFilter(
-        supabaseService.from("workflows").select('*'),
+        supabaseService.from("workflows").select('id, name, description, status, user_id, workspace_type, workspace_id, created_at, updated_at, created_by, last_modified_by, deleted_at, folder_id'),
         user.id
       )
 
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
       if (teamIds.length > 0) {
         let teamQuery = supabaseService
           .from("workflows")
-          .select('*')
+          .select('id, name, description, status, user_id, workspace_type, workspace_id, created_at, updated_at, created_by, last_modified_by, deleted_at, folder_id')
           .eq('workspace_type', 'team')
           .in('workspace_id', teamIds)
 
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
       if (orgIds.length > 0) {
         let orgQuery = supabaseService
           .from("workflows")
-          .select('*')
+          .select('id, name, description, status, user_id, workspace_type, workspace_id, created_at, updated_at, created_by, last_modified_by, deleted_at, folder_id')
           .eq('workspace_type', 'organization')
           .in('workspace_id', orgIds)
 
