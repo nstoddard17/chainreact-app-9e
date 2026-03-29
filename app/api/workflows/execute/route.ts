@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       : await createSupabaseRouteHandlerClient()
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
-      .select("id, name, user_id, status, workspace_id, workspace_type")
+      .select("id, name, user_id, status, workspace_id, workspace_type, billing_scope_type, billing_scope_id")
       .eq("id", workflowId)
       .single()
 
@@ -391,9 +391,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Billing target: always the workflow owner (creator-pays policy).
-    // The authenticated userId is used for access control and audit trail.
-    const billingUserId = workflow.user_id
+    // Billing target: resolved from canonical billing scope.
+    // The authenticated userId is used for access control and audit trail only.
+    const { resolveBillingScope } = await import('@/lib/billing/resolveBillingScope')
+    const { scopeToBillingUser } = await import('@/lib/billing/scopeToBillingUser')
+    const billingScope = resolveBillingScope(workflow)
+    const billingUserId = await scopeToBillingUser(billingScope)
+    logger.info('[Execute Route] Billing scope resolved', {
+      workflowId,
+      scopeType: billingScope.scopeType,
+      scopeId: billingScope.scopeId,
+      billingUserId,
+    })
 
     // Atomic task deduction: check balance + reserve tasks in one transaction (only for live/non-test mode)
     // This replaces the old pre-check + post-deduct pattern. Tasks are reserved upfront (conservative estimation).
@@ -457,7 +466,7 @@ export async function POST(request: NextRequest) {
       const { AdvancedExecutionEngine } = require("@/lib/execution/advancedExecutionEngine")
       const executionEngine = new AdvancedExecutionEngine()
 
-      // Create execution session
+      // Create execution session — stamp with canonical billing scope
       const executionSession = await executionEngine.createExecutionSession(
         workflowId,
         userId,
@@ -465,7 +474,8 @@ export async function POST(request: NextRequest) {
         {
           inputData,
           executionMode,
-          workflowData: workflowData || workflow
+          workflowData: workflowData || workflow,
+          billingScope,
         }
       )
 

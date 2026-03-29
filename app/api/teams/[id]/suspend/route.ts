@@ -1,4 +1,5 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { requireTeamRole } from '@/lib/utils/permissions'
 import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 import { logger } from "@/lib/utils/logger"
@@ -59,14 +60,6 @@ export async function POST(
       )
     }
 
-    // Check permission: user must be team owner or admin
-    const { data: membership, error: membershipError } = await supabase
-      .from("team_members")
-      .select("role")
-      .eq("team_id", params.id)
-      .eq("user_id", user.id)
-      .single()
-
     // Also check if user is platform admin
     const { data: profile } = await supabase
       .from("user_profiles")
@@ -75,13 +68,11 @@ export async function POST(
       .single()
 
     const isAdmin = profile?.admin === true
-    const isTeamOwnerOrAdmin = membership?.role === 'owner' || membership?.role === 'admin'
 
-    if (!isAdmin && !isTeamOwnerOrAdmin) {
-      return NextResponse.json(
-        { error: "You must be a team owner or admin to suspend/unsuspend this team" },
-        { status: 403 }
-      )
+    // Check permission: user must be team owner/admin or platform admin
+    if (!isAdmin) {
+      const auth = await requireTeamRole(user.id, params.id, ['owner', 'admin'])
+      if (!auth.allowed) return auth.response
     }
 
     if (action === 'suspend') {

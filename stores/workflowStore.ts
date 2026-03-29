@@ -167,6 +167,8 @@ export interface Workflow {
   tags?: string[]
 }
 
+type FetchStatus = 'idle' | 'loading' | 'success' | 'error'
+
 interface WorkflowState {
   workflows: Workflow[]
   currentWorkflow: Workflow | null
@@ -185,6 +187,77 @@ interface WorkflowState {
   currentUserId: string | null
   // Workspace cache key to prevent stale promise returns
   lastWorkspaceKey: string | null
+  // Fetch state machine
+  fetchStatus: FetchStatus
+  loadedOnce: boolean
+  dataOwnerKey: string | null
+}
+
+// Canonical identity key for the data currently in the store
+function buildDataOwnerKey(userId: string, workspaceType?: string, workspaceId?: string | null): string {
+  return `${userId}:${workspaceType || 'personal'}-${workspaceId || 'none'}`
+}
+
+type FetchTransition =
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_SUCCESS'; workflows: Workflow[]; ownerKey: string }
+  | { type: 'TRANSIENT_FAILURE'; error: string }
+  | { type: 'IDENTITY_CHANGE'; ownerKey: string }
+  | { type: 'LOGOUT' }
+
+function applyFetchTransition(state: WorkflowState, transition: FetchTransition): Partial<WorkflowState> {
+  switch (transition.type) {
+    case 'FETCH_START':
+      return { fetchStatus: 'loading', loadingList: true, error: null }
+
+    case 'FETCH_SUCCESS':
+      return {
+        fetchStatus: 'success',
+        loadedOnce: true,
+        loadingList: false,
+        lastFetchTime: Date.now(),
+        fetchPromise: null,
+        dataOwnerKey: transition.ownerKey,
+        workflows: transition.workflows,
+      }
+
+    case 'TRANSIENT_FAILURE':
+      // Preserve existing workflows — same identity, just a blip
+      return {
+        fetchStatus: 'error',
+        loadingList: false,
+        error: transition.error,
+        fetchPromise: null,
+        lastFetchTime: null,
+        // workflows: UNCHANGED — keep stale data visible
+      }
+
+    case 'IDENTITY_CHANGE':
+      // Different user or workspace — clear everything
+      return {
+        workflows: [],
+        fetchStatus: 'idle',
+        loadedOnce: false,
+        loadingList: false,
+        lastFetchTime: null,
+        fetchPromise: null,
+        dataOwnerKey: transition.ownerKey,
+        error: null,
+      }
+
+    case 'LOGOUT':
+      return {
+        workflows: [],
+        fetchStatus: 'idle',
+        loadedOnce: false,
+        loadingList: false,
+        lastFetchTime: null,
+        fetchPromise: null,
+        dataOwnerKey: null,
+        currentUserId: null,
+        error: null,
+      }
+  }
 }
 
 interface WorkflowActions {
@@ -250,6 +323,9 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   workspaceId: null,
   currentUserId: null,
   lastWorkspaceKey: null,
+  fetchStatus: 'idle' as FetchStatus,
+  loadedOnce: false,
+  dataOwnerKey: null,
 
   fetchWorkflows: async (force = false, filterContext?: 'personal' | 'team' | 'organization' | null, workspaceId?: string) => {
     const state = get()
@@ -285,7 +361,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     const CACHE_DURATION = 30000 // 30 seconds
     const timeSinceLastFetch = state.lastFetchTime ? Date.now() - state.lastFetchTime : Infinity
 
-    if (!force && timeSinceLastFetch < CACHE_DURATION && state.workflows.length > 0) {
+    if (!force && timeSinceLastFetch < CACHE_DURATION && state.loadedOnce && state.fetchStatus === 'success') {
       logger.info('[WorkflowStore] Using cached workflows (age: ' + Math.round(timeSinceLastFetch / 1000) + 's)')
       return
     }
@@ -293,7 +369,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     // Create the fetch promise
     const fetchPromise = (async () => {
       logger.info('[WorkflowStore] Starting fresh workflow fetch (unified view)')
-      set({ loadingList: true, error: null, lastFetchTime: Date.now() })
+      set(applyFetchTransition(get(), { type: 'FETCH_START' }))
 
       try {
         // Try to get user session, but handle auth failures gracefully
@@ -303,26 +379,30 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           user = sessionData.user;
         } catch (authError: any) {
           logger.info("User not authenticated, skipping workflow fetch")
-          set({
-            workflows: [],
-            loadingList: false,
-            currentUserId: null,
-            error: null,
-            fetchPromise: null
-          })
+          // Transient if we have no confirmed identity change; logout if we had a user
+          const currentState = get()
+          if (currentState.currentUserId && currentState.dataOwnerKey) {
+            // Had a user before — this is a transient failure (auth not ready yet)
+            set(applyFetchTransition(currentState, { type: 'TRANSIENT_FAILURE', error: 'Auth not ready' }))
+          } else {
+            // No prior user — treat as logout/initial state
+            set(applyFetchTransition(currentState, { type: 'LOGOUT' }))
+          }
           return
         }
 
-        // If currentUserId is not set, set it now
-        if (!state.currentUserId) {
-          set({ currentUserId: user.id })
-        } else if (user?.id !== state.currentUserId) {
-          logger.warn("User session mismatch detected")
+        const currentState = get()
+        const ownerKey = buildDataOwnerKey(user.id, effectiveWorkspaceType, effectiveWorkspaceId)
+
+        // Check for identity change (different user or workspace)
+        if (currentState.currentUserId && user.id !== currentState.currentUserId) {
+          logger.warn("User session mismatch detected — clearing stale data")
           set({
-            workflows: [],
+            ...applyFetchTransition(currentState, { type: 'IDENTITY_CHANGE', ownerKey }),
             currentUserId: user.id,
-            error: null,
           })
+        } else if (!currentState.currentUserId) {
+          set({ currentUserId: user.id })
         }
 
         // Fetch ALL workflows (unified view) - pass null/undefined to get everything
@@ -336,21 +416,14 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         });
 
         set({
-          workflows,
-          loadingList: false,
-          lastFetchTime: Date.now(),
-          fetchPromise: null,
-          lastWorkspaceKey: workspaceCacheKey // Update workspace key after successful fetch
+          ...applyFetchTransition(get(), { type: 'FETCH_SUCCESS', workflows, ownerKey }),
+          lastWorkspaceKey: workspaceCacheKey
         })
 
       } catch (error: any) {
         logger.error("Error fetching workflows:", error)
-        set({
-          workflows: [],
-          loadingList: false,
-          error: null,
-          fetchPromise: null
-        })
+        // Transient failure — preserve existing workflows for same identity
+        set(applyFetchTransition(get(), { type: 'TRANSIENT_FAILURE', error: error.message || 'Failed to fetch workflows' }))
       }
     })()
 
@@ -702,16 +775,16 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       return
     }
 
-    // Clear fetch promise to prevent returning stale promises
-    set({ fetchPromise: null })
+    // Identity change — clear stale data for the new workspace
+    const newOwnerKey = state.currentUserId
+      ? buildDataOwnerKey(state.currentUserId, workspaceType, newWorkspaceId)
+      : null
 
     set({
+      ...applyFetchTransition(state, { type: 'IDENTITY_CHANGE', ownerKey: newOwnerKey || '' }),
       workspaceType,
       workspaceId: newWorkspaceId,
-      workflows: [], // Clear existing workflows when switching workspaces
-      // Invalidate cache when workspace context changes
-      lastFetchTime: null,
-      lastWorkspaceKey: null // Clear workspace key to force new fetch
+      lastWorkspaceKey: null,
     })
 
     // DON'T auto-fetch here - let the caller decide when to fetch
@@ -1017,15 +1090,13 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
   clearAllData: () => {
     set({
-      workflows: [],
+      ...applyFetchTransition(get(), { type: 'LOGOUT' }),
       currentWorkflow: null,
       selectedNode: null,
-      loadingList: false,
       loadingCreate: false,
       loadingSave: false,
       updatingWorkflowIds: [],
       deletingWorkflowIds: [],
-      error: null,
     })
   },
 

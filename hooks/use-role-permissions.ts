@@ -1,7 +1,12 @@
 "use client"
 
 import { useAuthStore } from "@/stores/authStore"
-import { type UserRole, hasPermission, canAccessFeature, getRoleInfo, getRoleLimit, isUnlimited } from "@/lib/utils/roles"
+import { type UserRole, ROLE_HIERARCHY, canAccessFeature, getRoleInfo, getRoleLimit, isUnlimited } from "@/lib/utils/roles"
+
+function isPlanAtLeast(userRole: UserRole, requiredRole: UserRole): boolean {
+  if (userRole === 'admin') return true
+  return ROLE_HIERARCHY.indexOf(userRole) >= ROLE_HIERARCHY.indexOf(requiredRole)
+}
 
 export function useRolePermissions() {
   const { profile } = useAuthStore()
@@ -14,9 +19,9 @@ export function useRolePermissions() {
     isPro: userRole === 'pro' || userRole === 'business' || userRole === 'enterprise' || userRole === 'admin',
     isBusiness: userRole === 'business' || userRole === 'enterprise' || userRole === 'admin',
     isEnterprise: userRole === 'enterprise' || userRole === 'admin',
-    
+
     // Permission checking
-    hasPermission: (requiredRole: UserRole) => hasPermission(userRole, requiredRole),
+    hasPermission: (requiredRole: UserRole) => isPlanAtLeast(userRole, requiredRole),
     canAccessFeature: (feature: string) => canAccessFeature(userRole, feature),
     
     // Role information
@@ -30,10 +35,10 @@ export function useRolePermissions() {
     isUnlimited: (limitType: string) => isUnlimited(userRole, limitType),
     
     // Common permission checks
-    canCreateWorkflows: () => hasPermission(userRole, 'free'),
-    canUseAdvancedIntegrations: () => hasPermission(userRole, 'pro'),
-    canUseTeamFeatures: () => hasPermission(userRole, 'business'),
-    canUseEnterpriseFeatures: () => hasPermission(userRole, 'enterprise'),
+    canCreateWorkflows: () => isPlanAtLeast(userRole, 'free'),
+    canUseAdvancedIntegrations: () => isPlanAtLeast(userRole, 'pro'),
+    canUseTeamFeatures: () => isPlanAtLeast(userRole, 'business'),
+    canUseEnterpriseFeatures: () => isPlanAtLeast(userRole, 'enterprise'),
     canManageUsers: () => isAdmin,
     
     // Feature access

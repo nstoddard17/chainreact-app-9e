@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { requireOrgRole } from '@/lib/utils/permissions'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -120,19 +121,11 @@ export async function POST(
     }
 
     // Check if current user has permission (owner or admin)
-    const { data: currentUserMember } = await serviceClient
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (!currentUserMember || !['owner', 'admin'].includes(currentUserMember.role)) {
-      return errorResponse("You don't have permission to add organization members", 403)
-    }
+    const auth = await requireOrgRole(user.id, organizationId, ['owner', 'admin'])
+    if (!auth.allowed) return auth.response
 
     // Only owners can add other owners
-    if (role === 'owner' && currentUserMember.role !== 'owner') {
+    if (role === 'owner' && auth.role !== 'owner') {
       return errorResponse("Only organization owners can add other owners", 403)
     }
 

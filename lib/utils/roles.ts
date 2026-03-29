@@ -151,14 +151,6 @@ export const ROLES: Record<UserRole, RoleInfo> = {
 
 export const ROLE_HIERARCHY: UserRole[] = ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin']
 
-export function hasPermission(userRole: UserRole, requiredRole: UserRole): boolean {
-  if (userRole === 'admin') return true
-  
-  const userIndex = ROLE_HIERARCHY.indexOf(userRole)
-  const requiredIndex = ROLE_HIERARCHY.indexOf(requiredRole)
-  
-  return userIndex >= requiredIndex
-}
 
 export function getRoleInfo(role: UserRole): RoleInfo {
   return ROLES[role] || ROLES.free

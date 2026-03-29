@@ -39,7 +39,6 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useAuthStore } from "@/stores/authStore"
-import { hasPermission } from "@/lib/utils/roles"
 import { toast } from "sonner"
 
 import { logger } from '@/lib/utils/logger'

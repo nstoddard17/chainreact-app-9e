@@ -153,3 +153,138 @@ export async function requireActionLimit(
     response: actionDeniedResponse(action, result.reason || 'Limit reached', plan, result.upgradeTo as PlanTier | undefined),
   }
 }
+
+// ---------------------------------------------------------------------------
+// Scope-aware entitlements (Phase 4)
+// ---------------------------------------------------------------------------
+// Entitlements resolve from the resource's owning scope.
+// Current backend maps scope -> owner user's user_profiles.
+// When scope-native subscriptions exist (Phase 6), the backend changes
+// but the API contract does not.
+
+import type { BillingScope } from '@/lib/billing/types'
+
+/**
+ * Resolve the entitlement context for a billing scope.
+ * Returns the plan, tasks used, and tasks limit for the owning scope.
+ * No fallback. Missing data = throw.
+ */
+export async function resolveEntitlementContext(
+  scope: BillingScope
+): Promise<{ plan: PlanTier; tasksUsed: number; tasksLimit: number }> {
+  const supabase = await createSupabaseServiceClient()
+
+  if (scope.scopeType === 'user') {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('plan, tasks_used, tasks_limit')
+      .eq('id', scope.scopeId)
+      .single()
+
+    if (error || !data) {
+      throw new Error(`Entitlement lookup failed for user ${scope.scopeId}: ${error?.message}`)
+    }
+
+    return {
+      plan: normalizePlan(data.plan) as PlanTier,
+      tasksUsed: data.tasks_used ?? 0,
+      tasksLimit: data.tasks_limit ?? 100,
+    }
+  }
+
+  if (scope.scopeType === 'team') {
+    // Look up team owner, then resolve their plan
+    const { data: ownerMember, error: memberError } = await supabase
+      .from('team_members')
+      .select('user_id')
+      .eq('team_id', scope.scopeId)
+      .eq('role', 'owner')
+      .limit(1)
+      .single()
+
+    if (memberError || !ownerMember) {
+      throw new Error(`Team ${scope.scopeId} has no owner member`)
+    }
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('plan, tasks_used, tasks_limit')
+      .eq('id', ownerMember.user_id)
+      .single()
+
+    if (error || !data) {
+      throw new Error(`Entitlement lookup failed for team owner ${ownerMember.user_id}: ${error?.message}`)
+    }
+
+    return {
+      plan: normalizePlan(data.plan) as PlanTier,
+      tasksUsed: data.tasks_used ?? 0,
+      tasksLimit: data.tasks_limit ?? 100,
+    }
+  }
+
+  if (scope.scopeType === 'organization') {
+    // Look up org owner_id, then resolve their plan
+    const { data: org, error: orgError } = await supabase
+      .from('organizations')
+      .select('owner_id')
+      .eq('id', scope.scopeId)
+      .single()
+
+    if (orgError || !org || !org.owner_id) {
+      throw new Error(`Organization ${scope.scopeId} has no owner`)
+    }
+
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('plan, tasks_used, tasks_limit')
+      .eq('id', org.owner_id)
+      .single()
+
+    if (error || !data) {
+      throw new Error(`Entitlement lookup failed for org owner ${org.owner_id}: ${error?.message}`)
+    }
+
+    return {
+      plan: normalizePlan(data.plan) as PlanTier,
+      tasksUsed: data.tasks_used ?? 0,
+      tasksLimit: data.tasks_limit ?? 100,
+    }
+  }
+
+  throw new Error(`Unknown scope type: ${scope.scopeType}`)
+}
+
+/**
+ * Check if a scope's plan includes a specific feature.
+ * Scope determines entitlement — the acting user's plan is never consulted.
+ */
+export async function requireScopedFeature(
+  feature: keyof PlanLimits,
+  scope: BillingScope
+): Promise<FeatureResult> {
+  const context = await resolveEntitlementContext(scope)
+
+  if (hasFeatureAccess(context.plan, feature)) {
+    return { allowed: true, plan: context.plan }
+  }
+
+  const { getMinimumPlanForFeature } = await import('@/lib/utils/plan-restrictions')
+  const requiredPlan = getMinimumPlanForFeature(feature)
+
+  return {
+    allowed: false,
+    response: featureDeniedResponse(String(feature), context.plan, requiredPlan),
+  }
+}
+
+/**
+ * Check if a user's personal plan includes a specific feature.
+ * For personal/global entry points where no workspace context exists.
+ */
+export async function requirePersonalFeature(
+  userId: string,
+  feature: keyof PlanLimits
+): Promise<FeatureResult> {
+  return requireFeature(userId, feature)
+}

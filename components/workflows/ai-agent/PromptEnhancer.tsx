@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { usePersonalFeatureGate } from '@/hooks/use-feature-gate'
 
 interface PromptEnhancerProps {
   prompt: string
@@ -26,6 +27,8 @@ export function PromptEnhancer({
   disabled = false,
   variant = 'default',
 }: PromptEnhancerProps) {
+  const aiGate = usePersonalFeatureGate('aiAgents')
+
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [enhancedPrompt, setEnhancedPrompt] = useState<string | null>(null)
@@ -81,6 +84,15 @@ export function PromptEnhancer({
   const canEnhance = prompt.trim().length >= 5
 
   const isCoral = variant === 'coral'
+
+  if (!aiGate.allowed) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        <p>AI features require a Pro plan or higher.</p>
+        <a href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</a>
+      </div>
+    )
+  }
 
   return (
     <>

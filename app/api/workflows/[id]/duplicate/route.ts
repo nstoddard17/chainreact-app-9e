@@ -37,6 +37,16 @@ export async function POST(
     const newWorkflowId = randomUUID()
 
     // Create duplicate workflow (without nodes/connections - they're in normalized tables)
+    // Inherit billing scope from the original workflow, or derive from workspace context
+    const { buildWorkflowScopeFields } = await import('@/lib/billing/buildWorkflowScopeFields')
+    const scopeFields = originalWorkflow.billing_scope_type && originalWorkflow.billing_scope_id
+      ? { billing_scope_type: originalWorkflow.billing_scope_type, billing_scope_id: originalWorkflow.billing_scope_id }
+      : buildWorkflowScopeFields({
+          workspaceType: originalWorkflow.workspace_type,
+          workspaceId: originalWorkflow.workspace_id,
+          userId: user.id,
+        })
+
     const { data: duplicatedWorkflow, error: createError } = await supabase
       .from('workflows')
       .insert({
@@ -45,6 +55,7 @@ export async function POST(
         description: originalWorkflow.description,
         user_id: user.id,
         status: 'draft', // Always start as draft
+        ...scopeFields,
       })
       .select()
       .single()

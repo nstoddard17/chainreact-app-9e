@@ -28,7 +28,7 @@ import {
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
-import { hasPermission, type TeamRole } from "@/lib/types/roles"
+import { hasMembershipPermission, type TeamRole } from "@/lib/types/roles"
 import { TeamActivityFeed } from "@/components/teams/TeamActivityFeed"
 import { TransferOwnershipDialog } from "@/components/teams/TransferOwnershipDialog"
 import { toast } from "sonner"
@@ -67,11 +67,11 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
   const userRole = (team.team_members?.[0]?.role || 'member') as TeamRole
 
   // Check specific permissions based on role
-  const canManageSettings = hasPermission(userRole, 'manage_settings', false)
-  const canManageMembers = hasPermission(userRole, 'manage_members', false) ||
-                          hasPermission(userRole, 'invite_members', false)
-  const canCreateWorkflows = hasPermission(userRole, 'create_workflows', false) ||
-                            hasPermission(userRole, 'manage_workflows', false) ||
+  const canManageSettings = hasMembershipPermission(userRole, 'manage_settings', false)
+  const canManageMembers = hasMembershipPermission(userRole, 'manage_members', false) ||
+                          hasMembershipPermission(userRole, 'invite_members', false)
+  const canCreateWorkflows = hasMembershipPermission(userRole, 'create_workflows', false) ||
+                            hasMembershipPermission(userRole, 'manage_workflows', false) ||
                             userRole === 'owner' ||
                             userRole === 'admin'
 

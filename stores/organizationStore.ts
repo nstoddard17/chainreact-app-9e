@@ -27,7 +27,7 @@ interface OrganizationMember {
   id: string
   organization_id: string
   user_id: string
-  role: "admin" | "editor" | "viewer"
+  role: "owner" | "admin" | "manager" | "hr" | "finance"
   permissions: any
   invited_by?: string
   invited_at?: string
@@ -44,7 +44,7 @@ interface OrganizationInvitation {
   id: string
   organization_id: string
   email: string
-  role: "admin" | "editor" | "viewer"
+  role: "owner" | "admin" | "manager" | "hr" | "finance"
   permissions: any
   invited_by: string
   token: string

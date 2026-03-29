@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { requireTeamRole } from '@/lib/utils/permissions'
 import { sendTeamInvitationEmail } from '@/lib/services/resend'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { logger } from '@/lib/utils/logger'
@@ -24,19 +25,11 @@ export async function GET(
       return errorResponse("Unauthorized" , 401)
     }
 
-    // Check if user is a member of this team
-    const { data: teamMember } = await serviceClient
-      .from("team_members")
-      .select("role")
-      .eq("team_id", teamId)
-      .eq("user_id", user.id)
-      .single()
+    // Check if user has a management role on this team
+    const auth = await requireTeamRole(user.id, teamId, ['owner', 'admin', 'manager'])
+    if (!auth.allowed) return auth.response
 
-    if (!teamMember) {
-      return errorResponse("Access denied" , 403)
-    }
-
-    const canManageMembers = ['owner', 'admin', 'manager'].includes(teamMember.role)
+    const canManageMembers = ['owner', 'admin', 'manager'].includes(auth.role)
 
     // Fetch members and invitations in parallel
     const [membersResult, invitationsResult] = await Promise.all([
@@ -133,17 +126,9 @@ export async function POST(
       return errorResponse("Team invitations require a Pro plan or higher. Please upgrade your account." , 403)
     }
 
-    // Check if user is team admin
-    const { data: teamMember } = await serviceClient
-      .from("team_members")
-      .select("role")
-      .eq("team_id", teamId)
-      .eq("user_id", user.id)
-      .single()
-
-    if (!teamMember || !['owner', 'admin', 'manager'].includes(teamMember.role)) {
-      return errorResponse("Only team owners, admins, and managers can invite members" , 403)
-    }
+    // Check if user is team admin/manager
+    const auth = await requireTeamRole(user.id, teamId, ['owner', 'admin', 'manager'])
+    if (!auth.allowed) return auth.response
 
     // Check if user is already a member
     const { data: existingMember } = await serviceClient

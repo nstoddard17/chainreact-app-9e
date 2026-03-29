@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { requireTeamRole } from '@/lib/utils/permissions'
 import { sendTeamInvitationEmail } from '@/lib/services/resend'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { logger } from '@/lib/utils/logger'
@@ -62,16 +63,8 @@ export async function POST(
     }
 
     // Check if user is team admin/manager
-    const { data: teamMember } = await serviceClient
-      .from("team_members")
-      .select("role")
-      .eq("team_id", invitation.team_id)
-      .eq("user_id", user.id)
-      .single()
-
-    if (!teamMember || !['owner', 'admin', 'manager'].includes(teamMember.role)) {
-      return errorResponse("Only team owners, admins, and managers can resend invitations", 403)
-    }
+    const auth = await requireTeamRole(user.id, invitation.team_id, ['owner', 'admin', 'manager'])
+    if (!auth.allowed) return auth.response
 
     // Check if invitation is still pending
     if (invitation.status !== 'pending') {

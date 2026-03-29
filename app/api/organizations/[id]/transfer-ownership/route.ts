@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
+import { requireOrgRole } from '@/lib/utils/permissions'
 import { logger } from '@/lib/utils/logger'
 
 /**
@@ -30,16 +31,8 @@ export async function POST(
     }
 
     // Check if current user is the owner
-    const { data: currentUserMember } = await serviceClient
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", orgId)
-      .eq("user_id", user.id)
-      .single()
-
-    if (!currentUserMember || currentUserMember.role !== 'owner') {
-      return errorResponse("Only the organization owner can transfer ownership", 403)
-    }
+    const auth = await requireOrgRole(user.id, orgId, ['owner'])
+    if (!auth.allowed) return auth.response
 
     // Check if new owner is already a member
     const { data: newOwnerMember } = await serviceClient

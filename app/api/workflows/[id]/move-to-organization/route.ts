@@ -77,10 +77,14 @@ export async function PUT(
       )
     }
 
-    // Move the workflow to the organization
+    // Move the workflow to the organization — update billing scope to match
     const { data: updatedWorkflow, error: updateError } = await supabase
       .from("workflows")
-      .update({ organization_id: organizationId })
+      .update({
+        organization_id: organizationId,
+        billing_scope_type: 'organization',
+        billing_scope_id: organizationId,
+      })
       .eq("id", workflowId)
       .select()
       .single()
