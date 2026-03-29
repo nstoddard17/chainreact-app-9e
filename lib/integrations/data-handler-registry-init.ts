@@ -263,3 +263,83 @@ registerDataProvider('microsoft-excel', microsoftExcelHandlers, {
   validStatuses: ['connected', 'active'],
   tokenRefresh: 'none',
 })
+
+// --- Microsoft Outlook ---
+import { outlookHandlers } from '@/app/api/integrations/microsoft-outlook/data/handlers'
+registerDataProvider('microsoft-outlook', outlookHandlers, {
+  dbProviderName: 'microsoft-outlook',
+  tokenDecryption: 'decryptToken',
+  decryptRefreshToken: false,
+  validStatuses: ['connected', 'active'],
+  tokenRefresh: 'refresh-and-retry',
+})
+
+// --- Microsoft Teams ---
+import { teamsHandlers } from '@/app/api/integrations/teams/data/handlers'
+registerDataProvider('teams', teamsHandlers, {
+  dbProviderName: 'teams',
+  tokenDecryption: 'decrypt-with-key',
+  decryptRefreshToken: false,
+  validStatuses: ['connected'],
+  tokenRefresh: 'none',
+})
+
+// --- Microsoft OneNote (alias) ---
+// Alias: microsoft-onenote points to the same handlers as onenote.
+// The onenote registration above already uses dbProviderName: 'microsoft-onenote'.
+// This alias allows the dynamic route to resolve 'microsoft-onenote' as a provider name.
+// Future divergence rule: if alias and source need different behavior, fork handlers.
+registerDataProvider('microsoft-onenote', oneNoteHandlers, {
+  dbProviderName: 'microsoft-onenote',
+  tokenDecryption: 'none',
+  decryptRefreshToken: false,
+  validStatuses: ['connected', 'active'],
+  tokenRefresh: 'none',
+})
+
+// ================================================================
+// STUB REGISTRATIONS — OAuth-only providers, no data handlers yet
+// These providers have OAuth connections but no workflow nodes.
+// Empty handler maps are valid: data requests return 400 with empty
+// available-types list. UI must not imply usable data features.
+// ================================================================
+
+registerDataProvider('instagram', {}, {
+  dbProviderName: 'instagram',
+  tokenDecryption: 'none',
+  decryptRefreshToken: false,
+  validStatuses: ['connected', 'active'],
+  tokenRefresh: 'none',
+})
+
+registerDataProvider('kit', {}, {
+  dbProviderName: 'kit',
+  tokenDecryption: 'none',
+  decryptRefreshToken: false,
+  validStatuses: ['connected', 'active'],
+  tokenRefresh: 'none',
+})
+
+registerDataProvider('linkedin', {}, {
+  dbProviderName: 'linkedin',
+  tokenDecryption: 'none',
+  decryptRefreshToken: false,
+  validStatuses: ['connected', 'active'],
+  tokenRefresh: 'none',
+})
+
+registerDataProvider('paypal', {}, {
+  dbProviderName: 'paypal',
+  tokenDecryption: 'none',
+  decryptRefreshToken: false,
+  validStatuses: ['connected', 'active'],
+  tokenRefresh: 'none',
+})
+
+registerDataProvider('twitter', {}, {
+  dbProviderName: 'twitter',
+  tokenDecryption: 'none',
+  decryptRefreshToken: false,
+  validStatuses: ['connected', 'active'],
+  tokenRefresh: 'none',
+})

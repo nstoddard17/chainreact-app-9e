@@ -36,7 +36,8 @@ export function AppContextProvider({
   initialWorkspaceType = 'personal',
   initialWorkspaceId = null
 }: AppContextProviderProps) {
-  const { initialized: authInitialized, user } = useAuthStore()
+  const { phase, user } = useAuthStore()
+  const authReady = phase === 'ready'
   const integrationStore = useIntegrationStore()
   const workflowStore = useWorkflowStore()
 
@@ -63,17 +64,17 @@ export function AppContextProvider({
 
   // Initialize when auth is ready
   useEffect(() => {
-    if (!authInitialized || !user) {
+    if (!authReady || !user) {
       setIsReady(false)
       return
     }
 
     logger.info('[AppContext] Auth ready, app context initialized')
     setIsReady(true)
-  }, [authInitialized, user])
+  }, [authReady, user])
 
   const value: AppContextValue = {
-    isAuthReady: authInitialized && !!user,
+    isAuthReady: authReady && !!user,
     userId: user?.id || null,
     workspaceType,
     workspaceId,

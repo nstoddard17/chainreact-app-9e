@@ -2,51 +2,38 @@
 
 import { useEffect, useRef } from "react"
 import { useAuthStore } from "@/stores/authStore"
-
-import { logger } from '@/lib/utils/logger'
 import { cleanupWorkflowLocalStorage } from '@/lib/utils/storage-cleanup'
 
+/**
+ * Safety-net boot trigger.
+ *
+ * The primary boot is triggered by onRehydrateStorage in the Zustand persist config.
+ * This component handles the case where no persisted data exists (onRehydrateStorage
+ * may not fire), and runs non-blocking localStorage cleanup.
+ */
 export default function AuthInitializer() {
-  const { initialize, initialized, hydrated, setHydrated } = useAuthStore()
-  const initStarted = useRef(false)
-  const hydrateStarted = useRef(false)
+  const boot = useAuthStore(s => s.boot)
+  const phase = useAuthStore(s => s.phase)
   const cleanupStarted = useRef(false)
 
-  // Clean up stale localStorage entries on app startup
+  // Clean up stale localStorage entries (non-blocking)
   useEffect(() => {
     if (!cleanupStarted.current) {
       cleanupStarted.current = true
-      // Run cleanup asynchronously to not block app startup
-      // Use requestIdleCallback with fallback for older browsers (iOS Safari < 16)
       if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(() => {
-          cleanupWorkflowLocalStorage()
-        }, { timeout: 5000 })
+        requestIdleCallback(() => cleanupWorkflowLocalStorage(), { timeout: 5000 })
       } else {
-        setTimeout(() => {
-          cleanupWorkflowLocalStorage()
-        }, 1)
+        setTimeout(() => cleanupWorkflowLocalStorage(), 1)
       }
     }
   }, [])
 
-  // Set hydrated state immediately on client mount
+  // Safety net: if phase is still idle after mount, trigger boot
   useEffect(() => {
-    if (!hydrateStarted.current) {
-      hydrateStarted.current = true
-      logger.info("🔄 Setting hydrated state...")
-      setHydrated()
+    if (phase === 'idle') {
+      boot()
     }
-  }, [setHydrated])
-
-  // Initialize auth once hydrated
-  useEffect(() => {
-    if (hydrated && !initialized && !initStarted.current) {
-      initStarted.current = true
-      logger.info("🔄 Initializing auth...")
-      initialize()
-    }
-  }, [hydrated, initialized, initialize])
+  }, [phase, boot])
 
   return null
 }

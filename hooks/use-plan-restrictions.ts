@@ -17,7 +17,7 @@ export interface PlanRestrictionCheck {
 }
 
 export function usePlanRestrictions() {
-  const { profile, hydrated, initialized, loading } = useAuthStore()
+  const { profile, phase, loading } = useAuthStore()
   const [isProfileReady, setIsProfileReady] = useState(false)
   const profileUpdateCountRef = useRef(0)
   const initialProfileRef = useRef(profile)
@@ -31,7 +31,7 @@ export function usePlanRestrictions() {
 
   // Determine when profile is ready for access checks
   useEffect(() => {
-    if (!hydrated || !initialized) {
+    if (phase !== 'ready') {
       return
     }
 
@@ -59,7 +59,7 @@ export function usePlanRestrictions() {
     }, 800) // Give enough time for profile API call to complete
 
     return () => clearTimeout(timer)
-  }, [hydrated, initialized, profile, loading])
+  }, [phase, profile, loading])
 
   // Ensure we have a valid plan tier - fallback to 'free' if plan is invalid
   const rawPlan = profile?.plan || 'free'

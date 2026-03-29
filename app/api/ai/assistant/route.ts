@@ -3,6 +3,7 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import { AIAssistantService } from "@/lib/services/ai/aiAssistantService"
 import { checkRateLimit } from '@/lib/utils/rate-limit'
 import { logger } from '@/lib/utils/logger'
+import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 
 // Simple test endpoint
 export async function GET() {
@@ -36,6 +37,18 @@ export async function POST(request: NextRequest) {
       logger.info("Connection closed early, aborting processing")
       return new Response(null, { status: 499 }) // Client Closed Request
     }
+
+    // Auth check for entitlement (service also checks auth internally)
+    const supabase = await createSupabaseRouteHandlerClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return errorResponse('Unauthorized', 401)
+    }
+
+    // Check feature entitlement (Pro plan or higher)
+    const { requireFeature } = await import('@/lib/utils/require-entitlement')
+    const entitlement = await requireFeature(user.id, 'aiAgents')
+    if (!entitlement.allowed) return entitlement.response
 
     const aiAssistantService = new AIAssistantService()
     const result = await aiAssistantService.processMessage(request)

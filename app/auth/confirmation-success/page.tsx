@@ -14,14 +14,14 @@ export default function ConfirmationSuccessPage() {
   const [isCheckingSession, setIsCheckingSession] = useState(true)
   const [hasValidSession, setHasValidSession] = useState(false)
   const router = useRouter()
-  const { initialize, user } = useAuthStore()
+  const { boot, user } = useAuthStore()
 
   useEffect(() => {
     // Check if user has a valid session after email confirmation
     const checkSession = async () => {
       try {
         // Initialize auth store
-        await initialize()
+        await boot()
         
         // Check for active session
         const { data: { session }, error } = await supabase.auth.getSession()
@@ -42,7 +42,7 @@ export default function ConfirmationSuccessPage() {
     }
 
     checkSession()
-  }, [initialize])
+  }, [boot])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 relative overflow-hidden">

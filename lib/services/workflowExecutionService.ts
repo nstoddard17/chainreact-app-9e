@@ -301,25 +301,10 @@ export class WorkflowExecutionService {
       })
     }
 
-    // Helper to deduct tasks for all nodes that executed (completed or failed)
+    // Tasks are deducted upfront by the calling route before execution starts.
+    // No post-execution deduction needed — v1 conservative upfront reservation model.
     const deductTasksForExecutedNodes = async () => {
-      if (testMode) return
-      try {
-        const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
-        const allExecutedNodeIds = [
-          ...completedNodeIds,
-          ...failedNodeIds.map((f: any) => f.nodeId)
-        ]
-        const executedNodesList = nodes.filter((n: any) => allExecutedNodeIds.includes(n.id))
-        if (executedNodesList.length > 0) {
-          await deductExecutionTasks(userId, executedNodesList, executionId, false)
-        }
-      } catch (taskError) {
-        logger.warn('[WorkflowExecutionService] Task deduction failed (non-blocking)', {
-          executionId,
-          error: taskError instanceof Error ? taskError.message : String(taskError)
-        })
-      }
+      // No-op: kept for backward compatibility with callers that reference this function
     }
 
     try {

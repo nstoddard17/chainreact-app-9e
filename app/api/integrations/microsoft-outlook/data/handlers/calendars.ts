@@ -3,8 +3,6 @@
  * Fetches user's calendars from Outlook
  */
 
-import { decryptToken } from '@/lib/integrations/tokenUtils'
-
 import { logger } from '@/lib/utils/logger'
 
 export interface OutlookCalendar {
@@ -19,19 +17,14 @@ export async function getOutlookCalendars(integration: any): Promise<OutlookCale
   try {
     logger.info(" [Outlook API] Fetching calendars")
 
-    // Get decrypted access token
     if (!integration.access_token) {
       throw new Error('No access token available')
-    }
-    const accessToken = await decryptToken(integration.access_token)
-    if (!accessToken) {
-      throw new Error('Failed to decrypt access token')
     }
 
     // Fetch calendars from Microsoft Graph API
     const response = await fetch('https://graph.microsoft.com/v1.0/me/calendars', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${integration.access_token}`,
         'Content-Type': 'application/json'
       }
     })

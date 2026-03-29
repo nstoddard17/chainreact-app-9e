@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, Suspense, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { useAuthStore } from "@/stores/authStore"
+import { useAuthStore, type BootPhase } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -56,7 +56,7 @@ function RegisterFormContent() {
           useAuthStore.setState({
             user: null,
             profile: null,
-            initialized: true,
+            phase: 'ready' as BootPhase,
             loading: false,
             error: null
           })

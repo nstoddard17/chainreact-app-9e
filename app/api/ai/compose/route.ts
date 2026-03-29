@@ -46,7 +46,12 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return errorResponse("Unauthorized" , 401)
     }
-    
+
+    // Check feature entitlement (Pro plan or higher)
+    const { requireFeature } = await import('@/lib/utils/require-entitlement')
+    const entitlement = await requireFeature(user.id, 'aiAgents')
+    if (!entitlement.allowed) return entitlement.response
+
     // Check AI usage limits
     const usageCheck = await checkUsageLimit(user.id, "ai_compose")
     if (!usageCheck.allowed) {

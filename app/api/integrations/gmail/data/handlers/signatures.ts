@@ -4,7 +4,6 @@
 
 import { GmailIntegration, GmailSignature, GmailDataHandler } from '../types'
 import { validateGmailIntegration } from '../utils'
-import { decrypt } from '../../../../../../lib/security/encryption'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -23,14 +22,11 @@ export const getGmailSignatures: GmailDataHandler<GmailSignature> = async (integ
       return []
     }
 
-    // Decrypt the access token
-    const accessToken = decrypt(integration.access_token)
-    
     // Try to get Gmail settings (this might not work as Gmail doesn't expose signatures via API)
     try {
       const settingsResponse = await fetch('https://www.googleapis.com/gmail/v1/users/me/settings/general', {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${integration.access_token}`,
           'Content-Type': 'application/json',
         },
       })
@@ -49,7 +45,7 @@ export const getGmailSignatures: GmailDataHandler<GmailSignature> = async (integ
     // Get profile for email address
     const profileResponse = await fetch('https://www.googleapis.com/gmail/v1/users/me/profile', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${integration.access_token}`,
         'Content-Type': 'application/json',
       },
     })

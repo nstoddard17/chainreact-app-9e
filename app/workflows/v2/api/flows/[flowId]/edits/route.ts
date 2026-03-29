@@ -7,7 +7,7 @@ import { planEdits, type Edit, type PlannerResult } from "@/src/lib/workflows/bu
 import { getRouteClient, checkWorkflowAccess } from "@/src/lib/workflows/builder/api/helpers"
 import { logger } from "@/lib/utils/logger"
 import { plannerResultToTemplate } from "@/lib/workflows/ai-agent/planToTemplate"
-import { deductAIWorkflowTasks, trackAIWorkflowUsage, checkAIWorkflowTaskBalance } from "@/lib/workflows/ai-agent/aiWorkflowCostTracking"
+import { deductAIWorkflowTasks, trackAIWorkflowUsage, checkAIWorkflowTaskBalance, generatePlanningChargeId } from "@/lib/workflows/ai-agent/aiWorkflowCostTracking"
 
 /**
  * Conversation message schema for refinement context
@@ -368,10 +368,13 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
     }
 
     // STEP 4: Deduct tasks from user's balance for AI workflow creation
+    // Uses a unique planning_charge_id per request (not flowId) so regenerations are billed separately
     const nodeCount = result.edits.filter(e => e.op === 'addNode').length
+    const planningChargeId = generatePlanningChargeId()
     const costResult = await deductAIWorkflowTasks(
       user.id,
       nodeCount,
+      planningChargeId,
       flowId,
       result.planningMethod === 'llm' ? 'llm' : 'pattern'
     )

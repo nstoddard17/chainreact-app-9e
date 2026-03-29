@@ -16,7 +16,7 @@ export default function EmailConfirmPage() {
   const [processing, setProcessing] = useState(true)
   const [fromEmail, setFromEmail] = useState(false)
   const router = useRouter()
-  const { initialize } = useAuthStore()
+  const { boot } = useAuthStore()
 
   useEffect(() => {
     // Check if this came from email link
@@ -76,7 +76,7 @@ export default function EmailConfirmPage() {
           return
         }
 
-        await initialize()
+        await boot()
         localStorage.removeItem('pendingSignup')
 
         // Create user profile if it doesn't exist
@@ -130,7 +130,7 @@ export default function EmailConfirmPage() {
     }
 
     handleEmailConfirmation()
-  }, [router, initialize])
+  }, [router, boot])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-rose-900 relative overflow-hidden">

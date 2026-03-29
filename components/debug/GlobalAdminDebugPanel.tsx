@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast"
  * - Real-time state snapshots
  */
 export function GlobalAdminDebugPanel() {
-  const { user, profile, initialized } = useAuthStore()
+  const { user, profile, phase } = useAuthStore()
   const { events, clearEvents } = useDebugStore()
   const { integrations, providers, workspaceType, workspaceId } = useIntegrationStore()
   const { workspaceContext } = useWorkspaceContext()
@@ -59,7 +59,7 @@ export function GlobalAdminDebugPanel() {
 
   // Only show for authenticated admin users
   // Wait for auth to initialize to avoid showing panel during auth loading
-  if (!initialized || !user || !profile?.admin) {
+  if (phase !== 'ready' || !user || !profile?.admin) {
     return null
   }
 

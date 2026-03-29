@@ -1,19 +1,17 @@
-import { NextResponse } from "next/server"
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
+import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
+import { requireFeature } from '@/lib/utils/require-entitlement'
 
 export async function GET() {
-  // For now, return an empty array instead of mock data
-  // This will ensure no fake workflow executions appear in the activity feed
+  const supabase = await createSupabaseRouteHandlerClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return errorResponse('Unauthorized', 401)
+  }
+
+  const entitlement = await requireFeature(user.id, 'advancedAnalytics')
+  if (!entitlement.allowed) return entitlement.response
+
+  // Stub: return empty array until real analytics implementation
   return jsonResponse([])
-  
-  /*
-   * Implementation note:
-   * In a production environment, this endpoint would:
-   * 1. Authenticate the user from the request
-   * 2. Query the database for workflow executions specific to that user
-   * 3. Return only real execution data
-   * 
-   * Since we're avoiding showing fake data, we're returning an empty array
-   * which will result in no executions showing up in the activity feed.
-   */
 }

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { clearCorruptedAuthData } from "@/lib/utils/cookieValidator"
+import { useAuthStore } from "@/stores/authStore"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -18,8 +19,8 @@ export default function AuthErrorBoundary({ children }: { children: React.ReactN
         if (authData && (authData.startsWith('base64-') || authData.includes('eyJ') && !authData.includes('{'))) {
           logger.warn('Detected corrupted auth data, cleaning up...')
           clearCorruptedAuthData()
-          // Reload to get fresh state
-          window.location.reload()
+          // Re-boot cleanly instead of hard reload
+          useAuthStore.getState().boot()
         }
       } catch (error) {
         logger.error('Error in auth cleanup interval:', error)

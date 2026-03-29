@@ -1,13 +1,13 @@
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { TeamsPublicView } from "@/components/new-design/TeamsPublicView"
-import { PageAccessGuard } from "@/components/common/PageAccessGuard"
+import { AccessGuard } from "@/components/common/AccessGuard"
 
 export default function TeamsPage() {
   return (
     <NewAppLayout title="Teams" subtitle="Browse Teams">
-      <PageAccessGuard page="teams">
+      <AccessGuard pathname="/teams">
         <TeamsPublicView />
-      </PageAccessGuard>
+      </AccessGuard>
     </NewAppLayout>
   )
 }

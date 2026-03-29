@@ -59,7 +59,7 @@ export function NewAppLayout({
             />
 
             {/* Page Content */}
-            {/* Note: 'relative' is required for PageAccessGuard's absolute positioning to be contained within main */}
+            {/* Note: 'relative' is required for AccessGuard's absolute positioning to be contained within main */}
             <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950 relative">
               <div className="h-full w-full pl-6 pr-6 py-6">
                 {children}

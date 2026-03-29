@@ -243,6 +243,48 @@ export async function POST(request: NextRequest) {
         // Continue anyway - non-HITL workflows don't need this
       }
 
+      // Billing target: always the workflow owner (creator-pays policy)
+      const billingUserId = workflow.user_id
+
+      // Atomic task deduction: reserve tasks upfront before execution
+      try {
+        const { deductTasksAtomic } = await import('@/lib/workflows/taskDeduction')
+        const actionNodes = workflowNodes.filter((n: any) => !n.data?.isTrigger)
+
+        if (actionNodes.length > 0) {
+          const deductionResult = await deductTasksAtomic(
+            billingUserId,
+            actionNodes,
+            executionId,
+            false,
+            { workflowId, source: 'execute_stream_route' }
+          )
+
+          if (!deductionResult.applied && deductionResult.resultType !== 'idempotent_replay' && deductionResult.resultType !== 'deducted') {
+            // Billing failure — send error event and abort
+            await sendEvent({
+              type: 'workflow_failed',
+              error: deductionResult.error || 'Task limit reached.',
+              timestamp: Date.now()
+            })
+            await writer.close()
+            return
+          }
+        }
+      } catch (deductionError) {
+        logger.error('[ExecuteStream] Task deduction failed (blocking execution)', {
+          executionId,
+          error: deductionError instanceof Error ? deductionError.message : String(deductionError)
+        })
+        await sendEvent({
+          type: 'workflow_failed',
+          error: 'Billing system temporarily unavailable. Please retry.',
+          timestamp: Date.now()
+        })
+        await writer.close()
+        return
+      }
+
       // Send workflow_started event with executionId so frontend can poll for resume
       await sendEvent({
         type: 'workflow_started',
@@ -524,19 +566,7 @@ export async function POST(request: NextRequest) {
           console.log('[ExecuteStream] Workflow is paused, not sending workflow_completed')
           // Don't send workflow_completed - the workflow_paused event was already sent
         } else {
-          // Deduct tasks for executed nodes
-          try {
-            const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
-            const executedNodesList = workflowNodes.filter((n: any) => executedNodeIds.has(n.id))
-            if (executedNodesList.length > 0) {
-              await deductExecutionTasks(user.id, executedNodesList, executionId, false)
-            }
-          } catch (taskError) {
-            logger.warn('[ExecuteStream] Task deduction failed (non-blocking)', {
-              executionId,
-              error: taskError instanceof Error ? taskError.message : String(taskError)
-            })
-          }
+          // Tasks were already deducted upfront before execution started
 
           await supabase
             .from('workflow_execution_sessions')
@@ -557,19 +587,7 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       logger.error('Stream execution error:', error)
 
-      // Deduct tasks for nodes that completed before the failure
-      try {
-        const { deductExecutionTasks } = await import('@/lib/workflows/taskDeduction')
-        const executedNodesList = workflowNodes.filter((n: any) => executedNodeIds.has(n.id))
-        if (executedNodesList.length > 0) {
-          await deductExecutionTasks(user.id, executedNodesList, executionId, false)
-        }
-      } catch (taskError) {
-        logger.warn('[ExecuteStream] Task deduction on failure path failed (non-blocking)', {
-          executionId,
-          error: taskError instanceof Error ? taskError.message : String(taskError)
-        })
-      }
+      // Tasks were already deducted upfront — no refund on partial failure (v1 policy)
 
       // Update execution status to failed
       await supabase

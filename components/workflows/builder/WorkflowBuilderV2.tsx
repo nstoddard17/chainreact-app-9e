@@ -494,7 +494,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const actions = adapter.actions
   const flowState = builder?.flowState
   const { toast } = useToast()
-  const { initialized: authInitialized, user } = useAuthStore()
+  const { phase: authPhase, user } = useAuthStore()
+  const authInitialized = authPhase === 'ready'
   const { isIntegrationConnected } = useIntegrationSelection()
   const { prefetchNodeConfig } = usePrefetchConfig()
 

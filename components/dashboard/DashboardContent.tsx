@@ -7,7 +7,6 @@ import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useWorkflowStore } from '@/stores/workflowStore'
 import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
-import { useProductionReady } from '@/hooks/use-production-ready'
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
@@ -23,11 +22,10 @@ import { logger } from '@/lib/utils/logger'
 export default function DashboardContent() {
   const searchParams = useSearchParams()
   const { metrics, chartData, fetchMetrics, fetchChartData } = useAnalyticsStore()
-  const { user, profile, initialized, hydrated } = useAuthStore()
+  const { user, profile, phase } = useAuthStore()
   const { getConnectedProviders, fetchIntegrations } = useIntegrationStore()
   const { workflows, fetchWorkflows } = useWorkflowStore()
   const [isClientReady, setIsClientReady] = useState(false)
-  const isProductionReady = useProductionReady()
   const connectedIntegrationsCount = getConnectedProviders().length
 
   // Count active workflows (only workflows with status 'active', not paused or draft)
@@ -58,11 +56,10 @@ export default function DashboardContent() {
           first_name: profile.first_name,
           last_name: profile.last_name
         } : null,
-        initialized,
-        hydrated
+        phase
       })
     }
-  }, [user, profile, initialized, hydrated, isClientReady])
+  }, [user, profile, phase, isClientReady])
 
 
   // Use timeout loading for all data fetching with parallel loading
@@ -143,9 +140,9 @@ export default function DashboardContent() {
   const firstName = getFirstName()
 
   // CRITICAL FIX: Don't block on production ready state
-  // Only show loading if client isn't ready AND we're not hydrated
+  // Only show loading if client isn't ready AND auth hasn't started
   // This allows the page to render immediately in production
-  const isInitialLoading = !isClientReady && !hydrated
+  const isInitialLoading = !isClientReady && phase === 'idle'
 
   if (isInitialLoading) {
     // Only show loading for maximum 1 second

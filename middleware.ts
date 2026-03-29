@@ -2,26 +2,10 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
 import { logger } from '@/lib/utils/logger'
+import { buildAccessSubject } from '@/lib/access-policy/buildAccessSubject'
+import { evaluateAccess } from '@/lib/access-policy/evaluateAccess'
+import { isRecognizedPlan } from '@/lib/access-policy/normalize'
 import type { NextRequest } from 'next/server'
-
-// Define page access rules
-// Note: Pages with PageAccessGuard (analytics, teams, organization, ai-assistant)
-// should allow all users so they can see the upgrade modal instead of being redirected.
-// The PageAccessGuard component handles showing the upgrade prompt for these pages.
-const pageAccessRules = {
-  '/workflows': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
-  '/integrations': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
-  '/learn': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
-  '/community': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
-  '/analytics': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'], // PageAccessGuard handles access control
-  '/teams': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'], // PageAccessGuard handles access control
-  '/organization': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'], // PageAccessGuard handles access control
-  '/ai-assistant': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'], // PageAccessGuard handles access control
-  '/enterprise': ['enterprise', 'admin'],
-  '/admin': ['admin'],
-  '/profile': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
-  '/settings': ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin'],
-}
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
@@ -108,7 +92,7 @@ export async function middleware(req: NextRequest) {
     // Use admin client to bypass RLS
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('user_profiles')
-      .select('role, username, provider, admin')
+      .select('plan, role, username, provider, admin')
       .eq('id', user.id)
       .single()
 
@@ -176,34 +160,36 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/auth/setup-username', req.url))
     }
 
-    // Check if user is admin - admins can access everything
-    const isAdmin = profile?.admin === true
-    const userRole = isAdmin ? 'admin' : (profile?.role || 'free')
-
-    // DEBUG: Log admin check for /admin route
-    if (pathname === '/admin') {
-      console.log('🔍 MIDDLEWARE - Admin route check:', {
+    // Log unrecognized stored plan values for telemetry
+    if (profile?.plan && !isRecognizedPlan(profile.plan)) {
+      logger.error('[Middleware] Unrecognized stored plan value', {
+        plan: profile.plan,
+        userId: user.id,
         pathname,
-        profileAdmin: profile?.admin,
-        profileRole: profile?.role,
-        isAdmin,
-        userRole,
-        hasProfile: !!profile
       })
     }
 
-    // Check if the page has access rules
-    const allowedRoles = pageAccessRules[pathname as keyof typeof pageAccessRules]
+    // Canonical access policy evaluation
+    const subject = buildAccessSubject(profile, true)
+    const decision = evaluateAccess(subject, pathname)
 
-    if (allowedRoles && !allowedRoles.includes(userRole)) {
-      console.log('🚫 MIDDLEWARE - Access denied:', {
-        pathname,
-        userRole,
-        allowedRoles,
-        redirecting: true
-      })
-      // Redirect to workflows if user doesn't have access
-      return NextResponse.redirect(new URL('/workflows', req.url))
+    if (!decision.allowed) {
+      // Upgrade-modal routes: let through — client AccessGuard handles UX
+      if (decision.denial?.showUpgradeModal) {
+        return res
+      }
+
+      // Hard denials: redirect
+      if (decision.denial?.redirectTo) {
+        logger.info('[Middleware] Access denied', {
+          pathname,
+          reason: decision.denial.reason,
+          plan: subject.plan,
+          isAdmin: subject.isAdmin,
+          redirectTo: decision.denial.redirectTo,
+        })
+        return NextResponse.redirect(new URL(decision.denial.redirectTo, req.url))
+      }
     }
 
     return res

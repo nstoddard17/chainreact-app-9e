@@ -1,5 +1,8 @@
 export type UserRole = 'free' | 'pro' | 'beta-pro' | 'business' | 'enterprise' | 'admin'
 
+// Route-level access control is handled by lib/access-policy/ (canonical source of truth).
+// This file contains role display metadata and resource limits only.
+
 export interface RoleInfo {
   name: string
   displayName: string
@@ -8,7 +11,6 @@ export interface RoleInfo {
   description: string
   features: string[]
   limits: Record<string, number>
-  allowedPages: string[]
   isSecret?: boolean
 }
 
@@ -33,7 +35,6 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       ai_compose_uses: 5,
       ai_agent_executions: 5
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/profile', '/settings', '/ai-assistant']
   },
   pro: {
     name: 'pro',
@@ -56,7 +57,6 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       ai_compose_uses: 20,
       ai_agent_executions: 20
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant']
   },
   'beta-pro': {
     name: 'beta-pro',
@@ -81,7 +81,6 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       ai_compose_uses: 100,
       ai_agent_executions: 100
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/profile', '/settings', '/ai-assistant', '/webhooks'],
     isSecret: true
   },
   business: {
@@ -106,7 +105,6 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       ai_compose_uses: 100,
       ai_agent_executions: 100
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/profile', '/settings', '/ai-assistant']
   },
   enterprise: {
     name: 'enterprise',
@@ -130,7 +128,6 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       ai_compose_uses: 100,
       ai_agent_executions: 100
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/profile', '/settings', '/ai-assistant']
   },
   admin: {
     name: 'admin',
@@ -149,7 +146,6 @@ export const ROLES: Record<UserRole, RoleInfo> = {
       integrations: -1,
       executions: -1
     },
-    allowedPages: ['/dashboard', '/workflows', '/integrations', '/learn', '/community', '/analytics', '/teams', '/enterprise', '/admin', '/profile', '/settings', '/ai-assistant']
   }
 }
 
@@ -194,17 +190,3 @@ export function isUnlimited(userRole: UserRole, limitType: string): boolean {
   return getRoleLimit(userRole, limitType) === -1
 }
 
-export function canAccessPage(userRole: UserRole, pagePath: string): boolean {
-  const roleInfo = getRoleInfo(userRole)
-  
-  // Admin has access to all pages
-  if (userRole === 'admin') return true
-  
-  // Check if the page is in the allowed pages list
-  return roleInfo.allowedPages.includes(pagePath)
-}
-
-export function getAccessiblePages(userRole: UserRole): string[] {
-  const roleInfo = getRoleInfo(userRole)
-  return roleInfo.allowedPages
-} 

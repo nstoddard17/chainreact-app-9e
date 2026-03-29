@@ -71,6 +71,11 @@ export async function PATCH(
       )
     }
 
+    // Check plan entitlement for AI features
+    const { requireFeature } = await import('@/lib/utils/require-entitlement')
+    const entitlement = await requireFeature(user.id, 'aiAgents')
+    if (!entitlement.allowed) return entitlement.response
+
     const body = await request.json()
     const { messages } = body
 
@@ -122,6 +127,11 @@ export async function DELETE(
         { status: 401 }
       )
     }
+
+    // Check plan entitlement for AI features
+    const { requireFeature } = await import('@/lib/utils/require-entitlement')
+    const entitlement = await requireFeature(user.id, 'aiAgents')
+    if (!entitlement.allowed) return entitlement.response
 
     // Delete the conversation
     const { error } = await supabase

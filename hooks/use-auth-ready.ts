@@ -6,48 +6,33 @@ import { useAuthStore } from '@/stores/authStore'
 interface UseAuthReadyOptions {
   onReady?: () => void | Promise<void>
   onNotAuthenticated?: () => void
-  waitForHydration?: boolean
 }
 
 /**
- * Hook that ensures auth is fully initialized and hydrated before running callbacks.
- * This prevents race conditions where data is fetched before auth is ready.
+ * Hook that fires callbacks when auth boot reaches 'ready' phase.
  */
 export function useAuthReady({
   onReady,
   onNotAuthenticated,
-  waitForHydration = true
 }: UseAuthReadyOptions = {}) {
-  const { user, initialized, hydrated, initialize } = useAuthStore()
+  const { user, phase } = useAuthStore()
 
   const checkAndExecute = useCallback(() => {
-    // Skip if not initialized
-    if (!initialized) return
+    if (phase !== 'ready') return
 
-    // Skip if waiting for hydration and not hydrated
-    if (waitForHydration && !hydrated) return
-
-    // Execute appropriate callback
     if (user && onReady) {
       onReady()
     } else if (!user && onNotAuthenticated) {
       onNotAuthenticated()
     }
-  }, [user, initialized, hydrated, waitForHydration, onReady, onNotAuthenticated])
-
-  useEffect(() => {
-    // Initialize auth if not already done
-    if (!initialized) {
-      initialize()
-    }
-  }, [initialized, initialize])
+  }, [user, phase, onReady, onNotAuthenticated])
 
   useEffect(() => {
     checkAndExecute()
   }, [checkAndExecute])
 
   return {
-    isReady: initialized && (!waitForHydration || hydrated),
+    isReady: phase === 'ready',
     isAuthenticated: !!user,
     user
   }

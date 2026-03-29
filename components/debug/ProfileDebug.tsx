@@ -10,11 +10,11 @@ import { supabase } from "@/utils/supabaseClient"
 import { logger } from '@/lib/utils/logger'
 
 export default function ProfileDebug() {
-  const { user, profile, initialize } = useAuthStore()
+  const { user, profile, boot } = useAuthStore()
 
   const refreshProfile = async () => {
     logger.info("🔄 Manually refreshing profile...")
-    await initialize()
+    await boot()
   }
 
   const checkDatabaseProfile = async () => {

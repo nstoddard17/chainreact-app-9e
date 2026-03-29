@@ -99,17 +99,19 @@ export function getProviderConnectionStatus(
 ): ProviderConnectionStatus {
   const displayName = getProviderDisplayName(providerId)
   const integration = integrations.find(
-    i => i.provider?.toLowerCase() === providerId.toLowerCase() && i.status === 'connected'
+    i => i.id?.toLowerCase() === providerId.toLowerCase() && i.status === 'connected'
   )
   const expired = isProviderExpiredFn(providerId)
 
+  // Precedence: connected > expired > missing
+  // A provider with at least one valid connection is usable even if another connection is expired
   let status: ProviderConnectionStatus['status']
-  if (expired) {
-    status = 'expired'
-  } else if (!integration) {
-    status = 'missing'
-  } else {
+  if (integration) {
     status = 'connected'
+  } else if (expired) {
+    status = 'expired'
+  } else {
+    status = 'missing'
   }
 
   return { status, displayName, requiresConnection: true, providerId }
@@ -689,7 +691,7 @@ export function FlowV2AgentPanel({
   // Wrapped in useCallback to prevent unnecessary re-renders and useEffect re-triggers
   const getProviderConnections = useCallback((providerId: string) => {
     return integrations.filter(int =>
-      int.provider?.toLowerCase() === providerId.toLowerCase() && int.status === 'connected'
+      int.id?.toLowerCase() === providerId.toLowerCase() && int.status === 'connected'
     )
   }, [integrations])
 
@@ -699,7 +701,7 @@ export function FlowV2AgentPanel({
   const isProviderExpired = (providerId: string): boolean => {
     // Find all integrations for this provider (including expired ones that are no longer "connected")
     const providerIntegrations = integrations.filter(int =>
-      int.provider?.toLowerCase() === providerId.toLowerCase()
+      int.id?.toLowerCase() === providerId.toLowerCase()
     )
 
     // Check if any of this provider's connections are expired
@@ -2317,27 +2319,6 @@ export function FlowV2AgentPanel({
                                 Verifying connections...
                               </p>
                             )}
-                            {!isValidatingProviders && missingProviders.length > 0 && (() => {
-                              const count = missingProviders.length
-                              return (
-                                <div className="space-y-2">
-                                  <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                                    Connect {count} provider{count > 1 ? 's' : ''} to continue
-                                  </p>
-                                  {missingProviders.map((mp) => (
-                                    <Button
-                                      key={mp.providerId}
-                                      variant="outline"
-                                      size="sm"
-                                      className="w-full border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/30"
-                                      onClick={() => onProviderConnect?.(mp.providerId)}
-                                    >
-                                      {mp.status === 'expired' ? 'Reconnect' : 'Connect'} {mp.displayName}
-                                    </Button>
-                                  ))}
-                                </div>
-                              )
-                            })()}
                             <Button
                               onClick={onBuild}
                               variant="primary"

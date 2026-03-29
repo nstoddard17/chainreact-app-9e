@@ -6,35 +6,21 @@ import { PageLoadingSpinner } from "./PageLoadingSpinner"
 
 interface AuthReadyGuardProps {
   children: React.ReactNode
-  /** Custom loading message */
   loadingMessage?: string
-  /** Whether to require a logged-in user (default: true) */
   requireUser?: boolean
 }
 
 /**
- * Guards content rendering until auth state is fully loaded.
- * Prevents flash of placeholder content by waiting for:
- * 1. Store hydration from localStorage
- * 2. Auth initialization completion
- * 3. Profile data to be available (if user is logged in)
- *
- * Use this component to wrap any content that depends on user/profile data.
+ * Guards content rendering until boot reaches 'ready' phase.
  */
 export function AuthReadyGuard({
   children,
   loadingMessage = "Loading...",
   requireUser = true
 }: AuthReadyGuardProps) {
-  const { hydrated, initialized, user, profile, loading } = useAuthStore()
+  const { phase, user, profile } = useAuthStore()
 
-  // Wait for hydration first
-  if (!hydrated) {
-    return <PageLoadingSpinner message={loadingMessage} />
-  }
-
-  // Wait for initialization to complete
-  if (!initialized || loading) {
+  if (phase !== 'ready') {
     return <PageLoadingSpinner message={loadingMessage} />
   }
 
@@ -43,6 +29,5 @@ export function AuthReadyGuard({
     return <PageLoadingSpinner message={loadingMessage} />
   }
 
-  // Auth is ready, render children
   return <>{children}</>
 }

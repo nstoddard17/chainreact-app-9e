@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
       userId = createData.user.id
 
       // Create the user profile
+      const { buildDefaultProfileFields } = await import('@/lib/utils/profile-defaults')
       const profileData = {
         id: userId,
         username: metadata?.username,
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
         role: 'free',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        ...buildDefaultProfileFields(),
       }
 
       const { error: profileError } = await serviceClient

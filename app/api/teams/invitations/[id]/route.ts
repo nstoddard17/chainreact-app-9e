@@ -86,16 +86,10 @@ export async function POST(
       return errorResponse("Invitation has expired", 400)
     }
 
-    // Check user's plan - must be at least Pro to accept
-    const { data: userProfile } = await serviceClient
-      .from("user_profiles")
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!userProfile || userProfile.role === 'free') {
-      return errorResponse("You need to upgrade to a Pro plan or higher to join teams. Please upgrade your account first.", 403)
-    }
+    // Check plan entitlement for team features
+    const { requireFeature } = await import('@/lib/utils/require-entitlement')
+    const entitlement = await requireFeature(user.id, 'teamSharing')
+    if (!entitlement.allowed) return entitlement.response
 
     // Add user to team
     const { error: addMemberError } = await serviceClient

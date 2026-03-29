@@ -47,7 +47,8 @@ export function usePageDataPreloader(
   const isRunningRef = useRef(false)
 
   const { fetchWorkflows } = useWorkflowStore()
-  const { user, initialized: authInitialized } = useAuthStore()
+  const { user, phase } = useAuthStore()
+  const authInitialized = phase === 'ready'
   const { fetchIntegrations, initializeProviders } = useIntegrationStore()
   const { fetchOrganizations } = useOrganizationStore()
 

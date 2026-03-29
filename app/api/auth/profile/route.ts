@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
       authUser.app_metadata?.providers?.[0] ||
       (authUser.identities?.[0]?.provider ?? 'email')
 
+    const { buildDefaultProfileFields } = await import('@/lib/utils/profile-defaults')
     const insertPayload = {
       id: authUser.id,
       email: authUser.email,
@@ -88,7 +89,6 @@ export async function GET(req: NextRequest) {
       first_name: firstName || null,
       last_name: lastName || null,
       role: derivedRole,
-      plan: 'free', // New users start with free plan
       provider,
       avatar_url: metadata.avatar_url || metadata.picture || null,
       company: metadata.company || null,
@@ -97,6 +97,7 @@ export async function GET(req: NextRequest) {
       phone_number: metadata.phone_number || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      ...buildDefaultProfileFields(),
     }
 
     const {

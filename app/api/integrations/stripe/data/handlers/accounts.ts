@@ -6,7 +6,6 @@
 
 import Stripe from 'stripe'
 import { StripeIntegration, StripeDataHandler } from '../types'
-import { decrypt } from '@/lib/security/encryption'
 import { logger } from '@/lib/utils/logger'
 
 export interface StripeAccount {
@@ -30,11 +29,8 @@ export const getStripeAccounts: StripeDataHandler<StripeAccount> = async (
       throw new Error('Stripe integration missing access token')
     }
 
-    // Decrypt access token
-    const accessToken = await decrypt(integration.access_token)
-
-    // Initialize Stripe client
-    const stripe = new Stripe(accessToken, {
+    // Token is pre-decrypted by the dynamic route
+    const stripe = new Stripe(integration.access_token, {
       apiVersion: '2024-11-20.acacia'
     })
 
