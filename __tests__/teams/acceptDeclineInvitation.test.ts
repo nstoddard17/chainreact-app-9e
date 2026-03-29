@@ -36,6 +36,11 @@ jest.mock("@/lib/utils/logger", () => ({
   logger: { info: jest.fn(), error: jest.fn(), debug: jest.fn(), warn: jest.fn() },
 }))
 
+let mockRequireFeatureResult: any = { allowed: true }
+jest.mock("@/lib/utils/require-entitlement", () => ({
+  requireFeature: jest.fn(async () => mockRequireFeatureResult),
+}))
+
 jest.mock("next/server", () => ({
   NextRequest: class {
     url: string
@@ -132,6 +137,7 @@ describe("POST /api/teams/invitations/[id] - Accept Invitation", () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockAuthUser = { data: { user: mockUser }, error: null }
+    mockRequireFeatureResult = { allowed: true }
   })
 
   it("returns 401 when not authenticated", async () => {
@@ -203,6 +209,14 @@ describe("POST /api/teams/invitations/[id] - Accept Invitation", () => {
   })
 
   it("returns 403 when user is on free plan", async () => {
+    mockRequireFeatureResult = {
+      allowed: false,
+      response: (await import("next/server")).NextResponse.json(
+        { error: "Pro plan required for team features" },
+        { status: 403 }
+      ),
+    }
+
     let invitationCallCount = 0
     serviceTableHandler = (table: string) => {
       if (table === "team_invitations") {
@@ -213,11 +227,6 @@ describe("POST /api/teams/invitations/[id] - Accept Invitation", () => {
           })
         }
         return chainable()
-      }
-      if (table === "user_profiles") {
-        return chainable({
-          single: jest.fn(async () => ({ data: { role: "free" }, error: null })),
-        })
       }
       return chainable()
     }

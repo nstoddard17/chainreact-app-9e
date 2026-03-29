@@ -44,6 +44,11 @@ jest.mock("@/lib/utils/logger", () => ({
   },
 }))
 
+let mockRequireFeatureResult: any = { allowed: true }
+jest.mock("@/lib/utils/require-entitlement", () => ({
+  requireFeature: jest.fn(async () => mockRequireFeatureResult),
+}))
+
 jest.mock("next/server", () => ({
   NextRequest: class {
     url: string
@@ -83,6 +88,7 @@ describe("POST /api/teams - Create Team", () => {
     mockAuthUser = { data: { user: mockUser }, error: null }
     mockRouteHandlerFrom = jest.fn()
     mockServiceFrom = jest.fn()
+    mockRequireFeatureResult = { allowed: true }
   })
 
   it("returns 401 when user is not authenticated", async () => {
