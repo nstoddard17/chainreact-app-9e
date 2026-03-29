@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/utils/supabase/server"
+import { loadWorkflowNodes, loadWorkflowEdges, nodeToLegacyFormat, edgeToLegacyFormat } from "@/lib/workflows/loadWorkflowGraph"
 
 /**
  * GET /api/workflows/[id]/versions
@@ -46,15 +47,22 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Also get the current workflow state as "current version"
+    // Get current workflow metadata (no legacy JSON columns)
     const { data: currentWorkflow, error: workflowError } = await supabase
       .from("workflows")
-      .select("name, description, status, nodes, connections, updated_at")
+      .select("name, description, status, updated_at")
       .eq("id", id)
       .single()
 
     if (workflowError) {
       console.error("[workflow-versions] Error fetching workflow:", workflowError)
+    }
+
+    // Load node count from normalized tables
+    let currentNodeCount = 0
+    if (currentWorkflow) {
+      const normalizedNodes = await loadWorkflowNodes(supabase, id)
+      currentNodeCount = normalizedNodes.length
     }
 
     // Prepend current state as the "latest" version
@@ -68,7 +76,7 @@ export async function GET(
               created_by: user.id,
               change_summary: "Current version",
               is_published: currentWorkflow.status === "active",
-              nodes_count: currentWorkflow.nodes?.length || 0,
+              nodes_count: currentNodeCount,
               changes: null,
               name: currentWorkflow.name,
               description: currentWorkflow.description,
@@ -110,10 +118,10 @@ export async function POST(
     const body = await request.json()
     const { change_summary } = body
 
-    // Get current workflow state
+    // Get current workflow metadata (no legacy JSON columns)
     const { data: workflow, error: workflowError } = await supabase
       .from("workflows")
-      .select("*")
+      .select("id, name, description, status, user_id")
       .eq("id", id)
       .single()
 
@@ -132,6 +140,14 @@ export async function POST(
       )
     }
 
+    // Load graph from normalized tables
+    const [normalizedNodes, normalizedEdges] = await Promise.all([
+      loadWorkflowNodes(supabase, id),
+      loadWorkflowEdges(supabase, id)
+    ])
+    const legacyNodes = normalizedNodes.map(nodeToLegacyFormat)
+    const legacyConnections = normalizedEdges.map(edgeToLegacyFormat)
+
     // Get next version number
     const { data: latestVersion } = await supabase
       .from("workflow_versions")
@@ -143,7 +159,7 @@ export async function POST(
 
     const nextVersionNumber = (latestVersion?.version_number || 0) + 1
 
-    // Create version
+    // Create version snapshot from normalized data
     const { data: version, error } = await supabase
       .from("workflow_versions")
       .insert({
@@ -152,9 +168,9 @@ export async function POST(
         created_by: user.id,
         change_summary: change_summary || `Version ${nextVersionNumber}`,
         is_published: workflow.status === "active",
-        nodes_count: workflow.nodes?.length || 0,
-        nodes: workflow.nodes || [],
-        connections: workflow.connections || [],
+        nodes_count: legacyNodes.length,
+        nodes: legacyNodes,
+        connections: legacyConnections,
         name: workflow.name,
         description: workflow.description,
         status: workflow.status,

@@ -29,6 +29,7 @@ import { processAIFields, hasAIPlaceholders } from './ai/aiFieldProcessor'
 import { resolveValue, resolveValueWithTracking } from './actions/core/resolveValue'
 
 import { logger } from '@/lib/utils/logger'
+import { validateIntegrationAccess } from '@/lib/workflows/security/integrationAccessValidator'
 // Re-export getIntegrationById for backward compatibility
 export { getIntegrationById } from './integrationHelpers'
 
@@ -167,11 +168,31 @@ export interface ExecuteActionParams {
 }
 
 /**
- * Get decrypted access token by integration ID
- * Use this when you have a specific integration_id (multi-account support)
+ * Get decrypted access token by integration ID.
+ *
+ * Security: Requires either `userId` for permission validation or
+ * `trustedServerContext: true` for server-internal operations.
+ * Calls with neither will throw (fail closed).
  */
-export async function getDecryptedAccessTokenById(integrationId: string): Promise<string> {
+export async function getDecryptedAccessTokenById(
+  integrationId: string,
+  options?: { userId?: string; trustedServerContext?: boolean }
+): Promise<string> {
   try {
+    const userId = options?.userId
+    const isTrusted = options?.trustedServerContext === true
+
+    // Fail closed: missing execution context is an error
+    if (!userId && !isTrusted) {
+      logger.error(`[getDecryptedAccessTokenById] Called without userId or trustedServerContext for integration ${integrationId}`)
+      throw new Error('Access denied: you do not have permission to use this integration. Contact the integration admin to request access.')
+    }
+
+    // Validate permission before fetching credentials
+    if (userId && !isTrusted) {
+      await validateIntegrationAccess(userId, integrationId)
+    }
+
     const supabase = await createSupabaseServerClient()
 
     // Get the integration by ID
@@ -181,13 +202,10 @@ export async function getDecryptedAccessTokenById(integrationId: string): Promis
       .eq("id", integrationId)
       .single()
 
-    if (error) {
-      logger.error(`Database error fetching integration ${integrationId}:`, error)
-      throw new Error(`Database error: ${error.message}`)
-    }
-
-    if (!integration) {
-      throw new Error(`No integration found with ID ${integrationId}`)
+    if (error || !integration) {
+      // Same generic error as permission denial — no information leakage
+      logger.error(`[getDecryptedAccessTokenById] Integration ${integrationId} not found or DB error:`, error)
+      throw new Error('Access denied: you do not have permission to use this integration. Contact the integration admin to request access.')
     }
 
     return decryptIntegrationToken(integration)
@@ -271,9 +289,9 @@ async function decryptIntegrationToken(integration: any): Promise<string> {
 
 export async function getDecryptedAccessToken(userId: string, provider: string, integrationId?: string): Promise<string> {
   try {
-    // NEW: If integrationId is provided, use it directly (multi-account support)
+    // If integrationId is provided, use it directly (multi-account support)
     if (integrationId) {
-      return getDecryptedAccessTokenById(integrationId)
+      return getDecryptedAccessTokenById(integrationId, { userId })
     }
 
     const supabase = await createSupabaseServerClient()

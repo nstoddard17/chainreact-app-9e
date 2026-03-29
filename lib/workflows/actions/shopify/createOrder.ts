@@ -67,7 +67,7 @@ export async function createShopifyOrder(
   try {
     // 1. Get and validate the integration
     const integrationId = await resolveValue(config.integration_id || config.integrationId, input)
-    const integration = await getIntegrationById(integrationId)
+    const integration = await getIntegrationById(integrationId, { userId })
     validateShopifyIntegration(integration)
 
     const selectedStore = config.shopify_store ? await resolveValue(config.shopify_store, input) : undefined

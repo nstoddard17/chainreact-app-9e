@@ -144,6 +144,7 @@ interface FlowV2BuilderState {
   workflowStatus: 'draft' | 'active' | 'inactive' | null
   isUpdatingStatus: boolean
   triggerActivationError?: { message: string; details: string | string[] } | null
+  saveError?: { message: string; isConflict: boolean } | null
 }
 
 export interface ApplyEditsOptions {
@@ -383,6 +384,81 @@ function reorderLinearChain(flow: Flow, orderedNodeIds: string[]) {
   })
 }
 
+/**
+ * Normalize node positions in a Flow for a linear chain.
+ * Ensures even vertical spacing after insert/reorder.
+ * Operates on Flow objects (not ReactFlow nodes).
+ */
+function normalizeFlowLinearPositions(flow: Flow): void {
+  if (flow.nodes.length < 2) return
+
+  // Build linear chain from edges
+  const outgoing = new Map<string, string>()
+  const incoming = new Map<string, string>()
+  let isLinear = true
+
+  for (const edge of flow.edges) {
+    if (outgoing.has(edge.from.nodeId)) { isLinear = false; break }
+    if (incoming.has(edge.to.nodeId)) { isLinear = false; break }
+    outgoing.set(edge.from.nodeId, edge.to.nodeId)
+    incoming.set(edge.to.nodeId, edge.from.nodeId)
+  }
+
+  if (!isLinear) return
+
+  // Find root (no incoming edge)
+  const root = flow.nodes.find((n) => !incoming.has(n.id))
+  if (!root) return
+
+  // Walk the chain
+  const ordered: typeof flow.nodes = [root]
+  let current = root
+  while (outgoing.has(current.id)) {
+    const nextId = outgoing.get(current.id)!
+    const next = flow.nodes.find((n) => n.id === nextId)
+    if (!next || ordered.includes(next)) break
+    ordered.push(next)
+    current = next
+  }
+
+  // Append unconnected nodes sorted by Y
+  if (ordered.length < flow.nodes.length) {
+    const orderedIds = new Set(ordered.map(n => n.id))
+    const unconnected = flow.nodes
+      .filter(n => !orderedIds.has(n.id))
+      .sort((a, b) => {
+        const ay = (a.metadata as any)?.position?.y ?? 0
+        const by = (b.metadata as any)?.position?.y ?? 0
+        return ay - by
+      })
+    ordered.push(...unconnected)
+  }
+
+  const getY = (n: typeof flow.nodes[0]) => (n.metadata as any)?.position?.y ?? 0
+  const getX = (n: typeof flow.nodes[0]) => (n.metadata as any)?.position?.x ?? LINEAR_STACK_X
+
+  // Check if normalization is needed
+  let needsFix = false
+  for (let i = 1; i < ordered.length; i++) {
+    const gap = getY(ordered[i]) - getY(ordered[i - 1])
+    if (gap < 100 || gap > DEFAULT_VERTICAL_SPACING * 1.5 || getX(ordered[i]) !== getX(ordered[0])) {
+      needsFix = true
+      break
+    }
+  }
+  if (!needsFix) return
+
+  const baseX = LINEAR_STACK_X
+  const baseY = getY(ordered[0])
+
+  for (let i = 0; i < ordered.length; i++) {
+    const node = ordered[i]
+    const metadata = { ...(node.metadata ?? {}) } as any
+    metadata.position = { x: baseX, y: baseY + i * DEFAULT_VERTICAL_SPACING }
+    node.metadata = metadata
+  }
+}
+
 function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
   const working = cloneFlow(base)
 
@@ -391,10 +467,10 @@ function applyPlannerEdits(base: Flow, edits: PlannerEdit[]): Flow {
       case "addNode": {
         const exists = working.nodes.find((node) => node.id === edit.node.id)
         if (!exists) {
-          // Simply append the node to the end
-          // React Flow handles visual positioning based on metadata.position
-          // Don't try to sort or reposition existing nodes as it causes visual jumps
           working.nodes.push(edit.node)
+          // Normalize the full chain after insertion to maintain even spacing.
+          // Layout policy is linear auto-layout — insert and reorder both normalize.
+          normalizeFlowLinearPositions(working)
         }
         break
       }
@@ -1697,27 +1773,53 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
 
         setSaving(true)
         try {
-          const payload = await fetchJson<{
-            flow: Flow
-            revisionId?: string
-            version?: number
-            workflowStatus?: 'draft' | 'active' | 'inactive'
-            triggerActivationError?: { message: string; details: string | string[] }
-          }>(
+          const response = await fetch(
             `${flowApiUrl(flowId, '/apply-edits')}`,
             {
               method: "POST",
               headers: JSON_HEADERS,
               body: JSON.stringify({
                 flow: nextFlow,
-                version: nextFlow.version,
+                expectedVersion: nextFlow.version,
               }),
             }
           )
 
+          if (!response.ok) {
+            const isConflict = response.status === 409
+
+            if (isConflict) {
+              // Version conflict — another edit landed first.
+              // Refetch canonical state; local stale edits are discarded.
+              logger.warn('[applyEdits] Version conflict (409) — refetching canonical state')
+              setFlowState((prev) => ({
+                ...prev,
+                saveError: {
+                  message: 'Someone else edited this workflow. Your changes could not be saved. The latest version has been loaded.',
+                  isConflict: true,
+                },
+              }))
+              // Reset flow ref so ensureFlow refetches
+              flowRef.current = null
+              await load()
+            } else {
+              // Transport / temporary server failure — keep local dirty state, allow retry
+              const errorText = await response.text().catch(() => response.statusText)
+              logger.error(`[applyEdits] Save failed (${response.status}):`, errorText)
+              setFlowState((prev) => ({
+                ...prev,
+                saveError: {
+                  message: `Save failed (${response.status}). Your changes are preserved locally. Please try again.`,
+                  isConflict: false,
+                },
+              }))
+            }
+            return nextFlow
+          }
+
+          const payload = await response.json()
           const updatedFlow = FlowSchema.parse(payload.flow)
           // Skip graph update for optimistic updates (e.g., node deletion)
-          // The UI was already updated optimistically, so we don't want to overwrite it
           setFlowFromRevision(updatedFlow, payload.revisionId ?? revisionIdRef.current, payload.version, {
             skipGraphUpdate: options?.skipGraphUpdate,
           })
@@ -1725,13 +1827,23 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
             ...prev,
             revisionCount: (prev.revisionCount ?? 0) + 1,
             pendingAgentEdits: [],
-            // Update workflow status if it changed (e.g., auto-deactivation when trigger is removed)
+            saveError: null,
             ...(payload.workflowStatus ? { workflowStatus: payload.workflowStatus } : {}),
-            // Propagate trigger activation error so the UI can show a toast
             triggerActivationError: payload.triggerActivationError || null,
           }))
 
           return updatedFlow
+        } catch (error: any) {
+          // Network error — keep local dirty state, allow retry
+          logger.error('[applyEdits] Network error:', error?.message)
+          setFlowState((prev) => ({
+            ...prev,
+            saveError: {
+              message: 'Network error. Your changes are preserved locally. Please try again.',
+              isConflict: false,
+            },
+          }))
+          return nextFlow
         } finally {
           setSaving(false)
         }
@@ -1743,7 +1855,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
       // Return this specific request (not the queue)
       return thisRequest
     },
-    [ensureFlow, flowId, setFlowFromRevision, setSaving]
+    [ensureFlow, flowId, load, setFlowFromRevision, setSaving]
   )
 
   const askAgent = useCallback(

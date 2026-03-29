@@ -3,6 +3,7 @@ import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
 import { executeAction } from '@/lib/workflows/executeNode'
 import { logger } from '@/lib/utils/logger'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
+import { validateIntegrationAccess } from '@/lib/workflows/security/integrationAccessValidator'
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -90,26 +91,37 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Verify integration exists and user has access
+    // Verify integration exists and user has permission to use it
     if (integrationId) {
-      logger.info('[Test Action] Fetching integration', {
+      logger.info('[Test Action] Validating integration access', {
         integrationId,
         userId: user.id
       })
 
+      try {
+        await validateIntegrationAccess(user.id, integrationId)
+      } catch {
+        logger.error('[Test Action] Integration access denied', {
+          integrationId,
+          userId: user.id
+        })
+        return NextResponse.json(
+          { success: false, error: 'Integration not found or unauthorized' },
+          { status: 403 }
+        )
+      }
+
+      // Fetch integration to check connection status
       const { data: integration, error: integrationError } = await supabase
         .from('integrations')
-        .select('id, provider, status, user_id')
+        .select('id, provider, status')
         .eq('id', integrationId)
-        .eq('user_id', user.id)
         .single()
 
       if (integrationError || !integration) {
-        logger.error('[Test Action] Integration not found or unauthorized', {
+        logger.error('[Test Action] Integration not found after access check', {
           integrationId,
-          userId: user.id,
-          error: integrationError?.message,
-          errorDetails: integrationError
+          error: integrationError?.message
         })
         return NextResponse.json(
           { success: false, error: 'Integration not found or unauthorized' },

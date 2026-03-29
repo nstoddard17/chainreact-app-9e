@@ -2989,7 +2989,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       }
 
       const preservedEdges: any[] = []
-      const internalEdges: any[] = []
+      // Map internal edges by source→target for metadata-safe lookup
+      // (at most one logical edge per node pair in V2 linear model)
+      const internalEdgeMap = new Map<string, any>()
       const incomingEdgeMap = new Map<string, any>()
       const outgoingEdgeMap = new Map<string, any>()
 
@@ -2998,7 +3000,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         const toInSet = reorderSet.has(edge.target)
 
         if (fromInSet && toInSet) {
-          internalEdges.push(edge)
+          internalEdgeMap.set(`${edge.source}->${edge.target}`, edge)
           continue
         }
 
@@ -3015,6 +3017,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         preservedEdges.push(edge)
       }
 
+      const internalEdges = Array.from(internalEdgeMap.values())
       const incomingEdges = Array.from(incomingEdgeMap.values())
       const outgoingEdges = Array.from(outgoingEdgeMap.values())
 
@@ -3079,8 +3082,10 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       for (let i = 0; i < orderedNodeIds.length - 1; i++) {
         const sourceId = orderedNodeIds[i]
         const targetId = orderedNodeIds[i + 1]
-        const template = internalEdges[i] ?? internalEdges[0]
-        nextEdges.push(makeLinearEdge(sourceId, targetId, template))
+        // Look up by source→target pair to preserve metadata for semantically surviving edges.
+        // New adjacencies (nodes not previously connected) get the default template.
+        const existingEdge = internalEdgeMap.get(`${sourceId}->${targetId}`)
+        nextEdges.push(makeLinearEdge(sourceId, targetId, existingEdge ?? undefined))
       }
 
       const lastNodeId = orderedNodeIds[orderedNodeIds.length - 1]
