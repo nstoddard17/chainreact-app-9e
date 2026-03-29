@@ -30,6 +30,22 @@ type GmailTriggerFilters = {
   aiFilterConfidence?: 'low' | 'medium' | 'high'
 }
 
+type TriggerResourcesConfig = {
+  resourceId?: string
+  emailAddress?: string
+}
+
+type WebhookConfigsConfig = {
+  watch?: {
+    historyId?: string
+    emailAddress?: string
+  }
+}
+
+type GmailConfigSource =
+  | { source: 'trigger_resources'; configId: string; workflowId: string; workflowName: string; config: TriggerResourcesConfig & Record<string, unknown> }
+  | { source: 'webhook_configs'; configId: string; workflowId: string; workflowName: string; config: WebhookConfigsConfig & Record<string, unknown> }
+
 function buildGmailDedupeKey(workflowId: string, dedupeId: string) {
   return `${workflowId}-${dedupeId}`
 }
@@ -437,8 +453,7 @@ async function fetchGmailMessageDetails(
 async function fetchEmailDetails(
   notification: GmailNotification,
   userId: string,
-  webhookConfigId: string,
-  webhookConfigData: any
+  configSource: GmailConfigSource
 ): Promise<any | null> {
   const sessionId = `gmail-fetch-regular-${Date.now()}`
 
@@ -446,7 +461,9 @@ async function fetchEmailDetails(
     logInfo(sessionId, 'Fetching email details for regular workflow', {
       historyId: notification.historyId,
       emailAddress: notification.emailAddress,
-      userId
+      userId,
+      source: configSource.source,
+      workflowId: configSource.workflowId
     })
 
     logger.info(`🔍 Fetching email details for historyId: ${notification.historyId}`)
@@ -454,8 +471,11 @@ async function fetchEmailDetails(
 
     if (!accessToken) {
       const error = 'No access token available for Gmail'
-      logger.error(`❌ ${error}`)
-      logError(sessionId, error, { userId })
+      logger.error(`❌ ${error}`, {
+        workflowId: configSource.workflowId,
+        workflowName: configSource.workflowName
+      })
+      logError(sessionId, error, { userId, workflowId: configSource.workflowId })
       return null
     }
 
@@ -463,24 +483,52 @@ async function fetchEmailDetails(
     oauth2Client.setCredentials({ access_token: accessToken })
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client })
 
-    const watchConfig = webhookConfigData.watch || {}
+    // Resolve emailAddress from correct config shape
+    const configEmailAddress = configSource.source === 'trigger_resources'
+      ? configSource.config.emailAddress
+      : configSource.config.watch?.emailAddress
 
-    if (watchConfig.emailAddress && watchConfig.emailAddress !== notification.emailAddress) {
-      const message = 'Gmail notification email does not match workflow configuration, skipping'
-      logger.info(`⚠️ ${message}`)
-      logWarning(sessionId, message, {
-        expected: watchConfig.emailAddress,
+    if (configEmailAddress && configEmailAddress !== notification.emailAddress) {
+      logger.info('[fetchEmailDetails] Email mismatch, skipping', {
+        workflowId: configSource.workflowId,
+        workflowName: configSource.workflowName,
+        source: configSource.source
+      })
+      logWarning(sessionId, 'Gmail notification email does not match config', {
+        workflowId: configSource.workflowId,
+        expected: configEmailAddress,
         received: notification.emailAddress
       })
       return null
     }
 
-    const startHistoryId = watchConfig.historyId
+    // Resolve historyId from correct config shape
+    let startHistoryId: string | undefined
+
+    if (configSource.source === 'trigger_resources') {
+      startHistoryId = configSource.config.resourceId
+        ? String(configSource.config.resourceId)
+        : undefined
+    } else {
+      startHistoryId = configSource.config.watch?.historyId
+        ? String(configSource.config.watch.historyId)
+        : undefined
+    }
 
     if (!startHistoryId) {
-      const message = 'No stored historyId for Gmail watch; skipping workflow until watch metadata saved'
-      logger.warn(`⚠️ ${message}`)
-      logWarning(sessionId, message, { webhookConfigId })
+      logger.warn('[fetchEmailDetails] No stored historyId — skipping', {
+        workflowId: configSource.workflowId,
+        workflowName: configSource.workflowName,
+        source: configSource.source,
+        configId: configSource.configId,
+        hasResourceId: configSource.source === 'trigger_resources'
+          ? !!configSource.config.resourceId : false,
+        hasWatchHistoryId: configSource.source === 'webhook_configs'
+          ? !!configSource.config.watch?.historyId : false
+      })
+      logWarning(sessionId, 'No stored historyId', {
+        workflowId: configSource.workflowId, source: configSource.source, configId: configSource.configId
+      })
       return null
     }
 
@@ -496,22 +544,71 @@ async function fetchEmailDetails(
     const supabase = await createSupabaseServiceClient()
 
     if (history.data.historyId) {
-      await supabase
-        .from('webhook_configs')
-        .update({
-          config: {
-            ...webhookConfigData,
-            watch: {
-              ...watchConfig,
-              historyId: String(history.data.historyId)
-            }
-          }
-        })
-        .eq('id', webhookConfigId)
+      const newHistoryId = String(history.data.historyId)
 
-      logInfo(sessionId, 'Updated webhook config with new historyId', {
-        newHistoryId: history.data.historyId
-      })
+      if (configSource.source === 'trigger_resources') {
+        const { error: updateError } = await supabase
+          .from('trigger_resources')
+          .update({ config: { ...configSource.config, resourceId: newHistoryId } })
+          .eq('id', configSource.configId)
+
+        if (updateError) {
+          logger.error('[fetchEmailDetails] Failed to write historyId to trigger_resources', {
+            workflowId: configSource.workflowId, workflowName: configSource.workflowName,
+            configId: configSource.configId, newHistoryId, error: updateError.message
+          })
+        } else {
+          const { data: readBack } = await supabase
+            .from('trigger_resources')
+            .select('config')
+            .eq('id', configSource.configId)
+            .single()
+
+          const persistedConfig = readBack?.config as Record<string, unknown> | null
+          if (persistedConfig?.resourceId === newHistoryId) {
+            logInfo(sessionId, 'historyId persisted in trigger_resources', {
+              workflowId: configSource.workflowId, newHistoryId, configId: configSource.configId
+            })
+          } else {
+            logger.error('[fetchEmailDetails] historyId write-back verification failed in trigger_resources', {
+              workflowId: configSource.workflowId, workflowName: configSource.workflowName,
+              configId: configSource.configId, expected: newHistoryId, actual: persistedConfig?.resourceId
+            })
+          }
+        }
+      } else {
+        const existingWatch = configSource.config.watch || {}
+        const { error: updateError } = await supabase
+          .from('webhook_configs')
+          .update({ config: { ...configSource.config, watch: { ...existingWatch, historyId: newHistoryId } } })
+          .eq('id', configSource.configId)
+
+        if (updateError) {
+          logger.error('[fetchEmailDetails] Failed to write historyId to webhook_configs', {
+            workflowId: configSource.workflowId, workflowName: configSource.workflowName,
+            configId: configSource.configId, newHistoryId, error: updateError.message
+          })
+        } else {
+          const { data: readBack } = await supabase
+            .from('webhook_configs')
+            .select('config')
+            .eq('id', configSource.configId)
+            .single()
+
+          const persistedConfig = readBack?.config as Record<string, unknown> | null
+          const persistedWatch = persistedConfig?.watch as Record<string, unknown> | undefined
+          if (persistedWatch?.historyId === newHistoryId) {
+            logInfo(sessionId, 'historyId persisted in webhook_configs', {
+              workflowId: configSource.workflowId, newHistoryId, configId: configSource.configId
+            })
+          } else {
+            logger.error('[fetchEmailDetails] historyId write-back verification failed in webhook_configs', {
+              workflowId: configSource.workflowId, workflowName: configSource.workflowName,
+              configId: configSource.configId, expected: newHistoryId, actual: persistedWatch?.historyId
+            })
+          }
+        }
+      }
     }
 
     const historyInfo = {
@@ -956,7 +1053,8 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
               }
 
               // Use stored historyId if available, otherwise fall back to notification's historyId
-              const storedHistoryId = triggerResource?.config?.resourceId
+              const triggerConfig = triggerResource?.config as Record<string, unknown> | null
+              const storedHistoryId = triggerConfig?.resourceId
               const historyIdToUse = storedHistoryId || event.eventData.historyId
 
               logger.info('[Gmail] Fetching email details', {
@@ -1118,18 +1216,19 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         continue
       }
 
-      let webhookConfig: { id: string; config: any } | null = null
-      let watchConfig: any = {}
+      let configSource: GmailConfigSource | null = null
 
       if (triggerResource) {
-        webhookConfig = {
-          id: triggerResource.id,
-          config: triggerResource.config
-        }
-        watchConfig = triggerResource.config || {}
         logger.info('✅ Found Gmail trigger in trigger_resources table', {
           resourceTriggerType: triggerResource.trigger_type
         })
+        configSource = {
+          source: 'trigger_resources' as const,
+          configId: triggerResource.id,
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+          config: (triggerResource.config || {}) as TriggerResourcesConfig & Record<string, unknown>
+        }
       } else {
         // Fallback: Check webhook_configs table (legacy data)
         logger.info('⚠️ No trigger_resources found, checking webhook_configs as fallback...')
@@ -1142,18 +1241,25 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           .order('updated_at', { ascending: false })
           .limit(1)
 
-        if (configError || !configRows?.[0]) {
-          logger.info('⚠️ No Gmail trigger configuration found in trigger_resources or webhook_configs, skipping')
-          continue
+        if (!configError && configRows?.[0]) {
+          logger.info('✅ Found Gmail trigger in webhook_configs table (legacy)')
+          configSource = {
+            source: 'webhook_configs' as const,
+            configId: configRows[0].id,
+            workflowId: workflow.id,
+            workflowName: workflow.name,
+            config: (configRows[0].config || {}) as WebhookConfigsConfig & Record<string, unknown>
+          }
         }
-
-        webhookConfig = configRows[0]
-        watchConfig = webhookConfig.config?.watch || {}
-        logger.info('✅ Found Gmail trigger in webhook_configs table (legacy)')
       }
 
-      if (watchConfig.emailAddress && watchConfig.emailAddress !== event.eventData.emailAddress) {
-        logger.info('⚠️ Gmail notification email does not match workflow configuration, skipping')
+      // Missing config source is a configuration integrity issue, not a routine skip
+      if (!configSource) {
+        logger.error('[Gmail Processor] Configuration integrity issue: no trigger_resources or webhook_configs for Gmail workflow', {
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+          triggerType
+        })
         continue
       }
 
@@ -1164,8 +1270,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           emailAddress: event.eventData.emailAddress
         },
         workflow.user_id,
-        webhookConfig.id,
-        webhookConfig.config || {}
+        configSource
       )
 
       if (!emailDetails) {
