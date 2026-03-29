@@ -80,16 +80,24 @@ export class AdvancedExecutionEngine {
     sessionType: ExecutionSession["session_type"] = "manual",
     context: any = {},
   ): Promise<ExecutionSession> {
+    const insertPayload: Record<string, any> = {
+      workflow_id: workflowId,
+      user_id: userId,
+      session_type: sessionType,
+      execution_context: context,
+      input_data: context?.inputData ?? null,
+      status: "pending",
+    }
+
+    // Stamp billing scope from canonical workflow scope if provided
+    if (context?.billingScope) {
+      insertPayload.billing_scope_type = context.billingScope.scopeType
+      insertPayload.billing_scope_id = context.billingScope.scopeId
+    }
+
     const { data, error } = await this.supabase
       .from("workflow_execution_sessions")
-      .insert({
-        workflow_id: workflowId,
-        user_id: userId,
-        session_type: sessionType,
-        execution_context: context,
-        input_data: context?.inputData ?? null,
-        status: "pending",
-      })
+      .insert(insertPayload)
       .select()
       .single()
 

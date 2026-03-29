@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const serviceClient = await createSupabaseServiceClient()
     const { data: workflowExists, error: existsError } = await serviceClient
       .from("workflows")
-      .select("id, user_id, workspace_type, workspace_id")
+      .select("id, user_id, workspace_type, workspace_id, billing_scope_type, billing_scope_id")
       .eq("id", resolvedParams.id)
       .single()
 
@@ -42,63 +42,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return errorResponse("Workflow not found", 404)
     }
 
-    // Log for debugging
-    logger.info('🔍 [Workflow API] Checking access:', {
-      workflowId: resolvedParams.id,
-      workflowOwnerId: workflowExists.user_id,
-      currentUserId: user.id,
-      isOwner: workflowExists.user_id === user.id,
-      workspaceType: workflowExists.workspace_type
-    })
-
-    // Verify user has access: owner, team/org member, or shared access
-    let hasAccess = false
-
-    // Check if user is the owner
-    if (workflowExists.user_id === user.id) {
-      hasAccess = true
-    }
-
-    // Check team/org membership if not owner
-    if (!hasAccess && workflowExists.workspace_type === 'team' && workflowExists.workspace_id) {
-      const { data: teamMember } = await serviceClient
-        .from('team_members')
-        .select('team_id')
-        .eq('team_id', workflowExists.workspace_id)
-        .eq('user_id', user.id)
-        .maybeSingle()
-      if (teamMember) hasAccess = true
-    }
-
-    if (!hasAccess && workflowExists.workspace_type === 'organization' && workflowExists.workspace_id) {
-      const { data: orgMember } = await serviceClient
-        .from('organization_members')
-        .select('organization_id')
-        .eq('organization_id', workflowExists.workspace_id)
-        .eq('user_id', user.id)
-        .maybeSingle()
-      if (orgMember) hasAccess = true
-    }
-
-    // Check shared access via workflow_shares
-    if (!hasAccess) {
-      const { data: shareRecord } = await serviceClient
-        .from('workflow_shares')
-        .select('id')
-        .eq('workflow_id', resolvedParams.id)
-        .eq('shared_with', user.id)
-        .maybeSingle()
-      if (shareRecord) hasAccess = true
-    }
-
-    if (!hasAccess) {
-      logger.error('User does not have access to workflow:', {
-        workflowId: resolvedParams.id,
-        userId: user.id,
-        workspaceType: workflowExists.workspace_type
-      })
-      return errorResponse("Access denied", 403)
-    }
+    // Canonical scope-based authorization
+    const { authorizeWorkflowAccess } = await import('@/lib/workflows/authorizeWorkflowAccess')
+    const auth = await authorizeWorkflowAccess(user.id, workflowExists, 'view')
+    if (!auth.allowed) return auth.response!
 
     // Fetch full workflow metadata using service client
     const { data: workflow, error } = await serviceClient

@@ -3,13 +3,13 @@
 import { ReactNode } from "react"
 import { useAuthStore } from "@/stores/authStore"
 import { useOrganizationStore } from "@/stores/organizationStore"
-import { hasPermission, type UserRole } from "@/lib/utils/roles"
-import { hasOrganizationPermission, type OrganizationRole } from "@/lib/utils/organizationRoles"
+import { type UserRole, ROLE_HIERARCHY } from "@/lib/utils/roles"
+import { hasMembershipPermission, type OrgRole } from "@/lib/types/roles"
 
 interface RoleGuardProps {
   children: ReactNode
   requiredRole?: UserRole
-  requiredOrganizationRole?: OrganizationRole
+  requiredOrganizationRole?: OrgRole
   requiredPermission?: string
   fallback?: ReactNode
   showFallback?: boolean
@@ -27,39 +27,43 @@ export function RoleGuard({
   const { currentOrganization } = useOrganizationStore()
 
   const isAdmin = profile?.admin === true
-  // If user is admin, show admin badge; otherwise show their role badge
   const userRole = isAdmin ? 'admin' : ((profile?.role || 'free') as UserRole)
-  
-  // Check if user has required system role
-  if (requiredRole && !hasPermission(userRole, requiredRole)) {
-    return showFallback ? <>{fallback}</> : null
+
+  // Check if user has required system role (plan tier)
+  if (requiredRole) {
+    if (userRole !== 'admin') {
+      const userIndex = ROLE_HIERARCHY.indexOf(userRole)
+      const requiredIndex = ROLE_HIERARCHY.indexOf(requiredRole)
+      if (userIndex < requiredIndex) {
+        return showFallback ? <>{fallback}</> : null
+      }
+    }
   }
-  
+
   // Check if user has required organization role
   if (requiredOrganizationRole && currentOrganization) {
-    // Find user's role in current organization
     const userMember = currentOrganization.members?.find(
       (member: any) => member.user_id === profile?.id
     )
-    const userOrgRole = userMember?.role as OrganizationRole || 'viewer'
-    
-    if (userOrgRole !== requiredOrganizationRole && userOrgRole !== 'admin') {
+    const userOrgRole = (userMember?.role || 'member') as OrgRole
+
+    if (!hasMembershipPermission(userOrgRole, requiredOrganizationRole, true)) {
       return showFallback ? <>{fallback}</> : null
     }
   }
-  
-  // Check if user has required permission
+
+  // Check if user has required permission (org-level)
   if (requiredPermission && currentOrganization) {
     const userMember = currentOrganization.members?.find(
       (member: any) => member.user_id === profile?.id
     )
-    const userOrgRole = userMember?.role as OrganizationRole || 'viewer'
-    
-    if (!hasOrganizationPermission(userOrgRole, requiredPermission)) {
+    const userOrgRole = (userMember?.role || 'member') as OrgRole
+
+    if (!hasMembershipPermission(userOrgRole, requiredPermission, true)) {
       return showFallback ? <>{fallback}</> : null
     }
   }
-  
+
   return <>{children}</>
 }
 
@@ -70,16 +74,16 @@ interface PermissionGuardProps {
   showFallback?: boolean
 }
 
-export function PermissionGuard({ 
-  children, 
-  permission, 
-  fallback = null, 
-  showFallback = false 
+export function PermissionGuard({
+  children,
+  permission,
+  fallback = null,
+  showFallback = false
 }: PermissionGuardProps) {
   return (
-    <RoleGuard 
-      requiredPermission={permission} 
-      fallback={fallback} 
+    <RoleGuard
+      requiredPermission={permission}
+      fallback={fallback}
       showFallback={showFallback}
     >
       {children}
@@ -89,24 +93,24 @@ export function PermissionGuard({
 
 interface OrganizationRoleGuardProps {
   children: ReactNode
-  requiredRole: OrganizationRole
+  requiredRole: OrgRole
   fallback?: ReactNode
   showFallback?: boolean
 }
 
-export function OrganizationRoleGuard({ 
-  children, 
-  requiredRole, 
-  fallback = null, 
-  showFallback = false 
+export function OrganizationRoleGuard({
+  children,
+  requiredRole,
+  fallback = null,
+  showFallback = false
 }: OrganizationRoleGuardProps) {
   return (
-    <RoleGuard 
-      requiredOrganizationRole={requiredRole} 
-      fallback={fallback} 
+    <RoleGuard
+      requiredOrganizationRole={requiredRole}
+      fallback={fallback}
       showFallback={showFallback}
     >
       {children}
     </RoleGuard>
   )
-} 
+}

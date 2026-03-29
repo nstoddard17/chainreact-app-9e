@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { requireTeamRole } from '@/lib/utils/permissions'
 import { logger } from '@/lib/utils/logger'
 
 export const dynamic = 'force-dynamic'
@@ -22,16 +23,8 @@ export async function GET(
     }
 
     // Check if user is a team admin/manager
-    const { data: teamMember } = await serviceClient
-      .from("team_members")
-      .select("role")
-      .eq("team_id", teamId)
-      .eq("user_id", user.id)
-      .single()
-
-    if (!teamMember || !['owner', 'admin', 'manager'].includes(teamMember.role)) {
-      return errorResponse("Only team owners, admins, and managers can view invitations", 403)
-    }
+    const auth = await requireTeamRole(user.id, teamId, ['owner', 'admin', 'manager'])
+    if (!auth.allowed) return auth.response
 
     // Get pending invitations
     const { data: invitations, error } = await serviceClient

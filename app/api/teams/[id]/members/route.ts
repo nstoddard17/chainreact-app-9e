@@ -25,18 +25,18 @@ export async function GET(
     }
 
     // Check if user is a member of this team
-    const { data: teamMember } = await serviceClient
-      .from("team_members")
-      .select("role")
-      .eq("team_id", teamId)
-      .eq("user_id", user.id)
+    const { data: memberCheck, error: memberCheckError } = await serviceClient
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
       .single()
 
-    if (!teamMember) {
-      return errorResponse("Access denied" , 403)
+    if (memberCheckError || !memberCheck) {
+      return errorResponse("Access denied", 403)
     }
 
-    const canManageMembers = ['owner', 'admin', 'manager'].includes(teamMember.role)
+    const canManageMembers = ['owner', 'admin', 'manager'].includes(memberCheck.role)
 
     // Fetch members and invitations in parallel
     const [membersResult, invitationsResult] = await Promise.all([
@@ -133,16 +133,16 @@ export async function POST(
       return errorResponse("Team invitations require a Pro plan or higher. Please upgrade your account." , 403)
     }
 
-    // Check if user is team admin
-    const { data: teamMember } = await serviceClient
-      .from("team_members")
-      .select("role")
-      .eq("team_id", teamId)
-      .eq("user_id", user.id)
+    // Check if user is team admin/manager/owner
+    const { data: inviterMembership, error: inviterMembershipError } = await serviceClient
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
       .single()
 
-    if (!teamMember || !['owner', 'admin', 'manager'].includes(teamMember.role)) {
-      return errorResponse("Only team owners, admins, and managers can invite members" , 403)
+    if (inviterMembershipError || !inviterMembership || !['owner', 'admin', 'manager'].includes(inviterMembership.role)) {
+      return errorResponse("Only team owners, admins, or managers can invite members", 403)
     }
 
     // Check if user is already a member

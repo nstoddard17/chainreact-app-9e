@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { requireTeamRole } from '@/lib/utils/permissions'
 import { logger } from '@/lib/utils/logger'
 
 export async function DELETE(
@@ -19,18 +20,6 @@ export async function DELETE(
     }
 
     const isSelfRemoval = user.id === userId
-
-    // Get current user's membership
-    const { data: currentUserMember } = await serviceClient
-      .from("team_members")
-      .select("role")
-      .eq("team_id", teamId)
-      .eq("user_id", user.id)
-      .single()
-
-    if (!currentUserMember) {
-      return errorResponse("You are not a member of this team", 403)
-    }
 
     // Get target user's membership
     const { data: targetMember } = await serviceClient
@@ -63,10 +52,9 @@ export async function DELETE(
       }
       // Non-owners can leave freely
     } else {
-      // Admin removing another member
-      if (!['owner', 'admin', 'manager'].includes(currentUserMember.role)) {
-        return errorResponse("Only team owners, admins, and managers can remove members", 403)
-      }
+      // Admin removing another member — require management role
+      const auth = await requireTeamRole(user.id, teamId, ['owner', 'admin', 'manager'])
+      if (!auth.allowed) return auth.response
 
       // Cannot remove the owner
       if (targetMember.role === 'owner') {

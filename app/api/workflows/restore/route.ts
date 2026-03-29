@@ -50,6 +50,18 @@ export async function POST(request: Request) {
     restorePayload.created_at = restorePayload.created_at ?? new Date().toISOString()
     restorePayload.updated_at = new Date().toISOString()
 
+    // Ensure canonical billing scope is set on restore
+    if (!restorePayload.billing_scope_type || !restorePayload.billing_scope_id) {
+      const { buildWorkflowScopeFields } = await import('@/lib/billing/buildWorkflowScopeFields')
+      const scopeFields = buildWorkflowScopeFields({
+        workspaceType: restorePayload.workspace_type,
+        workspaceId: restorePayload.workspace_id,
+        userId: user.id,
+      })
+      restorePayload.billing_scope_type = scopeFields.billing_scope_type
+      restorePayload.billing_scope_id = scopeFields.billing_scope_id
+    }
+
     const { data, error } = await supabase
       .from('workflows')
       .upsert(restorePayload, { onConflict: 'id' })

@@ -1,4 +1,4 @@
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
+import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { NextRequest } from "next/server"
 import { executeAction } from "@/lib/workflows/executeNode"
@@ -141,17 +141,27 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Verify workflow ownership
-  const { data: workflow, error: workflowError } = await supabase
+  // Fetch workflow (service client — no RLS user_id filter)
+  const serviceClient = await createSupabaseServiceClient()
+  const { data: workflow, error: workflowError } = await serviceClient
     .from("workflows")
-    .select("id, name, user_id, status")
+    .select("id, name, user_id, status, billing_scope_type, billing_scope_id")
     .eq("id", workflowId)
-    .eq("user_id", user.id)
     .single()
 
   if (workflowError || !workflow) {
     return new Response(JSON.stringify({ error: 'Workflow not found' }), {
       status: 404,
+      headers: { 'Content-Type': 'application/json' }
+    })
+  }
+
+  // Canonical scope-based authorization
+  const { authorizeWorkflowAccess } = await import('@/lib/workflows/authorizeWorkflowAccess')
+  const auth = await authorizeWorkflowAccess(user.id, workflow, 'execute')
+  if (!auth.allowed) {
+    return new Response(JSON.stringify({ error: 'Access denied' }), {
+      status: 403,
       headers: { 'Content-Type': 'application/json' }
     })
   }
@@ -225,6 +235,10 @@ export async function POST(request: NextRequest) {
         options
       })
 
+      // Resolve canonical billing scope from workflow
+      const { resolveBillingScope } = await import('@/lib/billing/resolveBillingScope')
+      const billingScope = resolveBillingScope(workflow)
+
       // Create workflow_execution_sessions record for HITL and tracking
       // This is required so HITL can update the execution to 'paused' and later resume it
       const { error: insertError } = await supabase
@@ -235,7 +249,9 @@ export async function POST(request: NextRequest) {
           user_id: user.id,
           status: 'running',
           input_data: inputData,
-          started_at: new Date().toISOString()
+          started_at: new Date().toISOString(),
+          billing_scope_type: billingScope.scopeType,
+          billing_scope_id: billingScope.scopeId,
         })
 
       if (insertError) {
@@ -243,8 +259,9 @@ export async function POST(request: NextRequest) {
         // Continue anyway - non-HITL workflows don't need this
       }
 
-      // Billing target: always the workflow owner (creator-pays policy)
-      const billingUserId = workflow.user_id
+      // Billing target: resolved from canonical billing scope
+      const { scopeToBillingUser } = await import('@/lib/billing/scopeToBillingUser')
+      const billingUserId = await scopeToBillingUser(billingScope)
 
       // Atomic task deduction: reserve tasks upfront before execution
       try {

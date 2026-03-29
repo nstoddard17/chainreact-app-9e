@@ -5503,6 +5503,8 @@ export type Database = {
       }
       workflow_execution_sessions: {
         Row: {
+          billing_scope_id: string | null
+          billing_scope_type: string | null
           completed_at: string | null
           created_at: string | null
           current_step: string | null
@@ -5531,6 +5533,8 @@ export type Database = {
           workflow_id: string
         }
         Insert: {
+          billing_scope_id?: string | null
+          billing_scope_type?: string | null
           completed_at?: string | null
           created_at?: string | null
           current_step?: string | null
@@ -5559,6 +5563,8 @@ export type Database = {
           workflow_id: string
         }
         Update: {
+          billing_scope_id?: string | null
+          billing_scope_type?: string | null
           completed_at?: string | null
           created_at?: string | null
           current_step?: string | null
@@ -6139,6 +6145,8 @@ export type Database = {
       }
       workflows: {
         Row: {
+          billing_scope_id: string
+          billing_scope_type: string
           circuit_breaker_tripped_at: string | null
           consecutive_failure_threshold: number | null
           created_at: string
@@ -6162,6 +6170,8 @@ export type Database = {
           workspace_type: string | null
         }
         Insert: {
+          billing_scope_id: string
+          billing_scope_type: string
           circuit_breaker_tripped_at?: string | null
           consecutive_failure_threshold?: number | null
           created_at?: string
@@ -6185,6 +6195,8 @@ export type Database = {
           workspace_type?: string | null
         }
         Update: {
+          billing_scope_id?: string
+          billing_scope_type?: string
           circuit_breaker_tripped_at?: string | null
           consecutive_failure_threshold?: number | null
           created_at?: string

@@ -21,6 +21,18 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 /**
+ * Shared predicate for personal workspace queries.
+ * Matches workspace_type = 'personal', 'user', or NULL (legacy rows)
+ * with workspace_id = NULL to exclude team/org workflows.
+ */
+function applyPersonalWorkspaceFilter(query: any, userId: string) {
+  return query
+    .eq('user_id', userId)
+    .or('workspace_type.eq.personal,workspace_type.eq.user,workspace_type.is.null')
+    .is('workspace_id', null)
+}
+
+/**
  * GET /api/workflows
  *
  * Fetches ALL workflows the user has access to (unified view).
@@ -82,9 +94,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (filterContext === 'personal') {
-        query = query
-          .eq('workspace_type', 'personal')
-          .eq('user_id', user.id)
+        query = applyPersonalWorkspaceFilter(query, user.id)
       } else if (filterContext === 'team' && workspaceId) {
         query = query
           .eq('workspace_type', 'team')
@@ -111,11 +121,10 @@ export async function GET(request: NextRequest) {
       const queries = []
 
       // 1. Personal workflows (with timeout protection)
-      let personalQuery = supabaseService
-        .from("workflows")
-        .select('*')
-        .eq('workspace_type', 'personal')
-        .eq('user_id', user.id)
+      let personalQuery = applyPersonalWorkspaceFilter(
+        supabaseService.from("workflows").select('*'),
+        user.id
+      )
 
       // Include or exclude trashed workflows based on parameter
       // When includeTrash is true, return ALL workflows (active + deleted)
@@ -360,8 +369,15 @@ export async function POST(request: Request) {
       }
     }
 
-    // Insert workflow with workspace context
+    // Insert workflow with workspace context and canonical billing scope
     // Note: nodes and edges are stored in workflow_nodes and workflow_edges tables
+    const { buildWorkflowScopeFields } = await import('@/lib/billing/buildWorkflowScopeFields')
+    const scopeFields = buildWorkflowScopeFields({
+      workspaceType: workspace_type,
+      workspaceId: workspace_id,
+      userId: user.id,
+    })
+
     const { data: workflow, error } = await supabase
       .from("workflows")
       .insert({
@@ -375,6 +391,7 @@ export async function POST(request: Request) {
         created_by: user.id,
         last_modified_by: user.id,
         status: status || "draft",
+        ...scopeFields,
       })
       .select()
       .single()

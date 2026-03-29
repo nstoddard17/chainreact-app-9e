@@ -35,6 +35,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 import { logger } from '@/lib/utils/logger'
+import { usePersonalFeatureGate } from '@/hooks/use-feature-gate'
 
 // Import all data renderers
 import {
@@ -145,6 +146,8 @@ function TypingText({ text, onComplete }: { text: string, onComplete?: () => voi
 }
 
 export default function AIAssistantContent() {
+  const aiGate = usePersonalFeatureGate('aiAgents')
+
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -1183,6 +1186,15 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
     setTimeout(() => {
       handleSendMessage(text)
     }, 100)
+  }
+
+  if (!aiGate.allowed) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        <p>AI features require a Pro plan or higher.</p>
+        <a href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</a>
+      </div>
+    )
   }
 
   return (

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { requireOrgRole } from '@/lib/utils/permissions'
 import { logger } from '@/lib/utils/logger'
 
 // GET - Fetch SSO configuration for organization
@@ -17,16 +18,8 @@ export async function GET(
     }
 
     // Check if user is org admin/owner
-    const { data: membership, error: memberError } = await supabase
-      .from('organization_members')
-      .select('role')
-      .eq('organization_id', organizationId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (memberError || !membership || !['owner', 'admin'].includes(membership.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+    const auth = await requireOrgRole(user.id, organizationId, ['owner', 'admin'])
+    if (!auth.allowed) return auth.response
 
     // Fetch SSO configurations
     const { data: configs, error: configError } = await supabase
@@ -85,16 +78,8 @@ export async function POST(
     }
 
     // Check if user is org owner
-    const { data: membership, error: memberError } = await supabase
-      .from('organization_members')
-      .select('role')
-      .eq('organization_id', organizationId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (memberError || !membership || membership.role !== 'owner') {
-      return NextResponse.json({ error: 'Only organization owners can configure SSO' }, { status: 403 })
-    }
+    const authPost = await requireOrgRole(user.id, organizationId, ['owner'])
+    if (!authPost.allowed) return authPost.response
 
     // Check if organization has enterprise plan
     const { data: org, error: orgError } = await supabase
@@ -193,16 +178,8 @@ export async function PATCH(
     }
 
     // Check if user is org owner
-    const { data: membership, error: memberError } = await supabase
-      .from('organization_members')
-      .select('role')
-      .eq('organization_id', organizationId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (memberError || !membership || membership.role !== 'owner') {
-      return NextResponse.json({ error: 'Only organization owners can update SSO' }, { status: 403 })
-    }
+    const authPatch = await requireOrgRole(user.id, organizationId, ['owner'])
+    if (!authPatch.allowed) return authPatch.response
 
     const body = await request.json()
     const { configId, ...updates } = body
@@ -273,16 +250,8 @@ export async function DELETE(
     }
 
     // Check if user is org owner
-    const { data: membership, error: memberError } = await supabase
-      .from('organization_members')
-      .select('role')
-      .eq('organization_id', organizationId)
-      .eq('user_id', user.id)
-      .single()
-
-    if (memberError || !membership || membership.role !== 'owner') {
-      return NextResponse.json({ error: 'Only organization owners can delete SSO' }, { status: 403 })
-    }
+    const authDel = await requireOrgRole(user.id, organizationId, ['owner'])
+    if (!authDel.allowed) return authDel.response
 
     const { error: deleteError } = await supabase
       .from('sso_configurations')

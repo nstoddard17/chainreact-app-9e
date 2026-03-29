@@ -77,7 +77,7 @@ export const TEAM_PERMISSIONS = {
 } as const
 
 // Helper function to check if a role has a specific permission
-export function hasPermission(
+export function hasMembershipPermission(
   role: OrgRole | TeamRole,
   permission: string,
   isOrgLevel: boolean

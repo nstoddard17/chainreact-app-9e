@@ -128,11 +128,7 @@ export async function PUT(
       .eq('user_id', user.id)
       .single()
 
-    if (membershipError || !membership) {
-      return errorResponse("Team not found", 404)
-    }
-
-    if (!['owner', 'admin'].includes(membership.role)) {
+    if (membershipError || !membership || !['owner', 'admin'].includes(membership.role)) {
       return errorResponse("You don't have permission to update this team", 403)
     }
 
@@ -179,7 +175,7 @@ export async function DELETE(
     // Use service client to bypass RLS
     const serviceClient = await createSupabaseServiceClient()
 
-    // Verify user is the owner of this team (only owners can delete)
+    // Verify user is a member and is the owner (only owners can delete)
     const { data: membership, error: membershipError } = await serviceClient
       .from('team_members')
       .select('role')

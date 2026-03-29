@@ -61,8 +61,8 @@ export function usePageDataPreloader(
 
     const hasWorkflows = options.skipWorkflows ||
       !["workflows", "templates", "analytics"].includes(pageType) ||
-      (workflowStore.workflows && workflowStore.workflows.length > 0) ||
-      (workflowStore.lastFetchTime && (now - workflowStore.lastFetchTime) < CACHE_THRESHOLD)
+      (workflowStore.loadedOnce && workflowStore.fetchStatus === 'success' &&
+       workflowStore.lastFetchTime && (now - workflowStore.lastFetchTime) < CACHE_THRESHOLD)
 
     const hasIntegrations = options.skipIntegrations ||
       (integrationStore.lastFetchTime && (now - integrationStore.lastFetchTime) < CACHE_THRESHOLD)
@@ -91,14 +91,10 @@ export function usePageDataPreloader(
 
     if (loaderName === 'workflows') {
       const workflowStore = useWorkflowStore.getState()
-      // Skip if we have fresh data OR if we have workflows in the store already
-      if (workflowStore.lastFetchTime && (now - workflowStore.lastFetchTime) < CACHE_THRESHOLD) {
-        logger.info('usePageDataPreloader', 'Skipping workflows load - data is fresh')
-        return true
-      }
-      // Also skip if we have workflows in the store (user just came from builder)
-      if (workflowStore.workflows && workflowStore.workflows.length > 0) {
-        logger.info('usePageDataPreloader', 'Skipping workflows load - workflows already in store')
+      // Skip only if we have a confirmed successful load with fresh data
+      if (workflowStore.loadedOnce && workflowStore.fetchStatus === 'success' &&
+          workflowStore.lastFetchTime && (now - workflowStore.lastFetchTime) < CACHE_THRESHOLD) {
+        logger.info('usePageDataPreloader', 'Skipping workflows load - data is fresh and loaded')
         return true
       }
     }

@@ -261,3 +261,77 @@ export async function canInviteTeamMembers(
 ): Promise<boolean> {
   return hasTeamPermission(userId, teamId, ['owner', 'admin', 'hr'])
 }
+
+// ============================================================
+// Canonical role requirement helpers
+// ============================================================
+// Return ready-to-use 403 response on denial. Same pattern as requireFeature.
+// Callers use: const auth = await requireOrgRole(...); if (!auth.allowed) return auth.response;
+
+import { NextResponse } from 'next/server'
+
+export async function requireOrgRole(
+  userId: string,
+  orgId: string,
+  requiredRoles: OrgRole[]
+): Promise<{ allowed: true; role: OrgRole } | { allowed: false; response: NextResponse }> {
+  try {
+    const supabase = await createSupabaseServiceClient()
+    const { data, error } = await supabase
+      .from('organization_members')
+      .select('role')
+      .eq('organization_id', orgId)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error || !data || !requiredRoles.includes(data.role as OrgRole)) {
+      return {
+        allowed: false,
+        response: NextResponse.json(
+          { error: `Requires one of: ${requiredRoles.join(', ')}` },
+          { status: 403 }
+        ),
+      }
+    }
+
+    return { allowed: true, role: data.role as OrgRole }
+  } catch {
+    return {
+      allowed: false,
+      response: NextResponse.json({ error: 'Permission check failed' }, { status: 500 }),
+    }
+  }
+}
+
+export async function requireTeamRole(
+  userId: string,
+  teamId: string,
+  requiredRoles: TeamRole[]
+): Promise<{ allowed: true; role: TeamRole } | { allowed: false; response: NextResponse }> {
+  try {
+    const supabase = await createSupabaseServiceClient()
+    const { data, error } = await supabase
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (error || !data || !requiredRoles.includes(data.role as TeamRole)) {
+      return {
+        allowed: false,
+        response: NextResponse.json(
+          { error: `Requires one of: ${requiredRoles.join(', ')}` },
+          { status: 403 }
+        ),
+      }
+    }
+
+    return { allowed: true, role: data.role as TeamRole }
+  } catch {
+    return {
+      allowed: false,
+      response: NextResponse.json({ error: 'Permission check failed' }, { status: 500 }),
+    }
+  }
+}

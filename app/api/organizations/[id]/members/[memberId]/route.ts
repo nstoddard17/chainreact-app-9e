@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { requireOrgRole } from '@/lib/utils/permissions'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -33,19 +34,11 @@ export async function PUT(
     }
 
     // Check if current user has permission (owner or admin)
-    const { data: currentUserMember } = await serviceClient
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (!currentUserMember || !['owner', 'admin'].includes(currentUserMember.role)) {
-      return errorResponse("You don't have permission to change member roles", 403)
-    }
+    const auth = await requireOrgRole(user.id, organizationId, ['owner', 'admin'])
+    if (!auth.allowed) return auth.response
 
     // Only owners can assign owner role
-    if (role === 'owner' && currentUserMember.role !== 'owner') {
+    if (role === 'owner' && auth.role !== 'owner') {
       return errorResponse("Only organization owners can assign the owner role", 403)
     }
 
@@ -95,16 +88,8 @@ export async function DELETE(
     }
 
     // Check if current user has permission (owner or admin)
-    const { data: currentUserMember } = await serviceClient
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (!currentUserMember || !['owner', 'admin'].includes(currentUserMember.role)) {
-      return errorResponse("You don't have permission to remove members", 403)
-    }
+    const auth = await requireOrgRole(user.id, organizationId, ['owner', 'admin'])
+    if (!auth.allowed) return auth.response
 
     // Get target member's role
     const { data: targetMember } = await serviceClient
@@ -124,7 +109,7 @@ export async function DELETE(
     }
 
     // Only owners can remove other owners
-    if (targetMember.role === 'owner' && currentUserMember.role !== 'owner') {
+    if (targetMember.role === 'owner' && auth.role !== 'owner') {
       return errorResponse("Only owners can remove other owners", 403)
     }
 

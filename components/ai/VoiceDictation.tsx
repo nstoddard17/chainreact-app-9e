@@ -5,6 +5,7 @@ import { Mic, MicOff, X, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/utils/logger'
 import { cleanTranscription } from '@/lib/utils/text-cleanup'
+import { usePersonalFeatureGate } from '@/hooks/use-feature-gate'
 
 interface VoiceDictationProps {
   onTranscript: (text: string) => void
@@ -13,6 +14,8 @@ interface VoiceDictationProps {
 }
 
 export function VoiceDictation({ onTranscript, onUpdate, onClose }: VoiceDictationProps) {
+  const aiGate = usePersonalFeatureGate('aiAgents')
+
   const [isListening, setIsListening] = useState(false)
   const [interimText, setInterimText] = useState('')
   const [finalText, setFinalText] = useState('')
@@ -462,6 +465,15 @@ export function VoiceDictation({ onTranscript, onUpdate, onClose }: VoiceDictati
     analyserRef.current = null
 
     logger.info('✅ Cleanup complete - all resources released')
+  }
+
+  if (!aiGate.allowed) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        <p>AI features require a Pro plan or higher.</p>
+        <a href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</a>
+      </div>
+    )
   }
 
   // Brave/ChatGPT-style waveform UI

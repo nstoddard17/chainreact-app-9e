@@ -131,6 +131,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Save the generated workflow to the database (without nodes/connections - they go to normalized tables)
+    const { buildWorkflowScopeFields } = await import('@/lib/billing/buildWorkflowScopeFields')
+    const scopeFields = buildWorkflowScopeFields({ userId: user.id })
+
     const newWorkflowId = randomUUID()
     const { data: workflow, error: dbError } = await supabase
       .from("workflows")
@@ -139,7 +142,8 @@ export async function POST(request: NextRequest) {
         name: generatedWorkflow.name,
         description: generatedWorkflow.description,
         user_id: user.id,
-        status: "draft"
+        status: "draft",
+        ...scopeFields,
       })
       .select()
       .single()

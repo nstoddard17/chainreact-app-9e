@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Sparkles, RefreshCw, Star, StarOff, History, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePersonalFeatureGate } from '@/hooks/use-feature-gate'
 
 const TONE_OPTIONS = [
   { value: "professional", label: "Professional" },
@@ -51,6 +52,8 @@ export const SmartComposeField: React.FC<SmartComposeFieldProps> = ({
   onAiAssistToggle,
   onToneChange,
 }) => {
+  const aiGate = usePersonalFeatureGate('aiAgents')
+
   // AI state
   const [aiLoading, setAiLoading] = useState(false);
   const [aiDraft, setAiDraft] = useState("");
@@ -169,6 +172,15 @@ export const SmartComposeField: React.FC<SmartComposeFieldProps> = ({
       window.removeEventListener('ai-compose', handleAiComposeEvent as EventListener)
     }
   }, [fieldId, handleAiCompose])
+
+  if (!aiGate.allowed) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        <p>AI features require a Pro plan or higher.</p>
+        <a href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</a>
+      </div>
+    )
+  }
 
   // UI
   return (

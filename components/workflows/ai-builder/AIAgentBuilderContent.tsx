@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
 import { AIAgentPreferenceModal } from "../AIAgentPreferenceModal"
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea"
+import { usePersonalFeatureGate } from '@/hooks/use-feature-gate'
 
 // Typing animation phrases
 const TYPING_PHRASES = [
@@ -406,6 +407,8 @@ interface AIAgentBuilderContentProps {
 }
 
 export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderContentProps) {
+  const aiGate = usePersonalFeatureGate('aiAgents')
+
   const router = useRouter()
   const { user, profile, updateProfile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
@@ -738,6 +741,15 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
         variant: "destructive"
       })
     }
+  }
+
+  if (!aiGate.allowed) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        <p>AI features require a Pro plan or higher.</p>
+        <a href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</a>
+      </div>
+    )
   }
 
   return (

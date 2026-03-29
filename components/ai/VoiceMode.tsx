@@ -7,6 +7,7 @@ import { Mic, MicOff, Phone, Volume2, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/utils/logger'
 import { createClient } from '@/utils/supabase/client'
+import { usePersonalFeatureGate } from '@/hooks/use-feature-gate'
 
 interface VoiceModeProps {
   onClose: () => void
@@ -17,6 +18,8 @@ type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error'
 type ConversationState = 'idle' | 'listening' | 'thinking' | 'speaking'
 
 export function VoiceMode({ onClose, onTranscript }: VoiceModeProps) {
+  const aiGate = usePersonalFeatureGate('aiAgents')
+
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected')
   const [conversationState, setConversationState] = useState<ConversationState>('idle')
   const [isMuted, setIsMuted] = useState(false)
@@ -350,6 +353,15 @@ export function VoiceMode({ onClose, onTranscript }: VoiceModeProps) {
       case 'speaking': return 'Speaking...'
       default: return 'Ready to talk'
     }
+  }
+
+  if (!aiGate.allowed) {
+    return (
+      <div className="p-4 text-center text-sm text-muted-foreground">
+        <p>AI features require a Pro plan or higher.</p>
+        <a href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</a>
+      </div>
+    )
   }
 
   return (

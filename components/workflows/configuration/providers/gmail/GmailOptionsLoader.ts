@@ -120,7 +120,15 @@ export class GmailOptionsLoader implements ProviderOptionsLoader {
       })
 
       if (!response.success) {
-        logger.error('[GmailOptionsLoader] API returned error:', response.error)
+        const needsReconnection = response.data?.needsReconnection
+        const errorCategory = needsReconnection ? 'auth_or_decrypt_failed' : 'api_error'
+        logger.error('[GmailOptionsLoader] API returned error:', {
+          fieldName,
+          dataType,
+          errorCategory,
+          error: response.error,
+          needsReconnection,
+        })
         throw new Error(response.error || 'Failed to load Gmail options')
       }
 
