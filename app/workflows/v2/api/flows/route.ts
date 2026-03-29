@@ -4,6 +4,7 @@ import { z } from "zod"
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
 import { getRouteClient, getFlowRepository, uuid, getServiceClient } from "@/src/lib/workflows/builder/api/helpers"
 import { ensureWorkspaceForUser } from "@/src/lib/workflows/builder/workspace"
+import { buildWorkflowScopeFields } from "@/lib/billing/buildWorkflowScopeFields"
 
 const CreateFlowSchema = z
   .object({
@@ -48,6 +49,13 @@ export async function POST(request: Request) {
     }, { status: 500 })
   }
 
+  // Compute canonical billing scope fields for the new workflow
+  const scopeFields = buildWorkflowScopeFields({
+    workspaceType: 'personal',
+    workspaceId: workspace.workspaceId,
+    userId: user.id,
+  })
+
   // Insert into workflows table (unified table for all workflows)
   // Note: nodes and edges are stored in workflow_nodes and workflow_edges tables
   const { error: definitionError } = await serviceClient
@@ -59,10 +67,12 @@ export async function POST(request: Request) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       workspace_id: workspace.workspaceId,
+      workspace_type: 'personal',
       user_id: user.id,
       created_by: user.id,
       last_modified_by: user.id,
       status: 'draft',
+      ...scopeFields,
     })
 
   if (definitionError) {
