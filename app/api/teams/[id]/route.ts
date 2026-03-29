@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-import { requireTeamRole } from '@/lib/utils/permissions'
 import { jsonResponse, errorResponse } from "@/lib/utils/api-response"
 import { logger } from "@/lib/utils/logger"
 
@@ -118,12 +117,20 @@ export async function PUT(
       return errorResponse("Team name is required", 400)
     }
 
-    // Verify user is an owner or admin of this team
-    const auth = await requireTeamRole(user.id, teamId, ['owner', 'admin'])
-    if (!auth.allowed) return auth.response
-
     // Use service client to bypass RLS
     const serviceClient = await createSupabaseServiceClient()
+
+    // Verify user is an owner or admin of this team
+    const { data: membership, error: membershipError } = await serviceClient
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (membershipError || !membership || !['owner', 'admin'].includes(membership.role)) {
+      return errorResponse("You don't have permission to update this team", 403)
+    }
 
     // Update the team using service client to bypass RLS
     const { data: team, error: updateError } = await serviceClient
@@ -165,12 +172,24 @@ export async function DELETE(
 
     const { id: teamId } = await params
 
-    // Verify user is the owner of this team (only owners can delete)
-    const auth = await requireTeamRole(user.id, teamId, ['owner'])
-    if (!auth.allowed) return auth.response
-
     // Use service client to bypass RLS
     const serviceClient = await createSupabaseServiceClient()
+
+    // Verify user is a member and is the owner (only owners can delete)
+    const { data: membership, error: membershipError } = await serviceClient
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (membershipError || !membership) {
+      return errorResponse("Team not found", 404)
+    }
+
+    if (membership.role !== 'owner') {
+      return errorResponse("Only the team owner can delete this team", 403)
+    }
 
     // Delete the team using service client (cascade will handle members and workflow shares)
     const { error: deleteError } = await serviceClient
