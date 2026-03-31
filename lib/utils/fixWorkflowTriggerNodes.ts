@@ -175,7 +175,7 @@ export async function fixWorkflowTriggerNodes(workflowId?: string) {
 if (require.main === module) {
   const workflowId = process.argv[2]
   fixWorkflowTriggerNodes(workflowId).then(result => {
-    logger.info('\n📊 Fix Results:', JSON.stringify(result, null, 2))
+    logger.info('\nFix Results: success=' + result.success)
     process.exit(result.success ? 0 : 1)
   })
 }

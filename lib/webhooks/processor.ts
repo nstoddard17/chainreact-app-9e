@@ -270,7 +270,7 @@ export async function findMatchingWorkflows(event: WebhookEvent): Promise<any[]>
           }
           const allowedEvents = notionEventMap[nodeEventType] || []
           matchesEventType = allowedEvents.includes(event.eventType)
-          logger.info(`   🔎 Notion trigger check: nodeEventType=${nodeEventType}, allowedEvents=${JSON.stringify(allowedEvents)}, webhookEvent=${event.eventType}, matches=${matchesEventType}`)
+          logger.debug(`Notion trigger check: nodeEventType=${nodeEventType}, webhookEvent=${event.eventType}, matches=${matchesEventType}`)
         } else {
           matchesEventType = nodeEventType === event.eventType ||
             (nodeEventType === 'slack_trigger_new_message' && event.eventType?.startsWith('slack_trigger_message'))

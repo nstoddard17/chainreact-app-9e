@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const body = await request.text()
     const headers = Object.fromEntries(request.headers.entries())
     
-    logger.info("[Stripe Log] Headers:", JSON.stringify(headers, null, 2))
+    logger.debug("[Stripe Log] Request received")
     logger.info("[Stripe Log] Body length:", body.length)
     
     // Try to parse the body

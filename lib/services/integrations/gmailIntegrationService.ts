@@ -39,7 +39,7 @@ export class GmailIntegrationService {
 
   private async executeSendEmail(node: any, context: ExecutionContext) {
     logger.info("📧 Executing Gmail send email")
-    logger.info("📧 [GmailIntegrationService] Raw node data keys:", Object.keys(node.data || {}))
+    logger.debug("[GmailIntegrationService] Node data keys:", Object.keys(node.data || {}))
 
     const config = node.data.config || {}
 

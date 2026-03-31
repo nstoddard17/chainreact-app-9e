@@ -70,11 +70,7 @@ export async function createGoogleSheetsRow(
     const headerData = await headerResponse.json()
     const headers = headerData.values?.[0] || []
 
-    logger.info("📊 Raw headers from Google Sheets:", headers)
-    logger.info("📊 Headers with indices:")
-    headers.forEach((h: string, i: number) => {
-      logger.info(`  [${i}] "${h}" (length: ${h.length})`);
-    })
+    logger.debug("Google Sheets headers count:", headers.length)
 
     let finalRowValues: any[]
 

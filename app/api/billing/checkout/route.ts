@@ -181,13 +181,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Stripe checkout session
-    logger.info("[Checkout API] Creating Stripe session with price ID:", priceId)
-    logger.info("[Checkout API] User ID:", user.id)
-    logger.info("[Checkout API] User Email:", user.email)
-    logger.info("[Checkout API] Plan ID:", planId)
-    logger.info("[Checkout API] Billing Cycle:", billingCycle)
-    logger.info("[Checkout API] Success URL:", `${baseUrl}/settings?tab=billing&success=true`)
-    logger.info("[Checkout API] Cancel URL:", `${baseUrl}/settings?tab=billing&canceled=true`)
+    logger.info("[Checkout API] Creating Stripe session for plan:", planId, "cycle:", billingCycle)
     
     let session
     try {

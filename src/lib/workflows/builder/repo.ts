@@ -865,7 +865,7 @@ export class FlowRepository {
       client
         .from(WORKFLOWS_REVISIONS_TABLE)
         .select('*')
-        .eq('flow_id', flowId)
+        .eq('workflow_id', flowId)
         .order('version', { ascending: false })
         .limit(1)
         .maybeSingle()

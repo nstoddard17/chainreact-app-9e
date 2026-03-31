@@ -352,7 +352,7 @@ export async function refreshTokenForProvider(
         }
       )
       if (verbose) {
-        logger.info(`Full error response:`, responseData)
+        logger.debug(`Token refresh error response keys:`, Object.keys(responseData))
       }
 
       // Check for specific error codes that indicate an invalid refresh token

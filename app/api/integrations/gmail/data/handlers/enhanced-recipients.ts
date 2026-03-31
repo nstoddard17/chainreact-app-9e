@@ -81,18 +81,7 @@ export const getGmailEnhancedRecipients: GmailDataHandler<EmailRecipient> = asyn
           }
         })
 
-        logger.info(`✅ [Gmail API] Found ${connections.length} contacts from Google Contacts`)
-        const rawPreview = connections.slice(0, 10).map((person: any) => ({
-          names: person.names?.map((n: any) => n.displayName).filter(Boolean) || [],
-          emails: person.emailAddresses?.map((e: any) => e.value).filter(Boolean) || [],
-        }))
-        logger.info("👥 [Gmail API] Contacts raw preview:", rawPreview)
-
-        const contactPreview = Array.from(recipients.values()).slice(0, 10).map(contact => ({
-          email: contact.email,
-          name: contact.name
-        }))
-        logger.info("📬 [Gmail API] Contacts returned:", contactPreview)
+        logger.debug(`[Gmail API] Found ${connections.length} contacts from Google Contacts`)
         contactsFetched = true
       } else if (contactsResponse.status === 403) {
         let errorDetails: any = null

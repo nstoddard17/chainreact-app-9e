@@ -48,7 +48,7 @@ export async function getTwitterMentionsForDropdown(integration: any, params: an
     }
     
     const data = await response.json();
-    logger.info('Twitter mentions response:', data);
+    logger.debug('Twitter mentions received');
     
     const mentions = data.data || [];
     logger.info('Found mentions:', mentions.length);

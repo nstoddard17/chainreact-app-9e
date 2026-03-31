@@ -243,9 +243,7 @@ export async function POST(request: NextRequest) {
 
       // Activate trigger with TEST MODE - creates isolated webhook subscription
       // that will NOT trigger production workflows
-      console.log('🧪 [test-trigger] Activating trigger in TEST MODE...')
-      console.log('🧪 [test-trigger] Trigger node being passed:', JSON.stringify(triggerNode, null, 2))
-      console.log('🧪 [test-trigger] Test session ID:', testSessionId)
+      logger.debug('[test-trigger] Activating trigger in TEST MODE, session:', testSessionId)
 
       // Pass test mode config to ensure separate webhook URL is used
       const activationResult = await triggerManager.activateWorkflowTriggers(

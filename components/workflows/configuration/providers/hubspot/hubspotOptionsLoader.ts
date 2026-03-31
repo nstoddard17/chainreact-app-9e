@@ -204,11 +204,7 @@ export const hubspotOptionsLoader: ProviderOptionsLoader = {
       }
       
       const result = await response.json()
-      logger.info('✅ [HubSpot Loader] API response:', {
-        dataType,
-        dataLength: result.data?.length || 0,
-        success: result.success
-      })
+      logger.debug('[HubSpot Loader] Received', result.data?.length || 0, dataType, 'items')
       
       // Format the response based on data type
       if (dataType === 'hubspot_lists') {

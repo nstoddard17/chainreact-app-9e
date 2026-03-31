@@ -2027,7 +2027,7 @@ async function triggerMatchingDriveWorkflows(changeType: DriveChangeType, driveI
       })
 
       if (matchingTriggers.length === 0) {
-        console.log(`[Google Drive] No matching trigger nodes in workflow ${workflow.id}: triggerType=${triggerType}, parentIds=${JSON.stringify(parentIds)}, totalNodes=${nodes.length}`)
+        logger.debug(`[Google Drive] No matching trigger nodes in workflow ${workflow.id}: triggerType=${triggerType}, parentIdCount=${parentIds?.length || 0}, totalNodes=${nodes.length}`)
         continue
       }
 

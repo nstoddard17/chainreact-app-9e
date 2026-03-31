@@ -218,12 +218,12 @@ export async function POST(
 
       if (provider === 'discord') {
         if (triggerNode) {
-          console.log(`   ✅ Found Discord trigger: ${triggerNode.data?.type}`)
-          console.log(`   📝 Trigger config: ${JSON.stringify(triggerNode.data?.config || {})}`)
+          logger.debug('Found Discord trigger:', triggerNode.data?.type)
+          logger.debug('Trigger config present for node:', triggerNode.id)
         } else {
-          console.log(`   ⚠️ No Discord trigger node found in workflow ${workflow.id}`)
+          logger.debug(`No Discord trigger node found in workflow ${workflow.id}`)
           const nodeTypes = workflowNodes.map((n: any) => `${n.data?.providerId}:${n.data?.type}:isTrigger=${n.data?.isTrigger}`)
-          console.log(`   📋 Available nodes: ${nodeTypes.join(', ')}`)
+          logger.debug(`Available nodes: ${nodeTypes.join(', ')}`)
         }
       }
 
@@ -532,7 +532,7 @@ async function getProviderSpecificTransformation(provider: string, payload: any)
       }
     
     case 'discord':
-      logger.info('🔧 Discord payload received for transformation:', JSON.stringify(payload, null, 2))
+      logger.debug('[Discord] Transforming payload for guild:', payload.guild_id)
 
       // Resolve Discord names from IDs
       const channelName = await resolveDiscordChannelName(payload.channel_id, payload.guild_id)
@@ -552,7 +552,7 @@ async function getProviderSpecificTransformation(provider: string, payload: any)
         attachments: payload.attachments || [],
         mentions: payload.mentions || []
       }
-      logger.info('🔧 Transformed Discord data:', JSON.stringify(transformedData, null, 2))
+      logger.debug('[Discord] Transformed data keys:', Object.keys(transformedData || {}).join(', '))
       return transformedData
     
     case 'github':

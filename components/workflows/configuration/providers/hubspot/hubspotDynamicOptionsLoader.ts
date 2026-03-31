@@ -301,7 +301,7 @@ export const hubspotDynamicOptionsLoader: ProviderOptionsLoader = {
         body: JSON.stringify(requestBody)
       });
 
-      logger.info('🔍 [HubSpot Loader] Fetch response status:', response.status);
+      logger.debug('[HubSpot Loader] Fetch response status:', response.status);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch HubSpot ${dataType}`);

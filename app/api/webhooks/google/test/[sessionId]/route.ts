@@ -31,7 +31,7 @@ export async function POST(
     const requestId = crypto.randomUUID()
 
     const headersObject = Object.fromEntries(request.headers.entries())
-    console.log('🧪 [Google Test Webhook] Headers:', JSON.stringify(headersObject, null, 2))
+    logger.debug('[Google Test Webhook] Received POST request')
 
     // Log incoming test webhook
     await logWebhookEvent({

@@ -237,7 +237,7 @@ export async function fetchMemory(
   // Determine which integrations to fetch memory from
   let integrationsToFetch: string[] = []
   
-  logger.info("🧠 Memory config:", JSON.stringify(memoryConfig, null, 2))
+  logger.debug("Memory config loaded")
   
   switch (memoryConfig.memory) {
     case 'none':
@@ -1009,7 +1009,7 @@ async function getAIDecision(
   try {
     logger.info("🤖 Making OpenAI API call...")
     logger.info("📝 Prompt:", prompt)
-    logger.info("🎯 Context:", JSON.stringify(context, null, 2))
+    logger.debug("AI agent context loaded")
     
     // Import OpenAI (dynamic import to avoid issues)
     const { OpenAI } = await import('openai')
@@ -1081,7 +1081,7 @@ async function getAIDecision(
     })
 
     const aiResponse = completion.choices[0]?.message?.content?.trim()
-    logger.info("✅ OpenAI API response:", aiResponse)
+    logger.debug("OpenAI API response received, length:", aiResponse?.length || 0)
 
     return {
       action: "analyze_and_respond",

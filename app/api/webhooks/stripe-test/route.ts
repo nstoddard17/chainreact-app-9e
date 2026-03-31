@@ -50,7 +50,7 @@ export async function GET() {
     results.error = error.message
   }
   
-  logger.info("[Webhook Test] Results:", JSON.stringify(results, null, 2))
+  logger.debug("[Webhook Test] Results count:", Object.keys(results || {}).length)
   
   return jsonResponse(results)
 }
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       headers: Object.fromEntries(request.headers.entries())
     }
     
-    logger.info("[Webhook Test] Test log:", JSON.stringify(testLog, null, 2))
+    logger.debug("[Webhook Test] Test log entries:", testLog?.length || 0)
     
     // Try to insert a test record
     const { data, error } = await supabase

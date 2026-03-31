@@ -2593,6 +2593,28 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }))
   }, [])
 
+  const handlePreferencesComplete = useCallback(() => {
+    // Clear collected preferences after confirmed save
+    setCollectedPreferences([])
+
+    // Remove the preferences save card from agent messages
+    setAgentMessages(prev => prev.map(msg => {
+      if ((msg as any).meta?.preferencesSave) {
+        const { preferencesSave, ...restMeta } = (msg as any).meta
+        return {
+          ...msg,
+          meta: restMeta
+        }
+      }
+      return msg
+    }))
+
+    toast({
+      title: "Preferences Saved",
+      description: "Your choices have been saved as defaults for future workflows.",
+    })
+  }, [toast])
+
   // Handle prompt parameter from URL (e.g., from AI agent page)
   useEffect(() => {
     if (!actions) {
@@ -7820,6 +7842,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               onNodeConfigComplete: handleNodeConfigComplete,
               onNodeConfigSkip: handleNodeConfigSkip,
               onPreferencesSave: handlePreferencesSave,
+              onPreferencesComplete: handlePreferencesComplete,
               onPreferencesSkip: handlePreferencesSkip,
             }}
           />

@@ -101,7 +101,7 @@ export function DiscordConfiguration({
     });
 
     // Also log if values change
-    logger.info('🔄 [Discord] Values received from parent:', JSON.stringify(values, null, 2));
+    logger.debug('[Discord] Values received, keys:', Object.keys(values || {}).join(', '));
   }, []);
 
   // Track when values prop changes

@@ -97,12 +97,9 @@ export async function POST(request: Request) {
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabase: any, stripeClient: Stripe) {
-  logger.info("[Stripe Webhook] ========================================")
   logger.info("[Stripe Webhook] handleCheckoutCompleted - Session ID:", session.id)
-  logger.info("[Stripe Webhook] Session metadata:", JSON.stringify(session.metadata, null, 2))
-  logger.info("[Stripe Webhook] Customer:", session.customer)
-  logger.info("[Stripe Webhook] Has customer email:", !!session.customer_details?.email)
-  logger.info("[Stripe Webhook] Subscription ID:", session.subscription)
+  logger.debug("[Stripe Webhook] Has metadata:", !!session.metadata)
+  logger.debug("[Stripe Webhook] Has customer email:", !!session.customer_details?.email)
 
   // Try multiple sources for user info
   let userId = session.metadata?.user_id
@@ -190,7 +187,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     updated_at: new Date().toISOString()
   }
 
-  logger.info("[Stripe Webhook] Upserting subscription data:", JSON.stringify(subscriptionData, null, 2))
+  logger.debug("[Stripe Webhook] Upserting subscription data for user")
 
   // First, try to check if subscription already exists
   const { data: existing } = await supabase
@@ -532,7 +529,7 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
     updated_at: new Date().toISOString()
   }
 
-  logger.info("[Stripe Webhook] Invoice data:", JSON.stringify(invoiceData, null, 2))
+  logger.debug("[Stripe Webhook] Processing invoice data")
 
   // Check if invoice exists first to avoid conflicts
   const { data: existing } = await supabase

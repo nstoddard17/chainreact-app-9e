@@ -28,16 +28,8 @@ const colors = {
   white: '\x1b[37m',
 }
 
-function logSection(title: string, data: any, color: string = colors.cyan) {
-  logger.info(`\n${color}${colors.bright}${'='.repeat(60)}${colors.reset}`)
-  logger.info(`${color}${colors.bright}📌 ${title}${colors.reset}`)
-  logger.info(`${color}${'='.repeat(60)}${colors.reset}`)
-
-  if (typeof data === 'object' && data !== null) {
-    logger.info(JSON.stringify(data, null, 2))
-  } else {
-    logger.info(data)
-  }
+function logSection(title: string, data: any, _color: string = colors.cyan) {
+  logger.debug(`[Notion Webhook] ${title}`)
 }
 
 /**

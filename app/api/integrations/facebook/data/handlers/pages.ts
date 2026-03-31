@@ -48,7 +48,7 @@ export const getFacebookPages: FacebookDataHandler<FacebookPage> = async (integr
     }
 
     const data = await response.json()
-    logger.info("🔍 Facebook API response:", data)
+    logger.debug("[Facebook Pages] Received", data.data?.length || 0, "pages")
     
     const pages = (data.data || []).map((page: any) => ({
       id: page.id,

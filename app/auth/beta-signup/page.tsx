@@ -59,7 +59,7 @@ function BetaSignupContent() {
       const decoded = atob(token)
       const [tokenEmail] = decoded.split(":")
 
-      logger.info("Token validation:", { token, decoded, tokenEmail, urlEmail })
+      logger.debug("Token validation: email match check")
 
       if (tokenEmail === urlEmail) {
         // Token matches the email, check if this beta tester exists and has this token

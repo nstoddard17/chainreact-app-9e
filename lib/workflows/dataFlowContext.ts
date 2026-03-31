@@ -246,10 +246,10 @@ export class DataFlowManager {
               }
               // Try direct property access
               const fallbackResult = output.data[fieldLabel] || output.data
-              logger.info(`✅ Fallback result:`, fallbackResult)
+              logger.debug(`Fallback result found for field:`, fieldLabel)
               return fallbackResult
             }
-            logger.info(`✅ Returning raw output data:`, output.data)
+            logger.debug(`Returning output data for nodeId:`, fallbackNodeId)
             return output.data
           
         } 

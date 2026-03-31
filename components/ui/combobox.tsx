@@ -1150,8 +1150,7 @@ export function HierarchicalCombobox({
 
   // Debug logging
   React.useEffect(() => {
-    logger.info('🔍 HierarchicalCombobox received options:', options)
-    logger.info('🔍 Options structure:', JSON.stringify(options, null, 2))
+    logger.debug('Options count:', Array.isArray(options) ? options.length : 0)
   }, [options])
 
   const selectedOption = options.flatMap(option => 

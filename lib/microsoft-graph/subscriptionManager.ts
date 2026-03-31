@@ -102,7 +102,7 @@ export class MicrosoftGraphSubscriptionManager {
         testSessionId: testSessionId || null
       })
 
-      logger.info('📦 Subscription payload:', JSON.stringify(subscriptionPayload, null, 2))
+      logger.debug('[Microsoft Graph] Creating subscription for resource:', subscriptionPayload.resource)
 
       // Create subscription via Microsoft Graph API
       const response = await fetch(`${this.baseUrl}/subscriptions`, {
