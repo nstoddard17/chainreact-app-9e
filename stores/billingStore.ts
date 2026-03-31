@@ -282,7 +282,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
         30000 // 30 second timeout for checkout (longer than usual)
       )
 
-      logger.info("Checkout response status:", response.status)
+      logger.debug("Checkout response status:", response.status)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -291,7 +291,7 @@ export const useBillingStore = create<BillingState & BillingActions>((set, get) 
       }
 
       const data = await response.json()
-      logger.info("Checkout response data:", data)
+      logger.debug("Checkout session created, has URL:", !!data.url)
 
       if (!data.url) {
         throw new Error("No checkout URL returned from the server")

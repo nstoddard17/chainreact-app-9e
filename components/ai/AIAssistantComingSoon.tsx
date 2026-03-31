@@ -74,7 +74,7 @@ export function AIAssistantComingSoon({ onClose }: AIAssistantComingSoonProps) {
         description: "We'll email you when AI Voice Assistant launches.",
       })
 
-      logger.info('Waitlist signup successful:', { email })
+      logger.info('Waitlist signup successful')
     } catch (error) {
       logger.error('Error signing up for waitlist:', error)
       toast({

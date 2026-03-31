@@ -84,20 +84,12 @@ export async function GET(request: NextRequest) {
     }
 
     const settingsData = await settingsResponse.json()
-    logger.info(`✅ [GMAIL SIGNATURES] SendAs API response received:`, JSON.stringify(settingsData, null, 2))
-    logger.info(`🔍 [GMAIL SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
+    logger.debug(`[GMAIL SIGNATURES] Found ${settingsData.sendAs?.length || 0} sendAs settings`)
     
     const signatures = []
     
     if (settingsData.sendAs && Array.isArray(settingsData.sendAs)) {
       settingsData.sendAs.forEach((sendAsSettings: any, index: number) => {
-        logger.info(`🔍 [GMAIL SIGNATURES] Processing sendAs ${index}:`, {
-          sendAsEmail: sendAsSettings.sendAsEmail,
-          displayName: sendAsSettings.displayName,
-          hasSignature: !!sendAsSettings.signature,
-          signaturePreview: sendAsSettings.signature?.substring(0, 100) + (sendAsSettings.signature?.length > 100 ? '...' : ''),
-          isDefault: sendAsSettings.isDefault
-        })
         
         // Create a signature entry for each sendAs identity
         // Use custom name from metadata if available, otherwise use email-based name

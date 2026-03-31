@@ -159,7 +159,7 @@ async function resolveWorkspaceId(
       }
 
       const data = await res.json()
-      logger.info(`[CreateAirtableBase] Workspaces response:`, JSON.stringify(data).substring(0, 500))
+      logger.debug(`[CreateAirtableBase] Workspaces response received, count:`, data?.workspaces?.length || 0)
       const workspaces: Array<{ id: string; name?: string; permissionLevel?: string }> = data?.workspaces || []
       const preferred = workspaces.find((ws) =>
         ["create", "edit", "owner"].includes((ws.permissionLevel || "").toLowerCase())
@@ -198,7 +198,7 @@ async function resolveWorkspaceId(
 
     if (basesRes.ok) {
       const basesData = await basesRes.json()
-      logger.info('[CreateAirtableBase] Bases response:', JSON.stringify(basesData))
+      logger.debug('[CreateAirtableBase] Bases response received')
       logger.info('[CreateAirtableBase] Number of bases:', basesData?.bases?.length || 0)
 
       // Extract workspace ID from the first base
@@ -223,7 +223,7 @@ async function resolveWorkspaceId(
 
           if (baseDetailsRes.ok) {
             const baseDetails = await baseDetailsRes.json()
-            logger.info('[CreateAirtableBase] Full base details:', JSON.stringify(baseDetails))
+            logger.debug('[CreateAirtableBase] Base details received')
 
             // Check for workspace ID in the detailed response
             const workspaceFromDetails =
@@ -269,8 +269,7 @@ async function resolveWorkspaceId(
 
     if (whoamiRes.ok) {
       const whoami = await whoamiRes.json()
-      logger.info('[CreateAirtableBase] whoami full response:', JSON.stringify(whoami))
-      logger.info('[CreateAirtableBase] whoami response keys:', Object.keys(whoami).join(', '))
+      logger.debug('[CreateAirtableBase] whoami response keys:', Object.keys(whoami).join(', '))
 
       // Try multiple possible field names
       const workspaceId =
@@ -393,7 +392,7 @@ export async function POST(
 
       if (accountsRes.ok) {
         const accounts = await accountsRes.json()
-        logger.info('[CreateAirtableBase] meta/accounts response:', JSON.stringify(accounts))
+        logger.debug('[CreateAirtableBase] meta/accounts response received')
         const personalWorkspaceId = accounts?.personalWorkspaceId || accounts?.personal_workspace_id
         if (personalWorkspaceId) {
           logger.info(`[CreateAirtableBase] Using personal workspace from accounts endpoint: ${personalWorkspaceId}`)
@@ -408,7 +407,7 @@ export async function POST(
     }
   }
 
-    logger.info('[CreateAirtableBase] Sending payload to Airtable:', JSON.stringify(payload))
+    logger.debug('[CreateAirtableBase] Sending create base request')
 
     const response = await fetch("https://api.airtable.com/v0/meta/bases", {
       method: "POST",

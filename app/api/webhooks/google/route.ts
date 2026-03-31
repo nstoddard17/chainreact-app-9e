@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const requestId = crypto.randomUUID()
 
     const headersObject = Object.fromEntries(request.headers.entries())
-    console.log('📥 [Google Webhook] Headers:', JSON.stringify(headersObject, null, 2))
+    logger.debug('[Google Webhook] Received POST request')
 
     // Log incoming webhook
     await logWebhookEvent({

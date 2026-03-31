@@ -51,11 +51,7 @@ export const getFacebookGroups: FacebookDataHandler<FacebookGroup> = async (inte
       }
 
       const data = await response.json()
-      logger.info("🔍 Facebook groups API response:", {
-        hasData: !!data.data,
-        groupCount: data.data?.length || 0,
-        sample: data.data?.[0]
-      })
+      logger.debug("[Facebook Groups] Received", data.data?.length || 0, "groups")
       
       // If we get groups, return them
       if (data.data && data.data.length > 0) {

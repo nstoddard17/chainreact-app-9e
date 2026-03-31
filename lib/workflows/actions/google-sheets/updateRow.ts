@@ -266,7 +266,7 @@ export async function updateGoogleSheetsRow(
       data: updateRequests
     }
     
-    logger.info("Sending batch update request:", JSON.stringify(requestBody, null, 2))
+    logger.debug("Sending batch update request for spreadsheet:", spreadsheetId)
 
     // Batch update all rows
     const updateResponse = await fetch(

@@ -130,7 +130,7 @@ export async function batchUpdateGoogleSheets(
       data: data
     }
 
-    logger.info("Sending batch update request:", JSON.stringify(requestBody, null, 2))
+    logger.debug("Sending batch update request for spreadsheet:", spreadsheetId)
 
     // Execute batch update
     const response = await fetch(

@@ -296,7 +296,7 @@ async function ensureWebhookForBase(userId: string, token: string, baseId: strin
             logger.info(`✅ MAC Secret retrieved: ${!!macSecret}`)
             if (!macSecret) {
               logger.info('⚠️ WARNING: Webhook exists but has no MAC secret!')
-              logger.info('   Webhook details:', JSON.stringify(webhookDetail, null, 2))
+              logger.debug('   Webhook detail keys:', Object.keys(webhookDetail || {}).join(', '))
 
               // If no MAC secret, we need to delete and recreate the webhook
               logger.info('🗑️ Deleting webhook to recreate with MAC secret...')

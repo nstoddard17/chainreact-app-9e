@@ -613,7 +613,7 @@ export async function notionUpdatePage(
     }
 
     // Debug logging
-    logger.info('Processed properties for Notion update:', JSON.stringify(processedProperties, null, 2))
+    logger.debug('Processed properties for Notion update, count:', Object.keys(processedProperties || {}).length)
 
     // Only include properties in payload if we have any to update
     const payload: any = {}
@@ -1776,7 +1776,7 @@ export async function notionUpdateDatabaseItem(
       }
     }
 
-    logger.info('[Notion Update Database Item] Final payload:', JSON.stringify(processedProperties, null, 2))
+    logger.debug('[Notion Update Database Item] Sending update for item:', itemId)
 
     // Make the update request
     const result = await notionApiRequest(`/pages/${itemId}`, "PATCH", accessToken, {
@@ -2042,7 +2042,7 @@ export async function notionAddBlock(
       children: [blockObject]
     }
 
-    logger.info("[Notion Add Block] Payload:", JSON.stringify(payload, null, 2))
+    logger.debug("[Notion Add Block] Adding block to page:", pageId)
 
     const result = await notionApiRequest(
       `/blocks/${pageId}/children`,

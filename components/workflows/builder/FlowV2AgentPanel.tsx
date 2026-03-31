@@ -169,6 +169,7 @@ interface PanelActions {
   onNodeConfigComplete?: (nodeType: string, config: Record<string, any>) => void
   onNodeConfigSkip?: (nodeType: string) => void
   onPreferencesSave?: (selectedIds: string[]) => void
+  onPreferencesComplete?: () => void
   onPreferencesSkip?: () => void
 }
 
@@ -218,8 +219,18 @@ export function FlowV2AgentPanel({
     onNodeConfigComplete,
     onNodeConfigSkip,
     onPreferencesSave,
+    onPreferencesComplete,
     onPreferencesSkip,
   } = actions
+
+  // Dev-time assertion: if onPreferencesSave is wired but onPreferencesComplete is missing,
+  // the save flow will silently break. Fail loudly so wiring bugs are caught early.
+  if (process.env.NODE_ENV === 'development' && onPreferencesSave && !onPreferencesComplete) {
+    console.warn(
+      '[FlowV2AgentPanel] onPreferencesSave is present but onPreferencesComplete is missing. ' +
+      'Save success will not be handled correctly.'
+    )
+  }
 
   // Auto-resize textarea for chat input
   const { textareaRef: agentTextareaRef, resize: resizeAgentInput } = useAutoResizeTextarea({
@@ -1558,11 +1569,11 @@ export function FlowV2AgentPanel({
                       return null
                     })()}
 
-                    {meta.preferencesSave && onPreferencesSave && onPreferencesSkip && (
+                    {meta.preferencesSave && onPreferencesComplete && onPreferencesSkip && (
                       <div className="w-full max-w-[90%]">
                         <PreferencesSaveCard
                           selections={meta.preferencesSave.selections}
-                          onComplete={onPreferencesSkip}
+                          onComplete={onPreferencesComplete}
                           onSkip={onPreferencesSkip}
                         />
                       </div>
@@ -1742,12 +1753,12 @@ export function FlowV2AgentPanel({
                                 }
 
                                 // NEW: Preferences save card (at end of workflow)
-                                if (meta.preferencesSave && onPreferencesSave && onPreferencesSkip) {
+                                if (meta.preferencesSave && onPreferencesComplete && onPreferencesSkip) {
                                   return (
                                     <div className="pt-2 pb-1">
                                       <PreferencesSaveCard
                                         selections={meta.preferencesSave.selections}
-                                        onComplete={onPreferencesSkip}
+                                        onComplete={onPreferencesComplete}
                                         onSkip={onPreferencesSkip}
                                       />
                                     </div>

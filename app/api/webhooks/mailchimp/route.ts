@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       payload[key] = value
     })
 
-    logger.info('[Mailchimp Webhook] Payload:', JSON.stringify(payload, null, 2))
+    logger.debug('[Mailchimp Webhook] Received payload with keys:', Object.keys(payload).join(', '))
 
     // Map Mailchimp event to trigger type
     const triggerMapping: Record<string, string> = {

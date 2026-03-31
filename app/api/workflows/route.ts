@@ -22,14 +22,15 @@ export const revalidate = 0
 
 /**
  * Shared predicate for personal workspace queries.
- * Matches workspace_type = 'personal', 'user', or NULL (legacy rows)
- * with workspace_id = NULL to exclude team/org workflows.
+ * Matches workspace_type = 'personal', 'user', or NULL (legacy rows).
+ * Team/org workflows are excluded by the workspace_type filter alone —
+ * workspace_id is intentionally NOT checked because V2-created personal
+ * workflows carry a non-null personal workspace_id for billing scope.
  */
 function applyPersonalWorkspaceFilter(query: any, userId: string) {
   return query
     .eq('user_id', userId)
     .or('workspace_type.eq.personal,workspace_type.eq.user,workspace_type.is.null')
-    .is('workspace_id', null)
 }
 
 /**

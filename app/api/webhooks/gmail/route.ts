@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Parse the request body
     const body = await request.text()
-    logger.info(`📝 [${requestId}] Raw body received:`, body.substring(0, 500)) // Log first 500 chars
+    logger.debug(`[${requestId}] Webhook body received, length: ${body.length}`)
 
     // Check if body is empty or invalid
     if (!body || body.trim() === '') {
@@ -170,11 +170,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const token = searchParams.get('token')
 
-  logger.info('🔍 Gmail webhook GET request received, token:', token)
+  logger.info('Gmail webhook GET request received')
 
   // If this is a verification request from Google, echo back the challenge token
   if (token) {
-    logger.info('✅ Responding to Google Pub/Sub verification with token:', token)
+    logger.debug('Responding to Google Pub/Sub verification')
     return new Response(token, { status: 200 })
   }
 

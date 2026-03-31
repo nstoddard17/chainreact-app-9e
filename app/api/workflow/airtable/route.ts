@@ -478,11 +478,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    logger.info('🔐 Airtable signature header (raw):', signatureHeader ? signatureHeader.slice(0, 128) : 'none')
-    logger.info('🔐 Airtable headers snapshot:', headerNames.reduce((acc: Record<string, string | undefined>, name) => {
-      acc[name] = headers[name]
-      return acc
-    }, {}))
+    logger.debug('Airtable signature header present:', !!signatureHeader)
 
     const valid = validateAirtableSignature(raw, signatureHeader, wh.mac_secret_base64)
 
@@ -709,7 +705,7 @@ async function processAirtablePayload(
     logger.info(`   - Verification delay in config: ${triggerConfig.verificationDelay}`)
     const changeGrouping = triggerConfig.changeGrouping || 'per_record'
     logger.info(`   - Linked record handling: ${changeGrouping === 'combine_linked' ? 'Combine linked updates into one run' : 'Run once per record change'}`)
-    logger.info(`   - Full trigger config:`, JSON.stringify(triggerConfig, null, 2))
+    logger.debug('Airtable trigger config keys:', Object.keys(triggerConfig || {}).join(', '))
 
     if (triggerType === 'airtable_trigger_new_record') {
       const batchedNewRecords = changeGrouping === 'combine_linked' ? new Map<string, AirtableBatchGroup>() : null

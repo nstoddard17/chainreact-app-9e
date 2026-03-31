@@ -79,7 +79,7 @@ export async function POST(request: Request) {
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabase: any, stripeClient: Stripe) {
   logger.info("[Stripe Webhook] handleCheckoutCompleted - Session ID:", session.id)
-  logger.info("[Stripe Webhook] Session metadata:", JSON.stringify(session.metadata, null, 2))
+  logger.debug("[Stripe Webhook] Has metadata keys:", Object.keys(session.metadata || {}).join(', '))
   
   const userId = session.metadata?.user_id
   const planId = session.metadata?.plan_id
@@ -143,7 +143,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
     updated_at: new Date().toISOString()
   }
 
-  logger.info("[Stripe Webhook] Upserting subscription data:", JSON.stringify(subscriptionData, null, 2))
+  logger.debug("[Stripe Webhook] Upserting subscription data")
 
   // Create or update subscription in database
   const { data, error } = await supabase
@@ -331,7 +331,7 @@ async function storeInvoice(invoice: Stripe.Invoice, supabase: any, userId?: str
     updated_at: new Date().toISOString()
   }
 
-  logger.info("[Stripe Webhook] Invoice data:", JSON.stringify(invoiceData, null, 2))
+  logger.debug("[Stripe Webhook] Processing invoice data")
 
   const { error } = await supabase
     .from("invoices")

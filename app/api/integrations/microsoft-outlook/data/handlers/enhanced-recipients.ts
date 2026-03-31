@@ -123,11 +123,7 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         const contactsData = await contactsResponse.json()
         const contacts = contactsData.value || []
 
-        logger.info(`[Outlook API] Contacts API response:`, {
-          totalCount: contactsData['@odata.count'],
-          valueLength: contacts.length,
-          firstContact: contacts[0]
-        })
+        logger.debug(`[Outlook API] Contacts received:`, contacts.length)
 
         contacts.forEach((contact: any) => {
           const primaryEmail = contact.emailAddresses?.[0]?.address
@@ -205,13 +201,8 @@ export async function getOutlookEnhancedRecipients(integration: any): Promise<Em
         const inboxData = await inboxResponse.json()
         const messages = inboxData.value || []
 
-        logger.info(`[Outlook API] Inbox API response:`, {
-          totalCount: inboxData['@odata.count'],
-          valueLength: messages.length,
-          firstMessage: messages[0] ? {
-            from: messages[0].from,
-            hasTo: !!messages[0].toRecipients
-          } : null
+        logger.debug(`[Outlook API] Inbox messages received:`, {
+          messageCount: messages.length
         })
 
         messages.forEach((message: any) => {

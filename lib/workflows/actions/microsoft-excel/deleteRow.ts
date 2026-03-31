@@ -14,7 +14,7 @@ export async function deleteMicrosoftExcelRow(
     // Resolve configuration with workflow variables
     const resolvedConfig = resolveValue(config, input)
 
-    logger.info('🗑️ [Excel Delete] Resolved config:', JSON.stringify(resolvedConfig, null, 2))
+    logger.debug('[Excel Delete] Config resolved')
 
     const {
       workbookId,

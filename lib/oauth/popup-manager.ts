@@ -259,7 +259,7 @@ export class OAuthPopupManager {
     try {
       broadcastChannel = new BroadcastChannel('oauth_channel')
       broadcastChannel.onmessage = (event) => {
-        logger.info(`📡 OAuth response received via BroadcastChannel for ${provider}:`, event.data)
+        logger.debug(`OAuth response received via BroadcastChannel for ${provider}`)
         // Check if this response is for our provider
         if (event.data?.provider?.toLowerCase() === provider.toLowerCase()) {
           handleOAuthResponse(event.data)

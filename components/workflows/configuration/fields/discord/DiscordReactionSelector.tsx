@@ -71,9 +71,7 @@ export function DiscordReactionSelector({
         { channelId, messageId }
       );
       
-      logger.info('🔍 Raw API response:', reactionsData);
-      logger.info('🔍 reactionsData.data:', reactionsData.data);
-      logger.info('🔍 Direct reactionsData:', reactionsData);
+      logger.debug('[Discord] Reactions data received');
       
       // Try different ways to access the reaction data
       let rawReactions = reactionsData;
@@ -84,14 +82,13 @@ export function DiscordReactionSelector({
         rawReactions = reactionsData.reactions;
       }
       
-      logger.info('🔍 Raw reactions array:', rawReactions);
+      logger.debug('[Discord] Raw reactions count:', Array.isArray(rawReactions) ? rawReactions.length : 1);
       
       // Ensure we have an array
       const reactionsArray = Array.isArray(rawReactions) ? rawReactions : [rawReactions].filter(Boolean);
       
       // Format reaction data
       const formattedReactions = reactionsArray.map((reaction: any, index: number) => {
-        logger.info(`🔍 Processing reaction ${index}:`, reaction);
         return {
           value: reaction.value || reaction.id || reaction.emoji,
           emoji: reaction.emoji,

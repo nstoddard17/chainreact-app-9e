@@ -201,7 +201,7 @@ export async function duplicateAirtableRecord(
       }
 
       newFields[fieldName] = resolved;
-      logger.info(`🔄 [Airtable] Overriding field: ${fieldName} = ${JSON.stringify(resolved)}`);
+      logger.debug(`[Airtable] Overriding field: ${fieldName}`);
     });
 
     logger.info(`📋 [Airtable] Creating duplicate with ${Object.keys(newFields).length} fields...`);

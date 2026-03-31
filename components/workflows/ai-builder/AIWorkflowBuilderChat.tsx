@@ -399,7 +399,7 @@ export function AIWorkflowBuilderChat({
         if (!response.ok) throw new Error('Failed to get AI response')
 
         const data = await response.json()
-        logger.info('[AIWorkflowBuilderChat] Received AI response:', data)
+        logger.debug('[AIWorkflowBuilderChat] Received AI response')
 
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),

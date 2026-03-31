@@ -1827,11 +1827,7 @@ export function AirtableConfiguration({
 
         const payload = await response.json();
         const fields = payload?.data || [];
-        console.log('[AirtableConfig] 📦 searchField API response:', {
-          fieldsCount: fields.length,
-          isCancelled,
-          sampleFields: fields.slice(0, 3)
-        });
+        logger.debug('[AirtableConfig] searchField response, fields:', fields.length);
         if (!isCancelled) {
           // Preserve all field metadata including type, id, and options for select fields
           const mappedOptions = fields.map((field: any) => ({

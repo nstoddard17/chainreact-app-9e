@@ -79,7 +79,7 @@ export async function createFacebookPost(
     const mediaIds: string[] = []
     
     if (mediaFile) {
-      logger.info("Processing media file:", JSON.stringify(mediaFile, null, 2))
+      logger.debug("Processing media file")
       
       // Handle different media file formats
       let fileIds: string[] = []

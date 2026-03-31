@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import Image from 'next/image'
-import { Check, Save, X, Loader2 } from 'lucide-react'
+import { Check, Save, X, Loader2, AlertCircle, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -53,6 +53,7 @@ export function PreferencesSaveCard({
   )
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(false)
 
   const toggleSelection = (id: string) => {
     setSelectedIds(prev => {
@@ -81,9 +82,9 @@ export function PreferencesSaveCard({
     }
 
     setSaving(true)
+    setError(false)
 
     try {
-      // Build the save payload from selected items
       const selectionsToSave = selections
         .filter(s => selectedIds.has(s.id))
         .map(s => ({
@@ -93,19 +94,25 @@ export function PreferencesSaveCard({
           nodeConfig: s.nodeConfig,
         }))
 
-      await saveSelectedPreferences(selectionsToSave)
+      const success = await saveSelectedPreferences(selectionsToSave)
+
+      if (!success) {
+        setSaving(false)
+        setError(true)
+        return
+      }
+
+      setSaving(false)
       setSaved(true)
 
-      // Brief delay to show success state
+      // Brief delay to show success state, then notify parent
       setTimeout(() => {
         onComplete()
       }, 800)
-    } catch (error) {
-      console.error('Failed to save preferences:', error)
-      // Still proceed even if save fails
-      onComplete()
-    } finally {
+    } catch (err) {
+      console.error('Failed to save preferences:', err)
       setSaving(false)
+      setError(true)
     }
   }
 
@@ -192,6 +199,14 @@ export function PreferencesSaveCard({
           </div>
         )}
 
+        {/* Error message */}
+        {error && (
+          <div className="flex items-center gap-2 text-xs text-destructive">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            <span>Save failed. Please try again.</span>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center justify-between pt-2 border-t">
           <Button
@@ -205,29 +220,42 @@ export function PreferencesSaveCard({
             Don&apos;t Save
           </Button>
 
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving || saved}
-            className="gap-1.5"
-          >
-            {saved ? (
-              <>
-                <Check className="h-3.5 w-3.5" />
-                Saved!
-              </>
-            ) : saving ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-3.5 w-3.5" />
-                Save {selectedIds.size > 0 ? `(${selectedIds.size})` : 'Selected'}
-              </>
-            )}
-          </Button>
+          {error ? (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleSave}
+              disabled={saving}
+              className="gap-1.5"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || saved}
+              className="gap-1.5"
+            >
+              {saved ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Saved!
+                </>
+              ) : saving ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-3.5 w-3.5" />
+                  Save {selectedIds.size > 0 ? `(${selectedIds.size})` : 'Selected'}
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>

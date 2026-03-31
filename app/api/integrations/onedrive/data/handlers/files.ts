@@ -60,16 +60,8 @@ export const getOneDriveFiles: OneDriveDataHandler<OneDriveFile> = async (integr
 
     const payload = await response.json()
 
-    logger.info('📦 [OneDrive] Raw API response:', {
-      totalItems: payload?.value?.length || 0,
-      hasValue: !!payload?.value,
-      firstFewItems: payload?.value?.slice(0, 3)?.map((item: any) => ({
-        name: item.name,
-        hasFile: Boolean(item.file),
-        hasFolder: Boolean(item.folder),
-        mimeType: item.file?.mimeType,
-        size: item.size
-      }))
+    logger.debug('[OneDrive] Files received:', {
+      totalItems: payload?.value?.length || 0
     })
 
     // Filter to only get files (not folders)

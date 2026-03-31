@@ -1769,6 +1769,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
         }
 
         const baseFlow = await ensureFlow()
+        const baseVersion = baseFlow.version ?? 0
         const nextFlow = applyPlannerEdits(baseFlow, edits)
 
         setSaving(true)
@@ -1780,7 +1781,7 @@ export function useFlowV2Builder(flowId: string, options?: UseFlowV2BuilderOptio
               headers: JSON_HEADERS,
               body: JSON.stringify({
                 flow: nextFlow,
-                expectedVersion: nextFlow.version,
+                expectedVersion: baseVersion,
               }),
             }
           )

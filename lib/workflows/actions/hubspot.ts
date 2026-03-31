@@ -284,8 +284,7 @@ export async function createHubSpotContact(
       result = await response.json()
     }
     
-    logger.info('HubSpot API response:', result)
-    logger.info('Created contact properties:', result.properties)
+    logger.debug('HubSpot contact created, id:', result?.id)
 
     // Check if we should associate with existing company or create new one
     let companyId = null
