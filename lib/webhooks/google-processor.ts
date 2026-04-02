@@ -1285,12 +1285,15 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
           metadata: enrichedMetadata
         })
       } else if (event.created && event.updated) {
-        // Classify strictly by equality to avoid misclassifying quick edits as "created"
+        // Classify by timestamp proximity: Google Calendar often sets 'updated' to a
+        // slightly later time than 'created' even for brand-new events (e.g., 1-2s drift
+        // from server-side indexing). Use a 5-second tolerance to catch these.
         const createdTime = new Date(event.created)
         const updatedTime = new Date(event.updated)
-        const isSameInstant = createdTime.getTime() === updatedTime.getTime()
+        const diffMs = Math.abs(updatedTime.getTime() - createdTime.getTime())
+        const isNewlyCreated = diffMs <= 5000
 
-        if (isSameInstant) {
+        if (isNewlyCreated) {
           changeStats.created += 1
           await handleCalendarEventCreated({
             eventId: event.id,
