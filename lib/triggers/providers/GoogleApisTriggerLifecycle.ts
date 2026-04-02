@@ -361,18 +361,26 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
   ): Promise<any> {
     const calendar = google.calendar({ version: 'v3', auth })
 
-    // Do an initial events.list to capture a sync token BEFORE creating the watch.
+    // Do a full initial events.list to capture a sync token BEFORE creating the watch.
     // Without this, the processor has no baseline to detect changes from — the
     // "first poll miss" bug (see CLAUDE.md: Polling Trigger Snapshot Initialization).
+    // Must paginate to completion: Google only returns nextSyncToken on the final page.
     let initialSyncToken: string | null = null
     try {
-      const eventsRes = await calendar.events.list({
-        calendarId,
-        maxResults: 1,
-        singleEvents: true,
-        timeMin: new Date().toISOString(),
-      })
-      initialSyncToken = eventsRes.data.nextSyncToken || null
+      let pageToken: string | undefined = undefined
+      do {
+        const eventsRes = await calendar.events.list({
+          calendarId,
+          maxResults: 250,
+          singleEvents: true,
+          ...(pageToken ? { pageToken } : {}),
+        })
+        pageToken = eventsRes.data.nextPageToken || undefined
+        if (eventsRes.data.nextSyncToken) {
+          initialSyncToken = eventsRes.data.nextSyncToken
+        }
+      } while (pageToken)
+
       logger.info('[Google Calendar] Captured initial sync token during watch creation', {
         calendarId,
         hasSyncToken: !!initialSyncToken
