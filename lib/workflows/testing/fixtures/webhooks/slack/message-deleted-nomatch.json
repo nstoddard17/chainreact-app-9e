@@ -1,0 +1,1 @@
+{"token":"test-verification-token","team_id":"T9999","api_app_id":"A9999","event":{"type":"message","subtype":"message_deleted","deleted_ts":"1711900800.000100","channel":"C9999","ts":"1711900999.000999","event_ts":"1711900999.000999","channel_type":"channel","team":"T9999"},"type":"event_callback","event_id":"Ev9999DELETED","event_time":1711900999}

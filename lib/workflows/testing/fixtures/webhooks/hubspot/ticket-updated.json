@@ -1,0 +1,10 @@
+{
+  "subscriptionType": "ticket.propertyChange",
+  "objectId": "hs-ticket-upd-001",
+  "portalId": "portal-test-001",
+  "occurredAt": 1711900800000,
+  "attemptNumber": 0,
+  "changeSource": "CRM",
+  "propertyName": "hs_pipeline_stage",
+  "propertyValue": "2"
+}

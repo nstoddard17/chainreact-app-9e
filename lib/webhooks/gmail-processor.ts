@@ -1468,15 +1468,24 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
         continue
       }
 
-      // Fetch the actual email details
-      const emailDetails = await fetchEmailDetails(
-        {
-          historyId: event.eventData.historyId,
-          emailAddress: event.eventData.emailAddress
-        },
-        workflow.user_id,
-        configSource
-      )
+      // Test-mode bypass: accept inline trigger data when WEBHOOK_TEST_MODE is enabled.
+      // This skips the Gmail API fetch, allowing the harness to test the processing pipeline.
+      // Hard-gated: _testTriggerData is ignored entirely outside test mode.
+      let emailDetails: any = null
+      if (process.env.WEBHOOK_TEST_MODE === 'true' && event.eventData._testTriggerData) {
+        emailDetails = event.eventData._testTriggerData
+        logger.info('[Gmail Processor] Using test-mode inline trigger data')
+      } else {
+        // Fetch the actual email details via Gmail API
+        emailDetails = await fetchEmailDetails(
+          {
+            historyId: event.eventData.historyId,
+            emailAddress: event.eventData.emailAddress
+          },
+          workflow.user_id,
+          configSource
+        )
+      }
 
       if (!emailDetails) {
         logger.info('Could not fetch email details, skipping workflow')
@@ -1558,6 +1567,7 @@ async function triggerMatchingGmailWorkflows(event: GmailWebhookEvent): Promise<
           workflow.user_id,
           'webhook',
           {
+            metadata: { requestId: event.requestId },
             inputData: {
               ...event.eventData,
               emailDetails: emailDetails,

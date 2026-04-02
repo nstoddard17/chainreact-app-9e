@@ -1,0 +1,30 @@
+{
+  "token": "test-verification-token",
+  "team_id": "T0001",
+  "api_app_id": "A0001",
+  "event": {
+    "type": "message",
+    "subtype": null,
+    "channel": "D0001",
+    "user": "U0001",
+    "text": "Test direct message from webhook harness",
+    "ts": "1711900801.000200",
+    "event_ts": "1711900801.000200",
+    "channel_type": "im",
+    "team": "T0001"
+  },
+  "type": "event_callback",
+  "event_id": "Ev0002TEST",
+  "event_time": 1711900801,
+  "authorizations": [
+    {
+      "enterprise_id": null,
+      "team_id": "T0001",
+      "user_id": "U0002",
+      "is_bot": true,
+      "is_enterprise_install": false
+    }
+  ],
+  "is_ext_shared_channel": false,
+  "event_context": "4-eyJldCI6Im1lc3NhZ2UiLCJ0aWQiOiJUMDAwMSIsImFpZCI6IkEwMDAxIiwiY2lkIjoiRDAwMDEifQ=="
+}

@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { executeWebhookWorkflow } from '@/lib/webhooks/execute'
 
@@ -40,6 +41,11 @@ const EVENT_TO_TRIGGER_MAP: Record<string, string> = {
  * POST handler - receives webhook notifications from Gumroad
  */
 export async function POST(req: NextRequest) {
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? req.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || crypto.randomUUID()
+
   logger.info('🔔 Gumroad webhook received at', new Date().toISOString())
 
   try {
@@ -76,11 +82,22 @@ export async function POST(req: NextRequest) {
       return jsonResponse({ success: true, message: 'Unknown event type' })
     }
 
+    // Store webhook event for audit trail (canonical receipt contract)
+    const supabase = getSupabase()
+    try {
+      await supabase.from('webhook_events').insert({
+        provider: 'gumroad',
+        request_id: requestId,
+        event_data: { ...payload, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      logger.warn('[Gumroad Webhook] Failed to store webhook event:', e)
+    }
+
     // Get workflow ID from query params (for per-workflow webhooks)
     const workflowId = req.nextUrl.searchParams.get('workflowId')
-
-    // Find matching workflows with this Gumroad trigger type
-    const supabase = getSupabase()
     let query = supabase
       .from('trigger_resources')
       .select('workflow_id, user_id, config')
@@ -141,6 +158,7 @@ export async function POST(req: NextRequest) {
         provider: 'gumroad',
         triggerType,
         triggerData,
+        metadata: { requestId },
       })
       if (execResult.success) executed++
     }

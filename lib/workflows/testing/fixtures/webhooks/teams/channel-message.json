@@ -1,0 +1,30 @@
+{
+  "value": [
+    {
+      "subscriptionId": "teams-sub-test-001",
+      "changeType": "created",
+      "resource": "teams('team-test-001')/channels('channel-test-001')/messages('msg-test-001')",
+      "resourceData": {
+        "@odata.type": "#Microsoft.Graph.chatMessage"
+      },
+      "_testMessageData": {
+        "id": "msg-test-001",
+        "body": {
+          "content": "Test message from webhook harness",
+          "contentType": "text"
+        },
+        "from": {
+          "user": {
+            "id": "user-test-001",
+            "displayName": "Test User"
+          }
+        },
+        "createdDateTime": "2026-03-31T12:00:00.000Z",
+        "channelIdentity": {
+          "teamId": "team-test-001",
+          "channelId": "channel-test-001"
+        }
+      }
+    }
+  ]
+}

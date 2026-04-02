@@ -1,0 +1,26 @@
+{
+  "value": [
+    {
+      "subscriptionId": "teams-sub-nomatch-999",
+      "changeType": "created",
+      "resource": "chats('chat-nomatch-999')/messages('msg-nomatch-999')",
+      "resourceData": {
+        "@odata.type": "#Microsoft.Graph.chatMessage"
+      },
+      "_testMessageData": {
+        "id": "msg-nomatch-999",
+        "body": {
+          "content": "Nomatch message",
+          "contentType": "text"
+        },
+        "from": {
+          "user": {
+            "id": "user-nomatch-999",
+            "displayName": "Nomatch User"
+          }
+        },
+        "createdDateTime": "2026-03-31T12:00:00.000Z"
+      }
+    }
+  ]
+}

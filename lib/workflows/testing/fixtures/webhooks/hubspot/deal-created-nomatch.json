@@ -1,0 +1,10 @@
+{
+  "subscriptionType": "deal.creation",
+  "objectId": "99999",
+  "portalId": "portal-nomatch-999",
+  "occurredAt": 1711900800000,
+  "attemptNumber": 0,
+  "changeSource": "CRM",
+  "propertyName": null,
+  "propertyValue": null
+}

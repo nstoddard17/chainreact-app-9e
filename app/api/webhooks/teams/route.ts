@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logger } from '@/lib/utils/logger'
 import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
@@ -33,6 +34,11 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? request.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || crypto.randomUUID()
+
   // Entry-point log to catch ALL incoming requests (visible in production)
   logger.info('[Teams Webhook] POST received', {
     url: request.url,
@@ -54,6 +60,20 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
+    // Store webhook event for audit trail (canonical receipt contract)
+    const supabaseForReceipt = getSupabase()
+    try {
+      await supabaseForReceipt.from('webhook_events').insert({
+        provider: 'teams',
+        request_id: requestId,
+        event_data: { ...body, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      logger.warn('[Teams Webhook] Failed to store webhook event:', e)
+    }
+
     logger.info('[Teams Webhook] Received change notification:', {
       valueCount: body.value?.length || 0
     })
@@ -66,7 +86,7 @@ export async function POST(request: NextRequest) {
       if (notification.lifecycleEvent) {
         await processLifecycleNotification(notification)
       } else {
-        await processTeamsNotification(notification)
+        await processTeamsNotification(notification, requestId)
       }
     }
 
@@ -101,7 +121,7 @@ export async function GET(request: NextRequest) {
 /**
  * Process a single Teams change notification
  */
-async function processTeamsNotification(notification: any) {
+async function processTeamsNotification(notification: any, requestId?: string) {
   try {
     const { subscriptionId, changeType, resource, resourceData, encryptedContent } = notification
 
@@ -184,6 +204,14 @@ async function processTeamsNotification(notification: any) {
       }
     }
 
+    // Test-mode bypass: accept plaintext resourceData when WEBHOOK_TEST_MODE is enabled.
+    // This skips encryption/API fetch, allowing the harness to test the processing pipeline.
+    // Hard-gated: ignored entirely outside test mode.
+    if (!messageData && process.env.WEBHOOK_TEST_MODE === 'true' && notification._testMessageData) {
+      messageData = notification._testMessageData
+      logger.info('[Teams Webhook] Using test-mode plaintext message data')
+    }
+
     // If we don't have decrypted data, fetch it via API (fallback)
     if (!messageData && resourceIds.messageId) {
       logger.info('[Teams Webhook] Fetching message details via API')
@@ -231,7 +259,7 @@ async function processTeamsNotification(notification: any) {
       provider: 'teams',
       triggerType: triggerType || triggerResource.trigger_type || 'teams_trigger_event',
       triggerData,
-      metadata: { subscriptionId, changeType },
+      metadata: { subscriptionId, changeType, requestId },
     })
 
     logger.info('[Teams Webhook] Successfully processed notification')

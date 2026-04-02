@@ -1,0 +1,13 @@
+{
+  "id": 115310627314723960,
+  "email": "newcustomer@example.com",
+  "first_name": "New",
+  "last_name": "Customer",
+  "phone": "+15559999999",
+  "accepts_marketing": true,
+  "created_at": "2026-03-31T12:00:00-07:00",
+  "updated_at": "2026-03-31T12:00:00-07:00",
+  "orders_count": 0,
+  "total_spent": "0.00",
+  "tags": ""
+}

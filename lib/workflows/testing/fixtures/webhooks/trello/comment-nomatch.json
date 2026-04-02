@@ -1,0 +1,23 @@
+{
+  "action": {
+    "id": "action-nomatch-001",
+    "type": "commentCard",
+    "date": "2026-03-31T12:00:00.000Z",
+    "data": {
+      "card": {
+        "id": "card-nomatch-001",
+        "name": "Nonexistent Card",
+        "shortLink": "nom001"
+      },
+      "board": {
+        "id": "board-nomatch-001"
+      },
+      "text": "This comment should not match any workflow"
+    },
+    "memberCreator": {
+      "id": "member-nomatch-001",
+      "fullName": "Nomatch User"
+    }
+  },
+  "id": "action-nomatch-001"
+}

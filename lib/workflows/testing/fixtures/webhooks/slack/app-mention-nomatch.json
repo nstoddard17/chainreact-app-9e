@@ -1,0 +1,1 @@
+{"token":"test-verification-token","team_id":"T9999","api_app_id":"A9999","event":{"type":"app_mention","user":"U9999","text":"<@U0002> hello","ts":"1711900999.000999","event_ts":"1711900999.000999","channel":"C9999","team":"T9999"},"type":"event_callback","event_id":"Ev9999APPMENTION","event_time":1711900999}

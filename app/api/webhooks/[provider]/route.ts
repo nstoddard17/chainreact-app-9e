@@ -16,7 +16,10 @@ export async function POST(
   try {
     const { provider } = await params
     const startTime = Date.now()
-    const requestId = crypto.randomUUID()
+    const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+      ? request.headers.get('x-test-run-id')
+      : null
+    const requestId = testRunId || crypto.randomUUID()
     
     // Log incoming webhook
     await logWebhookEvent({

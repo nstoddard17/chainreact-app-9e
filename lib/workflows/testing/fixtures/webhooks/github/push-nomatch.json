@@ -1,0 +1,81 @@
+{
+  "ref": "refs/heads/feature-branch",
+  "before": "0000000000000000000000000000000000000000",
+  "after": "b20867b14bb761a232cd80139fbd4c0d33264241",
+  "repository": {
+    "id": 987654321,
+    "node_id": "MDEwOlJlcG9zaXRvcnk5ODc2NTQzMjE=",
+    "name": "nonexistent-repo",
+    "full_name": "nonexistent-org/nonexistent-repo",
+    "private": false,
+    "owner": {
+      "name": "nonexistent-org",
+      "email": "noreply@example.com",
+      "login": "nonexistent-org",
+      "id": 99999999,
+      "type": "Organization"
+    },
+    "html_url": "https://github.com/nonexistent-org/nonexistent-repo",
+    "description": "Nonexistent repository for webhook harness no-match test",
+    "fork": false,
+    "url": "https://api.github.com/repos/nonexistent-org/nonexistent-repo",
+    "default_branch": "main"
+  },
+  "pusher": {
+    "name": "nonexistent-org",
+    "email": "noreply@example.com"
+  },
+  "sender": {
+    "login": "nonexistent-org",
+    "id": 99999999,
+    "type": "User"
+  },
+  "created": false,
+  "deleted": false,
+  "forced": false,
+  "compare": "https://github.com/nonexistent-org/nonexistent-repo/compare/000000...b20867",
+  "commits": [
+    {
+      "id": "b20867b14bb761a232cd80139fbd4c0d33264241",
+      "tree_id": "791272480426f78a0138979f03e1a5e23a3fe5fd",
+      "distinct": true,
+      "message": "Nomatch test commit",
+      "timestamp": "2026-03-31T12:00:00-07:00",
+      "url": "https://github.com/nonexistent-org/nonexistent-repo/commit/b20867b14bb761a232cd80139fbd4c0d33264241",
+      "author": {
+        "name": "Nomatch User",
+        "email": "nomatch@example.com",
+        "username": "nonexistent-org"
+      },
+      "committer": {
+        "name": "Nomatch User",
+        "email": "nomatch@example.com",
+        "username": "nonexistent-org"
+      },
+      "added": [],
+      "removed": [],
+      "modified": ["README.md"]
+    }
+  ],
+  "head_commit": {
+    "id": "b20867b14bb761a232cd80139fbd4c0d33264241",
+    "tree_id": "791272480426f78a0138979f03e1a5e23a3fe5fd",
+    "distinct": true,
+    "message": "Nomatch test commit",
+    "timestamp": "2026-03-31T12:00:00-07:00",
+    "url": "https://github.com/nonexistent-org/nonexistent-repo/commit/b20867b14bb761a232cd80139fbd4c0d33264241",
+    "author": {
+      "name": "Nomatch User",
+      "email": "nomatch@example.com",
+      "username": "nonexistent-org"
+    },
+    "committer": {
+      "name": "Nomatch User",
+      "email": "nomatch@example.com",
+      "username": "nonexistent-org"
+    },
+    "added": [],
+    "removed": [],
+    "modified": ["README.md"]
+  }
+}

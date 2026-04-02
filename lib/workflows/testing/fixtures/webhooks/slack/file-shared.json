@@ -1,0 +1,29 @@
+{
+  "token": "test-verification-token",
+  "team_id": "T0001",
+  "api_app_id": "A0001",
+  "event": {
+    "type": "file_shared",
+    "file_id": "F0001",
+    "user_id": "U0001",
+    "file": {
+      "id": "F0001"
+    },
+    "channel_id": "C0001",
+    "event_ts": "1711900808.000900"
+  },
+  "type": "event_callback",
+  "event_id": "Ev0009TEST",
+  "event_time": 1711900808,
+  "authorizations": [
+    {
+      "enterprise_id": null,
+      "team_id": "T0001",
+      "user_id": "U0002",
+      "is_bot": true,
+      "is_enterprise_install": false
+    }
+  ],
+  "is_ext_shared_channel": false,
+  "event_context": "4-eyJldCI6ImZpbGVfc2hhcmVkIiwidGlkIjoiVDAwMDEiLCJhaWQiOiJBMDAwMSIsImNpZCI6IkMwMDAxIn0="
+}

@@ -1,0 +1,10 @@
+{
+  "subscriptionType": "ticket.creation",
+  "objectId": "hs-ticket-001",
+  "portalId": "portal-test-001",
+  "occurredAt": 1711900800000,
+  "attemptNumber": 0,
+  "changeSource": "CRM",
+  "propertyName": null,
+  "propertyValue": null
+}

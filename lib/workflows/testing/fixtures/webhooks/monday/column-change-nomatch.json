@@ -1,0 +1,13 @@
+{
+  "event": {
+    "type": "change_column_value",
+    "boardId": "board-nomatch-999",
+    "itemId": "item-nomatch-999",
+    "columnId": "status",
+    "columnTitle": "Status",
+    "previousValue": "Working on it",
+    "value": "Done",
+    "userId": "user-nomatch-999",
+    "triggerTime": "2026-03-31T12:00:00.000Z"
+  }
+}

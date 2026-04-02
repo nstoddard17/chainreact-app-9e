@@ -1,0 +1,32 @@
+{
+  "id": "evt_test_003",
+  "object": "event",
+  "api_version": "2025-05-28.basil",
+  "created": 1711900802,
+  "type": "charge.succeeded",
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_test_003",
+    "idempotency_key": null
+  },
+  "data": {
+    "object": {
+      "id": "ch_test_003",
+      "object": "charge",
+      "amount": 3000,
+      "amount_captured": 3000,
+      "amount_refunded": 0,
+      "currency": "usd",
+      "status": "succeeded",
+      "paid": true,
+      "refunded": false,
+      "customer": "cus_test_003",
+      "payment_intent": "pi_test_003",
+      "payment_method": "pm_test_003",
+      "description": "Test charge from webhook harness",
+      "created": 1711900802,
+      "metadata": {}
+    }
+  }
+}

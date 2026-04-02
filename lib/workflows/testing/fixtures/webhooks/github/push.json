@@ -1,0 +1,81 @@
+{
+  "ref": "refs/heads/main",
+  "before": "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+  "after": "a10867b14bb761a232cd80139fbd4c0d33264240",
+  "repository": {
+    "id": 123456789,
+    "node_id": "MDEwOlJlcG9zaXRvcnkxMjM0NTY3ODk=",
+    "name": "test-repo",
+    "full_name": "chainreactapp/test-repo",
+    "private": false,
+    "owner": {
+      "name": "chainreactapp",
+      "email": "chainreactapp@gmail.com",
+      "login": "chainreactapp",
+      "id": 12345678,
+      "type": "Organization"
+    },
+    "html_url": "https://github.com/chainreactapp/test-repo",
+    "description": "Test repository for webhook harness",
+    "fork": false,
+    "url": "https://api.github.com/repos/chainreactapp/test-repo",
+    "default_branch": "main"
+  },
+  "pusher": {
+    "name": "chainreactapp",
+    "email": "chainreactapp@gmail.com"
+  },
+  "sender": {
+    "login": "chainreactapp",
+    "id": 12345678,
+    "type": "User"
+  },
+  "created": false,
+  "deleted": false,
+  "forced": false,
+  "compare": "https://github.com/chainreactapp/test-repo/compare/6dcb09b5b578...a10867b14bb7",
+  "commits": [
+    {
+      "id": "a10867b14bb761a232cd80139fbd4c0d33264240",
+      "tree_id": "691272480426f78a0138979f03e1a5e23a3fe5fc",
+      "distinct": true,
+      "message": "Test commit for webhook harness",
+      "timestamp": "2026-03-31T12:00:00-07:00",
+      "url": "https://github.com/chainreactapp/test-repo/commit/a10867b14bb761a232cd80139fbd4c0d33264240",
+      "author": {
+        "name": "Test User",
+        "email": "test@chainreact.app",
+        "username": "chainreactapp"
+      },
+      "committer": {
+        "name": "Test User",
+        "email": "test@chainreact.app",
+        "username": "chainreactapp"
+      },
+      "added": ["new-file.ts"],
+      "removed": [],
+      "modified": ["README.md"]
+    }
+  ],
+  "head_commit": {
+    "id": "a10867b14bb761a232cd80139fbd4c0d33264240",
+    "tree_id": "691272480426f78a0138979f03e1a5e23a3fe5fc",
+    "distinct": true,
+    "message": "Test commit for webhook harness",
+    "timestamp": "2026-03-31T12:00:00-07:00",
+    "url": "https://github.com/chainreactapp/test-repo/commit/a10867b14bb761a232cd80139fbd4c0d33264240",
+    "author": {
+      "name": "Test User",
+      "email": "test@chainreact.app",
+      "username": "chainreactapp"
+    },
+    "committer": {
+      "name": "Test User",
+      "email": "test@chainreact.app",
+      "username": "chainreactapp"
+    },
+    "added": ["new-file.ts"],
+    "removed": [],
+    "modified": ["README.md"]
+  }
+}

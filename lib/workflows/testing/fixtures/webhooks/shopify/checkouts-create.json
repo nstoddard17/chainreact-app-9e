@@ -1,0 +1,12 @@
+{
+  "id": 550164929,
+  "token": "test-checkout-token-002",
+  "cart_token": "test-cart-token-002",
+  "email": "test@example.com",
+  "total_price": "49.99",
+  "currency": "USD",
+  "abandoned_checkout_url": "https://test-shop.myshopify.com/checkouts/test",
+  "created_at": "2026-03-31T12:00:00-07:00",
+  "updated_at": "2026-03-31T12:00:00-07:00",
+  "line_items": [{ "id": 866550311766439024, "title": "Abandoned Product", "quantity": 1, "price": "49.99" }]
+}

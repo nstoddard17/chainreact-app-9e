@@ -1,0 +1,48 @@
+{
+  "id": "evt_test_008",
+  "object": "event",
+  "api_version": "2025-05-28.basil",
+  "created": 1711900807,
+  "type": "customer.subscription.deleted",
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_test_008",
+    "idempotency_key": null
+  },
+  "data": {
+    "object": {
+      "id": "sub_test_008",
+      "object": "subscription",
+      "customer": "cus_test_008",
+      "status": "canceled",
+      "current_period_start": 1711900807,
+      "current_period_end": 1714492807,
+      "cancel_at_period_end": false,
+      "canceled_at": 1711900807,
+      "ended_at": 1711900807,
+      "items": {
+        "object": "list",
+        "data": [
+          {
+            "id": "si_test_008",
+            "object": "subscription_item",
+            "price": {
+              "id": "price_test_008",
+              "object": "price",
+              "currency": "usd",
+              "unit_amount": 1999,
+              "recurring": {
+                "interval": "month",
+                "interval_count": 1
+              }
+            },
+            "quantity": 1
+          }
+        ]
+      },
+      "created": 1711900807,
+      "metadata": {}
+    }
+  }
+}

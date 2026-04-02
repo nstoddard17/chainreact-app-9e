@@ -1,0 +1,1 @@
+type=unsubscribe&data[email]=test%40example.com&data[list_id]=list-test-001&data[id]=sub-test-002&data[merges][FNAME]=Test&data[merges][LNAME]=User&data[reason]=manual

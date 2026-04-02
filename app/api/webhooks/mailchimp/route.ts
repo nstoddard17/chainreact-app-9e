@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
+import { executeWebhookWorkflow } from '@/lib/webhooks/execute'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 
 /**
@@ -26,6 +28,10 @@ const getSupabase = () => createClient(
 )
 
 export async function POST(request: NextRequest) {
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? request.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || crypto.randomUUID()
   const supabase = getSupabase()
 
   try {
@@ -69,32 +75,48 @@ export async function POST(request: NextRequest) {
     // Transform payload to standard format
     const transformedPayload = transformMailchimpPayload(eventType, payload)
 
-    // Store webhook event
-    const webhookData = {
-      provider: 'mailchimp',
-      event_type: eventType,
-      event_id: `${eventType}_${payload.id || payload.list_id}_${Date.now()}`,
-      payload: transformedPayload,
-      received_at: new Date().toISOString()
+    // Store webhook event for audit trail (canonical receipt contract)
+    try {
+      await supabase.from('webhook_events').insert({
+        provider: 'mailchimp',
+        request_id: requestId,
+        event_data: { ...transformedPayload, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      logger.warn('[Mailchimp Webhook] Failed to store webhook event:', e)
     }
 
-    const { data, error } = await supabase
-      .from('webhook_events')
-      .insert(webhookData)
-      .select()
-      .single()
+    // Primary matching: trigger_resources (canonical path)
+    const { data: resources } = await supabase
+      .from('trigger_resources')
+      .select('workflow_id, user_id')
+      .eq('provider_id', 'mailchimp')
+      .eq('trigger_type', triggerType)
+      .eq('status', 'active')
 
-    if (error) {
-      logger.error('[Mailchimp Webhook] Failed to store event:', error)
-      return errorResponse('Failed to store webhook', 500)
+    if (resources && resources.length > 0) {
+      logger.info(`[Mailchimp Webhook] Found ${resources.length} matching trigger resources`)
+      let executed = 0
+      for (const resource of resources) {
+        const result = await executeWebhookWorkflow({
+          workflowId: resource.workflow_id,
+          userId: resource.user_id,
+          provider: 'mailchimp',
+          triggerType,
+          triggerData: transformedPayload,
+          metadata: { requestId },
+        })
+        if (result.success && !result.duplicate) executed++
+      }
+      return jsonResponse({ received: true, processed: executed })
     }
 
-    logger.info(`[Mailchimp Webhook] Stored event: ${data.id}`)
+    // Fallback: legacy per-workflow query param path or workflow node search
+    await triggerWorkflowsForEvent(triggerType, transformedPayload, requestId, workflowId, nodeId)
 
-    // Trigger workflows
-    await triggerWorkflowsForEvent(triggerType, transformedPayload, data.id, workflowId, nodeId)
-
-    return jsonResponse({ received: true, event_id: data.id })
+    return jsonResponse({ received: true, requestId })
   } catch (error: any) {
     logger.error('[Mailchimp Webhook] Handler error:', error)
     return errorResponse('Internal server error', 500)

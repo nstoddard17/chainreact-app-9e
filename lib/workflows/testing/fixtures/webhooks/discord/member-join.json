@@ -1,0 +1,8 @@
+{
+  "t": "GUILD_MEMBER_ADD",
+  "d": {
+    "user": { "id": "user-test-002", "username": "new-member", "discriminator": "1234", "avatar": null },
+    "guild_id": "guild-test-001",
+    "joined_at": "2026-03-31T12:00:00.000Z"
+  }
+}

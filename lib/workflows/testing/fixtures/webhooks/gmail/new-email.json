@@ -1,0 +1,8 @@
+{
+  "message": {
+    "data": "eyJlbWFpbEFkZHJlc3MiOiJ0ZXN0QGV4YW1wbGUuY29tIiwiaGlzdG9yeUlkIjoiMTIzNDUiLCJfdGVzdFRyaWdnZXJEYXRhIjp7ImlkIjoibXNnLXRlc3QtMDAxIiwiZnJvbSI6InNlbmRlckBleGFtcGxlLmNvbSIsInRvIjoidGVzdEBleGFtcGxlLmNvbSIsInN1YmplY3QiOiJUZXN0IEVtYWlsIGZyb20gV2ViaG9vayBIYXJuZXNzIiwiYm9keSI6IlRoaXMgaXMgYSB0ZXN0IGVtYWlsIGJvZHkuIiwiY29udGVudCI6IlRoaXMgaXMgYSB0ZXN0IGVtYWlsIGJvZHkuIiwiZGF0ZSI6IjIwMjYtMDMtMzFUMTI6MDA6MDAuMDAwWiIsImhhc0F0dGFjaG1lbnRzIjpmYWxzZSwibGFiZWxJZHMiOlsiSU5CT1giLCJVTlJFQUQiXX19",
+    "messageId": "msg-pubsub-test-001",
+    "publishTime": "2026-03-31T12:00:00.000Z"
+  },
+  "subscription": "projects/test-project/subscriptions/gmail-push-test"
+}

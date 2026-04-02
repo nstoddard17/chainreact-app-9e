@@ -1,0 +1,10 @@
+{
+  "event": {
+    "type": "create_item",
+    "boardId": "board-test-001",
+    "itemId": "item-test-001",
+    "itemName": "Test Item from Webhook Harness",
+    "userId": "user-test-001",
+    "triggerTime": "2026-03-31T12:00:00.000Z"
+  }
+}

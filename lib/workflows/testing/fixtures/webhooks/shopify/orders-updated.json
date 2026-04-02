@@ -1,0 +1,14 @@
+{
+  "id": 820982911946154503,
+  "order_number": 1004,
+  "email": "test@example.com",
+  "financial_status": "paid",
+  "fulfillment_status": "partial",
+  "total_price": "59.99",
+  "currency": "USD",
+  "created_at": "2026-03-31T12:00:00-07:00",
+  "updated_at": "2026-03-31T13:00:00-07:00",
+  "customer": { "id": 115310627314723953, "email": "test@example.com", "first_name": "Test", "last_name": "User" },
+  "line_items": [{ "id": 866550311766439023, "title": "Test Product", "quantity": 2, "price": "29.99" }],
+  "fulfillments": []
+}

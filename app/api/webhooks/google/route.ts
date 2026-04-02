@@ -12,7 +12,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const startTime = Date.now()
-    const requestId = crypto.randomUUID()
+    const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+      ? request.headers.get('x-test-run-id')
+      : null
+    const requestId = testRunId || crypto.randomUUID()
 
     const headersObject = Object.fromEntries(request.headers.entries())
     logger.debug('[Google Webhook] Received POST request')

@@ -1,6 +1,7 @@
 import { NextRequest, after } from 'next/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 import Stripe from 'stripe'
 import { AdvancedExecutionEngine } from '@/lib/execution/advancedExecutionEngine'
 
@@ -52,6 +53,10 @@ const getEventsForTrigger = (triggerType: string): string[] => {
 }
 
 export async function POST(request: NextRequest) {
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? request.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || crypto.randomUUID()
   const supabase = getSupabase()
 
   try {
@@ -239,10 +244,10 @@ export async function POST(request: NextRequest) {
       .from('webhook_events')
       .insert({
         provider: 'stripe',
-        event_type: event.type,
-        event_id: event.id,
-        payload: event,
-        received_at: new Date().toISOString()
+        request_id: requestId,
+        event_data: { ...event, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
       })
 
     if (eventLogError) {
@@ -271,6 +276,7 @@ export async function POST(request: NextRequest) {
       workflow.user_id,
       'webhook',
       {
+        metadata: { requestId },
         inputData: {
           stripeEvent: event,
           triggerResourceIds: matchingResources.map((resource: any) => resource.id)
