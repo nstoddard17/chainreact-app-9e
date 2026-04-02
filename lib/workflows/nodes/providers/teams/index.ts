@@ -312,7 +312,7 @@ export const teamsNodes: NodeComponent[] = [
     isTrigger: true,
     producesOutput: true,
     configSchema: [
-      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: false, placeholder: "Select a chat (leave empty to monitor all chats)" }
+      { name: "chatId", label: "Chat", type: "select", dynamic: "teams_chats", required: true, placeholder: "Select a chat" }
     ],
     outputSchema: [
       { name: "messageId", label: "Message ID", type: "string", description: "The ID of the message" },
