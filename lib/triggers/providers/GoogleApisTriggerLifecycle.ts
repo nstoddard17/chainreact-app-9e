@@ -265,6 +265,10 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
         channelId: channelData.id,
         resourceId: channelData.resourceId,
         pageToken: channelData.startPageToken || null,
+        // Calendar initial sync token — used by processGoogleCalendarEvent as baseline
+        ...(channelData.initialSyncToken ? { syncToken: channelData.initialSyncToken } : {}),
+        // Calendar ID — used by processGoogleCalendarEvent to resolve missing metadata
+        ...(channelData.calendarId ? { calendarId: channelData.calendarId } : {}),
         api,
         events,
         webhookUrl // Store webhook URL for debugging
@@ -357,6 +361,26 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
   ): Promise<any> {
     const calendar = google.calendar({ version: 'v3', auth })
 
+    // Do an initial events.list to capture a sync token BEFORE creating the watch.
+    // Without this, the processor has no baseline to detect changes from — the
+    // "first poll miss" bug (see CLAUDE.md: Polling Trigger Snapshot Initialization).
+    let initialSyncToken: string | null = null
+    try {
+      const eventsRes = await calendar.events.list({
+        calendarId,
+        maxResults: 1,
+        singleEvents: true,
+        timeMin: new Date().toISOString(),
+      })
+      initialSyncToken = eventsRes.data.nextSyncToken || null
+      logger.info('[Google Calendar] Captured initial sync token during watch creation', {
+        calendarId,
+        hasSyncToken: !!initialSyncToken
+      })
+    } catch (syncError: any) {
+      logger.warn('[Google Calendar] Could not capture initial sync token:', syncError.message)
+    }
+
     const response = await calendar.events.watch({
       calendarId,
       requestBody: {
@@ -367,7 +391,13 @@ export class GoogleApisTriggerLifecycle implements TriggerLifecycle {
       }
     })
 
-    return response.data
+    // Store the initial sync token and calendarId in the returned data
+    // so onActivate can persist it in trigger_resources.config
+    return {
+      ...response.data,
+      initialSyncToken,
+      calendarId,
+    }
   }
 
   /**

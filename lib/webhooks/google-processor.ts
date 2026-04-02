@@ -1167,9 +1167,9 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
   if (metadata.userId && metadata.integrationId && metadata.calendarId) {
     const { getGoogleCalendarChanges } = await import('./google-calendar-watch-setup')
 
-    // Get the sync token from the subscription
+    // Get the sync token — try google_watch_subscriptions first (legacy), then trigger_resources
     const supabase = await createSupabaseServiceClient()
-    const { data: subscription } = await supabase
+    let subscription = (await supabase
       .from('google_watch_subscriptions')
       .select('sync_token, metadata, updated_at')
       .eq('user_id', metadata.userId)
@@ -1177,7 +1177,32 @@ async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: a
       .eq('provider', 'google-calendar')
       .order('updated_at', { ascending: false })
       .limit(1)
-      .maybeSingle()
+      .maybeSingle()).data
+
+    // Fallback: read sync token from trigger_resources.config (set during onActivate)
+    if (!subscription?.sync_token) {
+      const channelId = eventData?.channelId || eventData?.headers?.['x-goog-channel-id']
+      if (channelId) {
+        const { data: triggerResource } = await supabase
+          .from('trigger_resources')
+          .select('config')
+          .eq('external_id', channelId)
+          .eq('status', 'active')
+          .maybeSingle()
+
+        if (triggerResource?.config?.syncToken) {
+          subscription = {
+            sync_token: triggerResource.config.syncToken,
+            metadata: triggerResource.config,
+            updated_at: null,
+          }
+          logger.info('[Google Calendar] Using sync token from trigger_resources', {
+            channelId,
+            hasSyncToken: true
+          })
+        }
+      }
+    }
 
     // Fetch the actual changes
     let subscriptionMetadata: any = null
