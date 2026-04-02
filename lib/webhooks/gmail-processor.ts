@@ -795,9 +795,23 @@ async function fetchEmailDetails(
     })
     logInfo(sessionId, 'historyId state', { comparison, storedStartHistoryId: startHistoryId, notificationHistoryId: notifHistoryId })
 
-    // 4b: Handle non-behind states — history.list would return nothing
-    if (comparison !== 'STORED_BEHIND') {
-      logger.info(`[fetchEmailDetails] ${comparison} — skipping history.list, attempting recovery`, {
+    // 4b: Handle non-behind states
+    // When STORED_AHEAD, the stored checkpoint was advanced past the notification's historyId.
+    // This commonly happens when onActivate sets the checkpoint to the current historyId,
+    // but Pub/Sub delivers a notification for a slightly earlier change.
+    // Fix: use the notification's historyId to query history.list — it knows something
+    // changed at that point. Then advance the checkpoint to the higher value.
+    if (comparison === 'STORED_AHEAD') {
+      logger.info(`[fetchEmailDetails] STORED_AHEAD — querying from notification historyId instead`, {
+        workflowId: configSource.workflowId,
+        storedStartHistoryId: startHistoryId,
+        notificationHistoryId: notifHistoryId
+      })
+      // Override startHistoryId with the notification's value so history.list finds the change
+      startHistoryId = notifHistoryId
+      // Fall through to the normal history.list path below
+    } else if (comparison === 'EQUAL') {
+      logger.info(`[fetchEmailDetails] EQUAL — attempting recovery`, {
         workflowId: configSource.workflowId
       })
 
@@ -900,9 +914,16 @@ async function fetchEmailDetails(
     logger.info('📧 Fetched email details:', summary)
     logSuccess(sessionId, 'Successfully fetched email details', summary)
 
-    // 4f: Normal history succeeded — advance checkpoint
+    // 4f: Normal history succeeded — advance checkpoint to the highest historyId
     if (history.data.historyId) {
-      await updateStoredHistoryId(configSource, String(history.data.historyId), 'CHECKPOINT_ADVANCED_VIA_HISTORY', sessionId)
+      // When STORED_AHEAD triggered a re-query from the notification historyId,
+      // ensure we don't regress the checkpoint below the original stored value.
+      const apiHistoryId = String(history.data.historyId)
+      const originalStoredId = configSource.source === 'trigger_resources'
+        ? String(configSource.config.resourceId || '0')
+        : String(configSource.config.watch?.historyId || '0')
+      const advanceTo = BigInt(apiHistoryId) > BigInt(originalStoredId) ? apiHistoryId : originalStoredId
+      await updateStoredHistoryId(configSource, advanceTo, 'CHECKPOINT_ADVANCED_VIA_HISTORY', sessionId)
     }
 
     return emailDetails

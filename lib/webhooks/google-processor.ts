@@ -1123,6 +1123,45 @@ async function processGoogleDriveEvent(event: GoogleWebhookEvent, metadata: any)
 async function processGoogleCalendarEvent(event: GoogleWebhookEvent, metadata: any): Promise<any> {
   const { eventData } = event
 
+  // Resolve calendarId from trigger_resources if missing from channel token metadata.
+  // The onActivate lifecycle sets channelToken with userId/integrationId/provider but
+  // omits calendarId — resolve it from the trigger config or the resource URL.
+  if (!metadata.calendarId) {
+    const channelId = eventData?.channelId || eventData?.headers?.['x-goog-channel-id']
+    if (channelId) {
+      const supabaseLookup = await createSupabaseServiceClient()
+      const { data: triggerResource } = await supabaseLookup
+        .from('trigger_resources')
+        .select('config')
+        .eq('external_id', channelId)
+        .eq('status', 'active')
+        .maybeSingle()
+
+      if (triggerResource?.config) {
+        // Calendar config stores calendars array (e.g., ['primary', 'user@gmail.com'])
+        const calendars = triggerResource.config.calendars
+        if (Array.isArray(calendars) && calendars.length > 0) {
+          metadata.calendarId = calendars[0]
+          logger.info('[Google Calendar] Resolved calendarId from trigger_resources', {
+            calendarId: metadata.calendarId,
+            channelId
+          })
+        }
+      }
+    }
+
+    // Fallback: extract from resource URL (e.g., .../calendars/primary/events)
+    if (!metadata.calendarId && eventData?.resource) {
+      const calMatch = eventData.resource.match(/calendars\/([^/]+)\/events/)
+      if (calMatch) {
+        metadata.calendarId = decodeURIComponent(calMatch[1])
+        logger.info('[Google Calendar] Resolved calendarId from resource URL', {
+          calendarId: metadata.calendarId
+        })
+      }
+    }
+  }
+
   // Google Calendar sends a notification that changes occurred
   // We need to fetch the actual changes using the Calendar API
   if (metadata.userId && metadata.integrationId && metadata.calendarId) {
