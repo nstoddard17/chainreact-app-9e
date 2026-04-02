@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { executeWebhookWorkflow } from '@/lib/webhooks/execute'
 
@@ -63,6 +64,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? request.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || crypto.randomUUID()
 
   try {
     const body = await request.json()
@@ -72,12 +77,25 @@ export async function POST(request: NextRequest) {
       entryCount: body.entry?.length || 0,
     })
 
+    const supabase = getSupabase()
+
+    // Store webhook event for audit trail (canonical receipt contract)
+    try {
+      await supabase.from('webhook_events').insert({
+        provider: 'facebook',
+        request_id: requestId,
+        event_data: { ...body, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      logger.warn('[Facebook Webhook] Failed to store webhook event:', e)
+    }
+
     // Only process page events
     if (body.object !== 'page') {
       return NextResponse.json({ success: true, message: 'Not a page event' })
     }
-
-    const supabase = getSupabase()
     let executed = 0
 
     for (const entry of (body.entry || [])) {
@@ -156,7 +174,7 @@ export async function POST(request: NextRequest) {
             provider: 'facebook',
             triggerType,
             triggerData,
-            metadata: { pageId, item, entryTime: entry.time },
+            metadata: { pageId, item, entryTime: entry.time, requestId },
           })
           if (result.success) executed++
         }

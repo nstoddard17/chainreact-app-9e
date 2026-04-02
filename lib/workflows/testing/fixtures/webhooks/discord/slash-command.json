@@ -1,0 +1,11 @@
+{
+  "t": "INTERACTION_CREATE",
+  "d": {
+    "id": "interaction-test-001",
+    "type": 2,
+    "data": { "name": "test-command", "id": "cmd-test-001", "options": [] },
+    "member": { "user": { "id": "user-test-003", "username": "commander" } },
+    "channel_id": "channel-test-001",
+    "guild_id": "guild-test-001"
+  }
+}

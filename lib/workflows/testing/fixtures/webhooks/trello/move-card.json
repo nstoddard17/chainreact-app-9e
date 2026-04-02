@@ -1,0 +1,15 @@
+{
+  "action": {
+    "id": "action-test-move-001",
+    "type": "updateCard",
+    "date": "2026-03-31T12:00:00.000Z",
+    "data": {
+      "card": { "id": "card-test-002", "name": "Moved Card", "shortLink": "mov001" },
+      "board": { "id": "board-test-001" },
+      "listBefore": { "id": "list-test-001", "name": "To Do" },
+      "listAfter": { "id": "list-test-002", "name": "Done" },
+      "old": { "idList": "list-test-001" }
+    },
+    "memberCreator": { "id": "member-test-001", "fullName": "Test User" }
+  }
+}

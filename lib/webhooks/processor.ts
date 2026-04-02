@@ -45,6 +45,9 @@ export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
     const dedupeKey = event.id || event.eventData?.id || event.eventData?.message?.id
     let supabaseForDedupe: Awaited<ReturnType<typeof createSupabaseServiceClient>> | null = null
 
+    // DB dedup: scoped by provider + dedupeKey. Only when dedupeKey is present.
+    // The in-memory cache in execute.ts is the primary dedup defense;
+    // this is a secondary guard for retries that slip past (e.g., after server restart).
     if (dedupeKey) {
       try {
         supabaseForDedupe = await createSupabaseServiceClient()
@@ -52,7 +55,7 @@ export async function processWebhookEvent(event: WebhookEvent): Promise<any> {
           .from('webhook_events')
           .select('id')
           .eq('provider', event.provider)
-          .eq('request_id', dedupeKey)
+          .contains('event_data', { _meta: { dedupeKey } })
           .maybeSingle()
 
         if (!dedupeError && existingEvent) {
@@ -515,23 +518,26 @@ async function storeWebhookEvent(event: WebhookEvent, dedupeKey?: string | null,
     const supabase = existingClient || await createSupabaseServiceClient()
     let eventDataToStore: any = event.eventData
 
-    if (event.requestId && typeof eventDataToStore === 'object' && eventDataToStore !== null) {
+    if (typeof eventDataToStore === 'object' && eventDataToStore !== null) {
       eventDataToStore = {
         ...eventDataToStore,
         _meta: {
           ...(eventDataToStore._meta || {}),
-          originalRequestId: event.requestId
+          ...(event.requestId ? { originalRequestId: event.requestId } : {}),
+          ...(dedupeKey ? { dedupeKey } : {}),
         }
       }
     }
 
+    // Canonical receipt contract: request_id is always the requestId (testRunId in test mode).
+    // Dedup identity lives in event_data._meta.dedupeKey, queried separately.
     await supabase
       .from('webhook_events')
       .insert({
         provider: event.provider,
         service: event.service,
         event_data: eventDataToStore,
-        request_id: dedupeKey || event.requestId,
+        request_id: event.requestId,
         status: 'received',
         timestamp: event.timestamp
       })

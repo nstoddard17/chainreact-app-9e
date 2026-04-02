@@ -1,0 +1,13 @@
+{
+  "t": "GUILD_MEMBER_ADD",
+  "d": {
+    "user": {
+      "id": "user-nomatch-999",
+      "username": "nomatch-user",
+      "discriminator": "0000",
+      "avatar": null
+    },
+    "guild_id": "guild-nomatch-999",
+    "joined_at": "2026-03-31T12:00:00.000Z"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": 632910393,
+  "title": "Updated Product",
+  "body_html": "<p>Updated description</p>",
+  "vendor": "Test Shop",
+  "product_type": "Widget",
+  "tags": "test, updated",
+  "status": "active",
+  "variants": [{ "id": 808950811, "title": "Default", "price": "19.99" }],
+  "created_at": "2026-01-15T10:00:00-07:00",
+  "updated_at": "2026-03-31T12:00:00-07:00"
+}

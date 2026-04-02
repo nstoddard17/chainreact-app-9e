@@ -1,0 +1,31 @@
+{
+  "token": "test-verification-token",
+  "team_id": "T9999",
+  "api_app_id": "A9999",
+  "event": {
+    "type": "reaction_added",
+    "user": "U9999",
+    "reaction": "thumbsup",
+    "item": {
+      "type": "message",
+      "channel": "C9999",
+      "ts": "1711900900.000200"
+    },
+    "item_user": "U9998",
+    "event_ts": "1711900900.000300",
+    "team": "T9999"
+  },
+  "type": "event_callback",
+  "event_id": "Ev9999NOMATCH",
+  "event_time": 1711900900,
+  "authorizations": [
+    {
+      "enterprise_id": null,
+      "team_id": "T9999",
+      "user_id": "U9997",
+      "is_bot": true,
+      "is_enterprise_install": false
+    }
+  ],
+  "is_ext_shared_channel": false
+}

@@ -1,0 +1,13 @@
+{
+  "action": {
+    "id": "action-test-member-001",
+    "type": "addMemberToCard",
+    "date": "2026-03-31T12:00:00.000Z",
+    "data": {
+      "card": { "id": "card-test-001", "name": "Test Card", "shortLink": "mbr001" },
+      "board": { "id": "board-test-001" }
+    },
+    "member": { "fullName": "Added Member" },
+    "memberCreator": { "id": "member-test-001", "fullName": "Test User" }
+  }
+}

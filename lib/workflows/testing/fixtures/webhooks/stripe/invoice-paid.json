@@ -1,0 +1,42 @@
+{
+  "id": "evt_test_010",
+  "object": "event",
+  "api_version": "2025-05-28.basil",
+  "created": 1711900809,
+  "type": "invoice.paid",
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_test_010",
+    "idempotency_key": null
+  },
+  "data": {
+    "object": {
+      "id": "in_test_010",
+      "object": "invoice",
+      "customer": "cus_test_010",
+      "subscription": "sub_test_010",
+      "status": "paid",
+      "amount_due": 1999,
+      "amount_paid": 1999,
+      "amount_remaining": 0,
+      "currency": "usd",
+      "customer_email": "test@example.com",
+      "payment_intent": "pi_test_010",
+      "lines": {
+        "object": "list",
+        "data": [
+          {
+            "id": "il_test_010",
+            "object": "line_item",
+            "amount": 1999,
+            "currency": "usd",
+            "description": "1x Pro Plan (at $19.99 / month)"
+          }
+        ]
+      },
+      "created": 1711900809,
+      "metadata": {}
+    }
+  }
+}

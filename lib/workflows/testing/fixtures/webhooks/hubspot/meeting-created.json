@@ -1,0 +1,10 @@
+{
+  "subscriptionType": "meeting.creation",
+  "objectId": "hs-meeting-001",
+  "portalId": "portal-test-001",
+  "occurredAt": 1711900800000,
+  "attemptNumber": 0,
+  "changeSource": "CRM",
+  "propertyName": null,
+  "propertyValue": null
+}

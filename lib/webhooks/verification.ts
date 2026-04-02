@@ -68,8 +68,8 @@ export async function verifyWebhookSignature(
 function getWebhookSecret(provider: string): string | null {
   const secrets: Record<string, string> = {
     discord: process.env.DISCORD_BOT_TOKEN || process.env.DISCORD_WEBHOOK_SECRET || '',
-    slack: process.env.SLACK_SIGNING_SECRET || process.env.SLACK_WEBHOOK_SECRET || '',
-    github: process.env.GITHUB_ACCESS_TOKEN || process.env.GITHUB_WEBHOOK_SECRET || '',
+    slack: process.env.SLACK_SIGNING_SECRET || process.env.SLACK_CLIENT_SECRET || '',
+    github: process.env.GITHUB_WEBHOOK_SECRET || process.env.GITHUB_CLIENT_SECRET || '',
     notion: process.env.NOTION_API_KEY || process.env.NOTION_WEBHOOK_SECRET || '',
     // Add more providers as needed
   }

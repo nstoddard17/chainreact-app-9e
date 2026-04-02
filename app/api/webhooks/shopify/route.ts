@@ -41,7 +41,10 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  const requestId = `shopify_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? request.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || `shopify_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
   try {
     // Get raw body for HMAC verification (must be read before parsing)
@@ -91,11 +94,22 @@ export async function POST(request: NextRequest) {
       triggerType,
     })
 
+    // Store webhook event for audit trail (canonical receipt contract)
+    const supabase = getSupabase()
+    try {
+      await supabase.from('webhook_events').insert({
+        provider: 'shopify',
+        request_id: requestId,
+        event_data: { ...payload, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      logger.warn('[Shopify Webhook] Failed to store webhook event:', e)
+    }
+
     // Get workflowId from query params (set during webhook creation in onActivate)
     const workflowId = request.nextUrl.searchParams.get('workflowId')
-
-    // Query trigger_resources for matching active triggers
-    const supabase = getSupabase()
     let query = supabase
       .from('trigger_resources')
       .select('workflow_id, user_id, config, trigger_type')

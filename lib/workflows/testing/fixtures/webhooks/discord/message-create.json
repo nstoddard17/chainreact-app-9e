@@ -1,0 +1,18 @@
+{
+  "t": "MESSAGE_CREATE",
+  "d": {
+    "id": "1234567890123456",
+    "content": "Test message from webhook harness",
+    "author": {
+      "id": "user-test-001",
+      "username": "harness-bot"
+    },
+    "channel_id": "channel-test-001",
+    "channel_name": "test-channel",
+    "guild_id": "guild-test-001",
+    "guild_name": "Test Server",
+    "timestamp": "2026-03-31T12:00:00.000Z",
+    "attachments": [],
+    "mentions": []
+  }
+}

@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { executeWebhookWorkflow } from '@/lib/webhooks/execute'
 import {
@@ -44,6 +45,11 @@ const SUBSCRIPTION_TO_TRIGGER_MAP: Record<string, string> = {
  * POST handler - receives webhook notifications from HubSpot
  */
 export async function POST(req: NextRequest) {
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? req.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || crypto.randomUUID()
+
   logger.info('🔔 HubSpot webhook received at', new Date().toISOString())
 
   // Create client inside handler to avoid build-time initialization
@@ -54,6 +60,19 @@ export async function POST(req: NextRequest) {
 
   try {
     const payload = await req.json()
+
+    // Store webhook event for audit trail (canonical receipt contract)
+    try {
+      await supabase.from('webhook_events').insert({
+        provider: 'hubspot',
+        request_id: requestId,
+        event_data: { ...payload, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      logger.warn('[HubSpot Webhook] Failed to store webhook event:', e)
+    }
 
     logger.info('📦 HubSpot webhook payload:', {
       subscriptionType: payload.subscriptionType,
@@ -134,7 +153,7 @@ export async function POST(req: NextRequest) {
         provider: 'hubspot',
         triggerType,
         triggerData,
-        metadata: { subscriptionType: payload.subscriptionType, objectId: payload.objectId },
+        metadata: { subscriptionType: payload.subscriptionType, objectId: payload.objectId, requestId },
       })
       if (execResult.success) executed++
     }

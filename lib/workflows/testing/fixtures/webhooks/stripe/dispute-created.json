@@ -1,0 +1,33 @@
+{
+  "id": "evt_test_013",
+  "object": "event",
+  "api_version": "2025-05-28.basil",
+  "created": 1711900812,
+  "type": "charge.dispute.created",
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_test_013",
+    "idempotency_key": null
+  },
+  "data": {
+    "object": {
+      "id": "dp_test_013",
+      "object": "dispute",
+      "charge": "ch_test_013",
+      "payment_intent": "pi_test_013",
+      "amount": 2000,
+      "currency": "usd",
+      "status": "needs_response",
+      "reason": "fraudulent",
+      "is_charge_refundable": false,
+      "evidence_details": {
+        "due_by": 1713110412,
+        "has_evidence": false,
+        "submission_count": 0
+      },
+      "created": 1711900812,
+      "metadata": {}
+    }
+  }
+}

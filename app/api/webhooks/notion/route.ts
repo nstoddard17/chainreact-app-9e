@@ -146,7 +146,10 @@ async function markWebhookAsVerified(workflowId: string, nodeId: string): Promis
 }
 
 export async function POST(req: NextRequest) {
-  const requestId = crypto.randomBytes(16).toString('hex')
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? req.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || crypto.randomBytes(16).toString('hex')
   const timestamp = new Date().toISOString()
 
   try {

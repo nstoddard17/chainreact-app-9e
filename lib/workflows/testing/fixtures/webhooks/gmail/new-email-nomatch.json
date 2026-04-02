@@ -1,0 +1,8 @@
+{
+  "message": {
+    "data": "eyJlbWFpbEFkZHJlc3MiOiJub21hdGNoQGV4YW1wbGUuY29tIiwiaGlzdG9yeUlkIjoiOTk5OTkifQ==",
+    "messageId": "msg-pubsub-nomatch-001",
+    "publishTime": "2026-03-31T12:00:00.000Z"
+  },
+  "subscription": "projects/test-project/subscriptions/gmail-push-nomatch"
+}

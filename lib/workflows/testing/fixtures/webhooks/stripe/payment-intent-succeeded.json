@@ -1,0 +1,27 @@
+{
+  "id": "evt_test_harness_001",
+  "object": "event",
+  "api_version": "2025-05-28.basil",
+  "created": 1711900800,
+  "type": "payment_intent.succeeded",
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_test_001",
+    "idempotency_key": null
+  },
+  "data": {
+    "object": {
+      "id": "pi_test_001",
+      "object": "payment_intent",
+      "amount": 2000,
+      "currency": "usd",
+      "status": "succeeded",
+      "description": "Test payment from webhook harness",
+      "customer": "cus_test_001",
+      "payment_method": "pm_test_001",
+      "created": 1711900800,
+      "metadata": {}
+    }
+  }
+}

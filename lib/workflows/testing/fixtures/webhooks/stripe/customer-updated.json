@@ -1,0 +1,30 @@
+{
+  "id": "evt_test_012",
+  "object": "event",
+  "api_version": "2025-05-28.basil",
+  "created": 1711900811,
+  "type": "customer.updated",
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_test_012",
+    "idempotency_key": null
+  },
+  "data": {
+    "object": {
+      "id": "cus_test_012",
+      "object": "customer",
+      "name": "Test Customer",
+      "email": "updated@example.com",
+      "phone": "+15555555555",
+      "description": "Test customer from webhook harness",
+      "currency": "usd",
+      "default_source": null,
+      "created": 1711900811,
+      "metadata": {}
+    },
+    "previous_attributes": {
+      "email": "original@example.com"
+    }
+  }
+}

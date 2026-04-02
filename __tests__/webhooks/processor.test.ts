@@ -52,6 +52,9 @@ jest.mock('@/utils/supabase/server', () => ({
                 eq: jest.fn().mockReturnValue({
                   maybeSingle: mockMaybeSingle,
                 }),
+                contains: jest.fn().mockReturnValue({
+                  maybeSingle: mockMaybeSingle,
+                }),
               }),
             }),
             insert: jest.fn().mockResolvedValue({ data: null, error: null }),

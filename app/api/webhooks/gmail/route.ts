@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { createClient } from '@supabase/supabase-js'
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
 import { verifyGmailWebhook } from '@/lib/webhooks/gmail-verification'
 import { processGmailEvent } from '@/lib/webhooks/gmail-processor'
 import { logWebhookEvent } from '@/lib/webhooks/event-logger'
 
 import { logger } from '@/lib/utils/logger'
+
+const getSupabase = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 export async function POST(request: NextRequest) {
   logger.info('🔔🔔🔔 GMAIL WEBHOOK ENDPOINT HIT! 🔔🔔🔔')
@@ -15,7 +21,10 @@ export async function POST(request: NextRequest) {
   logger.info('📋 Request headers:', headers)
 
   // Define requestId before try block so it's accessible in catch
-  const requestId = crypto.randomUUID()
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? request.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || crypto.randomUUID()
   const startTime = Date.now()
 
   try {
@@ -68,7 +77,11 @@ export async function POST(request: NextRequest) {
           emailAddress: gmailNotification.emailAddress,
           historyId: gmailNotification.historyId,
           messageId: parsedBody.message.messageId,
-          publishTime: parsedBody.message.publishTime
+          publishTime: parsedBody.message.publishTime,
+          // Pass through test trigger data when in test mode (ignored in production by processor)
+          ...(process.env.WEBHOOK_TEST_MODE === 'true' && gmailNotification._testTriggerData
+            ? { _testTriggerData: gmailNotification._testTriggerData }
+            : {}),
         }
 
         logger.info(`[${requestId}] 📧 Gmail notification received:`, {
@@ -112,6 +125,20 @@ export async function POST(request: NextRequest) {
       eventData: eventData,
       timestamp: new Date().toISOString()
     })
+
+    // Store webhook event for audit trail (canonical receipt contract)
+    try {
+      const supabase = getSupabase()
+      await supabase.from('webhook_events').insert({
+        provider: 'gmail',
+        request_id: requestId,
+        event_data: { ...eventData, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      logger.warn(`[${requestId}] Failed to store canonical webhook event:`, e)
+    }
 
     // Process the Gmail event
     const result = await processGmailEvent({

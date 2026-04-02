@@ -82,7 +82,7 @@ export class GitHubTriggerLifecycle implements TriggerLifecycle {
     const webhookUrl = `${baseUrl}/api/webhooks/github`
 
     // Create webhook on the repository
-    const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET || process.env.GITHUB_ACCESS_TOKEN || ''
+    const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET || process.env.GITHUB_CLIENT_SECRET || ''
     const createUrl = `${GITHUB_API_BASE}/repos/${repoPath}/hooks`
 
     const response = await fetch(createUrl, {

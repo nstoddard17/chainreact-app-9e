@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createHmac } from 'crypto'
+import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
 import { executeWebhookWorkflow } from '@/lib/webhooks/execute'
@@ -70,6 +71,11 @@ function verifySignature(
 }
 
 export async function POST(request: NextRequest) {
+  const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+    ? request.headers.get('x-test-run-id')
+    : null
+  const requestId = testRunId || crypto.randomUUID()
+
   try {
     // Get raw body for signature verification
     const rawBody = await request.text()
@@ -168,30 +174,21 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getSupabase()
-    const eventIdBase = event?.eventId || event?.id || event?.itemId || event?.pulseId || event?.boardId || 'event'
-    const webhookData = {
-      provider: 'monday',
-      event_type: eventType,
-      event_id: `monday_${eventType}_${eventIdBase}_${Date.now()}`,
-      payload: transformedPayload,
-      received_at: new Date().toISOString()
+
+    // Store webhook event for audit trail (canonical receipt contract)
+    try {
+      await supabase.from('webhook_events').insert({
+        provider: 'monday',
+        request_id: requestId,
+        event_data: { ...transformedPayload, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      logger.warn('[Monday Webhook] Failed to store webhook event:', e)
     }
 
-    const { data, error } = await supabase
-      .from('webhook_events')
-      .insert(webhookData)
-      .select()
-      .single()
-
-    if (error) {
-      logger.error('[Monday Webhook] Failed to store event:', error)
-      const response = NextResponse.json({ error: 'Failed to store webhook' }, { status: 500 })
-      return addCorsHeaders(response, request, { allowCredentials: true })
-    }
-
-    logger.info('[Monday Webhook] Stored event', { id: data.id })
-
-    await triggerWorkflowsForEvent(triggerType, transformedPayload, data.id, workflowId, nodeId)
+    await triggerWorkflowsForEvent(triggerType, transformedPayload, requestId, workflowId, nodeId)
 
     /**
      * Event processing will look like:
@@ -291,7 +288,7 @@ async function triggerWorkflowsForEvent(
         provider: 'monday',
         triggerType,
         triggerData: payload,
-        metadata: { eventId },
+        metadata: { eventId, requestId: eventId },
       })
 
       logger.info(`[Monday Webhook] Executed workflow ${workflowId}`)
@@ -316,7 +313,7 @@ async function triggerWorkflowsForEvent(
           provider: 'monday',
           triggerType,
           triggerData: payload,
-          metadata: { eventId },
+          metadata: { eventId, requestId: eventId },
         })
       }
       logger.info(`[Monday Webhook] Executed ${resources.length} workflow(s)`)

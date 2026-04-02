@@ -22,7 +22,7 @@ const getSupabase = () => createClient(
  * Verify GitHub webhook HMAC-SHA256 signature
  */
 function verifyGitHubSignature(rawBody: string, signatureHeader: string | null): boolean {
-  const secret = process.env.GITHUB_WEBHOOK_SECRET || process.env.GITHUB_ACCESS_TOKEN
+  const secret = process.env.GITHUB_WEBHOOK_SECRET || process.env.GITHUB_CLIENT_SECRET
   if (!secret) {
     logger.warn('[GitHub Webhook] No secret configured — skipping verification')
     return true
@@ -53,6 +53,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const rawBody = await request.text()
+    const testRunId = process.env.WEBHOOK_TEST_MODE === 'true'
+      ? request.headers.get('x-test-run-id')
+      : null
+    const requestId = testRunId || crypto.randomUUID()
 
     // Verify signature
     const signature = request.headers.get('x-hub-signature-256')
@@ -114,8 +118,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Find matching trigger resources
+    // Store webhook event for audit trail (canonical receipt contract)
     const supabase = getSupabase()
+    try {
+      await supabase.from('webhook_events').insert({
+        provider: 'github',
+        request_id: requestId,
+        event_data: { ...payload, _meta: { originalRequestId: requestId } },
+        status: 'received',
+        timestamp: new Date().toISOString(),
+      })
+    } catch (e) {
+      logger.warn('[GitHub Webhook] Failed to store webhook event:', e)
+    }
+
+    // Find matching trigger resources
     const { data: resources, error } = await supabase
       .from('trigger_resources')
       .select('workflow_id, user_id, config')
@@ -151,7 +168,7 @@ export async function POST(request: NextRequest) {
         triggerType,
         triggerData,
         dedupeKey: deliveryId || undefined,
-        metadata: { event, deliveryId, repository: repoFullName },
+        metadata: { event, deliveryId, repository: repoFullName, requestId },
       })
       if (result.success && !result.duplicate) executed++
     }

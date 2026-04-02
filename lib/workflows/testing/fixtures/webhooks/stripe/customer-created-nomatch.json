@@ -1,0 +1,23 @@
+{
+  "id": "evt_test_harness_nomatch_001",
+  "object": "event",
+  "api_version": "2025-05-28.basil",
+  "created": 1711900800,
+  "type": "customer.created",
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_test_nomatch_001",
+    "idempotency_key": null
+  },
+  "data": {
+    "object": {
+      "id": "cus_nomatch_001",
+      "object": "customer",
+      "email": "nomatch@example.com",
+      "name": "Nomatch User",
+      "created": 1711900800,
+      "metadata": {}
+    }
+  }
+}

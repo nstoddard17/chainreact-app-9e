@@ -1,0 +1,10 @@
+{
+  "subscriptionType": "contact.propertyChange",
+  "objectId": "hs-contact-upd-001",
+  "portalId": "portal-test-001",
+  "occurredAt": 1711900800000,
+  "attemptNumber": 0,
+  "changeSource": "CRM",
+  "propertyName": "email",
+  "propertyValue": "updated@example.com"
+}
