@@ -2,6 +2,7 @@ import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { cookies } from "next/headers"
 import { type NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { isProfileAdmin } from '@/lib/types/admin'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -27,11 +28,11 @@ export async function GET(request: NextRequest) {
     if (user && !userError) {
       const { data: profile } = await supabase
         .from("user_profiles")
-        .select("admin")
+        .select("admin_capabilities")
         .eq("id", user.id)
         .maybeSingle()
 
-      isAdmin = profile?.admin === true
+      isAdmin = isProfileAdmin(profile)
     }
 
     const requestingAdminScope = scope === "admin"

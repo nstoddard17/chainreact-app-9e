@@ -17,22 +17,24 @@ export function useAuthReady({
 }: UseAuthReadyOptions = {}) {
   const { user, phase } = useAuthStore()
 
+  const isUsable = phase === 'ready' || phase === 'degraded'
+
   const checkAndExecute = useCallback(() => {
-    if (phase !== 'ready') return
+    if (!isUsable) return
 
     if (user && onReady) {
       onReady()
     } else if (!user && onNotAuthenticated) {
       onNotAuthenticated()
     }
-  }, [user, phase, onReady, onNotAuthenticated])
+  }, [user, isUsable, onReady, onNotAuthenticated])
 
   useEffect(() => {
     checkAndExecute()
   }, [checkAndExecute])
 
   return {
-    isReady: phase === 'ready',
+    isReady: isUsable,
     isAuthenticated: !!user,
     user
   }

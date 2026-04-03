@@ -1,6 +1,7 @@
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
+import { isProfileAdmin } from '@/lib/types/admin'
 
 interface TemplateAccessResult {
   supabase: ReturnType<typeof createSupabaseRouteHandlerClient> extends Promise<infer T> ? T : any
@@ -31,7 +32,7 @@ export async function requireTemplateAccess(templateId: string): Promise<Templat
 
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
-    .select("role")
+    .select("role, admin_capabilities")
     .eq("id", user.id)
     .maybeSingle()
 
@@ -57,11 +58,11 @@ export async function requireTemplateAccess(templateId: string): Promise<Templat
       user,
       template: null,
       errorResponse: NextResponse.json({ error: "Template not found" }, { status: 404 }),
-      isAdmin: profile?.admin === true,
+      isAdmin: isProfileAdmin(profile),
     }
   }
 
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
   const createdBy =
     template?.created_by ??
     template?.user_id ??

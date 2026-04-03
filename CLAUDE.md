@@ -305,6 +305,29 @@ import { handleCorsPreFlight, addCorsHeaders } from '@/lib/utils/cors'
 ### General
 No token logging. Encrypted storage (AES-256). Scope validation. OAuth best practices. RLS policies.
 
+### Admin Authorization Architecture
+**Three-layer enforcement:** Middleware (JWT claims) → API route (`requireAdmin()`) → Action-scoped helpers.
+
+**Capabilities:** `super_admin` (grants all), `user_admin`, `support_admin`, `billing_admin`. Stored as JSONB on `user_profiles.admin_capabilities`. Synced to JWT via `sync_access_claims` DB trigger.
+
+**Key files:**
+- Types: `/lib/types/admin.ts` — `AdminCapability`, `hasCapability()`, `validateCapabilities()`
+- Auth guard: `/lib/utils/admin-auth.ts` — `requireAdmin({ capabilities?, stepUp? })`
+- Cron guard: `/lib/utils/cron-auth.ts` — `requireCronAuth(request)`
+- Audit: `/lib/utils/admin-audit.ts` — `logAdminAction()`
+- Scoped helpers: `/lib/admin/userActions.ts`, `betaTesterActions.ts`, `waitlistActions.ts`
+- Step-up: `/app/api/admin/verify-identity/route.ts`
+- Frontend: `/components/admin/StepUpAuthDialog.tsx`, `/hooks/useAdminAction.ts`
+
+**Rules:**
+- Every admin route MUST use `requireAdmin({ capabilities: [...] })` — no inline checks
+- Route files MUST NOT create or receive raw service clients — use action-scoped helpers in `/lib/admin/`
+- Destructive actions (delete user, change role/admin) require `stepUp: true`
+- Step-up priority: MFA > provider re-auth > password > email OTP
+- All admin mutations MUST call `logAdminAction()` (built into scoped helpers)
+- Capability assignment restricted to `super_admin` + step-up auth
+- Backwards compat: `admin=true` with empty capabilities = `super_admin`
+
 ## Testing
 
 ### Admin Debug Panel Logging — MANDATORY
@@ -432,8 +455,9 @@ NO automatic commits/push unless explicitly asked.
 ## Auth Store Guardrails
 - `stores/authStore.ts` clears initialization watchdog as soon as session exists
 - Keep `clearInitTimeout()` and early `set({ user, initialized: true })` calls
-- `Profile` objects MUST include `email` and `provider`
+- `Profile` objects MUST include `email`, `provider`, and `admin_capabilities`
 - Use `@/utils/supabaseClient` for all client-side Supabase access
+- `PROFILE_COLUMNS` in `authBootMachine.ts` and `PROFILE_SELECT` in `ensureUserProfile.ts` must stay in sync — both include `admin_capabilities`
 
 ## AI Agent Cold Start Bug
 **Symptom:** Agent stuck on "Outline the flow to achieve the task" after cold dev restart.

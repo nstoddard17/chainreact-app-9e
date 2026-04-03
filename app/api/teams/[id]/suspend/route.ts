@@ -1,5 +1,6 @@
 import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
 import { requireTeamRole } from '@/lib/utils/permissions'
+import { isProfileAdmin } from '@/lib/types/admin'
 import { cookies } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 import { logger } from "@/lib/utils/logger"
@@ -63,11 +64,11 @@ export async function POST(
     // Also check if user is platform admin
     const { data: profile } = await supabase
       .from("user_profiles")
-      .select("admin")
+      .select("admin_capabilities")
       .eq("id", user.id)
       .single()
 
-    const isAdmin = profile?.admin === true
+    const isAdmin = isProfileAdmin(profile)
 
     // Check permission: user must be team owner/admin or platform admin
     if (!isAdmin) {

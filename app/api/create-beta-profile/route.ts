@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
+import { ensureUserProfile } from '@/lib/auth/ensureUserProfile'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -31,49 +32,17 @@ export async function POST(request: Request) {
       return errorResponse('Missing required fields' , 400)
     }
 
-    // First check if profile already exists
-    const { data: existingProfile } = await getSupabaseAdmin()
-      .from('user_profiles')
-      .select('id')
-      .eq('id', userId)
-      .single()
-
-    let profileResult
-
-    if (existingProfile) {
-      // Update existing profile
-      profileResult = await getSupabaseAdmin()
-        .from('user_profiles')
-        .update({
-          username: username.toLowerCase().trim(),
-          full_name: fullName,
-          role: 'beta-pro',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId)
-        .select()
-        .single()
-    } else {
-      // Create new profile
-      profileResult = await getSupabaseAdmin()
-        .from('user_profiles')
-        .insert({
-          id: userId,
-          username: username.toLowerCase().trim(),
-          full_name: fullName,
-          role: 'beta-pro',
-          provider: 'email',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single()
-    }
-
-    if (profileResult.error) {
-      logger.error('Profile creation/update error:', profileResult.error)
-      return errorResponse(profileResult.error.message , 500)
-    }
+    const { profile } = await ensureUserProfile(
+      getSupabaseAdmin(),
+      userId,
+      {
+        username: username.toLowerCase().trim(),
+        full_name: fullName,
+        role: 'beta-pro',
+        provider: 'email',
+      },
+      { applyOverridesToExisting: true },
+    )
 
     // Update beta tester status to converted (if they exist and haven't already converted)
     if (email) {
@@ -99,7 +68,7 @@ export async function POST(request: Request) {
 
     return jsonResponse({
       success: true,
-      profile: profileResult.data
+      profile
     })
 
   } catch (error) {

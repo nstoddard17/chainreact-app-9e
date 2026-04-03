@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -149,7 +150,7 @@ const BuilderHeaderComponent = ({
   const { toast } = useToast()
   const { duplicateWorkflow, deleteWorkflow, isDuplicating, isDeleting } = useWorkflowActions()
   const { profile } = useAuthStore()
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
 
   const [isEditingName, setIsEditingName] = useState(false)
   const [showVersionsDialog, setShowVersionsDialog] = useState(false)

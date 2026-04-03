@@ -8,12 +8,14 @@ import { useAuthStore } from "@/stores/authStore"
 export function useAuth() {
   const { user, loading, error, phase } = useAuthStore()
 
+  const isUsable = phase === 'ready' || phase === 'degraded'
+
   return {
     user,
     loading,
     error,
     phase,
-    isReady: phase === 'ready',
-    isAuthenticated: !!user && phase === 'ready',
+    isReady: isUsable,
+    isAuthenticated: !!user && isUsable,
   }
 }

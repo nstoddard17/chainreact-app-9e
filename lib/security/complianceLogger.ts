@@ -20,7 +20,14 @@ export interface ComplianceLogEntry {
 }
 
 export class ComplianceLogger {
-  private supabase = createAdminClient()
+  private _supabase: ReturnType<typeof createAdminClient> | null = null
+
+  private get supabase() {
+    if (!this._supabase) {
+      this._supabase = createAdminClient()
+    }
+    return this._supabase
+  }
 
   async logAction(entry: ComplianceLogEntry) {
     // Calculate retention period based on compliance requirements

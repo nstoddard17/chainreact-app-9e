@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { useDebugStore } from "@/stores/debugStore"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -107,7 +108,7 @@ export function NewSidebar() {
   const [tasksLimit, setTasksLimit] = useState<number | null>(null)
 
   // Check if user is admin
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
 
   // Generate referral link based on user ID
   const userReferralLink = profile?.id

@@ -1,50 +1,26 @@
-import { NextResponse } from "next/server"
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
-
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
+import { requireAdmin } from '@/lib/utils/admin-auth'
+import { getOnlineUsers } from '@/lib/admin/userActions'
 import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
-    const supabase = await createSupabaseRouteHandlerClient();
+  const authResult = await requireAdmin({ capabilities: ['support_admin'] })
+  if (!authResult.isAdmin) return authResult.response
 
-    const { data: { user } } = await supabase.auth.getUser();
+  try {
+    const { data: onlineUsers, error } = await getOnlineUsers()
 
-    if (!user) {
-        return errorResponse("Unauthorized" , 401);
+    if (error) {
+      logger.error('Error fetching online users:', error)
+      return errorResponse('Failed to fetch online users', 500)
     }
 
-    // Check if user is admin
-    const { data: userProfile } = await supabase
-        .from('user_profiles')
-        .select('admin')
-        .eq('id', user.id)
-        .single();
-
-    if (!userProfile || userProfile.admin !== true) {
-        return errorResponse("Admin access required" , 403);
-    }
-
-    try {
-        // Get all online users (active in last 5 minutes)
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        
-        const { data: onlineUsers, error } = await supabase
-            .from('user_presence')
-            .select('*')
-            .gte('last_seen', fiveMinutesAgo.toISOString())
-            .order('last_seen', { ascending: false });
-
-        if (error) {
-            logger.error("Error fetching online users:", error);
-            return errorResponse("Failed to fetch online users" , 500);
-        }
-
-        return jsonResponse({ 
-            success: true, 
-            users: onlineUsers || [] 
-        });
-    } catch (error) {
-        logger.error("Error fetching online users:", error);
-        return errorResponse("Failed to fetch online users" , 500);
-    }
-} 
+    return jsonResponse({
+      success: true,
+      users: onlineUsers || [],
+    })
+  } catch (error) {
+    logger.error('Error fetching online users:', error)
+    return errorResponse('Failed to fetch online users', 500)
+  }
+}

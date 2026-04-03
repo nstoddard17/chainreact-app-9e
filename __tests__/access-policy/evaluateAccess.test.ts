@@ -67,7 +67,7 @@ describe('isRecognizedPlan', () => {
 
 describe('buildAccessSubject', () => {
   it('builds from profile with plan', () => {
-    const s = buildAccessSubject({ plan: 'pro', admin: false, username: 'alice' }, true)
+    const s = buildAccessSubject({ plan: 'pro', username: 'alice' }, true)
     expect(s).toEqual({
       isAuthenticated: true,
       hasUsername: true,
@@ -77,47 +77,47 @@ describe('buildAccessSubject', () => {
   })
 
   it('normalizes beta plan', () => {
-    const s = buildAccessSubject({ plan: 'beta-pro', admin: false, username: 'bob' }, true)
+    const s = buildAccessSubject({ plan: 'beta-pro', username: 'bob' }, true)
     expect(s.plan).toBe('pro')
   })
 
   it('defaults null plan to free', () => {
-    const s = buildAccessSubject({ plan: null, admin: false, username: 'carol' }, true)
+    const s = buildAccessSubject({ plan: null, username: 'carol' }, true)
     expect(s.plan).toBe('free')
   })
 
   it('defaults missing plan to free', () => {
-    const s = buildAccessSubject({ admin: false, username: 'dave' }, true)
+    const s = buildAccessSubject({ username: 'dave' }, true)
     expect(s.plan).toBe('free')
   })
 
   it('defaults invalid plan to free', () => {
-    const s = buildAccessSubject({ plan: 'garbage', admin: false, username: 'eve' }, true)
+    const s = buildAccessSubject({ plan: 'garbage', username: 'eve' }, true)
     expect(s.plan).toBe('free')
   })
 
-  it('sets isAdmin from profile.admin', () => {
-    const s = buildAccessSubject({ plan: 'free', admin: true, username: 'admin' }, true)
+  it('sets isAdmin from admin_capabilities', () => {
+    const s = buildAccessSubject({ plan: 'free', admin_capabilities: { super_admin: true }, username: 'admin' }, true)
     expect(s.isAdmin).toBe(true)
   })
 
-  it('treats null admin as false', () => {
-    const s = buildAccessSubject({ plan: 'free', admin: null, username: 'user' }, true)
+  it('treats missing admin_capabilities as non-admin', () => {
+    const s = buildAccessSubject({ plan: 'free', admin_capabilities: null, username: 'user' }, true)
     expect(s.isAdmin).toBe(false)
   })
 
   it('detects empty username', () => {
-    const s = buildAccessSubject({ plan: 'free', admin: false, username: '' }, true)
+    const s = buildAccessSubject({ plan: 'free', username: '' }, true)
     expect(s.hasUsername).toBe(false)
   })
 
   it('detects whitespace-only username', () => {
-    const s = buildAccessSubject({ plan: 'free', admin: false, username: '   ' }, true)
+    const s = buildAccessSubject({ plan: 'free', username: '   ' }, true)
     expect(s.hasUsername).toBe(false)
   })
 
   it('detects null username', () => {
-    const s = buildAccessSubject({ plan: 'free', admin: false, username: null }, true)
+    const s = buildAccessSubject({ plan: 'free', username: null }, true)
     expect(s.hasUsername).toBe(false)
   })
 
@@ -133,7 +133,7 @@ describe('buildAccessSubject', () => {
 
   it('does not accept role field', () => {
     // TypeScript enforces this at compile time; this test documents the intent
-    const profile = { plan: 'pro', admin: false, username: 'user' }
+    const profile = { plan: 'pro', username: 'user' }
     const s = buildAccessSubject(profile, true)
     expect(s.plan).toBe('pro')
     // role is not part of the subject

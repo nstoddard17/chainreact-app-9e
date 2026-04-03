@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { Button } from "@/components/ui/button"
 import { LogOut, User, Menu, Settings, ChevronDown, Crown } from "lucide-react"
 import { useRouter } from "next/navigation"
@@ -44,7 +45,7 @@ export default function TopBar({ onMobileMenuChange, title, subtitle }: TopBarPr
     }
   }
 
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
   // If user is admin, show admin badge; otherwise show their role badge
   const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 

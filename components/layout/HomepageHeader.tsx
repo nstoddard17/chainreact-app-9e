@@ -16,6 +16,7 @@ import {
 import { Moon, Sun, Menu, X, ChevronDown, User, Settings, HelpCircle, LogOut, Zap, Crown } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useAuthStore } from '@/stores/authStore'
+import { isProfileAdmin } from "@/lib/types/admin"
 import { useSignedAvatarUrl } from '@/hooks/useSignedAvatarUrl'
 
 export function HomepageHeader() {
@@ -31,7 +32,7 @@ export function HomepageHeader() {
   // Wait for profile to load before showing username - don't flash email first
   const profileLoaded = !!profile
   const displayName = profile?.username || profile?.full_name || (profileLoaded ? user?.email?.split('@')[0] : null) || "User"
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
 
   const handleSignOut = async () => {
     setMenuOpen(false)

@@ -13,15 +13,20 @@ import { normalizePlan } from './normalize'
 export function buildAccessSubject(
   profile: {
     plan?: string | null
-    admin?: boolean | null
     username?: string | null
+    admin_capabilities?: Record<string, boolean> | null
   } | null,
   isAuthenticated: boolean
 ): AccessSubject {
+  const capabilities = profile?.admin_capabilities || {}
+  const isAdmin = capabilities.super_admin === true ||
+    Object.values(capabilities).some(v => v === true)
+
   return {
     isAuthenticated,
     hasUsername: !!(profile?.username && profile.username.trim() !== ''),
     plan: normalizePlan(profile?.plan),
-    isAdmin: profile?.admin === true,
+    isAdmin,
+    adminCapabilities: Object.keys(capabilities).length > 0 ? capabilities : undefined,
   }
 }

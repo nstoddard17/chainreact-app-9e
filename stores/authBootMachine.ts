@@ -3,7 +3,11 @@
  *
  * Single deterministic pipeline: idle → rehydrating → authenticating → loading_profile → ready
  * One timeout (10s), one AbortController, bootId-guarded transitions.
- * Every failure path converges on 'ready' — the app always becomes usable.
+ *
+ * Failure modes:
+ * - 'degraded' = authenticated but profile unavailable. Strictly temporary (~30s max),
+ *   auto-retries with backoff, then forces re-auth if unresolved.
+ * - 'error' = authentication itself failed. Redirect to login.
  */
 
 import { supabase } from '@/utils/supabaseClient'
@@ -13,7 +17,7 @@ import { logger } from '@/lib/utils/logger'
 // Types
 // ---------------------------------------------------------------------------
 
-export type BootPhase = 'idle' | 'rehydrating' | 'authenticating' | 'loading_profile' | 'ready'
+export type BootPhase = 'idle' | 'rehydrating' | 'authenticating' | 'loading_profile' | 'ready' | 'degraded' | 'error'
 
 export interface User {
   id: string
@@ -39,7 +43,7 @@ export interface Profile {
   email?: string
   provider?: string
   role?: string
-  admin?: boolean
+  admin_capabilities?: Record<string, boolean>
   tasks_used?: number
   tasks_limit?: number
   billing_period_start?: string
@@ -69,7 +73,7 @@ type SetState = (partial: Partial<BootSlice> | ((state: BootSlice) => Partial<Bo
 type GetState = () => BootSlice
 
 const BOOT_TIMEOUT_MS = 10_000
-const PROFILE_COLUMNS = 'id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at'
+const PROFILE_COLUMNS = 'id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin_capabilities, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at'
 
 // ---------------------------------------------------------------------------
 // Transition guard
@@ -84,7 +88,9 @@ function transition(
 ): boolean {
   const current = get()
   if (current.bootId !== expectedBootId) return false
-  if (current.phase === 'ready' && toPhase !== 'idle') return false
+  // Allow exit from terminal phases only back to idle (for reboot)
+  const isTerminal = current.phase === 'ready' || current.phase === 'degraded' || current.phase === 'error'
+  if (isTerminal && toPhase !== 'idle' && toPhase !== 'rehydrating') return false
   set({ phase: toPhase, ...updates })
   return true
 }
@@ -105,7 +111,7 @@ export function mapProfileData(raw: any): Profile {
     job_title: raw.job_title ?? undefined,
     role: raw.role ?? undefined,
     plan: raw.plan ?? undefined,
-    admin: raw.admin ?? false,
+    admin_capabilities: raw.admin_capabilities ?? {},
     secondary_email: raw.secondary_email ?? undefined,
     phone_number: raw.phone_number ?? undefined,
     email: raw.email ?? undefined,
@@ -178,56 +184,45 @@ async function fetchProfilePipeline(
     return { user: userObj, profile }
   }
 
-  // Try 3: Create new profile (error code PGRST116 = not found)
+  // Try 3: Re-attempt via API (which handles idempotent creation server-side)
   if (error?.code === 'PGRST116' || !data) {
+    try {
+      const retryResponse = await fetch('/api/auth/profile', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        signal,
+      })
+      if (retryResponse.ok) {
+        const retryPayload = await retryResponse.json()
+        if (retryPayload?.profile) {
+          const profile = mapProfileData(retryPayload.profile)
+          userObj.first_name = profile.first_name
+          userObj.last_name = profile.last_name
+          userObj.full_name = profile.full_name || userObj.name
+          return { user: userObj, profile }
+        }
+      }
+    } catch (retryErr: any) {
+      if (retryErr?.name === 'AbortError') throw retryErr
+      logger.warn('[Boot] Profile API retry failed', { error: retryErr?.message })
+    }
+
+    // In-memory fallback — no client-side INSERT
     const isGoogleUser =
       supabaseUser.app_metadata?.provider === 'google' ||
       supabaseUser.app_metadata?.providers?.includes('google') ||
       supabaseUser.identities?.some((id: any) => id.provider === 'google')
 
+    const fullName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || ''
     let firstName = supabaseUser.user_metadata?.given_name || ''
     let lastName = supabaseUser.user_metadata?.family_name || ''
-    const fullName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || ''
-
     if ((!firstName || !lastName) && fullName) {
       const parts = fullName.split(' ')
       firstName = firstName || parts[0] || ''
       lastName = lastName || parts.slice(1).join(' ') || ''
     }
 
-    const derivedRole = deriveRoleFromMetadata(supabaseUser.user_metadata)
-
-    const createResult = await supabase
-      .from('user_profiles')
-      .insert({
-        id: userId,
-        full_name: fullName,
-        first_name: firstName,
-        last_name: lastName,
-        avatar_url: supabaseUser.user_metadata?.avatar_url || supabaseUser.user_metadata?.picture,
-        email: supabaseUser.email,
-        provider: isGoogleUser ? 'google' : 'email',
-        role: derivedRole,
-        plan: 'free',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        username: isGoogleUser ? null : undefined,
-      })
-      .select(PROFILE_COLUMNS)
-      .single()
-
-    if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
-
-    if (createResult.data) {
-      const profile = mapProfileData(createResult.data)
-      userObj.first_name = profile.first_name
-      userObj.last_name = profile.last_name
-      userObj.full_name = profile.full_name || userObj.name
-      return { user: userObj, profile }
-    }
-
-    // Creation failed — in-memory fallback
-    logger.warn('[Boot] Profile creation failed, using fallback', { error: createResult.error })
     const detectedProvider =
       supabaseUser.app_metadata?.provider ||
       supabaseUser.app_metadata?.providers?.[0] ||
@@ -241,7 +236,7 @@ async function fetchProfilePipeline(
       avatar_url: supabaseUser.user_metadata?.avatar_url,
       email: supabaseUser.email ?? undefined,
       provider: detectedProvider,
-      role: derivedRole,
+      role: deriveRoleFromMetadata(supabaseUser.user_metadata),
       username: isGoogleUser ? undefined : supabaseUser.email?.split('@')[0] || 'user',
     }
     userObj.first_name = firstName
@@ -254,6 +249,68 @@ async function fetchProfilePipeline(
 }
 
 // ---------------------------------------------------------------------------
+// Degraded-mode profile retry (exponential backoff, max ~30s total)
+// ---------------------------------------------------------------------------
+
+const RETRY_DELAYS = [1000, 2000, 4000] // 1s, 2s, 4s — total ~7s of waiting + fetch time
+
+function scheduleProfileRetry(set: SetState, get: GetState, expectedBootId: number, attempt = 0) {
+  if (attempt >= RETRY_DELAYS.length) {
+    // Retries exhausted — force re-auth
+    logger.warn('[Boot] Profile retries exhausted, forcing error state')
+    const state = get()
+    if (state.bootId === expectedBootId && state.phase === 'degraded') {
+      set({
+        phase: 'error',
+        bootError: 'Unable to load profile after retries',
+        loading: false,
+      })
+    }
+    return
+  }
+
+  setTimeout(async () => {
+    const state = get()
+    // Only retry if still degraded and same boot cycle
+    if (state.phase !== 'degraded' || state.bootId !== expectedBootId) return
+
+    logger.info('[Boot] Retrying profile fetch', { attempt: attempt + 1 })
+
+    try {
+      const response = await fetch('/api/auth/profile', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      if (response.ok) {
+        const payload = await response.json()
+        if (payload?.profile) {
+          const profile = mapProfileData(payload.profile)
+          // Verify we're still in the same degraded state
+          if (get().bootId === expectedBootId && get().phase === 'degraded') {
+            set({
+              phase: 'ready',
+              profile,
+              loading: false,
+              bootError: null,
+              error: null,
+              lastBootCompletedAt: Date.now(),
+            })
+            logger.info('[Boot] Profile retry succeeded', { attempt: attempt + 1 })
+            return
+          }
+        }
+      }
+    } catch (err: any) {
+      logger.warn('[Boot] Profile retry failed', { attempt: attempt + 1, error: err?.message })
+    }
+
+    // Schedule next attempt
+    scheduleProfileRetry(set, get, expectedBootId, attempt + 1)
+  }, RETRY_DELAYS[attempt])
+}
+
+// ---------------------------------------------------------------------------
 // Boot pipeline
 // ---------------------------------------------------------------------------
 
@@ -262,7 +319,7 @@ export async function boot(set: SetState, get: GetState): Promise<void> {
   const currentBootId = get().bootId
 
   // Idempotency: don't start a new boot if one is already running
-  if (currentPhase !== 'idle' && currentPhase !== 'ready') {
+  if (currentPhase !== 'idle' && currentPhase !== 'ready' && currentPhase !== 'degraded') {
     logger.debug('[Boot] Already booting, skipping', { phase: currentPhase })
     return
   }
@@ -274,14 +331,23 @@ export async function boot(set: SetState, get: GetState): Promise<void> {
   const timer = setTimeout(() => {
     controller.abort()
     const state = get()
-    if (state.bootId === id && state.phase !== 'ready') {
-      logger.warn('[Boot] Timeout reached, forcing ready with partial data', { phase: state.phase })
+    if (state.bootId === id && state.phase !== 'ready' && state.phase !== 'degraded' && state.phase !== 'error') {
+      const hasUser = !!state.user
+      const targetPhase: BootPhase = hasUser ? 'degraded' : 'error'
+      logger.warn('[Boot] Timeout reached', { phase: state.phase, targetPhase })
       set({
-        phase: 'ready',
+        phase: targetPhase,
         loading: false,
-        bootError: 'Boot timeout — partial data may be available',
+        bootError: hasUser
+          ? 'Boot timeout — profile unavailable'
+          : 'Boot timeout — authentication failed',
         lastBootCompletedAt: Date.now(),
       })
+
+      // If degraded, schedule auto-retry with backoff
+      if (targetPhase === 'degraded') {
+        scheduleProfileRetry(set, get, id)
+      }
     }
   }, BOOT_TIMEOUT_MS)
 
@@ -405,14 +471,20 @@ export async function boot(set: SetState, get: GetState): Promise<void> {
     }
     logger.error('[Boot] Unhandled error', { error: err?.message })
     if (get().bootId === id) {
+      const hasUser = !!get().user
+      const targetPhase: BootPhase = hasUser ? 'degraded' : 'error'
       set({
-        phase: 'ready',
+        phase: targetPhase,
         user: get().user, // keep whatever we have
         loading: false,
         error: err?.message || 'Boot error',
         bootError: err?.message || 'Boot error',
         lastBootCompletedAt: Date.now(),
       })
+
+      if (targetPhase === 'degraded') {
+        scheduleProfileRetry(set, get, get().bootId)
+      }
     }
   } finally {
     clearTimeout(timer)

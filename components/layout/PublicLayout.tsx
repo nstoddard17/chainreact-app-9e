@@ -8,6 +8,7 @@ import Image from "next/image"
 import { useState } from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { useRouter } from "next/navigation"
 import { RoleBadgeCompact } from "@/components/ui/role-badge"
 import { type UserRole } from "@/lib/utils/roles"
@@ -73,7 +74,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   }
 
   const displayName = getDisplayName()
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
   // If user is admin, show admin badge; otherwise show their role badge
   const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 

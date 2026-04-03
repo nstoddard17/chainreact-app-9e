@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import type { NextRequest } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
+import { requireCronAuth } from '@/lib/utils/cron-auth'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -10,21 +11,8 @@ export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
   try {
-    // Check for secret authentication
-    const authHeader = request.headers.get("authorization")
-    const url = new URL(request.url)
-    const querySecret = url.searchParams.get("secret") || url.searchParams.get("admin_secret")
-    const expectedSecret = process.env.ADMIN_SECRET || process.env.CRON_SECRET
-
-    if (!expectedSecret) {
-      return errorResponse("ADMIN_SECRET not configured" , 500)
-    }
-
-    // Allow secret authentication
-    const providedSecret = authHeader?.replace("Bearer ", "") || querySecret
-    if (!providedSecret || providedSecret !== expectedSecret) {
-      return errorResponse("Unauthorized" , 401)
-    }
+    const cronAuth = requireCronAuth(request)
+    if (!cronAuth.authorized) return cronAuth.response
 
     // Get the request body
     let body: any = {}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 /**
@@ -9,37 +9,18 @@ import { logger } from '@/lib/utils/logger'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseRouteHandlerClient()
+    const authResult = await requireAdmin({ capabilities: ['support_admin'] })
+    if (!authResult.isAdmin) return authResult.response
 
-    // Check auth
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
+    const { userId, serviceClient: supabase } = authResult
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check admin status
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('admin')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.admin) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-    }
-
-    // Get provider from request
     const { provider } = await request.json()
 
     if (!provider) {
       return NextResponse.json({ error: 'Provider is required' }, { status: 400 })
     }
 
-    logger.info('[TestIntegrationOAuth] Testing integration:', { provider, userId: user.id })
+    logger.info('[TestIntegrationOAuth] Testing integration:', { provider, userId })
 
     const startTime = Date.now()
     const warnings: string[] = []
@@ -54,7 +35,7 @@ export async function POST(request: NextRequest) {
     const { data: integration, error: integrationError } = await supabase
       .from('integrations')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('provider', provider)
       .eq('status', 'connected')
       .single()

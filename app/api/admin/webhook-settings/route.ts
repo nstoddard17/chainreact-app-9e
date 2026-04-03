@@ -11,7 +11,7 @@ import { logger } from '@/lib/utils/logger'
 
 // GET - Fetch all webhook settings
 export async function GET(request: NextRequest) {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['support_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
 // PUT - Update webhook setting
 export async function PUT(request: NextRequest) {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['support_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }
@@ -99,7 +99,7 @@ export async function PUT(request: NextRequest) {
 
 // POST - Create new webhook setting
 export async function POST(request: NextRequest) {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['support_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Delete webhook setting
 export async function DELETE(request: NextRequest) {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['support_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }

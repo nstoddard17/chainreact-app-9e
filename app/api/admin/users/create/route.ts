@@ -1,100 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseRouteHandlerClient } from '@/utils/supabase/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest } from 'next/server'
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
+import { requireAdmin } from '@/lib/utils/admin-auth'
+import { createUser } from '@/lib/admin/userActions'
 import { sendWelcomeEmail } from '@/lib/services/resend'
 import { type UserRole, ROLES } from '@/lib/utils/roles'
-
+import { createClient } from '@supabase/supabase-js'
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseRouteHandlerClient()
-    
-    // Verify admin authorization
-    const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
-    if (authError || !currentUser) {
-      return errorResponse('Unauthorized' , 401)
-    }
-
-    // Get current user's profile to check admin status
-    const { data: currentProfile } = await supabase
-      .from('user_profiles')
-      .select('admin')
-      .eq('id', currentUser.id)
-      .single()
-
-    if (currentProfile?.admin !== true) {
-      return errorResponse('Admin access required' , 403)
-    }
+    const authResult = await requireAdmin({ capabilities: ['user_admin'] })
+    if (!authResult.isAdmin) return authResult.response
 
     const body = await request.json()
     const { email, password, full_name, username, role = 'free', send_welcome_email = true } = body
 
-    // Validate required fields
     if (!email || !password) {
-      return errorResponse('Email and password are required' , 400)
+      return errorResponse('Email and password are required', 400)
     }
 
-    // Validate role
     if (!ROLES[role as UserRole]) {
-      return errorResponse('Invalid role specified' , 400)
+      return errorResponse('Invalid role specified', 400)
     }
 
-    // Create user with Supabase Admin API (using direct client for full admin access)
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SECRET_KEY!
-    )
-    
-    const { data: newUser, error: createError } = await adminSupabase.auth.admin.createUser({
+    const { data: newUser, error: createError } = await createUser(authResult.userId, {
       email,
       password,
-      email_confirm: true, // Auto-confirm for admin-created users
-      user_metadata: {
-        full_name,
-        username,
-        role,
-      }
-    })
+      full_name,
+      username,
+      role,
+    }, request)
 
     if (createError) {
-      logger.error('Error creating user:', {
-        message: createError.message,
-        status: createError.status,
-        code: (createError as any).code,
-        name: createError.name
-      })
-      return errorResponse(createError.message || 'Failed to create user in auth system', 400)
+      logger.error('Error creating user:', { message: createError.message })
+      return errorResponse(createError.message || 'Failed to create user', 400)
     }
 
-    if (!newUser.user) {
-      return errorResponse('Failed to create user' , 500)
-    }
-
-    // Create user profile
-    const { error: profileError } = await adminSupabase
-      .from('user_profiles')
-      .insert({
-        id: newUser.user.id,
-        username: username || null,
-        full_name: full_name || null,
-        role: role,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-
-    if (profileError) {
-      logger.error('Error creating user profile:', profileError)
-      // Try to cleanup the created user
-      await adminSupabase.auth.admin.deleteUser(newUser.user.id)
-      return errorResponse('Failed to create user profile' , 500)
+    if (!newUser?.user) {
+      return errorResponse('Failed to create user', 500)
     }
 
     // Send welcome email if requested
     if (send_welcome_email) {
       try {
-        // Generate a sign-in link for the new user
+        const adminSupabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SECRET_KEY!
+        )
         const { data: linkData } = await adminSupabase.auth.admin.generateLink({
           type: 'magiclink',
           email,
@@ -115,30 +67,20 @@ export async function POST(request: NextRequest) {
         )
       } catch (emailError) {
         logger.error('Error sending welcome email:', emailError)
-        // Don't fail the user creation if email fails
       }
     }
-
-    // Return the created user data
-    const { data: createdProfile } = await adminSupabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', newUser.user.id)
-      .single()
 
     return jsonResponse({
       success: true,
       user: {
         id: newUser.user.id,
         email: newUser.user.email,
-        ...createdProfile,
         created_at: newUser.user.created_at,
       },
-      message: 'User created successfully'
+      message: 'User created successfully',
     })
-
   } catch (error) {
     logger.error('Error in user creation API:', error)
-    return errorResponse('Internal server error' , 500)
+    return errorResponse('Internal server error', 500)
   }
 }

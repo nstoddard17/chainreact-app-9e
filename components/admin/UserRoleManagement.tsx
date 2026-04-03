@@ -23,6 +23,9 @@ import {
 } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
+import { useAdminAction } from "@/hooks/useAdminAction"
+import { isProfileAdmin } from "@/lib/types/admin"
+import { StepUpAuthDialog } from "@/components/admin/StepUpAuthDialog"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -86,8 +89,15 @@ export default function UserRoleManagement() {
   
   const [showPassword, setShowPassword] = useState(false)
 
-  // Check if current user is admin
-  const isAdmin = profile?.admin === true
+  // Step-up auth for destructive actions
+  const {
+    execute: executeAdminAction,
+    retry: retryAdminAction,
+    needsStepUp,
+    setNeedsStepUp,
+  } = useAdminAction()
+
+  const isAdmin = isProfileAdmin(profile)
 
   useEffect(() => {
     if (isAdmin) {
@@ -138,51 +148,40 @@ export default function UserRoleManagement() {
   const handleUpdateRole = async () => {
     if (!selectedUser) return
 
-    try {
-      setUpdating(true)
-
-      const response = await fetch('/api/admin/update-user-role', {
+    setUpdating(true)
+    await executeAdminAction(
+      '/api/admin/update-user-role',
+      {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId: selectedUser.id,
-          newRole: newRole
+          newRole: newRole,
+        }),
+      },
+      () => {
+        setUsers(users.map(user =>
+          user.id === selectedUser.id
+            ? { ...user, role: newRole }
+            : user
+        ))
+        toast({
+          title: "Role updated",
+          description: `Successfully updated role for ${selectedUser.email}`,
         })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMessage = data.error || 'Failed to update user role'
+        setShowUpdateDialog(false)
+        setSelectedUser(null)
+        setUpdating(false)
+      },
+      (errorMessage) => {
         toast({
           title: "Error updating role",
           description: errorMessage,
-          variant: "destructive"
+          variant: "destructive",
         })
-        throw new Error(errorMessage)
+        logger.error('Error updating user role:', errorMessage)
+        setUpdating(false)
       }
-
-      // Update local state
-      setUsers(users.map(user =>
-        user.id === selectedUser.id
-          ? { ...user, role: newRole }
-          : user
-      ))
-
-      toast({
-        title: "Role updated",
-        description: `Successfully updated role for ${selectedUser.email}`,
-      })
-
-      setShowUpdateDialog(false)
-      setSelectedUser(null)
-    } catch (error: any) {
-      logger.error('Error updating user role:', error?.message || error)
-    } finally {
-      setUpdating(false)
-    }
+    )
   }
 
   const handleCreateUser = async () => {
@@ -288,48 +287,37 @@ export default function UserRoleManagement() {
   const handleDeleteUser = async () => {
     if (!selectedUser) return
 
-    try {
-      setDeleting(true)
-
-      const response = await fetch('/api/admin/users/delete', {
+    setDeleting(true)
+    await executeAdminAction(
+      '/api/admin/users/delete',
+      {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId: selectedUser.id,
-          deleteData: deleteOptions.deleteData
+          deleteData: deleteOptions.deleteData,
+        }),
+      },
+      () => {
+        setUsers(users.filter(user => user.id !== selectedUser.id))
+        toast({
+          title: "User deleted",
+          description: `Successfully deleted ${selectedUser.email}`,
         })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMessage = data.error || 'Failed to delete user'
+        setShowDeleteDialog(false)
+        setSelectedUser(null)
+        setDeleteOptions({ deleteData: false })
+        setDeleting(false)
+      },
+      (errorMessage) => {
         toast({
           title: "Error deleting user",
           description: errorMessage,
-          variant: "destructive"
+          variant: "destructive",
         })
-        throw new Error(errorMessage)
+        logger.error('Error deleting user:', errorMessage)
+        setDeleting(false)
       }
-
-      // Remove user from local state
-      setUsers(users.filter(user => user.id !== selectedUser.id))
-
-      toast({
-        title: "User deleted",
-        description: `Successfully deleted ${selectedUser.email}`,
-      })
-
-      setShowDeleteDialog(false)
-      setSelectedUser(null)
-      setDeleteOptions({ deleteData: false })
-    } catch (error: any) {
-      logger.error('Error deleting user:', error?.message || error)
-    } finally {
-      setDeleting(false)
-    }
+    )
   }
 
   const filteredUsers = users.filter(user => {
@@ -923,6 +911,18 @@ export default function UserRoleManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Step-up auth dialog — shown when a destructive action requires re-verification */}
+      <StepUpAuthDialog
+        open={needsStepUp}
+        onOpenChange={setNeedsStepUp}
+        onVerified={retryAdminAction}
+        onCancel={() => {
+          setNeedsStepUp(false)
+          setUpdating(false)
+          setDeleting(false)
+        }}
+      />
     </div>
   )
-} 
+}

@@ -10,6 +10,7 @@ import { Search, Copy, Eye, Loader2, Edit, Play, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { TemplatePreviewWithProvider } from "./TemplatePreview"
 import { TemplatePreviewModal } from "./TemplatePreviewModal"
@@ -209,7 +210,7 @@ export function TemplateGallery() {
   const { toast } = useToast()
   const { profile } = useAuthStore()
   const { addWorkflowToStore } = useWorkflowStore()
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
 
   useEffect(() => {
     fetchTemplates()

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
+import { isProfileAdmin } from '@/lib/types/admin'
 import { logger } from '@/lib/utils/logger'
 
 async function requireTemplateAccess(templateId: string) {
@@ -24,7 +25,7 @@ async function requireTemplateAccess(templateId: string) {
 
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
-    .select("role")
+    .select("role, admin_capabilities")
     .eq("id", user.id)
     .maybeSingle()
 
@@ -53,7 +54,7 @@ async function requireTemplateAccess(templateId: string) {
     }
   }
 
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
   const createdBy =
     (template as any)?.created_by ??
     (template as any)?.user_id ??

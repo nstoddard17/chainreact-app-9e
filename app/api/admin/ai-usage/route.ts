@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['billing_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }

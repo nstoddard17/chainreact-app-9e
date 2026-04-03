@@ -1,17 +1,16 @@
 import { NextRequest } from 'next/server'
 import { errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from '@/utils/supabase/server'
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 import type { AgentEvalEvent } from '@/lib/eval/agentEvalTypes'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createSupabaseRouteHandlerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return errorResponse('Unauthorized', 401)
+    const authResult = await requireAdmin({ capabilities: ['support_admin'] })
+    if (!authResult.isAdmin) {
+      return authResult.response
     }
+    const { userId, serviceClient: supabaseAdmin } = authResult
 
     const body = await request.json()
     const events: AgentEvalEvent[] = body?.events
@@ -24,15 +23,13 @@ export async function POST(request: NextRequest) {
       return errorResponse('Max 100 events per batch', 400)
     }
 
-    const supabaseAdmin = await createSupabaseServiceClient()
-
     // Map events to DB rows, enforcing user_id from auth
     const rows = events.map((e) => ({
       event_name: e.event_name,
       category: e.category,
       session_id: e.session_id,
       conversation_id: e.conversation_id,
-      user_id: user.id,
+      user_id: userId,
       flow_id: e.flow_id || null,
       agent_version: e.agent_version,
       session_outcome: e.session_outcome || null,
