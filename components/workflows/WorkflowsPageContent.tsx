@@ -138,7 +138,7 @@ function WorkflowAvatar({ avatarUrl, name, initials, className }: { avatarUrl: s
 
 function WorkflowsContentInner() {
   const router = useRouter()
-  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache } = useWorkflowStore()
+  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache, duplicateWorkflow, shareWorkflow, batchMoveToFolder, batchTrash, batchDelete, batchRestore, fetchFolders, createFolder, updateFolder, deleteFolder, setDefaultFolder, activateWorkflow, deactivateWorkflow } = useWorkflowStore()
   const { user, profile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const { checkActionLimit } = usePlanRestrictions()
@@ -607,17 +607,7 @@ function WorkflowsContentInner() {
 
     for (const workflowId of shareDialog.workflowIds) {
       try {
-        const response = await fetchWithTimeout(`/api/workflows/${workflowId}/share`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teamIds: selectedTeamIds })
-        }, 8000)
-
-        const data = await response.json().catch(() => ({}))
-
-        if (!response.ok || data?.success === false) {
-          throw new Error(data?.error || 'Failed to share')
-        }
+        await shareWorkflow(workflowId, selectedTeamIds)
       } catch (error) {
         logger.error('Failed to share workflow', error)
         failures.push(workflowId)
@@ -655,15 +645,7 @@ function WorkflowsContentInner() {
   }
 
   const duplicateWorkflowRequest = async (workflowId: string) => {
-    const response = await fetchWithTimeout(`/api/workflows/${workflowId}/duplicate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    }, 8000)
-
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok || data?.success === false) {
-      throw new Error(data?.error || 'Failed to duplicate workflow')
-    }
+    await duplicateWorkflow(workflowId)
   }
 
   const handleBulkDuplicate = async (workflowIds: string[]) => {
@@ -686,7 +668,7 @@ function WorkflowsContentInner() {
 
     updateLoadingState(loadingKey, false)
     if (successes > 0) {
-      fetchWorkflows()
+      fetchWorkflows(true)
     }
 
     if (failures === workflowIds.length) {
@@ -860,7 +842,7 @@ function WorkflowsContentInner() {
         description: data.activation?.message || data.deactivation?.message ||
           `"${workflow.name}" is now ${isCurrentlyActive ? 'inactive' : 'active'}.`,
       })
-      fetchWorkflows()
+      fetchWorkflows(true)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -892,7 +874,7 @@ function WorkflowsContentInner() {
       })
       setRenameDialog({ open: false, workflowId: null, currentName: '' })
       setRenameValue('')
-      fetchWorkflows()
+      fetchWorkflows(true)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -925,42 +907,16 @@ function WorkflowsContentInner() {
       const targetFolder = folders.find(f => f.id === selectedFolderId)
       const folderName = targetFolder?.name || 'the selected folder'
 
-      // Use batch API for multiple workflows, single update for one workflow
-      if (workflowIds.length > 1) {
-        const response = await fetchWithTimeout('/api/workflows/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operation: 'move',
-            workflowIds,
-            data: { folder_id: selectedFolderId }
-          })
-        }, 8000)
-
-        const result = await response.json()
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to move workflows')
-        }
-
-        if (result.failed > 0) {
-          logger.warn(`${result.failed} workflows failed to move`, result.errors)
-        }
-      } else {
-        // Single workflow - use existing method
-        await updateWorkflow(workflowIds[0], { folder_id: selectedFolderId })
-      }
+      // Use store batch operation for all cases
+      await batchMoveToFolder(workflowIds, selectedFolderId!)
 
       // Close dialog and clear selection first
       setMoveFolderDialog({ open: false, workflowIds: [] })
       setSelectedFolderId(null)
       setSelectedIds([])
 
-      // Invalidate cache and refresh both folders and workflows to ensure UI updates
-      invalidateCache()
-      await Promise.all([
-        fetchFolders(),
-        fetchWorkflows()
-      ])
+      // Refresh folders to update counts
+      await fetchFolders()
 
       // Show success message after UI updates
       toast({
@@ -975,12 +931,6 @@ function WorkflowsContentInner() {
         description: error?.message || "Failed to move workflow",
         variant: "destructive"
       })
-      // Still refresh UI even on error to show any partial changes
-      invalidateCache()
-      await Promise.all([
-        fetchFolders(),
-        fetchWorkflows()
-      ])
     } finally {
       updateLoadingState(loadingKey, false)
     }
@@ -996,7 +946,7 @@ function WorkflowsContentInner() {
         title: "Workflow duplicated",
         description: `Created a copy of "${workflow.name}"`,
       })
-      fetchWorkflows()
+      fetchWorkflows(true)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -1027,79 +977,36 @@ function WorkflowsContentInner() {
     updateLoadingState(loadingKey, true)
 
     try {
-      // Use batch API for multiple workflows, single delete for one workflow
-      if (workflowIds.length > 1) {
-        const operation = isViewingTrash ? 'delete' : 'trash'
-
-        const response = await fetchWithTimeout('/api/workflows/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operation,
-            workflowIds
-          })
-        }, 8000)
-
-        const result = await response.json()
-
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to process workflows')
-        }
-
-        // Show appropriate toast messages
-        if (result.failed === 0) {
-          if (isViewingTrash) {
-            toast({
-              title: 'Permanently Deleted',
-              description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} permanently deleted.`,
-            })
-          } else {
-            toast({
-              title: 'Moved to Trash',
-              description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} moved to trash. ${result.processed !== 1 ? 'They' : 'It'} will be permanently deleted after 7 days.`,
-            })
-          }
-        } else if (result.processed === 0) {
-          toast({
-            title: isViewingTrash ? 'Failed to delete' : 'Failed to move to trash',
-            description: result.errors?.[0]?.message || `Unable to ${isViewingTrash ? 'delete' : 'move to trash'} the selected workflows.`,
-            variant: 'destructive'
-          })
+      if (isViewingTrash) {
+        // Permanent delete
+        if (workflowIds.length > 1) {
+          await batchDelete(workflowIds)
         } else {
-          toast({
-            title: 'Partially completed',
-            description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} ${isViewingTrash ? 'deleted' : 'moved to trash'}. ${result.failed} could not be ${isViewingTrash ? 'deleted' : 'moved'}.`,
-            variant: 'destructive'
-          })
+          await deleteWorkflow(workflowIds[0])
         }
+        toast({
+          title: 'Permanently Deleted',
+          description: workflowIds.length > 1
+            ? `${workflowIds.length} workflows permanently deleted.`
+            : 'Workflow permanently deleted.',
+        })
       } else {
-        // Single workflow - use existing method
-        const workflowId = workflowIds[0]
-        if (isViewingTrash) {
-          logger.info('Permanently deleting workflow:', workflowId)
-          await deleteWorkflow(workflowId)
-          toast({
-            title: 'Permanently Deleted',
-            description: 'Workflow permanently deleted.',
-          })
+        // Move to trash
+        if (workflowIds.length > 1) {
+          await batchTrash(workflowIds)
         } else {
-          logger.info('Moving workflow to trash:', workflowId)
-          await moveWorkflowToTrash(workflowId)
-          toast({
-            title: 'Moved to Trash',
-            description: 'Workflow moved to trash. It will be permanently deleted after 7 days.',
-          })
+          await moveWorkflowToTrash(workflowIds[0])
         }
+        toast({
+          title: 'Moved to Trash',
+          description: workflowIds.length > 1
+            ? `${workflowIds.length} workflows moved to trash. They will be permanently deleted after 7 days.`
+            : 'Workflow moved to trash. It will be permanently deleted after 7 days.',
+        })
       }
 
-      // Refresh workflows to show updated state
-      // For batch operations, we need to refetch since there's no optimistic update
-      // For single operations, deleteWorkflow has optimistic update but moveWorkflowToTrash doesn't
-      invalidateCache()
-      await Promise.all([
-        fetchFolders(),
-        fetchWorkflows(true)
-      ])
+      // Refresh folders to update counts
+      await fetchFolders()
     } catch (error: any) {
       logger.error('Delete operation failed:', error)
       toast({
@@ -1107,12 +1014,6 @@ function WorkflowsContentInner() {
         description: error?.message || 'Failed to process workflows',
         variant: 'destructive'
       })
-      // On error, we need to refresh workflows to restore state since optimistic update removed them
-      invalidateCache()
-      await Promise.all([
-        fetchFolders(),
-        fetchWorkflows(true) // Force refresh to restore correct state
-      ])
     } finally {
       updateLoadingState(loadingKey, false)
     }
@@ -1186,44 +1087,13 @@ function WorkflowsContentInner() {
     setSelectedIds([])
 
     try {
-      // Use batch API for multiple workflows, single restore for one workflow
       if (workflowIds.length > 1) {
-        const response = await fetchWithTimeout('/api/workflows/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operation: 'restore',
-            workflowIds
-          })
-        }, 8000)
-
-        const result = await response.json()
-
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to restore workflows')
-        }
-
-        // Show appropriate toast messages
-        if (result.failed === 0) {
-          toast({
-            title: 'Workflows Restored',
-            description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} restored successfully.`,
-          })
-        } else if (result.processed === 0) {
-          toast({
-            title: 'Failed to restore',
-            description: result.errors?.[0]?.message || 'Unable to restore the selected workflows.',
-            variant: 'destructive'
-          })
-        } else {
-          toast({
-            title: 'Partially completed',
-            description: `${result.processed} workflow${result.processed !== 1 ? 's' : ''} restored. ${result.failed} could not be restored.`,
-            variant: 'destructive'
-          })
-        }
+        await batchRestore(workflowIds)
+        toast({
+          title: 'Workflows Restored',
+          description: `${workflowIds.length} workflows restored successfully.`,
+        })
       } else {
-        // Single workflow - use existing method
         await restoreWorkflowFromTrash(workflowIds[0])
         const workflow = workflows.find(w => w.id === workflowIds[0])
         const originalFolder = workflow?.original_folder_id
@@ -1238,12 +1108,7 @@ function WorkflowsContentInner() {
         })
       }
 
-      // Invalidate cache and refresh both folders and workflows to ensure UI updates
-      invalidateCache()
-      await Promise.all([
-        fetchFolders(),
-        fetchWorkflows()
-      ])
+      await fetchFolders()
     } catch (error: any) {
       logger.error('Restore operation failed:', error)
       toast({
@@ -1251,12 +1116,6 @@ function WorkflowsContentInner() {
         description: error?.message || 'Failed to restore workflows',
         variant: 'destructive'
       })
-      // Still refresh UI even on error to show any partial changes
-      invalidateCache()
-      await Promise.all([
-        fetchFolders(),
-        fetchWorkflows()
-      ])
     } finally {
       updateLoadingState(loadingKey, false)
     }
@@ -1275,21 +1134,7 @@ function WorkflowsContentInner() {
     setLoading(prev => ({ ...prev, 'create-folder': true }))
 
     try {
-      const response = await fetchWithTimeout('/api/workflows/folders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newFolderName.trim(),
-          description: newFolderDescription.trim() || null,
-          parent_folder_id: currentFolderId || null,
-        })
-      }, 8000)
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create folder')
-      }
+      await createFolder(newFolderName.trim(), newFolderDescription.trim() || undefined)
 
       toast({
         title: "Folder Created",
@@ -1299,7 +1144,6 @@ function WorkflowsContentInner() {
       setNewFolderName("")
       setNewFolderDescription("")
       setCreateFolderDialog(false)
-      fetchFolders()
     } catch (error: any) {
       toast({
         title: "Error",
@@ -1319,17 +1163,7 @@ function WorkflowsContentInner() {
     setLoading(prev => ({ ...prev, [`rename-folder-${folderId}`]: true }))
 
     try {
-      const response = await fetchWithTimeout(`/api/workflows/folders/${folderId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: renameFolderValue.trim() })
-      }, 8000)
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to rename folder')
-      }
+      await updateFolder(folderId, { name: renameFolderValue.trim() })
 
       toast({
         title: "Folder Renamed",
@@ -1338,7 +1172,6 @@ function WorkflowsContentInner() {
 
       setRenameFolderDialog({ open: false, folderId: null, currentName: '' })
       setRenameFolderValue('')
-      fetchFolders()
     } catch (error: any) {
       toast({
         title: "Failed to Rename",
@@ -1352,22 +1185,12 @@ function WorkflowsContentInner() {
 
   const handleSetDefaultFolder = async (folderId: string, folderName: string) => {
     try {
-      const response = await fetchWithTimeout(`/api/workflows/folders/${folderId}/set-default`, {
-        method: 'POST'
-      }, 8000)
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to set default folder')
-      }
+      await setDefaultFolder(folderId)
 
       toast({
         title: "Default Folder Updated",
         description: `"${folderName}" is now your default folder.`,
       })
-
-      fetchFolders()
     } catch (error: any) {
       toast({
         title: "Failed to Update",
@@ -1411,22 +1234,7 @@ function WorkflowsContentInner() {
     setDeleteFolderDialog({ open: false, folderId: null, folderName: '' })
 
     try {
-      const response = await fetchWithTimeout(`/api/workflows/folders/${folderId}`, {
-        method: 'DELETE'
-      }, 8000)
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to delete folder')
-      }
-
-      // Invalidate cache and refresh both folders and workflows to ensure counts are updated
-      invalidateCache()
-      await Promise.all([
-        fetchFolders(),
-        fetchWorkflows()
-      ])
+      await deleteFolder(folderId)
 
       toast({
         title: "Folder Deleted",
@@ -1456,29 +1264,7 @@ function WorkflowsContentInner() {
     })
 
     try {
-      const response = await fetchWithTimeout(`/api/workflows/folders/${folderId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          action,
-          targetFolderId
-        })
-      }, 8000)
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to delete folder')
-      }
-
-      // Invalidate cache and refresh both folders and workflows to ensure counts are updated
-      invalidateCache()
-      await Promise.all([
-        fetchFolders(),
-        fetchWorkflows()
-      ])
+      await deleteFolder(folderId, { action, targetFolderId })
 
       toast({
         title: "Folder Deleted",

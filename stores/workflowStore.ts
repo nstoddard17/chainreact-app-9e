@@ -209,6 +209,31 @@ interface WorkflowActions {
   clearAllData: () => void
   recalculateWorkflowValidation: (workflow: Workflow) => Workflow
   addWorkflowToStore: (workflow: Workflow) => void
+  // --- Duplication ---
+  duplicateWorkflow: (id: string) => Promise<Workflow>
+  // --- Sharing ---
+  shareWorkflow: (id: string, teamIds: string[]) => Promise<void>
+  unshareWorkflow: (id: string, teamId: string) => Promise<void>
+  // --- Permissions ---
+  addPermission: (workflowId: string, userId: string, permission: string) => Promise<void>
+  removePermission: (workflowId: string, userId: string) => Promise<void>
+  updatePermission: (workflowId: string, userId: string, permission: string) => Promise<void>
+  // --- Batch Operations ---
+  batchMoveToFolder: (workflowIds: string[], folderId: string) => Promise<void>
+  batchTrash: (workflowIds: string[]) => Promise<void>
+  batchDelete: (workflowIds: string[]) => Promise<void>
+  batchRestore: (workflowIds: string[]) => Promise<void>
+  // --- Activation ---
+  activateWorkflow: (id: string) => Promise<any>
+  deactivateWorkflow: (id: string) => Promise<any>
+  // --- Folders ---
+  folders: any[]
+  foldersLoading: boolean
+  fetchFolders: () => Promise<void>
+  createFolder: (name: string, description?: string) => Promise<any>
+  updateFolder: (id: string, updates: { name?: string; description?: string }) => Promise<void>
+  deleteFolder: (id: string, options?: { action?: string; targetFolderId?: string | null }) => Promise<void>
+  setDefaultFolder: (id: string) => Promise<void>
 }
 
 export interface GroupedWorkflows {
@@ -237,6 +262,9 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
   fetchStatus: 'idle' as FetchStatus,
   loadedOnce: false,
   dataOwnerKey: null,
+  // Folders
+  folders: [],
+  foldersLoading: false,
 
   fetchWorkflows: async (force = false, filterContext?: 'personal' | 'team' | 'organization' | null, workspaceId?: string) => {
     const state = get()
@@ -466,6 +494,9 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
           state.currentWorkflow?.id === id ? { ...state.currentWorkflow, ...effectiveUpdates } : state.currentWorkflow,
       }))
 
+      // Invalidate cache so next fetchWorkflows() gets fresh data
+      set({ lastFetchTime: null, fetchPromise: null })
+
       // Return trigger activation error so callers can show toast
       if (responseData?.triggerActivationError) {
         logger.warn(`[WorkflowStore] Trigger activation failed for workflow ${id}:`, responseData.triggerActivationError)
@@ -555,22 +586,26 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
       throw new Error('Workflow not found')
     }
 
+    // OPTIMISTIC UPDATE: Remove from active list immediately
+    set((state) => ({
+      workflows: state.workflows.filter(w => w.id !== id),
+      currentWorkflow: state.currentWorkflow?.id === id ? null : state.currentWorkflow,
+    }))
+
     try {
-      // Call the database function to move workflow to trash
-      const { error } = await supabase.rpc('move_workflow_to_trash', {
-        workflow_id: id
-      })
+      await WorkflowService.batchOperation('trash', [id])
 
-      if (error) {
-        throw error
-      }
-
-      // Clear cache and refresh workflows to show updated state
+      // Clear cache and background refetch for consistency
       set({ lastFetchTime: null, fetchPromise: null })
-      await get().fetchWorkflows()
+      get().fetchWorkflows(true)
 
       logger.info("Workflow moved to trash:", id)
     } catch (error: any) {
+      // ROLLBACK: Restore workflow on failure
+      set((state) => ({
+        workflows: [...state.workflows, workflowToTrash],
+      }))
+
       const errorMessage = error?.message || error?.toString() || 'Unknown error'
       logger.error("Error moving workflow to trash:", errorMessage, {
         workflowId: id,
@@ -582,14 +617,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
   restoreWorkflowFromTrash: async (id: string) => {
     try {
-      // Call the database function to restore workflow from trash
-      const { error } = await supabase.rpc('restore_workflow_from_trash', {
-        workflow_id: id
-      })
-
-      if (error) {
-        throw error
-      }
+      await WorkflowService.batchOperation('restore', [id])
 
       // Clear cache and refresh workflows to show updated state
       set({ lastFetchTime: null, fetchPromise: null })
@@ -608,20 +636,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
 
   emptyTrash: async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-
-      if (!user) {
-        throw new Error('User not authenticated')
-      }
-
-      // Call the database function to empty user's trash
-      const { error } = await supabase.rpc('empty_user_trash', {
-        user_uuid: user.id
-      })
-
-      if (error) {
-        throw error
-      }
+      await WorkflowService.batchOperation('empty-trash', [])
 
       // Clear cache and refresh workflows to show updated state
       set({ lastFetchTime: null, fetchPromise: null })
@@ -644,9 +659,295 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
     throw new Error("Organization features are not yet available. The workspace migration is pending.")
   },
 
+  // --- Duplication ---
+
+  duplicateWorkflow: async (id: string) => {
+    try {
+      const duplicated = await WorkflowService.duplicateWorkflow(id)
+      // Add to local list and invalidate cache
+      set((state) => ({
+        workflows: [duplicated, ...state.workflows],
+        lastFetchTime: null,
+        fetchPromise: null,
+      }))
+      logger.info('[WorkflowStore] Workflow duplicated:', id)
+      return duplicated
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Failed to duplicate workflow:', error.message)
+      throw error
+    }
+  },
+
+  // --- Sharing ---
+
+  shareWorkflow: async (id: string, teamIds: string[]) => {
+    try {
+      await WorkflowService.shareWorkflow(id, teamIds)
+      set({ lastFetchTime: null, fetchPromise: null })
+      logger.info('[WorkflowStore] Workflow shared:', { id, teamIds })
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Failed to share workflow:', error.message)
+      throw error
+    }
+  },
+
+  unshareWorkflow: async (id: string, teamId: string) => {
+    try {
+      await WorkflowService.unshareWorkflow(id, teamId)
+      set({ lastFetchTime: null, fetchPromise: null })
+      logger.info('[WorkflowStore] Workflow unshared:', { id, teamId })
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Failed to unshare workflow:', error.message)
+      throw error
+    }
+  },
+
+  // --- Permissions ---
+
+  addPermission: async (workflowId: string, userId: string, permission: string) => {
+    try {
+      await WorkflowService.addPermission(workflowId, userId, permission)
+      logger.info('[WorkflowStore] Permission added:', { workflowId, userId, permission })
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Failed to add permission:', error.message)
+      throw error
+    }
+  },
+
+  removePermission: async (workflowId: string, userId: string) => {
+    try {
+      await WorkflowService.removePermission(workflowId, userId)
+      logger.info('[WorkflowStore] Permission removed:', { workflowId, userId })
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Failed to remove permission:', error.message)
+      throw error
+    }
+  },
+
+  updatePermission: async (workflowId: string, userId: string, permission: string) => {
+    try {
+      await WorkflowService.updatePermission(workflowId, userId, permission)
+      logger.info('[WorkflowStore] Permission updated:', { workflowId, userId, permission })
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Failed to update permission:', error.message)
+      throw error
+    }
+  },
+
+  // --- Batch Operations ---
+
+  batchMoveToFolder: async (workflowIds: string[], folderId: string) => {
+    // Optimistic update
+    set((state) => ({
+      workflows: state.workflows.map(w =>
+        workflowIds.includes(w.id) ? { ...w, folder_id: folderId } : w
+      ),
+    }))
+
+    try {
+      await WorkflowService.batchOperation('move', workflowIds, { folder_id: folderId })
+      set({ lastFetchTime: null, fetchPromise: null })
+      logger.info('[WorkflowStore] Batch move to folder:', { workflowIds, folderId })
+    } catch (error: any) {
+      // Rollback — refetch to get correct state
+      set({ lastFetchTime: null, fetchPromise: null })
+      get().fetchWorkflows(true)
+      logger.error('[WorkflowStore] Batch move failed:', error.message)
+      throw error
+    }
+  },
+
+  batchTrash: async (workflowIds: string[]) => {
+    const originalWorkflows = get().workflows.filter(w => workflowIds.includes(w.id))
+
+    // Optimistic remove
+    set((state) => ({
+      workflows: state.workflows.filter(w => !workflowIds.includes(w.id)),
+    }))
+
+    try {
+      await WorkflowService.batchOperation('trash', workflowIds)
+      set({ lastFetchTime: null, fetchPromise: null })
+      logger.info('[WorkflowStore] Batch trash:', workflowIds)
+    } catch (error: any) {
+      // Rollback
+      set((state) => ({
+        workflows: [...state.workflows, ...originalWorkflows],
+        lastFetchTime: null,
+        fetchPromise: null,
+      }))
+      logger.error('[WorkflowStore] Batch trash failed:', error.message)
+      throw error
+    }
+  },
+
+  batchDelete: async (workflowIds: string[]) => {
+    const originalWorkflows = get().workflows.filter(w => workflowIds.includes(w.id))
+
+    // Optimistic remove
+    set((state) => ({
+      workflows: state.workflows.filter(w => !workflowIds.includes(w.id)),
+    }))
+
+    try {
+      await WorkflowService.batchOperation('delete', workflowIds)
+      set({ lastFetchTime: null, fetchPromise: null })
+      logger.info('[WorkflowStore] Batch delete:', workflowIds)
+    } catch (error: any) {
+      // Rollback
+      set((state) => ({
+        workflows: [...state.workflows, ...originalWorkflows],
+        lastFetchTime: null,
+        fetchPromise: null,
+      }))
+      logger.error('[WorkflowStore] Batch delete failed:', error.message)
+      throw error
+    }
+  },
+
+  batchRestore: async (workflowIds: string[]) => {
+    try {
+      await WorkflowService.batchOperation('restore', workflowIds)
+      set({ lastFetchTime: null, fetchPromise: null })
+      await get().fetchWorkflows(true)
+      logger.info('[WorkflowStore] Batch restore:', workflowIds)
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Batch restore failed:', error.message)
+      throw error
+    }
+  },
+
+  // --- Activation ---
+
+  activateWorkflow: async (id: string) => {
+    // Optimistic status update
+    set((state) => ({
+      workflows: state.workflows.map(w =>
+        w.id === id ? { ...w, status: 'active' as const } : w
+      ),
+    }))
+
+    try {
+      const result = await WorkflowService.activateWorkflow(id)
+      set({ lastFetchTime: null, fetchPromise: null })
+      logger.info('[WorkflowStore] Workflow activated:', id)
+      return result
+    } catch (error: any) {
+      // Rollback
+      set((state) => ({
+        workflows: state.workflows.map(w =>
+          w.id === id ? { ...w, status: 'inactive' as const } : w
+        ),
+      }))
+      logger.error('[WorkflowStore] Activation failed:', error.message)
+      throw error
+    }
+  },
+
+  deactivateWorkflow: async (id: string) => {
+    // Optimistic status update
+    set((state) => ({
+      workflows: state.workflows.map(w =>
+        w.id === id ? { ...w, status: 'inactive' as const } : w
+      ),
+    }))
+
+    try {
+      const result = await WorkflowService.deactivateWorkflow(id)
+      set({ lastFetchTime: null, fetchPromise: null })
+      logger.info('[WorkflowStore] Workflow deactivated:', id)
+      return result
+    } catch (error: any) {
+      // Rollback
+      set((state) => ({
+        workflows: state.workflows.map(w =>
+          w.id === id ? { ...w, status: 'active' as const } : w
+        ),
+      }))
+      logger.error('[WorkflowStore] Deactivation failed:', error.message)
+      throw error
+    }
+  },
+
+  // --- Folders ---
+
+  fetchFolders: async () => {
+    set({ foldersLoading: true })
+    try {
+      const folders = await WorkflowService.fetchFolders()
+      set({ folders, foldersLoading: false })
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Failed to fetch folders:', error.message)
+      set({ foldersLoading: false })
+      throw error
+    }
+  },
+
+  createFolder: async (name: string, description?: string) => {
+    try {
+      const result = await WorkflowService.createFolder(name, description)
+      const folder = result.data?.folder || result.folder || result
+      set((state) => ({ folders: [...state.folders, folder] }))
+      logger.info('[WorkflowStore] Folder created:', name)
+      return folder
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Failed to create folder:', error.message)
+      throw error
+    }
+  },
+
+  updateFolder: async (id: string, updates: { name?: string; description?: string }) => {
+    // Optimistic update
+    set((state) => ({
+      folders: state.folders.map(f => f.id === id ? { ...f, ...updates } : f),
+    }))
+
+    try {
+      await WorkflowService.updateFolder(id, updates)
+      logger.info('[WorkflowStore] Folder updated:', id)
+    } catch (error: any) {
+      // Rollback — refetch
+      get().fetchFolders()
+      logger.error('[WorkflowStore] Failed to update folder:', error.message)
+      throw error
+    }
+  },
+
+  deleteFolder: async (id: string, options?: { action?: string; targetFolderId?: string | null }) => {
+    const originalFolders = get().folders
+
+    // Optimistic remove
+    set((state) => ({
+      folders: state.folders.filter(f => f.id !== id),
+    }))
+
+    try {
+      await WorkflowService.deleteFolder(id, options)
+      set({ lastFetchTime: null, fetchPromise: null })
+      logger.info('[WorkflowStore] Folder deleted:', id)
+    } catch (error: any) {
+      // Rollback
+      set({ folders: originalFolders })
+      logger.error('[WorkflowStore] Failed to delete folder:', error.message)
+      throw error
+    }
+  },
+
+  setDefaultFolder: async (id: string) => {
+    try {
+      await WorkflowService.setDefaultFolder(id)
+      // Refresh folders to get updated default state
+      get().fetchFolders()
+      logger.info('[WorkflowStore] Default folder set:', id)
+    } catch (error: any) {
+      logger.error('[WorkflowStore] Failed to set default folder:', error.message)
+      throw error
+    }
+  },
+
   invalidateCache: () => {
     logger.info('🏪 [WorkflowStore] Invalidating cache')
-    set({ lastFetchTime: null })
+    set({ lastFetchTime: null, fetchPromise: null })
   },
 
   setCurrentWorkflow: (workflow: Workflow | null) => {
@@ -814,28 +1115,7 @@ export const useWorkflowStore = create<WorkflowState & WorkflowActions>((set, ge
         currentWorkflow: updatedWorkflowState
       }))
 
-      // Log workflow status change
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          await supabase.from("audit_logs").insert({
-            user_id: user.id,
-            action: "workflow_status_changed",
-            resource_type: "workflow",
-            resource_id: currentWorkflow.id,
-            details: {
-              workflow_id: currentWorkflow.id,
-              workflow_name: currentWorkflow.name,
-              old_status: currentWorkflow.status,
-              new_status: newStatus,
-              reason: isStructurallyComplete ? "workflow_saved" : "workflow_incomplete"
-            },
-            created_at: new Date().toISOString()
-          })
-        }
-      } catch (auditError) {
-        logger.warn("Failed to log workflow status change:", auditError)
-      }
+      // Audit logging is handled server-side by the PUT /api/workflows/[id] endpoint
     } catch (error: any) {
       logger.error("Error saving workflow:", error)
       throw error

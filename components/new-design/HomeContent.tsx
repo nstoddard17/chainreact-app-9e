@@ -120,7 +120,7 @@ interface Organization {
 
 export function HomeContent() {
   const router = useRouter()
-  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow } = useWorkflowStore()
+  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, duplicateWorkflow, shareWorkflow, unshareWorkflow, createWorkflow } = useWorkflowStore()
   const { user, profile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const { checkFeatureAccess, checkActionLimit } = usePlanRestrictions()
@@ -363,22 +363,11 @@ export function HomeContent() {
     setLoading(prev => ({ ...prev, [`duplicate-${workflow.id}`]: true }))
 
     try {
-      const response = await fetch(`/api/workflows/${workflow.id}/duplicate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+      await duplicateWorkflow(workflow.id)
+      toast({
+        title: "Workflow Duplicated",
+        description: `Created a copy of "${workflow.name}"`,
       })
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Workflow Duplicated",
-          description: `Created a copy of "${workflow.name}"`,
-        })
-        fetchWorkflows()
-      } else {
-        throw new Error(data.error || 'Failed to duplicate')
-      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -428,7 +417,7 @@ export function HomeContent() {
         title: newStatus === 'active' ? "Workflow Activated" : "Workflow Paused",
         description: `"${workflow.name}" is now ${newStatus}.`,
       })
-      fetchWorkflows()
+      fetchWorkflows(true)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -458,25 +447,13 @@ export function HomeContent() {
     setLoading(prev => ({ ...prev, [`share-${shareDialog.workflowId}`]: true }))
 
     try {
-      const response = await fetch(`/api/workflows/${shareDialog.workflowId}/share`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamIds: selectedTeamIds })
+      await shareWorkflow(shareDialog.workflowId!, selectedTeamIds)
+      toast({
+        title: "Shared to Teams",
+        description: `Workflow has been shared with ${selectedTeamIds.length} team${selectedTeamIds.length > 1 ? 's' : ''}.`,
       })
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Shared to Teams",
-          description: `Workflow has been shared with ${selectedTeamIds.length} team${selectedTeamIds.length > 1 ? 's' : ''}.`,
-        })
-        setShareDialog({ open: false, workflowId: null })
-        setSelectedTeamIds([])
-        fetchWorkflows()
-      } else {
-        throw new Error(data.error || 'Failed to share')
-      }
+      setShareDialog({ open: false, workflowId: null })
+      setSelectedTeamIds([])
     } catch (error: any) {
       toast({
         title: "Error",
@@ -492,22 +469,12 @@ export function HomeContent() {
     setLoading(prev => ({ ...prev, [`unshare-${workflowId}-${teamId}`]: true }))
 
     try {
-      const response = await fetch(`/api/workflows/${workflowId}/share?teamId=${teamId}`, {
-        method: 'DELETE'
+      await unshareWorkflow(workflowId, teamId)
+      toast({
+        title: "Removed from Team",
+        description: "Workflow has been unshared from the team.",
       })
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Removed from Team",
-          description: "Workflow has been unshared from the team.",
-        })
-        fetchWorkflowShares(workflowId)
-        fetchWorkflows()
-      } else {
-        throw new Error(data.error || 'Failed to unshare')
-      }
+      fetchWorkflowShares(workflowId)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -574,33 +541,18 @@ export function HomeContent() {
     setLoading(prev => ({ ...prev, 'create-workflow': true }))
 
     try {
-      // Create the workflow
-      const response = await fetch('/api/workflows', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newWorkflowName.trim(),
-          description: newWorkflowDescription.trim() || null,
-          organization_id: selectedOrgId || null,
-          status: 'draft'
-        })
-      })
+      // Create the workflow via store
+      const workflow = await createWorkflow(
+        newWorkflowName.trim(),
+        newWorkflowDescription.trim() || undefined,
+        selectedOrgId || undefined
+      )
 
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create workflow')
-      }
-
-      const workflowId = data.workflow.id
+      const workflowId = workflow.id
 
       // Share with teams if any selected
       if (selectedCreateTeamIds.length > 0) {
-        await fetch(`/api/workflows/${workflowId}/share`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teamIds: selectedCreateTeamIds })
-        })
+        await shareWorkflow(workflowId, selectedCreateTeamIds)
       }
 
       toast({

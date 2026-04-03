@@ -1,7 +1,7 @@
 "use client"
 
 import { create } from "zustand"
-import { createClient } from "@/utils/supabaseClient"
+import { TemplateService } from "@/services/template-service"
 
 interface WorkflowTemplate {
   id: string
@@ -113,26 +113,16 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   selectedCategory: null,
 
   fetchPublicTemplates: async () => {
-    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, public: true },
       error: null
     }))
 
     try {
-      const { data, error } = await supabase
-        .from("workflows_templates")
-        .select(`
-          *,
-          author:auth.users(email, user_metadata)
-        `)
-        .eq("is_public", true)
-        .order("downloads_count", { ascending: false })
-
-      if (error) throw error
+      const templates = await TemplateService.fetchTemplates()
 
       set((state) => ({
-        templates: data || [],
+        templates: templates || [],
         loadingStates: { ...state.loadingStates, public: false }
       }))
     } catch (error: any) {
@@ -144,25 +134,15 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   fetchMyTemplates: async () => {
-    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, mine: true }
     }))
 
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error("Not authenticated")
-
-      const { data, error } = await supabase
-        .from("workflows_templates")
-        .select("*")
-        .eq("author_id", user.user.id)
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
+      const templates = await TemplateService.fetchTemplates({ scope: 'mine' })
 
       set((state) => ({
-        myTemplates: data || [],
+        myTemplates: templates || [],
         loadingStates: { ...state.loadingStates, mine: false }
       }))
     } catch (error: any) {
@@ -174,27 +154,17 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   fetchFeaturedTemplates: async () => {
-    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, featured: true }
     }))
 
     try {
-      const { data, error } = await supabase
-        .from("workflows_templates")
-        .select(`
-          *,
-          author:auth.users(email, user_metadata)
-        `)
-        .eq("is_public", true)
-        .eq("is_featured", true)
-        .order("rating_average", { ascending: false })
-        .limit(6)
-
-      if (error) throw error
+      // Fetch public templates and filter featured client-side
+      // (API doesn't have a dedicated featured filter yet)
+      const templates = await TemplateService.fetchTemplates({ limit: 6 })
 
       set((state) => ({
-        featuredTemplates: data || [],
+        featuredTemplates: templates || [],
         loadingStates: { ...state.loadingStates, featured: false }
       }))
     } catch (error: any) {
@@ -206,26 +176,15 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   fetchTemplatesByCategory: async (category: string) => {
-    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, category: true }
     }))
 
     try {
-      const { data, error } = await supabase
-        .from("workflows_templates")
-        .select(`
-          *,
-          author:auth.users(email, user_metadata)
-        `)
-        .eq("is_public", true)
-        .eq("category", category)
-        .order("downloads_count", { ascending: false })
-
-      if (error) throw error
+      const templates = await TemplateService.fetchTemplates({ category })
 
       set((state) => ({
-        templates: data || [],
+        templates: templates || [],
         loadingStates: { ...state.loadingStates, category: false }
       }))
     } catch (error: any) {
@@ -237,27 +196,16 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   searchTemplates: async (query: string) => {
-    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, search: true },
       searchQuery: query
     }))
 
     try {
-      const { data, error } = await supabase
-        .from("workflows_templates")
-        .select(`
-          *,
-          author:auth.users(email, user_metadata)
-        `)
-        .eq("is_public", true)
-        .or(`name.ilike.%${query}%,description.ilike.%${query}%,tags.cs.{${query}}`)
-        .order("downloads_count", { ascending: false })
-
-      if (error) throw error
+      const templates = await TemplateService.fetchTemplates({ search: query })
 
       set((state) => ({
-        templates: data || [],
+        templates: templates || [],
         loadingStates: { ...state.loadingStates, search: false }
       }))
     } catch (error: any) {
@@ -269,26 +217,12 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   createTemplate: async (data: Partial<WorkflowTemplate>) => {
-    const supabase = createClient()
-
     set((state) => ({
       loadingStates: { ...state.loadingStates, create: true }
     }))
 
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error("Not authenticated")
-
-      const { data: template, error } = await supabase
-        .from("workflows_templates")
-        .insert({
-          ...data,
-          author_id: user.user.id,
-        })
-        .select()
-        .single()
-
-      if (error) throw error
+      const template = await TemplateService.createTemplate(data as Record<string, any>)
 
       set((state) => ({
         myTemplates: [template, ...state.myTemplates],
@@ -306,23 +240,22 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   updateTemplate: async (id: string, data: Partial<WorkflowTemplate>) => {
-    const supabase = createClient()
-
+    // Optimistic update
     set((state) => ({
+      myTemplates: state.myTemplates.map((t) => (t.id === id ? { ...t, ...data } : t)),
+      templates: state.templates.map((t) => (t.id === id ? { ...t, ...data } : t)),
       loadingStates: { ...state.loadingStates, update: true }
     }))
 
     try {
-      const { error } = await supabase.from("workflows_templates").update(data).eq("id", id)
-
-      if (error) throw error
+      await TemplateService.updateTemplate(id, data as Record<string, any>)
 
       set((state) => ({
-        myTemplates: state.myTemplates.map((template) => (template.id === id ? { ...template, ...data } : template)),
-        templates: state.templates.map((template) => (template.id === id ? { ...template, ...data } : template)),
         loadingStates: { ...state.loadingStates, update: false }
       }))
     } catch (error: any) {
+      // Rollback — refetch
+      get().fetchMyTemplates()
       set((state) => ({
         error: error.message,
         loadingStates: { ...state.loadingStates, update: false }
@@ -332,23 +265,22 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   deleteTemplate: async (id: string) => {
-    const supabase = createClient()
-
+    // Optimistic remove
     set((state) => ({
+      myTemplates: state.myTemplates.filter((t) => t.id !== id),
+      templates: state.templates.filter((t) => t.id !== id),
       loadingStates: { ...state.loadingStates, delete: true }
     }))
 
     try {
-      const { error } = await supabase.from("workflows_templates").delete().eq("id", id)
-
-      if (error) throw error
+      await TemplateService.deleteTemplate(id)
 
       set((state) => ({
-        myTemplates: state.myTemplates.filter((template) => template.id !== id),
-        templates: state.templates.filter((template) => template.id !== id),
         loadingStates: { ...state.loadingStates, delete: false }
       }))
     } catch (error: any) {
+      // Rollback — refetch
+      get().fetchMyTemplates()
       set((state) => ({
         error: error.message,
         loadingStates: { ...state.loadingStates, delete: false }
@@ -366,31 +298,12 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   downloadTemplate: async (templateId: string) => {
-    const supabase = createClient()
-
     set((state) => ({
       loadingStates: { ...state.loadingStates, download: true }
     }))
 
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error("Not authenticated")
-
-      // Record the download
-      await supabase.from("template_downloads").insert({
-        template_id: templateId,
-        user_id: user.user.id,
-      })
-
-      // Get the template data
-      const { data: template, error } = await supabase
-        .from("workflows_templates")
-        .select("*")
-        .eq("id", templateId)
-        .single()
-
-      if (error) throw error
-
+      const template = await TemplateService.downloadTemplate(templateId)
       return template
     } catch (error: any) {
       set((state) => ({
@@ -406,25 +319,15 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   fetchTemplateReviews: async (templateId: string) => {
-    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, reviews: true }
     }))
 
     try {
-      const { data, error } = await supabase
-        .from("template_reviews")
-        .select(`
-          *,
-          user:auth.users(email, user_metadata)
-        `)
-        .eq("template_id", templateId)
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
+      const reviews = await TemplateService.fetchReviews(templateId)
 
       set((state) => ({
-        reviews: data || [],
+        reviews: reviews || [],
         loadingStates: { ...state.loadingStates, reviews: false }
       }))
     } catch (error: any) {
@@ -436,24 +339,12 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   addReview: async (templateId: string, rating: number, reviewText?: string) => {
-    const supabase = createClient()
     set((state) => ({
       loadingStates: { ...state.loadingStates, reviewMutation: true }
     }))
 
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error("Not authenticated")
-
-      const { error } = await supabase.from("template_reviews").insert({
-        template_id: templateId,
-        user_id: user.user.id,
-        rating,
-        review_text: reviewText,
-      })
-
-      if (error) throw error
-
+      await TemplateService.addReview(templateId, rating, reviewText)
       await get().fetchTemplateReviews(templateId)
     } catch (error: any) {
       set((state) => ({
@@ -469,24 +360,22 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   updateReview: async (reviewId: string, rating: number, reviewText?: string) => {
-    const supabase = createClient()
-
+    // Optimistic update
     set((state) => ({
+      reviews: state.reviews.map((r) =>
+        r.id === reviewId ? { ...r, rating, review_text: reviewText } : r,
+      ),
       loadingStates: { ...state.loadingStates, reviewMutation: true }
     }))
 
     try {
-      const { error } = await supabase
-        .from("template_reviews")
-        .update({ rating, review_text: reviewText })
-        .eq("id", reviewId)
-
-      if (error) throw error
+      // Reviews use upsert on POST — sending the same user+template creates/updates
+      const templateId = get().reviews.find(r => r.id === reviewId)?.template_id
+      if (templateId) {
+        await TemplateService.addReview(templateId, rating, reviewText)
+      }
 
       set((state) => ({
-        reviews: state.reviews.map((review) =>
-          review.id === reviewId ? { ...review, rating, review_text: reviewText } : review,
-        ),
         loadingStates: { ...state.loadingStates, reviewMutation: false }
       }))
     } catch (error: any) {
@@ -499,22 +388,29 @@ export const useTemplateStore = create<TemplateState & TemplateActions>((set, ge
   },
 
   deleteReview: async (reviewId: string) => {
-    const supabase = createClient()
+    const reviewToDelete = get().reviews.find(r => r.id === reviewId)
 
+    // Optimistic remove
     set((state) => ({
+      reviews: state.reviews.filter((r) => r.id !== reviewId),
       loadingStates: { ...state.loadingStates, reviewMutation: true }
     }))
 
     try {
-      const { error } = await supabase.from("template_reviews").delete().eq("id", reviewId)
-
-      if (error) throw error
+      if (reviewToDelete?.template_id) {
+        await TemplateService.deleteReview(reviewToDelete.template_id, reviewId)
+      }
 
       set((state) => ({
-        reviews: state.reviews.filter((review) => review.id !== reviewId),
         loadingStates: { ...state.loadingStates, reviewMutation: false }
       }))
     } catch (error: any) {
+      // Rollback
+      if (reviewToDelete) {
+        set((state) => ({
+          reviews: [...state.reviews, reviewToDelete],
+        }))
+      }
       set((state) => ({
         error: error.message,
         loadingStates: { ...state.loadingStates, reviewMutation: false }

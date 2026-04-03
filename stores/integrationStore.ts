@@ -790,10 +790,8 @@ export const useIntegrationStore = create<IntegrationStore>()(
         await IntegrationService.connectApiKeyIntegration(providerId, apiKey)
         
         setLoading(`connect-${providerId}`, false)
-        setTimeout(() => {
-          fetchIntegrations(true)
-          emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
-        }, 1000)
+        emitIntegrationEvent('INTEGRATION_CONNECTED', { providerId })
+        await fetchIntegrations(true)
       } catch (error: any) {
         logger.error("Error connecting API key integration:", error)
         setError(error.message || "Failed to connect integration")
@@ -837,19 +835,15 @@ export const useIntegrationStore = create<IntegrationStore>()(
         }
 
         setLoading(loadingKey, false)
-        
-        // Fetch integrations after a short delay to ensure consistency with the backend
-        setTimeout(() => {
-          fetchIntegrations(true)
-        }, 500)
+
+        // Fetch integrations to ensure consistency with the backend
+        await fetchIntegrations(true)
       } catch (error: any) {
         logger.error("Error disconnecting integration:", error)
         setError(error.message || "Failed to disconnect integration")
         setLoading(loadingKey, false)
         // Refresh integrations on error to ensure UI stays in sync
-        setTimeout(() => {
-          fetchIntegrations(true)
-        }, 100)
+        await fetchIntegrations(true)
       }
     },
 
@@ -862,9 +856,7 @@ export const useIntegrationStore = create<IntegrationStore>()(
         const stats = await IntegrationService.refreshTokens()
         
         setLoading("refresh-all", false)
-        setTimeout(() => {
-          fetchIntegrations(true)
-        }, 1000)
+        await fetchIntegrations(true)
         
         return stats
       } catch (error: any) {
@@ -1220,15 +1212,11 @@ export const useIntegrationStore = create<IntegrationStore>()(
         emitIntegrationEvent('INTEGRATION_DISCONNECTED', { integrationId })
         
         // Fetch integrations to ensure consistency with the backend
-        setTimeout(() => {
-          fetchIntegrations(true)
-        }, 500)
+        await fetchIntegrations(true)
       } catch (error: any) {
         setError(error.message)
         // Refresh integrations on error to ensure UI stays in sync
-        setTimeout(() => {
-          fetchIntegrations(true)
-        }, 100)
+        await fetchIntegrations(true)
       } finally {
         setLoading(`delete-${integration.provider}`, false)
       }
