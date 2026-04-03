@@ -204,6 +204,8 @@ export interface LLMPlannerInput {
   isRefinement?: boolean
   /** Previous plan version for refinement context */
   previousPlanVersion?: number
+  /** Formatted business context block for LLM injection */
+  businessContext?: string
 }
 
 /**

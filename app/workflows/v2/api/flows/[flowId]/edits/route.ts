@@ -8,6 +8,8 @@ import { getRouteClient, checkWorkflowAccess } from "@/src/lib/workflows/builder
 import { logger } from "@/lib/utils/logger"
 import { plannerResultToTemplate } from "@/lib/workflows/ai-agent/planToTemplate"
 import { deductAIWorkflowTasks, trackAIWorkflowUsage, checkAIWorkflowTaskBalance, generatePlanningChargeId } from "@/lib/workflows/ai-agent/aiWorkflowCostTracking"
+import { fetchBusinessContextForUser, incrementUsageCount } from '@/lib/ai/fetchBusinessContext'
+import { formatBusinessContextForLLM } from '@/lib/ai/businessContextFormatter'
 
 /**
  * Conversation message schema for refinement context
@@ -284,6 +286,18 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       logger.info('[API /edits] Template cache MISS', { promptHash })
     }
 
+    // Fetch business context for LLM injection
+    const businessContextData = await fetchBusinessContextForUser(user.id).catch(err => {
+      logger.error('Failed to fetch business context for planner', { error: err })
+      return { entries: [], preferences: null, memories: [] }
+    })
+    const { formatted: businessContextBlock, selectedEntryIds } = formatBusinessContextForLLM(
+      businessContextData.entries,
+      businessContextData.preferences,
+      businessContextData.memories,
+      { intent: parsed.data.prompt, providers: parsed.data.connectedIntegrations }
+    )
+
     // STEP 2: Run the planner (LLM or pattern-based)
     const result = await planEdits({
       prompt: parsed.data.prompt,
@@ -292,7 +306,13 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       conversationHistory: parsed.data.conversationHistory,
       draftingContext: parsed.data.draftingContext,
       useLLM: parsed.data.useLLM ?? true,
+      businessContext: businessContextBlock || undefined,
     })
+
+    // Track which business context entries were used
+    if (selectedEntryIds.length > 0) {
+      incrementUsageCount(selectedEntryIds)
+    }
 
     const duration = Date.now() - startTime
     logger.info('[API /edits] Planning complete', {

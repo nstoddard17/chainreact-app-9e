@@ -5,11 +5,12 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Settings, CreditCard, Bell, Shield, Key, Trash2, Sparkles } from "lucide-react"
+import { Settings, CreditCard, Bell, Shield, Key, Trash2, Sparkles, Brain } from "lucide-react"
 import BillingContent from "@/components/billing/BillingContent"
 import DataDeletionSettings from "./DataDeletionSettings"
 import AIUsageContent from "./AIUsageContent"
 import AIAPISettings from "./AIAPISettings"
+import BusinessContextSettings from "./BusinessContextSettings"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
@@ -132,6 +133,10 @@ export default function SettingsContent() {
     api: {
       title: "AI API Configuration",
       subtitle: "Manage your OpenAI API keys and model preferences"
+    },
+    "ai-context": {
+      title: "AI Context",
+      subtitle: "Teach ChainReact about your business for smarter workflow planning"
     }
   }
 
@@ -146,7 +151,7 @@ export default function SettingsContent() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="billing" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
               Billing
@@ -166,6 +171,10 @@ export default function SettingsContent() {
             <TabsTrigger value="api" className="flex items-center gap-2">
               <Key className="h-4 w-4" />
               AI API
+            </TabsTrigger>
+            <TabsTrigger value="ai-context" className="flex items-center gap-2">
+              <Brain className="h-4 w-4" />
+              AI Context
             </TabsTrigger>
           </TabsList>
 
@@ -195,6 +204,10 @@ export default function SettingsContent() {
 
           <TabsContent value="api" className="mt-6">
             <AIAPISettings />
+          </TabsContent>
+
+          <TabsContent value="ai-context" className="mt-6">
+            <BusinessContextSettings />
           </TabsContent>
         </Tabs>
       </div>

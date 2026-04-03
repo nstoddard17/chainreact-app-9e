@@ -5,6 +5,8 @@ import { logger } from '@/lib/utils/logger'
 import { ALL_NODE_COMPONENTS } from '@/lib/workflows/nodes'
 import { checkRateLimit } from '@/lib/utils/rate-limit'
 import { summarizeConfigForLLM, redactSensitiveFields } from '@/lib/utils/redact-config'
+import { fetchBusinessContextForUser, incrementUsageCount } from '@/lib/ai/fetchBusinessContext'
+import { formatBusinessContextForLLM } from '@/lib/ai/businessContextFormatter'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,12 +38,27 @@ export async function POST(request: NextRequest) {
     const entitlement = await requireFeature(user.id, 'aiAgents')
     if (!entitlement.allowed) return entitlement.response
 
+    // Fetch business context in parallel with body parsing
+    const businessContextPromise = fetchBusinessContextForUser(user.id).catch(err => {
+      logger.error('Failed to fetch business context for workflow builder', { error: err })
+      return { entries: [], preferences: null, memories: [] }
+    })
+
     const body = await request.json()
     const { message, workflowId, connectedIntegrations = [], conversationHistory = [], contextNodes = [] } = body
 
     if (!message) {
       return errorResponse('Message is required', 400)
     }
+
+    // Format business context with relevance hints from the request
+    const businessContextData = await businessContextPromise
+    const { formatted: businessContextBlock, selectedEntryIds } = formatBusinessContextForLLM(
+      businessContextData.entries,
+      businessContextData.preferences,
+      businessContextData.memories,
+      { intent: message, providers: connectedIntegrations }
+    )
 
     // Get available nodes with FULL schema information for AI
     const availableNodes = ALL_NODE_COMPONENTS.map(node => ({
@@ -93,7 +110,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Build context for AI
-    const systemPrompt = buildSystemPrompt(availableNodes, connectedIntegrations, sanitizedContextNodes)
+    const systemPrompt = buildSystemPrompt(availableNodes, connectedIntegrations, sanitizedContextNodes, businessContextBlock)
     const userMessage = message.trim()
 
     // Call OpenAI API (or your AI provider)
@@ -108,6 +125,11 @@ export async function POST(request: NextRequest) {
     // Parse AI response and determine action
     const action = parseAIResponse(aiResponse, availableNodes, connectedIntegrations)
 
+    // Fire-and-forget: track which business context entries were used
+    if (selectedEntryIds.length > 0) {
+      incrementUsageCount(selectedEntryIds)
+    }
+
     return jsonResponse(action)
 
   } catch (error) {
@@ -119,7 +141,7 @@ export async function POST(request: NextRequest) {
 /**
  * Build system prompt with available nodes
  */
-function buildSystemPrompt(availableNodes: any[], connectedIntegrations: string[], contextNodes: any[] = []) {
+function buildSystemPrompt(availableNodes: any[], connectedIntegrations: string[], contextNodes: any[] = [], businessContext: string = '') {
   const nodeList = availableNodes.map(n => `- ${n.name} (${n.type})`).join('\n')
 
   const connectedList = connectedIntegrations.length > 0
@@ -199,7 +221,7 @@ ${nodeList}
 
 Currently Connected Apps:
 ${connectedList}
-${contextSection}
+${businessContext ? `\n${businessContext}\n` : ''}${contextSection}
 
 CRITICAL: Understanding Node Schemas
 Each node has a configSchema that defines ALL fields you must configure. You have access to:
