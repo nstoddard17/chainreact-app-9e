@@ -306,3 +306,31 @@ export async function PUT(
     return errorResponse("Internal server error" , 500)
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: templateId } = await params
+    const { errorResponse: accessError } = await requireTemplateAccess(templateId)
+    if (accessError) return accessError
+
+    const serviceClient = await createSupabaseServiceClient()
+
+    const { error } = await serviceClient
+      .from("templates")
+      .delete()
+      .eq("id", templateId)
+
+    if (error) {
+      logger.error("Error deleting template:", error)
+      return errorResponse("Failed to delete template", 500)
+    }
+
+    return jsonResponse({ message: "Template deleted successfully" })
+  } catch (error) {
+    logger.error("Error in DELETE /api/templates/[id]:", error)
+    return errorResponse("Internal server error", 500)
+  }
+}

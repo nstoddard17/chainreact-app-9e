@@ -46,23 +46,10 @@ export function useCreateAndOpenWorkflow() {
         hasPrompt: !!options.prompt,
       })
 
-      // Create workflow via API
-      const response = await fetch('/workflows/v2/api/flows', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'New Workflow',
-          description: '',
-        }),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => response.statusText)
-        throw new Error(errorText || 'Failed to create workflow')
-      }
-
-      const data = await response.json()
-      const flowId = data?.flowId
+      // Create workflow via store
+      const { createWorkflow } = useWorkflowStore.getState()
+      const workflow = await createWorkflow('New Workflow', '', undefined)
+      const flowId = workflow.id
 
       if (!flowId) {
         throw new Error('No workflow ID returned')

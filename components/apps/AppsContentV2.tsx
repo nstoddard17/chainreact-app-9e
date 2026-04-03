@@ -22,7 +22,6 @@ import {
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { logger } from "@/lib/utils/logger"
-import { IntegrationService } from "@/services/integration-service"
 import { getIntegrationLogoClasses, getIntegrationLogoPath } from "@/lib/integrations/logoStyles"
 import { useTheme } from "next-themes"
 import { useWorkspaces } from "@/hooks/useWorkspaces"
@@ -36,7 +35,7 @@ import {
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
 
 export function AppsContentV2() {
-  const { providers, integrations, fetchAllIntegrations, connectIntegration, initializeProviders, loading: storeLoading, lastFetchTime } = useIntegrationStore()
+  const { providers, integrations, fetchAllIntegrations, connectIntegration, disconnectIntegration, initializeProviders, loading: storeLoading, lastFetchTime } = useIntegrationStore()
   const { user } = useAuthStore()
   const { theme } = useTheme()
   const { teams: allTeams, organizations: allOrganizations } = useWorkspaces()
@@ -189,9 +188,8 @@ export function AppsContentV2() {
     setLocalLoading(prev => ({ ...prev, [integrationId]: true }))
 
     try {
-      await IntegrationService.disconnectIntegration(integrationId)
+      await disconnectIntegration(integrationId)
       toast({ title: "Disconnected", description: `${providerName} has been disconnected.` })
-      fetchAllIntegrations()
     } catch (error: any) {
       logger.error("Failed to disconnect integration:", error)
       toast({ title: "Error", description: error?.message || "An unexpected error occurred.", variant: "destructive" })

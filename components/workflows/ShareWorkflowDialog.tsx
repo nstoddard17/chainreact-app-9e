@@ -26,6 +26,7 @@ import { Loader2, X, Shield, Settings, Eye, UserPlus, Users, Building, Check } f
 import { logger } from '@/lib/utils/logger'
 import { useToast } from "@/hooks/use-toast"
 import { usePlanRestrictions } from "@/hooks/use-plan-restrictions"
+import { useWorkflowStore } from "@/stores/workflowStore"
 
 interface WorkflowPermission {
   id: string
@@ -80,6 +81,7 @@ export default function ShareWorkflowDialog({
   const [activeTab, setActiveTab] = useState<"individuals" | "teams">("individuals")
   const { toast } = useToast()
   const { checkFeatureAccess } = usePlanRestrictions()
+  const { addPermission, removePermission, updatePermission, shareWorkflow, unshareWorkflow } = useWorkflowStore()
 
   // Check if user has team sharing access
   const teamSharingAccess = checkFeatureAccess("teamSharing")
@@ -152,19 +154,7 @@ export default function ShareWorkflowDialog({
 
     setAdding(true)
     try {
-      const response = await fetch(`/api/workflows/${workflowId}/permissions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: selectedUserId,
-          permission: selectedPermission
-        })
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to grant permission')
-      }
+      await addPermission(workflowId, selectedUserId, selectedPermission)
 
       toast({
         title: "Success",
@@ -192,14 +182,7 @@ export default function ShareWorkflowDialog({
 
   const handleRemovePermission = async (userId: string) => {
     try {
-      const response = await fetch(`/api/workflows/${workflowId}/permissions?user_id=${userId}`, {
-        method: 'DELETE'
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to revoke permission')
-      }
+      await removePermission(workflowId, userId)
 
       toast({
         title: "Success",
@@ -221,19 +204,7 @@ export default function ShareWorkflowDialog({
 
   const handleUpdatePermission = async (userId: string, newPermission: 'use' | 'manage' | 'admin') => {
     try {
-      const response = await fetch(`/api/workflows/${workflowId}/permissions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          permission: newPermission
-        })
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to update permission')
-      }
+      await updatePermission(workflowId, userId, newPermission)
 
       toast({
         title: "Success",
@@ -256,16 +227,7 @@ export default function ShareWorkflowDialog({
   const handleShareWithTeam = async (teamId: string) => {
     setSharingTeam(teamId)
     try {
-      const response = await fetch(`/api/workflows/${workflowId}/share`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ team_ids: [teamId] })
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to share with team')
-      }
+      await shareWorkflow(workflowId, [teamId])
 
       toast({
         title: "Shared with team",
@@ -290,14 +252,7 @@ export default function ShareWorkflowDialog({
   const handleUnshareWithTeam = async (teamId: string) => {
     setSharingTeam(teamId)
     try {
-      const response = await fetch(`/api/workflows/${workflowId}/share?team_id=${teamId}`, {
-        method: 'DELETE'
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to unshare from team')
-      }
+      await unshareWorkflow(workflowId, teamId)
 
       toast({
         title: "Removed from team",

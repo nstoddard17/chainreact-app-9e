@@ -75,3 +75,43 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return errorResponse("Internal server error" , 500)
   }
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    cookies()
+    const supabase = await createSupabaseRouteHandlerClient()
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return errorResponse("Not authenticated", 401)
+    }
+
+    const { searchParams } = new URL(request.url)
+    const reviewId = searchParams.get("reviewId")
+
+    if (!reviewId) {
+      return errorResponse("reviewId is required", 400)
+    }
+
+    // Users can only delete their own reviews
+    const { error } = await supabase
+      .from("template_reviews")
+      .delete()
+      .eq("id", reviewId)
+      .eq("user_id", user.id)
+
+    if (error) {
+      logger.error("Error deleting review:", error)
+      return errorResponse("Failed to delete review", 500)
+    }
+
+    return jsonResponse({ message: "Review deleted successfully" })
+  } catch (error) {
+    logger.error("Error in DELETE /api/templates/[id]/reviews:", error)
+    return errorResponse("Internal server error", 500)
+  }
+}
