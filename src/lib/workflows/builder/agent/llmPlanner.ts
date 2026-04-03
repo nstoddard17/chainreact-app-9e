@@ -330,7 +330,8 @@ async function selectNodes(
   connectedIntegrations: string[],
   conversationHistory?: ConversationMessage[],
   currentFlow?: { nodes: Node[]; edges: Edge[] },
-  draftingContext?: DraftingContext
+  draftingContext?: DraftingContext,
+  businessContext?: string
 ): Promise<{
   nodes: PlannedNode[]
   reasoning: ReasoningStep[]
@@ -366,6 +367,14 @@ async function selectNodes(
       }\n\nUser request: "${prompt}"\n\nDesign and build a workflow for this request. If the request is vague or open-ended, use your expertise to pick the best approach and explain your reasoning.`,
     },
   ]
+
+  // Add business context (durable facts, rules, preferences, style)
+  if (businessContext) {
+    messages.push({
+      role: 'user',
+      content: businessContext,
+    })
+  }
 
   // Add current workflow state context
   if (currentFlow && currentFlow.nodes.length > 0) {
@@ -896,7 +905,8 @@ export async function planWithLLM(input: LLMPlannerInput): Promise<LLMPlannerOut
       input.connectedIntegrations || [],
       input.conversationHistory,
       input.flow,
-      input.draftingContext
+      input.draftingContext,
+      input.businessContext
     )
 
     allReasoning.push(...selectionReasoning)

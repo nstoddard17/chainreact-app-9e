@@ -33,6 +33,8 @@ export interface PlannerInput {
   draftingContext?: DraftingContext
   /** Whether to prefer LLM planner (default: true) */
   useLLM?: boolean
+  /** Formatted business context block for LLM injection */
+  businessContext?: string
 }
 
 export type Edit =
@@ -911,6 +913,7 @@ export async function planEdits({
   conversationHistory = [],
   draftingContext,
   useLLM = true,
+  businessContext,
 }: PlannerInput): Promise<PlannerResult> {
   const existingNodeIds = new Set(flow.nodes.map((node) => node.id))
 
@@ -1042,6 +1045,7 @@ export async function planEdits({
         connectedIntegrations,
         conversationHistory,
         draftingContext,
+        businessContext,
       }
 
       const llmResult = cachedResult || await planWithLLM(llmInput)
