@@ -138,7 +138,7 @@ function WorkflowAvatar({ avatarUrl, name, initials, className }: { avatarUrl: s
 
 function WorkflowsContentInner() {
   const router = useRouter()
-  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache, duplicateWorkflow, shareWorkflow, batchMoveToFolder, batchTrash, batchDelete, batchRestore, fetchFolders, createFolder, updateFolder, deleteFolder, setDefaultFolder, activateWorkflow, deactivateWorkflow } = useWorkflowStore()
+  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache, duplicateWorkflow, shareWorkflow, batchMoveToFolder, batchTrash, batchDelete, batchRestore, createFolder: storeCreateFolder, updateFolder: storeUpdateFolder, deleteFolder: storeDeleteFolder, setDefaultFolder: storeSetDefaultFolder, activateWorkflow, deactivateWorkflow } = useWorkflowStore()
   const { user, profile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const { checkActionLimit } = usePlanRestrictions()
@@ -1134,7 +1134,7 @@ function WorkflowsContentInner() {
     setLoading(prev => ({ ...prev, 'create-folder': true }))
 
     try {
-      await createFolder(newFolderName.trim(), newFolderDescription.trim() || undefined)
+      await storeCreateFolder(newFolderName.trim(), newFolderDescription.trim() || undefined)
 
       toast({
         title: "Folder Created",
@@ -1163,7 +1163,7 @@ function WorkflowsContentInner() {
     setLoading(prev => ({ ...prev, [`rename-folder-${folderId}`]: true }))
 
     try {
-      await updateFolder(folderId, { name: renameFolderValue.trim() })
+      await storeUpdateFolder(folderId, { name: renameFolderValue.trim() })
 
       toast({
         title: "Folder Renamed",
@@ -1185,7 +1185,7 @@ function WorkflowsContentInner() {
 
   const handleSetDefaultFolder = async (folderId: string, folderName: string) => {
     try {
-      await setDefaultFolder(folderId)
+      await storeSetDefaultFolder(folderId)
 
       toast({
         title: "Default Folder Updated",
@@ -1234,7 +1234,7 @@ function WorkflowsContentInner() {
     setDeleteFolderDialog({ open: false, folderId: null, folderName: '' })
 
     try {
-      await deleteFolder(folderId)
+      await storeDeleteFolder(folderId)
 
       toast({
         title: "Folder Deleted",
@@ -1264,7 +1264,7 @@ function WorkflowsContentInner() {
     })
 
     try {
-      await deleteFolder(folderId, { action, targetFolderId })
+      await storeDeleteFolder(folderId, { action, targetFolderId })
 
       toast({
         title: "Folder Deleted",
