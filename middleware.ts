@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
 import { logger } from '@/lib/utils/logger'
@@ -57,25 +57,6 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  // Create a secret key client for reading user profiles (bypasses RLS)
-  const supabaseAdmin = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SECRET_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            req.cookies.set(name, value)
-            res.cookies.set(name, value, options)
-          })
-        },
-      },
-    }
-  )
-
   try {
     // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser()
@@ -88,89 +69,46 @@ export async function middleware(req: NextRequest) {
       return res
     }
 
-    // ALWAYS fetch fresh profile data - no caching
-    // Use admin client to bypass RLS
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('plan, role, username, provider, admin')
-      .eq('id', user.id)
-      .single()
+    // Read access claims from JWT app_metadata (synced by DB trigger + syncAccessClaims)
+    // No DB query needed — claims are embedded in the token.
+    const appMeta = user.app_metadata || {}
+    const plan = appMeta.plan || 'free'
+    const hasUsername = appMeta.has_username === true
+    const adminCapabilities = appMeta.admin_capabilities || {}
 
-    const isBetaTester = profile?.role === 'beta-pro' || user.user_metadata?.is_beta_tester === true
-    const accountAge = new Date().getTime() - new Date(user.created_at).getTime()
-    const isNewBetaUser = isBetaTester && accountAge < 60000 // Less than 1 minute old
-
-    logger.info('[Middleware] Username check:', {
-      path: pathname,
-      userId: user.id,
-      provider: profile?.provider,
-      role: profile?.role,
-      username: profile?.username,
-      hasUsername: !!(profile?.username && profile.username.trim() !== ''),
-      isBetaTester,
-      isNewBetaUser,
-      accountAge,
-      profileError: profileError?.message
-    })
-
-    // If no profile exists, check user type
-    if (profileError && profileError.code === 'PGRST116') {
-      // Give new beta users a grace period for profile creation
-      if (isNewBetaUser) {
-        logger.info('[Middleware] New beta user, profile still being created, allowing access')
-        return res
-      }
-
-      const isGoogleUser = user.app_metadata?.provider === 'google' ||
-                          user.app_metadata?.providers?.includes('google') ||
-                          user.identities?.some(id => id.provider === 'google')
-
-      if (isGoogleUser && !pathname.startsWith('/auth/setup-username')) {
-        logger.info('[Middleware] Google user without profile, redirecting to setup')
-        return NextResponse.redirect(new URL('/auth/setup-username', req.url))
-      }
-
-      // For other users without profiles after grace period
-      if (!pathname.startsWith('/auth/setup-username')) {
-        logger.info('[Middleware] User without profile, redirecting to setup')
-        return NextResponse.redirect(new URL('/auth/setup-username', req.url))
-      }
-    }
-
-    // CHECK USERNAME FOR ALL USERS
-    // If username is missing or empty, redirect to setup (but give beta users grace period)
-    if ((!profile?.username || profile.username.trim() === '' || profile.username === null) &&
-        !pathname.startsWith('/auth/setup-username')) {
-
-      // Give new beta users a grace period
-      if (isNewBetaUser) {
-        logger.info('[Middleware] New beta user without username yet, allowing temporary access')
-        // Set a temporary redirect after grace period
-        if (accountAge > 30000) { // After 30 seconds
-          logger.info('[Middleware] Beta user grace period expired, redirecting to setup')
-          return NextResponse.redirect(new URL('/auth/setup-username', req.url))
-        }
+    // Username check — redirect to setup if missing
+    if (!hasUsername && !pathname.startsWith('/auth/setup-username')) {
+      // Grace period for brand-new accounts (< 60s old) — claims may not be synced yet
+      const accountAge = Date.now() - new Date(user.created_at).getTime()
+      if (accountAge < 60000) {
+        logger.info('[Middleware] New user, claims may be pending, allowing access', {
+          userId: user.id,
+          accountAge,
+        })
         return res
       }
 
       logger.info('[Middleware] User without username, redirecting to setup', {
-        username: profile?.username,
-        provider: profile?.provider
+        userId: user.id,
+        has_username: hasUsername,
       })
       return NextResponse.redirect(new URL('/auth/setup-username', req.url))
     }
 
-    // Log unrecognized stored plan values for telemetry
-    if (profile?.plan && !isRecognizedPlan(profile.plan)) {
-      logger.error('[Middleware] Unrecognized stored plan value', {
-        plan: profile.plan,
+    // Log unrecognized plan values for telemetry
+    if (plan && !isRecognizedPlan(plan)) {
+      logger.error('[Middleware] Unrecognized plan in JWT claims', {
+        plan,
         userId: user.id,
         pathname,
       })
     }
 
-    // Canonical access policy evaluation
-    const subject = buildAccessSubject(profile, true)
+    // Canonical access policy evaluation — pure function, no I/O
+    const subject = buildAccessSubject(
+      { plan, username: hasUsername ? 'present' : null, admin_capabilities: adminCapabilities },
+      true,
+    )
     const decision = evaluateAccess(subject, pathname)
 
     if (!decision.allowed) {

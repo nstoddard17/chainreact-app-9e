@@ -14,6 +14,7 @@ export interface AccessSubject {
   hasUsername: boolean
   plan: AccessPlan
   isAdmin: boolean
+  adminCapabilities?: Record<string, boolean>
 }
 
 /** Evaluator output. */
@@ -33,7 +34,7 @@ export interface RouteRule {
   minPlan?: AccessPlan
   /** Exact plan match — user's plan must be in this list. */
   allowedPlansExact?: AccessPlan[]
-  /** Only profile.admin === true. */
+  /** Only users with admin capabilities. */
   adminOnly?: boolean
   /** When denied, client shows upgrade modal instead of middleware redirecting. */
   upgradeModal?: boolean

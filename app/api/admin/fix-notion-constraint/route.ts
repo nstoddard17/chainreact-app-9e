@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireCronAuth } from '@/lib/utils/cron-auth'
 
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check for admin secret
-    const { searchParams } = new URL(request.url)
-    const secret = searchParams.get('secret')
-    
-    if (secret !== process.env.ADMIN_SECRET && secret !== process.env.CRON_SECRET) {
-      return errorResponse("Unauthorized" , 401)
-    }
+    const cronAuth = requireCronAuth(request)
+    if (!cronAuth.authorized) return cronAuth.response
 
     const supabase = createAdminClient()
     

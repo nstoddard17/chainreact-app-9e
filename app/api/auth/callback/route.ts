@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
 import { logger } from '@/lib/utils/logger'
+import { ensureUserProfile } from '@/lib/auth/ensureUserProfile'
 
 // Service role client for admin operations (bypasses RLS)
 const getServiceClient = () => createClient(
@@ -143,25 +144,13 @@ export async function GET(request: NextRequest) {
         // Email confirmation successful - user is now automatically signed in
         // Create profile if it doesn't exist
         if (isNewUser) {
-          const metadata = data.user.user_metadata
-          // Use service role client to bypass RLS for profile creation
-          const serviceClient = getServiceClient()
-          const { error: insertError } = await serviceClient
-            .from('user_profiles')
-            .insert({
-              id: data.user.id,
-              email: data.user.email,
-              first_name: metadata?.first_name,
-              last_name: metadata?.last_name,
-              full_name: metadata?.full_name,
-              username: metadata?.username,
+          try {
+            const serviceClient = getServiceClient()
+            await ensureUserProfile(serviceClient, data.user.id, {
               provider: 'email',
               role: 'free',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
             })
-
-          if (insertError) {
+          } catch (insertError) {
             logger.error('Error creating profile during email confirmation:', insertError)
           }
         }
@@ -197,51 +186,21 @@ export async function GET(request: NextRequest) {
         
         // If profile doesn't exist, create it first
         if (profileError && profileError.code === 'PGRST116') {
-          // Extract user info from Google metadata
-          const metadata = data.user.user_metadata
-          let firstName = metadata?.given_name || ''
-          let lastName = metadata?.family_name || ''
-          const fullName = metadata?.full_name || metadata?.name || ''
-          
-          // If we don't have first/last name but have full name, split it
-          if ((!firstName || !lastName) && fullName) {
-            const nameParts = fullName.split(' ')
-            firstName = firstName || nameParts[0] || ''
-            lastName = lastName || nameParts.slice(1).join(' ') || ''
-          }
-          
           logger.info('Creating new Google user profile:', {
             id: data.user.id,
             email: data.user.email,
-            firstName,
-            lastName,
-            fullName
           })
 
-          // Use service role client to bypass RLS for profile creation
-          const serviceClient = getServiceClient()
-          // Create the profile WITHOUT a username
-          const { error: createError } = await serviceClient
-            .from('user_profiles')
-            .insert({
-              id: data.user.id,
-              email: data.user.email,
-              first_name: firstName,
-              last_name: lastName,
-              full_name: fullName,
-              avatar_url: metadata?.avatar_url || metadata?.picture,
+          try {
+            const serviceClient = getServiceClient()
+            await ensureUserProfile(serviceClient, data.user.id, {
               provider: 'google',
-              role: 'free',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              // Explicitly set username to null for Google users
-              username: null
+              username: null, // Explicitly null — Google users pick username later
             })
-
-          if (createError) {
+          } catch (createError) {
             logger.error('Error creating Google user profile:', createError)
           }
-          
+
           // Always redirect to username setup for new Google users
           logger.info('New Google user created, redirecting to username setup')
           return NextResponse.redirect(`${origin}/auth/setup-username`)

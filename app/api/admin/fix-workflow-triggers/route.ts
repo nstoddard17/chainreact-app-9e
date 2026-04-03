@@ -5,7 +5,7 @@ import { fixWorkflowTriggerNodes } from '@/lib/utils/fixWorkflowTriggerNodes'
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['super_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['super_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }

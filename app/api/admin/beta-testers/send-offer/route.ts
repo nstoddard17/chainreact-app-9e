@@ -5,7 +5,7 @@ import { sendBetaInvitationEmail } from '@/lib/services/resend'
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: Request) {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['support_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }

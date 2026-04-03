@@ -39,6 +39,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { toast } from "sonner"
 
 import { logger } from '@/lib/utils/logger'
@@ -141,7 +142,7 @@ export default function LearnContent() {
   const [saving, setSaving] = useState(false)
   const { profile } = useAuthStore()
 
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
 
   useEffect(() => {
     fetchResources()

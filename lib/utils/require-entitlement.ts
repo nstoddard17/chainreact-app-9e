@@ -32,7 +32,7 @@ async function getUserPlan(userId: string): Promise<{ plan: PlanTier; isAdmin: b
   const supabase = await createSupabaseServiceClient()
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('plan, admin')
+    .select('plan, admin_capabilities')
     .eq('id', userId)
     .single()
 
@@ -47,7 +47,10 @@ async function getUserPlan(userId: string): Promise<{ plan: PlanTier; isAdmin: b
   }
 
   const normalized = normalizePlan(data.plan) as PlanTier
-  return { plan: normalized, isAdmin: data.admin === true }
+  const capabilities = (data as any).admin_capabilities || {}
+  const isAdmin = capabilities.super_admin === true ||
+    Object.values(capabilities).some((v: unknown) => v === true)
+  return { plan: normalized, isAdmin }
 }
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -74,7 +75,7 @@ export default function ProfileSettings() {
     }
   }
 
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
   // If user is admin, show admin badge; otherwise show their role badge
   const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
   const isBetaTester = userRole === 'beta-pro'

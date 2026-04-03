@@ -31,6 +31,7 @@ interface AuthState extends BootSlice {
   checkUsernameAndRedirect: () => void
   refreshSession: () => Promise<boolean>
   isAuthenticated: () => boolean
+  retryBoot: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -194,6 +195,14 @@ export const useAuthStore = create<AuthState>()(
           } as Profile
 
           set({ user: updatedUser, profile: updatedProfile })
+
+          // If entitlement fields changed, refresh session to pick up updated JWT claims
+          // (DB trigger syncs claims, but JWT needs refresh to reflect them)
+          if (updates.username !== undefined || updates.plan !== undefined) {
+            supabase.auth.refreshSession().catch(() => {
+              // Non-fatal — JWT will refresh naturally within ~1 hour
+            })
+          }
 
           if (typeof window !== 'undefined') {
             const sync = getCrossTabSync()
@@ -384,6 +393,7 @@ export const useAuthStore = create<AuthState>()(
             provider: 'google',
             options: {
               redirectTo: `${window.location.origin}/api/auth/callback`,
+              queryParams: { prompt: 'select_account' },
             },
           })
 
@@ -444,6 +454,11 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: () => {
         const state = get()
         return !!(state.user && state.user.id)
+      },
+
+      retryBoot: async () => {
+        set({ phase: 'idle' as BootPhase, bootError: null, error: null })
+        await bootPipeline(set as any, get as any)
       },
     }),
     {
@@ -515,8 +530,8 @@ export const useAuthStore = create<AuthState>()(
         },
       },
       partialize: (state) => ({
-        user: state.user,
-        profile: state.profile,
+        user: state.phase === 'degraded' || state.phase === 'error' ? null : state.user,
+        profile: state.phase === 'degraded' || state.phase === 'error' ? null : state.profile,
       }),
       onRehydrateStorage: () => (state, error) => {
         if (error) {
@@ -551,8 +566,8 @@ function registerListeners() {
 
     if (event === 'SIGNED_IN' && session?.user) {
       const state = useAuthStore.getState()
-      // If we're already ready with this user, just update profile
-      if (state.phase === 'ready' && state.user?.id === session.user.id) {
+      // If we're already ready/degraded with this user, just update profile
+      if ((state.phase === 'ready' || state.phase === 'degraded') && state.user?.id === session.user.id) {
         // Refresh profile data
         const { data: profileData } = await supabase
           .from('user_profiles')
@@ -623,6 +638,13 @@ function registerListeners() {
       const state = useAuthStore.getState()
       const timeSinceHidden = Date.now() - lastHiddenAt
       const timeSinceBoot = Date.now() - state.lastBootCompletedAt
+
+      // Reboot from degraded immediately on tab focus (user returned, try again)
+      if (state.phase === 'degraded') {
+        logger.debug('[AUTH] Tab visible while degraded, retrying boot')
+        state.retryBoot()
+        return
+      }
 
       // Only reboot if tab was hidden 5+ min AND boot data is stale
       if (timeSinceHidden >= STALE_THRESHOLD && timeSinceBoot >= STALE_THRESHOLD) {

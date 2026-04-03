@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export async function GET() {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['super_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }
@@ -180,7 +180,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['super_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }

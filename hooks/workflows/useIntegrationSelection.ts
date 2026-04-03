@@ -5,6 +5,7 @@ import { useIntegrationStore } from '@/stores/integrationStore'
 import { useAuthStore } from '@/stores/authStore'
 
 import { logger } from '@/lib/utils/logger'
+import { isProfileAdmin } from '@/lib/types/admin'
 
 interface IntegrationInfo {
   id: string
@@ -287,7 +288,7 @@ export function useIntegrationSelection() {
 
     // Add HubSpot and Mailchimp to coming soon for non-admin and non-beta users
     const userRole = profile?.role?.toLowerCase()
-    const isAdmin = profile?.admin === true
+    const isAdmin = isProfileAdmin(profile)
     const isBetaTester = userRole === 'beta-pro'
 
     if (!isAdmin && !isBetaTester) {

@@ -11,7 +11,7 @@ import { autoDiscoverTests } from '@/lib/workflows/test-utils/auto-discover-test
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['support_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }

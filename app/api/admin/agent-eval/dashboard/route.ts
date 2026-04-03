@@ -1,30 +1,15 @@
 import { NextRequest } from 'next/server'
 import { errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from '@/utils/supabase/server'
+import { requireAdmin } from '@/lib/utils/admin-auth'
 import { logger } from '@/lib/utils/logger'
 import { AGENT_VERSION, type FunnelStep, type KPIData, type ContextGroupMetrics, type ContextType } from '@/lib/eval/agentEvalTypes'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createSupabaseRouteHandlerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const authResult = await requireAdmin({ capabilities: ['support_admin'] })
+    if (!authResult.isAdmin) return authResult.response
 
-    if (authError || !user) {
-      return errorResponse('Unauthorized', 401)
-    }
-
-    // Admin check
-    const supabaseAdmin = await createSupabaseServiceClient()
-    const { data: profile } = await supabaseAdmin
-      .from('user_profiles')
-      .select('admin')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile?.admin) {
-      return errorResponse('Admin access required', 403)
-    }
-
+    const { serviceClient: supabaseAdmin } = authResult
     const url = new URL(request.url)
 
     // Session detail mode: return all events for a specific conversation

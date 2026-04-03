@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { useWorkflowStore } from "@/stores/workflowStore"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { type UserRole } from "@/lib/utils/roles"
@@ -71,7 +72,7 @@ export function OrganizationSwitcher() {
   }
 
   // Get user role for badge icon
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
   const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 
   // Map roles to icons

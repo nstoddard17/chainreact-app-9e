@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -65,7 +66,7 @@ export function OrganizationPublicView() {
   useEffect(() => {
     const handleCreateOrganization = () => {
       // Admins can always create organizations
-      if (profile?.admin === true) {
+      if (isProfileAdmin(profile)) {
         setCreateDialogOpen(true)
         return
       }

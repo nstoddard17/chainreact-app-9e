@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireCronAuth } from '@/lib/utils/cron-auth'
 
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
-    // Admin-only endpoint - check for admin key
-    const adminKey = request.headers.get('x-admin-key')
-    if (adminKey !== process.env.ADMIN_API_KEY) {
-      return errorResponse('Unauthorized' , 401)
-    }
+    const cronAuth = requireCronAuth(request)
+    if (!cronAuth.authorized) return cronAuth.response
 
     // Get request data
     const data = await request.json()

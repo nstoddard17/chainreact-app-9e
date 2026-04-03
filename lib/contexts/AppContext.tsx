@@ -37,7 +37,7 @@ export function AppContextProvider({
   initialWorkspaceId = null
 }: AppContextProviderProps) {
   const { phase, user } = useAuthStore()
-  const authReady = phase === 'ready'
+  const authReady = phase === 'ready' || phase === 'degraded'
   const integrationStore = useIntegrationStore()
   const workflowStore = useWorkflowStore()
 

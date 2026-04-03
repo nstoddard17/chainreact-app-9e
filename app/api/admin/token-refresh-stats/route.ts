@@ -6,7 +6,7 @@ import { logger } from '@/lib/utils/logger'
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const authResult = await requireAdmin()
+  const authResult = await requireAdmin({ capabilities: ['support_admin'] })
   if (!authResult.isAdmin) {
     return authResult.response
   }

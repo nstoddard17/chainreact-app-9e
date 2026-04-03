@@ -1,70 +1,26 @@
-import { NextResponse } from "next/server"
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-
+import { errorResponse, jsonResponse } from '@/lib/utils/api-response'
+import { requireAdmin } from '@/lib/utils/admin-auth'
+import { listBetaTesters } from '@/lib/admin/betaTesterActions'
 import { logger } from '@/lib/utils/logger'
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Create route handler client for auth verification
-    const supabase = await createSupabaseRouteHandlerClient()
+    const authResult = await requireAdmin({ capabilities: ['support_admin'] })
+    if (!authResult.isAdmin) return authResult.response
 
-    // Get the current user session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      logger.error("Auth error:", authError)
-      return errorResponse("Unauthorized - please log in" , 401)
-    }
-
-    // Create service client to bypass RLS
-    const supabaseAdmin = await createSupabaseServiceClient()
-
-    // Check if user is admin using the service client
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("user_profiles")
-      .select("admin")
-      .eq("id", user.id)
-      .single()
-
-    if (profileError) {
-      logger.error("Error fetching profile:", profileError)
-      return errorResponse("Failed to verify admin status" , 500)
-    }
-
-    if (!profile) {
-      logger.error("No profile found for user:", user.id)
-      return errorResponse("User profile not found" , 404)
-    }
-
-    if (profile.admin !== true) {
-      logger.info("User is not admin. Admin status:", profile.admin)
-      return jsonResponse(
-        { error: `Only admins can view beta testers.` },
-        { status: 403 }
-      )
-    }
-
-    // Fetch beta testers using admin client (bypasses RLS)
-    const { data, error } = await supabaseAdmin
-      .from("beta_testers")
-      .select("*")
-      .order("created_at", { ascending: false })
+    const { data, error } = await listBetaTesters()
 
     if (error) {
-      logger.error("Error fetching beta testers:", error)
-      return errorResponse(error.message || "Failed to fetch beta testers" , 500)
+      logger.error('Error fetching beta testers:', error)
+      return errorResponse(error.message || 'Failed to fetch beta testers', 500)
     }
-
-    logger.info(`Returning ${data?.length || 0} beta testers`)
 
     return jsonResponse({
       success: true,
-      data: data || []
+      data: data || [],
     })
-
   } catch (error) {
-    logger.error("Error in list beta testers API:", error)
-    return errorResponse("Internal server error" , 500)
+    logger.error('Error in list beta testers API:', error)
+    return errorResponse('Internal server error', 500)
   }
 }

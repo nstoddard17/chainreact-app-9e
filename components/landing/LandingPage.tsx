@@ -4,6 +4,7 @@ import React, { Suspense, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { useAuth } from "@/hooks/use-auth"
 import { useAuthStore } from "@/stores/authStore"
+import { isProfileAdmin } from "@/lib/types/admin"
 import { type UserRole } from "@/lib/utils/roles"
 import { LightningLoader } from "@/components/ui/lightning-loader"
 
@@ -75,7 +76,7 @@ export default function LandingPage() {
   const { isAuthenticated, user } = useAuth()
   const { signOut, profile } = useAuthStore()
 
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
   // If user is admin, show admin badge; otherwise show their role badge
   const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 

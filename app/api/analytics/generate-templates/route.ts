@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateTemplatesFromClusters, validateTemplate } from '@/lib/workflows/ai-agent/dynamicTemplates'
+import { isProfileAdmin } from '@/lib/types/admin'
 import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
@@ -30,11 +31,11 @@ export async function POST(request: NextRequest) {
     // Check if user is admin
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('admin')
+      .select('admin_capabilities')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.admin) {
+    if (!isProfileAdmin(profile)) {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
@@ -114,11 +115,11 @@ export async function GET(request: NextRequest) {
     // Check if user is admin
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('admin')
+      .select('admin_capabilities')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.admin) {
+    if (!isProfileAdmin(profile)) {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }
@@ -182,11 +183,11 @@ export async function PUT(request: NextRequest) {
     // Check if user is admin
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('admin')
+      .select('admin_capabilities')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.admin) {
+    if (!isProfileAdmin(profile)) {
       return NextResponse.json(
         { error: 'Admin access required' },
         { status: 403 }

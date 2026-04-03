@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabaseClient"
-import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase, Users, Building2, Check, X, Settings, CreditCard } from "lucide-react"
+import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase, Users, Building2, Check, X, Settings, CreditCard, Brain } from "lucide-react"
 import { useTheme } from "next-themes"
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup"
 import { cn } from "@/lib/utils"
@@ -21,8 +21,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import BillingOverview from "@/components/billing/BillingOverview"
 import { SessionManagement } from "@/components/settings/SessionManagement"
+import BusinessContextSettings from "@/components/settings/BusinessContextSettings"
 
-type SettingsSection = 'profile' | 'workspace' | 'billing' | 'notifications' | 'security' | 'appearance'
+type SettingsSection = 'profile' | 'workspace' | 'billing' | 'notifications' | 'security' | 'appearance' | 'ai-context'
 
 export function SettingsContent() {
   const { profile, updateProfile, user } = useAuthStore()
@@ -441,6 +442,7 @@ export function SettingsContent() {
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, description: 'Configure notification preferences' },
     { id: 'security' as const, label: 'Security', icon: Shield, description: 'Password and authentication settings' },
     { id: 'appearance' as const, label: 'Appearance', icon: Palette, description: 'Customize your theme' },
+    { id: 'ai-context' as const, label: 'AI Context', icon: Brain, description: 'Teach AI about your business' },
   ]
 
   return (
@@ -1307,6 +1309,16 @@ export function SettingsContent() {
                 )}
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {activeSection === 'ai-context' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">AI Context</h2>
+              <p className="text-muted-foreground mt-2">Teach ChainReact about your business for smarter workflow planning</p>
+            </div>
+            <BusinessContextSettings />
           </div>
         )}
 

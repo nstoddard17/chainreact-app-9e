@@ -8,6 +8,7 @@ import {
   canPerformAction,
   PLAN_LIMITS
 } from '@/lib/utils/plan-restrictions'
+import { isProfileAdmin } from '@/lib/types/admin'
 
 export interface PlanRestrictionCheck {
   allowed: boolean
@@ -31,12 +32,12 @@ export function usePlanRestrictions() {
 
   // Determine when profile is ready for access checks
   useEffect(() => {
-    if (phase !== 'ready') {
+    if (phase !== 'ready' && phase !== 'degraded') {
       return
     }
 
-    // If we have a profile with explicit admin=true, mark ready immediately
-    if (profile?.admin === true) {
+    // If we have an admin profile, mark ready immediately
+    if (isProfileAdmin(profile)) {
       setIsProfileReady(true)
       return
     }
@@ -64,7 +65,7 @@ export function usePlanRestrictions() {
   // Ensure we have a valid plan tier - fallback to 'free' if plan is invalid
   const rawPlan = profile?.plan || 'free'
   const currentPlan = (PLAN_LIMITS[rawPlan as PlanTier] ? rawPlan : 'free') as PlanTier
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
 
   /**
    * Check if the current user's plan has access to a specific feature

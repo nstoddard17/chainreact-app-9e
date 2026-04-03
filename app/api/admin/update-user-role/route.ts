@@ -1,56 +1,29 @@
-import { NextResponse } from "next/server"
-import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-response'
-import { createSupabaseRouteHandlerClient } from "@/utils/supabase/server"
-import { type UserRole } from "@/lib/utils/roles"
+import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
+import { requireAdmin } from '@/lib/utils/admin-auth'
+import { updateUserRole } from '@/lib/admin/userActions'
 
 export async function POST(request: Request) {
-    const supabase = await createSupabaseRouteHandlerClient()
+  const authResult = await requireAdmin({ capabilities: ['user_admin'], stepUp: true })
+  if (!authResult.isAdmin) return authResult.response
 
-    const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const { userId, newRole } = await request.json()
 
-    if (!user) {
-        return errorResponse("Unauthorized" , 401)
+    if (!userId || !newRole) {
+      return errorResponse('Missing required fields', 400)
     }
 
-    // Check if user is admin
-    const { data: userProfile } = await supabase
-        .from('user_profiles')
-        .select('admin')
-        .eq('id', user.id)
-        .single()
+    const result = await updateUserRole(authResult.userId, userId, newRole, request)
 
-    if (!userProfile || userProfile.admin !== true) {
-        return errorResponse("Admin access required" , 403)
+    if (!result.success) {
+      return errorResponse(result.error || 'Failed to update role', result.error === 'Invalid role' ? 400 : 500)
     }
 
-    try {
-        const { userId, newRole } = await request.json()
-
-        if (!userId || !newRole) {
-            return errorResponse("Missing required fields" , 400)
-        }
-
-        // Validate the role
-        const validRoles: UserRole[] = ['free', 'pro', 'beta-pro', 'business', 'enterprise', 'admin']
-        if (!validRoles.includes(newRole)) {
-            return errorResponse("Invalid role" , 400)
-        }
-
-        // Update the user's role
-        const { error } = await supabase
-            .from('user_profiles')
-            .update({ role: newRole })
-            .eq('id', userId)
-
-        if (error) {
-            return errorResponse(error.message , 500)
-        }
-
-        return jsonResponse({
-            success: true,
-            message: "User role updated successfully"
-        })
-    } catch (error: any) {
-        return errorResponse(error.message , 500)
-    }
-} 
+    return jsonResponse({
+      success: true,
+      message: 'User role updated successfully',
+    })
+  } catch (error: any) {
+    return errorResponse(error.message, 500)
+  }
+}

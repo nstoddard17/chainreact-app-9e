@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RoleBadge } from "@/components/ui/role-badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { type UserRole } from "@/lib/utils/roles"
+import { isProfileAdmin } from "@/lib/types/admin"
 
 export default function AdminPage() {
   const { profile, user } = useAuthStore()
@@ -26,12 +27,12 @@ export default function AdminPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState("overview")
 
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
   // If user is admin, show admin badge; otherwise show their role badge
   const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
 
   useEffect(() => {
-    if (profile?.admin === true) {
+    if (isProfileAdmin(profile)) {
       fetchUserStats().catch(error => {
         console.error('Failed to fetch user stats:', error)
       })
@@ -50,14 +51,14 @@ export default function AdminPage() {
   }
 
   // After profile loads, check if admin
-  if (profile.admin !== true) {
+  if (!isProfileAdmin(profile)) {
     return (
       <NewAppLayout title="Admin Panel" subtitle="System administration and user management">
         <div className="flex-1 flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
             <p className="text-muted-foreground mb-4">You do not have admin privileges.</p>
-            <p className="text-sm text-muted-foreground">Admin status: {String(profile.admin)}</p>
+            <p className="text-sm text-muted-foreground">Admin status: {String(isProfileAdmin(profile))}</p>
             <button
               onClick={() => router.push('/workflows')}
               className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"

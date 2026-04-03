@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/authStore"
 import { useOrganizationStore } from "@/stores/organizationStore"
 import { type UserRole, ROLE_HIERARCHY } from "@/lib/utils/roles"
 import { hasMembershipPermission, type OrgRole } from "@/lib/types/roles"
+import { isProfileAdmin } from "@/lib/types/admin"
 
 interface RoleGuardProps {
   children: ReactNode
@@ -26,7 +27,7 @@ export function RoleGuard({
   const { profile } = useAuthStore()
   const { currentOrganization } = useOrganizationStore()
 
-  const isAdmin = profile?.admin === true
+  const isAdmin = isProfileAdmin(profile)
   const userRole = isAdmin ? 'admin' : ((profile?.role || 'free') as UserRole)
 
   // Check if user has required system role (plan tier)

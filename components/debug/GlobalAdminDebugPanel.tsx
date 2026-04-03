@@ -10,11 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Bug, Copy, Check, Trash2, Download, X, Minimize2, Maximize2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { isProfileAdmin } from "@/lib/types/admin"
 
 /**
  * Global admin-only floating debug panel
  * Persists across all pages in the app
- * Only shows for users with user_profiles.admin = true
+ * Only shows for users with admin capabilities in user_profiles.admin_capabilities
  *
  * Features:
  * - Floating panel that stays on top while navigating
@@ -43,12 +44,14 @@ export function GlobalAdminDebugPanel() {
     ? events
     : events.filter(e => e.category === categoryFilter)
 
+  const profileIsAdmin = isProfileAdmin(profile)
+
   // Enable debug logging for admin users
   useEffect(() => {
-    if (profile?.admin) {
+    if (profileIsAdmin) {
       setDebugAdmin(true)
     }
-  }, [profile?.admin])
+  }, [profileIsAdmin])
 
   // Auto-scroll to bottom when new events arrive
   useEffect(() => {
@@ -59,7 +62,7 @@ export function GlobalAdminDebugPanel() {
 
   // Only show for authenticated admin users
   // Wait for auth to initialize to avoid showing panel during auth loading
-  if (phase !== 'ready' || !user || !profile?.admin) {
+  if ((phase !== 'ready' && phase !== 'degraded') || !user || !profileIsAdmin) {
     return null
   }
 
@@ -83,7 +86,7 @@ export function GlobalAdminDebugPanel() {
     "User Profile": {
       id: profile?.id,
       email: profile?.email,
-      admin: profile?.admin,
+      admin: isProfileAdmin(profile),
       username: profile?.username,
     },
     "Workspace Context": {

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendWelcomeEmail } from '@/lib/services/resend'
 import { logger } from '@/lib/utils/logger'
+import { ensureUserProfile } from '@/lib/auth/ensureUserProfile'
 
 // Service role client for admin operations
 const getServiceClient = () => createClient(
@@ -81,27 +82,18 @@ export async function POST(request: NextRequest) {
 
       userId = createData.user.id
 
-      // Create the user profile
-      const { buildDefaultProfileFields } = await import('@/lib/utils/profile-defaults')
-      const profileData = {
-        id: userId,
-        username: metadata?.username,
-        first_name: metadata?.first_name,
-        last_name: metadata?.last_name,
-        full_name: metadata?.full_name,
-        email: email,
-        provider: 'email',
-        role: 'free',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        ...buildDefaultProfileFields(),
-      }
-
-      const { error: profileError } = await serviceClient
-        .from('user_profiles')
-        .insert(profileData)
-
-      if (profileError) {
+      // Create the user profile via idempotent upsert
+      try {
+        await ensureUserProfile(serviceClient, userId, {
+          username: metadata?.username,
+          first_name: metadata?.first_name,
+          last_name: metadata?.last_name,
+          full_name: metadata?.full_name,
+          email,
+          provider: 'email',
+          role: 'free',
+        })
+      } catch (profileError) {
         logger.error('[signup] Error creating profile:', profileError)
         // Don't fail the signup - profile can be created later
       }
