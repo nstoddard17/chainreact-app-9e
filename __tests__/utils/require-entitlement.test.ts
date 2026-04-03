@@ -18,7 +18,10 @@ import { requireFeature, requireActionLimit } from '@/lib/utils/require-entitlem
 
 function mockUserPlan(plan: string | null, admin: boolean = false) {
   mockSingle.mockResolvedValueOnce({
-    data: { plan, admin },
+    data: {
+      plan,
+      admin_capabilities: admin ? { super_admin: true } : {},
+    },
     error: null,
   })
 }
