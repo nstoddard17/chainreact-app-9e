@@ -213,7 +213,6 @@ export async function deductTasksAtomic(
 
     // Phase 1 parallel write: also deduct from user_entitlements via deduct_tasks_v2
     if (process.env.ENTITLEMENTS_V2 === 'true' && result.applied) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any).rpc('deduct_tasks_v2', {
         p_user_id: userId,
         p_amount: totalCost,
