@@ -711,7 +711,8 @@ function registerListeners() {
 }
 
 // Register listeners on module load (client only)
+// NOTE: Must be synchronous — setTimeout would cause a race condition where
+// Supabase fires SIGNED_IN before the listener is attached (post-OAuth redirect).
 if (typeof window !== 'undefined') {
-  // Delay slightly to ensure store is created
-  setTimeout(registerListeners, 0)
+  registerListeners()
 }
