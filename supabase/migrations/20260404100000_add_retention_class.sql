@@ -8,10 +8,18 @@ ALTER TABLE workflow_execution_sessions
   ADD COLUMN IF NOT EXISTS retention_class TEXT NOT NULL DEFAULT 'free';
 
 -- Step 2: Best-effort backfill from current entitlement (legacy approximation).
--- Users may have changed tiers since execution time.
+-- tier_id is a UUID FK to plans table. Map plan name → retention_class.
 UPDATE workflow_execution_sessions wes
 SET retention_class = COALESCE(
-  (SELECT ue.tier_code FROM user_entitlements ue WHERE ue.user_id = wes.user_id LIMIT 1),
+  (SELECT CASE
+     WHEN lower(p.name) IN ('team', 'business', 'enterprise') THEN 'team'
+     WHEN lower(p.name) = 'pro' THEN 'pro'
+     ELSE 'free'
+   END
+   FROM user_entitlements ue
+   JOIN plans p ON p.id = ue.tier_id
+   WHERE ue.user_id = wes.user_id
+   LIMIT 1),
   'free'
 )
 WHERE retention_class = 'free';
