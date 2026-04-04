@@ -3,12 +3,13 @@ import { jsonResponse, errorResponse, successResponse } from '@/lib/utils/api-re
 import type { NextRequest } from "next/server"
 import { getAdminSupabaseClient } from "@/lib/supabase/admin"
 import { refreshTokenForProvider } from "@/lib/integrations/tokenRefreshService"
+import { classifyOAuthError } from "@/lib/integrations/errorClassificationService"
 import {
-  sendWarningNotification,
-  sendDisconnectionNotification,
-  sendRateLimitNotification,
-  shouldSendNotification,
-} from "@/lib/integrations/notificationService"
+  computeTransitionAndNotify,
+  buildHealthySignal,
+  buildFailureSignal,
+  type Integration as HealthIntegration,
+} from "@/lib/integrations/healthTransitionEngine"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -230,22 +231,19 @@ export async function GET(request: NextRequest) {
               updated_at: now.toISOString(),
               last_refresh_success: now.toISOString(),
               consecutive_failures: 0,
-              consecutive_transient_failures: 0, // Reset transient failures too
+              consecutive_transient_failures: 0,
               disconnect_reason: null,
               status: "connected",
             }
 
-            // Add refresh token if provided
             if (refreshResult.refreshToken) {
               updateData.refresh_token = refreshResult.refreshToken
             }
 
-            // Add expiration if provided
             if (refreshResult.accessTokenExpiresIn) {
               updateData.expires_at = new Date(now.getTime() + refreshResult.accessTokenExpiresIn * 1000).toISOString()
             }
 
-            // Update the integration
             const { error: updateError } = await supabase
               .from("integrations")
               .update(updateData)
@@ -256,6 +254,23 @@ export async function GET(request: NextRequest) {
             } else if (verbose) {
               logger.info(`Successfully refreshed ${integration.provider}`)
             }
+
+            // Feed healthy signal to transition engine
+            const healthIntegration: HealthIntegration = {
+              id: integration.id,
+              user_id: integration.user_id,
+              provider: integration.provider,
+              health_check_status: integration.health_check_status ?? null,
+              last_notification_milestone: integration.last_notification_milestone ?? null,
+              requires_user_action: integration.requires_user_action ?? false,
+              user_action_type: integration.user_action_type ?? null,
+              user_action_deadline: integration.user_action_deadline ?? null,
+            }
+            await computeTransitionAndNotify(
+              supabase,
+              healthIntegration,
+              buildHealthySignal('token_refresh')
+            )
 
             results.push({
               id: integration.id,
@@ -327,52 +342,36 @@ export async function GET(request: NextRequest) {
               logger.info(`Failed to refresh ${integration.provider}: ${refreshResult.error}`)
             }
 
-            // Send notifications based on failure type and count
+            // Feed failure signal to transition engine (single decision-maker)
             try {
-              if (isTransient) {
-                // Send rate limit notification after 5+ transient failures
-                if (shouldSendNotification(0, newTransientFailures, 'rate_limit')) {
-                  await sendRateLimitNotification(supabase, {
-                    userId: integration.user_id,
-                    provider: integration.provider,
-                    integrationId: integration.id,
-                    consecutiveTransientFailures: newTransientFailures,
-                    notificationType: 'rate_limit'
-                  })
-                  logger.info(`📧 Sent rate limit notification for ${integration.provider} (${newTransientFailures} failures)`)
-                }
-              } else {
-                // Send warning on 2nd auth failure
-                if (shouldSendNotification(newAuthFailures, 0, 'warning')) {
-                  await sendWarningNotification(supabase, {
-                    userId: integration.user_id,
-                    provider: integration.provider,
-                    integrationId: integration.id,
-                    consecutiveFailures: newAuthFailures,
-                    errorMessage: refreshResult.error,
-                    notificationType: 'warning'
-                  })
-                  logger.info(`⚠️ Sent warning notification for ${integration.provider} (${newAuthFailures} failures)`)
-                }
+              const classifiedError = classifyOAuthError(
+                integration.provider,
+                refreshResult.statusCode || 0,
+                { error: refreshResult.error, message: refreshResult.error }
+              )
 
-                // Send disconnection notification on 3rd auth failure or permanent error
-                if (shouldSendNotification(newAuthFailures, 0, 'disconnected')) {
-                  const shouldEmail = newAuthFailures >= 2 || refreshResult.invalidRefreshToken
-                  await sendDisconnectionNotification(supabase, {
-                    userId: integration.user_id,
-                    provider: integration.provider,
-                    integrationId: integration.id,
-                    consecutiveFailures: newAuthFailures,
-                    errorMessage: refreshResult.error,
-                    sendEmail: shouldEmail,
-                    notificationType: 'disconnected'
-                  })
-                  logger.info(`🔴 Sent disconnection notification for ${integration.provider} (${newAuthFailures} failures, email: ${shouldEmail})`)
-                }
+              const healthIntegration: HealthIntegration = {
+                id: integration.id,
+                user_id: integration.user_id,
+                provider: integration.provider,
+                health_check_status: integration.health_check_status ?? null,
+                last_notification_milestone: integration.last_notification_milestone ?? null,
+                requires_user_action: integration.requires_user_action ?? false,
+                user_action_type: integration.user_action_type ?? null,
+                user_action_deadline: integration.user_action_deadline ?? null,
+              }
+
+              const transitionResult = await computeTransitionAndNotify(
+                supabase,
+                healthIntegration,
+                buildFailureSignal(classifiedError, 'token_refresh')
+              )
+
+              if (transitionResult.notified) {
+                logger.info(`[TokenRefresh] Notification sent for ${integration.provider}: ${transitionResult.milestone}`)
               }
             } catch (notificationError: any) {
-              logger.error(`Failed to send notification for ${integration.provider}:`, notificationError)
-              // Don't fail the whole job if notification fails
+              logger.error(`Failed to process health transition for ${integration.provider}:`, notificationError)
             }
 
             results.push({

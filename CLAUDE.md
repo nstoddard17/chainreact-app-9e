@@ -164,19 +164,40 @@ interface TriggerLifecycle {
 ## Proactive OAuth Token Management
 **Goal:** Users never need to manually reconnect (match Zapier/Make.com/n8n).
 
+### Health State Machine
+Deterministic state model: `healthy → warning → action_required → disconnected → paused`
+Each transition notifies exactly once. Unchanged state never re-alerts.
+
+**Critical rule:** The shared transition engine (`lib/integrations/healthTransitionEngine.ts`) is the **only** system that decides whether to notify. All cron jobs and callbacks feed signals into `computeTransitionAndNotify()`. No inline notification logic in cron routes or callbacks.
+
+**NULL invariant:** `health_check_status = NULL` means unobserved. Must NEVER render as healthy in UI, queries, or analytics.
+
 | Component | File | Schedule |
 |-----------|------|----------|
+| **Transition Engine** | `lib/integrations/healthTransitionEngine.ts` | On every signal |
 | Health Checks | `/api/cron/proactive-health-check` | Every 15 min |
-| Distributed Locking | `/lib/integrations/refreshLockService.ts` | On refresh |
-| Error Classification | `/lib/integrations/errorClassificationService.ts` | On error |
+| Token Refresh | `/api/cron/token-refresh` | Every 20 min |
+| User Action Escalation | `/api/cron/notify-user-actions` | Hourly |
+| Error Classification | `lib/integrations/errorClassificationService.ts` | On error |
+| Notification Delivery | `lib/integrations/notificationService.ts` | Pure delivery only |
 | Webhook Renewal | `/api/cron/renew-webhook-subscriptions` | Every 10 min |
-| User Notifications | `/api/cron/notify-user-actions` | Hourly |
 
 **Health Check Intervals:** Google/Microsoft: 6h | Slack/Discord/GitHub/Notion: 4h | Others: 12h
 
-**Notification Escalation:** Day 0 → Day 2 → Day 5 → Day 7 (pause workflows)
+**Notification Milestones:** `none → warning → action_required_initial → reminder_day_2 → urgent_day_5 → paused_day_7 → recovered`
 
-**Database columns on `integrations`:** `last_health_check_at`, `next_health_check_at`, `health_check_status`, `requires_user_action`, `user_action_type`, `user_action_deadline`, `last_error_code`, `last_error_details`, `refresh_lock_at`, `refresh_lock_id`
+**Escalation Timeline:** Day 0 (initial) → Day 2 (reminder) → Day 5 (urgent) → Day 7 (pause workflows)
+
+**Canonical DB columns on `integrations`:** `health_check_status`, `last_notification_milestone`, `last_notified_at`, `requires_user_action`, `user_action_type`, `user_action_deadline`, `last_health_check_at`, `next_health_check_at`, `last_error_code`, `last_error_details`, `refresh_lock_at`, `refresh_lock_id`
+
+**Ownership boundaries:**
+- Transition engine owns notification-state fields
+- Workflow resume/pause is downstream of escalation outcomes, not part of integration health model
+- Consecutive failure counters are diagnostic signals only — do not drive notifications
+
+**Reconnect flow:** OAuth callbacks emit a recovery signal to `computeTransitionAndNotify()`. Engine resets state to healthy, sets milestone to `recovered`, clears action fields. Workflows marked `eligible_to_resume` — no auto-resume.
+
+**Workflow notification settings UI:** `components/workflows/settings/NotificationSettings.tsx` — toggle + email field. API: `/api/workflows/[id]/settings`.
 
 ## Agent Evaluation Framework
 Single table `agent_eval_events` with 24 event types across 4 categories (funnel, quality, drafting, trust). Client-side tracker singleton with batched POSTs every 5s. Dashboard at `/admin` → "Agent Eval" tab.
@@ -336,9 +357,6 @@ No token logging. Encrypted storage (AES-256). Scope validation. OAuth best prac
 **Client:** `import { useDebugStore } from "@/stores/debugStore"` → `logEvent()`, `logApiCall()`, `logApiResponse()`, `logApiError()`
 **Server:** `import { logger } from "@/lib/utils/logger"` → `logger.debug()`, `logger.error()`
 **Requirements:** Follow `/learning/docs/logging-best-practices.md`. NO tokens, keys, PII in logs.
-
-### Test-Actions Page (`/test-actions`)
-ActionTester uses the SAME configuration logic as the workflow builder — shared `useDynamicOptions` hook from `components/workflows/configuration/hooks/useDynamicOptions.ts`. Fixes tested here automatically apply to workflow builder.
 
 **Unit:** Jest + RTL | **Browser:** Follow `/PLAYWRIGHT.md`
 
@@ -503,14 +521,6 @@ NO automatic commits/push unless explicitly asked.
 - Keep `status === 'connected'`
 - Update `providerMappings` in `isIntegrationConnected`
 - See `/learning/walkthroughs/integration-connection-status-fix.md`
-
-## Test-Actions Feedback Loop Prevention
-```typescript
-const configValuesRef = useRef(configValues)
-useEffect(() => { configValuesRef.current = configValues }, [configValues])
-const getFormValuesStable = useCallback(() => configValuesRef.current, [])
-// Pass to useDynamicOptions — keeps callback stable, prevents infinite loops
-```
 
 ## Loop Progress Tracking
 **Files:** Migration: `/supabase/migrations/20251106000000_create_loop_executions_table.sql` | Handler: `/lib/workflows/actions/logic/loop.ts` | UI: `/components/workflows/execution/LoopProgressIndicator.tsx`

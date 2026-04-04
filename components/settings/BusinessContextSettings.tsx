@@ -28,6 +28,15 @@ const CATEGORIES = [
   { value: 'defaults', label: 'Defaults' },
 ] as const
 
+const CATEGORY_PLACEHOLDERS: Record<string, string> = {
+  company_info: 'e.g. Acme Corp, B2B SaaS, based in Austin TX',
+  preferences: 'e.g. Always use Slack over email for internal notifications',
+  rules: 'e.g. Never send marketing emails on weekends',
+  mappings: "e.g. 'support' maps to #support-tickets Slack channel",
+  style: 'e.g. Professional but friendly, avoid jargon',
+  defaults: 'e.g. Default currency: USD, Default timezone: America/Chicago',
+}
+
 export default function BusinessContextSettings() {
   const { entries, loading, error } = useBusinessContextStore()
   const { getCurrentLimits, checkActionLimit, isAdmin } = usePlanRestrictions()
@@ -86,25 +95,28 @@ export default function BusinessContextSettings() {
         <CardContent className="pt-6">
           <div className="space-y-3">
             <div className="flex gap-3">
-              <Input
-                placeholder="Key (e.g. company_name, tone)"
-                value={newKey}
-                onChange={(e) => setNewKey(e.target.value)}
-                className="flex-1"
-              />
-              <Select value={newCategory} onValueChange={setNewCategory}>
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map(c => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex-1 min-w-0">
+                <Input
+                  placeholder="Key (e.g. company_name, tone)"
+                  value={newKey}
+                  onChange={(e) => setNewKey(e.target.value)}
+                />
+              </div>
+              <div className="w-[160px] shrink-0">
+                <Select value={newCategory} onValueChange={setNewCategory}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(c => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Textarea
-              placeholder="Value (e.g. Acme Corp, Professional but friendly)"
+              placeholder={CATEGORY_PLACEHOLDERS[newCategory] ?? 'Enter a value'}
               value={newValue}
               onChange={(e) => setNewValue(e.target.value)}
               rows={2}
