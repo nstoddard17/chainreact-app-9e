@@ -548,7 +548,7 @@ function createExecutionContextWrapper(handler: Function) {
         resolveVariable: (value: any) => resolveValueCore(value, params.input)
       },
       getIntegration: async (provider: string) => {
-        // Check if integrationId is provided in input or config (from test-actions page)
+        // Check if integrationId is provided in input or config
         const integrationId = params.input?.integrationId || params.config?.integrationId
         if (integrationId) {
           logger.info(`[Registry] Looking up integration by ID: ${integrationId} for user: ${params.userId}`)

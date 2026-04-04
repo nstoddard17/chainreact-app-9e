@@ -337,9 +337,6 @@ No token logging. Encrypted storage (AES-256). Scope validation. OAuth best prac
 **Server:** `import { logger } from "@/lib/utils/logger"` → `logger.debug()`, `logger.error()`
 **Requirements:** Follow `/learning/docs/logging-best-practices.md`. NO tokens, keys, PII in logs.
 
-### Test-Actions Page (`/test-actions`)
-ActionTester uses the SAME configuration logic as the workflow builder — shared `useDynamicOptions` hook from `components/workflows/configuration/hooks/useDynamicOptions.ts`. Fixes tested here automatically apply to workflow builder.
-
 **Unit:** Jest + RTL | **Browser:** Follow `/PLAYWRIGHT.md`
 
 ## Documentation Requirements
@@ -503,14 +500,6 @@ NO automatic commits/push unless explicitly asked.
 - Keep `status === 'connected'`
 - Update `providerMappings` in `isIntegrationConnected`
 - See `/learning/walkthroughs/integration-connection-status-fix.md`
-
-## Test-Actions Feedback Loop Prevention
-```typescript
-const configValuesRef = useRef(configValues)
-useEffect(() => { configValuesRef.current = configValues }, [configValues])
-const getFormValuesStable = useCallback(() => configValuesRef.current, [])
-// Pass to useDynamicOptions — keeps callback stable, prevents infinite loops
-```
 
 ## Loop Progress Tracking
 **Files:** Migration: `/supabase/migrations/20251106000000_create_loop_executions_table.sql` | Handler: `/lib/workflows/actions/logic/loop.ts` | UI: `/components/workflows/execution/LoopProgressIndicator.tsx`
