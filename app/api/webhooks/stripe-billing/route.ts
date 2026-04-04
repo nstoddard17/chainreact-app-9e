@@ -5,6 +5,17 @@ import Stripe from "stripe"
 import { getStripeClient } from "@/lib/stripe/client"
 
 import { logger } from '@/lib/utils/logger'
+import {
+  isEventProcessed,
+  markEventProcessed,
+  isStaleEvent,
+  syncFromStripe,
+  setGracePeriod,
+  ensureEntitlement,
+  type StripeEventMeta,
+  type StripeSubscriptionData,
+} from '@/lib/entitlements/entitlement-service'
+import { resolveTierByStripePrice } from '@/lib/entitlements/tier-cache'
 
 // Helper function to safely convert timestamps to ISO strings
 function safeTimestampToISO(timestamp: number | null | undefined): string | null {
@@ -51,7 +62,7 @@ export async function POST(request: Request) {
 
   try {
     logger.info(`[Stripe Webhook] Processing event: ${event.type}`)
-    
+
     switch (event.type) {
       case "checkout.session.completed":
         logger.info("[Stripe Webhook] Processing checkout.session.completed")
@@ -85,6 +96,11 @@ export async function POST(request: Request) {
 
       default:
         logger.info(`[Stripe Webhook] Unhandled event type: ${event.type}`)
+    }
+
+    // Phase 1 parallel write: sync to user_entitlements
+    if (process.env.ENTITLEMENTS_V2 === 'true') {
+      await syncEntitlementFromEvent(event, supabase, stripe)
     }
 
     logger.info(`[Stripe Webhook] Successfully processed event: ${event.type}`)
@@ -574,16 +590,241 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice, supabase: any) {
 async function handlePaymentFailed(invoice: Stripe.Invoice, supabase: any) {
   logger.info("[Stripe Webhook] handlePaymentFailed - Invoice:", invoice.id)
   await storeInvoice(invoice, supabase)
-  
+
   // You might want to send notification emails here
   // Or update the subscription status to 'past_due'
   if (invoice.subscription) {
     await supabase
       .from("subscriptions")
-      .update({ 
+      .update({
         status: 'past_due',
         updated_at: new Date().toISOString()
       })
       .eq("stripe_subscription_id", invoice.subscription)
+  }
+}
+
+// =====================================================================
+// Phase 1: Entitlement sync (parallel write to user_entitlements)
+// =====================================================================
+// Hardened Stripe sync following the approved plan:
+// 1. Idempotency via stripe_processed_events
+// 2. Freshness check via last_stripe_event_at
+// 3. Tier resolution via stripe_tier_mapping (immutable code, not name)
+// 4. State transition validation
+
+async function syncEntitlementFromEvent(
+  event: Stripe.Event,
+  supabase: any,
+  stripeClient: Stripe
+): Promise<void> {
+  try {
+    // 1. Idempotency check
+    const alreadyProcessed = await isEventProcessed(supabase, event.id)
+    if (alreadyProcessed) {
+      logger.debug('[Entitlement Sync] Event already processed, skipping', { eventId: event.id })
+      return
+    }
+
+    const meta: StripeEventMeta = {
+      eventId: event.id,
+      eventType: event.type,
+      eventCreated: new Date(event.created * 1000),
+    }
+
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session
+        const userId = session.metadata?.user_id
+        if (!userId || !session.subscription) break
+
+        const subResponse = await stripeClient.subscriptions.retrieve(session.subscription as string)
+        const sub = subResponse as any
+        const priceId = sub.items.data[0]?.price.id
+        if (!priceId) break
+
+        const tier = await resolveTierByStripePrice(priceId)
+        if (!tier) {
+          logger.warn('[Entitlement Sync] No tier mapping for price', { priceId })
+          break
+        }
+
+        meta.customerId = sub.customer as string
+        meta.subscriptionId = sub.id
+        await ensureEntitlement(userId)
+
+        // Freshness check
+        const { data: ent } = await (supabase as any)
+          .from('user_entitlements')
+          .select('last_stripe_event_at')
+          .eq('user_id', userId)
+          .single()
+
+        if (ent && isStaleEvent(ent, meta.eventCreated)) {
+          logger.warn('[Entitlement Sync] Stale event, skipping', { eventId: event.id })
+          break
+        }
+
+        await syncFromStripe(supabase, userId, {
+          subscriptionId: sub.id,
+          customerId: sub.customer as string,
+          priceId,
+          tierId: tier.tierId,
+          tierCode: tier.tierCode,
+          currentPeriodStart: new Date(sub.current_period_start * 1000),
+          currentPeriodEnd: new Date(sub.current_period_end * 1000),
+          status: sub.status,
+          cancelAtPeriodEnd: sub.cancel_at_period_end,
+        }, meta)
+        break
+      }
+
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const sub = event.data.object as any
+        const priceId = sub.items.data[0]?.price.id
+        if (!priceId) break
+
+        // Find userId from subscriptions table
+        const { data: existingSub } = await supabase
+          .from('subscriptions')
+          .select('user_id')
+          .eq('stripe_subscription_id', sub.id)
+          .single()
+
+        const userId = existingSub?.user_id
+        if (!userId) break
+
+        const tier = await resolveTierByStripePrice(priceId)
+        if (!tier) {
+          logger.warn('[Entitlement Sync] No tier mapping for price', { priceId })
+          break
+        }
+
+        meta.customerId = sub.customer as string
+        meta.subscriptionId = sub.id
+        await ensureEntitlement(userId)
+
+        const { data: ent2 } = await (supabase as any)
+          .from('user_entitlements')
+          .select('last_stripe_event_at')
+          .eq('user_id', userId)
+          .single()
+
+        if (ent2 && isStaleEvent(ent2, meta.eventCreated)) {
+          logger.warn('[Entitlement Sync] Stale event, skipping', { eventId: event.id })
+          break
+        }
+
+        await syncFromStripe(supabase, userId, {
+          subscriptionId: sub.id,
+          customerId: sub.customer as string,
+          priceId,
+          tierId: tier.tierId,
+          tierCode: tier.tierCode,
+          currentPeriodStart: new Date(sub.current_period_start * 1000),
+          currentPeriodEnd: new Date(sub.current_period_end * 1000),
+          status: sub.status,
+          cancelAtPeriodEnd: sub.cancel_at_period_end,
+        }, meta)
+        break
+      }
+
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object as any
+
+        const { data: existingSub } = await supabase
+          .from('subscriptions')
+          .select('user_id')
+          .eq('stripe_subscription_id', sub.id)
+          .single()
+
+        const userId = existingSub?.user_id
+        if (!userId) break
+
+        meta.customerId = sub.customer as string
+        meta.subscriptionId = sub.id
+
+        const { data: ent3 } = await (supabase as any)
+          .from('user_entitlements')
+          .select('last_stripe_event_at')
+          .eq('user_id', userId)
+          .single()
+
+        if (ent3 && isStaleEvent(ent3, meta.eventCreated)) {
+          logger.warn('[Entitlement Sync] Stale event, skipping', { eventId: event.id })
+          break
+        }
+
+        await setGracePeriod(supabase, userId, meta)
+        break
+      }
+
+      case 'invoice.payment_succeeded': {
+        const inv = event.data.object as any
+        if (!inv.subscription) break
+
+        const { data: existingSub } = await supabase
+          .from('subscriptions')
+          .select('user_id')
+          .eq('stripe_subscription_id', inv.subscription)
+          .single()
+
+        const userId = existingSub?.user_id
+        if (!userId) break
+
+        // Get the subscription from Stripe for period dates and price
+        const subResponse2 = await stripeClient.subscriptions.retrieve(inv.subscription as string)
+        const sub = subResponse2 as any
+        const priceId = sub.items.data[0]?.price.id
+        if (!priceId) break
+
+        const tier = await resolveTierByStripePrice(priceId)
+        if (!tier) break
+
+        meta.customerId = sub.customer as string
+        meta.subscriptionId = sub.id
+
+        const { data: ent4 } = await (supabase as any)
+          .from('user_entitlements')
+          .select('last_stripe_event_at')
+          .eq('user_id', userId)
+          .single()
+
+        if (ent4 && isStaleEvent(ent4, meta.eventCreated)) {
+          logger.warn('[Entitlement Sync] Stale event, skipping', { eventId: event.id })
+          break
+        }
+
+        // Reset tasks on successful payment (new billing period)
+        await syncFromStripe(supabase, userId, {
+          subscriptionId: sub.id,
+          customerId: sub.customer as string,
+          priceId,
+          tierId: tier.tierId,
+          tierCode: tier.tierCode,
+          currentPeriodStart: new Date(sub.current_period_start * 1000),
+          currentPeriodEnd: new Date(sub.current_period_end * 1000),
+          status: sub.status,
+          cancelAtPeriodEnd: sub.cancel_at_period_end,
+        }, meta, true) // resetTasks = true
+        break
+      }
+
+      default:
+        // No entitlement sync needed for other events
+        return
+    }
+
+    // Mark event as processed (after successful handling)
+    await markEventProcessed(supabase, meta)
+
+  } catch (error: any) {
+    // Non-blocking during Phase 1 -- log but don't fail the webhook
+    logger.error('[Entitlement Sync] Failed (non-blocking)', {
+      eventId: event.id,
+      eventType: event.type,
+      error: error.message,
+    })
   }
 }

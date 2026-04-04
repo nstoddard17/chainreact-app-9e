@@ -22,10 +22,16 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const allowedFields = ['value', 'category', 'locked', 'relevance_tags']
-    const updates: Record<string, unknown> = {}
 
-    for (const field of allowedFields) {
+    // Reject unknown fields to prevent API surface drift
+    const ALLOWED_FIELDS = new Set(['value', 'category', 'locked', 'relevance_tags'])
+    const unknownFields = Object.keys(body).filter(k => !ALLOWED_FIELDS.has(k))
+    if (unknownFields.length > 0) {
+      return errorResponse(`Unknown fields: ${unknownFields.join(', ')}`, 400)
+    }
+
+    const updates: Record<string, unknown> = {}
+    for (const field of ALLOWED_FIELDS) {
       if (body[field] !== undefined) {
         updates[field] = body[field]
       }

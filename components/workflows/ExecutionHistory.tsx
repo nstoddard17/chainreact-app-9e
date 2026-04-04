@@ -60,6 +60,8 @@ export interface Execution {
   steps_completed: number
   steps_total: number
   output_data?: any
+  tasks_used?: number | null
+  source?: string | null
 }
 
 interface ExecutionHistoryProps {
@@ -117,6 +119,8 @@ export function ExecutionHistory({
     try {
       const response = await fetch(`/api/executions/${executionId}/retry`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retryOf: executionId }),
       })
 
       if (response.ok) {
@@ -251,6 +255,7 @@ export function ExecutionHistory({
               <TableHead>Started</TableHead>
               <TableHead>Duration</TableHead>
               <TableHead>Steps</TableHead>
+              <TableHead>Tasks</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -306,6 +311,23 @@ export function ExecutionHistory({
                         : "text-muted-foreground"
                     )}>
                       {execution.steps_completed}/{execution.steps_total}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                      {execution.tasks_used != null ? (
+                        <>
+                          <Zap className="w-3 h-3" />
+                          {execution.tasks_used}
+                          {execution.source === 'retry' && (
+                            <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                              Retry
+                            </Badge>
+                          )}
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -371,7 +393,7 @@ export function ExecutionHistory({
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-6 pr-4">
                 {/* Status Overview */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <Card>
                     <CardContent className="pt-4">
                       <div className="text-sm text-muted-foreground">Status</div>
@@ -396,6 +418,21 @@ export function ExecutionHistory({
                       <div className="text-sm text-muted-foreground">Steps</div>
                       <div className="text-lg font-semibold">
                         {selectedExecution.steps_completed}/{selectedExecution.steps_total}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="text-sm text-muted-foreground">Tasks Used</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-lg font-semibold">
+                          {selectedExecution.tasks_used != null ? selectedExecution.tasks_used : "—"}
+                        </span>
+                        {selectedExecution.source === 'retry' && (
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                            Retry
+                          </Badge>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

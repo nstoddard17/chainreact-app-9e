@@ -42,6 +42,9 @@ export interface PlanLimits {
   historyRetentionDays: number
   detailedLogs: boolean
 
+  // AI Context
+  maxBusinessContextEntries: number
+
   // Enterprise features
   sso: boolean
   customContracts: boolean
@@ -69,6 +72,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     dedicatedSupport: false,
     historyRetentionDays: 7,   // upgrade driver - short retention
     detailedLogs: false,       // upgrade driver - basic logs only
+    maxBusinessContextEntries: 1, // teaser - upgrade for more
     sso: false,
     customContracts: false,
     slaGuarantee: null,
@@ -93,6 +97,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     dedicatedSupport: false,
     historyRetentionDays: 30,
     detailedLogs: true,
+    maxBusinessContextEntries: 15,
     sso: false,
     customContracts: false,
     slaGuarantee: null,
@@ -117,6 +122,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     dedicatedSupport: false,
     historyRetentionDays: 30,
     detailedLogs: true,
+    maxBusinessContextEntries: 15,
     sso: false,
     customContracts: false,
     slaGuarantee: null,
@@ -141,6 +147,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     dedicatedSupport: false,
     historyRetentionDays: 90,
     detailedLogs: true,
+    maxBusinessContextEntries: -1, // unlimited
     sso: false,
     customContracts: false,
     slaGuarantee: null,
@@ -165,6 +172,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     dedicatedSupport: true,
     historyRetentionDays: 365,
     detailedLogs: true,
+    maxBusinessContextEntries: -1, // unlimited
     sso: false,
     customContracts: false,
     slaGuarantee: '99.9%',
@@ -189,6 +197,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     dedicatedSupport: true,
     historyRetentionDays: -1,
     detailedLogs: true,
+    maxBusinessContextEntries: -1, // unlimited
     sso: true,
     customContracts: true,
     slaGuarantee: '99.99%',
@@ -379,7 +388,7 @@ export function getMinimumPlanForFeature(feature: keyof PlanLimits): PlanTier | 
  */
 export function canPerformAction(
   plan: PlanTier,
-  action: 'createWorkflow' | 'activateWorkflow' | 'addTeamMember' | 'useTasks',
+  action: 'createWorkflow' | 'activateWorkflow' | 'addTeamMember' | 'useTasks' | 'addBusinessContext',
   currentCount: number,
   required?: number
 ): { allowed: boolean; reason?: string; upgradeTo?: PlanTier } {
@@ -422,6 +431,20 @@ export function canPerformAction(
         return {
           allowed: false,
           reason: `You've reached your team member limit (${limits.maxTeamMembers}). Upgrade to add more members.`,
+          upgradeTo,
+        }
+      }
+      return { allowed: true }
+
+    case 'addBusinessContext':
+      if (limits.maxBusinessContextEntries === -1) {
+        return { allowed: true }
+      }
+      if (currentCount >= limits.maxBusinessContextEntries) {
+        const upgradeTo = plan === 'free' ? 'pro' : plan === 'pro' || plan === 'beta' ? 'team' : 'enterprise'
+        return {
+          allowed: false,
+          reason: `You've reached your AI Context limit (${limits.maxBusinessContextEntries}). Upgrade to add more.`,
           upgradeTo,
         }
       }

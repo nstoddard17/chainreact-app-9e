@@ -20,6 +20,8 @@ import { useWorkspaces } from "@/hooks/useWorkspaces"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import BillingOverview from "@/components/billing/BillingOverview"
+import { TaskBillingHistory } from "@/components/billing/TaskBillingHistory"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SessionManagement } from "@/components/settings/SessionManagement"
 import BusinessContextSettings from "@/components/settings/BusinessContextSettings"
 
@@ -879,7 +881,18 @@ export function SettingsContent() {
               <h2 className="text-3xl font-bold tracking-tight">Billing & Subscription</h2>
               <p className="text-muted-foreground mt-2">Manage your personal subscription and billing</p>
             </div>
-            <BillingOverview />
+            <Tabs defaultValue="overview">
+              <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="task-history">Task History</TabsTrigger>
+              </TabsList>
+              <TabsContent value="overview" className="mt-4">
+                <BillingOverview />
+              </TabsContent>
+              <TabsContent value="task-history" className="mt-4">
+                <TaskBillingHistory />
+              </TabsContent>
+            </Tabs>
           </div>
         )}
 

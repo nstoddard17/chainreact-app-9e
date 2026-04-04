@@ -135,7 +135,7 @@ export async function requireFeature(
  */
 export async function requireActionLimit(
   userId: string,
-  action: 'createWorkflow' | 'activateWorkflow' | 'addTeamMember' | 'useTasks',
+  action: 'createWorkflow' | 'activateWorkflow' | 'addTeamMember' | 'useTasks' | 'addBusinessContext',
   currentCount: number,
   required?: number
 ): Promise<FeatureResult> {

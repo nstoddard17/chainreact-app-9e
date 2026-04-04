@@ -23,7 +23,9 @@
  */
 
 import { logger } from '@/lib/utils/logger'
-import { getNodeTaskCost } from '@/lib/workflows/cost-calculator'
+import { FEATURE_FLAGS } from '@/lib/featureFlags'
+import { computeCostPreview } from '@/lib/workflows/cost-preview'
+import type { CostPreview } from '@/lib/workflows/cost-preview'
 
 export type TaskDeductionResultType =
   | 'deducted'
@@ -41,6 +43,8 @@ export interface TaskDeductionResult {
   /** Distinguishes failure reasons for caller error mapping */
   resultType: TaskDeductionResultType
   error?: string
+  /** Full cost preview for callers that need it (e.g. returning to client) */
+  costPreview?: CostPreview
 }
 
 /**
@@ -56,33 +60,45 @@ export interface TaskDeductionResult {
  *
  * @param userId - The user who owns the workflow
  * @param estimatedNodes - Nodes from workflow definition (for cost estimation, not executed nodes)
+ * @param edges - Workflow edges (source → target), used for loop inner-node detection
  * @param executionSessionId - The execution session ID (idempotency key)
  * @param isTestMode - If true, no tasks are deducted
- * @param options - Optional workflow_id and source for ledger tracking
+ * @param options - Optional workflow_id, source, and metadata for ledger tracking
  */
 export async function deductTasksAtomic(
   userId: string,
   estimatedNodes: any[],
+  edges: Array<{ source: string; target: string }>,
   executionSessionId: string,
   isTestMode: boolean,
-  options?: { workflowId?: string; source?: string }
+  options?: {
+    workflowId?: string
+    source?: string
+    metadata?: Record<string, unknown>
+  }
 ): Promise<TaskDeductionResult> {
   if (isTestMode) {
     return { tasksDeducted: 0, newBalance: null, breakdown: {}, applied: false, resultType: 'deducted' }
   }
 
-  // Calculate conservative cost estimate from workflow definition
-  const breakdown: Record<string, number> = {}
-  let totalCost = 0
+  // Compute cost using the authoritative server utility
+  const preview = computeCostPreview(estimatedNodes, edges)
+  const chargedCost = FEATURE_FLAGS.LOOP_COST_EXPANSION
+    ? preview.totalCost
+    : preview.flatCost
+  const breakdown = preview.breakdown
+  const totalCost = chargedCost
 
-  for (const node of estimatedNodes) {
-    if (!node?.id) continue
-    const cost = getNodeTaskCost(node)
-    if (cost > 0) {
-      breakdown[node.id] = cost
-      totalCost += cost
-    }
-  }
+  // Audit: log both flat and charged cost for reconciliation
+  logger.info('[TaskDeduction] Cost computed', {
+    userId,
+    executionSessionId,
+    flatCost: preview.flatCost,
+    chargedCost,
+    hasLoops: preview.hasLoops,
+    loopExpansionEnabled: FEATURE_FLAGS.LOOP_COST_EXPANSION,
+    loopDetails: preview.loopDetails,
+  })
 
   if (totalCost === 0) {
     return { tasksDeducted: 0, newBalance: null, breakdown, applied: false, resultType: 'deducted' }
@@ -195,6 +211,73 @@ export async function deductTasksAtomic(
         }
       })
 
+    // Phase 1 parallel write: also deduct from user_entitlements via deduct_tasks_v2
+    if (process.env.ENTITLEMENTS_V2 === 'true' && result.applied) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any).rpc('deduct_tasks_v2', {
+        p_user_id: userId,
+        p_amount: totalCost,
+        p_execution_id: executionSessionId,
+        p_event_type: 'workflow_execution',
+        p_node_breakdown: breakdown,
+        p_workflow_id: options?.workflowId ?? null,
+        p_source: options?.source ?? 'execute_route'
+      }).then(({ error: v2Error }: { error: any }) => {
+        if (v2Error) {
+          logger.warn('[TaskDeduction] deduct_tasks_v2 parallel write failed (non-blocking)', {
+            userId,
+            executionSessionId,
+            error: v2Error.message,
+          })
+        } else {
+          logger.debug('[TaskDeduction] deduct_tasks_v2 parallel write succeeded', {
+            userId,
+            executionSessionId,
+          })
+        }
+      })
+    }
+
+    // Awaited: persist structured metadata on billing event for Phase 2 history UI
+    const metadataStartTime = Date.now()
+    const billingMetadata = {
+      flat_cost: preview.flatCost,
+      charged_cost: chargedCost,
+      is_retry: Boolean(options?.metadata?.is_retry),
+      original_execution_id: (options?.metadata?.original_execution_id as string) ?? null,
+      loop_details: preview.loopDetails.map((d) => ({
+        loopNodeId: d.loopNodeId,
+        innerNodeIds: d.innerNodeIds,
+        innerCost: d.innerCost,
+        maxIterations: d.maxIterations,
+        expandedCost: d.expandedCost,
+      })),
+      mode: 'live' as const,
+      loop_expansion_enabled: FEATURE_FLAGS.LOOP_COST_EXPANSION,
+      preview_version: 1,
+    }
+
+    const { error: metaError } = await supabase
+      .from('task_billing_events')
+      .update({ metadata: JSON.parse(JSON.stringify(billingMetadata)) })
+      .eq('execution_id', executionSessionId)
+      .eq('user_id', userId)
+
+    const metadataDuration = Date.now() - metadataStartTime
+    if (metaError) {
+      logger.error('[TaskDeduction] Metadata update failed', {
+        userId,
+        executionSessionId,
+        error: metaError.message,
+        durationMs: metadataDuration,
+      })
+    } else {
+      logger.debug('[TaskDeduction] Metadata persisted', {
+        executionSessionId,
+        durationMs: metadataDuration,
+      })
+    }
+
     // Non-blocking: update monthly_usage for billing page display
     try {
       const currentDate = new Date()
@@ -216,7 +299,8 @@ export async function deductTasksAtomic(
       newBalance,
       breakdown,
       applied: result.applied ?? true,
-      resultType
+      resultType,
+      costPreview: preview,
     }
   } catch (error: any) {
     logger.error('[TaskDeduction] Unexpected error', {
@@ -247,9 +331,10 @@ export async function deductExecutionTasks(
   executionSessionId: string,
   isTestMode: boolean
 ): Promise<TaskDeductionResult> {
-  // Delegate to the new atomic function
-  return deductTasksAtomic(userId, executedNodes, executionSessionId, isTestMode, {
-    source: 'execute_route'
+  // Delegate to the new atomic function — pass empty edges for backward compat
+  // (flat cost only, no loop expansion)
+  return deductTasksAtomic(userId, executedNodes, [], executionSessionId, isTestMode, {
+    source: 'execution'
   })
 }
 

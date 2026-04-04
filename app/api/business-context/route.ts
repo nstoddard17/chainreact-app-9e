@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/utils/supabase/server'
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
 import { normalizeKey } from '@/lib/ai/businessContextFormatter'
+import { requireActionLimit } from '@/lib/utils/require-entitlement'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,6 +71,15 @@ export async function POST(request: NextRequest) {
     if (!VALID_CATEGORIES.includes(category)) {
       return errorResponse(`Invalid category. Must be one of: ${VALID_CATEGORIES.join(', ')}`, 400)
     }
+
+    // Enforce plan-based entry limit
+    const { count: currentCount } = await (supabase as any)
+      .from('business_context')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+
+    const ent = await requireActionLimit(user.id, 'addBusinessContext', currentCount ?? 0)
+    if (!ent.allowed) return ent.response
 
     // Normalize key to canonical form
     const normalizedKey = normalizeKey(key)

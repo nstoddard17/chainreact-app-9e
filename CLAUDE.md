@@ -351,6 +351,39 @@ Document immediately when: bug fix >30 min, gotcha/edge case discovered, new int
 
 # SECTION 8 — WORKFLOW INTELLIGENCE SYSTEMS
 
+## Task Cost Visibility & Billing
+
+### Architecture
+The server is the **only authoritative cost source**. Client-side estimation is for passive builder hints only.
+
+| File | Purpose |
+|------|---------|
+| `lib/featureFlags.ts` | `FEATURE_FLAGS.LOOP_COST_EXPANSION` — gates loop billing |
+| `lib/workflows/cost-preview.ts` | `computeCostPreview()` — **single source of truth** for cost computation |
+| `lib/workflows/cost-calculator.ts` | Node-level pricing (triggers=0, actions=1, AI=1-5, logic=0) |
+| `lib/workflows/taskDeduction.ts` | Server deduction — uses `computeCostPreview()` + audit logging |
+| `lib/workflows/loop-cost-estimator.ts` | Client-side passive estimate only — never authoritative |
+| `app/api/workflows/[id]/preview-cost/route.ts` | Authoritative pre-run cost preview API |
+| `components/workflows/builder/ExecutionCostConfirmDialog.tsx` | Pre-execution confirmation (calls preview API) |
+
+### Parity Invariant
+These must always match: preview API `chargedCost` = deducted amount = persisted `tasks_used` = billing event `amount`.
+
+### Feature Flag: `ENABLE_LOOP_COST_EXPANSION`
+- `false` (default): loops charged at flat cost (each inner node counted once)
+- `true`: loops charged at worst-case (inner cost × max iterations, capped at 500)
+- Both costs logged on every deduction for reconciliation
+
+### Rules
+- `computeCostPreview()` is **pure** — no feature flags inside. Callers derive `chargedCost` externally.
+- Confirmation dialog **fails closed** — if preview API fails, execution is blocked.
+- Client estimator must stay minimal. If it needs to grow, replace with debounced preview API call.
+- Billing event metadata is persisted via awaited UPDATE after RPC write.
+- Reconciliation query: `scripts/reconcile-billing-metadata.sql`
+- Tests: `__tests__/workflows/cost-preview.test.ts` (21 tests covering nested/sibling/empty loops, malformed graphs)
+
+---
+
 ## Shared AI Utilities (`/lib/ai/`)
 All AI/LLM infrastructure is centralized here. Do NOT create inline clients or hardcode model strings.
 
