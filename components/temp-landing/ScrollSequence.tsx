@@ -96,7 +96,7 @@ export function ScrollSequence({ steps, sectionTitle, sectionSubtitle }: ScrollS
 
       {/* Mobile: stacked cards */}
       <div className="lg:hidden px-4 sm:px-6 py-14">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           {sectionTitle && (
             <div className="text-center mb-12">
               <h2 className="font-[var(--font-space-grotesk)] text-3xl font-bold text-slate-900 dark:text-white mb-3">

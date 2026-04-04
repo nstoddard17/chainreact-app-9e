@@ -136,7 +136,7 @@ function WorkflowAvatar({ avatarUrl, name, initials, className }: { avatarUrl: s
   )
 }
 
-function WorkflowsContentInner() {
+export function WorkflowsContentInner() {
   const router = useRouter()
   const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache, duplicateWorkflow, shareWorkflow, batchMoveToFolder, batchTrash, batchDelete, batchRestore, createFolder: storeCreateFolder, updateFolder: storeUpdateFolder, deleteFolder: storeDeleteFolder, setDefaultFolder: storeSetDefaultFolder, activateWorkflow, deactivateWorkflow } = useWorkflowStore()
   const { user, profile } = useAuthStore()
