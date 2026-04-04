@@ -51,10 +51,10 @@ export function IntegrationsSection() {
   }
 
   return (
-    <section id="integrations" className="relative px-4 sm:px-6 lg:px-8 py-24 overflow-hidden border-t border-slate-100 dark:border-slate-800/50">
+    <section id="integrations" className="relative px-4 sm:px-6 lg:px-8 py-14 overflow-hidden">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-14">
+        <div className="text-center mb-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -62,7 +62,7 @@ export function IntegrationsSection() {
             transition={{ duration: 0.5 }}
           >
             <div className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-orange-500 to-rose-500 bg-clip-text text-transparent mb-4">
-              20+
+              35+
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-3">
               Deep integrations
@@ -134,6 +134,10 @@ export function IntegrationsSection() {
             </motion.div>
           </div>
         </div>
+
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-8">
+          Don&apos;t see your tool? Our <span className="font-medium text-slate-700 dark:text-slate-300">HTTP Request node</span> connects to anything with an API.
+        </p>
       </div>
     </section>
   )

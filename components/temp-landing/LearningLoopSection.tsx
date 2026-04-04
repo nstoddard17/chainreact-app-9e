@@ -7,11 +7,11 @@ import { PlaceholderMedia } from './PlaceholderMedia'
 const steps = [
   {
     stepNumber: 1,
-    title: 'You build the workflow',
-    description: 'Drag and drop — or just describe what you need and let AI wire it up. Connect Gmail, Slack, HubSpot, and 20 other tools in minutes.',
+    title: 'Describe what you need',
+    description: "Type what you want in plain English. 'When I get a new Shopify order, send a Slack notification to #sales and add a row to Google Sheets.' That's it.",
     media: (
       <PlaceholderMedia
-        label="Screenshot: Workflow Builder canvas with nodes"
+        label="CAPTURE: Screenshot of the AI chat panel in /workflows/builder. Show the chat input with a typed prompt like 'When I get a new Shopify order, send Slack to #sales and log to Google Sheets'. Capture before hitting send so the canvas is empty."
         aspectRatio="16/10"
         type="screenshot"
         className="w-full"
@@ -20,11 +20,11 @@ const steps = [
   },
   {
     stepNumber: 2,
-    title: 'AI hits a case it\'s unsure about',
-    description: 'Instead of guessing wrong and breaking your workflow, it pauses and asks you. You make the call. Takes 10 seconds.',
+    title: 'Watch AI build it — live',
+    description: 'AI creates your workflow node by node in real time. You see each step appear on the canvas, fields auto-populate, and connections form. No manual configuration.',
     media: (
       <PlaceholderMedia
-        label="GIF: HITL flow — AI pauses, human corrects, workflow continues"
+        label="CAPTURE: Screen-record or screenshot the builder mid-generation. Open /workflows/builder, send a prompt, and capture the moment when nodes are appearing on canvas with connections forming. GIF preferred — show 3-4 nodes already placed with fields auto-filled."
         aspectRatio="16/10"
         type="video"
         className="w-full"
@@ -33,11 +33,11 @@ const steps = [
   },
   {
     stepNumber: 3,
-    title: 'It doesn\'t ask twice',
-    description: 'Your correction becomes permanent knowledge. Next time a similar case appears, the AI handles it automatically. Accuracy goes from 70% to 95% over weeks.',
+    title: 'Refine with conversation',
+    description: "Don't like something? Just say so. 'Add a filter for orders over $100' or 'Use Discord instead of Slack.' AI updates the workflow instantly without rebuilding from scratch.",
     media: (
       <PlaceholderMedia
-        label="Screenshot: Analytics showing accuracy improvement over time"
+        label="CAPTURE: Screenshot of the chat panel showing a follow-up message like 'Add a filter for orders over $100' with the AI responding and the canvas showing the updated workflow with the new filter node added."
         aspectRatio="16/10"
         type="screenshot"
         className="w-full"
@@ -51,7 +51,7 @@ export function LearningLoopSection() {
     <section id="how-it-works">
       <ScrollSequence
         steps={steps}
-        sectionTitle="How it actually works"
+        sectionTitle="How it works"
       />
     </section>
   )

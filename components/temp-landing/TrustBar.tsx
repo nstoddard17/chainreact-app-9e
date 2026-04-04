@@ -2,7 +2,6 @@
 
 import React from 'react'
 import { motion } from 'framer-motion'
-import { useTheme } from 'next-themes'
 
 const integrations = [
   { name: 'Gmail', logo: '/integrations/gmail.svg', providerId: 'gmail' },
@@ -19,34 +18,15 @@ const integrations = [
   { name: 'Mailchimp', logo: '/integrations/mailchimp.svg', providerId: 'mailchimp' },
 ]
 
-const whiteLogos = ['airtable', 'github', 'x']
+// Triple the list so the animation loops seamlessly — when it shifts -33.33%,
+// the third copy fills in from the right, creating an infinite cycle
+const tripled = [...integrations, ...integrations, ...integrations]
 
 export function TrustBar() {
-  const { theme, resolvedTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  const isDark = mounted ? (resolvedTheme ?? theme) === 'dark' : false
-
-  const getLogoStyle = (providerId: string) => {
-    if (!mounted) return {}
-    if (whiteLogos.includes(providerId)) {
-      return { filter: isDark ? undefined : 'brightness(0) saturate(100%)' }
-    }
-    return {}
-  }
-
-  // Triple the list so the animation loops seamlessly — when it shifts -33.33%,
-  // the third copy fills in from the right, creating an infinite cycle
-  const tripled = [...integrations, ...integrations, ...integrations]
-
   return (
-    <section className="relative py-10 border-t border-slate-100 dark:border-slate-800/50">
+    <section className="relative py-6 bg-slate-900 border-t border-slate-800/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <p className="text-center text-sm font-medium text-slate-400 dark:text-slate-500 mb-8">
+        <p className="text-center text-sm font-medium text-slate-500 mb-5">
           Works with the tools you already use
         </p>
       </div>
@@ -66,15 +46,14 @@ export function TrustBar() {
           {tripled.map((integration, index) => (
             <div
               key={`${integration.providerId}-${index}`}
-              className="flex-shrink-0 flex items-center gap-2.5 opacity-50 hover:opacity-100 transition-opacity duration-300"
+              className="flex-shrink-0 flex items-center gap-2.5 opacity-60 hover:opacity-100 transition-opacity duration-300"
             >
               <img
                 src={integration.logo}
                 alt={integration.name}
                 className="h-6 w-6 object-contain"
-                style={getLogoStyle(integration.providerId)}
               />
-              <span className="text-sm font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              <span className="text-sm font-medium text-slate-400 whitespace-nowrap">
                 {integration.name}
               </span>
             </div>

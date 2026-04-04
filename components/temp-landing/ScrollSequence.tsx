@@ -23,8 +23,8 @@ export function ScrollSequence({ steps, sectionTitle, sectionSubtitle }: ScrollS
     offset: ["start start", "end end"],
   })
 
-  // 150vh per step
-  const totalHeight = steps.length * 150
+  // 100vh per step — tighter scroll distance
+  const totalHeight = steps.length * 100
 
   return (
     <>
@@ -38,7 +38,7 @@ export function ScrollSequence({ steps, sectionTitle, sectionSubtitle }: ScrollS
           <div className="sticky top-0 h-screen flex items-center overflow-hidden">
             <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8">
               {sectionTitle && (
-                <div className="text-center mb-12">
+                <div className="text-center mb-8">
                   <h2 className="font-[var(--font-space-grotesk)] text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-3">
                     {sectionTitle}
                   </h2>
@@ -95,7 +95,7 @@ export function ScrollSequence({ steps, sectionTitle, sectionSubtitle }: ScrollS
       </div>
 
       {/* Mobile: stacked cards */}
-      <div className="lg:hidden px-4 sm:px-6 py-20">
+      <div className="lg:hidden px-4 sm:px-6 py-14">
         <div className="max-w-2xl mx-auto">
           {sectionTitle && (
             <div className="text-center mb-12">
@@ -110,7 +110,7 @@ export function ScrollSequence({ steps, sectionTitle, sectionSubtitle }: ScrollS
             </div>
           )}
 
-          <div className="space-y-16">
+          <div className="space-y-10">
             {steps.map((step) => (
               <motion.div
                 key={step.stepNumber}

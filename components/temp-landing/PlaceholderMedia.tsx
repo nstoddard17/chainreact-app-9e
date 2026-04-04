@@ -52,7 +52,7 @@ export function PlaceholderMedia({
 
   return (
     <div
-      className={`relative rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200/80 dark:from-slate-800 dark:to-slate-900 border border-slate-200/60 dark:border-slate-700/40 ${className}`}
+      className={`relative rounded-xl overflow-hidden bg-gradient-to-br from-slate-50 to-slate-100/80 dark:from-slate-800 dark:to-slate-900 border border-slate-200/60 dark:border-slate-700/40 ${className}`}
       style={{ aspectRatio }}
     >
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6">
@@ -63,13 +63,13 @@ export function PlaceholderMedia({
             <ImageIcon className="w-5 h-5 text-slate-400 dark:text-slate-500" />
           )}
         </div>
-        <p className="text-xs text-slate-400 dark:text-slate-500 text-center max-w-[240px] leading-relaxed">
+        <p className="text-xs text-slate-400 dark:text-slate-500 text-center max-w-[280px] leading-relaxed">
           {label}
         </p>
       </div>
       {/* Subtle dot pattern */}
       <div
-        className="absolute inset-0 opacity-[0.04] dark:opacity-[0.06]"
+        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]"
         style={{
           backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
           backgroundSize: '20px 20px',
