@@ -39,7 +39,7 @@ const features = [
 export function FeatureShowcase() {
   return (
     <section id="features" className="relative px-4 sm:px-6 lg:px-8 py-16">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="text-center mb-10">
           <h2 className="font-[var(--font-space-grotesk)] text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-3">
             Everything else you need
@@ -63,9 +63,13 @@ export function FeatureShowcase() {
               >
                 <div className="p-5 pb-0">
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                    <motion.div
+                      animate={{ boxShadow: ['0 0 0 0 rgba(100,116,139,0)', '0 0 10px 2px rgba(100,116,139,0.1)', '0 0 0 0 rgba(100,116,139,0)'] }}
+                      transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: index * 1 }}
+                      className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0"
+                    >
                       <Icon className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                    </div>
+                    </motion.div>
                     <div>
                       <h3 className="font-[var(--font-space-grotesk)] text-base font-semibold text-slate-900 dark:text-white mb-1">
                         {feature.title}
