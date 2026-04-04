@@ -914,7 +914,8 @@ export async function planEdits({
   draftingContext,
   useLLM = true,
   businessContext,
-}: PlannerInput): Promise<PlannerResult> {
+  userId,
+}: PlannerInput & { userId?: string }): Promise<PlannerResult> {
   const existingNodeIds = new Set(flow.nodes.map((node) => node.id))
 
   // Check for unsupported features first
@@ -1046,6 +1047,7 @@ export async function planEdits({
         conversationHistory,
         draftingContext,
         businessContext,
+        userId,
       }
 
       const llmResult = cachedResult || await planWithLLM(llmInput)
