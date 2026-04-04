@@ -50,6 +50,8 @@ import {
 import { logger } from '../../../../../lib/utils/logger'
 import { callLLMWithRetry, parseLLMJson } from '../../../../../lib/ai/llm-retry'
 import { AI_MODELS } from '../../../../../lib/ai/models'
+import { FEATURE_FLAGS } from '../../../../../lib/featureFlags'
+import { getUserLearnings, formatLearningsForPrompt } from '../../../../../lib/ai/user-learning-service'
 import { truncateConversationHistory, summarizeConversation } from '../../../../../lib/ai/token-utils'
 import { formatDraftingContextForLLM, DRAFTING_CONTEXT_RULES, type DraftingContext } from './draftingContext'
 import { classifyAllFields, formatClassificationsForLLM } from './fieldClassifier'
@@ -420,15 +422,16 @@ async function selectNodes(
   }
 
   try {
+    const useMini = FEATURE_FLAGS.USE_MINI_FOR_NODE_SELECTION
     const result = await callLLMWithRetry({
       messages,
-      model: AI_MODELS.planning,
+      model: useMini ? AI_MODELS.fast : AI_MODELS.planning,
       temperature: 0.3,
       maxTokens: 2000,
       jsonMode: true,
       timeoutMs: 30000,
       maxRetries: 2,
-      fallbackModel: AI_MODELS.fast,
+      fallbackModel: useMini ? null : AI_MODELS.fast,
       label: 'LLMPlanner:selectNodes',
     })
 
@@ -444,6 +447,15 @@ async function selectNodes(
       confidence: n.confidence,
       reasoning: n.reasoning,
     }))
+
+    logger.debug('[LLMPlanner] Node selection complete', {
+      model: useMini ? AI_MODELS.fast : AI_MODELS.planning,
+      nodeCount: nodes.length,
+      avgConfidence: nodes.length > 0
+        ? Number((nodes.reduce((sum: number, n) => sum + (n.confidence ?? 0), 0) / nodes.length).toFixed(2))
+        : 0,
+      useMiniFlag: useMini,
+    })
 
     return {
       nodes,
@@ -471,7 +483,8 @@ async function configureNodes(
   nodes: PlannedNode[],
   prompt: string,
   connectedIntegrations: string[],
-  currentFlow?: { nodes: Node[]; edges: Edge[] }
+  currentFlow?: { nodes: Node[]; edges: Edge[] },
+  learningContext?: string
 ): Promise<{
   configurations: Record<string, {
     config: Record<string, any>
@@ -552,6 +565,7 @@ Available outputs for variable references:
 ${outputContext}
 
 ${fieldModeSection ? `\n${fieldModeSection}\n` : ''}
+${learningContext ? `\n${learningContext}\n` : ''}
 CRITICAL RULE: NO TEXT FIELD SHOULD EVER BE EMPTY. If no mapping exists, use {{AI_FIELD:fieldName}}.
 
 Configure each node appropriately.`,
@@ -938,6 +952,23 @@ export async function planWithLLM(input: LLMPlannerInput): Promise<LLMPlannerOut
       confidence: 'high',
     })
 
+    // Fetch user learnings for Stage 2 context (gated by feature flag)
+    let learningContext = ''
+    if (FEATURE_FLAGS.PLANNER_USER_LEARNINGS && input.userId) {
+      try {
+        const learnings = await getUserLearnings(input.userId)
+        learningContext = formatLearningsForPrompt(learnings)
+        if (learningContext) {
+          logger.debug('[LLMPlanner] Injecting user learning context', {
+            userId: input.userId,
+            patternCount: learnings.length,
+          })
+        }
+      } catch {
+        // Learning system failure should never block planning
+      }
+    }
+
     // Stage 2: Configuration
     allReasoning.push({
       step: allReasoning.length + 1,
@@ -949,7 +980,8 @@ export async function planWithLLM(input: LLMPlannerInput): Promise<LLMPlannerOut
       selectedNodes,
       input.prompt,
       input.connectedIntegrations || [],
-      input.flow
+      input.flow,
+      learningContext
     )
 
     // Post-Stage 2 Safeguards

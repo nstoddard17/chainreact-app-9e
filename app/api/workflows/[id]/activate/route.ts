@@ -2,6 +2,7 @@ import { createSupabaseRouteHandlerClient, createSupabaseServiceClient } from "@
 import { cookies } from "next/headers"
 import { jsonResponse, errorResponse } from '@/lib/utils/api-response'
 import { logger } from '@/lib/utils/logger'
+import { trackPayloadSize } from '@/lib/utils/payload-size-tracker'
 
 /**
  * POST /api/workflows/[id]/activate
@@ -225,6 +226,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           dataFlowNodes,
           dataFlowEdges
         )
+        trackPayloadSize('workflow_activation_snapshots', 'snapshot_json', snapshot)
         await serviceClient
           .from('workflow_activation_snapshots')
           .insert({

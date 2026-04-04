@@ -307,6 +307,7 @@ export async function POST(request: Request, context: { params: Promise<{ flowId
       draftingContext: parsed.data.draftingContext,
       useLLM: parsed.data.useLLM ?? true,
       businessContext: businessContextBlock || undefined,
+      userId: user.id,
     })
 
     // Track which business context entries were used
