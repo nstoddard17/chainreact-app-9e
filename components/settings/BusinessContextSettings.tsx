@@ -17,6 +17,7 @@ import {
   deleteBusinessContextEntry,
   type BusinessContextEntry,
 } from "@/stores/businessContextStore"
+import { usePlanRestrictions } from "@/hooks/use-plan-restrictions"
 
 const CATEGORIES = [
   { value: 'company_info', label: 'Company Info' },
@@ -29,11 +30,17 @@ const CATEGORIES = [
 
 export default function BusinessContextSettings() {
   const { entries, loading, error } = useBusinessContextStore()
+  const { getCurrentLimits, checkActionLimit, isAdmin } = usePlanRestrictions()
   const [newKey, setNewKey] = useState("")
   const [newValue, setNewValue] = useState("")
   const [newCategory, setNewCategory] = useState<string>("company_info")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
+
+  const limits = getCurrentLimits()
+  const maxEntries = limits.maxBusinessContextEntries
+  const atLimit = !isAdmin && maxEntries !== -1 && entries.length >= maxEntries
+  const limitCheck = checkActionLimit('addBusinessContext', entries.length)
 
   useEffect(() => {
     loadBusinessContext()
@@ -102,14 +109,26 @@ export default function BusinessContextSettings() {
               onChange={(e) => setNewValue(e.target.value)}
               rows={2}
             />
-            <Button
-              onClick={handleAdd}
-              disabled={!newKey.trim() || !newValue.trim()}
-              size="sm"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Context
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleAdd}
+                disabled={!newKey.trim() || !newValue.trim() || atLimit}
+                size="sm"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Context
+              </Button>
+              {maxEntries !== -1 && (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {entries.length}/{maxEntries} entries
+                </span>
+              )}
+            </div>
+            {atLimit && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                {limitCheck.reason}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -109,23 +109,14 @@ export async function fetchBusinessContextForUser(
 /**
  * Fire-and-forget: increment usage_count and set last_used_at for selected entries.
  * Called after a successful LLM call that used business context.
+ * Uses DB RPC that enforces ownership via auth.uid().
  */
 export async function incrementUsageCount(entryIds: string[]): Promise<void> {
   if (entryIds.length === 0) return
 
   try {
     const supabase = await createSupabaseServerClient()
-    const now = new Date().toISOString()
-    // Update each entry's last_used_at. usage_count increment requires raw SQL or RPC,
-    // so we set last_used_at as the trackable signal for now.
-    await Promise.all(
-      entryIds.map(id =>
-        (supabase as any)
-          .from('business_context')
-          .update({ last_used_at: now })
-          .eq('id', id)
-      )
-    )
+    await (supabase as any).rpc('increment_business_context_usage', { entry_ids: entryIds })
   } catch (error) {
     // Non-critical — log and move on
     logger.error('Failed to increment business context usage', { error, entryIds })

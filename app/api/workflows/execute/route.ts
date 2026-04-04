@@ -121,7 +121,8 @@ export async function POST(request: NextRequest) {
       inputData = {},
       workflowData,
       skipTriggers = false,
-      testModeConfig // Enhanced test mode configuration
+      testModeConfig, // Enhanced test mode configuration
+      retryOf,        // Original execution ID when this is a retry
     } = body
 
     // Log the workflow data to see what nodes we're getting
@@ -413,12 +414,18 @@ export async function POST(request: NextRequest) {
         const actionNodes = nodes.filter((n: any) => !n.data?.isTrigger)
 
         if (actionNodes.length > 0) {
+          const deductionSource = retryOf ? 'retry' : 'execution'
+          const deductionMetadata: Record<string, unknown> = retryOf
+            ? { is_retry: true, original_execution_id: retryOf }
+            : {}
+
           taskDeductionResult = await deductTasksAtomic(
             billingUserId,
             actionNodes,
-            `exec_${workflowId}_${Date.now()}`, // Unique execution session ID for idempotency
+            edges,
+            `exec_${workflowId}_${Date.now()}`,
             false,
-            { workflowId, source: 'execute_route' }
+            { workflowId, source: deductionSource, metadata: deductionMetadata }
           )
 
           if (taskDeductionResult.resultType === 'insufficient_balance' || taskDeductionResult.resultType === 'subscription_inactive') {

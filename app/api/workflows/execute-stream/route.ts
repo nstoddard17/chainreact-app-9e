@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { workflowId, nodes, connections, inputData = {}, options = {} } = body
+  const { workflowId, nodes, connections, inputData = {}, options = {}, retryOf } = body
 
   if (!workflowId) {
     return new Response(JSON.stringify({ error: 'Workflow ID is required' }), {
@@ -269,12 +269,18 @@ export async function POST(request: NextRequest) {
         const actionNodes = workflowNodes.filter((n: any) => !n.data?.isTrigger)
 
         if (actionNodes.length > 0) {
+          const deductionSource = retryOf ? 'retry' : 'execution'
+          const deductionMetadata: Record<string, unknown> = retryOf
+            ? { is_retry: true, original_execution_id: retryOf }
+            : {}
+
           const deductionResult = await deductTasksAtomic(
             billingUserId,
             actionNodes,
+            workflowConnections,
             executionId,
             false,
-            { workflowId, source: 'execute_stream_route' }
+            { workflowId, source: deductionSource, metadata: deductionMetadata }
           )
 
           if (!deductionResult.applied && deductionResult.resultType !== 'idempotent_replay' && deductionResult.resultType !== 'deducted') {

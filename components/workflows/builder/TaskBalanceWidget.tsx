@@ -1,9 +1,15 @@
 "use client"
 
 import React from "react"
-import { Zap, AlertTriangle, ChevronDown } from "lucide-react"
+import { Zap, AlertTriangle, ChevronDown, Info } from "lucide-react"
 import { useAuthStore } from "@/stores/authStore"
 import { useWorkflowCostStore } from "@/stores/workflowCostStore"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import {
   Popover,
   PopoverContent,
@@ -17,7 +23,7 @@ interface TaskBalanceWidgetProps {
 
 export function TaskBalanceWidget({ className }: TaskBalanceWidgetProps) {
   const { profile } = useAuthStore()
-  const { estimatedTasks } = useWorkflowCostStore()
+  const { estimatedTasks, worstCaseTasks, hasLoops } = useWorkflowCostStore()
 
   const hasTaskData = profile?.tasks_limit != null
   const tasksUsed = profile?.tasks_used ?? 0
@@ -25,8 +31,9 @@ export function TaskBalanceWidget({ className }: TaskBalanceWidgetProps) {
   const tasksRemaining = hasTaskData ? Math.max(0, tasksLimit - tasksUsed) : null
   const usagePercent = hasTaskData && tasksLimit > 0 ? Math.min((tasksUsed / tasksLimit) * 100, 100) : 0
 
-  // Check if workflow would exceed budget
-  const wouldExceedBudget = hasTaskData ? estimatedTasks > (tasksRemaining ?? 0) : false
+  // Use worst-case for budget warning (matches what server charges)
+  const displayCost = hasLoops ? worstCaseTasks : estimatedTasks
+  const wouldExceedBudget = hasTaskData ? displayCost > (tasksRemaining ?? 0) : false
 
   // Determine status color based on usage
   const getStatusColor = () => {
@@ -96,7 +103,8 @@ export function TaskBalanceWidget({ className }: TaskBalanceWidgetProps) {
               "text-sm font-bold tabular-nums",
               wouldExceedBudget ? "text-red-600 dark:text-red-400" : "text-foreground"
             )}>
-              {estimatedTasks} task{estimatedTasks !== 1 ? "s" : ""}
+              {displayCost} task{displayCost !== 1 ? "s" : ""}
+              {hasLoops && <span className="text-xs font-normal text-muted-foreground ml-1">(est.)</span>}
             </span>
           </div>
 
@@ -168,12 +176,29 @@ export function TaskBalanceWidget({ className }: TaskBalanceWidgetProps) {
                 "text-xl font-bold tabular-nums",
                 wouldExceedBudget ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"
               )}>
-                {estimatedTasks}
+                {displayCost}
                 <span className="text-sm font-normal ml-1">
-                  task{estimatedTasks !== 1 ? "s" : ""}
+                  task{displayCost !== 1 ? "s" : ""}
                 </span>
               </span>
             </div>
+            {hasLoops && (
+              <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1 cursor-help">
+                        <Info className="w-3 h-3" />
+                        Worst case (with loops): {worstCaseTasks} tasks
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p>Loops are charged upfront based on configured maximum iterations. This run will reserve the worst-case task cost before execution.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
             {wouldExceedBudget && (
               <div className="flex items-center gap-1.5 mt-2 text-xs text-red-600 dark:text-red-400">
                 <AlertTriangle className="w-3.5 h-3.5" />

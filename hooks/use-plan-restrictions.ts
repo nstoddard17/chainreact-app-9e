@@ -96,7 +96,7 @@ export function usePlanRestrictions() {
    * Check if user can perform a specific action based on usage limits
    */
   const checkActionLimit = (
-    action: 'createWorkflow' | 'activateWorkflow' | 'addTeamMember',
+    action: 'createWorkflow' | 'activateWorkflow' | 'addTeamMember' | 'addBusinessContext',
     currentCount: number
   ) => {
     const result = canPerformAction(currentPlan, action, currentCount)

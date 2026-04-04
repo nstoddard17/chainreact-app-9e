@@ -85,10 +85,12 @@ import { ChatService, type ChatMessage } from "@/lib/workflows/ai-agent/chat-ser
 import { CostTracker, estimateWorkflowCost } from "@/lib/workflows/ai-agent/cost-tracker"
 import { TaskBalanceWidget } from "./TaskBalanceWidget"
 import { DisconnectedIntegrationsDialog, getDisconnectedIntegrations } from "./DisconnectedIntegrationsDialog"
-import { getWorkflowTaskCost, getNodeTaskCost } from "@/lib/workflows/cost-calculator"
+import { getNodeTaskCost } from "@/lib/workflows/cost-calculator"
+import { estimateWorkflowCost as estimateWorkflowTaskCost } from "@/lib/workflows/loop-cost-estimator"
 import { useWorkflowCostStore } from "@/stores/workflowCostStore"
 import { WorkflowStatusBar } from "./WorkflowStatusBar"
 import { TestModeDialog } from "@/components/workflows/TestModeDialog"
+import { ExecutionCostConfirmDialog, shouldSkipCostConfirmation } from "@/components/workflows/builder/ExecutionCostConfirmDialog"
 import { useWorkflowTestStore } from "@/stores/workflowTestStore"
 import { TestModeConfig, TriggerTestMode, ActionTestMode } from "@/lib/services/testMode/types"
 import { useAuthStore } from "@/stores/authStore"
@@ -537,6 +539,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
   const [isNodeTesting, setIsNodeTesting] = useState(false) // True while testing a single node
   const [nodeTestingName, setNodeTestingName] = useState<string | null>(null) // Name of node being tested
   const [isTestModeDialogOpen, setIsTestModeDialogOpen] = useState(false) // Test/Live mode dialog
+  const [isCostConfirmOpen, setIsCostConfirmOpen] = useState(false) // Pre-execution cost confirmation
+  const [pendingTestConfig, setPendingTestConfig] = useState<{ config: any; mockVariation?: string } | null>(null) // Stored config while cost confirm is shown
   const [isDisconnectedDialogOpen, setIsDisconnectedDialogOpen] = useState(false) // Disconnected integrations dialog
   const [showActivationReview, setShowActivationReview] = useState(false) // Pre-activation review dialog
   const [isActivatingAfterReview, setIsActivatingAfterReview] = useState(false) // True during activation after review
@@ -5265,10 +5269,9 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     })
   }, [toast])
 
-  // Handler for when user starts a test from the dialog
-  const handleRunTestFromDialog = useCallback(async (config: TestModeConfig, mockVariation?: string) => {
+  // Inner handler — separated so cost confirm can re-invoke without looping
+  const handleRunTestFromDialogInner = useCallback(async (config: TestModeConfig, mockVariation?: string) => {
     logger.debug('[TEST] handleRunTestFromDialog called', { config, mockVariation })
-    setIsTestModeDialogOpen(false)
 
     if (!builder?.nodes) {
       logger.debug('[TEST] No builder nodes, returning early')
@@ -5997,6 +6000,32 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       })
     }
   }, [builder, cleanupTestTrigger, flowId, hasPlaceholders, toast])
+
+  // Gating wrapper: intercepts live-run to show cost confirmation
+  const handleRunTestFromDialog = useCallback((config: TestModeConfig, mockVariation?: string) => {
+    setIsTestModeDialogOpen(false)
+    const isLiveMode = config.actionMode === ActionTestMode.EXECUTE_ALL
+
+    // Only gate live-mode runs; test mode is free
+    if (isLiveMode && !shouldSkipCostConfirmation()) {
+      setPendingTestConfig({ config, mockVariation })
+      setIsCostConfirmOpen(true)
+      return
+    }
+
+    // Test mode or user opted out — proceed directly
+    handleRunTestFromDialogInner(config, mockVariation)
+  }, [handleRunTestFromDialogInner])
+
+  // Callback after cost confirmation: proceed with the pending test config
+  const handleCostConfirmed = useCallback(() => {
+    setIsCostConfirmOpen(false)
+    const pending = pendingTestConfig
+    if (pending) {
+      setPendingTestConfig(null)
+      handleRunTestFromDialogInner(pending.config, pending.mockVariation)
+    }
+  }, [pendingTestConfig, handleRunTestFromDialogInner])
 
   // Handler to stop flow testing
   const handleStopFlowTest = useCallback(() => {
@@ -7604,23 +7633,26 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     }
   }, [buildMachine.state, buildMachine.progress, builder])
 
-  // Real-time workflow task cost calculation
-  const { setWorkflowCost, clearWorkflowCost } = useWorkflowCostStore()
+  // Real-time workflow task cost calculation (passive, non-authoritative)
+  const { setWorkflowCostDetailed, clearWorkflowCost } = useWorkflowCostStore()
   const workflowTaskCost = useMemo(() => {
     const nodes = builder?.nodes ?? []
-    if (nodes.length === 0) return { total: 0, byNode: new Map(), byProvider: new Map() }
-    return getWorkflowTaskCost(nodes)
-  }, [builder?.nodes])
+    const edges = (builder?.edges ?? []).map((e: any) => ({ source: e.source, target: e.target }))
+    if (nodes.length === 0) {
+      return { estimatedTasks: 0, worstCaseTasks: 0, hasLoops: false, loopDetails: [], byNode: {}, byProvider: {} }
+    }
+    return estimateWorkflowTaskCost(nodes, edges)
+  }, [builder?.nodes, builder?.edges])
 
-  // Update the workflow cost store for sidebar access
+  // Update the workflow cost store for sidebar/widget access
   useEffect(() => {
-    if (flowId && workflowTaskCost.total >= 0) {
-      setWorkflowCost(flowId, workflowTaskCost.total, workflowTaskCost.byProvider)
+    if (flowId && workflowTaskCost.estimatedTasks >= 0) {
+      setWorkflowCostDetailed(flowId, workflowTaskCost)
     }
     return () => {
       clearWorkflowCost()
     }
-  }, [flowId, workflowTaskCost.total, setWorkflowCost, clearWorkflowCost])
+  }, [flowId, workflowTaskCost, setWorkflowCostDetailed, clearWorkflowCost])
 
   // Header props matching legacy structure
   const headerProps = useMemo(() => ({
@@ -7885,6 +7917,23 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
         isExecuting={isFlowTesting}
         isListening={testFlowStatus === 'listening'}
         listeningTimeRemaining={listeningTimeRemaining ?? undefined}
+      />
+
+      {/* Pre-execution Cost Confirmation Dialog */}
+      <ExecutionCostConfirmDialog
+        open={isCostConfirmOpen}
+        onOpenChange={(open) => {
+          setIsCostConfirmOpen(open)
+          if (!open) setPendingTestConfig(null)
+        }}
+        onConfirm={handleCostConfirmed}
+        workflowId={flowId}
+        nodeLabels={
+          builder?.nodes?.reduce((acc: Record<string, string>, n: any) => {
+            if (n?.id && n?.data?.label) acc[n.id] = n.data.label
+            return acc
+          }, {}) ?? {}
+        }
       />
 
       {/* Disconnected Integrations Dialog */}
