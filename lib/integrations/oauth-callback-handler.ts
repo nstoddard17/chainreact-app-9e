@@ -35,6 +35,11 @@ import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { encrypt } from '@/lib/security/encryption'
 import { logger } from '@/lib/utils/logger'
 import { autoGrantPermissionsForIntegration } from '@/lib/services/integration-permissions'
+import {
+  computeTransitionAndNotify,
+  buildRecoverySignal,
+  type Integration as HealthIntegration,
+} from '@/lib/integrations/healthTransitionEngine'
 
 // ================================================================
 // TYPES
@@ -519,6 +524,17 @@ async function saveIntegration(
 
   // Handle reconnect vs new connection
   if (state.reconnect && state.integrationId) {
+    // Read current health state before updating (needed for transition engine)
+    const { data: currentIntegration } = await supabase
+      .from('integrations')
+      .select('health_check_status, last_notification_milestone, requires_user_action, user_action_type, user_action_deadline')
+      .eq('id', state.integrationId)
+      .single()
+
+    // Reset diagnostic counters on reconnect
+    integrationData.consecutive_failures = 0
+    integrationData.consecutive_transient_failures = 0
+
     // Update existing integration
     const { error } = await supabase
       .from('integrations')
@@ -528,6 +544,28 @@ async function saveIntegration(
     if (error) {
       logger.error('Error updating integration:', error)
       throw new Error(`Database Error: ${error.message}`)
+    }
+
+    // Emit recovery signal through shared transition engine
+    // The engine handles: state reset to healthy, milestone to 'recovered',
+    // clearing error/deadline fields, and sending recovered notification.
+    if (currentIntegration) {
+      try {
+        const healthIntegration: HealthIntegration = {
+          id: state.integrationId,
+          user_id: state.userId,
+          provider,
+          health_check_status: currentIntegration.health_check_status ?? null,
+          last_notification_milestone: currentIntegration.last_notification_milestone ?? null,
+          requires_user_action: currentIntegration.requires_user_action ?? false,
+          user_action_type: currentIntegration.user_action_type ?? null,
+          user_action_deadline: currentIntegration.user_action_deadline ?? null,
+        }
+        await computeTransitionAndNotify(supabase, healthIntegration, buildRecoverySignal())
+      } catch (transitionError) {
+        logger.error('Failed to process recovery transition:', transitionError)
+        // Don't fail the reconnect if transition engine errors
+      }
     }
 
     logger.info(`✅ Updated existing integration: ${state.integrationId}`)

@@ -1,12 +1,12 @@
 /**
  * Integration Notification Service
  *
- * Sends notifications to users about integration status changes:
- * - Connection warnings (temporary failures)
- * - Disconnection alerts (permanent failures)
- * - Rate limit notifications
+ * Pure delivery layer — creates in-app notifications and sends emails.
+ * All notification *decisions* are made by healthTransitionEngine.ts.
+ * This module only handles delivery mechanics.
  *
- * Supports both in-app and email notifications with escalation logic.
+ * Legacy exports (sendWarningNotification, etc.) are preserved for backward
+ * compatibility during migration but should not be called directly by new code.
  */
 
 import { logger } from '@/lib/utils/logger'
@@ -18,6 +18,18 @@ export interface NotificationOptions {
   notificationType: 'warning' | 'disconnected' | 'rate_limit'
   consecutiveFailures?: number
   consecutiveTransientFailures?: number
+  errorMessage?: string
+  sendEmail?: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Pure delivery interfaces (used by healthTransitionEngine)
+// ---------------------------------------------------------------------------
+
+export interface DeliveryOptions {
+  userId: string
+  provider: string
+  integrationId: string
   errorMessage?: string
   sendEmail?: boolean
 }
@@ -285,7 +297,11 @@ export async function sendRateLimitNotification(
 }
 
 /**
- * Determine if notification should be sent based on failure count
+ * Determine if notification should be sent based on failure count.
+ *
+ * @deprecated Use healthTransitionEngine.computeTransitionAndNotify() instead.
+ * Kept for backward compatibility during migration. Notification decisions
+ * should be driven by persisted health state transitions, not threshold checks.
  */
 export function shouldSendNotification(
   consecutiveFailures: number,
@@ -294,18 +310,146 @@ export function shouldSendNotification(
 ): boolean {
   switch (notificationType) {
     case 'warning':
-      // Send warning on 2nd consecutive auth failure
       return consecutiveFailures === 2
 
     case 'disconnected':
-      // Send disconnection on 3rd consecutive auth failure or immediate permanent failure
       return consecutiveFailures >= 3
 
     case 'rate_limit':
-      // Send rate limit info after 5+ consecutive transient failures
       return consecutiveTransientFailures >= 5 && consecutiveTransientFailures % 5 === 0
 
     default:
       return false
   }
+}
+
+// =============================================================================
+// Pure delivery functions (called by healthTransitionEngine only)
+// =============================================================================
+
+/**
+ * Deliver a warning notification (in-app only).
+ * Pure delivery — no decision logic.
+ */
+export async function deliverWarningNotification(
+  supabase: any,
+  options: DeliveryOptions
+): Promise<void> {
+  const { userId, provider, integrationId, errorMessage } = options
+  const providerName = getProviderDisplayName(provider)
+
+  await createNotification(
+    supabase,
+    userId,
+    'integration_warning',
+    `⚠️ ${providerName} Connection Issue`,
+    `We're having trouble connecting to ${providerName}. Please check your connection to keep your workflows running.`,
+    `/integrations?reconnect=${provider}`,
+    'Reconnect Now',
+    {
+      provider,
+      integration_id: integrationId,
+      error_message: errorMessage,
+      severity: 'warning',
+    }
+  )
+}
+
+/**
+ * Deliver a disconnection/action-required notification (in-app + optional email).
+ * Pure delivery — no decision logic.
+ */
+export async function deliverDisconnectionNotification(
+  supabase: any,
+  options: DeliveryOptions
+): Promise<void> {
+  const { userId, provider, integrationId, errorMessage, sendEmail = true } = options
+  const providerName = getProviderDisplayName(provider)
+
+  const actionUrl = `/integrations?reconnect=${provider}`
+
+  await createNotification(
+    supabase,
+    userId,
+    'integration_disconnected',
+    `🔴 ${providerName} Disconnected`,
+    `Your ${providerName} connection has been disconnected. Your workflows are paused. Reconnect now to resume.`,
+    actionUrl,
+    'Reconnect Now',
+    {
+      provider,
+      integration_id: integrationId,
+      error_message: errorMessage,
+      severity: 'critical',
+    }
+  )
+
+  if (sendEmail) {
+    await sendEmailNotification(
+      supabase,
+      userId,
+      provider,
+      providerName,
+      `${providerName} Integration Disconnected`,
+      `Your ${providerName} connection has been disconnected. Reconnect now to resume your workflows.`,
+      actionUrl,
+      errorMessage
+    )
+  }
+}
+
+/**
+ * Deliver a rate limit notification (in-app only, informational).
+ * Pure delivery — no decision logic.
+ */
+export async function deliverRateLimitNotification(
+  supabase: any,
+  options: DeliveryOptions
+): Promise<void> {
+  const { userId, provider, integrationId } = options
+  const providerName = getProviderDisplayName(provider)
+
+  await createNotification(
+    supabase,
+    userId,
+    'integration_rate_limit',
+    `ℹ️ ${providerName} Rate Limited`,
+    `${providerName} is temporarily rate limiting requests. We'll automatically retry. Your workflows will continue once the limit resets.`,
+    `/integrations`,
+    'View Integrations',
+    {
+      provider,
+      integration_id: integrationId,
+      severity: 'info',
+    }
+  )
+}
+
+/**
+ * Deliver a recovered notification (in-app only).
+ * Emitted when an unhealthy integration returns to healthy.
+ * Pure delivery — no decision logic.
+ */
+export async function deliverRecoveredNotification(
+  supabase: any,
+  options: DeliveryOptions
+): Promise<void> {
+  const { userId, provider, integrationId } = options
+  const providerName = getProviderDisplayName(provider)
+
+  await createNotification(
+    supabase,
+    userId,
+    'system',
+    `✅ ${providerName} Connection Restored`,
+    `Your ${providerName} connection has been restored. You can now resume any paused workflows.`,
+    `/integrations`,
+    'View Integrations',
+    {
+      provider,
+      integration_id: integrationId,
+      severity: 'info',
+      recovery: true,
+    }
+  )
 }
