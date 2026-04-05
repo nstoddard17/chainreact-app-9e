@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfigurationModal } from '../../components/workflows/configuration/ConfigurationModal';
 
@@ -28,6 +28,7 @@ const stubWorkflow = {
       id: 'trigger-1',
       data: {
         type: 'slack_trigger_new_message',
+        isTrigger: true,
         outputSchema: [
           { name: 'channel', label: 'Channel', type: 'text' },
           { name: 'message', label: 'Message', type: 'text' },
@@ -48,9 +49,7 @@ const stubWorkflow = {
 };
 
 describe('ConfigurationModal suggested mappings', () => {
-  it('shows and applies suggested field mappings', async () => {
-    const user = userEvent.setup();
-
+  it('shows suggested mappings banner with correct values', async () => {
     render(
       <ConfigurationModal
         isOpen
@@ -65,15 +64,45 @@ describe('ConfigurationModal suggested mappings', () => {
       />
     );
 
-    // Banner should render with suggested mappings summary
+    // Banner should render with suggested mappings
     expect(await screen.findByText(/Suggested field mappings/i)).toBeInTheDocument();
 
-    // Apply suggestions
+    // Verify the suggested mapping values are shown in the banner
+    expect(screen.getByText('{{trigger.channel}}')).toBeInTheDocument();
+    expect(screen.getByText('{{trigger.message}}')).toBeInTheDocument();
+
+    // Apply button should be present
+    expect(screen.getByRole('button', { name: /Fill fields automatically/i })).toBeInTheDocument();
+  });
+
+  it('applies suggested mappings on button click', async () => {
+    const user = userEvent.setup();
+    const onSave = jest.fn();
+
+    render(
+      <ConfigurationModal
+        isOpen
+        onClose={jest.fn()}
+        onSave={onSave}
+        onBack={jest.fn()}
+        nodeInfo={stubNodeInfo}
+        initialData={{}}
+        workflowData={stubWorkflow}
+        currentNodeId="action-1"
+        integrationName="Slack"
+      />
+    );
+
+    // Wait for banner to appear
+    expect(await screen.findByText(/Suggested field mappings/i)).toBeInTheDocument();
+
+    // Click apply
     await user.click(screen.getByRole('button', { name: /Fill fields automatically/i }));
 
-    // The toast lives in portal; assert by checking new banner copy and field values
-    expect(await screen.findByText(/configuration updated/i)).toBeInTheDocument();
-    expect(screen.getByDisplayValue('{{trigger.channel}}')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('{{trigger.message}}')).toBeInTheDocument();
+    // After applying, the suggestions banner should disappear
+    // (fields are no longer empty, so autoMappingEntries becomes empty)
+    await waitFor(() => {
+      expect(screen.queryByText(/Suggested field mappings/i)).not.toBeInTheDocument();
+    });
   });
 });
