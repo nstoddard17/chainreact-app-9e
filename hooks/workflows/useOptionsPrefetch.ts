@@ -113,7 +113,6 @@ export function useOptionsPrefetch<T = any>({
     if (fetchOnMount && enabled) {
       fetchOptions()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchOptions identity changes each render; spread deps are user-provided triggers
   }, [fetchOnMount, enabled, ...dependencies])
 
   // Check for cached data on mount

@@ -234,7 +234,6 @@ export function useNodeConfiguration(
       
       setConfiguringNode(null)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setters are passed as props and may change identity; including them causes re-render cascades
   }, [currentWorkflowId, nodes, setNodes, setHasUnsavedChanges, pendingNode, toast])
 
   const loadNodeConfiguration = useCallback(async (nodeId: string): Promise<Record<string, any> | null> => {

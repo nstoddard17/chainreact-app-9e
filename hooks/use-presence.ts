@@ -147,7 +147,6 @@ export function usePresence() {
         presenceChannel.unsubscribe()
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- presence channel setup is intentionally mount-only to prevent reconnect cycles
   }, [user?.id, profile?.username, profile?.full_name, profile?.avatar_url, profile?.role])
 
   // Function to manually update presence (useful for status changes)
