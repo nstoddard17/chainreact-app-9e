@@ -67,6 +67,7 @@ export function usePresenceOptimized(options: UsePresenceOptions = {}) {
         }
       })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- user.email is stable during session; including user object would cause reconnect cycles
   }, [user?.id, profile, userStatus, opts.enableDatabase])
 
   // Activity detection
@@ -278,6 +279,7 @@ export function usePresenceOptimized(options: UsePresenceOptions = {}) {
         navigator.sendBeacon?.('/api/presence/cleanup', payload)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- presence channel setup runs once; re-running would tear down and reconnect
   }, [user?.id]) // Minimal dependencies to prevent re-subscriptions
 
   // Manual presence update

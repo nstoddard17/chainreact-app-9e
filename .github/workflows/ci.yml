@@ -48,6 +48,22 @@ jobs:
           name: coverage-report
           path: coverage/
 
+  component-tests:
+    name: Component & Hook Tests
+    runs-on: ubuntu-latest
+    env:
+      ENCRYPTION_KEY: ci-test-key-at-least-32-characters-long
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run component and hook tests
+        run: npx jest --config ./jest.config.component.cjs --ci --forceExit
+
   build-check:
     name: Build Check
     runs-on: ubuntu-latest

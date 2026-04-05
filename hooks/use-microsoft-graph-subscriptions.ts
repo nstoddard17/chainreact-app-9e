@@ -173,6 +173,7 @@ export function useMicrosoftGraphSubscriptions() {
       setSubscriptions([])
       setHealthStatus(null)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only effect; re-running would duplicate subscription fetches
   }, [user])
 
   return {

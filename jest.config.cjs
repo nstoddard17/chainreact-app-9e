@@ -1,20 +1,14 @@
 /** @type {import('jest').Config} */
+const base = require('./jest.config.base.cjs')
+
 module.exports = {
+  ...base,
   testEnvironment: "node",
   roots: ["<rootDir>/__tests__"],
-  testMatch: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
-  transform: {
-    "^.+\\.(t|j)sx?$": [
-      "ts-jest",
-      {
-        tsconfig: "tsconfig.json",
-        diagnostics: false,
-      },
-    ],
-  },
-  moduleNameMapper: {
-    "^@/(.*)$": "<rootDir>/$1",
-  },
+  testPathIgnorePatterns: [
+    "<rootDir>/__tests__/components/",
+    "<rootDir>/__tests__/hooks/",
+  ],
   setupFilesAfterEnv: ["<rootDir>/test/setup/workflowsV2.ts"],
   collectCoverageFrom: [
     "lib/workflows/variableReferences.ts",

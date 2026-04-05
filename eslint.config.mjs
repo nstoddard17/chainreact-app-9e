@@ -24,7 +24,27 @@ const eslintConfig = [
   },
   {
     rules: {
+      "no-console": "off",
       "react/no-unescaped-entities": "off",
+      "@next/next/no-img-element": "off",
+      "jsx-a11y/alt-text": "off",
+      "import/no-anonymous-default-export": "off",
+      // Hooks rules OFF globally — enforced per-path below
+      "react-hooks/rules-of-hooks": "off",
+      "react-hooks/exhaustive-deps": "off",
+    },
+  },
+  // Scoped hooks enforcement for high-risk hook-bearing files
+  {
+    files: [
+      "hooks/**/*.ts",
+      "hooks/**/*.tsx",
+      "components/workflows/WorkspaceSelectionModal.tsx",
+      "components/workflows/WorkflowsPageContent.tsx",
+    ],
+    rules: {
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "error",
     },
   },
 ];

@@ -93,6 +93,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
            } finally {
              setLoading(false)
            }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure depends on refreshSession; including it would give every data-loader a new identity each render
   }, [user, integrationId, providerId])
 
   // Notion-specific data loading
@@ -153,6 +154,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
            } finally {
              setLoading(false)
            }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure depends on refreshSession; including it would give every data-loader a new identity each render
   }, [user, integrationId, providerId])
 
   // Slack-specific data loading
@@ -233,6 +235,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
            } finally {
              setLoading(false)
            }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure depends on refreshSession; including it would give every data-loader a new identity each render
   }, [user, integrationId, providerId])
 
   // Trello-specific data loading
@@ -293,6 +296,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
            } finally {
              setLoading(false)
            }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure depends on refreshSession; including it would give every data-loader a new identity each render
   }, [user, integrationId, providerId])
 
   // Google Sheets-specific data loading
@@ -353,6 +357,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
            } finally {
              setLoading(false)
            }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure depends on refreshSession; including it would give every data-loader a new identity each render
   }, [user, integrationId, providerId])
 
   // Gmail-specific data loading
@@ -413,6 +418,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
            } finally {
              setLoading(false)
            }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure depends on refreshSession; including it would give every data-loader a new identity each render
   }, [user, integrationId, providerId])
 
   // HubSpot-specific data loading
@@ -473,6 +479,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
            } finally {
              setLoading(false)
            }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure depends on refreshSession; including it would give every data-loader a new identity each render
   }, [user, integrationId, providerId])
 
   // Airtable-specific data loading
@@ -533,6 +540,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
     } finally {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure depends on refreshSession; including it would give every data-loader a new identity each render
   }, [user, integrationId, providerId])
 
   // Notion database properties loading
@@ -593,6 +601,7 @@ export function useIntegrationSpecificData({ integrationId, providerId }: UseInt
     } finally {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure depends on refreshSession; including it would give every data-loader a new identity each render
   }, [user, integrationId, providerId])
 
   // Generic data loading function that routes to the appropriate provider-specific function
