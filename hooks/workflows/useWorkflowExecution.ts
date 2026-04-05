@@ -306,7 +306,7 @@ export function useWorkflowExecution() {
         setExecutionResults({})
       }, 5000)
     }
-  }, [currentWorkflow, executeWorkflow, clearErrorsForWorkflow, addError, toast, router, isExecuting])
+  }, [currentWorkflow, updateWorkflow, executeWorkflow, clearErrorsForWorkflow, addError, toast, router, isExecuting])
 
   const handleResetLoadingStates = useCallback(() => {
     setIsExecuting(false)
@@ -944,7 +944,7 @@ export function useWorkflowExecution() {
         variant: "destructive",
       })
     }
-  }, [currentWorkflow, toast, handleExecute, monitorExecution, addDebugLog])
+  }, [currentWorkflow, toast, handleExecute, monitorExecution, supabase, addDebugLog])
 
   // Stop webhook listening
   const stopWebhookListening = useCallback(async () => {

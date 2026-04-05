@@ -206,9 +206,6 @@ export interface LLMPlannerInput {
   previousPlanVersion?: number
   /** Formatted business context block for LLM injection */
   businessContext?: string
-  /** User ID for learning system — enables user-specific correction patterns
-   *  to be injected into Stage 2 (configuration) to avoid repeat mistakes. */
-  userId?: string
 }
 
 /**

@@ -697,7 +697,6 @@ export function WorkflowsContentInner() {
     if (ids.length === 0) return
     const firstWorkflow = workflows.find(w => w.id === ids[0])
     openMoveDialogForWorkflows(ids, ids.length === 1 ? firstWorkflow?.folder_id ?? null : null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- dialog opener is not memoized; including it defeats the useCallback
   }, [workflows])
 
   const handleBulkShare = useCallback((ids: string[]) => {
@@ -708,7 +707,6 @@ export function WorkflowsContentInner() {
   const handleBulkDelete = useCallback((ids: string[]) => {
     if (ids.length === 0) return
     openDeleteDialogForWorkflows(ids)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- dialog opener is not memoized; including it defeats the useCallback
   }, [])
 
   // Pre-compute workflow IDs for fast select all

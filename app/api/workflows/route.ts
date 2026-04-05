@@ -423,7 +423,7 @@ export async function POST(request: Request) {
       permission_granted: !permissionError
     })
 
-    return successResponse({ data: { workflow } })
+    return successResponse({ workflow })
   } catch (error: any) {
     logger.error('[API /api/workflows] Exception:', error)
     return errorResponse("Internal server error" , 500)

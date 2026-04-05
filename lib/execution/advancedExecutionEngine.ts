@@ -6,9 +6,6 @@ import { logInfo, logError, logSuccess, logWarning } from "@/lib/logging/backend
 import { sendWorkflowErrorNotifications, extractErrorMessage } from "@/lib/notifications/errorHandler"
 
 import { logger } from '@/lib/utils/logger'
-import { getEntitlement } from '@/lib/entitlements/entitlement-service'
-import { resolveRetentionClass } from '@/lib/cron/retention-utils'
-import { trackPayloadSize } from '@/lib/utils/payload-size-tracker'
 
 // Helper to safely clone data and remove circular references
 function safeClone(obj: any, seen = new WeakSet()): any {
@@ -83,17 +80,6 @@ export class AdvancedExecutionEngine {
     sessionType: ExecutionSession["session_type"] = "manual",
     context: any = {},
   ): Promise<ExecutionSession> {
-    // Resolve retention class from user's current entitlement tier
-    let retentionClass = 'free'
-    try {
-      const entitlement = await getEntitlement(userId)
-      retentionClass = resolveRetentionClass(entitlement?.tier_code ?? null)
-    } catch {
-      // Default to 'free' if entitlement lookup fails
-    }
-
-    trackPayloadSize('workflow_execution_sessions', 'execution_context', context)
-
     const insertPayload: Record<string, any> = {
       workflow_id: workflowId,
       user_id: userId,
@@ -101,7 +87,6 @@ export class AdvancedExecutionEngine {
       execution_context: context,
       input_data: context?.inputData ?? null,
       status: "pending",
-      retention_class: retentionClass,
     }
 
     // Stamp billing scope from canonical workflow scope if provided

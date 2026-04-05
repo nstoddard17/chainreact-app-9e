@@ -96,7 +96,6 @@ export function useLiveTestMode(workflowId: string) {
         error: error.message,
       }))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- polling function identity changes each render; including it would restart polling
   }, [workflowId])
 
   /**
@@ -129,7 +128,6 @@ export function useLiveTestMode(workflowId: string) {
     } catch (error: any) {
       logger.error('Failed to stop live test:', error)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stop functions are stable via refs internally; formal dep would cause cleanup thrashing
   }, [workflowId, resetTestFlow])
 
   /**
@@ -175,7 +173,6 @@ export function useLiveTestMode(workflowId: string) {
     // Poll immediately and then every interval
     pollSession()
     pollIntervalRef.current = setInterval(pollSession, POLL_INTERVAL)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- polling functions change identity each render; including them restarts polling
   }, [workflowId])
 
   /**
@@ -265,7 +262,6 @@ export function useLiveTestMode(workflowId: string) {
     // Poll immediately and then every interval
     pollExecution()
     executionPollIntervalRef.current = setInterval(pollExecution, POLL_INTERVAL)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stop function identity changes each render
   }, [workflowId, setNodeRunning, setNodePaused, setNodeCompleted, setNodeFailed, finishTestFlow])
 
   /**

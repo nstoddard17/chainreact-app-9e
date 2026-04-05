@@ -34,7 +34,6 @@ export function useIntegrationSelection() {
     };
     
     loadIntegrations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only fetch; including store methods would cause infinite re-fetch
   }, []) // Only run once on mount
 
   const getIntegrationsFromNodes = useCallback((): IntegrationInfo[] => {
@@ -298,7 +297,6 @@ export function useIntegrationSelection() {
     }
 
     return new Set(baseComingSoon)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- profile changes don't affect integration sorting
   }, [profile?.role])
 
   // Method to manually refresh integrations

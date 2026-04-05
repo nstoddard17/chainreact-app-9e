@@ -95,7 +95,6 @@ export function useConfigPreferences({
     }
 
     loadPreferences()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure identity changes on render; including it would cause re-fetch loops
   }, [user, nodeType, providerId, autoLoad])
 
   // Save preferences to database
@@ -157,7 +156,6 @@ export function useConfigPreferences({
     } finally {
       setSaving(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAuthFailure identity changes on render; including it would cause re-fetch loops
   }, [user, nodeType, providerId])
 
   // Debounced save function

@@ -335,7 +335,6 @@ export function useChatPersistence({
     }
 
     loadChatHistory()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omits flowState to avoid re-persisting on every state change
   }, [flowId, flowState?.flow, flowState?.revisionId, authInitialized, setAgentMessages])
 
   // Determine when chat persistence should be enabled

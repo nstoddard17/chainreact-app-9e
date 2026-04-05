@@ -324,7 +324,7 @@ export function useWorkflowSaveActions({
     } finally {
       setIsSaving(false)
     }
-  }, [serializeWorkflowState, saveTemplateDraft, toast, setCurrentWorkflow, setHasUnsavedChanges, updateWorkflow])
+  }, [serializeWorkflowState, saveTemplateDraft, toast])
 
   /**
    * Shared pre-flight checks for activation/deactivation.
@@ -456,7 +456,7 @@ export function useWorkflowSaveActions({
     } finally {
       setIsUpdatingStatus(false)
     }
-  }, [toast, setCurrentWorkflow])
+  }, [toast])
 
   /**
    * Handle toggle live status - stable callback using refs.
