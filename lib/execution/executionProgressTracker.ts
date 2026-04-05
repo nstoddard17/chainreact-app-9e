@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
 import { logger } from '@/lib/utils/logger'
-import { trackPayloadSize } from '@/lib/utils/payload-size-tracker'
 
 // Helper to safely clone data and remove circular references
 function safeClone(obj: any, seen = new WeakSet()): any {
@@ -173,7 +172,6 @@ export class ExecutionProgressTracker {
       }
 
       if (update.nodeOutputs !== undefined) {
-        trackPayloadSize('execution_progress', 'node_outputs', update.nodeOutputs)
         updateData.node_outputs = update.nodeOutputs
       }
 

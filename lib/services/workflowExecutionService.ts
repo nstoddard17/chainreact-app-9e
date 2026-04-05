@@ -11,8 +11,6 @@ import {
   checkCircuitBreaker,
   pauseWorkflowForCircuitBreaker,
 } from '@/lib/workflows/execution/rateLimiter'
-import { getEntitlement } from '@/lib/entitlements/entitlement-service'
-import { resolveRetentionClass } from '@/lib/cron/retention-utils'
 
 export interface ExecutionContext {
   userId: string
@@ -230,15 +228,6 @@ export class WorkflowExecutionService {
       }
     }
 
-    // Resolve retention class from user's current entitlement tier
-    let retentionClass = 'free'
-    try {
-      const entitlement = await getEntitlement(userId)
-      retentionClass = resolveRetentionClass(entitlement?.tier_code ?? null)
-    } catch {
-      // Default to 'free' if entitlement lookup fails
-    }
-
     // Create UUID-based execution record in workflow_execution_sessions table
     // This is required for HITL which references this table
     const { data: executionRecord, error: execError } = await supabase
@@ -249,8 +238,7 @@ export class WorkflowExecutionService {
         status: "running",
         input_data: inputData ?? {},
         started_at: new Date().toISOString(),
-        retention_class: retentionClass,
-      } as any)
+      })
       .select()
       .single()
 
