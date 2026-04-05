@@ -13,7 +13,7 @@ export const ROUTE_ACCESS: Record<string, RouteRule> = {
   '/teams': { minPlan: 'team', upgradeModal: true },
   '/organization': { minPlan: 'business', upgradeModal: true },
   // allowedPlansExact (not minPlan) because /enterprise is gated to the enterprise
-  // billing tier specifically — admin bypasses via isAdmin, not via plan hierarchy
+  // billing tier specifically - admin bypasses via isAdmin, not via plan hierarchy
   '/enterprise': { allowedPlansExact: ['enterprise'] },
   '/admin': { adminOnly: true },
 }

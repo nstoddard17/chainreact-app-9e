@@ -1,6 +1,7 @@
 "use client"
 
 import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from "react"
+import Link from "next/link"
 import { Handle, Position, type NodeProps, useUpdateNodeInternals, useReactFlow } from "@xyflow/react"
 import { ALL_NODE_COMPONENTS } from "@/lib/workflows/nodes"
 import { Trash2, TestTube, Plus, Edit2, Layers, Unplug, ChevronDown, ChevronUp, Loader2, CheckCircle2, AlertTriangle, Info, GitFork, ArrowRight, PlusCircle, AlertCircle, MoreVertical, Play, Snowflake, GripVertical, Database, PauseCircle, RefreshCw, Zap, Clock } from "lucide-react"
@@ -2019,9 +2020,9 @@ function CustomNode({ id, data, selected }: NodeProps) {
                   <p className="text-muted-foreground">Checks for changes every {pollingIntervalLabel}</p>
                   {showPollingUpgradeCTA && (
                     <p className="text-blue-600 dark:text-blue-400">
-                      <a href="/settings/billing" className="underline hover:no-underline" onClick={(e) => e.stopPropagation()}>
+                      <Link href="/settings/billing" className="underline hover:no-underline" onClick={(e) => e.stopPropagation()}>
                         Upgrade your plan
-                      </a>
+                      </Link>
                       {' '}for faster polling (down to 1 min)
                     </p>
                   )}
