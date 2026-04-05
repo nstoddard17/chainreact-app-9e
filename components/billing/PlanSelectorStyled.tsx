@@ -39,7 +39,7 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(targetPlanId || null)
   const { createCheckoutSession, changePlan } = useBillingStore()
 
-  const yearlyDiscount = 17
+  const yearlyDiscount = 19
 
   // Define our pricing tiers
   const tiers: PlanTier[] = ['free', 'pro', 'team', 'business', 'enterprise']
@@ -153,7 +153,7 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
             >
               Annual
               <span className="bg-gradient-to-r from-green-600 to-green-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
-                Save {yearlyDiscount}%
+                Save up to {yearlyDiscount}%
               </span>
             </button>
           </div>

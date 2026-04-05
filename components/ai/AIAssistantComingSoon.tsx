@@ -112,7 +112,7 @@ export function AIAssistantComingSoon({ onClose }: AIAssistantComingSoonProps) {
             <h2 className="text-3xl font-bold mb-2">AI Voice Mode</h2>
             <p className="text-lg text-muted-foreground">
               Have natural, hands-free conversations with your AI assistant. Get help creating workflows,
-              managing integrations, and automating tasks—all with your voice in an immersive full-screen experience.
+              managing integrations, and automating tasks-all with your voice in an immersive full-screen experience.
             </p>
           </div>
 
@@ -124,7 +124,7 @@ export function AIAssistantComingSoon({ onClose }: AIAssistantComingSoonProps) {
                 <FeatureItem
                   icon={<Mic className="w-5 h-5" />}
                   title="Immersive Full-Screen Experience"
-                  description="Beautiful 3D visualization while you talk. No reading text—just natural conversation like talking to a real person."
+                  description="Beautiful 3D visualization while you talk. No reading text-just natural conversation like talking to a real person."
                 />
                 <FeatureItem
                   icon={<Zap className="w-5 h-5" />}
@@ -139,7 +139,7 @@ export function AIAssistantComingSoon({ onClose }: AIAssistantComingSoonProps) {
                 <FeatureItem
                   icon={<CheckCircle className="w-5 h-5" />}
                   title="Works Everywhere"
-                  description="Use it on any browser—Chrome, Safari, Firefox, or Brave. Seamless experience across all devices."
+                  description="Use it on any browser-Chrome, Safari, Firefox, or Brave. Seamless experience across all devices."
                 />
               </div>
             </div>

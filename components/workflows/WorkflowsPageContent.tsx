@@ -94,7 +94,6 @@ import { useToast } from '@/hooks/use-toast'
 import { logger } from '@/lib/utils/logger'
 import { fetchWithTimeout, retryWithBackoff } from '@/lib/utils/fetch-with-timeout'
 import { PagePreloader } from '@/components/common/PagePreloader'
-import { NewAppLayout } from '@/components/new-design/layout/NewAppLayout'
 import type { Workflow as WorkflowRecord } from '@/stores/workflowStore'
 
 type ViewTab = 'workflows' | 'folders'
@@ -3408,15 +3407,13 @@ export function WorkflowsContentInner() {
 
 export function WorkflowsPageContent() {
   return (
-    <NewAppLayout title="Workflows" subtitle="Build and manage your automations">
-      <PagePreloader
-        pageType="workflows"
-        loadingTitle="Loading Workflows"
-        loadingDescription="Fetching your workflows and execution stats..."
-        skipIntegrations={true}
-      >
-        <WorkflowsContentInner />
-      </PagePreloader>
-    </NewAppLayout>
+    <PagePreloader
+      pageType="workflows"
+      loadingTitle="Loading Workflows"
+      loadingDescription="Fetching your workflows and execution stats..."
+      skipIntegrations={true}
+    >
+      <WorkflowsContentInner />
+    </PagePreloader>
   )
 }

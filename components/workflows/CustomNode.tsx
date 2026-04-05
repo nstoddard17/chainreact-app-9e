@@ -714,7 +714,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     if (component) return true
 
     // Allow config for any node with a valid type even without a catalog match
-    // (e.g., agent-built nodes) — handleNodeConfigure does its own lookup via getNodeByType
+    // (e.g., agent-built nodes) - handleNodeConfigure does its own lookup via getNodeByType
     if (type && type !== 'placeholder') return true
 
     return false

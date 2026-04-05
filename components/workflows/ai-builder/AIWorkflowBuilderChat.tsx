@@ -205,7 +205,7 @@ export function AIWorkflowBuilderChat({
 
       const position = edges.length > 0 ? computeNodePosition(node.id, edges) : 0
 
-      // Summarize config — never pass raw values to the API/LLM
+      // Summarize config - never pass raw values to the API/LLM
       const schema = catalogEntry?.configSchema?.map((f: any) => ({
         name: f.name,
         type: f.type,
@@ -305,7 +305,7 @@ export function AIWorkflowBuilderChat({
         }
       }
     } else {
-      // No selection — include the last 2 nodes by chain position (tail of workflow)
+      // No selection - include the last 2 nodes by chain position (tail of workflow)
       const tailNodes = [...nodes]
         .filter(n => !autoIds.has(n.id))
         .sort((a, b) => (b.data?.config ? 1 : 0) - (a.data?.config ? 1 : 0))
@@ -907,7 +907,7 @@ export function AIWorkflowBuilderChat({
           <DialogHeader>
             <DialogTitle>Add Workflow Nodes to Context</DialogTitle>
             <DialogDescription>
-              Select nodes to provide context to the AI. Nodes are auto-selected based on your workflow structure — modify the selection to override.
+              Select nodes to provide context to the AI. Nodes are auto-selected based on your workflow structure - modify the selection to override.
             </DialogDescription>
           </DialogHeader>
 

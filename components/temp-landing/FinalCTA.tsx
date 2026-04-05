@@ -11,11 +11,11 @@ export function FinalCTA() {
           Your first AI-built workflow is 60 seconds away
         </h2>
         <p className="mt-4 text-lg text-slate-400">
-          Join the beta — completely free, no credit card required.
+          Join the beta - completely free, no credit card required.
         </p>
         <div className="mt-8">
           <button className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100">
-            Start building — free
+            Start building - free
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>

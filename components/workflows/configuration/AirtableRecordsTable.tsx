@@ -363,7 +363,7 @@ function renderFieldValue(value: any): string {
     // Check if it's an error state object from formulas/rollups
     if ('state' in value && value.state === 'error') {
       // Return empty string or a placeholder for error states
-      return value.errorType === 'emptyDependency' ? '—' : 'Error';
+      return value.errorType === 'emptyDependency' ? '-' : 'Error';
     }
 
     // Check if it has a specific value property (some Airtable field types)

@@ -12,8 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
-import { NewAppLayout } from '@/components/new-design/layout/NewAppLayout'
-import { 
+import {
   ArrowLeft, 
   Send, 
   CheckCircle, 
@@ -235,34 +234,29 @@ export default function TicketDetailPage() {
 
   if (loading) {
     return (
-      <NewAppLayout title="Loading Ticket..." subtitle="">
-        <div className="flex items-center justify-center py-8">
-          <LightningLoader size="lg" color="orange" />
-        </div>
-      </NewAppLayout>
+      <div className="flex items-center justify-center py-8">
+        <LightningLoader size="lg" color="orange" />
+      </div>
     )
   }
 
   if (!ticket) {
     return (
-      <NewAppLayout title="Ticket Not Found" subtitle="">
-        <div className="flex flex-col items-center justify-center py-8">
-          <h3 className="text-lg font-medium mb-2">Ticket not found</h3>
-          <p className="text-muted-foreground mb-4">The ticket you're looking for doesn't exist or you don't have access to it.</p>
-          <Button onClick={() => router.push('/support')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Support
-          </Button>
-        </div>
-      </NewAppLayout>
+      <div className="flex flex-col items-center justify-center py-8">
+        <h3 className="text-lg font-medium mb-2">Ticket not found</h3>
+        <p className="text-muted-foreground mb-4">The ticket you're looking for doesn't exist or you don't have access to it.</p>
+        <Button onClick={() => router.push('/support')}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Support
+        </Button>
+      </div>
     )
   }
 
   const CategoryIcon = categoryIcons[ticket.category]
 
   return (
-    <NewAppLayout title={`Ticket ${ticket.ticket_number}`} subtitle={ticket.subject}>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -483,7 +477,6 @@ export default function TicketDetailPage() {
             )}
           </div>
         </div>
-      </div>
-    </NewAppLayout>
+    </div>
   )
 } 

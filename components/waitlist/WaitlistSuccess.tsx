@@ -34,7 +34,7 @@ export function WaitlistSuccess() {
   const name = searchParams.get('name')
   const [copied, setCopied] = useState(false)
   const DEFAULT_SHARE_TIP =
-    'LinkedIn & Facebook block pre-filled text—paste with Cmd+V / Ctrl+V after the dialog opens.'
+    'LinkedIn & Facebook block pre-filled text-paste with Cmd+V / Ctrl+V after the dialog opens.'
   const [shareTip, setShareTip] = useState<string>(DEFAULT_SHARE_TIP)
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + '/waitlist' : ''

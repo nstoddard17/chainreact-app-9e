@@ -169,7 +169,7 @@ export function TaskBillingHistory() {
                       )}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {event.workflowName || (event.workflowId ? event.workflowId.slice(0, 8) + "..." : "—")}
+                      {event.workflowName || (event.workflowId ? event.workflowId.slice(0, 8) + "..." : "-")}
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
                       {event.eventType === 'period_reset' ? (
@@ -204,7 +204,7 @@ export function TaskBillingHistory() {
         </div>
       )}
 
-      {/* Expanded breakdown — rendered outside table for layout */}
+      {/* Expanded breakdown - rendered outside table for layout */}
       {expandedId && (() => {
         const event = events.find(e => e.id === expandedId)
         if (!event?.nodeBreakdown) return null
@@ -232,7 +232,7 @@ export function TaskBillingHistory() {
             )}
             {event.metadata.flatCost != null && event.metadata.chargedCost != null && event.metadata.flatCost !== event.metadata.chargedCost && (
               <div className="text-xs text-amber-600 dark:text-amber-400 px-2 mt-2">
-                Flat cost: {event.metadata.flatCost} — Charged (worst-case): {event.metadata.chargedCost}
+                Flat cost: {event.metadata.flatCost} - Charged (worst-case): {event.metadata.chargedCost}
               </div>
             )}
           </div>

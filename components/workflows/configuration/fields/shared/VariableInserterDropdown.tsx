@@ -233,7 +233,7 @@ export function VariableInserterDropdown({
                             </div>
                             <p className="text-xs text-muted-foreground line-clamp-1">
                               {output.label || output.name}
-                              {output.description && ` — ${output.description}`}
+                              {output.description && ` - ${output.description}`}
                             </p>
                           </div>
                         </CommandItem>

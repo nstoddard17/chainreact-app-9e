@@ -107,7 +107,7 @@ export function HitlDebugDashboard() {
           <div>
             <p className="text-sm font-medium text-muted-foreground">Last refreshed</p>
             <p className="text-sm text-foreground">
-              {lastUpdated ? lastUpdated.toLocaleTimeString() : "—"}
+              {lastUpdated ? lastUpdated.toLocaleTimeString() : "-"}
             </p>
           </div>
           <button
@@ -180,18 +180,18 @@ function ConversationCard({ conversation }: { conversation: Conversation }) {
       </div>
 
       <div className="grid gap-3 px-4 py-3 text-sm">
-        <InfoRow label="Execution">{executionId || "—"}</InfoRow>
-        <InfoRow label="Node">{nodeId || "—"}</InfoRow>
+        <InfoRow label="Execution">{executionId || "-"}</InfoRow>
+        <InfoRow label="Node">{nodeId || "-"}</InfoRow>
         <InfoRow label="Channel">
-          {channelType ? `${channelType} • ${channelId || "?"}` : "—"}
+          {channelType ? `${channelType} • ${channelId || "?"}` : "-"}
           {guildId && <span className="ml-1 text-xs text-muted-foreground">({guildId})</span>}
         </InfoRow>
         <InfoRow label="Timeout">
           {timeoutMinutes ? `${timeoutMinutes} min` : "Never"} · {timeoutAction || "cancel"}
         </InfoRow>
         <InfoRow label="Continuation">{continuationSignals.join(", ") || "default set"}</InfoRow>
-        <InfoRow label="Started">{startedAt ? new Date(startedAt).toLocaleString() : "—"}</InfoRow>
-        <InfoRow label="Updated">{updatedAt ? new Date(updatedAt).toLocaleString() : "—"}</InfoRow>
+        <InfoRow label="Started">{startedAt ? new Date(startedAt).toLocaleString() : "-"}</InfoRow>
+        <InfoRow label="Updated">{updatedAt ? new Date(updatedAt).toLocaleString() : "-"}</InfoRow>
       </div>
 
       <div className="border-t px-4 py-3">

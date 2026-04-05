@@ -311,23 +311,29 @@ export const useAuthStore = create<AuthState>()(
             }
 
             clearTimeout(signInTimeout)
-            set({ user, profile: null, loading: false, phase: 'ready' as BootPhase })
 
-            // Fetch profile in background
-            const fetchProfileAsync = async () => {
-              try {
-                const store = useAuthStore.getState()
-                if (store.lastProfileFetch) {
-                  (store as any).lastProfileFetch = 0
+            // Fetch profile before setting ready — AuthReadyGuard blocks if profile is null
+            let profile: Profile | null = null
+            try {
+              const response = await fetch('/api/auth/profile', {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store',
+              })
+              if (response.ok) {
+                const payload = await response.json()
+                if (payload?.profile) {
+                  profile = bootMapProfile(payload.profile)
+                  user.first_name = profile.first_name
+                  user.last_name = profile.last_name
+                  user.full_name = profile.full_name || user.name
                 }
-                if ((store as any).fetchProfile) {
-                  await (store as any).fetchProfile(data.user.id)
-                }
-              } catch (profileError) {
-                logger.warn('Profile fetch failed in background:', profileError)
               }
+            } catch (profileError) {
+              logger.warn('Profile fetch failed during sign-in:', profileError)
             }
-            fetchProfileAsync()
+
+            set({ user, profile, loading: false, phase: 'ready' as BootPhase })
 
             // Update integration store
             setTimeout(async () => {
@@ -337,7 +343,7 @@ export const useAuthStore = create<AuthState>()(
               } catch { /* ignore */ }
             }, 100)
 
-            return { user, profile: null } as any
+            return { user, profile } as any
           }
 
           set({ loading: false })
@@ -602,7 +608,17 @@ function registerListeners() {
           avatar: session.user.user_metadata?.avatar_url,
         }
         useAuthStore.setState({ user })
-        state.boot()
+
+        // If boot is already mid-flight (authenticating/loading_profile), don't call
+        // boot() again — it will be rejected by the idempotency guard. Instead, the
+        // in-flight boot's getSession() should resolve with this session.
+        // Only trigger boot if we're in a terminal or idle phase.
+        const currentPhase = state.phase
+        if (currentPhase === 'idle' || currentPhase === 'ready' || currentPhase === 'degraded' || currentPhase === 'error') {
+          state.boot()
+        } else {
+          logger.debug('[AUTH] SIGNED_IN received during boot, skipping re-boot', { phase: currentPhase })
+        }
       }
     } else if (event === 'SIGNED_OUT') {
       const state = useAuthStore.getState()

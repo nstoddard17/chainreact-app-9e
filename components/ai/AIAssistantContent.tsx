@@ -488,7 +488,7 @@ export default function AIAssistantContent() {
       return `${greeting} Here's what I can help you with:
 
 ### 🔗 Integrations & Connections
-Manage your connected apps—Gmail, Slack, Notion, and more. I can show you what's connected, help you add new integrations, or troubleshoot any connection issues.
+Manage your connected apps-Gmail, Slack, Notion, and more. I can show you what's connected, help you add new integrations, or troubleshoot any connection issues.
 
 ### ⚡ Workflows & Automation
 View your workflows, check their status, activate or pause them, and get detailed insights into how they're performing.
@@ -523,7 +523,7 @@ Learn how to build powerful workflows, discover ChainReact features, and get exp
       return `I'm here to help! Here's what I can do:
 
 ### 🔗 Integrations & Connections
-Manage your connected apps—Gmail, Slack, Notion, and more. I can show you what's connected, help you add new integrations, or troubleshoot any connection issues.
+Manage your connected apps-Gmail, Slack, Notion, and more. I can show you what's connected, help you add new integrations, or troubleshoot any connection issues.
 
 ### ⚡ Workflows & Automation
 View your workflows, check their status, activate or pause them, and get detailed insights into how they're performing.

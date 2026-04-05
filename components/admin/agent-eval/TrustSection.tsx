@@ -18,7 +18,7 @@ function TrustKPI({ label, kpi }: { label: string; kpi: KPIData }) {
       <p className="text-[10px] text-muted-foreground truncate">{label}</p>
       <p className="text-lg font-bold tabular-nums">{kpi.value}</p>
       <p className={`text-[10px] ${trendColor}`}>
-        {kpi.trend === 'up' ? '▲' : kpi.trend === 'down' ? '▼' : '—'}
+        {kpi.trend === 'up' ? '▲' : kpi.trend === 'down' ? '▼' : '-'}
       </p>
     </div>
   )

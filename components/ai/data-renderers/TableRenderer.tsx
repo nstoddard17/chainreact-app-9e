@@ -99,7 +99,7 @@ export function TableRenderer({
   }
 
   const formatCellValue = (value: any) => {
-    if (value === null || value === undefined) return <span className="text-muted-foreground">—</span>
+    if (value === null || value === undefined) return <span className="text-muted-foreground">-</span>
     if (typeof value === 'boolean') return value ? 'Yes' : 'No'
     if (typeof value === 'object') return JSON.stringify(value)
     if (typeof value === 'string' && value.length > 100) {

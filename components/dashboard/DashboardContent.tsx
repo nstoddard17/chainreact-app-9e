@@ -7,7 +7,6 @@ import { useAuthStore } from "@/stores/authStore"
 import { useIntegrationStore } from '@/stores/integrationStore'
 import { useWorkflowStore } from '@/stores/workflowStore'
 import { useTimeoutLoading } from '@/hooks/use-timeout-loading'
-import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import MetricCard from "@/components/dashboard/MetricCard"
 import ActivityFeed from "@/components/dashboard/ActivityFeed"
 import WorkflowChart from "@/components/dashboard/WorkflowChart"
@@ -159,7 +158,7 @@ export default function DashboardContent() {
   }
 
   return (
-    <NewAppLayout title="Dashboard" subtitle={`Welcome back, ${firstName}! Here's what's happening with your workflows.`}>
+    <>
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <MetricCard
@@ -187,6 +186,6 @@ export default function DashboardContent() {
         </div>
       </div>
       <OnlineUsersIndicator className="fixed bottom-4 right-4 bg-gray-900/90 text-white px-3 py-2 rounded-lg text-sm backdrop-blur-sm border border-gray-700" />
-    </NewAppLayout>
+    </>
   )
 }

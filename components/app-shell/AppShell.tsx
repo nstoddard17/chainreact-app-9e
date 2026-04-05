@@ -1,0 +1,60 @@
+"use client"
+
+import { useState, useCallback } from "react"
+import { AuthReadyGuard } from "@/components/common/AuthReadyGuard"
+import { GlobalKeyboardShortcuts } from "@/components/common/GlobalKeyboardShortcuts"
+import { UnifiedSidebar } from "./UnifiedSidebar"
+import { UnifiedTopBar } from "./UnifiedTopBar"
+import { type KeyboardShortcut } from "@/hooks/useKeyboardShortcuts"
+
+interface AppShellProps {
+  children: React.ReactNode
+  headerActions?: React.ReactNode
+  onSave?: () => void
+  pageShortcuts?: KeyboardShortcut[]
+  loadingMessage?: string
+  noPadding?: boolean
+}
+
+export function AppShell({
+  children,
+  headerActions,
+  onSave,
+  pageShortcuts,
+  loadingMessage = "Loading...",
+  noPadding = false,
+}: AppShellProps) {
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+
+  const handleOpenCommandPalette = useCallback(() => {
+    setCommandPaletteOpen(true)
+  }, [])
+
+  return (
+    <AuthReadyGuard loadingMessage={loadingMessage}>
+      <GlobalKeyboardShortcuts
+        onOpenCommandPalette={handleOpenCommandPalette}
+        onSave={onSave}
+        pageShortcuts={pageShortcuts}
+      >
+        <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-950">
+          {/* Sidebar: icon rail + nav panel */}
+          <UnifiedSidebar />
+
+          {/* Main content area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <UnifiedTopBar actions={headerActions} />
+
+            <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950 relative">
+              {noPadding ? (
+                <div className="h-full w-full">{children}</div>
+              ) : (
+                <div className="h-full w-full px-6 py-6">{children}</div>
+              )}
+            </main>
+          </div>
+        </div>
+      </GlobalKeyboardShortcuts>
+    </AuthReadyGuard>
+  )
+}

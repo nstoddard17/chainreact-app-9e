@@ -2178,7 +2178,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       // (when user is picking providers before a plan exists).
       // In PLAN_READY state, the ProviderBadge auto-updates via
       // 'integration-connected' events and the build button re-evaluates
-      // from the integration store — no need to re-run provider selection.
+      // from the integration store - no need to re-run provider selection.
       if (buildMachine.state !== BuildState.PLAN_READY) {
         setTimeout(() => {
           handleProviderSelect(providerId)
@@ -4934,7 +4934,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       setConfiguringNode(node)
     } else {
       logger.warn('🔧 [WorkflowBuilder] Node not found in reactFlowProps for configuration:', nodeId, 'total nodes:', reactFlowProps?.nodes?.length)
-      // Graceful fallback: never silently swallow clicks — tell the user something happened
+      // Graceful fallback: never silently swallow clicks - tell the user something happened
       toast({
         title: "Couldn't open configuration",
         description: "Please try clicking the node again.",
@@ -5269,7 +5269,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
     })
   }, [toast])
 
-  // Inner handler — separated so cost confirm can re-invoke without looping
+  // Inner handler - separated so cost confirm can re-invoke without looping
   const handleRunTestFromDialogInner = useCallback(async (config: TestModeConfig, mockVariation?: string) => {
     logger.debug('[TEST] handleRunTestFromDialog called', { config, mockVariation })
 
@@ -6013,7 +6013,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
       return
     }
 
-    // Test mode or user opted out — proceed directly
+    // Test mode or user opted out - proceed directly
     handleRunTestFromDialogInner(config, mockVariation)
   }, [handleRunTestFromDialogInner])
 
@@ -6913,8 +6913,8 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
           if (field.type === 'boolean' || field.type === 'checkbox') {
             return false
           }
-          // Dynamic fields (combobox, select with dynamic options) — leave empty for user
-          // Text/textarea fields — leave empty for user to configure
+          // Dynamic fields (combobox, select with dynamic options) - leave empty for user
+          // Text/textarea fields - leave empty for user to configure
           return ''
         }
 
@@ -7066,7 +7066,7 @@ export function WorkflowBuilderV2({ flowId, initialRevision, initialStatus }: Wo
               logger.debug('[WorkflowBuilderV2] Trigger has missing required fields:', missingNames)
 
               testResult = {
-                success: true, // Don't fail — let user complete manually
+                success: true, // Don't fail - let user complete manually
                 message: `Trigger configured. Missing required: ${missingNames}`,
                 testData: {
                   validated: true,

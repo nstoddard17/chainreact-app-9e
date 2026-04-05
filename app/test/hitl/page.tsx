@@ -7,10 +7,10 @@ export default function HitlTestPage() {
   return (
     <div className="space-y-10 p-8">
       <section className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight">Ask Human via Chat — Test Console</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Ask Human via Chat - Test Console</h1>
         <p className="text-muted-foreground">
           Configure the HITL node, launch a test conversation, and watch every event update in real
-          time—without bouncing between tabs.
+          time-without bouncing between tabs.
         </p>
       </section>
 

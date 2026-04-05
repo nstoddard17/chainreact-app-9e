@@ -538,7 +538,7 @@ export function SlackMessageEditor({
                                 </div>
                                 <p className="text-xs text-muted-foreground">
                                   {output.label || output.name}
-                                  {output.description && ` — ${output.description}`}
+                                  {output.description && ` - ${output.description}`}
                                 </p>
                               </div>
                             )

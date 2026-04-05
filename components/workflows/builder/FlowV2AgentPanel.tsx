@@ -82,7 +82,7 @@ function getProviderIconPath(providerId: string): string {
 }
 
 /**
- * Centralized provider connection status — single source of truth for
+ * Centralized provider connection status - single source of truth for
  * ProviderBadge, plan node indicators, warning CTA, and build gating.
  */
 export interface ProviderConnectionStatus {
@@ -1450,7 +1450,7 @@ export function FlowV2AgentPanel({
           {/* Chat messages */}
           <div ref={chatMessagesRef} className="flex-1 overflow-y-auto w-full overflow-x-hidden min-h-0 px-4">
             <div className="space-y-4 py-4 pb-8 w-full min-h-0">
-              {/* Chat messages — interleaved chronologically (user + assistant) */}
+              {/* Chat messages - interleaved chronologically (user + assistant) */}
               {buildMachine.state === BuildState.IDLE && agentMessages.filter(m => {
                 if (!m) return false
                 if (m.role === 'user') return true

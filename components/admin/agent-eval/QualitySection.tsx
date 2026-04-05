@@ -21,7 +21,7 @@ function MiniKPI({ label, kpi }: { label: string; kpi: KPIData }) {
       <p className="text-[10px] text-muted-foreground truncate">{label}</p>
       <p className="text-sm font-semibold tabular-nums">{kpi.value}</p>
       <p className={`text-[10px] ${trendColor}`}>
-        {kpi.trend === 'up' ? '▲' : kpi.trend === 'down' ? '▼' : '—'}
+        {kpi.trend === 'up' ? '▲' : kpi.trend === 'down' ? '▼' : '-'}
       </p>
     </div>
   )
@@ -153,10 +153,10 @@ export function QualitySection({ data, onSessionClick }: QualitySectionProps) {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs py-1">
-                        {issue.failure_label?.replace('_failure', '') || '—'}
+                        {issue.failure_label?.replace('_failure', '') || '-'}
                       </TableCell>
                       <TableCell className="text-xs py-1">
-                        {issue.severity || '—'}
+                        {issue.severity || '-'}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -10,8 +10,8 @@ import type { RouteRule } from './types'
 export const ROUTE_ACCESS: Record<string, RouteRule> = {
   '/ai-assistant': { minPlan: 'pro', upgradeModal: true },
   '/analytics': { minPlan: 'pro', upgradeModal: true },
-  '/teams': { minPlan: 'business', upgradeModal: true },
-  '/organization': { minPlan: 'enterprise', upgradeModal: true },
+  '/teams': { minPlan: 'team', upgradeModal: true },
+  '/organization': { minPlan: 'business', upgradeModal: true },
   // allowedPlansExact (not minPlan) because /enterprise is gated to the enterprise
   // billing tier specifically — admin bypasses via isAdmin, not via plan hierarchy
   '/enterprise': { allowedPlansExact: ['enterprise'] },

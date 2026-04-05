@@ -62,7 +62,7 @@ export function ProviderBadge({
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [, forceUpdate] = useState({})
 
-  // Local transient connection state — store data remains source of truth
+  // Local transient connection state - store data remains source of truth
   const [connectionState, setConnectionState] = useState<ConnectionState>('idle')
   const connectingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -165,7 +165,7 @@ export function ProviderBadge({
     try {
       onConnect(selectedProvider.id)
     } catch {
-      // Reset on sync error — async errors handled by WorkflowBuilderV2
+      // Reset on sync error - async errors handled by WorkflowBuilderV2
       setConnectionState('idle')
       if (connectingTimeoutRef.current) {
         clearTimeout(connectingTimeoutRef.current)

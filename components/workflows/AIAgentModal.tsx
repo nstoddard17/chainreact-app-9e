@@ -298,7 +298,7 @@ export function AIAgentModal({
               AI Agent Configuration
             </DialogTitle>
             <DialogDescription>
-              Build a complete agent configuration—prompt, data access, knowledge, actions, guardrails, and testing—without leaving the Setup tab.
+              Build a complete agent configuration-prompt, data access, knowledge, actions, guardrails, and testing-without leaving the Setup tab.
             </DialogDescription>
           </DialogHeader>
 

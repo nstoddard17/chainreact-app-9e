@@ -137,7 +137,7 @@ export function WorkflowHistoryDialog({
   }
 
   const fmtDuration = (start?: string | null, end?: string | null) => {
-    if (!start || !end) return "—"
+    if (!start || !end) return "-"
     const ms = new Date(end).getTime() - new Date(start).getTime()
     if (ms < 1000) return `${ms}ms`
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
@@ -145,7 +145,7 @@ export function WorkflowHistoryDialog({
   }
 
   const fmtMs = (ms: number) => {
-    if (!ms) return "—"
+    if (!ms) return "-"
     if (ms < 1000) return `${Math.round(ms)}ms`
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
     return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
@@ -153,7 +153,7 @@ export function WorkflowHistoryDialog({
 
   const statCards: { icon: typeof Activity; label: string; value: string | number; color: string }[] = [
     { icon: Activity, label: "Total Runs", value: runs.length, color: "gray" },
-    { icon: CheckCircle2, label: "Success Rate", value: completedCount > 0 ? `${((successCount / completedCount) * 100).toFixed(0)}%` : "—", color: "emerald" },
+    { icon: CheckCircle2, label: "Success Rate", value: completedCount > 0 ? `${((successCount / completedCount) * 100).toFixed(0)}%` : "-", color: "emerald" },
     { icon: XCircle, label: "Failures", value: failedCount, color: "red" },
     { icon: Clock, label: "Avg Duration", value: fmtMs(avgDuration), color: "blue" },
   ]

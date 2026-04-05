@@ -38,7 +38,7 @@ export async function GET() {
 
             {/* Subheading */}
             <p style={subheadingStyle}>
-              From simple tasks to complex orchestration—everything you need to automate.
+              From simple tasks to complex orchestration-everything you need to automate.
             </p>
 
             {/* Key Features Grid */}
