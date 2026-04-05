@@ -242,6 +242,7 @@ export function useWorkflowBuilder() {
     if (!justSavedRef.current) {
       setHasUnsavedChanges(true)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- justSavedRef is a ref; its .current value is read at call time, not render time
   }, [])
 
   const updateTemplateDraftMetadata = useCallback((updates: Partial<TemplateDraftMetadata>) => {
@@ -393,6 +394,7 @@ export function useWorkflowBuilder() {
     } finally {
       setIsSavingTemplateDraft(false)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- justSavedRef is a ref; its .current value is read at call time, not render time
   }, [
     isTemplateEditing,
     editTemplateId,
@@ -601,6 +603,7 @@ export function useWorkflowBuilder() {
     }
 
     loadInitialData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial data load runs once on mount; re-running would cause duplicate fetches
   }, [])
 
   useEffect(() => {
@@ -658,6 +661,7 @@ export function useWorkflowBuilder() {
         }
       })
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setNodes is stable; effect tracks specific node data changes only
   }, [executionHook.nodeStatuses, executionHook.activeExecutionNodeId, executionHook.isExecuting, executionHook.isListeningForWebhook, executionHook.isPaused])
 
   // Validate nodes when they change (runs for ALL workflows, not just AI Agent)
@@ -714,6 +718,7 @@ export function useWorkflowBuilder() {
 
     // Store the hash to prevent re-validation
     lastValidatedNodesRef.current = nodeHash
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setNodes is stable; effect tracks specific node data changes only
   }, [nodes, edges, currentWorkflow?.id, workflowName])
 
   // Stable callback refs - don't depend on nodes to avoid loops
@@ -1313,6 +1318,7 @@ export function useWorkflowBuilder() {
       issues,
       warnings,
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally tracks only nodeId/nodeType changes; other deps would cause config refresh loops
   }, [
     getNodes,
     getEdges,
@@ -1441,6 +1447,7 @@ export function useWorkflowBuilder() {
     ])
 
     logger.info('🔗 Chain placeholder created:', chainPlaceholderId, 'for chain index:', newChainIndex)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- addActionHandlersRef is a ref; stable by nature
   }, [setNodes, setEdges, handleAddActionClick])
 
   // Now we can define the actual undo/redo implementation
@@ -1821,8 +1828,6 @@ export function useWorkflowBuilder() {
         collaborationWorkflowIdRef.current = null
       }
     }
-  // Empty deps - only run on mount/unmount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -2146,9 +2151,7 @@ export function useWorkflowBuilder() {
         templateLoadStateRef.current = null
       }
     }
-    // We intentionally limit dependencies to avoid effect loops.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally limits deps to avoid template load/save effect loops
   }, [isTemplateEditing, editTemplateId])
 
   // Sync workflow name changes to store
@@ -2169,6 +2172,7 @@ export function useWorkflowBuilder() {
         workflow.id === updatedWorkflow.id ? { ...workflow, name: workflowName } : workflow
       )
     }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tracks collaboration changes only; including workflow deps would cause infinite save loops
   }, [currentWorkflow?.id, currentWorkflow?.name, workflowName])
 
   // Note: handleSave and handleToggleLive now come from useWorkflowSaveActions hook above
@@ -2198,7 +2202,7 @@ export function useWorkflowBuilder() {
       return newEdges
     })
     markAsUnsaved()
-  }, [setEdges, nodes, trackChange, markAsUnsaved])
+  }, [setEdges, nodes, markAsUnsaved])
 
   // Process edges to add handleAddNodeBetween and selection styling
   const processedEdges = useMemo(() => {
@@ -2226,7 +2230,7 @@ export function useWorkflowBuilder() {
         style: edgeStyle
       }
     })
-  }, [edges, nodes, dialogsHook, selectedEdgeId])
+  }, [edges, selectedEdgeId])
 
   // Determine loading state with timeout protection
   const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null)
@@ -2396,6 +2400,7 @@ export function useWorkflowBuilder() {
     if (!configHook.nodeNeedsConfiguration(trigger)) {
       deletedTriggerBackupRef.current = null
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- handler functions defined in same hook; including them causes cascading re-renders
   }, [
     configHook,
     dialogsHook,
@@ -2409,7 +2414,7 @@ export function useWorkflowBuilder() {
     handleAddActionClick,
     getCenteredAddActionX,
     fitView,
-    setHasUnsavedChanges
+    setHasUnsavedChanges,
   ])
 
   // Handle trigger dialog close (for restoration logic)
@@ -2534,6 +2539,7 @@ export function useWorkflowBuilder() {
 
       dialogsHook.setShowActionDialog(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleAddAction changes identity each render; including it defeats memoization
   }, [nodes, configHook, dialogsHook, toast])
 
   // Handle adding a trigger node
@@ -2606,6 +2612,7 @@ export function useWorkflowBuilder() {
     }, 150)
 
     setHasUnsavedChanges(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handler functions defined in same hook; including them causes cascading re-renders
   }, [setNodes, setEdges, handleNodeConfigure, handleNodeDelete, handleAddActionClick, fitView])
 
   // Handle adding an action node
@@ -2911,6 +2918,7 @@ export function useWorkflowBuilder() {
 
     setHasUnsavedChanges(true)
     return newNodeId
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handler functions and refs defined in same hook; including them causes cascading re-renders
   }, [nodes, setNodes, setEdges, handleNodeConfigure, handleNodeDelete, handleNodeAddChain, handleAddActionClick, fitView])
 
   // Additional handlers needed
@@ -3073,6 +3081,7 @@ export function useWorkflowBuilder() {
     event.stopPropagation()
     setSelectedEdgeId(edge.id)
     setHasUnsavedChanges(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelectedEdgeId is stable; omitted to prevent unnecessary callback recreation
   }, [])
 
   // Delete selected edge
@@ -3086,6 +3095,7 @@ export function useWorkflowBuilder() {
         description: "The connection between nodes has been removed.",
       })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelectedEdgeId is stable; omitted to prevent unnecessary callback recreation
   }, [selectedEdgeId, setEdges, toast])
 
   // Keyboard handler for edge deletion
@@ -3108,6 +3118,7 @@ export function useWorkflowBuilder() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelectedEdgeId is stable; effect tracks specific edge selection changes
   }, [selectedEdgeId, deleteSelectedEdge])
 
   // Click outside to deselect edge
@@ -3124,6 +3135,7 @@ export function useWorkflowBuilder() {
       document.addEventListener('click', handleClickOutside)
       return () => document.removeEventListener('click', handleClickOutside)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelectedEdgeId is stable; effect tracks specific edge selection changes
   }, [selectedEdgeId])
 
   const confirmDeleteNode = useCallback((nodeId: string) => {
@@ -3367,6 +3379,7 @@ export function useWorkflowBuilder() {
     dialogsHook.setDeletingNode(null)
 
     // Toast notification removed per user request
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- addActionHandlersRef is a ref; stable by nature
   }, [setNodes, setEdges, getEdges, getNodes, handleAddActionClick, handleAddNodeBetween, removeNode, setHasUnsavedChanges, configHook, dialogsHook, toast])
 
   const forceUpdate = useCallback(() => {

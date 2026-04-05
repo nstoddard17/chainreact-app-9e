@@ -6,10 +6,12 @@
  * - "follow_switcher": Use current workspace switcher selection
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useAuthStore } from '@/stores/authStore'
 import { useWorkflowStore } from '@/stores/workflowStore'
 import { useWorkspaceContext } from '@/hooks/useWorkspaceContext'
+import { toast } from 'sonner'
+import { logger } from '@/lib/utils/logger'
 
 interface WorkspaceSelection {
   type: 'personal' | 'team' | 'organization'
@@ -23,7 +25,7 @@ export function useWorkflowCreation() {
   const { setWorkspaceContext } = useWorkflowStore()
   const { workspaceContext } = useWorkspaceContext()
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false)
-  const [pendingCallback, setPendingCallback] = useState<(() => void) | null>(null)
+  const pendingCallbackRef = useRef<(() => Promise<void> | void) | null>(null)
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
 
   /**
@@ -59,7 +61,7 @@ export function useWorkflowCreation() {
       case 'ask':
       default:
         // Show workspace selector modal
-        setPendingCallback(() => onProceed)
+        pendingCallbackRef.current = onProceed
         setShowWorkspaceModal(true)
         break
     }
@@ -75,27 +77,35 @@ export function useWorkflowCreation() {
     // Store folder_id for workflow creation
     setSelectedFolderId(selection.folder_id || null)
 
-    // Optionally save as default
-    if (saveAsDefault && profile) {
-      // This will be handled by the modal component calling updateProfile
-    }
-
     // Close modal
     setShowWorkspaceModal(false)
 
-    // Execute pending callback
-    if (pendingCallback) {
-      pendingCallback()
-      setPendingCallback(null)
+    // Execute pending callback (use ref to avoid stale closure)
+    const callback = pendingCallbackRef.current
+    if (callback) {
+      pendingCallbackRef.current = null
+      try {
+        const result = callback()
+        // Handle async callbacks — surface errors to user
+        if (result && typeof result.catch === 'function') {
+          result.catch((err: any) => {
+            logger.error('[useWorkflowCreation] Workflow creation failed:', err)
+            toast.error(err?.message || 'Failed to create workflow')
+          })
+        }
+      } catch (err: any) {
+        logger.error('[useWorkflowCreation] Workflow creation failed:', err)
+        toast.error(err?.message || 'Failed to create workflow')
+      }
     }
-  }, [setWorkspaceContext, pendingCallback, profile])
+  }, [setWorkspaceContext])
 
   /**
    * Cancel workspace selection
    */
   const handleCancelWorkspaceSelection = useCallback(() => {
     setShowWorkspaceModal(false)
-    setPendingCallback(null)
+    pendingCallbackRef.current = null
   }, [])
 
   return {

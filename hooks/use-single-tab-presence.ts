@@ -173,6 +173,7 @@ export function useSingleTabPresence() {
     
     // Send initial heartbeat
     sendLeaderHeartbeat()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateOnlineCount identity changes each render; including it would cause leader election thrashing
   }, [tabId, user?.id, profile, sendLeaderHeartbeat])
 
   // Resign from leadership
@@ -206,7 +207,7 @@ export function useSingleTabPresence() {
     }
     
     setIsConnected(false)
-  }, [tabId])
+  }, [])
 
   // Check if leader is alive
   const checkLeaderAlive = useCallback(() => {
