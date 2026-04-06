@@ -187,7 +187,7 @@ export function StepUpAuthDialog({
           </div>
         ) : (
           <div className="space-y-4 py-2">
-            {/* Method selector — only show if multiple methods */}
+            {/* Method selector - only show if multiple methods */}
             {stepUpInfo && stepUpInfo.availableMethods.length > 1 && (
               <div className="space-y-2">
                 <Label>Verification Method</Label>

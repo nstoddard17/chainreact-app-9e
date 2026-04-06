@@ -153,7 +153,7 @@ describe('getRouteRule', () => {
   it('returns rule for prefix match', () => {
     const rule = getRouteRule('/teams/my-team/members')
     expect(rule).toBeTruthy()
-    expect(rule!.minPlan).toBe('business')
+    expect(rule!.minPlan).toBe('team')
   })
 
   it('uses longest prefix match', () => {
@@ -311,11 +311,9 @@ describe('evaluateAccess', () => {
       expect(evaluateAccess(subject({ plan: 'enterprise' }), '/teams').allowed).toBe(true)
     })
 
-    it('denies team plan with upgrade modal', () => {
+    it('allows team plan', () => {
       const decision = evaluateAccess(subject({ plan: 'team' }), '/teams')
-      expect(decision.allowed).toBe(false)
-      expect(decision.denial?.requiredPlan).toBe('business')
-      expect(decision.denial?.showUpgradeModal).toBe(true)
+      expect(decision.allowed).toBe(true)
     })
 
     it('denies free with upgrade modal', () => {
@@ -330,11 +328,9 @@ describe('evaluateAccess', () => {
       expect(evaluateAccess(subject({ plan: 'enterprise' }), '/organization').allowed).toBe(true)
     })
 
-    it('denies business with upgrade modal', () => {
+    it('allows business plan', () => {
       const decision = evaluateAccess(subject({ plan: 'business' }), '/organization')
-      expect(decision.allowed).toBe(false)
-      expect(decision.denial?.requiredPlan).toBe('enterprise')
-      expect(decision.denial?.showUpgradeModal).toBe(true)
+      expect(decision.allowed).toBe(true)
     })
   })
 
@@ -342,7 +338,7 @@ describe('evaluateAccess', () => {
     it('/teams/slug/members inherits /teams rule', () => {
       const decision = evaluateAccess(subject({ plan: 'free' }), '/teams/slug/members')
       expect(decision.allowed).toBe(false)
-      expect(decision.denial?.requiredPlan).toBe('business')
+      expect(decision.denial?.requiredPlan).toBe('team')
     })
 
     it('/admin/settings inherits /admin rule', () => {

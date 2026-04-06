@@ -12,16 +12,16 @@ export function HeroSection() {
       </div>
 
       <div className="relative max-w-7xl mx-auto px-6">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <div className="grid lg:grid-cols-[5fr_7fr] gap-12 lg:gap-16 items-center">
           {/* Left: Text */}
           <div>
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[13px] text-slate-400 mb-8">
               <span className="h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
-              Free during beta — no credit card required
+              Free during beta - no credit card required
             </div>
 
-            {/* Headline — each phrase on its own line */}
+            {/* Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.15] mb-6">
               Describe your workflow.
               <br />
@@ -36,7 +36,7 @@ export function HeroSection() {
 
             {/* Sub-copy */}
             <p className="text-lg sm:text-xl text-slate-400 max-w-lg mb-10 leading-relaxed">
-              AI builds your workflow in real time. When it gets something wrong, fix it once — and it never makes that mistake again.
+              AI builds your workflow in real time. When it gets something wrong, fix it once and it never makes that mistake again.
             </p>
 
             {/* CTA */}
@@ -45,7 +45,7 @@ export function HeroSection() {
                 href="/auth/login"
                 className="inline-flex items-center gap-2 h-11 px-6 rounded-lg bg-white text-slate-900 text-sm font-medium hover:bg-slate-100 transition-colors"
               >
-                Start building — free
+                Start building - free
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <button
@@ -61,10 +61,10 @@ export function HeroSection() {
             </p>
           </div>
 
-          {/* Right: Product demo placeholder */}
+          {/* Right: Product demo placeholder - larger */}
           <div className="relative">
             <div className="relative rounded-xl overflow-hidden border border-white/10 bg-slate-900/50 shadow-2xl shadow-slate-950/50">
-              <div className="aspect-[16/10] flex items-center justify-center">
+              <div className="aspect-[4/3] flex items-center justify-center">
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4">
                     <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@ export function HeroSection() {
                     </svg>
                   </div>
                   <p className="text-sm text-slate-500">Product demo video</p>
-                  <p className="text-xs text-slate-600 mt-2 max-w-[240px] mx-auto">
+                  <p className="text-xs text-slate-600 mt-2 max-w-[260px] mx-auto">
                     Screen-record the AI builder: type a prompt, watch nodes appear on canvas
                   </p>
                 </div>

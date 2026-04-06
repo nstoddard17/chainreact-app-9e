@@ -1,0 +1,146 @@
+import {
+  Home,
+  Zap,
+  Layers,
+  LayoutGrid,
+  Sparkles,
+  BarChart3,
+  Users,
+  Building,
+  Shield,
+  Settings,
+  UserCircle,
+  LifeBuoy,
+  CreditCard,
+  Receipt,
+  User,
+  Briefcase,
+  Bell,
+  Palette,
+  Brain,
+  type LucideIcon,
+} from "lucide-react"
+
+export interface NavItem {
+  id: string
+  label: string
+  href: string
+  icon: LucideIcon
+  badge?: string
+}
+
+export interface NavSection {
+  id: string
+  label: string
+  icon: LucideIcon
+  href: string
+  children: NavItem[]
+}
+
+export function getNavSections(isAdmin: boolean): NavSection[] {
+  const sections: NavSection[] = [
+    {
+      id: "home",
+      label: "Home",
+      icon: Home,
+      href: "/workflows",
+      children: [
+        { id: "workflows", label: "Workflows", href: "/workflows", icon: Zap },
+        { id: "templates", label: "Templates", href: "/templates", icon: Layers },
+      ],
+    },
+    {
+      id: "apps",
+      label: "Apps",
+      icon: LayoutGrid,
+      href: "/apps",
+      children: [
+        { id: "apps", label: "Apps & Integrations", href: "/apps", icon: LayoutGrid },
+      ],
+    },
+    {
+      id: "ai-assistant",
+      label: "AI Assistant",
+      icon: Sparkles,
+      href: "/ai-assistant",
+      children: [
+        { id: "ai-assistant", label: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
+      ],
+    },
+    {
+      id: "analytics",
+      label: "Analytics",
+      icon: BarChart3,
+      href: "/analytics",
+      children: [
+        { id: "analytics", label: "Analytics Dashboard", href: "/analytics", icon: BarChart3 },
+      ],
+    },
+    {
+      id: "organization",
+      label: "Organization",
+      icon: Building,
+      href: "/organization",
+      children: [
+        { id: "organization", label: "Organization", href: "/organization", icon: Building },
+        { id: "teams", label: "Teams", href: "/teams", icon: Users },
+      ],
+    },
+    {
+      id: "my-plan",
+      label: "My Plan",
+      icon: CreditCard,
+      href: "/subscription",
+      children: [
+        { id: "subscription", label: "Subscription", href: "/subscription", icon: CreditCard },
+        { id: "payments", label: "Payments", href: "/settings/billing", icon: Receipt },
+      ],
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      icon: Settings,
+      href: "/settings",
+      children: [
+        { id: "settings-account", label: "Account", href: "/settings/account", icon: User },
+        { id: "settings-workspace", label: "Workspace", href: "/settings/workspace", icon: Briefcase },
+        { id: "settings-notifications", label: "Notifications", href: "/settings/notifications", icon: Bell },
+        { id: "settings-safety", label: "Safety", href: "/settings/safety", icon: Shield },
+        { id: "settings-appearance", label: "Appearance", href: "/settings/appearance", icon: Palette },
+        { id: "settings-ai-context", label: "AI Context", href: "/settings/ai-context", icon: Brain },
+      ],
+    },
+  ]
+
+  if (isAdmin) {
+    sections.push({
+      id: "admin",
+      label: "Admin",
+      icon: Shield,
+      href: "/admin",
+      children: [
+        { id: "admin", label: "Admin Panel", href: "/admin", icon: Shield },
+      ],
+    })
+  }
+
+  return sections
+}
+
+/**
+ * Given a pathname, determine which nav section is active.
+ */
+export function getActiveSectionId(pathname: string, sections: NavSection[]): string | null {
+  for (const section of sections) {
+    for (const child of section.children) {
+      if (pathname === child.href || pathname.startsWith(child.href + "/")) {
+        return section.id
+      }
+    }
+    // Match the section's own href (e.g. /settings matches the settings section)
+    if (pathname === section.href || pathname.startsWith(section.href + "/")) {
+      return section.id
+    }
+  }
+  return sections[0]?.id ?? null
+}

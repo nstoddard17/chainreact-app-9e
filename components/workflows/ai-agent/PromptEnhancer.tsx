@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
 import { Sparkles, Loader2, Check, X, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -89,7 +90,7 @@ export function PromptEnhancer({
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
         <p>AI features require a Pro plan or higher.</p>
-        <a href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</a>
+        <Link href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</Link>
       </div>
     )
   }

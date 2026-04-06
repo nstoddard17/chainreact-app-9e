@@ -741,7 +741,7 @@ export function InlineTestPreview({
               ).map(([key, value]) => (
                 <div key={key} className="flex items-start gap-2 rounded border border-border bg-muted/30 p-2">
                   <Badge variant="outline" className="text-[9px] font-mono shrink-0">{key}</Badge>
-                  <span className="text-xs text-foreground">{String(value) || '—'}</span>
+                  <span className="text-xs text-foreground">{String(value) || '-'}</span>
                 </div>
               ))}
             </div>
@@ -764,7 +764,7 @@ export function InlineTestPreview({
             <div className="flex items-center gap-3">
               <div>
                 <Label className="text-[10px] text-muted-foreground">Category</Label>
-                <Badge className="mt-1 text-sm">{data.category || '—'}</Badge>
+                <Badge className="mt-1 text-sm">{data.category || '-'}</Badge>
               </div>
               {data.confidence !== undefined && (
                 <div>

@@ -1,18 +1,15 @@
-import { NewHomepage } from '@/components/homepage-new/NewHomepage'
+import { TempLanding } from '@/components/temp-landing/TempLanding'
 import type { Metadata } from 'next'
 
-// Force dynamic to prevent build-time rendering issues
-export const dynamic = 'force-dynamic'
-
 export const metadata: Metadata = {
-  title: 'ChainReact - Workflow Automation That Learns Your Business',
-  description: 'Build intelligent workflows with AI that remembers your context, reads your documents, and makes smart decisions—all without writing code.',
+  title: 'ChainReact - AI Workflow Automation That Learns',
+  description: 'Describe your workflow in plain English. AI builds it in real time, fills every field, and connects your tools. Fix a mistake once - it never happens again.',
   openGraph: {
     type: 'website',
     url: 'https://chainreact.app',
     siteName: 'ChainReact',
-    title: 'ChainReact – Automate Your Workflows 10x Faster with AI',
-    description: 'The visual automation platform that connects your favorite apps, runs intelligent workflows, and keeps your team in complete control. From simple tasks to complex AI-driven processes.',
+    title: 'ChainReact - AI Workflow Automation That Learns',
+    description: 'Describe your workflow in plain English. AI builds it in real time. Fix a mistake once - it never happens again.',
     images: [
       {
         url: 'https://chainreact.app/opengraph-image.png?v=2',
@@ -25,15 +22,14 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ChainReact – Automate Your Workflows 10x Faster with AI',
-    description: 'Build intelligent workflows that connect your apps, automate busywork, and scale with your team. 20+ integrations, AI-powered actions, and real-time monitoring.',
+    title: 'ChainReact - AI Workflow Automation That Learns',
+    description: 'Describe your workflow in plain English. AI builds it in real time. 35+ integrations, AI-powered nodes, and self-improving workflows.',
     creator: '@ChainReact_App',
     images: ['/api/og/twitter'],
   },
 }
 
 export default function HomePage() {
-  // Structured data for SEO (JSON-LD)
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -45,21 +41,15 @@ export default function HomePage() {
       price: '0',
       priceCurrency: 'USD',
     },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.8',
-      ratingCount: '100',
-    },
-    description: 'Build intelligent workflows with AI that remembers your context, reads your documents, and makes smart decisions—all without writing code.',
+    description: 'Describe your workflow in plain English. AI builds it in real time, fills every field, and connects your tools.',
     url: 'https://chainreact.app',
-    screenshot: 'https://chainreact.app/opengraph-image.png',
     featureList: [
-      'AI-powered workflow automation',
-      'Visual workflow builder',
-      '20+ app integrations',
-      'No-code platform',
-      'Real-time monitoring',
+      'AI workflow builder from natural language',
+      'Self-improving workflows',
+      '35+ deep integrations',
+      'Visual workflow builder with 247+ nodes',
       'Human-in-the-loop approvals',
+      'Real-time execution monitoring',
     ],
     author: {
       '@type': 'Organization',
@@ -74,7 +64,7 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <NewHomepage />
+      <TempLanding />
     </>
   )
 }

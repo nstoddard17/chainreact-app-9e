@@ -378,7 +378,33 @@ export async function boot(set: SetState, get: GetState): Promise<void> {
       }
     }
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    // Race getSession() against onAuthStateChange — whichever resolves first wins.
+    // getSession() can hang if the Supabase SDK's internal initialization is slow
+    // (it acquires a navigator lock and may need to refresh the token over the network).
+    // onAuthStateChange fires earlier in many cases (especially post-OAuth redirect).
+    const sessionResult = await Promise.race([
+      supabase.auth.getSession().then(({ data, error }) => ({
+        session: data.session,
+        error,
+        source: 'getSession' as const,
+      })),
+      new Promise<{ session: any; error: null; source: 'authChange' }>((resolve) => {
+        // Listen for the next auth state change event
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+            subscription.unsubscribe()
+            resolve({ session, error: null, source: 'authChange' })
+          }
+        })
+        // Clean up if getSession wins first — the race will ignore this resolve
+        // but we still need to unsubscribe after a timeout to avoid leaks
+        setTimeout(() => subscription.unsubscribe(), BOOT_TIMEOUT_MS)
+      }),
+    ])
+
+    const session = sessionResult.session
+    const sessionError = sessionResult.error
+    logger.debug('[Boot] Session resolved', { source: sessionResult.source, hasSession: !!session })
 
     if (get().bootId !== id) return // stale
 

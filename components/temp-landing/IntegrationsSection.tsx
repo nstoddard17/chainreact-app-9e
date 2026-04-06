@@ -26,37 +26,40 @@ const integrations = [
   { name: 'Facebook', slug: 'facebook' },
 ]
 
+// These SVGs use white fills and need to be inverted on light backgrounds
+// On dark backgrounds, white SVGs display naturally - no filter needed
+
 export function IntegrationsSection() {
   return (
-    <section id="integrations" className="px-4 sm:px-6 lg:px-8 py-24" style={{ backgroundColor: '#fafafa' }}>
+    <section id="integrations" className="px-4 sm:px-6 lg:px-8 py-24 bg-slate-900">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-slate-900 mb-3">
+          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-3">
             Connects to your stack
           </h2>
           <p className="text-slate-500 text-base">
-            35+ deep integrations — not shallow API wrappers
+            35+ deep integrations - not shallow API wrappers
           </p>
         </div>
 
         {/* Integration grid */}
         <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-10 gap-3">
           {integrations.map((integration) => (
-            <div
-              key={integration.slug}
-              className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-300 transition-colors"
-              title={integration.name}
-            >
-              <Image
-                src={`/integrations/${integration.slug}.svg`}
-                alt={integration.name}
-                width={32}
-                height={32}
-                className="object-contain"
-              />
-            </div>
-          ))}
+              <div
+                key={integration.slug}
+                className="flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800 p-4 hover:border-slate-600 transition-colors"
+                title={integration.name}
+              >
+                <Image
+                  src={`/integrations/${integration.slug}.svg`}
+                  alt={integration.name}
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                />
+              </div>
+            ))}
         </div>
 
         {/* Footer text */}

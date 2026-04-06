@@ -25,9 +25,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SessionManagement } from "@/components/settings/SessionManagement"
 import BusinessContextSettings from "@/components/settings/BusinessContextSettings"
 
-type SettingsSection = 'profile' | 'workspace' | 'billing' | 'notifications' | 'security' | 'appearance' | 'ai-context'
+type SettingsSection = 'profile' | 'account' | 'workspace' | 'billing' | 'notifications' | 'security' | 'appearance' | 'ai-context'
 
-export function SettingsContent() {
+// Map URL slugs to internal section IDs
+function resolveSection(slug?: string): SettingsSection {
+  if (!slug) return 'profile'
+  const map: Record<string, SettingsSection> = {
+    account: 'profile',
+    workspace: 'workspace',
+    billing: 'billing',
+    notifications: 'notifications',
+    security: 'security',
+    safety: 'security',
+    appearance: 'appearance',
+    'ai-context': 'ai-context',
+    profile: 'profile',
+  }
+  return map[slug] || 'profile'
+}
+
+interface SettingsContentProps {
+  initialSection?: string
+}
+
+export function SettingsContent({ initialSection }: SettingsContentProps) {
   const { profile, updateProfile, user } = useAuthStore()
   const { toast } = useToast()
   const supabase = createClient()
@@ -36,7 +57,9 @@ export function SettingsContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sectionParam = searchParams.get('section') as SettingsSection | null
-  const [activeSection, setActiveSection] = useState<SettingsSection>(sectionParam || 'profile')
+  const [activeSection, setActiveSection] = useState<SettingsSection>(
+    resolveSection(initialSection || sectionParam || undefined)
+  )
 
   const [notifications, setNotifications] = useState({
     email: true,
@@ -437,83 +460,18 @@ export function SettingsContent() {
     }
   }
 
-  const navigationItems = [
-    { id: 'profile' as const, label: 'Profile', icon: User, description: 'Manage your personal information' },
-    { id: 'workspace' as const, label: 'Workspace', icon: Briefcase, description: 'Workspace and workflow settings' },
-    { id: 'billing' as const, label: 'Billing', icon: CreditCard, description: 'Manage your subscription' },
-    { id: 'notifications' as const, label: 'Notifications', icon: Bell, description: 'Configure notification preferences' },
-    { id: 'security' as const, label: 'Security', icon: Shield, description: 'Password and authentication settings' },
-    { id: 'appearance' as const, label: 'Appearance', icon: Palette, description: 'Customize your theme' },
-    { id: 'ai-context' as const, label: 'AI Context', icon: Brain, description: 'Teach AI about your business' },
-  ]
 
   return (
     <>
-    <div className="flex gap-8 max-w-7xl mx-auto">
-      {/* Sidebar Navigation */}
-      <aside className="w-64 shrink-0">
-        <div className="sticky top-6 space-y-1">
-          {navigationItems.map((item) => {
-            const Icon = item.icon
-            const isActive = activeSection === item.id
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id)
-                  router.push(`/settings?section=${item.id}`)
-                  // Lazy load data when user clicks on specific sections
-                  if (item.id === 'workspace' && !workspace) {
-                    fetchWorkspace()
-                  }
-                  if (item.id === 'security' && !twoFactorLoading && twoFactorEnabled === false) {
-                    check2FAStatus()
-                  }
-                }}
-                className={cn(
-                  "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 group",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={cn(
-                    "w-5 h-5 transition-transform group-hover:scale-110",
-                    isActive ? "text-primary-foreground" : ""
-                  )} />
-                  <div className="flex-1">
-                    <div className={cn(
-                      "font-semibold text-sm",
-                      isActive ? "text-primary-foreground" : ""
-                    )}>
-                      {item.label}
-                    </div>
-                    {!isActive && (
-                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                        {item.description}
-                      </div>
-                    )}
-                  </div>
-                  {isActive && (
-                    <ChevronRight className="w-4 h-4 text-primary-foreground" />
-                  )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </aside>
-
+    <div className="max-w-4xl mx-auto">
       {/* Main Content Area */}
-      <main className="flex-1 min-w-0">
+      <main className="min-w-0">
         {/* Profile Section */}
         {activeSection === 'profile' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Profile Information</h2>
-              <p className="text-muted-foreground mt-2">Update your personal information and profile details</p>
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Account</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your profile, notifications, and account settings.</p>
             </div>
 
             <Card>

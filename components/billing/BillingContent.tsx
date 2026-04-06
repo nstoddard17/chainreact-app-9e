@@ -37,7 +37,6 @@ import {
 } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { LoadingScreen } from "@/components/ui/loading-screen"
-import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { PLAN_INFO, PLAN_LIMITS, type PlanTier } from '@/lib/utils/plan-restrictions'
 
 interface BillingContentProps {
@@ -81,34 +80,30 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
 
   if (loading) {
     return (
-      <NewAppLayout title="Billing & Plans" subtitle="Manage your subscription and usage">
-        <LoadingScreen
-          title="Loading Billing"
-          description="Fetching your subscription details..."
-          size="lg"
-        />
-      </NewAppLayout>
+      <LoadingScreen
+        title="Loading Billing"
+        description="Fetching your subscription details..."
+        size="lg"
+      />
     )
   }
 
   if (error) {
     return (
-      <NewAppLayout title="Billing & Plans" subtitle="Manage your subscription and usage">
-        <div className="min-h-[400px] flex items-center justify-center">
-          <Card className="bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50 max-w-md">
-            <CardContent className="pt-6 text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/20 flex items-center justify-center mx-auto">
-                <HelpCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-              </div>
-              <div className="text-red-600 dark:text-red-400">{error}</div>
-              <Button onClick={() => fetchAll()} variant="outline" className="border-red-300 dark:border-red-500/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/10">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </NewAppLayout>
+      <div className="min-h-[400px] flex items-center justify-center">
+        <Card className="bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/50 max-w-md">
+          <CardContent className="pt-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-500/20 flex items-center justify-center mx-auto">
+              <HelpCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <div className="text-red-600 dark:text-red-400">{error}</div>
+            <Button onClick={() => fetchAll()} variant="outline" className="border-red-300 dark:border-red-500/50 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/10">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -353,16 +348,7 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
       </div>
   )
 
-  // Wrap with layout if not modal
-  if (isModal) {
-    return content
-  }
-
-  return (
-    <NewAppLayout title="Billing & Plans" subtitle="Manage your subscription and usage">
-      {content}
-    </NewAppLayout>
-  )
+  return content
 }
 
 // Feature Comparison Table Component

@@ -1,11 +1,15 @@
-import { TermsOfService } from "@/components/legal/TermsOfService"
-import { StandardHeader } from "@/components/layout/StandardHeader"
+"use client"
+
+import { PublicPageHeader } from '@/components/layout/PublicPageHeader'
+import { TempFooter } from '@/components/temp-landing/TempFooter'
+import { TermsOfService } from '@/components/legal/TermsOfService'
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
-      <StandardHeader />
+    <div className="min-h-screen bg-white">
+      <PublicPageHeader breadcrumb="Terms of Service" />
       <TermsOfService />
+      <TempFooter />
     </div>
   )
 }

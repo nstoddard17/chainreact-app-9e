@@ -17,7 +17,7 @@ function KPICard({ label, kpi, compare }: KPICardProps) {
       ? 'text-muted-foreground'
       : 'text-red-600 dark:text-red-400'
 
-  const arrow = kpi.trend === 'up' ? '▲' : kpi.trend === 'down' ? '▼' : '—'
+  const arrow = kpi.trend === 'up' ? '▲' : kpi.trend === 'down' ? '▼' : '-'
 
   return (
     <Card className="bg-card">

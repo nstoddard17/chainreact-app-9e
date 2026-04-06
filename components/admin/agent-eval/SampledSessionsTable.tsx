@@ -89,7 +89,7 @@ export function SampledSessionsTable({ sessions, onSessionClick }: SampledSessio
                       {session.correction_count}
                     </TableCell>
                     <TableCell className="text-xs py-2">
-                      {session.max_severity || '—'}
+                      {session.max_severity || '-'}
                     </TableCell>
                     <TableCell className="py-2">
                       <Badge variant="outline" className={`text-[10px] ${outcome.className}`}>

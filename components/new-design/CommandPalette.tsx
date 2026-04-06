@@ -22,6 +22,15 @@ import {
   Loader2,
   Users,
   Building,
+  CreditCard,
+  LifeBuoy,
+  Shield,
+  Palette,
+  Bell,
+  Briefcase,
+  Brain,
+  User,
+  Receipt,
 } from "lucide-react"
 
 interface CommandPaletteProps {
@@ -134,21 +143,34 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     })
     .slice(0, 5) // Limit to 5 results
 
-  // Navigation options
+  // Navigation options with keyword aliases for search
   const pages = [
-    { name: "Workflows", href: "/workflows", icon: Home },
-    { name: "Templates", href: "/templates", icon: Layers },
-    { name: "Apps", href: "/apps", icon: Layout },
-    { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
-    { name: "Analytics", href: "/analytics", icon: BarChart3 },
-    { name: "Teams", href: "/teams", icon: Users },
-    { name: "Organization", href: "/organization", icon: Building },
-    { name: "Settings", href: "/settings", icon: Settings },
+    { name: "Workflows", href: "/workflows", icon: Home, keywords: ["home", "dashboard", "flows"] },
+    { name: "Templates", href: "/templates", icon: Layers, keywords: ["library", "prebuilt"] },
+    { name: "Apps & Integrations", href: "/apps", icon: Layout, keywords: ["connections", "connect", "integrations", "apps"] },
+    { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles, keywords: ["ai", "chat", "assistant", "help"] },
+    { name: "Analytics", href: "/analytics", icon: BarChart3, keywords: ["stats", "metrics", "usage", "reports"] },
+    { name: "Teams", href: "/teams", icon: Users, keywords: ["members", "team", "invite"] },
+    { name: "Organization", href: "/organization", icon: Building, keywords: ["org", "company"] },
+    { name: "Subscription", href: "/subscription", icon: CreditCard, keywords: ["plan", "billing", "pricing", "upgrade", "my plan"] },
+    { name: "Payments", href: "/settings/billing", icon: Receipt, keywords: ["invoices", "billing history", "payment"] },
+    { name: "Settings", href: "/settings", icon: Settings, keywords: ["preferences", "config"] },
+    { name: "Account", href: "/settings/account", icon: User, keywords: ["profile", "username", "name", "email", "account"] },
+    { name: "Workspace", href: "/settings/workspace", icon: Briefcase, keywords: ["workspace", "default"] },
+    { name: "Notifications", href: "/settings/notifications", icon: Bell, keywords: ["alerts", "email notifications"] },
+    { name: "Safety", href: "/settings/safety", icon: Shield, keywords: ["security", "2fa", "two-factor", "password", "sessions"] },
+    { name: "Appearance", href: "/settings/appearance", icon: Palette, keywords: ["theme", "dark mode", "light mode"] },
+    { name: "AI Context", href: "/settings/ai-context", icon: Brain, keywords: ["business context", "ai settings"] },
+    { name: "Help & Support", href: "/support", icon: LifeBuoy, keywords: ["help", "support", "faq", "ticket", "contact"] },
   ]
 
-  const filteredPages = pages.filter((page) =>
-    page.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filteredPages = pages.filter((page) => {
+    const q = search.toLowerCase()
+    return (
+      page.name.toLowerCase().includes(q) ||
+      page.keywords.some((kw) => kw.includes(q))
+    )
+  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

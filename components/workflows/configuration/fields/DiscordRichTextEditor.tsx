@@ -1015,7 +1015,7 @@ export function DiscordRichTextEditor({
                                     </div>
                                     <p className="text-xs text-slate-400">
                                       {output.label || output.name}
-                                      {output.description && ` — ${output.description}`}
+                                      {output.description && ` - ${output.description}`}
                                     </p>
                                   </div>
                                 )

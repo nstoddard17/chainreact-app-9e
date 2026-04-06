@@ -240,7 +240,7 @@ export default function NewHomePage() {
             <div className="p-8 rounded-2xl border border-white/5 bg-gradient-to-br from-rose-500/5 to-transparent hover:border-white/10 transition-all">
               <h3 className="text-xl font-semibold mb-3">Lead Management</h3>
               <p className="text-gray-400 mb-4">
-                Capture leads, enrich data, send follow-ups, and sync with your CRM—all automatically.
+                Capture leads, enrich data, send follow-ups, and sync with your CRM-all automatically.
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="px-3 py-1 rounded-full bg-white/5 text-xs text-gray-400">HubSpot</span>

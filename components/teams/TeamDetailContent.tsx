@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -156,10 +155,7 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
   const canLeaveTeam = !isOwner || memberCount === 1
 
   return (
-    <NewAppLayout
-      title={team.name}
-      subtitle={team.description || `Team workspace for ${team.name}`}
-    >
+    <>
       <div className="space-y-6">
         {/* Header with back button */}
         <div className="flex items-center justify-between">
@@ -483,6 +479,6 @@ export default function TeamDetailContent({ team }: TeamDetailContentProps) {
           }}
         />
       </div>
-    </NewAppLayout>
+    </>
   )
 }

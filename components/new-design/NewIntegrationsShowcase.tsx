@@ -190,7 +190,7 @@ export function NewIntegrationsShowcase() {
             </div>
             {/* Learn More button - links to API documentation page */}
             <Link
-              href="/api-docs"
+              href="/docs"
               className="inline-block px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors"
             >
               Learn More

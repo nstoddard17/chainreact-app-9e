@@ -16,40 +16,18 @@ import { TempFooter } from "./TempFooter"
 
 export function TempLanding() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-950">
       <TempHeader />
-
-      {/* Dark hero */}
       <HeroSection />
-
-      {/* Stats bar */}
       <StatsSection />
-
-      {/* Comparison */}
       <WhyAutomationBreaks />
-
-      {/* How it works */}
       <HowItWorks />
-
-      {/* AI nodes */}
       <AINodesSection />
-
-      {/* Use cases */}
       <UseCasesSection />
-
-      {/* Features bento grid */}
       <FeaturesGrid />
-
-      {/* Integrations */}
       <IntegrationsSection />
-
-      {/* Pricing */}
       <PricingPreview />
-
-      {/* Final CTA */}
       <FinalCTA />
-
-      {/* Footer */}
       <TempFooter />
     </div>
   )

@@ -102,7 +102,7 @@ export function ActivationReviewDialog({
             <section>
               <h4 className="text-sm font-medium flex items-center gap-1.5 mb-2 text-muted-foreground">
                 <Radio className="w-4 h-4" />
-                Triggers — what this workflow listens for
+                Triggers - what this workflow listens for
               </h4>
               <ul className="space-y-1.5">
                 {summary.triggers.map((t) => (
@@ -113,7 +113,7 @@ export function ActivationReviewDialog({
                     <span className="font-medium">{t.title}</span>
                     {t.description && (
                       <span className="text-muted-foreground ml-1">
-                        — {t.description}
+                        - {t.description}
                       </span>
                     )}
                   </li>
@@ -127,7 +127,7 @@ export function ActivationReviewDialog({
             <section>
               <h4 className="text-sm font-medium flex items-center gap-1.5 mb-2 text-muted-foreground">
                 <Zap className="w-4 h-4" />
-                Actions — what this workflow will do
+                Actions - what this workflow will do
               </h4>
               <ul className="space-y-1.5">
                 {summary.actions.map((a) => (
@@ -138,7 +138,7 @@ export function ActivationReviewDialog({
                     <span className="font-medium">{a.title}</span>
                     {a.description && (
                       <span className="text-muted-foreground ml-1">
-                        — {a.description}
+                        - {a.description}
                       </span>
                     )}
                   </li>
@@ -180,7 +180,7 @@ export function ActivationReviewDialog({
                         <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded text-[11px]">
                           {ref.reference}
                         </code>{" "}
-                        — {ref.reason}
+                        - {ref.reason}
                       </li>
                     ))}
                   </ul>

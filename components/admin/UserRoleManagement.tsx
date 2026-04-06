@@ -912,7 +912,7 @@ export default function UserRoleManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Step-up auth dialog — shown when a destructive action requires re-verification */}
+      {/* Step-up auth dialog - shown when a destructive action requires re-verification */}
       <StepUpAuthDialog
         open={needsStepUp}
         onOpenChange={setNeedsStepUp}

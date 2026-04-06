@@ -92,7 +92,7 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://chainreact.app",
     siteName: "ChainReact",
-    title: "ChainReact – Automate Your Workflows 10x Faster with AI",
+    title: "ChainReact - Automate Your Workflows 10x Faster with AI",
     description: "The visual automation platform that connects your favorite apps, runs intelligent workflows, and keeps your team in complete control. From simple tasks to complex AI-driven processes.",
     images: [
       {
@@ -105,7 +105,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ChainReact – Automate Your Workflows 10x Faster with AI",
+    title: "ChainReact - Automate Your Workflows 10x Faster with AI",
     description: "Build intelligent workflows that connect your apps, automate busywork, and scale with your team. 20+ integrations, AI-powered actions, and real-time monitoring.",
     creator: "@ChainReact_App",
     images: ["/api/og/twitter"],

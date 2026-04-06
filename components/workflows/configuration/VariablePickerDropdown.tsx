@@ -132,7 +132,7 @@ export function VariablePickerDropdown({
                   const variableRef = `{{${referencePrefix}.${field.name}}}`
                   const displayRef = `${referencePrefix}.${field.name}`
                   const descriptionText = field.label && field.label !== field.name
-                    ? `${field.label}${field.description ? ` — ${field.description}` : ''}`
+                    ? `${field.label}${field.description ? ` - ${field.description}` : ''}`
                     : (field.description || `From ${node.title}`)
 
                   return (

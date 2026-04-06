@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -103,7 +102,7 @@ const fallbackResources: Resource[] = [
     category: "Videos"
   },
   {
-    id: "api-docs",
+    id: "docs",
     title: "API Documentation",
     description: "Build custom integrations using our REST API",
     type: "documentation",
@@ -336,23 +335,20 @@ export default function LearnContent() {
 
   if (loading) {
     return (
-      <NewAppLayout title="Learn" subtitle="Explore resources to master ChainReact workflows">
-        <div className="space-y-6">
-          <div className="animate-pulse">
-            <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-lg mb-6"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-48 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
-              ))}
-            </div>
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-32 bg-gray-200 dark:bg-gray-800 rounded-lg mb-6"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-48 bg-gray-200 dark:bg-gray-800 rounded-lg"></div>
+            ))}
           </div>
         </div>
-      </NewAppLayout>
+      </div>
     )
   }
 
   return (
-    <NewAppLayout title="Learn" subtitle="Explore resources to master ChainReact workflows">
       <div className="space-y-6">
         {/* Quick Start Section - Moved to Top */}
         <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
@@ -605,6 +601,5 @@ export default function LearnContent() {
           </DialogContent>
         </Dialog>
       </div>
-    </NewAppLayout>
   )
 }

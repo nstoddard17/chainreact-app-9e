@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { NewAppLayout } from "@/components/new-design/layout/NewAppLayout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -269,10 +268,7 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
   }
 
   return (
-    <NewAppLayout
-      title={`${team.name} - Members`}
-      subtitle="Manage team members and permissions"
-    >
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -584,6 +580,6 @@ export function TeamMembersContent({ team, userRole }: TeamMembersContentProps) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </NewAppLayout>
+    </>
   )
 }

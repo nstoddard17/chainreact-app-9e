@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { Mic, MicOff, X, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { logger } from '@/lib/utils/logger'
@@ -471,7 +472,7 @@ export function VoiceDictation({ onTranscript, onUpdate, onClose }: VoiceDictati
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
         <p>AI features require a Pro plan or higher.</p>
-        <a href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</a>
+        <Link href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</Link>
       </div>
     )
   }

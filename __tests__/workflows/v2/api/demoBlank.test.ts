@@ -6,7 +6,7 @@ jest.mock("next/server", () => ({
   },
 }))
 
-import { GET } from "@/app/workflows/v2/api/demo/blank/route"
+import { GET } from "@/app/(app)/workflows/v2/api/demo/blank/route"
 
 const insertMock = jest.fn().mockResolvedValue({ error: null })
 const createRevisionMock = jest.fn().mockResolvedValue({

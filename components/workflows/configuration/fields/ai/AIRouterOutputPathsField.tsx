@@ -208,7 +208,7 @@ export function AIRouterOutputPathsField({
 
   const getOptionLabel = (option: { label: string; firstAction?: string }) => {
     if (option.firstAction) {
-      return `${option.label} — ${option.firstAction}`
+      return `${option.label} - ${option.firstAction}`
     }
     return option.label
   }
@@ -324,7 +324,7 @@ export function AIRouterOutputPathsField({
 
                   <div>
                     <Label className="text-xs font-medium text-muted-foreground">
-                      Description (optional — helps the AI choose)
+                      Description (optional - helps the AI choose)
                     </Label>
                     <Input
                       value={path.description || ""}

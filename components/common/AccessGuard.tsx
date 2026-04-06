@@ -7,9 +7,10 @@ import { buildAccessSubject } from "@/lib/access-policy/buildAccessSubject"
 import { evaluateAccess } from "@/lib/access-policy/evaluateAccess"
 import { isRecognizedPlan } from "@/lib/access-policy/normalize"
 import type { AccessPlan } from "@/lib/access-policy/types"
-import { PLAN_INFO } from "@/lib/utils/plan-restrictions"
+import { PLAN_INFO, PLAN_FEATURES } from "@/lib/utils/plan-restrictions"
+import type { PlanTier } from "@/lib/utils/plan-restrictions"
 import { Button } from "@/components/ui/button"
-import { Lock, Sparkles, ArrowRight, Loader2 } from "lucide-react"
+import { Lock, Sparkles, ArrowRight, Loader2, Check } from "lucide-react"
 import Link from "next/link"
 import { logger } from "@/lib/utils/logger"
 
@@ -28,8 +29,8 @@ const PAGE_DISPLAY_NAMES: Record<string, string> = {
 const PAGE_DESCRIPTIONS: Record<string, string> = {
   '/ai-assistant': 'Build workflows faster with AI-powered assistance',
   '/analytics': 'Track workflow performance and usage metrics',
-  '/teams': 'Collaborate with team members on shared workflows',
-  '/organization': 'Manage your organization settings and permissions',
+  '/teams': 'Collaborate with your team on shared workflows and integrations',
+  '/organization': 'Manage your organization, teams, members, and shared resources',
 }
 
 /**
@@ -38,7 +39,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
  * Server (middleware) is authoritative for enforcement.
  * This component is UX-only: it shows upgrade modals for plan-gated pages.
  *
- * Renders a neutral loading state while auth is unresolved — no timing hacks.
+ * Renders a neutral loading state while auth is unresolved - no timing hacks.
  */
 export function AccessGuard({ pathname, children }: AccessGuardProps) {
   const { user, profile, phase } = useAuthStore()
@@ -76,7 +77,7 @@ export function AccessGuard({ pathname, children }: AccessGuardProps) {
   }
 
   // For non-modal denials, the server (middleware) handles redirects.
-  // Client just renders children as fallback — middleware should have already redirected.
+  // Client just renders children as fallback - middleware should have already redirected.
   if (!decision.allowed && !decision.denial?.showUpgradeModal && !forceUpgradeModal) {
     return <>{children}</>
   }
@@ -89,43 +90,54 @@ export function AccessGuard({ pathname, children }: AccessGuardProps) {
   const displayName = PAGE_DISPLAY_NAMES[pathname] ?? pathname.replace(/^\//, '').replace(/-/g, ' ')
   const description = PAGE_DESCRIPTIONS[pathname] ?? `Access ${displayName} features`
 
+  // Get features for the required plan, filtering out "Everything in X" lines
+  const requiredPlanFeatures = (PLAN_FEATURES[requiredPlan as PlanTier] ?? [])
+    .filter((f) => !f.startsWith('Everything in'))
+
   return (
-    <div className="relative h-full w-full">
-      {/* Page content rendered but blurred */}
-      <div className="h-full w-full blur-sm pointer-events-none select-none">
+    <div className="relative min-h-[60vh] w-full">
+      {/* Page content rendered but blurred - sidebar stays interactive */}
+      <div className="blur-sm pointer-events-none select-none opacity-40">
         {children}
       </div>
 
-      {/* Modal overlay */}
-      <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-[2px] z-10">
-        <div className="max-w-lg w-full mx-6 bg-white dark:bg-slate-900 rounded-xl border border-border shadow-lg p-8">
-          <div className="text-center space-y-5">
-            <div className="mx-auto w-14 h-14 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
-              <Lock className="w-7 h-7 text-orange-500" />
-            </div>
-
-            <div className="space-y-2">
+      {/* Modal overlay - covers only content area, not sidebar */}
+      <div className="absolute inset-0 flex items-center justify-center z-10">
+        <div className="max-w-lg w-full mx-6 bg-white dark:bg-slate-900 rounded-xl border border-border shadow-xl p-8">
+          <div className="space-y-5">
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
+                <Lock className="w-6 h-6 text-orange-500" />
+              </div>
               <h2 className="text-xl font-semibold text-foreground">
-                Upgrade to {planInfo.name} to access {displayName}
+                Unlock {displayName}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {description}
               </p>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-border">
-              <div className="flex items-center justify-between mb-2">
+            {/* Plan card with benefits */}
+            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-5 border border-border">
+              <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-orange-500" />
-                  <span className="font-medium text-foreground">{planInfo.name} Plan</span>
+                  <span className="font-semibold text-foreground">{planInfo.name} Plan</span>
                 </div>
                 <span className="text-lg font-bold text-foreground">
                   ${planInfo.price}<span className="text-sm font-normal text-muted-foreground">/mo</span>
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground text-left">
-                {planInfo.description}
-              </p>
+
+              {/* Benefits list */}
+              <ul className="space-y-2.5">
+                {requiredPlanFeatures.map((feature) => (
+                  <li key={feature} className="flex items-start gap-2.5">
+                    <Check className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" />
+                    <span className="text-sm text-foreground">{feature}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <Button asChild size="default" className="w-full bg-orange-500 hover:bg-orange-600">
@@ -135,8 +147,8 @@ export function AccessGuard({ pathname, children }: AccessGuardProps) {
               </Link>
             </Button>
 
-            <p className="text-xs text-muted-foreground">
-              You&apos;re currently on the <span className="font-medium">{userPlanInfo.name}</span> plan
+            <p className="text-xs text-muted-foreground text-center">
+              You&apos;re on the <span className="font-medium">{userPlanInfo.name}</span> plan · Cancel anytime
             </p>
           </div>
         </div>

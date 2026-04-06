@@ -226,7 +226,7 @@ export const PLAN_INFO: Record<PlanTier, PlanInfo> = {
   pro: {
     name: 'Pro',
     price: 19,
-    priceAnnual: 15.83, // $190/year = ~$15.83/mo
+    priceAnnual: 16, // $192/year = $16/mo
     billingPeriod: 'month',
     description: 'For solo professionals and freelancers',
     popular: true,
@@ -243,7 +243,7 @@ export const PLAN_INFO: Record<PlanTier, PlanInfo> = {
   team: {
     name: 'Team',
     price: 49,
-    priceAnnual: 40.83, // $490/year = ~$40.83/mo
+    priceAnnual: 40, // $480/year = $40/mo
     billingPeriod: 'month',
     description: 'For small teams collaborating on workflows',
     overageRate: 0.020, // $0.02 per task
@@ -251,7 +251,7 @@ export const PLAN_INFO: Record<PlanTier, PlanInfo> = {
   business: {
     name: 'Business',
     price: 99,
-    priceAnnual: 82.50, // $990/year = ~$82.50/mo
+    priceAnnual: 80, // $960/year = $80/mo
     billingPeriod: 'month',
     description: 'For growing companies with advanced needs',
     overageRate: 0.015, // $0.015 per task

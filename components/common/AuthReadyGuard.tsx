@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useEffect, useRef } from "react"
 import { useAuthStore } from "@/stores/authStore"
 import { PageLoadingSpinner } from "./PageLoadingSpinner"
 
@@ -10,11 +10,17 @@ interface AuthReadyGuardProps {
   requireUser?: boolean
 }
 
+const BOOT_RETRY_TIMEOUT_MS = 4000
+
 /**
  * Guards content rendering until boot reaches a usable phase.
  * - 'ready' → render children normally
  * - 'degraded' → render children with a retry banner
  * - 'error' → redirect to login
+ *
+ * Safety net: if boot hasn't reached a terminal phase within 4s,
+ * retry boot once. Handles edge cases where the initial boot stalls
+ * (e.g. post-OAuth redirect race conditions).
  */
 export function AuthReadyGuard({
   children,
@@ -22,8 +28,29 @@ export function AuthReadyGuard({
   requireUser = true
 }: AuthReadyGuardProps) {
   const { phase, user, profile, bootError, retryBoot } = useAuthStore()
+  const retryAttempted = useRef(false)
 
-  // Error state — redirect to login
+  // Safety net: if stuck in a non-terminal phase, retry boot after timeout
+  useEffect(() => {
+    if (phase === 'ready' || phase === 'degraded' || phase === 'error') {
+      retryAttempted.current = false
+      return
+    }
+
+    const timer = setTimeout(() => {
+      const currentPhase = useAuthStore.getState().phase
+      if (currentPhase !== 'ready' && currentPhase !== 'degraded' && currentPhase !== 'error') {
+        if (!retryAttempted.current) {
+          retryAttempted.current = true
+          useAuthStore.getState().boot()
+        }
+      }
+    }, BOOT_RETRY_TIMEOUT_MS)
+
+    return () => clearTimeout(timer)
+  }, [phase])
+
+  // Error state - redirect to login
   if (phase === 'error') {
     if (typeof window !== 'undefined') {
       window.location.href = '/auth/login?error=boot_failed'

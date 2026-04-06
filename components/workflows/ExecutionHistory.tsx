@@ -183,7 +183,7 @@ export function ExecutionHistory({
   }
 
   const formatDuration = (ms: number | null) => {
-    if (!ms) return "—"
+    if (!ms) return "-"
     if (ms < 1000) return `${ms}ms`
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
     return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
@@ -326,7 +326,7 @@ export function ExecutionHistory({
                           )}
                         </>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </span>
                   </TableCell>
@@ -426,7 +426,7 @@ export function ExecutionHistory({
                       <div className="text-sm text-muted-foreground">Tasks Used</div>
                       <div className="flex items-center gap-1.5">
                         <span className="text-lg font-semibold">
-                          {selectedExecution.tasks_used != null ? selectedExecution.tasks_used : "—"}
+                          {selectedExecution.tasks_used != null ? selectedExecution.tasks_used : "-"}
                         </span>
                         {selectedExecution.source === 'retry' && (
                           <Badge variant="outline" className="text-[10px] px-1 py-0 bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">

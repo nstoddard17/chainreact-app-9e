@@ -4,20 +4,17 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useAuthStore } from "@/stores/authStore"
-import { isProfileAdmin } from "@/lib/types/admin"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Sparkles } from "lucide-react"
-import { RoleBadge } from "@/components/ui/role-badge"
-import { type UserRole } from "@/lib/utils/roles"
 
 import { logger } from '@/lib/utils/logger'
 
 export default function ProfileSettings() {
   const { user, profile, updateProfile } = useAuthStore()
   const [formData, setFormData] = useState({
+    username: "",
     first_name: "",
     last_name: "",
     company: "",
@@ -32,6 +29,7 @@ export default function ProfileSettings() {
   useEffect(() => {
     if (profile) {
       setFormData({
+        username: profile.username || "",
         first_name: profile.first_name || "",
         last_name: profile.last_name || "",
         company: profile.company || "",
@@ -48,21 +46,19 @@ export default function ProfileSettings() {
     setSuccess(false)
     setError(null)
 
-    // Set a timeout to prevent getting stuck in loading state
     const timeoutId = setTimeout(() => {
       if (loading) {
         setLoading(false)
         setError("Request timed out. Please try again.")
       }
-    }, 10000) // 10 seconds timeout
+    }, 10000)
 
     try {
-      // Combine first_name and last_name to create full_name
       const updatedData = {
         ...formData,
         full_name: `${formData.first_name} ${formData.last_name}`.trim()
       }
-      
+
       await updateProfile(updatedData)
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
@@ -75,141 +71,126 @@ export default function ProfileSettings() {
     }
   }
 
-  const isAdmin = isProfileAdmin(profile)
-  // If user is admin, show admin badge; otherwise show their role badge
-  const userRole = isAdmin ? 'admin' : ((profile?.role as UserRole) || 'free')
-  const isBetaTester = userRole === 'beta-pro'
-
   return (
     <div className="space-y-6">
-      {/* Membership Status Card - Show for beta testers */}
-      {isBetaTester && (
-        <Card className="bg-gradient-to-r from-rose-500/10 to-orange-500/10 border-rose-500/30">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-semibold">Membership Status</CardTitle>
-              <RoleBadge role={userRole} size="md" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-r from-rose-500 to-orange-500 p-2 rounded-full">
-                <Sparkles className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm text-muted-foreground">
-                  Thank you for being a beta tester! You have access to all Pro features while helping us improve ChainReact.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Profile section */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">Profile</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">Your personal information.</p>
 
-      <Card className="bg-card rounded-2xl shadow-lg border border-border">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-semibold text-card-foreground">Profile Settings</CardTitle>
-            {!isBetaTester && <RoleBadge role={userRole} size="sm" />}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input id="username" value={profile?.username || ""} disabled className="bg-muted" />
-              <p className="text-xs text-muted-foreground">Your username cannot be changed.</p>
-            </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="first_name">First Name</Label>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="username" className="text-sm text-gray-700 dark:text-gray-300">Username</Label>
               <Input
-                id="first_name"
-                value={formData.first_name}
-                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                placeholder="Your first name"
+                id="username"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="Your username"
+                className="max-w-md"
+              />
+              <p className="text-xs text-gray-400">This is your public display name.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 max-w-md">
+              <div className="space-y-1.5">
+                <Label htmlFor="first_name" className="text-sm text-gray-700 dark:text-gray-300">First Name</Label>
+                <Input
+                  id="first_name"
+                  value={formData.first_name}
+                  onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                  placeholder="First name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="last_name" className="text-sm text-gray-700 dark:text-gray-300">Last Name</Label>
+                <Input
+                  id="last_name"
+                  value={formData.last_name}
+                  onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                  placeholder="Last name"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="company" className="text-sm text-gray-700 dark:text-gray-300">Company</Label>
+              <Input
+                id="company"
+                value={formData.company}
+                onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                placeholder="Your company name"
+                className="max-w-md"
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="last_name">Last Name</Label>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="job_title" className="text-sm text-gray-700 dark:text-gray-300">Job Title</Label>
               <Input
-                id="last_name"
-                value={formData.last_name}
-                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                placeholder="Your last name"
+                id="job_title"
+                value={formData.job_title}
+                onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                placeholder="Your job title"
+                className="max-w-md"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="phone_number" className="text-sm text-gray-700 dark:text-gray-300">Phone Number</Label>
+              <Input
+                id="phone_number"
+                type="tel"
+                value={formData.phone_number}
+                onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                placeholder="Your phone number"
+                className="max-w-md"
               />
             </div>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="company">Company</Label>
-            <Input
-              id="company"
-              value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-              placeholder="Your company name"
-            />
-          </div>
+        {/* Email section */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1">Email Address</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">The email address used to sign in to your account.</p>
 
-          <div className="space-y-2">
-            <Label htmlFor="job_title">Job Title</Label>
-            <Input
-              id="job_title"
-              value={formData.job_title}
-              onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-              placeholder="Your job title"
-            />
-          </div>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-sm text-gray-700 dark:text-gray-300">Primary Email</Label>
+              <Input id="email" type="email" value={user?.email || ""} disabled className="bg-gray-50 dark:bg-gray-800 max-w-md" />
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone_number">Phone Number</Label>
-            <Input
-              id="phone_number"
-              type="tel"
-              value={formData.phone_number}
-              onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-              placeholder="Your phone number"
-            />
-            <p className="text-xs text-muted-foreground">Optional phone number for contact purposes.</p>
+            <div className="space-y-1.5">
+              <Label htmlFor="secondary_email" className="text-sm text-gray-700 dark:text-gray-300">Secondary Email</Label>
+              <Input
+                id="secondary_email"
+                type="email"
+                value={formData.secondary_email}
+                onChange={(e) => setFormData({ ...formData, secondary_email: e.target.value })}
+                placeholder="Backup email address"
+                className="max-w-md"
+              />
+              <p className="text-xs text-gray-400">Optional backup email for notifications.</p>
+            </div>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" value={user?.email || ""} disabled className="bg-muted" />
-            <p className="text-xs text-muted-foreground">Your email address cannot be changed.</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="secondary_email">Secondary Email</Label>
-            <Input
-              id="secondary_email"
-              type="email"
-              value={formData.secondary_email}
-              onChange={(e) => setFormData({ ...formData, secondary_email: e.target.value })}
-              placeholder="Your secondary email address"
-            />
-            <p className="text-xs text-muted-foreground">Optional backup email address for notifications.</p>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
-            {success && <span className="text-green-600 dark:text-green-400">Profile updated successfully!</span>}
-            {error && <span className="text-red-600 dark:text-red-400">{error}</span>}
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+        {/* Save button */}
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={loading} className="bg-orange-500 hover:bg-orange-600 text-white">
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save profile"
+            )}
+          </Button>
+          {success && <span className="text-sm text-green-600 dark:text-green-400">Profile updated successfully!</span>}
+          {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
+        </div>
+      </form>
     </div>
   )
 }

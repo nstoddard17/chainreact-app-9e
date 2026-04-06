@@ -187,11 +187,9 @@ export const config = {
     '/teams/:path*',
     '/organization/:path*',
     '/ai-assistant/:path*',
-    '/enterprise/:path*',
     '/admin/:path*',
     '/learn/:path*',
-    '/community/:path*',
-    '/profile',
     '/settings/:path*',
+    '/subscription',
   ],
 }
