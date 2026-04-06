@@ -14,10 +14,6 @@ import {
   CreditCard,
   Receipt,
   User,
-  Briefcase,
-  Bell,
-  Palette,
-  Brain,
   type LucideIcon,
 } from "lucide-react"
 
@@ -40,12 +36,20 @@ export interface NavSection {
 export function getNavSections(isAdmin: boolean): NavSection[] {
   const sections: NavSection[] = [
     {
-      id: "home",
-      label: "Home",
-      icon: Home,
+      id: "workflows",
+      label: "Workflows",
+      icon: Zap,
       href: "/workflows",
       children: [
         { id: "workflows", label: "Workflows", href: "/workflows", icon: Zap },
+      ],
+    },
+    {
+      id: "templates",
+      label: "Templates",
+      icon: Layers,
+      href: "/templates",
+      children: [
         { id: "templates", label: "Templates", href: "/templates", icon: Layers },
       ],
     },
@@ -80,9 +84,17 @@ export function getNavSections(isAdmin: boolean): NavSection[] {
       id: "organization",
       label: "Organization",
       icon: Building,
-      href: "/organization",
+      href: "/organization-settings",
       children: [
-        { id: "organization", label: "Organization", href: "/organization", icon: Building },
+        { id: "organization-settings", label: "Settings", href: "/organization-settings", icon: Building },
+      ],
+    },
+    {
+      id: "teams",
+      label: "Teams",
+      icon: Users,
+      href: "/teams",
+      children: [
         { id: "teams", label: "Teams", href: "/teams", icon: Users },
       ],
     },
@@ -93,7 +105,7 @@ export function getNavSections(isAdmin: boolean): NavSection[] {
       href: "/subscription",
       children: [
         { id: "subscription", label: "Subscription", href: "/subscription", icon: CreditCard },
-        { id: "payments", label: "Payments", href: "/settings/billing", icon: Receipt },
+        { id: "payments", label: "Payments", href: "/payments", icon: Receipt },
       ],
     },
     {
@@ -102,12 +114,7 @@ export function getNavSections(isAdmin: boolean): NavSection[] {
       icon: Settings,
       href: "/settings",
       children: [
-        { id: "settings-account", label: "Account", href: "/settings/account", icon: User },
-        { id: "settings-workspace", label: "Workspace", href: "/settings/workspace", icon: Briefcase },
-        { id: "settings-notifications", label: "Notifications", href: "/settings/notifications", icon: Bell },
-        { id: "settings-safety", label: "Safety", href: "/settings/safety", icon: Shield },
-        { id: "settings-appearance", label: "Appearance", href: "/settings/appearance", icon: Palette },
-        { id: "settings-ai-context", label: "AI Context", href: "/settings/ai-context", icon: Brain },
+        { id: "settings-account", label: "Account", href: "/settings", icon: User },
       ],
     },
   ]
@@ -132,7 +139,7 @@ export function getNavSections(isAdmin: boolean): NavSection[] {
  */
 export function getActiveSectionId(pathname: string, sections: NavSection[]): string | null {
   for (const section of sections) {
-    for (const child of section.children) {
+    for (const child of section.children || []) {
       if (pathname === child.href || pathname.startsWith(child.href + "/")) {
         return section.id
       }

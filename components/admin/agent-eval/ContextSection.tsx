@@ -36,12 +36,12 @@ export function ContextSection({ data }: ContextSectionProps) {
           <>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={chartData} barCategoryGap="20%">
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                <YAxis tick={{ fontSize: 10 }} width={30} domain={[0, 100]} tickFormatter={v => `${v}%`} stroke="hsl(var(--muted-foreground))" />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="oklch(var(--muted-foreground))" />
+                <YAxis tick={{ fontSize: 10 }} width={30} domain={[0, 100]} tickFormatter={v => `${v}%`} stroke="oklch(var(--muted-foreground))" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: 'oklch(var(--card))',
+                    border: '1px solid oklch(var(--border))',
                     borderRadius: '6px',
                     fontSize: '11px',
                   }}

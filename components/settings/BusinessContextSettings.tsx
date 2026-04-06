@@ -157,7 +157,7 @@ export default function BusinessContextSettings() {
 
       {/* Empty state */}
       {!loading && entries.length === 0 && (
-        <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+        <div className="text-center py-8 text-slate-500 dark:text-slate-200">
           <p>Teach ChainReact about your business. Add facts, rules, preferences, and style guides that the AI planner will use when building workflows.</p>
         </div>
       )}

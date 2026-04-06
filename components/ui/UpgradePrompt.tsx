@@ -121,7 +121,7 @@ export default function UpgradePrompt({
                   </div>
                 )}
               </div>
-              <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
+              <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-200">
                 {planFeatures.pro.map((feature, index) => (
                   <li key={index} className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
@@ -152,7 +152,7 @@ export default function UpgradePrompt({
                   </div>
                 )}
               </div>
-              <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
+              <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-200">
                 {planFeatures.business.map((feature, index) => (
                   <li key={index} className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 bg-rose-500 rounded-full"></div>
@@ -183,7 +183,7 @@ export default function UpgradePrompt({
                   </div>
                 )}
               </div>
-              <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-400">
+              <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-200">
                 {planFeatures.enterprise.map((feature, index) => (
                   <li key={index} className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 bg-pink-500 rounded-full"></div>
@@ -203,7 +203,7 @@ export default function UpgradePrompt({
             >
               Maybe Later
             </Button>
-            <Link href="/settings/billing" className="flex-1">
+            <Link href="/subscription" className="flex-1">
               <Button className="w-full">
                 Upgrade to {selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)}
               </Button>

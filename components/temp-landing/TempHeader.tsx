@@ -83,7 +83,7 @@ export function TempHeader() {
                 Sign in
               </Link>
               <Link
-                href="/auth/login"
+                href="/auth/register"
                 className="inline-flex items-center gap-1.5 text-[13px] font-medium h-8 px-4 rounded-md bg-white text-slate-900 hover:bg-slate-100 transition-colors"
               >
                 Get started
@@ -118,7 +118,7 @@ export function TempHeader() {
             ))}
             <div className="pt-2 border-t border-slate-800 mt-2">
               <Link
-                href={user ? "/workflows" : "/auth/login"}
+                href={user ? "/workflows" : "/auth/register"}
                 onClick={() => setMenuOpen(false)}
                 className="block w-full text-center bg-white text-slate-900 text-sm font-medium py-2.5 rounded-md hover:bg-slate-100 transition-colors"
               >

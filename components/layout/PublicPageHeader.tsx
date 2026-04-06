@@ -26,7 +26,7 @@ export function PublicPageHeader({ breadcrumb }: PublicPageHeaderProps) {
           <span className="text-sm text-gray-500">{breadcrumb}</span>
         </div>
         <button
-          onClick={() => router.push(user ? "/workflows" : "/auth/login")}
+          onClick={() => router.push(user ? "/workflows" : "/auth/register")}
           className="inline-flex items-center gap-1.5 text-xs font-medium h-8 px-4 rounded-md bg-orange-600 text-white hover:bg-orange-700 transition-colors"
         >
           {user ? "Go to Dashboard" : "Get Started"}

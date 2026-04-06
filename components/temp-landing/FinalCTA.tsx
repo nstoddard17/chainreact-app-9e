@@ -1,6 +1,7 @@
 "use client"
 
 import React from 'react'
+import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
 export function FinalCTA() {
@@ -14,10 +15,13 @@ export function FinalCTA() {
           Join the beta - completely free, no credit card required.
         </p>
         <div className="mt-8">
-          <button className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100">
+          <Link
+            href="/auth/register"
+            className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-100"
+          >
             Start building - free
             <ArrowRight className="h-4 w-4" />
-          </button>
+          </Link>
         </div>
       </div>
     </section>

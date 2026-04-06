@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
       return redirectWithError('SSO not configured for this organization')
     }
 
+    // DB has columns not in generated types — cast once for type safety
+    const ssoConf = config as Record<string, any>
+
     // Parse and validate SAML response
     const userInfo = await parseSAMLResponse(samlResponse, config)
 
@@ -62,9 +65,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if email domain is allowed
-    if (config.allowed_domains && config.allowed_domains.length > 0) {
+    if (ssoConf.allowed_domains && ssoConf.allowed_domains.length > 0) {
       const emailDomain = userInfo.email.split('@')[1]
-      if (!config.allowed_domains.includes(emailDomain)) {
+      if (!ssoConf.allowed_domains.includes(emailDomain)) {
         await supabase.from('sso_login_attempts').insert({
           sso_config_id: config.id,
           user_email: userInfo.email,
@@ -89,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     if (existingUser) {
       userId = existingUser.id
-    } else if (config.auto_provision_users) {
+    } else if (ssoConf.auto_provision_users) {
       // Create new user via Supabase Auth
       // Note: This requires admin privileges or a custom signup flow
       // For now, we'll redirect to a special signup page
@@ -113,12 +116,12 @@ export async function POST(request: NextRequest) {
       .eq('user_id', userId)
       .single()
 
-    if (!membership && config.auto_provision_users) {
+    if (!membership && ssoConf.auto_provision_users) {
       // Add user to organization
       await supabase.from('organization_members').insert({
         organization_id: orgId,
         user_id: userId,
-        role: config.default_role || 'member',
+        role: ssoConf.default_role || 'member',
       })
     } else if (!membership) {
       return redirectWithError('You are not a member of this organization')
@@ -134,17 +137,18 @@ export async function POST(request: NextRequest) {
       status: 'success',
     })
 
-    // Create a session token for the user
-    // In production, this would use Supabase's signInWithIdToken or similar
+    // Create a signed session token containing all user info
     const sessionUrl = new URL('/auth/sso-session', process.env.NEXT_PUBLIC_APP_URL)
-    sessionUrl.searchParams.set('userId', userId)
-    sessionUrl.searchParams.set('email', userInfo.email)
-    sessionUrl.searchParams.set('orgId', orgId)
-    sessionUrl.searchParams.set('returnUrl', returnUrl)
-
-    // Create a signed token for security
-    const token = signSessionToken({ userId, email: userInfo.email, orgId, exp: Date.now() + 60000 })
+    const token = signSessionToken({
+      userId,
+      email: userInfo.email,
+      orgId,
+      firstName: userInfo.firstName || '',
+      lastName: userInfo.lastName || '',
+      exp: Date.now() + 60000,
+    })
     sessionUrl.searchParams.set('token', token)
+    sessionUrl.searchParams.set('returnUrl', returnUrl)
 
     return NextResponse.redirect(sessionUrl)
   } catch (error) {
@@ -225,7 +229,7 @@ function escapeRegex(string: string): string {
 }
 
 function signSessionToken(payload: any): string {
-  const secret = process.env.SSO_SESSION_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret'
+  const secret = process.env.SSO_SESSION_SECRET || 'chainreact-sso-secret'
   const data = JSON.stringify(payload)
   const signature = crypto.createHmac('sha256', secret).update(data).digest('hex')
   return Buffer.from(`${data}|${signature}`).toString('base64')

@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     if (!authResult.isAdmin) return authResult.response
 
     const body = await request.json()
-    const { userId, email, full_name, username, role, password } = body
+    const { userId, email, full_name, role, password } = body
 
     if (!userId) {
       return errorResponse('User ID is required', 400)
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const { data: updatedProfile, error } = await updateUser(
       authResult.userId,
       userId,
-      { email, password, full_name, username, role },
+      { email, password, full_name, role },
       request
     )
 

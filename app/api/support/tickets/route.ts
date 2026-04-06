@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Get user profile
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('full_name, username')
+      .select('full_name, first_name, last_name')
       .eq('id', user.id)
       .single()
 
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         priority: priority || 'medium',
         category: category || 'general',
         user_email: user.email,
-        user_name: profile?.full_name || profile?.username,
+        user_name: profile?.full_name,
         error_details: errorDetails,
         system_info: systemInfo,
         attachments,
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
           <p><strong>Subject:</strong> ${subject}</p>
           <p><strong>Priority:</strong> ${priority || 'medium'}</p>
           <p><strong>Category:</strong> ${category || 'general'}</p>
-          <p><strong>User:</strong> ${user.email} (${profile?.full_name || profile?.username || 'N/A'})</p>
+          <p><strong>User:</strong> ${user.email} (${profile?.full_name || 'N/A'})</p>
           <p><strong>Description:</strong></p>
           <p>${description}</p>
           ${errorDetails ? `<p><strong>Error Details:</strong></p><pre>${JSON.stringify(errorDetails, null, 2)}</pre>` : ''}

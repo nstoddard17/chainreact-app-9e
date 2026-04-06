@@ -1,5 +1,5 @@
-import { PageLoadingSpinner } from "@/components/common/PageLoadingSpinner"
+import { PageSkeleton } from "@/components/common/PageSkeleton"
 
 export default function Loading() {
-  return <PageLoadingSpinner message="Loading apps..." />
+  return <PageSkeleton />
 }

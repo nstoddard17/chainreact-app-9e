@@ -24,7 +24,7 @@ function SSOErrorContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400 text-center">
+          <div className="text-sm text-gray-600 dark:text-gray-200 text-center">
             <p>This could happen if:</p>
             <ul className="mt-2 text-left list-disc list-inside space-y-1">
               <li>Your SSO session expired</li>
@@ -58,7 +58,7 @@ export default function SSOErrorPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+        <div className="text-gray-600 dark:text-gray-200">Loading...</div>
       </div>
     }>
       <SSOErrorContent />

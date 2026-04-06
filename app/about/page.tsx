@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight, Zap, Shield, Globe, Target } from 'lucide-react'
 import { PublicPageHeader } from '@/components/layout/PublicPageHeader'
 import { TempFooter } from '@/components/temp-landing/TempFooter'
+import { ForceTheme } from '@/components/theme/ForceTheme'
 
 const values = [
   {
@@ -28,6 +29,7 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <ForceTheme theme="light" />
       <PublicPageHeader breadcrumb="About" />
 
       <main className="max-w-5xl mx-auto px-6 py-12">

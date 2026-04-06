@@ -25,7 +25,7 @@ interface UnifiedTopBarProps {
 }
 
 function getInitials(profile: any, email?: string): string {
-  const fullName = profile?.full_name || profile?.username || ""
+  const fullName = profile?.full_name || ""
   if (fullName) {
     const parts = fullName.trim().split(/\s+/)
     if (parts.length >= 2) {
@@ -43,7 +43,7 @@ export function UnifiedTopBar({ actions }: UnifiedTopBarProps) {
   const { signedUrl: avatarSignedUrl } = useSignedAvatarUrl(avatarUrl || undefined)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
 
-  const displayName = profile?.full_name || profile?.username || user?.email?.split("@")[0] || "User"
+  const displayName = profile?.full_name || user?.email?.split("@")[0] || "User"
   const initials = getInitials(profile, user?.email)
 
   const tasksUsed = profile?.tasks_used ?? 0
@@ -64,12 +64,12 @@ export function UnifiedTopBar({ actions }: UnifiedTopBarProps) {
 
   const handleSignOut = async () => {
     await signOut()
-    router.push("/")
+    router.push("/auth/login")
   }
 
   return (
     <>
-      <header className="flex items-center justify-between h-14 px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shrink-0">
+      <header className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shrink-0">
         {/* Left: spacer */}
         <div className="flex items-center gap-3 min-w-0" />
 
@@ -158,7 +158,7 @@ export function UnifiedTopBar({ actions }: UnifiedTopBarProps) {
 
               <div className="border-t border-gray-200 dark:border-gray-800 px-4 py-3">
                 <button
-                  onClick={() => router.push("/settings/billing")}
+                  onClick={() => router.push("/subscription")}
                   className="w-full text-xs font-medium text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors text-center"
                 >
                   Manage Plan & Billing →

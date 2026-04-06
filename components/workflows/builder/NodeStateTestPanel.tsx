@@ -136,8 +136,8 @@ export function NodeStateTestPanel() {
         bottom: '20px',
         right: '20px',
         padding: '16px',
-        background: 'hsl(var(--card))',
-        border: '1px solid hsl(var(--border))',
+        background: 'oklch(var(--card))',
+        border: '1px solid oklch(var(--border))',
         borderRadius: '12px',
         boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
         zIndex: 1000,
@@ -161,7 +161,7 @@ export function NodeStateTestPanel() {
         </button>
       </div>
 
-      <p style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', margin: '0 0 12px 0' }}>
+      <p style={{ fontSize: '12px', color: 'oklch(var(--muted-foreground))', margin: '0 0 12px 0' }}>
         Click to add test nodes with different states:
       </p>
 
@@ -170,9 +170,9 @@ export function NodeStateTestPanel() {
           onClick={() => addTestNode('skeleton')}
           style={{
             padding: '8px 12px',
-            background: 'hsl(var(--muted))',
-            color: 'hsl(var(--muted-foreground))',
-            border: '1px solid hsl(var(--border))',
+            background: 'oklch(var(--muted))',
+            color: 'oklch(var(--muted-foreground))',
+            border: '1px solid oklch(var(--border))',
             borderRadius: '6px',
             cursor: 'pointer',
             fontSize: '13px',
@@ -186,9 +186,9 @@ export function NodeStateTestPanel() {
           onClick={() => addTestNode('ready')}
           style={{
             padding: '8px 12px',
-            background: 'hsl(var(--card))',
-            color: 'hsl(var(--foreground))',
-            border: '1px solid hsl(var(--border))',
+            background: 'oklch(var(--card))',
+            color: 'oklch(var(--foreground))',
+            border: '1px solid oklch(var(--border))',
             borderRadius: '6px',
             cursor: 'pointer',
             fontSize: '13px',
@@ -234,9 +234,9 @@ export function NodeStateTestPanel() {
           onClick={() => addTestNode('failed')}
           style={{
             padding: '8px 12px',
-            background: 'hsl(var(--destructive) / 0.1)',
-            color: 'hsl(var(--destructive))',
-            border: '1px solid hsl(var(--destructive) / 0.3)',
+            background: 'oklch(var(--destructive) / 0.1)',
+            color: 'oklch(var(--destructive))',
+            border: '1px solid oklch(var(--destructive) / 0.3)',
             borderRadius: '6px',
             cursor: 'pointer',
             fontSize: '13px',
@@ -246,15 +246,15 @@ export function NodeStateTestPanel() {
           Add Failed Node
         </button>
 
-        <div style={{ height: '8px', borderTop: '1px solid hsl(var(--border))', margin: '8px 0' }} />
+        <div style={{ height: '8px', borderTop: '1px solid oklch(var(--border))', margin: '8px 0' }} />
 
         <button
           onClick={clearAllNodes}
           style={{
             padding: '8px 12px',
             background: 'transparent',
-            color: 'hsl(var(--muted-foreground))',
-            border: '1px solid hsl(var(--border))',
+            color: 'oklch(var(--muted-foreground))',
+            border: '1px solid oklch(var(--border))',
             borderRadius: '6px',
             cursor: 'pointer',
             fontSize: '13px',
@@ -267,9 +267,9 @@ export function NodeStateTestPanel() {
           onClick={() => setShowHandleDesigns(true)}
           style={{
             padding: '8px 12px',
-            background: 'hsl(var(--primary) / 0.1)',
-            color: 'hsl(var(--primary))',
-            border: '1px solid hsl(var(--primary) / 0.3)',
+            background: 'oklch(var(--primary) / 0.1)',
+            color: 'oklch(var(--primary))',
+            border: '1px solid oklch(var(--primary) / 0.3)',
             borderRadius: '6px',
             cursor: 'pointer',
             fontSize: '13px',
@@ -280,7 +280,7 @@ export function NodeStateTestPanel() {
         </button>
       </div>
 
-      <p style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))', margin: '12px 0 0 0', fontStyle: 'italic' }}>
+      <p style={{ fontSize: '11px', color: 'oklch(var(--muted-foreground))', margin: '12px 0 0 0', fontStyle: 'italic' }}>
         Remove this component after testing Phase 1
       </p>
 

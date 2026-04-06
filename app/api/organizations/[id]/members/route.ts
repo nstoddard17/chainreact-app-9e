@@ -51,7 +51,7 @@ export async function GET(
     const [profilesResult, authResult] = await Promise.all([
       serviceClient
         .from("user_profiles")
-        .select("user_id, email, username, full_name, display_name")
+        .select("user_id, email, full_name, first_name, last_name, display_name")
         .in("user_id", userIds),
       serviceClient.auth.admin.listUsers()
     ])
@@ -71,7 +71,7 @@ export async function GET(
           {
             user_id: u.id,
             email: profile?.email || u.email || 'No email',
-            username: profile?.display_name || profile?.full_name || profile?.username || u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Unknown'
+            username: profile?.display_name || profile?.full_name || u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split('@')[0] || 'Unknown'
           }
         ]
       })

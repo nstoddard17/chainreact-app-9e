@@ -7,7 +7,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface OnlineUser {
   user_id: string
-  username?: string
+  first_name?: string
   full_name?: string
   avatar_url?: string
   online_at: string
@@ -96,7 +96,7 @@ export function usePresence() {
             // Track current user as online in realtime
             const userPresence: OnlineUser = {
               user_id: user.id,
-              username: profile?.username,
+              first_name: profile?.first_name,
               full_name: profile?.full_name || profile?.first_name || user.name,
               avatar_url: profile?.avatar_url || user.avatar,
               online_at: new Date().toISOString(),
@@ -147,7 +147,7 @@ export function usePresence() {
         presenceChannel.unsubscribe()
       }
     }
-  }, [user?.id, profile?.username, profile?.full_name, profile?.avatar_url, profile?.role])
+  }, [user?.id, profile?.first_name, profile?.full_name, profile?.avatar_url, profile?.role])
 
   // Function to manually update presence (useful for status changes)
   const updatePresence = async (updates: Partial<OnlineUser>) => {
@@ -155,7 +155,7 @@ export function usePresence() {
 
     const updatedPresence = {
       user_id: user.id,
-      username: profile?.username,
+      first_name: profile?.first_name,
       full_name: profile?.full_name || profile?.first_name || user.name,
       avatar_url: profile?.avatar_url || user.avatar,
       online_at: new Date().toISOString(),

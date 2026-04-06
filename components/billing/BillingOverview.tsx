@@ -125,7 +125,7 @@ export default function BillingOverview() {
         const error = await response.json()
         if (error.error === 'No subscription found') {
           toast.error('No subscription found. Redirecting to upgrade...')
-          router.push('/settings/billing')
+          router.push('/subscription')
           return
         }
         toast.error(error.error || 'Failed to open billing portal')
@@ -146,7 +146,7 @@ export default function BillingOverview() {
   }
 
   const handleUpgrade = () => {
-    router.push('/settings/billing')
+    router.push('/subscription')
   }
 
   const getPlanColor = (plan: string) => {

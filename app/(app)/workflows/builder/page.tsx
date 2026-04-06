@@ -5,13 +5,10 @@ import { getFlowRepository } from "@/src/lib/workflows/builder/api/helpers"
 import { FlowSchema } from "@/src/lib/workflows/builder/schema"
 import { ensureWorkspaceForUser } from "@/src/lib/workflows/builder/workspace"
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-import { requireUsername } from "@/utils/checkUsername"
 
 export const dynamic = "force-dynamic"
 
 export default async function WorkflowBuilderIndexPage() {
-  await requireUsername()
-
   const supabase = await createSupabaseServerClient()
   const serviceClient = await createSupabaseServiceClient()
 

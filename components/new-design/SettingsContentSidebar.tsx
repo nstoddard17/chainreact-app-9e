@@ -4,45 +4,18 @@ import { useRef, useState, type ChangeEvent, useEffect } from "react"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/utils/supabaseClient"
-import { User, Bell, Shield, Palette, Loader2, ChevronRight, Sparkles, Briefcase, Users, Building2, Check, X, Settings, CreditCard, Brain } from "lucide-react"
+import { User, Bell, Shield, ShieldCheck, ShieldOff, Palette, Loader2, Sparkles, Camera, Key, Fingerprint, Monitor, LogOut } from "lucide-react"
 import { useTheme } from "next-themes"
 import { TwoFactorSetup } from "@/components/settings/TwoFactorSetup"
-import { cn } from "@/lib/utils"
-import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl"
-import { useSearchParams, useRouter } from "next/navigation"
-import { useWorkspaces } from "@/hooks/useWorkspaces"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import BillingOverview from "@/components/billing/BillingOverview"
-import { TaskBillingHistory } from "@/components/billing/TaskBillingHistory"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SessionManagement } from "@/components/settings/SessionManagement"
-import BusinessContextSettings from "@/components/settings/BusinessContextSettings"
-
-type SettingsSection = 'profile' | 'account' | 'workspace' | 'billing' | 'notifications' | 'security' | 'appearance' | 'ai-context'
-
-// Map URL slugs to internal section IDs
-function resolveSection(slug?: string): SettingsSection {
-  if (!slug) return 'profile'
-  const map: Record<string, SettingsSection> = {
-    account: 'profile',
-    workspace: 'workspace',
-    billing: 'billing',
-    notifications: 'notifications',
-    security: 'security',
-    safety: 'security',
-    appearance: 'appearance',
-    'ai-context': 'ai-context',
-    profile: 'profile',
-  }
-  return map[slug] || 'profile'
-}
+import { useSearchParams } from "next/navigation"
+import { useSignedAvatarUrl } from "@/hooks/useSignedAvatarUrl"
+import { useWorkspaces } from "@/hooks/useWorkspaces"
 
 interface SettingsContentProps {
   initialSection?: string
@@ -54,38 +27,46 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
   const supabase = createClient()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const sectionParam = searchParams.get('section') as SettingsSection | null
-  const [activeSection, setActiveSection] = useState<SettingsSection>(
-    resolveSection(initialSection || sectionParam || undefined)
-  )
 
+  // Account form state
+  const [fullName, setFullName] = useState(profile?.full_name || "")
+  const [accountSaving, setAccountSaving] = useState(false)
+
+  // Notification state
   const [notifications, setNotifications] = useState({
-    email: true,
+    email: false,
     slack: false,
     workflow_success: true,
     workflow_failure: true,
-    weekly_digest: true
+    weekly_digest: false
   })
+  const [notificationsLoading, setNotificationsLoading] = useState(true)
+  const [notificationsSaving, setNotificationsSaving] = useState(false)
+
+  // Slack notification connection state
+  const [slackConnection, setSlackConnection] = useState<{
+    connected: boolean
+    team_name?: string
+    channel_id?: string
+    channel_name?: string
+    channels?: { id: string; name: string }[]
+  }>({ connected: false })
+  const [slackLoading, setSlackLoading] = useState(false)
+  const [slackChannelSaving, setSlackChannelSaving] = useState(false)
+
+  const [newEmail, setNewEmail] = useState("")
+  const [emailChanging, setEmailChanging] = useState(false)
+  const [showEmailChange, setShowEmailChange] = useState(false)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
-  // Use signed URL for secure avatar access
   const displayAvatarUrl = previewUrl || profile?.avatar_url
   const { signedUrl: avatarSignedUrl } = useSignedAvatarUrl(displayAvatarUrl)
   const [show2FASetup, setShow2FASetup] = useState(false)
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
   const [twoFactorLoading, setTwoFactorLoading] = useState(true)
-
-  // Workspace state
-  const [workspace, setWorkspace] = useState<any>(null)
-  const [workspaceLoading, setWorkspaceLoading] = useState(true)
-  const [workspaceName, setWorkspaceName] = useState("")
-  const [workspaceDescription, setWorkspaceDescription] = useState("")
-  const [workspaceSaving, setWorkspaceSaving] = useState(false)
 
   // Default workspace state
   const { workspaces } = useWorkspaces()
@@ -104,43 +85,59 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
   )
   const [savingPreferences, setSavingPreferences] = useState(false)
 
+  const searchParams = useSearchParams()
+
   useEffect(() => {
     setMounted(true)
-    // Defer data loading - only load when section is active
-    // Don't load anything on mount to improve initial page load performance
-    setWorkspaceLoading(false)
     setTwoFactorLoading(false)
   }, [])
 
-  // Update active section when URL parameter changes
+  // Handle Slack OAuth callback redirect
   useEffect(() => {
-    if (sectionParam && ['profile', 'workspace', 'billing', 'notifications', 'security', 'appearance'].includes(sectionParam)) {
-      setActiveSection(sectionParam)
-      // Lazy load data when user navigates to specific sections
-      if (sectionParam === 'workspace' && !workspace) {
-        fetchWorkspace()
+    if (searchParams.get('slack_connected') === 'true') {
+      toast({ title: "Slack connected", description: "Slack notifications are now enabled." })
+      // Reload notification prefs to pick up new Slack config
+      const reload = async () => {
+        try {
+          const response = await fetch('/api/notifications/preferences')
+          if (response.ok) {
+            const data = await response.json()
+            if (data.preferences) setNotifications(prev => ({ ...prev, ...data.preferences }))
+            if (data.slack) setSlackConnection(data.slack)
+          }
+        } catch (e) { /* ignore */ }
       }
-      if (sectionParam === 'security' && !twoFactorLoading && twoFactorEnabled === false) {
-        check2FAStatus()
-      }
+      reload()
+      // Clean URL
+      window.history.replaceState({}, '', '/settings')
     }
-  }, [sectionParam])
+    if (searchParams.get('slack_error')) {
+      toast({ title: "Slack connection failed", description: "Could not connect Slack. Please try again.", variant: "destructive" })
+      window.history.replaceState({}, '', '/settings')
+    }
+  }, [searchParams, toast])
 
-  // Sync default workspace value from profile
+  // Scroll to section on mount if initialSection is provided
+  useEffect(() => {
+    if (initialSection && mounted) {
+      const el = document.getElementById(`section-${initialSection}`)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [initialSection, mounted])
+
+  // Sync default workspace value from profile, default to personal
   useEffect(() => {
     if (profile?.default_workspace_type) {
       const value = `${profile.default_workspace_type}:${profile.default_workspace_id || ''}`
       setDefaultWorkspaceValue(value)
     } else {
-      setDefaultWorkspaceValue("")
+      setDefaultWorkspaceValue("personal:")
     }
   }, [profile?.default_workspace_type, profile?.default_workspace_id])
 
-  // Clear preview when profile avatar_url changes (upload completed)
+  // Clear preview when profile avatar_url changes
   useEffect(() => {
     if (profile?.avatar_url && previewUrl && !avatarUploading) {
-      // Profile has been updated with new avatar URL and upload is complete
-      // Clear the preview after a short delay to ensure smooth transition
       const currentPreviewUrl = previewUrl
       const timer = setTimeout(() => {
         if (currentPreviewUrl.startsWith('blob:')) {
@@ -151,6 +148,122 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
       return () => clearTimeout(timer)
     }
   }, [profile?.avatar_url, previewUrl, avatarUploading])
+
+  // Sync fullName from profile
+  useEffect(() => {
+    if (profile?.full_name) setFullName(profile.full_name)
+  }, [profile?.full_name])
+
+  // Load notification preferences on mount
+  useEffect(() => {
+    const loadNotificationPrefs = async () => {
+      try {
+        const response = await fetch('/api/notifications/preferences')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.preferences) {
+            setNotifications(prev => ({ ...prev, ...data.preferences }))
+          }
+          if (data.slack) {
+            setSlackConnection(data.slack)
+            if (data.slack.connected) {
+              setNotifications(prev => ({ ...prev, slack: true }))
+            }
+          }
+        }
+      } catch (error) {
+        // Defaults are fine if fetch fails
+      } finally {
+        setNotificationsLoading(false)
+      }
+    }
+    loadNotificationPrefs()
+  }, [])
+
+  // Save account profile
+  const handleSaveAccount = async () => {
+    setAccountSaving(true)
+    try {
+      await updateProfile({ full_name: fullName.trim() })
+      toast({ title: "Profile updated", description: "Your account details have been saved." })
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save profile. Please try again.", variant: "destructive" })
+    } finally {
+      setAccountSaving(false)
+    }
+  }
+
+  const handleCancelAccount = () => {
+    setFullName(profile?.full_name || "")
+  }
+
+  // Save notification preferences
+  const handleSaveNotifications = async () => {
+    setNotificationsSaving(true)
+    try {
+      const response = await fetch('/api/notifications/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences: notifications }),
+      })
+      if (!response.ok) throw new Error('Failed to save')
+      toast({ title: "Preferences saved", description: "Your notification settings have been updated." })
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save notification preferences.", variant: "destructive" })
+    } finally {
+      setNotificationsSaving(false)
+    }
+  }
+
+  // Slack connect flow
+  const handleConnectSlack = async () => {
+    setSlackLoading(true)
+    try {
+      const response = await fetch('/api/notifications/slack/connect')
+      if (!response.ok) throw new Error('Failed to start Slack connection')
+      const data = await response.json()
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to start Slack connection.", variant: "destructive" })
+      setSlackLoading(false)
+    }
+  }
+
+  const handleDisconnectSlack = async () => {
+    setSlackLoading(true)
+    try {
+      const response = await fetch('/api/notifications/slack/connect', { method: 'DELETE' })
+      if (!response.ok) throw new Error('Failed to disconnect')
+      setSlackConnection({ connected: false })
+      setNotifications(prev => ({ ...prev, slack: false }))
+      toast({ title: "Slack disconnected", description: "Slack notifications have been disabled." })
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to disconnect Slack.", variant: "destructive" })
+    } finally {
+      setSlackLoading(false)
+    }
+  }
+
+  const handleSlackChannelChange = async (channelId: string) => {
+    setSlackChannelSaving(true)
+    try {
+      const response = await fetch('/api/notifications/slack/channel', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel_id: channelId }),
+      })
+      if (!response.ok) throw new Error('Failed to update channel')
+      const channel = slackConnection.channels?.find(c => c.id === channelId)
+      setSlackConnection(prev => ({ ...prev, channel_id: channelId, channel_name: channel?.name }))
+      toast({ title: "Channel updated", description: `Notifications will be sent to #${channel?.name || channelId}` })
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update Slack channel.", variant: "destructive" })
+    } finally {
+      setSlackChannelSaving(false)
+    }
+  }
 
   const check2FAStatus = async () => {
     try {
@@ -167,67 +280,37 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
     }
   }
 
+  // Load 2FA status on mount
+  useEffect(() => {
+    check2FAStatus()
+  }, [])
+
   const handle2FASuccess = () => {
     setTwoFactorEnabled(true)
     check2FAStatus()
   }
 
-  const fetchWorkspace = async () => {
+  const disable2FA = async () => {
     try {
-      setWorkspaceLoading(true)
-
-      // IMPORTANT: This is the PERSONAL workspace settings page
-      // Always fetch the user's personal workspace, NOT the current workspace switcher selection
-      const response = await fetch('/api/organizations')
-      if (!response.ok) throw new Error('Failed to fetch workspaces')
+      const response = await fetch('/api/auth/2fa/status')
+      if (!response.ok) return
 
       const data = await response.json()
-      const allWorkspaces = data.organizations || []
+      const factor = data.factors?.[0]
+      if (!factor) return
 
-      // Find the personal workspace (has is_workspace: true)
-      const personalWorkspace = allWorkspaces.find((ws: any) => ws.is_workspace === true)
-
-      if (personalWorkspace) {
-        setWorkspace(personalWorkspace)
-        setWorkspaceName(personalWorkspace.name || "")
-        setWorkspaceDescription(personalWorkspace.description || "")
-      } else {
-        // No personal workspace found - use profile data
-        setWorkspace(null)
-        setWorkspaceName(profile?.full_name || profile?.username || "Personal Workspace")
-        setWorkspaceDescription("Your personal workspace")
-      }
-    } catch (error) {
-      console.error('Error fetching workspace:', error)
-      toast({ title: "Error", description: "Failed to load workspace settings", variant: "destructive" })
-    } finally {
-      setWorkspaceLoading(false)
-    }
-  }
-
-  const saveWorkspaceSettings = async () => {
-    if (!workspace) return
-
-    try {
-      setWorkspaceSaving(true)
-      const response = await fetch(`/api/organizations/${workspace.id}`, {
-        method: 'PUT',
+      const disableResponse = await fetch('/api/auth/2fa/unenroll', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: workspaceName.trim(),
-          description: workspaceDescription.trim()
-        })
+        body: JSON.stringify({ factor_id: factor.id }),
       })
 
-      if (!response.ok) throw new Error('Failed to save workspace settings')
-
-      toast({ title: "Success", description: "Workspace settings saved successfully" })
-      fetchWorkspace()
+      if (disableResponse.ok) {
+        setTwoFactorEnabled(false)
+        toast({ title: "2FA disabled", description: "Two-factor authentication has been turned off" })
+      }
     } catch (error) {
-      console.error('Error saving workspace:', error)
-      toast({ title: "Error", description: "Failed to save workspace settings", variant: "destructive" })
-    } finally {
-      setWorkspaceSaving(false)
+      toast({ title: "Error", description: "Failed to disable 2FA", variant: "destructive" })
     }
   }
 
@@ -236,24 +319,19 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
       setSavingDefaultWorkspace(true)
 
       if (!value) {
-        // Clear default workspace
         await clearDefaultWorkspace()
         toast({ title: "Success", description: "Default workspace cleared" })
       } else {
-        // Parse and save default workspace
         const [workspaceType, workspaceId] = value.split(':')
         await updateDefaultWorkspace(
           workspaceType as 'personal' | 'team' | 'organization',
           workspaceId || null
         )
 
-        const selectedWorkspace = workspaces.find(w =>
+        const selectedWorkspace = workspaces.find((w: any) =>
           w.type === workspaceType && (w.id || '') === (workspaceId || '')
         )
-        toast({
-          title: "Success",
-          description: `Default workspace set to ${selectedWorkspace?.name || 'selected workspace'}`
-        })
+        toast({ title: "Success", description: `Default workspace set to ${selectedWorkspace?.name || 'selected workspace'}` })
       }
 
       setDefaultWorkspaceValue(value)
@@ -279,38 +357,6 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
     }
   }
 
-  const disable2FA = async () => {
-    try {
-      const response = await fetch('/api/auth/2fa/status')
-      if (!response.ok) return
-
-      const data = await response.json()
-      const factor = data.factors?.[0]
-
-      if (!factor) return
-
-      const disableResponse = await fetch('/api/auth/2fa/unenroll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ factor_id: factor.id }),
-      })
-
-      if (disableResponse.ok) {
-        setTwoFactorEnabled(false)
-        toast({
-          title: "2FA disabled",
-          description: "Two-factor authentication has been turned off",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to disable 2FA",
-        variant: "destructive",
-      })
-    }
-  }
-
   const handleSaveWorkflowPreferences = async () => {
     setSavingPreferences(true)
     try {
@@ -322,17 +368,10 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
         default_workspace_id: workflowCreationMode === 'default' ? (workspaceId || null) : profile?.default_workspace_id || null
       })
 
-      toast({
-        title: "Preferences saved",
-        description: "Your workflow creation preferences have been updated",
-      })
+      toast({ title: "Preferences saved", description: "Your workflow creation preferences have been updated" })
     } catch (error) {
       console.error('Error saving preferences:', error)
-      toast({
-        title: "Error",
-        description: "Failed to save preferences",
-        variant: "destructive",
-      })
+      toast({ title: "Error", description: "Failed to save preferences", variant: "destructive" })
     } finally {
       setSavingPreferences(false)
     }
@@ -361,10 +400,7 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
     }
 
     setAvatarError(null)
-
     const objectUrl = URL.createObjectURL(file)
-
-    // Set preview URL immediately
     setPreviewUrl(objectUrl)
 
     try {
@@ -391,7 +427,6 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
     }
 
     setAvatarUploading(true)
-
     const userId = profile?.id || user?.id
 
     if (!userId) {
@@ -408,11 +443,7 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
     try {
       const { error: uploadError } = await supabase.storage
         .from("user-avatars")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: file.type,
-        })
+        .upload(filePath, file, { cacheControl: "3600", upsert: true, contentType: file.type })
 
       if (uploadError) {
         setAvatarError(uploadError.message || "Failed to upload avatar. Please try again.")
@@ -421,15 +452,10 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
 
       if (profile?.avatar_url?.includes("/user-avatars/")) {
         const [, path] = profile.avatar_url.split("/user-avatars/")
-        if (path) {
-          await supabase.storage.from("user-avatars").remove([path]).catch(() => {})
-        }
+        if (path) await supabase.storage.from("user-avatars").remove([path]).catch(() => {})
       }
 
-      const { data: publicUrlData } = supabase.storage
-        .from("user-avatars")
-        .getPublicUrl(filePath)
-
+      const { data: publicUrlData } = supabase.storage.from("user-avatars").getPublicUrl(filePath)
       const newAvatarUrl = publicUrlData?.publicUrl
       if (!newAvatarUrl) {
         setAvatarError("Unable to retrieve public URL for avatar.")
@@ -438,18 +464,9 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
         return
       }
 
-      // Add cache-busting parameter to force reload
       const cacheBustedUrl = `${newAvatarUrl}?t=${Date.now()}`
-
       await updateProfile({ avatar_url: cacheBustedUrl })
-
-      toast({
-        title: "Profile photo updated",
-        description: "Your new avatar will appear across the app.",
-      })
-
-      // Don't revoke object URL yet - let the useEffect handle cleanup after profile updates
-      // URL.revokeObjectURL will be called when preview is cleared
+      toast({ title: "Profile photo updated", description: "Your new avatar will appear across the app." })
     } catch (error: any) {
       setAvatarError(error.message || "Unexpected error while updating avatar.")
       setPreviewUrl(null)
@@ -460,848 +477,504 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
     }
   }
 
+  const handleEmailChange = async () => {
+    if (!newEmail || !newEmail.includes('@')) {
+      toast({ title: "Invalid email", description: "Please enter a valid email address.", variant: "destructive" })
+      return
+    }
+    setEmailChanging(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail })
+      if (error) throw error
+      toast({
+        title: "Confirmation email sent",
+        description: `We've sent a confirmation link to ${newEmail}. Please check your inbox to verify the change.`,
+        duration: 8000,
+      })
+      setShowEmailChange(false)
+      setNewEmail("")
+    } catch (error: any) {
+      toast({ title: "Failed to update email", description: error.message || "Please try again.", variant: "destructive" })
+    } finally {
+      setEmailChanging(false)
+    }
+  }
 
   return (
     <>
-    <div className="max-w-4xl mx-auto">
-      {/* Main Content Area */}
-      <main className="min-w-0">
-        {/* Profile Section */}
-        {activeSection === 'profile' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Account</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your profile, notifications, and account settings.</p>
-            </div>
+    <div className="max-w-3xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Account</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-200 mt-1">Manage your profile, notifications, and account settings.</p>
+      </div>
 
-            <Card>
-              <CardContent className="pt-6 space-y-6">
-                {/* Avatar */}
-                <div className="flex items-center gap-6">
-                  <div className="relative w-24 h-24 rounded-full overflow-hidden bg-muted ring-4 ring-border">
+      <div className="space-y-6 pb-16">
+
+        {/* ═══════════ Profile ═══════════ */}
+        <Card id="section-account">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-1">
+              <User className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold text-foreground">Profile</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">Your personal information associated with this account.</p>
+
+            <div className="space-y-5">
+              {/* Avatar upload */}
+              <div className="flex items-center gap-4">
+                <div className="relative group">
+                  <div className="w-16 h-16 rounded-full overflow-hidden bg-muted border-2 border-border">
                     {avatarSignedUrl ? (
-                      <img
-                        src={avatarSignedUrl}
-                        alt="Profile avatar"
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={avatarSignedUrl} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
-                        <User className="w-12 h-12" />
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground text-lg font-semibold">
+                        {(profile?.full_name || user?.email || "?")[0]?.toUpperCase()}
                       </div>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/gif"
-                      className="hidden"
-                      onChange={handleAvatarChange}
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={handleAvatarButtonClick}
-                      disabled={avatarUploading}
-                    >
-                      {avatarUploading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Uploading...
-                        </>
-                      ) : (
-                        "Change Photo"
-                      )}
-                    </Button>
-                    <p className="text-sm text-muted-foreground">
-                      PNG, JPG, or GIF. Max size 1.5MB.
-                    </p>
-                    {avatarError && (
-                      <p className="text-sm text-destructive">{avatarError}</p>
+                  <button
+                    onClick={handleAvatarButtonClick}
+                    disabled={avatarUploading}
+                    className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  >
+                    {avatarUploading ? (
+                      <Loader2 className="w-5 h-5 text-white animate-spin" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-white" />
                     )}
-                  </div>
+                  </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
                 </div>
-
-                <div className="h-px bg-border" />
-
-                {/* Form */}
-                <div className="space-y-5">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="username" className="text-sm font-medium">Username</Label>
-                      <Input
-                        id="username"
-                        defaultValue={profile?.username || ""}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        defaultValue={profile?.email || ""}
-                        disabled
-                        className="bg-muted/50"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="full-name" className="text-sm font-medium">Full Name</Label>
-                    <Input
-                      id="full-name"
-                      defaultValue={profile?.full_name || ""}
-                      placeholder="John Doe"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="bio" className="text-sm font-medium">Bio</Label>
-                    <Input
-                      id="bio"
-                      placeholder="Tell us about yourself..."
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Optional: A brief description about yourself
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-sm font-medium">Profile photo</p>
+                  <p className="text-xs text-muted-foreground">Click to upload. PNG, JPG, or GIF. Max 1.5MB.</p>
+                  {avatarError && <p className="text-xs text-red-500 mt-1">{avatarError}</p>}
                 </div>
+              </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <Button variant="outline">Cancel</Button>
-                  <Button>Save Changes</Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Workspace Section */}
-        {activeSection === 'workspace' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">Workspace Settings</h2>
-              <p className="text-muted-foreground mt-2">Manage your personal workspace details</p>
+              <div className="space-y-1.5">
+                <Label htmlFor="full-name" className="text-sm font-medium">Full name</Label>
+                <Input
+                  id="full-name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your name"
+                />
+              </div>
             </div>
 
-            {workspaceLoading ? (
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                  </div>
-                </CardContent>
-              </Card>
-            ) : workspace ? (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Workspace Details</CardTitle>
-                    <CardDescription>Update your workspace's basic information</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="workspace-name">Workspace Name *</Label>
-                      <Input
-                        id="workspace-name"
-                        value={workspaceName}
-                        onChange={(e) => setWorkspaceName(e.target.value)}
-                        placeholder="My Workspace"
-                      />
-                    </div>
+            <div className="flex justify-end mt-5">
+              <Button onClick={handleSaveAccount} disabled={accountSaving} className="bg-orange-500 text-white hover:bg-orange-600">
+                {accountSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Save profile
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="workspace-slug">URL Slug</Label>
-                      <Input
-                        id="workspace-slug"
-                        value={workspace.slug || ""}
-                        disabled
-                        className="bg-muted"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        The URL slug cannot be changed
-                      </p>
-                    </div>
+        {/* ═══════════ Email Address ═══════════ */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Bell className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold text-foreground">Email Address</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">The email address used to sign in to your account.</p>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="workspace-description">Description</Label>
-                      <Input
-                        id="workspace-description"
-                        value={workspaceDescription}
-                        onChange={(e) => setWorkspaceDescription(e.target.value)}
-                        placeholder="Your personal workspace"
-                      />
-                    </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">{profile?.email || user?.email}</p>
+                <p className="text-xs text-muted-foreground">Current email address</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setShowEmailChange(!showEmailChange)}>
+                {showEmailChange ? "Cancel" : "Change email"}
+              </Button>
+            </div>
 
-                    <Button onClick={saveWorkspaceSettings} disabled={workspaceSaving}>
-                      {workspaceSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                      Save Changes
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Workspace Stats</CardTitle>
-                    <CardDescription>Overview of your workspace</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="p-4 border rounded-lg">
-                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                          <User className="w-4 h-4" />
-                          <span className="text-sm">Owner</span>
-                        </div>
-                        <p className="text-2xl font-bold">{profile?.username || profile?.email || 'You'}</p>
-                      </div>
-                      <div className="p-4 border rounded-lg">
-                        <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                          <Briefcase className="w-4 h-4" />
-                          <span className="text-sm">Type</span>
-                        </div>
-                        <p className="text-2xl font-bold">Personal</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-center text-muted-foreground">No workspace found</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Default Workspace Settings - Show for all users */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Default Workspace</CardTitle>
-                <CardDescription>Set your preferred workspace for creating new workflows</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Current Default Display */}
-                {profile?.default_workspace_type ? (
-                  <div className="p-4 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {profile.default_workspace_type === 'personal' ? (
-                        <User className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                      ) : profile.default_workspace_type === 'team' ? (
-                        <Users className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                      ) : (
-                        <Building2 className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                      )}
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
-                          Current Default: {workspaces.find(w =>
-                            w.type === profile.default_workspace_type &&
-                            (w.id || '') === (profile.default_workspace_id || '')
-                          )?.name || profile.default_workspace_type}
-                        </p>
-                        <p className="text-xs text-orange-700 dark:text-orange-300">
-                          New workflows will be created here automatically
-                        </p>
-                      </div>
-                      <Check className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
-                      No default workspace set. You'll be asked each time you create a workflow.
-                    </p>
-                  </div>
-                )}
-
-                {/* Workspace Selector */}
-                <div className="space-y-2">
-                  <Label htmlFor="default-workspace">Change Default Workspace</Label>
-                  <Select
-                    value={defaultWorkspaceValue}
-                    onValueChange={handleDefaultWorkspaceChange}
-                    disabled={savingDefaultWorkspace}
-                  >
-                    <SelectTrigger id="default-workspace">
-                      <SelectValue placeholder="Select workspace" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {workspaces.map((workspace) => {
-                        const value = `${workspace.type}:${workspace.id || ''}`
-                        const icon = workspace.type === 'personal'
-                          ? <User className="w-4 h-4" />
-                          : workspace.type === 'team'
-                          ? <Users className="w-4 h-4" />
-                          : <Building2 className="w-4 h-4" />
-
-                        return (
-                          <SelectItem key={value} value={value}>
-                            <div className="flex items-center gap-2">
-                              {icon}
-                              <span>{workspace.name}</span>
-                            </div>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Choose where new workflows should be created by default
-                  </p>
-                </div>
-
-                {/* Clear Default Button */}
-                {profile?.default_workspace_type && (
-                  <Button
-                    variant="outline"
-                    onClick={handleClearDefaultWorkspace}
-                    disabled={savingDefaultWorkspace}
-                    className="w-full"
-                  >
-                    {savingDefaultWorkspace ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <X className="w-4 h-4 mr-2" />
-                    )}
-                    Clear Default Workspace
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Workflow Creation Preferences Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Workflow Creation Preferences</CardTitle>
-                <CardDescription>
-                  Choose how new workflows should be created
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <RadioGroup
-                  value={workflowCreationMode}
-                  onValueChange={(value) => setWorkflowCreationMode(value as 'default' | 'ask' | 'follow_switcher')}
-                >
-                  <div className="space-y-4">
-                    {/* Option 1: Use default workspace */}
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="default" id="mode-default" className="mt-0.5" />
-                      <div className="flex-1 space-y-2">
-                        <Label htmlFor="mode-default" className="text-base font-medium cursor-pointer">
-                          Use default workspace
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Always create new workflows in the workspace selected above
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Option 2: Ask me every time */}
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="ask" id="mode-ask" className="mt-0.5" />
-                      <div className="flex-1">
-                        <Label htmlFor="mode-ask" className="text-base font-medium cursor-pointer">
-                          Ask me every time
-                        </Label>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Show workspace and folder selection dialog before creating workflows
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Option 3: Use current workspace switcher */}
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors">
-                      <RadioGroupItem value="follow_switcher" id="mode-follow" className="mt-0.5" />
-                      <div className="flex-1">
-                        <Label htmlFor="mode-follow" className="text-base font-medium cursor-pointer">
-                          Use current workspace switcher
-                        </Label>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Create workflows in whatever workspace is currently selected in the header
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </RadioGroup>
-
-                <Button onClick={handleSaveWorkflowPreferences} disabled={savingPreferences}>
-                  {savingPreferences && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Save Preferences
+            {showEmailChange && (
+              <div className="flex items-center gap-3 mt-4">
+                <Input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="New email address"
+                  className="flex-1"
+                />
+                <Button size="sm" onClick={handleEmailChange} disabled={emailChanging || !newEmail}>
+                  {emailChanging ? <Loader2 className="w-4 h-4 animate-spin" /> : "Update"}
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        {/* Billing Section */}
-        {activeSection === 'billing' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">Billing & Subscription</h2>
-              <p className="text-muted-foreground mt-2">Manage your personal subscription and billing</p>
+        {/* ═══════════ Password ═══════════ */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Shield className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold text-foreground">Password</h2>
             </div>
-            <Tabs defaultValue="overview">
-              <TabsList>
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="task-history">Task History</TabsTrigger>
-              </TabsList>
-              <TabsContent value="overview" className="mt-4">
-                <BillingOverview />
-              </TabsContent>
-              <TabsContent value="task-history" className="mt-4">
-                <TaskBillingHistory />
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
+            <p className="text-sm text-muted-foreground mb-5">Manage your account password.</p>
 
-        {/* Notifications Section */}
-        {activeSection === 'notifications' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">Notification Preferences</h2>
-              <p className="text-muted-foreground mt-2">Manage how and when you receive notifications</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Reset your password</p>
+                <p className="text-xs text-muted-foreground">We&apos;ll send a password reset link to your email address.</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/auth/send-reset', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email: user?.email })
+                    })
+                    if (response.ok) {
+                      toast({ title: "Password reset email sent", description: `We've sent a reset link to ${user?.email}.`, duration: 6000 })
+                    } else {
+                      toast({ title: "Failed to send reset email", description: "Please try again.", variant: "destructive" })
+                    }
+                  } catch (error) {
+                    toast({ title: "Error", description: "Something went wrong.", variant: "destructive" })
+                  }
+                }}
+              >
+                Send reset link
+              </Button>
             </div>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardContent className="pt-6 space-y-8">
-                {/* Communication Channels */}
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold mb-1">Communication Channels</h3>
-                    <p className="text-xs text-muted-foreground mb-4">Choose where you'd like to receive notifications</p>
-                    <div className="space-y-3">
-                      <div className="group">
-                        <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-primary/50 transition-all duration-200">
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="mt-1 p-2.5 rounded-lg bg-primary/10">
-                              <Bell className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="space-y-1 flex-1">
-                              <Label className="text-sm font-semibold cursor-pointer">Email Notifications</Label>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                Receive notifications via email at {profile?.email}
-                              </p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={notifications.email}
-                            onCheckedChange={(checked) => setNotifications({ ...notifications, email: checked })}
-                            className="data-[state=checked]:bg-primary"
-                          />
-                        </div>
-                      </div>
-                      <div className="group">
-                        <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-primary/50 transition-all duration-200">
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="mt-1 p-2.5 rounded-lg bg-orange-500/10">
-                              <Bell className="w-4 h-4 text-orange-500" />
-                            </div>
-                            <div className="space-y-1 flex-1">
-                              <Label className="text-sm font-semibold cursor-pointer">Slack Notifications</Label>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                Send notifications directly to your Slack workspace
-                              </p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={notifications.slack}
-                            onCheckedChange={(checked) => setNotifications({ ...notifications, slack: checked })}
-                            className="data-[state=checked]:bg-orange-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="h-px bg-border" />
-
-                {/* Workflow Notifications */}
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold mb-1">Workflow Notifications</h3>
-                    <p className="text-xs text-muted-foreground mb-4">Get notified about your workflow activity</p>
-                    <div className="space-y-3">
-                      <div className="group">
-                        <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-green-500/50 transition-all duration-200">
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="mt-1 p-2.5 rounded-lg bg-green-500/10">
-                              <Bell className="w-4 h-4 text-green-500" />
-                            </div>
-                            <div className="space-y-1 flex-1">
-                              <Label className="text-sm font-semibold cursor-pointer">Workflow Success</Label>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                Get notified when your workflows complete successfully
-                              </p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={notifications.workflow_success}
-                            onCheckedChange={(checked) => setNotifications({ ...notifications, workflow_success: checked })}
-                            className="data-[state=checked]:bg-green-500"
-                          />
-                        </div>
-                      </div>
-                      <div className="group">
-                        <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-red-500/50 transition-all duration-200">
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="mt-1 p-2.5 rounded-lg bg-red-500/10">
-                              <Bell className="w-4 h-4 text-red-500" />
-                            </div>
-                            <div className="space-y-1 flex-1">
-                              <Label className="text-sm font-semibold cursor-pointer">Workflow Failure</Label>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                Get notified immediately when workflows encounter errors
-                              </p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={notifications.workflow_failure}
-                            onCheckedChange={(checked) => setNotifications({ ...notifications, workflow_failure: checked })}
-                            className="data-[state=checked]:bg-red-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="h-px bg-border" />
-
-                {/* AI Agent Preferences */}
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold mb-1">AI Agent Settings</h3>
-                    <p className="text-xs text-muted-foreground mb-4">Control how the AI agent appears when creating workflows</p>
-                    <div className="space-y-3">
-                      <div className="group">
-                        <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-primary/50 transition-all duration-200">
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="mt-1 p-2.5 rounded-lg bg-primary/10">
-                              <Sparkles className="w-4 h-4 text-primary" />
-                            </div>
-                            <div className="space-y-1 flex-1">
-                              <Label className="text-sm font-semibold cursor-pointer">Show React Agent Chat</Label>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                Automatically open the AI assistant when opening the workflow builder
-                              </p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={profile?.ai_agent_preference !== 'always_skip'}
-                            onCheckedChange={async (checked) => {
-                              try {
-                                await updateProfile({
-                                  ai_agent_preference: checked ? 'always_show' : 'always_skip',
-                                  ai_agent_skip_count: 0
-                                })
-                                toast({
-                                  title: "Preference updated",
-                                  description: checked
-                                    ? "React Agent will now appear when you create workflows"
-                                    : "React Agent will stay hidden when you create workflows"
-                                })
-                              } catch (error) {
-                                toast({
-                                  title: "Error",
-                                  description: "Failed to update preference. Please try again.",
-                                  variant: "destructive"
-                                })
-                              }
-                            }}
-                            className="data-[state=checked]:bg-primary"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="h-px bg-border" />
-
-                {/* Digest Notifications */}
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-sm font-semibold mb-1">Digest & Summaries</h3>
-                    <p className="text-xs text-muted-foreground mb-4">Receive periodic summaries of your activity</p>
-                    <div className="space-y-3">
-                      <div className="group">
-                        <div className="flex items-center justify-between py-4 px-5 rounded-xl border-2 bg-card hover:border-rose-500/50 transition-all duration-200">
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="mt-1 p-2.5 rounded-lg bg-rose-500/10">
-                              <Bell className="w-4 h-4 text-rose-500" />
-                            </div>
-                            <div className="space-y-1 flex-1">
-                              <Label className="text-sm font-semibold cursor-pointer">Weekly Digest</Label>
-                              <p className="text-xs text-muted-foreground leading-relaxed">
-                                Receive a comprehensive weekly summary of your workflow activity
-                              </p>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={notifications.weekly_digest}
-                            onCheckedChange={(checked) => setNotifications({ ...notifications, weekly_digest: checked })}
-                            className="data-[state=checked]:bg-rose-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-4 border-t">
-                  <Button>Save Preferences</Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Security Section */}
-        {activeSection === 'security' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">Security Settings</h2>
-              <p className="text-muted-foreground mt-2">Manage your password and authentication settings</p>
+        {/* ═══════════ Security ═══════════ */}
+        <Card id="section-security">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold text-foreground">Security</h2>
             </div>
+            <p className="text-sm text-muted-foreground mb-5">Protect your account with two-factor authentication and passkeys.</p>
 
-            <Card>
-              <CardContent className="pt-6 space-y-6">
-                {/* Password Section */}
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <Label className="text-base font-semibold">Password</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Last changed: Never
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={async () => {
-                        try {
-                          const response = await fetch('/api/auth/send-reset', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: user?.email })
-                          })
+            {/* 2FA */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-green-600 dark:text-green-500" />
+                <h3 className="text-sm font-semibold">Two-Factor Authentication</h3>
+              </div>
 
-                          if (response.ok) {
-                            toast({
-                              title: "Password reset email sent",
-                              description: `We've sent a password reset link to ${user?.email}. Check your inbox and follow the instructions.`,
-                              duration: 6000,
-                            })
-                          } else {
-                            toast({
-                              title: "Failed to send reset email",
-                              description: "Please try again or contact support if the problem persists.",
-                              variant: "destructive",
-                            })
-                          }
-                        } catch (error) {
-                          toast({
-                            title: "Error",
-                            description: "Something went wrong. Please try again.",
-                            variant: "destructive",
-                          })
-                        }
-                      }}
-                    >
-                      Reset Password
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    For security reasons, we'll send a password reset link to your email address.
-                  </p>
-                </div>
-
-                <div className="h-px bg-border" />
-
-                {/* Two-Factor Authentication Section */}
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <Label className="text-base font-semibold">Two-Factor Authentication</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Add an extra layer of security with authenticator apps
-                      </p>
-                    </div>
-                    {twoFactorLoading ? (
-                      <Button variant="outline" disabled>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Loading...
-                      </Button>
-                    ) : twoFactorEnabled ? (
-                      <Button variant="outline" onClick={disable2FA}>
-                        Disable 2FA
-                      </Button>
-                    ) : (
-                      <Button variant="outline" onClick={() => setShow2FASetup(true)}>
-                        Enable 2FA
-                      </Button>
-                    )}
-                  </div>
-                  <div className={`rounded-lg p-4 ${twoFactorEnabled ? 'bg-green-500/10 border border-green-500/20' : 'bg-muted/50'}`}>
-                    <div className="flex items-start gap-3">
-                      <Shield className={`w-5 h-5 mt-0.5 ${twoFactorEnabled ? 'text-green-500' : 'text-muted-foreground'}`} />
-                      <div className="flex-1 space-y-2">
-                        <p className="text-sm">
-                          <span className="font-medium text-foreground">Status:</span>{' '}
-                          <span className={twoFactorEnabled ? 'text-green-600 dark:text-green-500 font-medium' : 'text-muted-foreground'}>
-                            {twoFactorEnabled ? 'Enabled ✓' : 'Not enabled'}
-                          </span>
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {twoFactorEnabled
-                            ? 'Your account is protected with TOTP-based two-factor authentication. You\'ll need to enter a code from your authenticator app when signing in.'
-                            : 'Two-factor authentication adds an extra layer of security by requiring a code from an authenticator app (like Google Authenticator, Authy, 1Password, or Microsoft Authenticator) in addition to your password.'
-                          }
-                        </p>
-                        {twoFactorEnabled && (
-                          <div className="pt-2">
-                            <p className="text-xs text-muted-foreground">
-                              <strong>Supported apps:</strong> Google Authenticator • Authy • 1Password • Microsoft Authenticator • Any TOTP-compatible app
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="h-px bg-border" />
-
-                {/* Active Sessions Section */}
-                <div className="space-y-4">
-                  <div className="space-y-1">
-                    <Label className="text-base font-semibold">Active Sessions</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Manage devices and sessions where you're logged in
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <ShieldOff className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{twoFactorEnabled ? 'Enabled' : 'Not enabled'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {twoFactorEnabled ? 'Your account is protected with 2FA.' : 'Your account is not protected with 2FA.'}
                     </p>
                   </div>
-                  <SessionManagement />
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Appearance Section */}
-        {activeSection === 'appearance' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">Appearance Settings</h2>
-              <p className="text-muted-foreground mt-2">Choose how ChainReact looks for you</p>
-            </div>
-
-            <Card>
-              <CardContent className="pt-6 space-y-6">
-                {mounted ? (
-                  <div className="grid grid-cols-3 gap-6">
-                    <button
-                      onClick={() => setTheme('light')}
-                      className={`group relative cursor-pointer border-2 rounded-xl p-6 text-center transition-all hover:shadow-lg ${
-                        theme === 'light'
-                          ? 'border-primary shadow-md'
-                          : 'border-border hover:border-muted-foreground/50'
-                      }`}
-                    >
-                      <div className="w-full h-24 bg-white border border-gray-300 rounded-lg mb-3 flex items-center justify-center shadow-sm">
-                        <div className="space-y-1.5 w-full px-3">
-                          <div className="h-2 bg-gray-300 rounded w-3/4" />
-                          <div className="h-2 bg-gray-200 rounded w-1/2" />
-                        </div>
-                      </div>
-                      <p className="text-sm font-semibold">Light</p>
-                      <p className="text-xs text-muted-foreground mt-1">Clean and bright</p>
-                      {theme === 'light' && (
-                        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                          <svg className="w-3 h-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setTheme('dark')}
-                      className={`group relative cursor-pointer border-2 rounded-xl p-6 text-center transition-all hover:shadow-lg ${
-                        theme === 'dark'
-                          ? 'border-primary shadow-md'
-                          : 'border-border hover:border-muted-foreground/50'
-                      }`}
-                    >
-                      <div className="w-full h-24 bg-slate-900 border border-slate-700 rounded-lg mb-3 flex items-center justify-center shadow-sm">
-                        <div className="space-y-1.5 w-full px-3">
-                          <div className="h-2 bg-slate-700 rounded w-3/4" />
-                          <div className="h-2 bg-slate-800 rounded w-1/2" />
-                        </div>
-                      </div>
-                      <p className="text-sm font-semibold">Dark</p>
-                      <p className="text-xs text-muted-foreground mt-1">Easy on the eyes</p>
-                      {theme === 'dark' && (
-                        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                          <svg className="w-3 h-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setTheme('system')}
-                      className={`group relative cursor-pointer border-2 rounded-xl p-6 text-center transition-all hover:shadow-lg ${
-                        theme === 'system'
-                          ? 'border-primary shadow-md'
-                          : 'border-border hover:border-muted-foreground/50'
-                      }`}
-                    >
-                      <div className="w-full h-24 bg-gradient-to-br from-white via-gray-200 to-slate-900 border border-gray-400 rounded-lg mb-3 shadow-sm" />
-                      <p className="text-sm font-semibold">System</p>
-                      <p className="text-xs text-muted-foreground mt-1">Match your device</p>
-                      {theme === 'system' && (
-                        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                          <svg className="w-3 h-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        </div>
-                      )}
-                    </button>
-                  </div>
+                {twoFactorLoading ? (
+                  <Button variant="outline" size="sm" disabled><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading</Button>
+                ) : twoFactorEnabled ? (
+                  <Button variant="outline" size="sm" onClick={disable2FA}>Disable 2FA</Button>
                 ) : (
-                  <div className="grid grid-cols-3 gap-6">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="border-2 border-border rounded-xl p-6 text-center">
-                        <div className="w-full h-24 bg-muted rounded-lg mb-3 animate-pulse" />
-                        <div className="h-4 bg-muted rounded w-16 mx-auto mb-2 animate-pulse" />
-                        <div className="h-3 bg-muted rounded w-24 mx-auto animate-pulse" />
-                      </div>
-                    ))}
-                  </div>
+                  <Button variant="outline" size="sm" onClick={() => setShow2FASetup(true)}>Enable 2FA</Button>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {activeSection === 'ai-context' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">AI Context</h2>
-              <p className="text-muted-foreground mt-2">Teach ChainReact about your business for smarter workflow planning</p>
+              </div>
             </div>
-            <BusinessContextSettings />
-          </div>
-        )}
 
-      </main>
+            <div className="border-t my-5" />
+
+            {/* Passkeys & Security Keys */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Key className="w-4 h-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Passkeys & Security Keys</h3>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    toast({ title: "Coming soon", description: "Passkey support is coming in a future update." })
+                  }}
+                >
+                  + Add Passkey
+                </Button>
+              </div>
+
+              <div className="border border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center">
+                <Key className="w-5 h-5 text-muted-foreground mb-2" />
+                <p className="text-sm font-medium text-foreground">No passkeys registered</p>
+                <p className="text-xs text-muted-foreground">Add a hardware key (YubiKey) or biometric (fingerprint, Face ID) for stronger security.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ═══════════ Appearance ═══════════ */}
+        <Card id="section-appearance">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Palette className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold text-foreground">Appearance</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">Choose your preferred theme for the dashboard.</p>
+
+            {mounted ? (
+              <div className="grid grid-cols-3 gap-4">
+                {([
+                  { value: 'light', label: 'Light', icon: <Palette className="w-5 h-5" /> },
+                  { value: 'dark', label: 'Dark', icon: <Palette className="w-5 h-5" /> },
+                  { value: 'system', label: 'System', icon: <Palette className="w-5 h-5" /> },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTheme(opt.value)}
+                    className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 p-6 transition-all ${
+                      theme === opt.value
+                        ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20'
+                        : 'border-border hover:border-muted-foreground/30'
+                    }`}
+                  >
+                    <div className={theme === opt.value ? 'text-orange-600 dark:text-orange-400' : 'text-muted-foreground'}>
+                      {opt.icon}
+                    </div>
+                    <span className="text-sm font-medium">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="border-2 border-border rounded-lg p-6 flex flex-col items-center gap-2">
+                    <div className="w-5 h-5 bg-muted rounded animate-pulse" />
+                    <div className="h-4 bg-muted rounded w-12 animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ═══════════ Notification Preferences ═══════════ */}
+        <Card id="section-notifications">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Bell className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold text-foreground">Notification Preferences</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              These settings control notifications sent directly to you &mdash; like emails when a workflow succeeds or fails.
+            </p>
+
+            <div className="space-y-1">
+              {/* Email notifications */}
+              <div className="flex items-center justify-between py-3 border-b">
+                <div className="flex items-center gap-3">
+                  <Bell className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Email notifications</p>
+                    <p className="text-xs text-muted-foreground">Receive notifications via email</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={notifications.email}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, email: checked })}
+                />
+              </div>
+
+              {/* Workflow success */}
+              <div className="flex items-center justify-between py-3 border-b">
+                <div className="flex items-center gap-3">
+                  <Bell className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Workflow success</p>
+                    <p className="text-xs text-muted-foreground">Get notified in-app and via email when workflows complete successfully</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={notifications.workflow_success}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, workflow_success: checked })}
+                />
+              </div>
+
+              {/* Workflow failure */}
+              <div className="flex items-center justify-between py-3 border-b">
+                <div className="flex items-center gap-3">
+                  <Bell className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Workflow failure</p>
+                    <p className="text-xs text-muted-foreground">Get notified in-app and via email when workflows encounter errors</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={notifications.workflow_failure}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, workflow_failure: checked })}
+                />
+              </div>
+
+              {/* Weekly digest */}
+              <div className="flex items-center justify-between py-3 border-b">
+                <div className="flex items-center gap-3">
+                  <Bell className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Weekly digest</p>
+                    <p className="text-xs text-muted-foreground">Receive a weekly summary of activity</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={notifications.weekly_digest}
+                  onCheckedChange={(checked) => setNotifications({ ...notifications, weekly_digest: checked })}
+                />
+              </div>
+
+              {/* AI agent panel */}
+              <div className="flex items-center justify-between py-3">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Open AI chat panel by default</p>
+                    <p className="text-xs text-muted-foreground">Auto-open the AI agent when creating workflows</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={profile?.ai_agent_preference !== 'always_skip'}
+                  onCheckedChange={async (checked) => {
+                    try {
+                      await updateProfile({
+                        ai_agent_preference: checked ? 'always_show' : 'always_skip',
+                        ai_agent_skip_count: 0
+                      })
+                      toast({
+                        title: "Preference updated",
+                        description: checked
+                          ? "React Agent will now appear when you create workflows"
+                          : "React Agent will stay hidden when you create workflows"
+                      })
+                    } catch (error) {
+                      toast({ title: "Error", description: "Failed to update preference.", variant: "destructive" })
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-5">
+              <Button onClick={handleSaveNotifications} disabled={notificationsSaving} className="bg-orange-500 text-white hover:bg-orange-600">
+                {notificationsSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Save preferences
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ═══════════ Danger Zone ═══════════ */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 mb-1">
+              <Shield className="w-4 h-4 text-red-500" />
+              <h2 className="text-base font-semibold text-red-600 dark:text-red-400">Danger Zone</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">Irreversible actions for your account.</p>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">Delete account</p>
+                <p className="text-xs text-muted-foreground">We&apos;ll send a confirmation email. Your account will have a 30-day recovery period before permanent deletion.</p>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  toast({ title: "Contact support", description: "Please contact support to delete your account.", duration: 6000 })
+                }}
+              >
+                Delete account
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ═══════════ Session Management ═══════════ */}
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-base font-semibold text-foreground mb-4">Session Management</h2>
+
+            <div className="flex items-center justify-between py-3 border-b">
+              <div className="flex items-center gap-3">
+                <Monitor className="w-5 h-5 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Current Session</p>
+                  <p className="text-xs text-muted-foreground">This is the device you&apos;re currently using.</p>
+                </div>
+              </div>
+              <span className="text-xs font-medium text-green-600 dark:text-green-400">Active</span>
+            </div>
+
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const response = await fetch("/api/sessions?all=true", { method: "DELETE" })
+                    if (response.ok) {
+                      toast({ title: "Sessions revoked", description: "All other sessions have been signed out." })
+                    } else {
+                      throw new Error("Failed")
+                    }
+                  } catch {
+                    toast({ title: "Error", description: "Failed to sign out other sessions.", variant: "destructive" })
+                  }
+                }}
+              >
+                <LogOut className="w-3.5 h-3.5 mr-1.5" />
+                Sign out all other sessions
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">This will sign out all other browsers and devices where you&apos;re logged in. Your current session will remain active.</p>
+            </div>
+          </CardContent>
+        </Card>
+
+      </div>
     </div>
 
-    {/* Two-Factor Authentication Setup Dialog */}
-    <TwoFactorSetup
-      open={show2FASetup}
-      onOpenChange={setShow2FASetup}
-      onSuccess={handle2FASuccess}
-    />
+    <TwoFactorSetup open={show2FASetup} onOpenChange={setShow2FASetup} onSuccess={handle2FASuccess} />
     </>
+  )
+}
+
+/* ─── Notification toggle helper (kept for potential reuse) ─── */
+function NotificationToggle({
+  icon, iconBg, label, description, checked, onCheckedChange, switchColor, hoverBorder = "hover:border-primary/50"
+}: {
+  icon: React.ReactNode
+  iconBg: string
+  label: string
+  description: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+  switchColor: string
+  hoverBorder?: string
+}) {
+  return (
+    <div className="flex items-center justify-between py-3 border-b last:border-b-0">
+      <div className="flex items-center gap-3">
+        {icon}
+        <div>
+          <Label className="text-sm font-medium cursor-pointer">{label}</Label>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} className={switchColor} />
+    </div>
   )
 }

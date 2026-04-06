@@ -116,13 +116,37 @@ class ApiClient {
         throw new Error(`Network error: ${fetchError.message || 'Failed to fetch'}`)
       }
 
+      // Auto-recover from 431 (Request Header Fields Too Large) by clearing stale cookies
+      if (response.status === 431) {
+        logger.warn(`[ApiClient] 431 header too large for ${endpoint}, clearing stale auth data and retrying`)
+        try {
+          // Clear stale auth cookies that may have accumulated
+          document.cookie.split(';').forEach(cookie => {
+            const name = cookie.split('=')[0].trim()
+            if (name.startsWith('sb-') || name.includes('supabase')) {
+              document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`
+            }
+          })
+          localStorage.removeItem('chainreact-auth')
+
+          // Retry the request once after clearing
+          const retryResponse = await fetch(url, config)
+          if (retryResponse.ok) {
+            const data = await retryResponse.json().catch(() => ({}))
+            return { success: true, data }
+          }
+        } catch (e) {
+          // Fall through to normal error handling
+        }
+      }
+
       if (!response.ok) {
         // Try to get error details from response body
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`
         let errorDetails: any = undefined
 
-        logger.error(`❌ API Error Response: ${endpoint}`, { 
-          status: response.status, 
+        logger.error(`❌ API Error Response: ${endpoint}`, {
+          status: response.status,
           statusText: response.statusText,
           headers: Object.fromEntries(response.headers.entries()),
           url: url

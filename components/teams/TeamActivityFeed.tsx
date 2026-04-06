@@ -196,17 +196,17 @@ export function TeamActivityFeed({ teamId }: TeamActivityFeedProps) {
                 <p className="text-sm text-slate-900 dark:text-slate-100">
                   <span className="font-medium">{getUserDisplayName(activity.user)}</span>
                   {' '}
-                  <span className="text-slate-600 dark:text-slate-400">
+                  <span className="text-slate-600 dark:text-slate-200">
                     {activity.description}
                   </span>
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                   {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
                 </p>
 
                 {/* Show metadata if available */}
                 {activity.metadata && Object.keys(activity.metadata).length > 0 && (
-                  <div className="mt-2 text-xs text-slate-500 dark:text-slate-600">
+                  <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                     {activity.metadata.workflow_name && (
                       <span className="font-mono bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
                         {activity.metadata.workflow_name}

@@ -13,12 +13,14 @@ import { PricingPreview } from "@/components/temp-landing/PricingPreview"
 import { StatsSection } from "@/components/temp-landing/StatsSection"
 import { FinalCTA } from "@/components/temp-landing/FinalCTA"
 import { TempFooter } from "@/components/temp-landing/TempFooter"
+import { ForceTheme } from '@/components/theme/ForceTheme'
 
 // Orange variant of the landing page
 // Uses CSS overrides to replace slate backgrounds with orange-tinted transparent ones
 export default function OrangeLandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-950 to-orange-900 orange-landing">
+      <ForceTheme theme="light" />
       <style>{`
         /* Override section backgrounds to let the orange gradient show through */
         .orange-landing section[class*="bg-slate-950"],

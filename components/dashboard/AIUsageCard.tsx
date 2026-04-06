@@ -198,7 +198,7 @@ export default function AIUsageCard() {
                 <p className="text-sm text-orange-700 mb-3">
                   You're using {Math.round(totalPercentage)}% of your AI usage limit. Upgrade your plan for more AI messages.
                 </p>
-                <Link href="/settings/billing">
+                <Link href="/subscription">
                   <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
                     Upgrade Plan
                   </Button>

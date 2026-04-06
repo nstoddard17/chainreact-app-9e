@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '@/stores/authStore'
 import { PublicPageHeader } from '@/components/layout/PublicPageHeader'
 import { TempFooter } from '@/components/temp-landing/TempFooter'
+import { ForceTheme } from '@/components/theme/ForceTheme'
 
 const faqs = [
   {
@@ -44,6 +45,7 @@ export default function SupportPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <ForceTheme theme="light" />
       <PublicPageHeader breadcrumb="Support" />
 
       <main className="max-w-5xl mx-auto px-6 py-12">

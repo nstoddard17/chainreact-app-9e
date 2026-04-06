@@ -66,7 +66,7 @@ export function RoleRestriction({
         
         {showUpgradeButton && (
           <div className="pt-2">
-            <Link href={`/settings/billing?plan=${requiredRole}`}>
+            <Link href={`/subscription?plan=${requiredRole}`}>
               <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
                 <Crown className="w-4 h-4 mr-2" />
                 Upgrade Plan
@@ -140,7 +140,7 @@ export function RoleUpgradePrompt({
           </div>
         </div>
         
-        <Link href={`/settings/billing?plan=${targetRole}`}>
+        <Link href={`/subscription?plan=${targetRole}`}>
           <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 w-full">
             <Crown className="w-4 h-4 mr-2" />
             Upgrade to {targetRoleInfo.displayName}

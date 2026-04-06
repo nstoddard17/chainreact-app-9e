@@ -205,7 +205,7 @@ export function NotionWebhookSetupModal({
                 Open Notion Integration Settings
               </Button>
 
-              <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+              <div className="text-sm text-gray-600 dark:text-gray-200 space-y-1">
                 <p>In the Notion integration settings:</p>
                 <ol className="list-decimal list-inside space-y-1 ml-2">
                   <li>Select your ChainReact integration</li>
@@ -236,7 +236,7 @@ export function NotionWebhookSetupModal({
             </div>
 
             <div className="ml-8 space-y-2">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-200">
                 Notion will automatically send a verification request. Click below to check if your webhook is active.
               </p>
 

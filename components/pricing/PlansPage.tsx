@@ -26,7 +26,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react"
-import { PLAN_INFO } from "@/lib/utils/plan-restrictions"
+import { usePlansStore } from "@/stores/plansStore"
 import { TempFooter } from "@/components/temp-landing/TempFooter"
 
 type BillingCycle = "monthly" | "annual"
@@ -58,7 +58,7 @@ const plans: PlanTierConfig[] = [
     cta: "Get started free",
     ctaHref: "/auth/register",
     limits: {
-      tasks: "100/month",
+      tasks: "300/month",
       aiBuilds: "5/month",
       activeWorkflows: "3",
       integrations: "3 connected",
@@ -94,7 +94,7 @@ const plans: PlanTierConfig[] = [
     cta: "Start Pro",
     ctaHref: "/auth/register?plan=pro",
     limits: {
-      tasks: "750/month",
+      tasks: "3,000/month",
       aiBuilds: "Unlimited",
       activeWorkflows: "Unlimited",
       integrations: "Unlimited",
@@ -134,16 +134,17 @@ const plans: PlanTierConfig[] = [
     cta: "Start Team",
     ctaHref: "/auth/register?plan=team",
     limits: {
-      tasks: "2,000/month",
+      tasks: "10,000/month",
       aiBuilds: "Unlimited",
       activeWorkflows: "Unlimited",
       integrations: "Unlimited",
       history: "90 days",
-      teamMembers: "5",
+      teamMembers: "Unlimited",
     },
     features: [
       "Everything in Pro, plus:",
-      "Up to 5 team members",
+      "Unlimited team members",
+      "1 team",
       "Shared workspaces",
       "Real-time collaboration",
       "Workflow comments",
@@ -175,16 +176,17 @@ const plans: PlanTierConfig[] = [
     cta: "Start Business",
     ctaHref: "/auth/register?plan=business",
     limits: {
-      tasks: "5,000/month",
+      tasks: "30,000/month",
       aiBuilds: "Unlimited",
       activeWorkflows: "Unlimited",
       integrations: "Unlimited",
       history: "1 year",
-      teamMembers: "15",
+      teamMembers: "Unlimited",
     },
     features: [
       "Everything in Team, plus:",
-      "Up to 15 team members",
+      "Unlimited teams",
+      "Unlimited team members",
       "1-year execution history",
       "Unlimited custom webhooks",
       "15 API keys",
@@ -221,7 +223,7 @@ const plans: PlanTierConfig[] = [
     features: [
       "Everything in Business, plus:",
       "Unlimited tasks",
-      "Unlimited team members",
+      "Unlimited members & teams",
       "SSO/SAML authentication",
       "Custom contracts & invoicing",
       "99.99% SLA guarantee",
@@ -246,11 +248,15 @@ function PlanCard({
   plan: PlanTierConfig
   billingCycle: BillingCycle
 }) {
-  const info = PLAN_INFO[plan.tier as keyof typeof PLAN_INFO] ?? PLAN_INFO.free
-  const price = billingCycle === "annual" ? info.priceAnnual : info.price
+  const planData = usePlansStore(s => s.getPlan(plan.tier))
+  const priceMonthly = planData?.priceMonthly ?? 0
+  const priceAnnual = planData?.priceAnnual ?? 0
+  const displayName = planData?.displayName ?? plan.tier
+  const description = planData?.description ?? ''
+  const price = billingCycle === "annual" ? priceAnnual : priceMonthly
   const isEnterprise = plan.tier === "enterprise"
   const isAnnual = billingCycle === "annual"
-  const showSavings = isAnnual && !isEnterprise && info.price > 0
+  const showSavings = isAnnual && !isEnterprise && priceMonthly > 0
 
   return (
     <div className="relative flex flex-col h-full">
@@ -273,9 +279,9 @@ function PlanCard({
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-orange-400">{plan.icon}</span>
-            <h3 className="text-lg font-semibold text-white">{info.name}</h3>
+            <h3 className="text-lg font-semibold text-white">{displayName}</h3>
           </div>
-          <p className="text-xs text-slate-400">{info.description}</p>
+          <p className="text-xs text-slate-400">{description}</p>
         </div>
 
         {/* Price */}
@@ -287,7 +293,7 @@ function PlanCard({
               <div className="flex items-baseline gap-1">
                 {showSavings && (
                   <span className="text-lg text-slate-500 line-through mr-1">
-                    ${info.price}
+                    ${priceMonthly}
                   </span>
                 )}
                 <span className="text-4xl font-bold text-white">
@@ -297,9 +303,9 @@ function PlanCard({
               </div>
               {showSavings ? (
                 <p className="text-xs text-green-400 mt-1">
-                  Billed annually (save ${((info.price - info.priceAnnual) * 12).toFixed(0)}/year)
+                  Billed annually (save ${((priceMonthly - priceAnnual) * 12).toFixed(0)}/year)
                 </p>
-              ) : info.price > 0 ? (
+              ) : priceMonthly > 0 ? (
                 <p className="text-xs text-slate-500 mt-1">Billed monthly</p>
               ) : null}
             </>
@@ -389,7 +395,7 @@ const comparisonData: ComparisonCategory[] = [
     name: "Execution & Monitoring",
     icon: <Eye className="h-4 w-4" />,
     rows: [
-      { feature: "Tasks per month", free: "100", pro: "750", team: "2,000", business: "5,000", enterprise: "Unlimited" },
+      { feature: "Tasks per month", free: "300", pro: "3,000", team: "10,000", business: "30,000", enterprise: "Unlimited" },
       { feature: "Active workflows", free: "3", pro: "Unlimited", team: "Unlimited", business: "Unlimited", enterprise: "Unlimited" },
       { feature: "Execution history", free: "7 days", pro: "30 days", team: "90 days", business: "1 year", enterprise: "Unlimited" },
       { feature: "Detailed execution logs", free: "Last 3 runs", pro: true, team: true, business: true, enterprise: true },
@@ -429,7 +435,8 @@ const comparisonData: ComparisonCategory[] = [
     name: "Team & Collaboration",
     icon: <Users className="h-4 w-4" />,
     rows: [
-      { feature: "Team members", free: "1", pro: "1", team: "5", business: "15", enterprise: "Unlimited" },
+      { feature: "Members", free: "1 (solo)", pro: "1 (solo)", team: "Unlimited", business: "Unlimited", enterprise: "Unlimited" },
+      { feature: "Teams", free: false, pro: false, team: "1", business: "Unlimited", enterprise: "Unlimited" },
       { feature: "Shared workspaces", free: false, pro: false, team: true, business: true, enterprise: true },
       { feature: "Real-time collaboration", free: false, pro: false, team: true, business: true, enterprise: true },
       { feature: "Workflow comments", free: false, pro: false, team: true, business: true, enterprise: true },
@@ -649,6 +656,10 @@ function FAQ() {
 
 export function PlansPage() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("annual")
+  const fetchPlans = usePlansStore(s => s.fetchPlans)
+
+  // Fetch plans on mount (public page, no auth required)
+  React.useEffect(() => { fetchPlans() }, [fetchPlans])
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -763,6 +774,156 @@ export function PlansPage() {
                 <TrendingUp className="h-3.5 w-3.5 text-orange-400" />
                 Fewer rebuilds over time
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How We Compare */}
+      <section className="px-6 pb-16">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold text-white mb-2">How we compare</h2>
+            <p className="text-slate-400 text-sm">Not all &ldquo;tasks&rdquo; are counted the same. ChainReact only counts actions &mdash; triggers, filters, and logic are free.</p>
+          </div>
+
+          {/* Counting method cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="rounded-xl border-2 border-orange-500 bg-orange-500/10 p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-full bg-orange-500 flex items-center justify-center">
+                  <Zap className="h-3.5 w-3.5 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-white">ChainReact</span>
+              </div>
+              <p className="text-xs text-slate-400 mb-3">Only actions count as tasks</p>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between"><span className="text-slate-400">Trigger</span><span className="text-green-400 font-medium">Free</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Filter / Logic</span><span className="text-green-400 font-medium">Free</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Action (e.g. send email)</span><span className="text-orange-400 font-medium">1 task</span></div>
+                <div className="border-t border-orange-500/30 pt-1.5 mt-1.5 flex justify-between font-semibold"><span className="text-white">3-action workflow</span><span className="text-orange-400">= 3 tasks</span></div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-full bg-slate-600 flex items-center justify-center">
+                  <Zap className="h-3.5 w-3.5 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-white">Zapier</span>
+              </div>
+              <p className="text-xs text-slate-400 mb-3">Actions count, triggers free</p>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between"><span className="text-slate-400">Trigger</span><span className="text-green-400 font-medium">Free</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Filter / Logic</span><span className="text-green-400 font-medium">Free</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Action (e.g. send email)</span><span className="text-slate-300 font-medium">1 task</span></div>
+                <div className="border-t border-slate-700 pt-1.5 mt-1.5 flex justify-between font-semibold"><span className="text-white">3-action workflow</span><span className="text-slate-300">= 3 tasks</span></div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-full bg-violet-600 flex items-center justify-center">
+                  <Zap className="h-3.5 w-3.5 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-white">Make.com</span>
+              </div>
+              <p className="text-xs text-slate-400 mb-3">Everything counts as an operation</p>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between"><span className="text-slate-400">Trigger</span><span className="text-red-400 font-medium">1 operation</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Filter / Router</span><span className="text-red-400 font-medium">1 operation</span></div>
+                <div className="flex justify-between"><span className="text-slate-400">Action (e.g. send email)</span><span className="text-slate-300 font-medium">1 operation</span></div>
+                <div className="border-t border-slate-700 pt-1.5 mt-1.5 flex justify-between font-semibold"><span className="text-white">3-action workflow</span><span className="text-red-400">= 5+ ops</span></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Price comparison table */}
+          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-hidden mb-8">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  <th className="text-left py-3 px-5 text-xs font-medium text-slate-400">Same workload</th>
+                  <th className="text-center py-3 px-4 text-xs font-medium text-orange-500">ChainReact</th>
+                  <th className="text-center py-3 px-4 text-xs font-medium text-slate-400">Zapier</th>
+                  <th className="text-center py-3 px-4 text-xs font-medium text-slate-400">Make.com</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-slate-800/50">
+                  <td className="py-3 px-5">
+                    <div className="text-xs font-medium text-white">Solo (3 workflows, 10x/day)</div>
+                    <div className="text-[11px] text-slate-500">~2,700 tasks/mo</div>
+                  </td>
+                  <td className="py-3 px-4 text-center bg-orange-500/[0.03]">
+                    <div className="text-sm font-bold text-orange-400">$19/mo</div>
+                    <div className="text-[11px] text-slate-500">3,000 tasks</div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="text-sm font-bold text-slate-300">$73.50/mo</div>
+                    <div className="text-[11px] text-slate-500">2,000 tasks + overage</div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="text-sm font-bold text-slate-300">$18.82/mo</div>
+                    <div className="text-[11px] text-slate-500">10,000 ops (4,500+ used)</div>
+                  </td>
+                </tr>
+                <tr className="border-b border-slate-800/50">
+                  <td className="py-3 px-5">
+                    <div className="text-xs font-medium text-white">Team (8 workflows, 15x/day)</div>
+                    <div className="text-[11px] text-slate-500">~7,200 tasks/mo</div>
+                  </td>
+                  <td className="py-3 px-4 text-center bg-orange-500/[0.03]">
+                    <div className="text-sm font-bold text-orange-400">$49/mo</div>
+                    <div className="text-[11px] text-slate-500">10,000 tasks</div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="text-sm font-bold text-slate-300">$103.50/mo</div>
+                    <div className="text-[11px] text-slate-500">2,000 tasks + heavy overage</div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="text-sm font-bold text-slate-300">$34.12/mo</div>
+                    <div className="text-[11px] text-slate-500">10,000 ops (12,000+ used)</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-3 px-5">
+                    <div className="text-xs font-medium text-white">Business (20 workflows, 20x/day)</div>
+                    <div className="text-[11px] text-slate-500">~18,000 tasks/mo</div>
+                  </td>
+                  <td className="py-3 px-4 text-center bg-orange-500/[0.03]">
+                    <div className="text-sm font-bold text-orange-400">$149/mo</div>
+                    <div className="text-[11px] text-slate-500">30,000 tasks</div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="text-sm font-bold text-slate-300">Custom</div>
+                    <div className="text-[11px] text-slate-500">Enterprise only</div>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="text-sm font-bold text-slate-300">$165+/mo</div>
+                    <div className="text-[11px] text-slate-500">Scaled ops (30,000+ used)</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Key differentiators */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+              <div className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-1.5">vs Zapier</div>
+              <p className="text-sm font-medium text-white mb-1">74% cheaper for the same work</p>
+              <p className="text-xs text-slate-400">Same counting method, more tasks, fraction of the price. Plus AI builds your workflows automatically.</p>
+            </div>
+            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+              <div className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-1.5">vs Make.com</div>
+              <p className="text-sm font-medium text-white mb-1">Fairer counting, AI-native</p>
+              <p className="text-xs text-slate-400">Make charges for triggers and filters. We don&apos;t. And our AI agent builds workflows from a description &mdash; no manual node wiring.</p>
+            </div>
+            <div className="bg-slate-800/50 rounded-xl border border-slate-700 p-4">
+              <div className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-1.5">Only on ChainReact</div>
+              <p className="text-sm font-medium text-white mb-1">AI workflow builder</p>
+              <p className="text-xs text-slate-400">Describe what you want, AI builds it. Auto-configures fields, learns from corrections, and gets smarter over time.</p>
             </div>
           </div>
         </div>

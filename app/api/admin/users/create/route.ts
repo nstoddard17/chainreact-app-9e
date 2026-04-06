@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     if (!authResult.isAdmin) return authResult.response
 
     const body = await request.json()
-    const { email, password, full_name, username, role = 'free', send_welcome_email = true } = body
+    const { email, password, full_name, role = 'free', send_welcome_email = true } = body
 
     if (!email || !password) {
       return errorResponse('Email and password are required', 400)
@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
       email,
       password,
       full_name,
-      username,
       role,
     }, request)
 
@@ -61,7 +60,7 @@ export async function POST(request: NextRequest) {
             subject: 'Welcome to ChainReact - Your account has been created',
           },
           {
-            username: full_name || username || undefined,
+            username: full_name || undefined,
             confirmationUrl: linkData.properties?.action_link || `${process.env.NEXT_PUBLIC_SITE_URL}/auth/login`,
           }
         )

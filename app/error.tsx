@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { AlertCircle, RefreshCw, Home } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Home } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { logger } from '@/lib/utils/logger'
@@ -22,13 +22,13 @@ export default function Error({
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-900">
-      <Card className="max-w-lg w-full">
-        <CardHeader>
-          <div className="flex items-center gap-2">
+      <Card className="max-w-xl w-full">
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center gap-2">
             <AlertCircle className="h-6 w-6 text-red-500" />
             <CardTitle>Something went wrong</CardTitle>
           </div>
-          <CardDescription>
+          <CardDescription className="whitespace-nowrap">
             An unexpected error occurred. Please try again or return to the home page.
           </CardDescription>
         </CardHeader>
@@ -47,13 +47,17 @@ export default function Error({
           )}
 
           <div className="flex gap-3">
-            <Button onClick={reset} variant="outline" className="gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Try Again
+            <Button
+              onClick={() => window.history.back()}
+              variant="outline"
+              className="w-full gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Go Back
             </Button>
             <Button
-              onClick={() => window.location.href = '/home'}
-              className="gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600"
+              onClick={() => window.location.href = '/'}
+              className="w-full gap-2 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600"
             >
               <Home className="h-4 w-4" />
               Go Home

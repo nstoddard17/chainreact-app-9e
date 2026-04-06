@@ -24,11 +24,6 @@ import {
   Building,
   CreditCard,
   LifeBuoy,
-  Shield,
-  Palette,
-  Bell,
-  Briefcase,
-  Brain,
   User,
   Receipt,
 } from "lucide-react"
@@ -153,14 +148,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     { name: "Teams", href: "/teams", icon: Users, keywords: ["members", "team", "invite"] },
     { name: "Organization", href: "/organization", icon: Building, keywords: ["org", "company"] },
     { name: "Subscription", href: "/subscription", icon: CreditCard, keywords: ["plan", "billing", "pricing", "upgrade", "my plan"] },
-    { name: "Payments", href: "/settings/billing", icon: Receipt, keywords: ["invoices", "billing history", "payment"] },
-    { name: "Settings", href: "/settings", icon: Settings, keywords: ["preferences", "config"] },
-    { name: "Account", href: "/settings/account", icon: User, keywords: ["profile", "username", "name", "email", "account"] },
-    { name: "Workspace", href: "/settings/workspace", icon: Briefcase, keywords: ["workspace", "default"] },
-    { name: "Notifications", href: "/settings/notifications", icon: Bell, keywords: ["alerts", "email notifications"] },
-    { name: "Safety", href: "/settings/safety", icon: Shield, keywords: ["security", "2fa", "two-factor", "password", "sessions"] },
-    { name: "Appearance", href: "/settings/appearance", icon: Palette, keywords: ["theme", "dark mode", "light mode"] },
-    { name: "AI Context", href: "/settings/ai-context", icon: Brain, keywords: ["business context", "ai settings"] },
+    { name: "Payments", href: "/payments", icon: Receipt, keywords: ["invoices", "billing history", "payment"] },
+    { name: "Settings", href: "/settings", icon: Settings, keywords: ["preferences", "config", "account", "profile", "notifications", "appearance", "theme", "security", "2fa", "password", "workspace", "ai context"] },
     { name: "Help & Support", href: "/support", icon: LifeBuoy, keywords: ["help", "support", "faq", "ticket", "contact"] },
   ]
 

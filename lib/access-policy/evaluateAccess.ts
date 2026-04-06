@@ -14,25 +14,17 @@ const PLAN_RANK: Record<AccessPlan, number> = {
  *
  * Evaluation order:
  * 1. Authentication check
- * 2. Username check
- * 3. Admin bypass
- * 4. Route rule lookup (no rule = allow)
- * 5. adminOnly check
- * 6. allowedPlansExact check
- * 7. minPlan hierarchy check
+ * 2. Admin bypass
+ * 3. Route rule lookup (no rule = allow)
+ * 4. adminOnly check
+ * 5. allowedPlansExact check
+ * 6. minPlan hierarchy check
  */
 export function evaluateAccess(subject: AccessSubject, pathname: string): AccessDecision {
   if (!subject.isAuthenticated) {
     return {
       allowed: false,
       denial: { reason: 'not-authenticated', redirectTo: '/auth/login' },
-    }
-  }
-
-  if (!subject.hasUsername) {
-    return {
-      allowed: false,
-      denial: { reason: 'missing-username', redirectTo: '/auth/setup-username' },
     }
   }
 

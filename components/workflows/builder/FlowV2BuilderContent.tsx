@@ -312,7 +312,7 @@ export function FlowV2BuilderContent({
           variant={BackgroundVariant.Dots}
           gap={8}
           size={1.5}
-          color="hsl(var(--muted-foreground))"
+          color="oklch(var(--muted-foreground))"
           style={{ opacity: 0.5 }}
         />
         {/* Zoom/Pan Controls - Removed to match Zapier's linear workflow UX

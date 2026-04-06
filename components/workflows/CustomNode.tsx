@@ -2020,7 +2020,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                   <p className="text-muted-foreground">Checks for changes every {pollingIntervalLabel}</p>
                   {showPollingUpgradeCTA && (
                     <p className="text-blue-600 dark:text-blue-400">
-                      <Link href="/settings/billing" className="underline hover:no-underline" onClick={(e) => e.stopPropagation()}>
+                      <Link href="/subscription" className="underline hover:no-underline" onClick={(e) => e.stopPropagation()}>
                         Upgrade your plan
                       </Link>
                       {' '}for faster polling (down to 1 min)

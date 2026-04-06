@@ -42,7 +42,14 @@ export function UnifiedSidebar() {
   const currentSection = sections.find((s) => s.id === activeSection) ?? null
 
   const handleSectionClick = (sectionId: string) => {
-    if (sectionId === activeSection) {
+    const section = sections.find((s) => s.id === sectionId)
+    const hasMultipleChildren = section && section.children && section.children.length > 1
+
+    if (!hasMultipleChildren) {
+      // Single-child sections navigate directly, no panel
+      setActiveSection(sectionId)
+      setPanelOpen(false)
+    } else if (sectionId === activeSection) {
       setPanelOpen(!isPanelOpen)
     } else {
       setActiveSection(sectionId)
@@ -63,11 +70,13 @@ export function UnifiedSidebar() {
           activeSection={activeSection}
           onSectionClick={handleSectionClick}
         />
-        <NavPanel
-          section={currentSection}
-          isPanelOpen={isPanelOpen}
-          onClose={() => setPanelOpen(false)}
-        />
+        {currentSection && currentSection.children && currentSection.children.length > 1 && (
+          <NavPanel
+            section={currentSection}
+            isPanelOpen={isPanelOpen}
+            onClose={() => setPanelOpen(false)}
+          />
+        )}
       </div>
 
       <WorkspaceSelectionModal

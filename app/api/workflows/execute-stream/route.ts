@@ -452,7 +452,7 @@ export async function POST(request: NextRequest) {
               .update({
                 status: 'failed',
                 completed_at: new Date().toISOString(),
-                error: `Node "${nodeTitle}" failed: ${actionResult.message || actionResult.error}`
+                error_message: `Node "${nodeTitle}" failed: ${actionResult.message || actionResult.error}`
               })
               .eq('id', context.executionId)
 
@@ -561,7 +561,7 @@ export async function POST(request: NextRequest) {
             .update({
               status: 'failed',
               completed_at: new Date().toISOString(),
-              error: `Node "${nodeTitle}" failed: ${error.message}`
+              error_message: `Node "${nodeTitle}" failed: ${error.message}`
             })
             .eq('id', context.executionId)
 
@@ -618,7 +618,7 @@ export async function POST(request: NextRequest) {
         .update({
           status: 'failed',
           completed_at: new Date().toISOString(),
-          error: error.message || 'Workflow execution failed'
+          error_message: error.message || 'Workflow execution failed'
         })
         .eq('id', executionId)
 

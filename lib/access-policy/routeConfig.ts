@@ -3,8 +3,8 @@ import type { RouteRule } from './types'
 /**
  * Single source of truth for route-level access requirements.
  *
- * Routes not listed here are accessible to any authenticated user
- * with a username. Only routes with specific plan/admin requirements
+ * Routes not listed here are accessible to any authenticated user.
+ * Only routes with specific plan/admin requirements
  * need entries.
  */
 export const ROUTE_ACCESS: Record<string, RouteRule> = {

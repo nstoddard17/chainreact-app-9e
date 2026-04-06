@@ -27,17 +27,17 @@ export function FunnelSection({ data }: FunnelSectionProps) {
                   dataKey="date"
                   tick={{ fontSize: 10 }}
                   tickFormatter={(d) => d.substring(5)}
-                  stroke="hsl(var(--muted-foreground))"
+                  stroke="oklch(var(--muted-foreground))"
                 />
                 <YAxis
                   tick={{ fontSize: 10 }}
                   width={30}
-                  stroke="hsl(var(--muted-foreground))"
+                  stroke="oklch(var(--muted-foreground))"
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: 'oklch(var(--card))',
+                    border: '1px solid oklch(var(--border))',
                     borderRadius: '6px',
                     fontSize: '12px',
                   }}

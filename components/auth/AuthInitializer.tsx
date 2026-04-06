@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react"
 import { useAuthStore } from "@/stores/authStore"
+import { usePlansStore } from "@/stores/plansStore"
 import { cleanupWorkflowLocalStorage } from '@/lib/utils/storage-cleanup'
 
 /**
@@ -14,7 +15,13 @@ import { cleanupWorkflowLocalStorage } from '@/lib/utils/storage-cleanup'
 export default function AuthInitializer() {
   const boot = useAuthStore(s => s.boot)
   const phase = useAuthStore(s => s.phase)
+  const fetchPlans = usePlansStore(s => s.fetchPlans)
   const cleanupStarted = useRef(false)
+
+  // Fetch plans data on app load (non-blocking)
+  useEffect(() => {
+    fetchPlans()
+  }, [fetchPlans])
 
   // Clean up stale localStorage entries (non-blocking)
   useEffect(() => {

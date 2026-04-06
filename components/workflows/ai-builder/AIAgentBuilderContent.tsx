@@ -748,7 +748,7 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
         <p>AI features require a Pro plan or higher.</p>
-        <Link href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</Link>
+        <Link href="/subscription" className="text-primary underline mt-2 inline-block">Upgrade your plan</Link>
       </div>
     )
   }
@@ -759,7 +759,7 @@ export function AIAgentBuilderContent({ variant = "legacy" }: AIAgentBuilderCont
       <div
         className="absolute inset-0 pointer-events-none opacity-50"
         style={{
-          backgroundImage: 'radial-gradient(circle, hsl(var(--foreground) / 0.1) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, oklch(var(--foreground) / 0.1) 1px, transparent 1px)',
           backgroundSize: '20px 20px'
         }}
       />

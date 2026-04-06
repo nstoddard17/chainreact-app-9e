@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Check, Loader2, AlertTriangle, Lock, Sparkles, Users, Building2, Crown } from "lucide-react"
-import { PLAN_INFO, PLAN_FEATURES, PLAN_LIMITS, type PlanTier } from '@/lib/utils/plan-restrictions'
+import type { PlanTier } from '@/lib/utils/plan-restrictions'
+import { usePlansStore } from '@/stores/plansStore'
 
 import { logger } from '@/lib/utils/logger'
 
@@ -157,7 +158,7 @@ export default function PlanSelector({ plans = [], currentSubscription, targetPl
               </span>
             </button>
           </div>
-          <p className="text-gray-500 dark:text-slate-500 text-xs">
+          <p className="text-gray-500 dark:text-slate-400 text-xs">
             {billingCycle === "monthly" ? "Billed monthly" : "Billed annually (2 months free)"}. Cancel anytime.
           </p>
         </div>
@@ -213,9 +214,18 @@ function PlanCard({
   onSelect,
   isModal = false
 }: PlanCardProps) {
-  const info = PLAN_INFO[tier] || PLAN_INFO.free
-  const features = PLAN_FEATURES[tier] || PLAN_FEATURES.free
-  const limits = PLAN_LIMITS[tier] || PLAN_LIMITS.free
+  const { getPlan, getPlanFeatures, getPlanLimits } = usePlansStore()
+  const plan = getPlan(tier) || getPlan('free')
+  const info = plan ? {
+    name: plan.displayName,
+    description: plan.description,
+    price: plan.priceMonthly,
+    priceAnnual: plan.priceAnnual,
+    popular: tier === 'pro',
+    overageRate: plan.limits?.overageRate ?? null,
+  } : { name: tier, description: '', price: 0, priceAnnual: 0, popular: false, overageRate: null }
+  const features = getPlanFeatures(tier).length > 0 ? getPlanFeatures(tier) : getPlanFeatures('free')
+  const limits = getPlanLimits(tier)
 
   const isPro = tier === 'pro'
   const isFree = tier === 'free'
@@ -271,7 +281,7 @@ function PlanCard({
                 {info.name}
               </h3>
             </div>
-            <p className="text-xs text-gray-500 dark:text-slate-400">{info.description}</p>
+            <p className="text-xs text-gray-500 dark:text-slate-200">{info.description}</p>
           </div>
 
           {/* Price */}
@@ -284,7 +294,7 @@ function PlanCard({
                   <span className={`${isModal ? 'text-3xl' : 'text-4xl'} font-bold text-gray-900 dark:text-white`}>
                     ${price === 0 ? '0' : price.toFixed(price % 1 === 0 ? 0 : 2)}
                   </span>
-                  <span className="text-sm text-gray-500 dark:text-slate-500">/mo</span>
+                  <span className="text-sm text-gray-500 dark:text-slate-400">/mo</span>
                 </div>
                 {billingCycle === "annual" && !isFree && (
                   <p className="text-xs text-green-600 dark:text-green-400 mt-1">
@@ -301,13 +311,13 @@ function PlanCard({
               <div className="text-orange-600 dark:text-orange-300 font-semibold">
                 {limits.tasksPerMonth === -1 ? '∞' : limits.tasksPerMonth.toLocaleString()}
               </div>
-              <div className="text-gray-500 dark:text-slate-500">tasks/mo</div>
+              <div className="text-gray-500 dark:text-slate-400">tasks/mo</div>
             </div>
             <div className="bg-gray-100 dark:bg-slate-800/50 rounded-lg p-2 text-center">
               <div className="text-orange-600 dark:text-orange-300 font-semibold">
                 {limits.maxTeamMembers === -1 ? '∞' : limits.maxTeamMembers}
               </div>
-              <div className="text-gray-500 dark:text-slate-500">members</div>
+              <div className="text-gray-500 dark:text-slate-400">members</div>
             </div>
           </div>
 
@@ -325,7 +335,7 @@ function PlanCard({
             {features.length > 4 && (
               <button
                 onClick={onToggleExpand}
-                className="text-xs text-gray-500 dark:text-slate-500 hover:text-gray-700 dark:hover:text-slate-400 mt-3"
+                className="text-xs text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300 mt-3"
               >
                 {isExpanded ? "Show less ↑" : `+${features.length - 4} more →`}
               </button>
@@ -367,7 +377,7 @@ function PlanCard({
 
             {/* Overage info */}
             {info.overageRate && !isCurrentPlan && (
-              <p className="text-xs text-center text-gray-500 dark:text-slate-500 mt-2">
+              <p className="text-xs text-center text-gray-500 dark:text-slate-400 mt-2">
                 +${info.overageRate}/task overage
               </p>
             )}

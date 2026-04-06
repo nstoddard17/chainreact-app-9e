@@ -275,7 +275,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
             <Shield className="w-5 h-5 text-rose-600" />
             Single Sign-On (SSO)
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-200 mt-1">
             Configure SAML or OIDC authentication for your organization
           </p>
         </div>
@@ -334,7 +334,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
             <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               No SSO configured
             </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-md">
+            <p className="text-sm text-gray-500 dark:text-gray-200 text-center max-w-md">
               Set up Single Sign-On to allow your team members to authenticate using your company's identity provider like Okta, Azure AD, or Google Workspace.
             </p>
           </CardContent>
@@ -380,7 +380,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
                           </Badge>
                         )}
                       </div>
-                      <div className="mt-2 space-y-1 text-sm text-gray-500 dark:text-gray-400">
+                      <div className="mt-2 space-y-1 text-sm text-gray-500 dark:text-gray-200">
                         {config.provider === "saml" && config.sso_url && (
                           <p>SSO URL: {config.sso_url}</p>
                         )}

@@ -94,7 +94,7 @@ import { useToast } from '@/hooks/use-toast'
 import { logger } from '@/lib/utils/logger'
 import { fetchWithTimeout, retryWithBackoff } from '@/lib/utils/fetch-with-timeout'
 import { PagePreloader } from '@/components/common/PagePreloader'
-import type { Workflow as WorkflowRecord } from '@/stores/workflowStore'
+import type { Workflow as WorkflowRecord, WorkflowNode } from '@/stores/workflowStore'
 
 type ViewTab = 'workflows' | 'folders'
 type ViewMode = 'grid' | 'list'
@@ -223,7 +223,7 @@ export function WorkflowsContentInner() {
   const [executionStats, setExecutionStats] = useState<Record<string, { total: number; today: number; success: number; failed: number }>>({})
   // Create workflow - now opens builder directly with AI panel visible
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
-  const [requiredPlan, setRequiredPlan] = useState<'free' | 'starter' | 'professional' | 'team' | 'enterprise' | undefined>()
+  const [requiredPlan, setRequiredPlan] = useState<string | undefined>()
   const [emptyTrashDialog, setEmptyTrashDialog] = useState(false)
   const [emptyingTrash, setEmptyingTrash] = useState(false)
 
@@ -774,16 +774,15 @@ export function WorkflowsContentInner() {
   const getCreatorInfo = (workflow: any) => {
     const enrichedCreator = workflow.creator ?? (workflow.user_id === user?.id ? {
       full_name: profile?.full_name,
-      username: profile?.username,
       email: profile?.email,
       avatar_url: profile?.avatar_url
     } : null)
 
     if (enrichedCreator) {
-      const { full_name, username, email, secondary_email, avatar_url } = enrichedCreator
+      const { full_name, email, secondary_email, avatar_url } = enrichedCreator
       const rawEmail = email || secondary_email || ''
       const fallbackEmail = rawEmail ? rawEmail.split('@')[0] : ''
-      const displayName = full_name || username || fallbackEmail || 'Team Member'
+      const displayName = full_name || fallbackEmail || 'Team Member'
       const name = workflow.user_id === user?.id ? 'You' : displayName
       const initialsSource = displayName || 'TM'
 
@@ -1286,9 +1285,9 @@ export function WorkflowsContentInner() {
     { value: 'shared', label: 'Shared with Me' }
   ]
 
-  const handleFolderClick = (folderId: string | null, e: React.MouseEvent) => {
+  const handleFolderClick = (folderId: string | null | undefined, e: React.MouseEvent) => {
     e.stopPropagation()
-    setSelectedFolderFilter(folderId)
+    setSelectedFolderFilter(folderId ?? null)
     setOwnershipFilter('all') // Reset ownership filter when selecting a folder
     setActiveTab('workflows')
   }
@@ -1357,17 +1356,17 @@ export function WorkflowsContentInner() {
     <>
       <div className="h-full flex flex-col">
           {/* Command Bar */}
-          <div className="h-14 border-b border-slate-200 flex items-center px-6">
+          <div className="h-14 border-b border-slate-200 dark:border-slate-700 flex items-center px-6 animate-fade-in-up">
             <div className="flex items-center gap-3 w-full">
               {/* Tabs - aligned with table checkbox */}
-              <div className="flex items-center gap-1 p-1 border border-slate-200 rounded-lg bg-white">
+              <div className="flex items-center gap-1 p-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/50">
                 <button
                   onClick={() => setActiveTab('workflows')}
                   className={cn(
-                    'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                    'px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200',
                     activeTab === 'workflows'
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-700/50'
                 )}
               >
                 Workflows
@@ -1375,10 +1374,10 @@ export function WorkflowsContentInner() {
               <button
                 onClick={() => setActiveTab('folders')}
                 className={cn(
-                  'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                  'px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200',
                   activeTab === 'folders'
-                    ? 'bg-slate-100 text-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-700/50'
                 )}
               >
                 Folders
@@ -1393,12 +1392,12 @@ export function WorkflowsContentInner() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onClear={() => setSearchQuery('')}
-                className="h-9 w-full"
+                className="h-9 w-full rounded-xl"
               />
             </div>
 
             {/* View Toggle */}
-            <div className="flex items-center gap-1 p-1 border border-slate-200 rounded-lg bg-white">
+            <div className="flex items-center gap-1 p-1 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800/50">
               <Button
                 variant="ghost"
                 size="sm"
@@ -1477,7 +1476,12 @@ export function WorkflowsContentInner() {
             {!(activeTab === 'folders' && isViewingTrash) && (
               <Button
                 size="sm"
-                className="h-9 gap-2 whitespace-nowrap"
+                className={cn(
+                  "h-9 gap-2 whitespace-nowrap",
+                  activeTab === 'workflows'
+                    ? "bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white shadow-lg shadow-orange-500/20 border-0"
+                    : ""
+                )}
                 disabled={activeTab === 'workflows' && isCreatingWorkflow}
                 onClick={() => {
                   if (activeTab === 'workflows') {
@@ -1497,7 +1501,7 @@ export function WorkflowsContentInner() {
           </div>
 
           {/* Folder Breadcrumb Navigation */}
-          <div className="border-b border-slate-200 px-6 py-3">
+          <div className="border-b border-slate-200 dark:border-slate-700 px-6 py-3">
             <div className="flex items-center gap-2 text-sm">
               <button
                 onClick={() => {
@@ -1507,7 +1511,7 @@ export function WorkflowsContentInner() {
                 className="flex items-center gap-1.5 text-orange-600 hover:underline transition-all font-medium group"
               >
                 <Home className="w-4 h-4" />
-                {profile?.full_name || profile?.username || 'My'}'s {activeTab === 'workflows' ? 'Workflows' : 'Folders'}
+                {profile?.full_name || 'My'}'s {activeTab === 'workflows' ? 'Workflows' : 'Folders'}
               </button>
               {folderPath.map((folder, index) => (
                 <div key={folder.id} className="flex items-center gap-2">
@@ -1629,7 +1633,7 @@ export function WorkflowsContentInner() {
                   <WorkspaceGroupView
                     workflows={filteredAndSortedWorkflows}
                     renderWorkflowCard={(workflow) => (
-                      <div className="bg-white border border-slate-200 rounded-lg p-4 hover:border-slate-300 transition-colors">
+                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-4 hover:shadow-md hover:border-primary/20 transition-all duration-200">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
                             <h3 className="font-medium text-slate-900 truncate">{workflow.name}</h3>
@@ -1649,7 +1653,7 @@ export function WorkflowsContentInner() {
                 </div>
               ) : workflowsViewMode === 'list' ? (
               <table className="w-full">
-                <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                <thead className="sticky top-0 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 z-10">
                   <tr>
                     <th className="w-12 px-6 py-3 text-left">
                       <Checkbox
@@ -1714,7 +1718,7 @@ export function WorkflowsContentInner() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredAndSortedWorkflows.map((workflow) => {
+                  {filteredAndSortedWorkflows.map((workflow, index) => {
                     const creatorInfo = getCreatorInfo(workflow)
                     const folderName = getFolderName(workflow)
                     const stats = executionStats[workflow.id] || { total: 0, today: 0, success: 0, failed: 0 }
@@ -1723,9 +1727,10 @@ export function WorkflowsContentInner() {
                       <tr
                         key={workflow.id}
                         className={cn(
-                          'group hover:bg-slate-50 transition-colors',
+                          'group hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all duration-200 animate-fade-in-up',
                           selectedIds.includes(workflow.id) && 'bg-orange-50 hover:bg-orange-100 [&>td]:!text-slate-900 [&>td>*]:!text-slate-900 [&>td>div]:!text-slate-700 [&>td>span]:!text-slate-900'
                         )}
+                        style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
                       >
                         <td className="px-6 py-4">
                           <Checkbox
@@ -1737,7 +1742,7 @@ export function WorkflowsContentInner() {
                           <div className="flex items-center gap-2">
                             <span
                               onClick={() => {
-                                trackAccess(workflow.id)
+                                trackAccess({ id: workflow.id, name: workflow.name })
                                 router.push(`/workflows/builder/${workflow.id}`)
                               }}
                               className="font-medium text-sm cursor-pointer hover:underline"
@@ -1847,6 +1852,23 @@ export function WorkflowsContentInner() {
                         </td>
                         <td className="px-3 py-4">
                           <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "relative flex h-2.5 w-2.5 shrink-0",
+                              workflow.status === 'active' && "text-green-500",
+                              workflow.status === 'inactive' && "text-yellow-500",
+                              (!workflow.status || workflow.status === 'draft') && "text-slate-400"
+                            )}>
+                              <span className={cn(
+                                "absolute inline-flex h-full w-full rounded-full opacity-75",
+                                workflow.status === 'active' && "animate-ping bg-green-400"
+                              )} />
+                              <span className={cn(
+                                "relative inline-flex rounded-full h-2.5 w-2.5",
+                                workflow.status === 'active' && "bg-green-500",
+                                workflow.status === 'inactive' && "bg-yellow-500",
+                                (!workflow.status || workflow.status === 'draft') && "bg-slate-300 dark:bg-slate-600"
+                              )} />
+                            </span>
                             <WorkflowStatusBadge
                               status={workflow.status || 'draft'}
                               validation={getValidation(workflow.id)}
@@ -2005,7 +2027,7 @@ export function WorkflowsContentInner() {
                 /* Workflows Grid View */
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {filteredAndSortedWorkflows.map((workflow) => {
+                    {filteredAndSortedWorkflows.map((workflow, index) => {
                       const creatorInfo = getCreatorInfo(workflow)
                       const folderName = getFolderName(workflow)
                       const stats = executionStats[workflow.id] || { total: 0, today: 0, success: 0, failed: 0 }
@@ -2014,11 +2036,12 @@ export function WorkflowsContentInner() {
                         <div
                           key={workflow.id}
                           className={cn(
-                            "group relative bg-white rounded-xl border-2 p-5 hover:shadow-lg hover:border-orange-300 transition-all cursor-pointer",
-                            selectedIds.includes(workflow.id) ? "border-orange-400 bg-orange-50" : "border-slate-200"
+                            "group relative bg-white dark:bg-slate-900 rounded-xl border-2 p-5 hover:shadow-lg hover:shadow-orange-500/5 hover:border-primary/20 transition-all duration-200 cursor-pointer animate-fade-in-up",
+                            selectedIds.includes(workflow.id) ? "border-orange-400 bg-orange-50" : "border-slate-200 dark:border-slate-700"
                           )}
+                          style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}
                           onClick={() => {
-                            trackAccess(workflow.id)
+                            trackAccess({ id: workflow.id, name: workflow.name })
                             router.push(`/workflows/builder/${workflow.id}`)
                           }}
                         >
@@ -2226,9 +2249,10 @@ export function WorkflowsContentInner() {
                                 // Parse workflow nodes
                                 let nodes: WorkflowNode[] = []
                                 try {
-                                  const workflowData = typeof workflow.workflow_json === 'string'
-                                    ? JSON.parse(workflow.workflow_json)
-                                    : workflow.workflow_json
+                                  const wf = workflow as any
+                                  const workflowData = typeof wf.workflow_json === 'string'
+                                    ? JSON.parse(wf.workflow_json)
+                                    : wf.workflow_json
                                   nodes = workflowData?.nodes || workflow.nodes || []
                                 } catch (e) {
                                   nodes = workflow.nodes || []
@@ -2339,6 +2363,23 @@ export function WorkflowsContentInner() {
 
                             {/* Status Badge + Toggle */}
                             <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <span className={cn(
+                                "relative flex h-2 w-2 shrink-0",
+                                workflow.status === 'active' && "text-green-500",
+                                workflow.status === 'inactive' && "text-yellow-500",
+                                (!workflow.status || workflow.status === 'draft') && "text-slate-400"
+                              )}>
+                                <span className={cn(
+                                  "absolute inline-flex h-full w-full rounded-full opacity-75",
+                                  workflow.status === 'active' && "animate-ping bg-green-400"
+                                )} />
+                                <span className={cn(
+                                  "relative inline-flex rounded-full h-2 w-2",
+                                  workflow.status === 'active' && "bg-green-500",
+                                  workflow.status === 'inactive' && "bg-yellow-500",
+                                  (!workflow.status || workflow.status === 'draft') && "bg-slate-300 dark:bg-slate-600"
+                                )} />
+                              </span>
                               <WorkflowStatusBadge
                                 status={workflow.status || 'draft'}
                                 validation={getValidation(workflow.id)}
@@ -2533,24 +2574,26 @@ export function WorkflowsContentInner() {
                 </div>
 
                 {filteredFolders.length === 0 && !isViewingTrash && (
-                  <div className="text-center py-16">
-                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Folder className="w-8 h-8 text-slate-400" />
+                  <div className="flex items-center justify-center py-16 px-6 animate-fade-in">
+                    <div className="text-center max-w-md mx-auto border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-10">
+                      <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                        <Folder className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                        {searchQuery ? 'No folders found' : 'No folders yet'}
+                      </h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                        {searchQuery
+                          ? 'Try adjusting your search or clearing filters'
+                          : 'Create folders to organize your workflows'}
+                      </p>
+                      {!searchQuery && (
+                        <Button onClick={() => setCreateFolderDialog(true)}>
+                          <FolderPlus className="w-4 h-4 mr-2" />
+                          Create Folder
+                        </Button>
+                      )}
                     </div>
-                    <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                      {searchQuery ? 'No folders found' : 'No folders yet'}
-                    </h3>
-                    <p className="text-slate-600 mb-6">
-                      {searchQuery
-                        ? 'Try adjusting your search'
-                        : 'Create folders to organize your workflows'}
-                    </p>
-                    {!searchQuery && (
-                      <Button onClick={() => setCreateFolderDialog(true)}>
-                        <FolderPlus className="w-4 h-4 mr-2" />
-                        Create Folder
-                      </Button>
-                    )}
                   </div>
                 )}
               </div>
@@ -2558,7 +2601,7 @@ export function WorkflowsContentInner() {
                 /* Folders List View */
                 <>
                   <table className="w-full">
-                    <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                    <thead className="sticky top-0 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 z-10">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                           Name
@@ -2726,24 +2769,26 @@ export function WorkflowsContentInner() {
                     </tbody>
                   </table>
                   {filteredFolders.length === 0 && !isViewingTrash && (
-                    <div className="text-center py-16">
-                      <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <Folder className="w-8 h-8 text-slate-400" />
+                    <div className="flex items-center justify-center py-16 px-6 animate-fade-in">
+                      <div className="text-center max-w-md mx-auto border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-10">
+                        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                          <Folder className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                          {searchQuery ? 'No folders found' : 'No folders yet'}
+                        </h3>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+                          {searchQuery
+                            ? 'Try adjusting your search or clearing filters'
+                            : 'Create folders to organize your workflows'}
+                        </p>
+                        {!searchQuery && (
+                          <Button onClick={() => setCreateFolderDialog(true)}>
+                            <FolderPlus className="w-4 h-4 mr-2" />
+                            Create Folder
+                          </Button>
+                        )}
                       </div>
-                      <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                        {searchQuery ? 'No folders found' : 'No folders yet'}
-                      </h3>
-                      <p className="text-slate-600 mb-6">
-                        {searchQuery
-                          ? 'Try adjusting your search'
-                          : 'Create folders to organize your workflows'}
-                      </p>
-                      {!searchQuery && (
-                        <Button onClick={() => setCreateFolderDialog(true)}>
-                          <FolderPlus className="w-4 h-4 mr-2" />
-                          Create Folder
-                        </Button>
-                      )}
                     </div>
                   )}
                 </>
@@ -2751,26 +2796,28 @@ export function WorkflowsContentInner() {
             )}
 
             {activeTab === 'workflows' && filteredAndSortedWorkflows.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-slate-400 mb-2">
-                  <Workflow className="w-12 h-12 mx-auto" />
+              <div className="flex items-center justify-center py-16 px-6 animate-fade-in">
+                <div className="text-center max-w-md mx-auto border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-10">
+                  <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                    <Workflow className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No workflows found</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {searchQuery
+                      ? 'Try adjusting your search or clearing filters'
+                      : 'Create your first workflow to get started with automation'}
+                  </p>
+                  {!searchQuery && (
+                    <Button
+                      className="mt-6 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white shadow-lg shadow-orange-500/20 border-0"
+                      disabled={isCreatingWorkflow}
+                      onClick={() => initiateWorkflowCreation(() => createAndOpen())}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {isCreatingWorkflow ? 'Creating...' : 'Create Workflow'}
+                    </Button>
+                  )}
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-1">No workflows found</h3>
-                <p className="text-sm text-slate-600">
-                  {searchQuery
-                    ? 'Try adjusting your search'
-                    : 'Create your first workflow to get started'}
-                </p>
-                {!searchQuery && (
-                  <Button
-                    className="mt-4"
-                    disabled={isCreatingWorkflow}
-                    onClick={() => initiateWorkflowCreation(() => createAndOpen())}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    {isCreatingWorkflow ? 'Creating...' : 'Create Workflow'}
-                  </Button>
-                )}
               </div>
             )}
           </div>
@@ -3369,7 +3416,7 @@ export function WorkflowsContentInner() {
       <UpgradePlanModal
         open={upgradeModalOpen}
         onOpenChange={setUpgradeModalOpen}
-        requiredPlan={requiredPlan}
+        requiredPlan={requiredPlan as any}
       />
 
       {/* Workspace Selection Modal - Pre-flight before AI Agent Builder */}

@@ -195,11 +195,11 @@ export async function GET(request: NextRequest) {
         id: exec.id,
         workflowId: exec.workflow_id,
         workflowName: workflow?.name || "Unknown Workflow",
-        status: exec.status,
-        startedAt,
-        completedAt: exec.completed_at,
+        status: exec.status || "unknown",
+        startedAt: startedAt || new Date().toISOString(),
+        completedAt: exec.completed_at || null,
         durationMs,
-        error: exec.error_message,
+        error: exec.error_message || null,
       }
     })
 

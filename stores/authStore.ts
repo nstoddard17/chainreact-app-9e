@@ -27,8 +27,9 @@ interface AuthState extends BootSlice {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, metadata?: Record<string, any>) => Promise<void>
   signInWithGoogle: () => Promise<void>
+  signInWithGitHub: () => Promise<void>
+  signInWithMicrosoft: () => Promise<void>
   getCurrentUserId: () => string | null
-  checkUsernameAndRedirect: () => void
   refreshSession: () => Promise<boolean>
   isAuthenticated: () => boolean
   retryBoot: () => Promise<void>
@@ -155,7 +156,6 @@ export const useAuthStore = create<AuthState>()(
               full_name: updates.full_name,
               first_name: updates.first_name,
               last_name: updates.last_name,
-              username: updates.username,
               email: updates.email || user.email,
               company: updates.company,
               job_title: updates.job_title,
@@ -198,7 +198,7 @@ export const useAuthStore = create<AuthState>()(
 
           // If entitlement fields changed, refresh session to pick up updated JWT claims
           // (DB trigger syncs claims, but JWT needs refresh to reflect them)
-          if (updates.username !== undefined || updates.plan !== undefined) {
+          if (updates.plan !== undefined) {
             supabase.auth.refreshSession().catch(() => {
               // Non-fatal — JWT will refresh naturally within ~1 hour
             })
@@ -411,20 +411,49 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      signInWithGitHub: async () => {
+        try {
+          set({ loading: true, error: null })
+
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'github',
+            options: {
+              redirectTo: `${window.location.origin}/api/auth/callback`,
+            },
+          })
+
+          if (error) throw error
+        } catch (error: any) {
+          logger.error("GitHub sign in error:", error)
+          set({ error: error.message, loading: false })
+          throw error
+        }
+      },
+
+      signInWithMicrosoft: async () => {
+        try {
+          set({ loading: true, error: null })
+
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'azure',
+            options: {
+              redirectTo: `${window.location.origin}/api/auth/callback`,
+              scopes: 'email profile openid',
+            },
+          })
+
+          if (error) throw error
+        } catch (error: any) {
+          logger.error("Microsoft sign in error:", error)
+          set({ error: error.message, loading: false })
+          throw error
+        }
+      },
+
       getCurrentUserId: () => {
         return get().user?.id ?? null
       },
 
-      checkUsernameAndRedirect: () => {
-        const state = get()
-        if (state.profile &&
-            state.profile.provider === 'google' &&
-            (!state.profile.username || state.profile.username.trim() === '')) {
-          if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/setup-username')) {
-            window.location.href = '/auth/setup-username'
-          }
-        }
-      },
 
       refreshSession: async () => {
         try {
@@ -577,7 +606,7 @@ function registerListeners() {
         // Refresh profile data
         const { data: profileData } = await supabase
           .from('user_profiles')
-          .select('id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at')
+          .select('id, first_name, last_name, full_name, company, job_title, secondary_email, phone_number, avatar_url, provider, role, plan, admin, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at')
           .eq('id', session.user.id)
           .single()
 

@@ -375,7 +375,7 @@ export function ResultsTab({
     // Handle objects
     if (typeof value === 'object') {
       return (
-        <code className="text-xs font-mono text-slate-600 dark:text-slate-400 block max-w-xs truncate">
+        <code className="text-xs font-mono text-slate-600 dark:text-slate-200 block max-w-xs truncate">
           {JSON.stringify(value)}
         </code>
       )
@@ -491,7 +491,7 @@ export function ResultsTab({
                   {keys.map((key) => (
                     <td
                       key={key}
-                      className="px-3 py-2.5 text-sm text-slate-600 dark:text-slate-400 border-r border-slate-100 dark:border-slate-800 last:border-r-0 align-top"
+                      className="px-3 py-2.5 text-sm text-slate-600 dark:text-slate-200 border-r border-slate-100 dark:border-slate-800 last:border-r-0 align-top"
                     >
                       {renderCellValue(row[key], key)}
                     </td>

@@ -452,7 +452,7 @@ export default function ShareWorkflowDialog({
                 <p className="text-sm text-slate-500 mb-4">
                   Share workflows with entire teams. Available on Team plan and above.
                 </p>
-                <Button variant="outline" onClick={() => window.location.href = '/settings/billing'}>
+                <Button variant="outline" onClick={() => window.location.href = '/subscription'}>
                   Upgrade to Team
                 </Button>
               </div>
@@ -531,7 +531,7 @@ export default function ShareWorkflowDialog({
         {/* Permission Levels Explanation */}
         <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 mt-4">
           <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Permission Levels:</Label>
-          <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+          <div className="space-y-1 text-xs text-slate-600 dark:text-slate-200">
             <div className="flex items-start gap-2">
               <Shield className="w-3 h-3 mt-0.5 text-purple-600" />
               <div>

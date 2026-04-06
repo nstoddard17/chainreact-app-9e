@@ -41,13 +41,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { username, bio, avatar_url } = body
+    const { bio, avatar_url } = body
 
     const updates: any = {
       updated_at: new Date().toISOString()
     }
 
-    if (username !== undefined) updates.username = username
     if (bio !== undefined) updates.bio = bio
     if (avatar_url !== undefined) updates.avatar_url = avatar_url
 

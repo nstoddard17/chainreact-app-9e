@@ -13,11 +13,10 @@ import { logger } from '@/lib/utils/logger'
 
 // Fields returned by ensureUserProfile (matches the profile API select)
 const PROFILE_SELECT =
-  'id, email, username, full_name, first_name, last_name, role, plan, admin_capabilities, provider, avatar_url, company, job_title, secondary_email, phone_number, tasks_used, tasks_limit, billing_period_start, created_at, updated_at'
+  'id, email, full_name, first_name, last_name, role, plan, admin_capabilities, provider, avatar_url, company, job_title, secondary_email, phone_number, tasks_used, tasks_limit, billing_period_start, created_at, updated_at'
 
 /** Partial input callers can use to override derived/default values. */
 export interface ProfileOverrides {
-  username?: string | null
   full_name?: string | null
   first_name?: string | null
   last_name?: string | null
@@ -110,11 +109,10 @@ export async function ensureUserProfile(
 
       if (updated) {
         // Sync claims if entitlement fields were changed
-        if ('plan' in updates || 'admin_capabilities' in updates || 'username' in updates) {
+        if ('plan' in updates || 'admin_capabilities' in updates) {
           await syncAccessClaims(adminClient, userId, {
             plan: updated.plan,
             admin_capabilities: updated.admin_capabilities,
-            username: updated.username,
           })
         }
         return { profile: updated, created: false }
@@ -158,7 +156,7 @@ export async function ensureUserProfile(
   const derivedRole = deriveRoleFromMetadata(metadata)
 
   const now = new Date().toISOString()
-  const defaults = buildDefaultProfileFields()
+  const defaults = await buildDefaultProfileFields()
 
   // Build the full payload: defaults → derived → overrides (stripped of undefined)
   const derived: Record<string, any> = {
@@ -200,7 +198,6 @@ export async function ensureUserProfile(
     await syncAccessClaims(adminClient, userId, {
       plan: created.plan,
       admin_capabilities: created.admin_capabilities,
-      username: created.username,
     })
     return { profile: created, created: true }
   }

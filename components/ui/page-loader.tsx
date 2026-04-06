@@ -45,7 +45,7 @@ export function PageLoader({
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Loading Timeout</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-gray-600 dark:text-gray-200 mb-4">
             The page is taking longer than expected to load. This might be due to network issues.
           </p>
           <button

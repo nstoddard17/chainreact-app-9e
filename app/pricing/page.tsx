@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { PlansPage } from "@/components/pricing/PlansPage"
+import { ForceTheme } from "@/components/theme/ForceTheme"
 
 export const metadata: Metadata = {
   title: "Pricing - ChainReact",
@@ -14,5 +15,10 @@ export const metadata: Metadata = {
 }
 
 export default function PricingPage() {
-  return <PlansPage />
+  return (
+    <>
+      <ForceTheme theme="light" />
+      <PlansPage />
+    </>
+  )
 }

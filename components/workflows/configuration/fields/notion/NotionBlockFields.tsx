@@ -1219,7 +1219,7 @@ export function NotionBlockFields({
                 onClick={handleSearch}
                 className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors"
               >
-                <Search className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                <Search className="w-4 h-4 text-slate-600 dark:text-slate-200" />
               </button>
             </div>
           </div>
@@ -1238,7 +1238,7 @@ export function NotionBlockFields({
               )}
               title="List view"
             >
-              <List className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+              <List className="w-4 h-4 text-slate-600 dark:text-slate-200" />
             </button>
             
             {/* Grid view button */}
@@ -1253,7 +1253,7 @@ export function NotionBlockFields({
               )}
               title="Grid view"
             >
-              <Grid className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+              <Grid className="w-4 h-4 text-slate-600 dark:text-slate-200" />
             </button>
             
             {/* Sort dropdown */}
@@ -1264,7 +1264,7 @@ export function NotionBlockFields({
                 className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-md transition-colors"
                 title="Sort options"
               >
-                <svg className="w-4 h-4 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-slate-600 dark:text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4 4m0 0l4-4m-4 4V4" />
                 </svg>
               </button>
@@ -1497,7 +1497,7 @@ export function NotionBlockFields({
           <DialogTitle className="text-slate-900 dark:text-slate-100">Connect Google Drive</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-slate-600 dark:text-slate-200">
             To browse and embed Google Drive files, you need to connect your Google Drive account first.
           </p>
           <div className="flex gap-3">

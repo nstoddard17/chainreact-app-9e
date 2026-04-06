@@ -5,7 +5,6 @@ import { WorkflowBuilderV2 } from "@/components/workflows/builder/WorkflowBuilde
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { getFlowRepository } from "@/src/lib/workflows/builder/api/helpers"
 import { createSupabaseServerClient, createSupabaseServiceClient } from "@/utils/supabase/server"
-import { requireUsername } from "@/utils/checkUsername"
 import { ensureWorkspaceRole } from "@/src/lib/workflows/builder/workspace"
 
 export const dynamic = "force-dynamic"
@@ -15,8 +14,6 @@ interface BuilderPageProps {
 }
 
 export default async function FlowBuilderV2Page({ params }: BuilderPageProps) {
-  await requireUsername()
-
   const { id: flowId } = await params
   const supabase = await createSupabaseServerClient()
   const {

@@ -47,9 +47,9 @@ export function AppShell({
 
             <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-950 relative">
               {noPadding ? (
-                <div className="h-full w-full">{children}</div>
+                <div className="min-h-full w-full pb-16">{children}</div>
               ) : (
-                <div className="h-full w-full px-6 py-6">{children}</div>
+                <div className="min-h-full w-full px-6 pt-6 pb-16">{children}</div>
               )}
             </main>
           </div>

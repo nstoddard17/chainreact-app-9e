@@ -123,7 +123,7 @@ export function TeamSuspensionBanner({ teamId, userId }: TeamSuspensionBannerPro
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.location.href = "/settings/billing"}
+                    onClick={() => window.location.href = "/subscription"}
                     className="border-red-600 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
                   >
                     Upgrade to Reactivate
@@ -178,7 +178,7 @@ export function TeamSuspensionBanner({ teamId, userId }: TeamSuspensionBannerPro
                 <div className="flex gap-3 mt-4">
                   <Button
                     size="sm"
-                    onClick={() => window.location.href = "/settings/billing"}
+                    onClick={() => window.location.href = "/subscription"}
                     className={isUrgent ? "bg-orange-600 hover:bg-orange-700" : "bg-yellow-600 hover:bg-yellow-700"}
                   >
                     Upgrade Now

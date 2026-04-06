@@ -219,7 +219,7 @@ export default function EmailConfirmPage() {
                     Close This Tab
                   </Button>
 
-                  <Link href="/setup-username">
+                  <Link href="/workflows">
                     <Button variant="outline" className="w-full border-2 border-orange-400 text-orange-400 hover:bg-orange-400/10 rounded-lg py-3 transition-all duration-300 hover:border-orange-300">
                       <ArrowRight className="mr-2 h-4 w-4" />
                       Continue in This Tab Instead

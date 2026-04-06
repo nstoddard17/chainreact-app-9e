@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
             .update({
               status: 'failed',
               completed_at: new Date().toISOString(),
-              error: `Timed out waiting for event (${waiting.event_type})`
+              error_message: `Timed out waiting for event (${waiting.event_type})`
             })
             .eq('id', waiting.execution_id)
 

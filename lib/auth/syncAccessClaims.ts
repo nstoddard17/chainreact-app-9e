@@ -2,8 +2,8 @@
  * Syncs access-relevant profile fields into Supabase `raw_app_meta_data`.
  *
  * The middleware reads these JWT claims instead of querying the DB on every
- * request. Every code path that changes `plan`, `admin_capabilities`, or
- * `username` on `user_profiles` MUST call this function so the JWT stays in sync.
+ * request. Every code path that changes `plan` or `admin_capabilities`
+ * on `user_profiles` MUST call this function so the JWT stays in sync.
  *
  * The DB trigger `sync_access_claims` handles direct SQL updates (Stripe
  * webhooks, admin console). This function handles application-layer updates.
@@ -16,7 +16,6 @@ import type { AdminCapabilities } from '@/lib/types/admin'
 interface ClaimFields {
   plan?: string | null
   admin_capabilities?: AdminCapabilities | null
-  username?: string | null
 }
 
 export async function syncAccessClaims(
@@ -31,7 +30,6 @@ export async function syncAccessClaims(
       app_metadata: {
         plan: fields.plan || 'free',
         admin_capabilities: capabilities,
-        has_username: !!(fields.username && fields.username.trim() !== ''),
       },
     })
 
@@ -47,7 +45,6 @@ export async function syncAccessClaims(
       userId,
       plan: fields.plan || 'free',
       admin_capabilities: capabilities,
-      has_username: !!(fields.username && fields.username.trim() !== ''),
     })
   } catch (err) {
     // Non-fatal — the DB trigger is the backup, and JWT refreshes naturally

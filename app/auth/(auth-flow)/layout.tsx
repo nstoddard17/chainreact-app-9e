@@ -1,18 +1,16 @@
 "use client"
 
-import LoginForm from "@/components/auth/LoginForm"
 import Link from "next/link"
 import Image from "next/image"
 import { ArrowLeft } from "lucide-react"
 
-// Floating Geometric Shapes
-const FloatingShape = ({ 
-  className = "", 
-  delay = 0, 
-  shape = "circle" 
-}: { 
-  className?: string; 
-  delay?: number; 
+const FloatingShape = ({
+  className = "",
+  delay = 0,
+  shape = "circle"
+}: {
+  className?: string;
+  delay?: number;
   shape?: "circle" | "square" | "triangle" | "hexagon"
 }) => {
   const shapeClasses = {
@@ -23,7 +21,7 @@ const FloatingShape = ({
   }
 
   return (
-    <div 
+    <div
       className={`absolute ${className}`}
       style={{
         animation: `floatSlow 8s ease-in-out infinite`,
@@ -35,7 +33,7 @@ const FloatingShape = ({
   )
 }
 
-export default function LoginPage() {
+export default function AuthFlowLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <style jsx>{`
@@ -54,7 +52,7 @@ export default function LoginPage() {
           <FloatingShape className="top-1/2 right-1/3" shape="square" delay={5} />
         </div>
         <div className="w-full max-w-md z-10">
-           <div className="text-center mb-6">
+          <div className="text-center mb-6">
             <Link href="/" className="inline-flex items-center text-orange-300 hover:text-orange-100 transition-colors">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Home
@@ -70,10 +68,8 @@ export default function LoginPage() {
                 className="w-16 h-16"
               />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Welcome to ChainReact</h1>
-            <p className="text-orange-200">Automate your workflows with ease</p>
           </div>
-          <LoginForm />
+          {children}
         </div>
       </div>
     </>

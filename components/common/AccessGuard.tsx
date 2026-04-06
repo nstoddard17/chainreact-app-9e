@@ -7,8 +7,8 @@ import { buildAccessSubject } from "@/lib/access-policy/buildAccessSubject"
 import { evaluateAccess } from "@/lib/access-policy/evaluateAccess"
 import { isRecognizedPlan } from "@/lib/access-policy/normalize"
 import type { AccessPlan } from "@/lib/access-policy/types"
-import { PLAN_INFO, PLAN_FEATURES } from "@/lib/utils/plan-restrictions"
 import type { PlanTier } from "@/lib/utils/plan-restrictions"
+import { usePlansStore } from "@/stores/plansStore"
 import { Button } from "@/components/ui/button"
 import { Lock, Sparkles, ArrowRight, Loader2, Check } from "lucide-react"
 import Link from "next/link"
@@ -44,6 +44,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
 export function AccessGuard({ pathname, children }: AccessGuardProps) {
   const { user, profile, phase } = useAuthStore()
   const searchParams = useSearchParams()
+  const { getPlan, getPlanFeatures } = usePlansStore()
   const forceUpgradeModal = searchParams.get('forceUpgradeModal') === 'true'
 
   // Neutral loading state while auth is unresolved
@@ -84,15 +85,18 @@ export function AccessGuard({ pathname, children }: AccessGuardProps) {
 
   // Show upgrade modal
   const requiredPlan: AccessPlan = decision.denial?.requiredPlan ?? 'pro'
-  const planInfo = PLAN_INFO[requiredPlan] ?? PLAN_INFO['pro']
-  const userPlanInfo = PLAN_INFO[subject.plan] ?? PLAN_INFO['free']
+  const requiredPlanData = getPlan(requiredPlan)
+  const userPlanData = getPlan(subject.plan)
+
+  const planInfo = { name: requiredPlanData?.displayName ?? 'Pro', price: requiredPlanData?.priceMonthly ?? 19 }
+  const userPlanInfo = { name: userPlanData?.displayName ?? 'Free' }
 
   const displayName = PAGE_DISPLAY_NAMES[pathname] ?? pathname.replace(/^\//, '').replace(/-/g, ' ')
   const description = PAGE_DESCRIPTIONS[pathname] ?? `Access ${displayName} features`
 
   // Get features for the required plan, filtering out "Everything in X" lines
-  const requiredPlanFeatures = (PLAN_FEATURES[requiredPlan as PlanTier] ?? [])
-    .filter((f) => !f.startsWith('Everything in'))
+  const requiredPlanFeatures = (getPlanFeatures(requiredPlan) ?? [])
+    .filter((f: string) => !f.startsWith('Everything in'))
 
   return (
     <div className="relative min-h-[60vh] w-full">
@@ -141,7 +145,7 @@ export function AccessGuard({ pathname, children }: AccessGuardProps) {
             </div>
 
             <Button asChild size="default" className="w-full bg-orange-500 hover:bg-orange-600">
-              <Link href="/settings/billing">
+              <Link href="/subscription">
                 Upgrade to {planInfo.name}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>

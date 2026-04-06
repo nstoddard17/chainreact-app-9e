@@ -18,8 +18,8 @@
   width: var(--agent-pane-width);
   height: 100%;
   flex-shrink: 0;
-  border-right: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
+  border-right: 1px solid oklch(var(--border));
+  background: oklch(var(--background));
   z-index: 40;
 }
 
@@ -28,7 +28,7 @@
   flex: 1;
   height: 100%;
   position: relative;
-  background: hsl(var(--background));
+  background: oklch(var(--background));
 }
 
 /* Inspector - Right Column */
@@ -36,8 +36,8 @@
   width: var(--inspector-width);
   height: 100%;
   flex-shrink: 0;
-  border-left: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
+  border-left: 1px solid oklch(var(--border));
+  background: oklch(var(--background));
   z-index: 30;
 }
 
@@ -80,8 +80,8 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 0 16px;
-  border-bottom: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
+  border-bottom: 1px solid oklch(var(--border));
+  background: oklch(var(--background));
   z-index: var(--toolbar-z);
 }
 
@@ -90,15 +90,15 @@
   display: flex;
   gap: 12px;  /* Exact 12px gap between tabs */
   padding: 12px 16px;
-  border-bottom: 1px solid hsl(var(--border));
-  background: hsl(var(--background));
+  border-bottom: 1px solid oklch(var(--border));
+  background: oklch(var(--background));
 }
 
 .inspectorTab {
   padding: 8px 12px;
   font-size: 13px;
   font-weight: 500;
-  color: hsl(var(--muted-foreground));
+  color: oklch(var(--muted-foreground));
   background: transparent;
   border: none;
   border-radius: 6px;
@@ -107,12 +107,12 @@
 }
 
 .inspectorTab:hover {
-  background: hsl(var(--accent));
+  background: oklch(var(--accent));
 }
 
 .inspectorTabActive {
-  background: hsl(var(--accent));
-  color: hsl(var(--foreground));
+  background: oklch(var(--accent));
+  color: oklch(var(--foreground));
 }
 
 /* Inspector Content */
@@ -126,7 +126,7 @@
 .card {
   box-shadow: var(--fx-shadow);
   border-radius: 8px;
-  background: hsl(var(--card));
+  background: oklch(var(--card));
   transition: box-shadow var(--motion-fast) var(--eas-out);
 }
 
@@ -136,7 +136,7 @@
 
 /* Canvas Background - 8px dot grid */
 .canvasBackground {
-  background-image: radial-gradient(circle, hsl(var(--muted-foreground) / 0.15) 1px, transparent 1px);
+  background-image: radial-gradient(circle, oklch(var(--muted-foreground) / 0.15) 1px, transparent 1px);
   background-size: var(--canvas-grid-size) var(--canvas-grid-size);
 }
 
@@ -164,9 +164,9 @@
 .ghostButton {
   composes: primaryButton;
   background: transparent;
-  border: 1px solid hsl(var(--border));
+  border: 1px solid oklch(var(--border));
 }
 
 .ghostButton:hover:not(:disabled) {
-  background: hsl(var(--accent));
+  background: oklch(var(--accent));
 }

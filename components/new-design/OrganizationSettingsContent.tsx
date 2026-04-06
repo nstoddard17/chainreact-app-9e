@@ -35,7 +35,6 @@ import {
   CreditCard,
   Settings,
   Users,
-  ChevronRight,
   ArrowLeft,
   Plug,
   Share2,
@@ -159,9 +158,22 @@ export function OrganizationSettingsContent() {
         fetchOrganization(orgIdParam)
       }
     } else if (user && !orgIdParam) {
-      // No org ID provided - show empty state
-      setLoading(false)
-      setOrganization(null)
+      // No org ID provided — try to auto-select the user's org
+      const autoSelect = async () => {
+        try {
+          const res = await fetch('/api/organizations')
+          if (!res.ok) { setLoading(false); return }
+          const orgs = await res.json()
+          if (orgs.length === 1) {
+            router.replace(`/organization-settings?org=${orgs[0].id}`)
+          } else {
+            setLoading(false)
+          }
+        } catch {
+          setLoading(false)
+        }
+      }
+      autoSelect()
     }
   }, [user, orgIdParam])
 
@@ -383,12 +395,10 @@ export function OrganizationSettingsContent() {
     )
   }
 
-  if (!organization) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">No organization selected</p>
-      </div>
-    )
+  if (!organization && !loading) {
+    return <OrganizationPicker onSelect={(orgId) => {
+      router.push(`/organization-settings?org=${orgId}`)
+    }} />
   }
 
   // Show special UI for personal workspaces
@@ -422,68 +432,45 @@ export function OrganizationSettingsContent() {
     )
   }
 
+  // At this point organization is guaranteed non-null by the guards above
+  const org = organization!
+
   return (
     <div className="flex gap-8 max-w-7xl mx-auto">
       {/* Sidebar Navigation */}
-      <aside className="w-64 shrink-0">
-        <div className="sticky top-6 space-y-6">
-          {/* Back Button */}
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/organization?org=${organization.id}`)}
-            className="w-full justify-start gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to {organization.name}
-          </Button>
-
-          {/* Navigation Menu */}
-          <div className="space-y-1">
-          {navigationItems.map((item) => {
-            const Icon = item.icon
-            const isActive = activeSection === item.id
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id)
-                  const orgParam = organization?.id ? `&org=${organization.id}` : ''
-                  router.push(`/organization-settings?section=${item.id}${orgParam}`)
-                }}
-                className={cn(
-                  "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 group",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={cn(
-                    "w-5 h-5 transition-transform group-hover:scale-110",
-                    isActive ? "text-primary-foreground" : ""
-                  )} />
-                  <div className="flex-1">
-                    <div className={cn(
-                      "font-semibold text-sm",
-                      isActive ? "text-primary-foreground" : ""
-                    )}>
-                      {item.label}
-                    </div>
-                    {!isActive && (
-                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                        {item.description}
-                      </div>
-                    )}
-                  </div>
-                  {isActive && (
-                    <ChevronRight className="w-4 h-4 text-primary-foreground" />
-                  )}
-                </div>
-              </button>
-            )
-          })}
+      <aside className="w-52 shrink-0">
+        <div className="sticky top-6">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-foreground">Settings</h2>
+            <p className="text-xs text-muted-foreground truncate">{org.name}</p>
           </div>
+
+          <nav className="space-y-0.5">
+            {navigationItems.map((item) => {
+              const Icon = item.icon
+              const isActive = activeSection === item.id
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveSection(item.id)
+                    const orgParam = org.id ? `&org=${org.id}` : ''
+                    router.push(`/organization-settings?section=${item.id}${orgParam}`)
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors",
+                    isActive
+                      ? "text-foreground font-medium bg-muted"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Icon className="w-4 h-4" />
+                  {item.label}
+                </button>
+              )
+            })}
+          </nav>
         </div>
       </aside>
 
@@ -493,7 +480,7 @@ export function OrganizationSettingsContent() {
         {activeSection === 'general' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">General Settings</h2>
+              <h2 className="text-xl font-semibold">General Settings</h2>
               <p className="text-muted-foreground mt-2">Update your organization's basic information</p>
             </div>
 
@@ -517,7 +504,7 @@ export function OrganizationSettingsContent() {
                   <Label htmlFor="org-slug">URL Slug</Label>
                   <Input
                     id="org-slug"
-                    value={organization.slug}
+                    value={org.slug}
                     disabled
                     className="bg-muted"
                   />
@@ -583,7 +570,7 @@ export function OrganizationSettingsContent() {
         {activeSection === 'integrations' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Integrations</h2>
+              <h2 className="text-xl font-semibold">Integrations</h2>
               <p className="text-muted-foreground mt-2">Manage connected apps for your organization</p>
             </div>
 
@@ -593,7 +580,7 @@ export function OrganizationSettingsContent() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Organization Connections</CardTitle>
-                    <CardDescription>Apps connected directly to {organization.name}</CardDescription>
+                    <CardDescription>Apps connected directly to {org.name}</CardDescription>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -815,19 +802,19 @@ export function OrganizationSettingsContent() {
 
         {/* Teams Section */}
         {activeSection === 'teams' && (
-          <TeamContent organizationId={organization.id} />
+          <TeamContent organizationId={org.id} />
         )}
 
         {/* Members Section */}
         {activeSection === 'members' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Members</h2>
+              <h2 className="text-xl font-semibold">Members</h2>
               <p className="text-muted-foreground mt-2">Manage organization members and their permissions</p>
             </div>
             <OrganizationMembersManager
-              organizationId={organization.id}
-              currentUserRole={organization.user_role as any}
+              organizationId={org.id}
+              currentUserRole={org.user_role as any}
             />
           </div>
         )}
@@ -836,7 +823,7 @@ export function OrganizationSettingsContent() {
         {activeSection === 'billing' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Billing & Subscription</h2>
+              <h2 className="text-xl font-semibold">Billing & Subscription</h2>
               <p className="text-muted-foreground mt-2">Manage your organization's subscription through Stripe</p>
             </div>
 
@@ -990,12 +977,12 @@ export function OrganizationSettingsContent() {
         {activeSection === 'sso' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Single Sign-On</h2>
+              <h2 className="text-xl font-semibold">Single Sign-On</h2>
               <p className="text-muted-foreground mt-2">Configure SAML or OIDC authentication for your organization</p>
             </div>
 
             <SSOConfiguration
-              organizationId={organization.id}
+              organizationId={org.id}
               isOwner={isOwner}
             />
           </div>
@@ -1008,7 +995,7 @@ export function OrganizationSettingsContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{organization.name}</strong> and remove all
+              This will permanently delete <strong>{org.name}</strong> and remove all
               associated data including teams, workflows, and member access. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1048,6 +1035,65 @@ export function OrganizationSettingsContent() {
           }}
         />
       )}
+    </div>
+  )
+}
+
+function OrganizationPicker({ onSelect }: { onSelect: (orgId: string) => void }) {
+  const [orgs, setOrgs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/organizations')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setOrgs(data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (orgs.length === 0) {
+    return (
+      <div className="max-w-md mx-auto text-center py-16">
+        <Building2 className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+        <h2 className="text-lg font-semibold mb-1">No organization yet</h2>
+        <p className="text-sm text-muted-foreground mb-4">Create an organization to collaborate with your team.</p>
+        <Button onClick={() => window.dispatchEvent(new CustomEvent('create-organization'))}>
+          <Plus className="w-4 h-4 mr-1.5" />
+          Create Organization
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-lg mx-auto py-8">
+      <h2 className="text-lg font-semibold mb-1">Select an organization</h2>
+      <p className="text-sm text-muted-foreground mb-4">Choose which organization to manage.</p>
+      <div className="space-y-2">
+        {orgs.map((org: any) => (
+          <button
+            key={org.id}
+            onClick={() => onSelect(org.id)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left hover:bg-muted transition-colors"
+          >
+            <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{org.name}</p>
+              {org.description && <p className="text-xs text-muted-foreground truncate">{org.description}</p>}
+            </div>
+            <span className="text-xs text-muted-foreground">{org.member_count || 0} members</span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

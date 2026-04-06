@@ -13,7 +13,6 @@ import { normalizePlan } from './normalize'
 export function buildAccessSubject(
   profile: {
     plan?: string | null
-    username?: string | null
     admin_capabilities?: Record<string, boolean> | null
   } | null,
   isAuthenticated: boolean
@@ -24,7 +23,6 @@ export function buildAccessSubject(
 
   return {
     isAuthenticated,
-    hasUsername: !!(profile?.username && profile.username.trim() !== ''),
     plan: normalizePlan(profile?.plan),
     isAdmin,
     adminCapabilities: Object.keys(capabilities).length > 0 ? capabilities : undefined,

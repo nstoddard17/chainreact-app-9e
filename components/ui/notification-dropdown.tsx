@@ -82,7 +82,7 @@ export function NotificationDropdown() {
         if (response.status === 403 && error.error?.includes('upgrade')) {
           toast.error('You need to upgrade to a Pro plan or higher to join teams')
           // Redirect to upgrade page
-          router.push('/settings/billing')
+          router.push('/subscription')
           return
         }
 
@@ -212,7 +212,7 @@ export function NotificationDropdown() {
             <div className="px-6 py-8 text-center">
               <Bell className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
               <p className="text-sm text-gray-500 dark:text-gray-400">No notifications</p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">You're all caught up!</p>
+              <p className="text-xs text-gray-400 dark:text-gray-400 mt-1">You're all caught up!</p>
             </div>
           )}
 

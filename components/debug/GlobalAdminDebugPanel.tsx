@@ -87,7 +87,7 @@ export function GlobalAdminDebugPanel() {
       id: profile?.id,
       email: profile?.email,
       admin: isProfileAdmin(profile),
-      username: profile?.username,
+      full_name: profile?.full_name,
     },
     "Workspace Context": {
       type: workspaceContext?.type,

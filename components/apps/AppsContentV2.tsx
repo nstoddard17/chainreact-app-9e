@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,10 @@ import {
   AlertTriangle,
   Zap,
   Search,
-  ChevronDown,
+  X,
+  Plug,
+  Signal,
+  Package,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -32,7 +35,68 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { INTEGRATION_CONFIGS } from "@/lib/integrations/availableIntegrations"
+
+// Category definitions for filter pills
+const CATEGORIES = [
+  { id: "all", label: "All" },
+  { id: "communication", label: "Communication" },
+  { id: "productivity", label: "Productivity" },
+  { id: "crm", label: "CRM" },
+  { id: "storage", label: "Storage" },
+  { id: "e-commerce", label: "Commerce" },
+  { id: "social", label: "Social" },
+  { id: "analytics", label: "Analytics" },
+] as const
+
+// Skeleton card for loading state
+function IntegrationCardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-4 animate-pulse">
+      <div className="flex items-start gap-3">
+        <div className="w-12 h-12 rounded-xl bg-muted" />
+        <div className="flex-1 space-y-2">
+          <div className="h-5 w-24 rounded bg-muted" />
+          <div className="h-4 w-16 rounded-full bg-muted" />
+        </div>
+      </div>
+      <div className="h-4 w-3/4 rounded bg-muted" />
+      <div className="h-9 w-full rounded-lg bg-muted" />
+    </div>
+  )
+}
+
+function IntegrationsSkeletonGrid() {
+  return (
+    <div className="space-y-8">
+      {/* Header skeleton */}
+      <div className="space-y-2">
+        <div className="h-8 w-48 rounded bg-muted animate-pulse" />
+        <div className="h-5 w-80 rounded bg-muted animate-pulse" />
+      </div>
+      {/* Stats skeleton */}
+      <div className="flex gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-7 w-28 rounded-full bg-muted animate-pulse" />
+        ))}
+      </div>
+      {/* Search skeleton */}
+      <div className="h-11 w-full max-w-lg rounded-xl bg-muted animate-pulse" />
+      {/* Grid skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <IntegrationCardSkeleton key={i} />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function AppsContentV2() {
   const { providers, integrations, fetchAllIntegrations, connectIntegration, disconnectIntegration, initializeProviders, loading: storeLoading, lastFetchTime } = useIntegrationStore()
@@ -43,12 +107,11 @@ export function AppsContentV2() {
   const [selectedWorkspaceType, setSelectedWorkspaceType] = useState<'personal' | 'team' | 'organization'>('personal')
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null)
   const [loading, setLocalLoading] = useState<Record<string, boolean>>({})
-  const [activeTab, setActiveTab] = useState<'connected' | 'available' | 'attention'>('connected')
-  const [expandedApp, setExpandedApp] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'all' | 'connected' | 'available' | 'attention'>('all')
+  const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  const [detailProvider, setDetailProvider] = useState<string | null>(null)
   const { toast } = useToast()
 
-  // Show all teams and organizations the user is a member of
-  // Members should be able to connect integrations for their workspaces
   const teams = allTeams
   const organizations = allOrganizations
 
@@ -80,14 +143,12 @@ export function AppsContentV2() {
 
   // Provider mapping for shared OAuth - maps UI provider IDs to stored integration providers
   const providerMapping: Record<string, string> = {
-    // Google services - stored as 'google' in integrations table
     'gmail': 'google',
     'google-docs': 'google',
     'google-drive': 'google',
     'google-sheets': 'google',
     'google-calendar': 'google',
     'google-analytics': 'google',
-    // Microsoft services - stored as their OAuth provider
     'outlook': 'microsoft-outlook',
     'teams': 'microsoft-outlook',
     'microsoft-teams': 'microsoft-outlook',
@@ -96,12 +157,10 @@ export function AppsContentV2() {
     'onedrive': 'microsoft-outlook',
   }
 
-  const getConnectionStatus = (providerId: string) => {
-    // First try exact match
+  const getConnectionStatus = useCallback((providerId: string) => {
     const directConnection = integrations.find(i => i.provider === providerId)
     if (directConnection) return directConnection
 
-    // Try mapped provider (e.g., gmail -> google)
     const mappedProvider = providerMapping[providerId]
     if (mappedProvider) {
       const mappedConnection = integrations.find(i => i.provider === mappedProvider)
@@ -115,7 +174,6 @@ export function AppsContentV2() {
       }
     }
 
-    // Fallback to config-based sharesAuthWith
     const config = INTEGRATION_CONFIGS[providerId]
     if (config?.sharesAuthWith) {
       const sharedConnection = integrations.find(i => i.provider === config.sharesAuthWith)
@@ -129,22 +187,18 @@ export function AppsContentV2() {
       }
     }
     return undefined
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [integrations])
 
-  const getConnectedAccounts = (providerId: string) => {
-    // Use the shared providerMapping defined above
+  const getConnectedAccounts = useCallback((providerId: string) => {
     const actualProvider = providerMapping[providerId] || providerId
-
-    // First try exact match
     let accounts = integrations.filter(i => i.provider === providerId && i.status === 'connected')
-
-    // If no exact match and we have a mapping, try the mapped provider
     if (accounts.length === 0 && actualProvider !== providerId) {
       accounts = integrations.filter(i => i.provider === actualProvider && i.status === 'connected')
     }
-
     return accounts
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [integrations])
 
   const formatConnectedDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -198,12 +252,14 @@ export function AppsContentV2() {
     }
   }
 
-  // All available apps filtered by search
+  // Filtered app lists
   const allAvailableApps = providers.filter(provider => {
     if (["ai", "logic", "control"].includes(provider.id)) return false
     const matchesSearch = searchQuery === "" ||
       provider.name.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSearch
+    const config = INTEGRATION_CONFIGS[provider.id]
+    const matchesCategory = selectedCategory === "all" || config?.category === selectedCategory
+    return matchesSearch && matchesCategory
   }).sort((a, b) => a.name.localeCompare(b.name))
 
   const appsNeedingAttention = providers.filter(provider => {
@@ -218,11 +274,12 @@ export function AppsContentV2() {
     return accounts.length > 0
   })
 
-  // Filter based on search
   const filteredConnectedApps = connectedApps.filter(provider => {
     const matchesSearch = searchQuery === "" ||
       provider.name.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSearch
+    const config = INTEGRATION_CONFIGS[provider.id]
+    const matchesCategory = selectedCategory === "all" || config?.category === selectedCategory
+    return matchesSearch && matchesCategory
   })
 
   const stats = {
@@ -235,334 +292,9 @@ export function AppsContentV2() {
   const isInitialLoading = (providers.length === 0 && storeLoading) ||
     (providers.length > 0 && !hasInitialFetchCompleted && storeLoading)
 
+  // Loading skeleton
   if (isInitialLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
-          <p className="text-sm text-muted-foreground">Loading apps and integrations...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Render a single column expandable app row
-  const renderAppRow = (provider: typeof providers[0]) => {
-    const accounts = getConnectedAccounts(provider.id)
-    const isConnected = accounts.length > 0
-    const isExpired = accounts.some(a => a.status === 'expired' || a.status === 'needs_reauthorization')
-    const isExpanded = expandedApp === provider.id
-
-    return (
-      <div
-        key={provider.id}
-        className={cn(
-          "border rounded-xl bg-card overflow-hidden transition-all",
-          isExpired ? "border-destructive/30" : isConnected ? "border-green-500/20" : "border-border",
-          isExpanded && "ring-2 ring-primary/20"
-        )}
-      >
-        {/* Row Header - Always visible */}
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={(e) => {
-            // Don't toggle expand if clicking on the connect button
-            if ((e.target as HTMLElement).closest('button')) return
-            setExpandedApp(isExpanded ? null : provider.id)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              setExpandedApp(isExpanded ? null : provider.id)
-            }
-          }}
-          className={cn(
-            "w-full flex items-center gap-4 p-4 text-left transition-colors cursor-pointer",
-            "hover:bg-muted/30"
-          )}
-        >
-          {/* App Icon */}
-          <div className="relative flex-shrink-0">
-            <div className={cn(
-              "w-12 h-12 rounded-xl border-2 flex items-center justify-center bg-white dark:bg-slate-900",
-              isExpired ? "border-destructive/40" : isConnected ? "border-green-500/40" : "border-border"
-            )}>
-              <img
-                src={getIntegrationLogoPath(provider.id, theme)}
-                alt={provider.name}
-                className={getIntegrationLogoClasses(provider.id, "w-6 h-6")}
-                onError={(e) => { e.currentTarget.style.display = 'none' }}
-              />
-            </div>
-            {isConnected && !isExpired && (
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-green-500 border-2 border-white dark:border-slate-900 flex items-center justify-center">
-                <Check className="w-3 h-3 text-white" />
-              </div>
-            )}
-            {isExpired && (
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-destructive border-2 border-white dark:border-slate-900 flex items-center justify-center">
-                <AlertTriangle className="w-3 h-3 text-white" />
-              </div>
-            )}
-          </div>
-
-          {/* App Info */}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-base">{provider.name}</h3>
-            {isConnected ? (
-              <p className={cn(
-                "text-sm",
-                isExpired ? "text-destructive" : "text-green-600 dark:text-green-400"
-              )}>
-                {isExpired ? 'Needs reconnection' : `${accounts.length} account${accounts.length !== 1 ? 's' : ''} connected`}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">Not connected</p>
-            )}
-          </div>
-
-          {/* Quick Connect Button (when not expanded and not connected) */}
-          {!isExpanded && !isConnected && (
-            <Button
-              type="button"
-              size="sm"
-              onClick={async (e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                try {
-                  await handleConnect(provider.id)
-                } catch (err) {
-                  logger.error('[AppsContentV2] Unhandled error in connect button:', err)
-                }
-              }}
-              disabled={loading[provider.id]}
-              className="flex-shrink-0"
-            >
-              {loading[provider.id] ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-1" />
-                  Connect
-                </>
-              )}
-            </Button>
-          )}
-
-          {/* Expand/Collapse indicator */}
-          <div className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center transition-all flex-shrink-0",
-            isExpanded ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-          )}>
-            <ChevronDown className={cn(
-              "w-4 h-4 transition-transform",
-              isExpanded && "rotate-180"
-            )} />
-          </div>
-        </div>
-
-        {/* Expanded Content */}
-        {isExpanded && (
-          <div className="border-t px-4 pb-4 pt-3 space-y-4 bg-muted/20">
-            {/* Connected Accounts */}
-            {accounts.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Connected Accounts
-                </h4>
-                <div className="space-y-2">
-                  {accounts.map(account => {
-                    const accountIdentifier = account.email
-                      || account.username
-                      || account.account_name
-                      || account.metadata?.email
-                      || account.metadata?.name
-                      || `${provider.name} account`
-                    const accountExpired = account.status === 'expired' || account.status === 'needs_reauthorization'
-                    // Get avatar from top-level field or metadata (different providers store it differently)
-                    const accountAvatar = account.avatar_url
-                      || account.metadata?.avatar_url
-                      || account.metadata?.picture
-                      || account.metadata?.profile_picture_url
-
-                    return (
-                      <div
-                        key={account.id}
-                        className={cn(
-                          "flex items-center gap-3 p-3 rounded-lg border bg-card",
-                          accountExpired && "border-destructive/30 bg-destructive/5"
-                        )}
-                      >
-                        {/* Account Avatar - use profile picture if available */}
-                        {accountAvatar ? (
-                          <img
-                            src={accountAvatar}
-                            alt={accountIdentifier}
-                            className={cn(
-                              "w-8 h-8 rounded-full object-cover flex-shrink-0 border-2",
-                              accountExpired ? "border-destructive/30" : "border-primary/20"
-                            )}
-                            onError={(e) => {
-                              // Fallback to letter avatar on image load error
-                              e.currentTarget.style.display = 'none'
-                              const fallback = e.currentTarget.nextElementSibling as HTMLElement
-                              if (fallback) fallback.style.display = 'flex'
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0",
-                            accountExpired ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary",
-                            accountAvatar && "hidden" // Hide when avatar is shown
-                          )}
-                        >
-                          {accountIdentifier.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <p className="text-sm font-medium truncate">{accountIdentifier}</p>
-                            {/* Workspace type indicator */}
-                            {account.workspace_type === 'team' && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300" title="Team workspace">
-                                <Users className="w-2.5 h-2.5" />
-                                Team
-                              </span>
-                            )}
-                            {account.workspace_type === 'organization' && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300" title="Organization workspace">
-                                <Building className="w-2.5 h-2.5" />
-                                Org
-                              </span>
-                            )}
-                            {(!account.workspace_type || account.workspace_type === 'personal') && (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" title="Personal workspace">
-                                <Home className="w-2.5 h-2.5" />
-                                Personal
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {accountExpired ? (
-                              <span className="text-destructive">Needs reconnection</span>
-                            ) : (
-                              `Connected ${formatConnectedDate(account.created_at)}`
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          {accountExpired && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleConnect(provider.id)}
-                              disabled={loading[provider.id]}
-                              className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
-                            >
-                              {loading[provider.id] ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <>
-                                  <RefreshCw className="w-3 h-3 mr-1" />
-                                  Reconnect
-                                </>
-                              )}
-                            </Button>
-                          )}
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDisconnect(account.id, provider.name)}
-                            disabled={loading[account.id]}
-                            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          >
-                            {loading[account.id] ? (
-                              <RefreshCw className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Add Account Section */}
-            <div className="flex items-center gap-3 pt-2">
-              {(teams.length > 0 || organizations.length > 0) && (
-                <Select
-                  value={selectedWorkspaceType === 'personal' ? 'personal' : `${selectedWorkspaceType}-${selectedWorkspaceId}`}
-                  onValueChange={(value) => {
-                    if (value === 'personal') {
-                      setSelectedWorkspaceType('personal')
-                      setSelectedWorkspaceId(null)
-                    } else {
-                      const [type, id] = value.split('-')
-                      setSelectedWorkspaceType(type as 'team' | 'organization')
-                      setSelectedWorkspaceId(id)
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-40 h-9">
-                    <SelectValue placeholder="Workspace" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="personal">
-                      <div className="flex items-center gap-2">
-                        <Home className="w-4 h-4" />
-                        <span>Personal</span>
-                      </div>
-                    </SelectItem>
-                    {teams.map(team => (
-                      <SelectItem key={team.id} value={`team-${team.id}`}>
-                        <div className="flex items-center gap-2">
-                          <Users className="w-4 h-4" />
-                          <span>{team.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                    {organizations.map(org => (
-                      <SelectItem key={org.id} value={`organization-${org.id}`}>
-                        <div className="flex items-center gap-2">
-                          <Building className="w-4 h-4" />
-                          <span>{org.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <Button
-                type="button"
-                onClick={async (e) => {
-                  e.preventDefault()
-                  try {
-                    await handleConnect(provider.id)
-                  } catch (err) {
-                    logger.error('[AppsContentV2] Unhandled error in connect button:', err)
-                  }
-                }}
-                disabled={loading[provider.id]}
-                className="h-9"
-              >
-                {loading[provider.id] ? (
-                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Plus className="w-4 h-4 mr-2" />
-                )}
-                {accounts.length > 0 ? 'Add Account' : 'Connect'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    )
+    return <IntegrationsSkeletonGrid />
   }
 
   // Get the list of apps to show based on active tab
@@ -574,130 +306,343 @@ export function AppsContentV2() {
         return allAvailableApps
       case 'attention':
         return appsNeedingAttention
+      case 'all':
       default:
-        return []
+        return allAvailableApps
     }
   }
 
   const appsList = getAppsList()
 
+  // Detail sheet provider data
+  const detailProviderData = detailProvider ? providers.find(p => p.id === detailProvider) : null
+  const detailAccounts = detailProvider ? getConnectedAccounts(detailProvider) : []
+  const detailConfig = detailProvider ? INTEGRATION_CONFIGS[detailProvider] : null
+
   return (
     <div className="space-y-6">
-      {/* Tabs + Search Row */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        {/* Tab Pills */}
-        <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg">
-          <button
-            onClick={() => { setActiveTab('connected'); setExpandedApp(null) }}
-            className={cn(
-              "px-4 py-2 text-sm font-medium rounded-md transition-all",
-              activeTab === 'connected'
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Connected
-            <span className={cn(
-              "ml-2 px-1.5 py-0.5 text-xs rounded-full",
-              activeTab === 'connected' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-            )}>
-              {stats.connected}
-            </span>
-          </button>
-          <button
-            onClick={() => { setActiveTab('available'); setExpandedApp(null) }}
-            className={cn(
-              "px-4 py-2 text-sm font-medium rounded-md transition-all",
-              activeTab === 'available'
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Available
-            <span className={cn(
-              "ml-2 px-1.5 py-0.5 text-xs rounded-full",
-              activeTab === 'available' ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-            )}>
-              {stats.available}
-            </span>
-          </button>
-          {stats.needsAttention > 0 && (
-            <button
-              onClick={() => { setActiveTab('attention'); setExpandedApp(null) }}
-              className={cn(
-                "px-4 py-2 text-sm font-medium rounded-md transition-all",
-                activeTab === 'attention'
-                  ? "bg-destructive/10 text-destructive shadow-sm"
-                  : "text-destructive/70 hover:text-destructive"
-              )}
-            >
-              Attention
-              <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-destructive/20 text-destructive">
-                {stats.needsAttention}
-              </span>
-            </button>
-          )}
+      {/* Header Section */}
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight animate-fade-in">Integrations</h1>
+          <p className="text-muted-foreground mt-1 animate-fade-in">
+            Connect your favorite tools to automate workflows
+          </p>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search apps..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-9 pl-9 pr-4 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-          />
+        {/* Stats Pills */}
+        <div className="flex flex-wrap gap-2 animate-fade-in">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/20">
+            <Signal className="w-3 h-3" />
+            {stats.connected} connected
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
+            <Package className="w-3 h-3" />
+            {stats.available} available
+          </span>
+          {stats.needsAttention > 0 && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
+              <AlertTriangle className="w-3 h-3" />
+              {stats.needsAttention} need attention
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Apps List - Single Column */}
+      {/* Search Bar */}
+      <div className="relative w-full max-w-lg animate-fade-in">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Search integrations..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-11 pl-10 pr-10 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/60"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-muted flex items-center justify-center hover:bg-muted-foreground/20 transition-colors"
+          >
+            <X className="w-3 h-3 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+
+      {/* Tab/Filter Bar */}
+      <div className="space-y-3">
+        {/* Status Tabs */}
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { id: 'all' as const, label: 'All', count: stats.available },
+            { id: 'connected' as const, label: 'Connected', count: stats.connected },
+            { id: 'available' as const, label: 'Available', count: stats.available },
+            ...(stats.needsAttention > 0 ? [{ id: 'attention' as const, label: 'Needs Attention', count: stats.needsAttention }] : []),
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { setActiveTab(tab.id); setDetailProvider(null) }}
+              className={cn(
+                "px-4 py-2 text-sm font-medium rounded-full transition-all border",
+                activeTab === tab.id
+                  ? tab.id === 'attention'
+                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-500/30"
+                    : "bg-gradient-to-r from-orange-500/10 to-rose-500/10 text-foreground border-orange-300/50 dark:border-orange-500/30 shadow-sm"
+                  : "bg-transparent text-muted-foreground border-transparent hover:bg-muted/50 hover:text-foreground"
+              )}
+            >
+              {tab.label}
+              <span className={cn(
+                "ml-2 px-1.5 py-0.5 text-xs rounded-full",
+                activeTab === tab.id
+                  ? tab.id === 'attention'
+                    ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+                    : "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground"
+              )}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className="flex flex-wrap gap-1.5">
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={cn(
+                "px-3 py-1 text-xs font-medium rounded-full transition-all",
+                selectedCategory === cat.id
+                  ? "bg-foreground text-background shadow-sm"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Integration Card Grid */}
       {appsList.length > 0 ? (
-        <div className="space-y-3">
-          {appsList.map(provider => renderAppRow(provider))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {appsList.map((provider, index) => {
+            const accounts = getConnectedAccounts(provider.id)
+            const isConnected = accounts.length > 0
+            const connection = getConnectionStatus(provider.id)
+            const isExpired = accounts.some(a => a.status === 'expired' || a.status === 'needs_reauthorization')
+            const config = INTEGRATION_CONFIGS[provider.id]
+            const categoryLabel = config?.category
+              ? config.category.charAt(0).toUpperCase() + config.category.slice(1)
+              : "Integration"
+
+            return (
+              <div
+                key={provider.id}
+                className={cn(
+                  "group relative rounded-xl border bg-card overflow-hidden transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer animate-fade-in-up",
+                  isExpired
+                    ? "border-amber-400/40 dark:border-amber-500/30"
+                    : isConnected
+                      ? "border-l-[3px] border-l-green-500 border-t border-r border-b border-border"
+                      : "border-border"
+                )}
+                style={{
+                  animationDelay: `${index * 50}ms`,
+                  animationFillMode: 'both',
+                }}
+                onClick={() => {
+                  if (isConnected || isExpired) {
+                    setDetailProvider(provider.id)
+                  }
+                }}
+              >
+                {/* Expired accent bar */}
+                {isExpired && (
+                  <div className="h-1 w-full bg-gradient-to-r from-amber-400 to-orange-400" />
+                )}
+
+                <div className="p-5 space-y-4">
+                  {/* Top: Icon + Name + Category */}
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        "relative w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 border",
+                        isExpired
+                          ? "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
+                          : isConnected
+                            ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/20"
+                            : "bg-muted/50 border-border"
+                      )}
+                    >
+                      <img
+                        src={getIntegrationLogoPath(provider.id, theme)}
+                        alt={provider.name}
+                        className={getIntegrationLogoClasses(provider.id, "w-7 h-7")}
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm leading-tight">{provider.name}</h3>
+                      <span className={cn(
+                        "inline-block mt-1 px-2 py-0.5 text-[10px] font-medium rounded-full",
+                        "bg-muted text-muted-foreground"
+                      )}>
+                        {categoryLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Middle: Description or Status */}
+                  <div className="min-h-[2.5rem]">
+                    {isConnected && !isExpired ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                        </span>
+                        <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                          {accounts.length} account{accounts.length !== 1 ? 's' : ''} connected
+                        </span>
+                      </div>
+                    ) : isExpired ? (
+                      <div className="flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-sm text-amber-600 dark:text-amber-400 font-medium">
+                          Needs reconnection
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                        {config?.description || `Connect ${provider.name} to your workflows`}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Bottom: Action Button */}
+                  <div>
+                    {isConnected && !isExpired ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-9 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30 bg-green-50/50 dark:bg-green-500/5 hover:bg-green-100 dark:hover:bg-green-500/10"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDetailProvider(provider.id)
+                        }}
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                        Connected
+                      </Button>
+                    ) : isExpired ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-9 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5 hover:bg-amber-100 dark:hover:bg-amber-500/10"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDetailProvider(provider.id)
+                        }}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-1.5" />
+                        Reconnect
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-9 group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          e.preventDefault()
+                          try {
+                            await handleConnect(provider.id)
+                          } catch (err) {
+                            logger.error('[AppsContentV2] Unhandled error in connect button:', err)
+                          }
+                        }}
+                        disabled={loading[provider.id]}
+                      >
+                        {loading[provider.id] ? (
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Plug className="w-4 h-4 mr-1.5" />
+                            Connect
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center border rounded-xl bg-muted/20">
-          <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mb-4">
+        /* Empty States */
+        <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+          <div className={cn(
+            "w-16 h-16 rounded-2xl flex items-center justify-center mb-5",
+            activeTab === 'attention'
+              ? "bg-green-100 dark:bg-green-500/10"
+              : "bg-muted"
+          )}>
             {activeTab === 'connected' ? (
-              <Zap className="w-7 h-7 text-muted-foreground" />
+              <Zap className="w-8 h-8 text-muted-foreground" />
             ) : activeTab === 'attention' ? (
-              <CheckCircle2 className="w-7 h-7 text-green-500" />
+              <CheckCircle2 className="w-8 h-8 text-green-500" />
             ) : (
-              <Search className="w-7 h-7 text-muted-foreground" />
+              <Search className="w-8 h-8 text-muted-foreground" />
             )}
           </div>
-          <h3 className="text-base font-medium">
-            {activeTab === 'connected' ? 'No connected apps' :
-             activeTab === 'attention' ? 'All apps are healthy' :
-             'No apps found'}
+          <h3 className="text-lg font-semibold">
+            {activeTab === 'connected' ? 'No connected integrations yet' :
+             activeTab === 'attention' ? 'All integrations are healthy' :
+             searchQuery ? 'No integrations found' : 'No integrations available'}
           </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            {activeTab === 'connected' ? 'Browse available apps to get started' :
-             activeTab === 'attention' ? 'No apps need your attention right now' :
-             'Try adjusting your search'}
+          <p className="text-sm text-muted-foreground mt-2 max-w-sm">
+            {activeTab === 'connected' ? 'Connect your first integration to start automating your workflows.' :
+             activeTab === 'attention' ? 'All your integrations are running smoothly. No action needed.' :
+             searchQuery ? `No results for "${searchQuery}". Try a different search term.` :
+             'Check back later for new integrations.'}
           </p>
           {activeTab === 'connected' && (
             <Button
               type="button"
+              size="sm"
+              className="mt-5"
+              onClick={() => setActiveTab('all')}
+            >
+              <Plug className="w-4 h-4 mr-1.5" />
+              Browse Integrations
+            </Button>
+          )}
+          {searchQuery && (
+            <Button
+              type="button"
               variant="outline"
               size="sm"
-              className="mt-4"
-              onClick={() => setActiveTab('available')}
+              className="mt-5"
+              onClick={() => setSearchQuery("")}
             >
-              Browse Apps
+              Clear Search
             </Button>
           )}
         </div>
       )}
 
       {/* Footer Help */}
-      <div className="p-5 border rounded-xl bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-6 border rounded-xl bg-gradient-to-r from-muted/30 to-muted/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="font-medium text-sm">Need a custom integration?</h3>
-          <p className="text-sm text-muted-foreground">
-            Request a new integration or use our API
+          <h3 className="font-semibold text-sm">Need a custom integration?</h3>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Request a new integration or use our API to build your own
           </p>
         </div>
         <div className="flex gap-2">
@@ -711,6 +656,281 @@ export function AppsContentV2() {
           </Button>
         </div>
       </div>
+
+      {/* Detail Slide-Out Panel */}
+      <Sheet open={!!detailProvider} onOpenChange={(open) => { if (!open) setDetailProvider(null) }}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          {detailProviderData && (
+            <div className="space-y-6">
+              <SheetHeader className="space-y-4">
+                {/* Provider header */}
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-14 h-14 rounded-xl flex items-center justify-center border",
+                    detailAccounts.some(a => a.status === 'expired' || a.status === 'needs_reauthorization')
+                      ? "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20"
+                      : detailAccounts.length > 0
+                        ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/20"
+                        : "bg-muted/50 border-border"
+                  )}>
+                    <img
+                      src={getIntegrationLogoPath(detailProviderData.id, theme)}
+                      alt={detailProviderData.name}
+                      className={getIntegrationLogoClasses(detailProviderData.id, "w-8 h-8")}
+                      onError={(e) => { e.currentTarget.style.display = 'none' }}
+                    />
+                  </div>
+                  <div>
+                    <SheetTitle className="text-xl">{detailProviderData.name}</SheetTitle>
+                    {detailConfig?.category && (
+                      <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground">
+                        {detailConfig.category.charAt(0).toUpperCase() + detailConfig.category.slice(1)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {detailConfig?.description && (
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {detailConfig.description}
+                  </p>
+                )}
+              </SheetHeader>
+
+              {/* Capabilities */}
+              {detailConfig?.capabilities && detailConfig.capabilities.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Capabilities
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detailConfig.capabilities.map(cap => (
+                      <span
+                        key={cap}
+                        className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-lg bg-muted/70 text-muted-foreground"
+                      >
+                        {cap}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Connected Accounts */}
+              {detailAccounts.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Connected Accounts
+                  </h4>
+                  <div className="space-y-2">
+                    {detailAccounts.map(account => {
+                      const accountIdentifier = account.email
+                        || account.username
+                        || account.account_name
+                        || account.metadata?.email
+                        || account.metadata?.name
+                        || `${detailProviderData.name} account`
+                      const accountExpired = account.status === 'expired' || account.status === 'needs_reauthorization'
+                      const accountAvatar = account.avatar_url
+                        || account.metadata?.avatar_url
+                        || account.metadata?.picture
+                        || account.metadata?.profile_picture_url
+
+                      return (
+                        <div
+                          key={account.id}
+                          className={cn(
+                            "flex items-center gap-3 p-3.5 rounded-xl border bg-card transition-colors",
+                            accountExpired ? "border-amber-300 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/5" : "border-border"
+                          )}
+                        >
+                          {/* Account Avatar */}
+                          {accountAvatar ? (
+                            <img
+                              src={accountAvatar}
+                              alt={accountIdentifier}
+                              className={cn(
+                                "w-9 h-9 rounded-full object-cover flex-shrink-0 border-2",
+                                accountExpired ? "border-amber-300 dark:border-amber-500/30" : "border-green-200 dark:border-green-500/20"
+                              )}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                                const fallback = e.currentTarget.nextElementSibling as HTMLElement
+                                if (fallback) fallback.style.display = 'flex'
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={cn(
+                              "w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0",
+                              accountExpired ? "bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400" : "bg-primary/10 text-primary",
+                              accountAvatar && "hidden"
+                            )}
+                          >
+                            {accountIdentifier.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-sm font-medium truncate">{accountIdentifier}</p>
+                              {/* Workspace type badge */}
+                              {account.workspace_type === 'team' && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                  <Users className="w-2.5 h-2.5" />
+                                  Team
+                                </span>
+                              )}
+                              {account.workspace_type === 'organization' && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                                  <Building className="w-2.5 h-2.5" />
+                                  Org
+                                </span>
+                              )}
+                              {(!account.workspace_type || account.workspace_type === 'personal') && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                  <Home className="w-2.5 h-2.5" />
+                                  Personal
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {accountExpired ? (
+                                <span className="text-amber-600 dark:text-amber-400 font-medium">Needs reconnection</span>
+                              ) : (
+                                `Connected ${formatConnectedDate(account.created_at)}`
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {accountExpired && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleConnect(detailProviderData.id)}
+                                disabled={loading[detailProviderData.id]}
+                                className="h-8 text-xs border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                              >
+                                {loading[detailProviderData.id] ? (
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <RefreshCw className="w-3 h-3 mr-1" />
+                                    Reconnect
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDisconnect(account.id, detailProviderData.name)}
+                              disabled={loading[account.id]}
+                              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            >
+                              {loading[account.id] ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Add Account Section */}
+              <div className="space-y-3 pt-2 border-t">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-2">
+                  {detailAccounts.length > 0 ? 'Add Another Account' : 'Connect Account'}
+                </h4>
+                <div className="flex items-center gap-3">
+                  {(teams.length > 0 || organizations.length > 0) && (
+                    <Select
+                      value={selectedWorkspaceType === 'personal' ? 'personal' : `${selectedWorkspaceType}-${selectedWorkspaceId}`}
+                      onValueChange={(value) => {
+                        if (value === 'personal') {
+                          setSelectedWorkspaceType('personal')
+                          setSelectedWorkspaceId(null)
+                        } else {
+                          const [type, id] = value.split('-')
+                          setSelectedWorkspaceType(type as 'team' | 'organization')
+                          setSelectedWorkspaceId(id)
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-40 h-9">
+                        <SelectValue placeholder="Workspace" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="personal">
+                          <div className="flex items-center gap-2">
+                            <Home className="w-4 h-4" />
+                            <span>Personal</span>
+                          </div>
+                        </SelectItem>
+                        {teams.map(team => (
+                          <SelectItem key={team.id} value={`team-${team.id}`}>
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4" />
+                              <span>{team.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                        {organizations.map(org => (
+                          <SelectItem key={org.id} value={`organization-${org.id}`}>
+                            <div className="flex items-center gap-2">
+                              <Building className="w-4 h-4" />
+                              <span>{org.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Button
+                    type="button"
+                    onClick={async (e) => {
+                      e.preventDefault()
+                      try {
+                        await handleConnect(detailProviderData.id)
+                      } catch (err) {
+                        logger.error('[AppsContentV2] Unhandled error in connect button:', err)
+                      }
+                    }}
+                    disabled={loading[detailProviderData.id]}
+                    className="h-9 flex-1"
+                  >
+                    {loading[detailProviderData.id] ? (
+                      <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Plus className="w-4 h-4 mr-2" />
+                    )}
+                    {detailAccounts.length > 0 ? 'Add Account' : 'Connect'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Docs link */}
+              {detailConfig?.docsUrl && (
+                <div className="pt-2">
+                  <a
+                    href={detailConfig.docsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    View API Documentation
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

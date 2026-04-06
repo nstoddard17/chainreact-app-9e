@@ -56,7 +56,7 @@ export function NavPanel({ section, isPanelOpen, onClose }: NavPanelProps) {
                   "flex items-center gap-3 h-10 px-3 rounded-md text-[15px] transition-colors relative",
                   active
                     ? "bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 font-medium"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900"
+                    : "text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-900"
                 )}
               >
                 {active && (

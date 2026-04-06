@@ -60,7 +60,7 @@ const STATUS_CONFIG: Record<string, { label: string; iconColor: string; badgeCla
 
 const DEFAULT_STATUS = {
   label: "Unknown",
-  iconColor: "text-gray-400 dark:text-gray-500",
+  iconColor: "text-gray-400 dark:text-gray-400",
   badgeClass: "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-500/20 dark:text-gray-300 dark:border-gray-500/40",
 }
 

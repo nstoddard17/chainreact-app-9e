@@ -1,8 +1,8 @@
 /**
  * Canonical access policy types.
  *
- * Route access is determined by four inputs only:
- *   authentication + username + plan + admin flag
+ * Route access is determined by three inputs only:
+ *   authentication + plan + admin flag
  */
 
 /** Normalized billing tier. Beta variants are mapped to 'pro' before reaching the evaluator. */
@@ -11,7 +11,6 @@ export type AccessPlan = 'free' | 'pro' | 'team' | 'business' | 'enterprise'
 /** Evaluator input — built via buildAccessSubject(). */
 export interface AccessSubject {
   isAuthenticated: boolean
-  hasUsername: boolean
   plan: AccessPlan
   isAdmin: boolean
   adminCapabilities?: Record<string, boolean>
@@ -21,7 +20,7 @@ export interface AccessSubject {
 export interface AccessDecision {
   allowed: boolean
   denial?: {
-    reason: 'not-authenticated' | 'missing-username' | 'plan-insufficient' | 'admin-only'
+    reason: 'not-authenticated' | 'plan-insufficient' | 'admin-only'
     redirectTo?: string
     requiredPlan?: AccessPlan
     showUpgradeModal?: boolean

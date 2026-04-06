@@ -29,7 +29,7 @@ const PIE_COLORS = [
   'hsl(30, 60%, 50%)',   // orange
   'hsl(200, 60%, 50%)',  // blue
   'hsl(260, 60%, 50%)',  // purple
-  'hsl(var(--muted-foreground))', // gray
+  'oklch(var(--muted-foreground))', // gray
 ]
 
 export function TrustSection({ data }: TrustSectionProps) {
@@ -67,8 +67,8 @@ export function TrustSection({ data }: TrustSectionProps) {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: 'oklch(var(--card))',
+                    border: '1px solid oklch(var(--border))',
                     borderRadius: '6px',
                     fontSize: '11px',
                   }}
@@ -94,12 +94,12 @@ export function TrustSection({ data }: TrustSectionProps) {
             <p className="text-xs text-muted-foreground mb-1">Weekly Trends</p>
             <ResponsiveContainer width="100%" height={80}>
               <LineChart data={data.weekly_trends}>
-                <XAxis dataKey="week" tick={{ fontSize: 9 }} tickFormatter={w => w.substring(5)} stroke="hsl(var(--muted-foreground))" />
-                <YAxis tick={{ fontSize: 9 }} width={25} domain={[0, 1]} tickFormatter={v => `${(v * 100).toFixed(0)}%`} stroke="hsl(var(--muted-foreground))" />
+                <XAxis dataKey="week" tick={{ fontSize: 9 }} tickFormatter={w => w.substring(5)} stroke="oklch(var(--muted-foreground))" />
+                <YAxis tick={{ fontSize: 9 }} width={25} domain={[0, 1]} tickFormatter={v => `${(v * 100).toFixed(0)}%`} stroke="oklch(var(--muted-foreground))" />
                 <Line type="monotone" dataKey="test_pass_rate" stroke="hsl(200, 60%, 50%)" strokeWidth={2} dot={false} name="Test Pass" />
                 <Line type="monotone" dataKey="activation_success_rate" stroke="hsl(142, 60%, 50%)" strokeWidth={2} dot={false} name="Activation" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '6px', fontSize: '11px' }}
+                  contentStyle={{ backgroundColor: 'oklch(var(--card))', border: '1px solid oklch(var(--border))', borderRadius: '6px', fontSize: '11px' }}
                   formatter={(v: number, name: string) => [`${(v * 100).toFixed(1)}%`, name]}
                 />
               </LineChart>

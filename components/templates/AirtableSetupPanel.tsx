@@ -258,7 +258,7 @@ export function AirtableSetupPanel({ templateId, workflowId, onSetupLoaded }: Te
                 <CardTitle className="text-base sm:text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
                   {primaryTargetLabel ? `${primaryTargetLabel} Setup Required` : 'Template Setup Required'}
                 </CardTitle>
-                <CardDescription className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                <CardDescription className="text-xs sm:text-sm text-slate-600 dark:text-slate-200 leading-relaxed">
                   {requirements.length} integration setup step{requirements.length === 1 ? '' : 's'} detected. Complete these before running the workflow for the best experience.
                 </CardDescription>
                 {overview?.summary && (
@@ -308,12 +308,12 @@ export function AirtableSetupPanel({ templateId, workflowId, onSetupLoaded }: Te
                           {section.title || `Section ${index + 1}`}
                         </p>
                         {section.description && (
-                          <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 mt-1">
+                          <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-200 mt-1">
                             {section.description}
                           </p>
                         )}
                         {section.items && section.items.length > 0 && (
-                          <ul className="mt-1.5 sm:mt-2 space-y-0.5 sm:space-y-1 list-disc pl-3 sm:pl-4 text-[11px] sm:text-xs text-slate-600 dark:text-slate-400">
+                          <ul className="mt-1.5 sm:mt-2 space-y-0.5 sm:space-y-1 list-disc pl-3 sm:pl-4 text-[11px] sm:text-xs text-slate-600 dark:text-slate-200">
                             {section.items.map((item, itemIndex) => (
                               <li key={`${section.title ?? 'section'}-${itemIndex}`}>{item}</li>
                             ))}
@@ -556,7 +556,7 @@ function AirtableRequirementCard({
                     {/* Description - Takes remaining space */}
                     {table.description && (
                       <p
-                        className="text-sm text-slate-600 dark:text-slate-400 flex-1 min-w-0 truncate"
+                        className="text-sm text-slate-600 dark:text-slate-200 flex-1 min-w-0 truncate"
                         title={table.description}
                       >
                         {table.description}
@@ -609,13 +609,13 @@ function AirtableRequirementCard({
                                   {field.type.replace(/([A-Z])/g, ' $1').trim()}
                                 </Badge>
                                 {field.options && field.options.length > 0 && (
-                                  <span className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400">
+                                  <span className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-200">
                                     Options: {field.options.join(', ')}
                                   </span>
                                 )}
                               </div>
                               {field.description && (
-                                <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-200 leading-relaxed">
                                   {field.description}
                                 </p>
                               )}
@@ -695,7 +695,7 @@ function GenericRequirementCard({ requirement, onDownload }: GenericRequirementC
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-xs sm:text-sm text-slate-900 dark:text-slate-100">{sheet.sheetName}</p>
                     {sheet.description && (
-                      <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 mt-0.5">{sheet.description}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-200 mt-0.5">{sheet.description}</p>
                     )}
                   </div>
                   <Button
@@ -735,7 +735,7 @@ function GenericRequirementCard({ requirement, onDownload }: GenericRequirementC
                       {resource.name}
                     </a>
                     {resource.description && (
-                      <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 mt-0.5">{resource.description}</p>
+                      <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-200 mt-0.5">{resource.description}</p>
                     )}
                   </div>
                 </li>
@@ -793,7 +793,7 @@ function GenericRequirementCard({ requirement, onDownload }: GenericRequirementC
                     {resource.name}
                   </a>
                   {resource.description && (
-                    <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 mt-0.5">{resource.description}</p>
+                    <p className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-200 mt-0.5">{resource.description}</p>
                   )}
                 </div>
               </li>

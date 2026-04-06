@@ -1,4 +1,5 @@
 import { TempLanding } from '@/components/temp-landing/TempLanding'
+import { ForceTheme } from '@/components/theme/ForceTheme'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -64,6 +65,7 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
+      <ForceTheme theme="light" />
       <TempLanding />
     </>
   )

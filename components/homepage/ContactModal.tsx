@@ -64,7 +64,7 @@ export function ContactModal({ open, onOpenChange }: ContactModalProps) {
                 <h3 className="text-base font-semibold text-slate-900 dark:text-white mb-2">
                   Email Support
                 </h3>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 leading-relaxed">
+                <p className="text-sm text-slate-600 dark:text-slate-200 mb-3 leading-relaxed">
                   Send us an email and we'll respond within 24 hours
                 </p>
                 <a

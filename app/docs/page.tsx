@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { TempFooter } from '@/components/temp-landing/TempFooter'
+import { ForceTheme } from '@/components/theme/ForceTheme'
 
 /* ------------------------------------------------------------------ */
 /*  Rich content block types                                           */
@@ -891,6 +892,7 @@ export default function DocsPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <ForceTheme theme="light" />
       {/* Top nav */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between h-14 px-6">

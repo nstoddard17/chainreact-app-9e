@@ -11,7 +11,6 @@ import type { AccessSubject } from '@/lib/access-policy/types'
 function subject(overrides: Partial<AccessSubject> = {}): AccessSubject {
   return {
     isAuthenticated: true,
-    hasUsername: true,
     plan: 'free',
     isAdmin: false,
     ...overrides,
@@ -67,65 +66,48 @@ describe('isRecognizedPlan', () => {
 
 describe('buildAccessSubject', () => {
   it('builds from profile with plan', () => {
-    const s = buildAccessSubject({ plan: 'pro', username: 'alice' }, true)
+    const s = buildAccessSubject({ plan: 'pro' }, true)
     expect(s).toEqual({
       isAuthenticated: true,
-      hasUsername: true,
       plan: 'pro',
       isAdmin: false,
     })
   })
 
   it('normalizes beta plan', () => {
-    const s = buildAccessSubject({ plan: 'beta-pro', username: 'bob' }, true)
+    const s = buildAccessSubject({ plan: 'beta-pro' }, true)
     expect(s.plan).toBe('pro')
   })
 
   it('defaults null plan to free', () => {
-    const s = buildAccessSubject({ plan: null, username: 'carol' }, true)
+    const s = buildAccessSubject({ plan: null }, true)
     expect(s.plan).toBe('free')
   })
 
   it('defaults missing plan to free', () => {
-    const s = buildAccessSubject({ username: 'dave' }, true)
+    const s = buildAccessSubject({}, true)
     expect(s.plan).toBe('free')
   })
 
   it('defaults invalid plan to free', () => {
-    const s = buildAccessSubject({ plan: 'garbage', username: 'eve' }, true)
+    const s = buildAccessSubject({ plan: 'garbage' }, true)
     expect(s.plan).toBe('free')
   })
 
   it('sets isAdmin from admin_capabilities', () => {
-    const s = buildAccessSubject({ plan: 'free', admin_capabilities: { super_admin: true }, username: 'admin' }, true)
+    const s = buildAccessSubject({ plan: 'free', admin_capabilities: { super_admin: true } }, true)
     expect(s.isAdmin).toBe(true)
   })
 
   it('treats missing admin_capabilities as non-admin', () => {
-    const s = buildAccessSubject({ plan: 'free', admin_capabilities: null, username: 'user' }, true)
+    const s = buildAccessSubject({ plan: 'free', admin_capabilities: null }, true)
     expect(s.isAdmin).toBe(false)
-  })
-
-  it('detects empty username', () => {
-    const s = buildAccessSubject({ plan: 'free', username: '' }, true)
-    expect(s.hasUsername).toBe(false)
-  })
-
-  it('detects whitespace-only username', () => {
-    const s = buildAccessSubject({ plan: 'free', username: '   ' }, true)
-    expect(s.hasUsername).toBe(false)
-  })
-
-  it('detects null username', () => {
-    const s = buildAccessSubject({ plan: 'free', username: null }, true)
-    expect(s.hasUsername).toBe(false)
   })
 
   it('handles null profile', () => {
     const s = buildAccessSubject(null, false)
     expect(s).toEqual({
       isAuthenticated: false,
-      hasUsername: false,
       plan: 'free',
       isAdmin: false,
     })
@@ -133,7 +115,7 @@ describe('buildAccessSubject', () => {
 
   it('does not accept role field', () => {
     // TypeScript enforces this at compile time; this test documents the intent
-    const profile = { plan: 'pro', username: 'user' }
+    const profile = { plan: 'pro' }
     const s = buildAccessSubject(profile, true)
     expect(s.plan).toBe('pro')
     // role is not part of the subject
@@ -186,15 +168,6 @@ describe('evaluateAccess', () => {
     })
   })
 
-  describe('username', () => {
-    it('denies user without username with redirect to setup', () => {
-      const decision = evaluateAccess(subject({ hasUsername: false }), '/workflows')
-      expect(decision.allowed).toBe(false)
-      expect(decision.denial?.reason).toBe('missing-username')
-      expect(decision.denial?.redirectTo).toBe('/auth/setup-username')
-    })
-  })
-
   describe('admin bypass', () => {
     it.each([
       '/workflows',
@@ -218,7 +191,7 @@ describe('evaluateAccess', () => {
       '/integrations',
       '/integrations/slack',
       '/settings',
-      '/settings/billing',
+      '/subscription',
       '/learn',
       '/community',
       '/profile',
@@ -355,20 +328,12 @@ describe('evaluateAccess', () => {
   })
 
   describe('evaluation order', () => {
-    it('checks auth before username', () => {
+    it('checks auth before plan', () => {
       const decision = evaluateAccess(
-        subject({ isAuthenticated: false, hasUsername: false }),
-        '/workflows'
-      )
-      expect(decision.denial?.reason).toBe('not-authenticated')
-    })
-
-    it('checks username before plan', () => {
-      const decision = evaluateAccess(
-        subject({ hasUsername: false, plan: 'free' }),
+        subject({ isAuthenticated: false }),
         '/analytics'
       )
-      expect(decision.denial?.reason).toBe('missing-username')
+      expect(decision.denial?.reason).toBe('not-authenticated')
     })
 
     it('checks admin before route rules', () => {

@@ -42,7 +42,7 @@ export function HeroSection() {
             {/* CTA */}
             <div className="flex flex-col sm:flex-row items-start gap-3">
               <Link
-                href="/auth/login"
+                href="/auth/register"
                 className="inline-flex items-center gap-2 h-11 px-6 rounded-lg bg-white text-slate-900 text-sm font-medium hover:bg-slate-100 transition-colors"
               >
                 Start building - free

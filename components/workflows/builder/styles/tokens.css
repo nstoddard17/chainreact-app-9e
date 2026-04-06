@@ -111,7 +111,7 @@
   --flow-camera-easing: var(--eas-out);
 
   /* Accessibility */
-  --focus-ring: 0 0 0 2px hsl(var(--primary));
+  --focus-ring: 0 0 0 2px oklch(var(--primary));
   --focus-ring-offset: 2px;
 }
 

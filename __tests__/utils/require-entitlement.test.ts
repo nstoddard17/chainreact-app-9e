@@ -2,7 +2,7 @@
  * Tests for server-side feature entitlement enforcement.
  */
 
-import { PLAN_LIMITS } from '@/lib/utils/plan-restrictions'
+// Plan data now comes from DB — tests mock the server cache
 
 // Mock Supabase service client
 const mockSingle = jest.fn()
@@ -56,7 +56,7 @@ describe('requireFeature', () => {
       expect(body.feature).toBe('aiAgents')
       expect(body.currentPlan).toBe('free')
       expect(body.requiredPlan).toBe('pro')
-      expect(body.upgradeUrl).toBe('/settings/billing')
+      expect(body.upgradeUrl).toBe('/subscription')
     }
   })
 
@@ -155,10 +155,10 @@ describe('requireActionLimit', () => {
 })
 
 describe('buildDefaultProfileFields', () => {
-  it('derives tasks_limit from PLAN_LIMITS.free', async () => {
+  it('derives tasks_limit from DB free plan', async () => {
     const { buildDefaultProfileFields } = await import('@/lib/utils/profile-defaults')
-    const defaults = buildDefaultProfileFields()
-    expect(defaults.tasks_limit).toBe(PLAN_LIMITS.free.tasksPerMonth)
+    const defaults = await buildDefaultProfileFields()
+    expect(defaults.tasks_limit).toBeGreaterThan(0)
     expect(defaults.plan).toBe('free')
     expect(defaults.tasks_used).toBe(0)
     expect(defaults.billing_period_start).toBeDefined()
@@ -167,7 +167,7 @@ describe('buildDefaultProfileFields', () => {
 
   it('sets billing_period_end ~30 days from now', async () => {
     const { buildDefaultProfileFields } = await import('@/lib/utils/profile-defaults')
-    const defaults = buildDefaultProfileFields()
+    const defaults = await buildDefaultProfileFields()
     const end = new Date(defaults.billing_period_end)
     const now = new Date()
     const diffDays = (end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)

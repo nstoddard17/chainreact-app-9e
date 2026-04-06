@@ -99,7 +99,7 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: Props) 
         toast.error('You need to upgrade to a Business or Organization plan to create organizations')
         // Close dialog and redirect to billing page
         onOpenChange(false)
-        router.push('/settings/billing')
+        router.push('/subscription')
         return
       }
 

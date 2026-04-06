@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer utilities {
   .text-balance {
     text-wrap: balance;
@@ -372,141 +368,119 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 210 25% 92%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 210 25% 92%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 210 25% 92%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 210 25% 85%;
-    --input: 210 25% 85%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --background: 1 0 0;
+    --foreground: 0.129 0.042 264.695;
+    --card: 1 0 0;
+    --card-foreground: 0.129 0.042 264.695;
+    --popover: 1 0 0;
+    --popover-foreground: 0.129 0.042 264.695;
+    --primary: 0.208 0.042 265.755;
+    --primary-foreground: 0.984 0.003 247.858;
+    --secondary: 0.968 0.007 247.896;
+    --secondary-foreground: 0.208 0.042 265.755;
+    --muted: 0.968 0.007 247.896;
+    --muted-foreground: 0.554 0.046 257.417;
+    --accent: 0.968 0.007 247.896;
+    --accent-foreground: 0.208 0.042 265.755;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.984 0.003 247.858;
+    --border: 0.929 0.013 255.508;
+    --input: 0.929 0.013 255.508;
+    --ring: 0.704 0.04 256.788;
+    --chart-1: 0.646 0.222 41.116;
+    --chart-2: 0.6 0.118 184.704;
+    --chart-3: 0.398 0.07 227.392;
+    --chart-4: 0.828 0.189 84.429;
+    --chart-5: 0.769 0.188 70.08;
+    --radius: 0.625rem;
     --rail-width: 68px;
     --panel-width: 220px;
     --topbar-height: 48px;
-    --sidebar-background: 210 25% 95%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 210 25% 90%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 210 25% 85%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 0.984 0.003 247.858;
+    --sidebar-foreground: 0.129 0.042 264.695;
+    --sidebar-primary: 0.208 0.042 265.755;
+    --sidebar-primary-foreground: 0.984 0.003 247.858;
+    --sidebar-accent: 0.968 0.007 247.896;
+    --sidebar-accent-foreground: 0.208 0.042 265.755;
+    --sidebar-border: 0.929 0.013 255.508;
+    --sidebar-ring: 0.704 0.04 256.788;
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 25%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 0.129 0.042 264.695;
+    --foreground: 0.984 0.003 247.858;
+    --card: 0.208 0.042 265.755;
+    --card-foreground: 0.984 0.003 247.858;
+    --popover: 0.208 0.042 265.755;
+    --popover-foreground: 0.984 0.003 247.858;
+    --primary: 0.929 0.013 255.508;
+    --primary-foreground: 0.208 0.042 265.755;
+    --secondary: 0.279 0.041 260.031;
+    --secondary-foreground: 0.984 0.003 247.858;
+    --muted: 0.279 0.041 260.031;
+    --muted-foreground: 0.704 0.04 256.788;
+    --accent: 0.279 0.041 260.031;
+    --accent-foreground: 0.984 0.003 247.858;
+    --destructive: 0.704 0.191 22.216;
+    --destructive-foreground: 0.984 0.003 247.858;
+    --border: 0.22 0.035 265;
+    --input: 0.25 0.035 265;
+    --ring: 0.551 0.027 264.364;
+    --chart-1: 0.488 0.243 264.376;
+    --chart-2: 0.696 0.17 162.48;
+    --chart-3: 0.769 0.188 70.08;
+    --chart-4: 0.627 0.265 303.9;
+    --chart-5: 0.645 0.246 16.439;
+    --sidebar-background: 0.208 0.042 265.755;
+    --sidebar-foreground: 0.984 0.003 247.858;
+    --sidebar-primary: 0.488 0.243 264.376;
+    --sidebar-primary-foreground: 0.984 0.003 247.858;
+    --sidebar-accent: 0.279 0.041 260.031;
+    --sidebar-accent-foreground: 0.984 0.003 247.858;
+    --sidebar-border: 0.22 0.035 265;
+    --sidebar-ring: 0.551 0.027 264.364;
   }
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
   }
+
+  /* All interactive elements get pointer cursor */
+  button, [role="button"], [role="checkbox"], [role="switch"],
+  [role="option"], [role="tab"], [role="menuitem"], [role="combobox"],
+  select, summary, label[for], a[href] {
+    cursor: pointer;
+  }
+
+  /* Disabled elements get not-allowed */
+  button:disabled, [role="button"][aria-disabled="true"],
+  select:disabled, input:disabled {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid oklch(var(--ring));
+    outline-offset: 2px;
+  }
 }
 
 @layer utilities {
-  /* Enhanced dark mode support for gradient backgrounds */
-  .dark .bg-gradient-to-br {
-    @apply from-background to-muted;
-  }
-  
-  /* Ensure loading states work well in dark mode */
-  .dark .border-blue-500 {
-    @apply border-primary;
-  }
-  
-  /* Better text readability in dark mode */
-  .dark .text-slate-50,
-  .dark .text-slate-100,
-  .dark .text-slate-200 {
-    @apply text-muted-foreground;
-  }
-  
-  .dark .text-slate-600,
-  .dark .text-slate-700,
-  .dark .text-slate-800,
-  .dark .text-slate-900 {
-    @apply text-foreground;
-  }
-  
-  /* Better background support for cards and panels */
-  .dark .bg-slate-50,
-  .dark .bg-slate-100 {
-    @apply bg-muted;
-  }
-  
-  .dark .bg-white {
-    @apply bg-background;
-  }
-  
-  /* Better border support */
-  .dark .border-slate-200,
-  .dark .border-slate-300 {
-    @apply border-border;
-  }
-
   /* ReactFlow Controls Theme Styling */
   .react-flow__controls {
     @apply shadow-lg border border-border rounded-lg;
-    background: hsl(var(--card)) !important;
+    background: oklch(var(--card)) !important;
   }
   
   .react-flow__controls-button {
     @apply border-0 border-b border-border bg-transparent hover:bg-muted transition-colors;
-    background: hsl(var(--card)) !important;
-    color: hsl(var(--foreground)) !important;
-    fill: hsl(var(--foreground)) !important;
-    border-bottom: 1px solid hsl(var(--border)) !important;
+    background: oklch(var(--card)) !important;
+    color: oklch(var(--foreground)) !important;
+    fill: oklch(var(--foreground)) !important;
+    border-bottom: 1px solid oklch(var(--border)) !important;
     border-radius: 0 !important;
     width: 24px !important;
     height: 24px !important;
@@ -515,9 +489,9 @@ body {
   }
   
   .react-flow__controls-button:hover {
-    background: hsl(var(--muted)) !important;
-    color: hsl(var(--foreground)) !important;
-    fill: hsl(var(--foreground)) !important;
+    background: oklch(var(--muted)) !important;
+    color: oklch(var(--foreground)) !important;
+    fill: oklch(var(--foreground)) !important;
   }
   
   .react-flow__controls-button:last-child {
@@ -532,63 +506,63 @@ body {
   }
   
   .react-flow__controls-button svg {
-    fill: hsl(var(--foreground)) !important;
-    color: hsl(var(--foreground)) !important;
+    fill: oklch(var(--foreground)) !important;
+    color: oklch(var(--foreground)) !important;
     width: 12px !important;
     height: 12px !important;
   }
   
   .dark .react-flow__controls {
-    background: hsl(var(--card)) !important;
-    border-color: hsl(var(--border)) !important;
+    background: oklch(var(--card)) !important;
+    border-color: oklch(var(--border)) !important;
   }
   
   .dark .react-flow__controls-button {
-    background: hsl(var(--card)) !important;
-    color: hsl(var(--foreground)) !important;
-    fill: hsl(var(--foreground)) !important;
-    border-bottom-color: hsl(var(--border)) !important;
+    background: oklch(var(--card)) !important;
+    color: oklch(var(--foreground)) !important;
+    fill: oklch(var(--foreground)) !important;
+    border-bottom-color: oklch(var(--border)) !important;
   }
   
   .dark .react-flow__controls-button:hover {
-    background: hsl(var(--muted)) !important;
+    background: oklch(var(--muted)) !important;
   }
   
   .dark .react-flow__controls-button svg {
-    fill: hsl(var(--foreground)) !important;
+    fill: oklch(var(--foreground)) !important;
   }
   
   /* ReactFlow MiniMap Theme Styling */
   .react-flow__minimap {
     @apply border border-border rounded-lg shadow-lg;
-    background: hsl(var(--card));
+    background: oklch(var(--card));
   }
   
   .react-flow__minimap-mask {
-    fill: hsl(var(--primary) / 0.1);
-    stroke: hsl(var(--primary));
+    fill: oklch(var(--primary) / 0.1);
+    stroke: oklch(var(--primary));
   }
   
   .react-flow__minimap-node {
-    fill: hsl(var(--muted-foreground));
-    stroke: hsl(var(--border));
+    fill: oklch(var(--muted-foreground));
+    stroke: oklch(var(--border));
   }
   
   /* ReactFlow Background Theme Styling */
   .react-flow__background {
-    background-color: hsl(var(--background));
+    background-color: oklch(var(--background));
   }
   
   .dark .react-flow__background {
-    background-color: hsl(var(--background));
+    background-color: oklch(var(--background));
   }
   
   .react-flow__background-pattern {
-    fill: hsl(var(--muted-foreground) / 0.1);
+    fill: oklch(var(--muted-foreground) / 0.1);
   }
   
   .dark .react-flow__background-pattern {
-    fill: hsl(var(--muted-foreground) / 0.1);
+    fill: oklch(var(--muted-foreground) / 0.1);
   }
   
   /* Calendar Navigation Chevron Styling */
@@ -702,46 +676,46 @@ body {
   
   /* Calendar Day Styling */
   .rdp-day_selected {
-    background-color: hsl(var(--primary)) !important;
-    color: hsl(var(--primary-foreground)) !important;
+    background-color: oklch(var(--primary)) !important;
+    color: oklch(var(--primary-foreground)) !important;
     font-weight: 500 !important;
     border-radius: 50% !important;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
   }
   
   .rdp-day_selected:hover {
-    background-color: hsl(var(--primary) / 0.9) !important;
-    color: hsl(var(--primary-foreground)) !important;
+    background-color: oklch(var(--primary) / 0.9) !important;
+    color: oklch(var(--primary-foreground)) !important;
   }
   
   .rdp-day_today {
-    background-color: hsl(var(--muted)) !important;
-    color: hsl(var(--foreground)) !important;
-    border: 2px solid hsl(var(--primary) / 0.3) !important;
+    background-color: oklch(var(--muted)) !important;
+    color: oklch(var(--foreground)) !important;
+    border: 2px solid oklch(var(--primary) / 0.3) !important;
     border-radius: 50% !important;
     font-weight: 500 !important;
   }
   
   .dark .rdp-day_selected {
-    background-color: hsl(var(--primary)) !important;
-    color: hsl(var(--primary-foreground)) !important;
+    background-color: oklch(var(--primary)) !important;
+    color: oklch(var(--primary-foreground)) !important;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2) !important;
   }
   
   .dark .rdp-day_today,
   .dark .rdp-day_today.rdp-day_button,
   .dark .rdp-day_button.rdp-day_today {
-    background-color: hsl(var(--muted)) !important;
-    color: hsl(var(--foreground)) !important;
-    border: 2px solid hsl(var(--primary) / 0.3) !important;
+    background-color: oklch(var(--muted)) !important;
+    color: oklch(var(--foreground)) !important;
+    border: 2px solid oklch(var(--primary) / 0.3) !important;
   }
 
   /* Calendar Day Styling */
   .rdp-day_selected,
   .rdp-day_selected.rdp-day_button,
   .rdp-day_button.rdp-day_selected {
-    background-color: hsl(var(--primary)) !important;
-    color: hsl(var(--primary-foreground)) !important;
+    background-color: oklch(var(--primary)) !important;
+    color: oklch(var(--primary-foreground)) !important;
     font-weight: 500 !important;
     border-radius: 50% !important;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06) !important;
@@ -750,16 +724,16 @@ body {
   .rdp-day_selected:hover,
   .rdp-day_selected.rdp-day_button:hover,
   .rdp-day_button.rdp-day_selected:hover {
-    background-color: hsl(var(--primary) / 0.9) !important;
-    color: hsl(var(--primary-foreground)) !important;
+    background-color: oklch(var(--primary) / 0.9) !important;
+    color: oklch(var(--primary-foreground)) !important;
   }
   
   .rdp-day_today,
   .rdp-day_today.rdp-day_button,
   .rdp-day_button.rdp-day_today {
-    background-color: hsl(var(--muted)) !important;
-    color: hsl(var(--foreground)) !important;
-    border: 2px solid hsl(var(--primary) / 0.3) !important;
+    background-color: oklch(var(--muted)) !important;
+    color: oklch(var(--foreground)) !important;
+    border: 2px solid oklch(var(--primary) / 0.3) !important;
     border-radius: 50% !important;
     font-weight: 500 !important;
   }
@@ -767,8 +741,8 @@ body {
   .dark .rdp-day_selected,
   .dark .rdp-day_selected.rdp-day_button,
   .dark .rdp-day_button.rdp-day_selected {
-    background-color: hsl(var(--primary)) !important;
-    color: hsl(var(--primary-foreground)) !important;
+    background-color: oklch(var(--primary)) !important;
+    color: oklch(var(--primary-foreground)) !important;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2) !important;
   }
 
@@ -900,5 +874,28 @@ body {
   [data-radix-popover-content] {
     width: var(--radix-popover-trigger-width) !important;
     min-width: var(--radix-popover-trigger-width) !important;
+  }
+
+  /* Card interactive hover effects */
+  .card-interactive {
+    transition: box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .card-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 1px oklch(0.15 0.02 265 / 0.08), 0 4px 12px oklch(0.15 0.02 265 / 0.07);
+  }
+  .dark .card-interactive:hover {
+    box-shadow: 0 0 0 1px oklch(1 0 0 / 0.08), 0 4px 12px oklch(0 0 0 / 0.3);
+  }
+
+  /* Stat card hover with slight scale */
+  .stat-card-hover {
+    transition: box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1),
+                transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .stat-card-hover:hover {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 0 0 1px oklch(0.15 0.02 265 / 0.08), 0 4px 12px oklch(0.15 0.02 265 / 0.07);
   }
 }

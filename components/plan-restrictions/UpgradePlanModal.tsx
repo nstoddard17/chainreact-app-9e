@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Check, Zap, Users, Bot, Calendar, Bell, BarChart3, Headphones } from 'lucide-react'
-import { PlanTier, PlanLimits, PLAN_INFO, PLAN_LIMITS } from '@/lib/utils/plan-restrictions'
+import type { PlanTier, PlanLimits } from '@/lib/utils/plan-restrictions'
+import { usePlansStore } from '@/stores/plansStore'
 import { usePlanRestrictions } from '@/hooks/use-plan-restrictions'
 
 interface UpgradePlanModalProps {
@@ -37,18 +38,25 @@ const featureNames: Record<keyof PlanLimits, string> = {
 
 export function UpgradePlanModal({ open, onOpenChange, requiredPlan, feature }: UpgradePlanModalProps) {
   const { currentPlan } = usePlanRestrictions()
+  const { getPlan, getPlanLimits } = usePlansStore()
 
   // Determine which plan to show (use 'pro' as default instead of 'professional')
   const planToShow = requiredPlan || 'pro'
-  const planInfo = PLAN_INFO[planToShow] || PLAN_INFO.pro
-  const planLimits = PLAN_LIMITS[planToShow] || PLAN_LIMITS.pro
+  const planData = getPlan(planToShow) || getPlan('pro')
+  const planInfo = planData ? {
+    name: planData.displayName,
+    description: planData.description,
+    price: planData.priceMonthly,
+    billingPeriod: 'mo' as const,
+  } : { name: planToShow, description: '', price: 0, billingPeriod: 'mo' as const }
+  const planLimits = getPlanLimits(planToShow)
 
   // Get feature name
   const featureName = feature ? featureNames[feature] : 'This feature'
 
   // Plan-specific features to highlight
   const getKeyFeatures = (plan: PlanTier) => {
-    const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free
+    const limits = getPlanLimits(plan)
     const features: { icon: any; label: string; value: string }[] = []
 
     // Tasks

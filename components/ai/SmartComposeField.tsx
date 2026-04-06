@@ -178,7 +178,7 @@ export const SmartComposeField: React.FC<SmartComposeFieldProps> = ({
     return (
       <div className="p-4 text-center text-sm text-muted-foreground">
         <p>AI features require a Pro plan or higher.</p>
-        <Link href="/settings/billing" className="text-primary underline mt-2 inline-block">Upgrade your plan</Link>
+        <Link href="/subscription" className="text-primary underline mt-2 inline-block">Upgrade your plan</Link>
       </div>
     )
   }

@@ -505,8 +505,8 @@ export function ExecutionHistoryModal({
                 ) : filteredHistory.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12">
                     <Activity className="h-12 w-12 text-gray-300 dark:text-gray-700 mb-3" />
-                    <p className="text-gray-500 dark:text-gray-400 font-medium">No execution history found</p>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                    <p className="text-gray-500 dark:text-gray-300 font-medium">No execution history found</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-400 mt-1">
                       {filter !== 'all' ? 'Try changing your filter' : 'Run your workflow to see execution history'}
                     </p>
                   </div>
@@ -537,7 +537,7 @@ export function ExecutionHistoryModal({
                                     </span>
                                     {getStatusBadge(execution.status, execution.test_mode)}
                                   </div>
-                                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                                  <div className="text-sm text-gray-600 dark:text-gray-200">
                                     {format(new Date(execution.started_at), 'MMM d, yyyy • HH:mm:ss')}
                                   </div>
                                 </div>
@@ -641,7 +641,7 @@ export function ExecutionHistoryModal({
                             <div className="text-sm font-medium">
                               {format(new Date(selectedExecution.started_at), 'MMM d, yyyy')}
                             </div>
-                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                            <div className="text-xs text-gray-600 dark:text-gray-200">
                               {format(new Date(selectedExecution.started_at), 'HH:mm:ss')}
                             </div>
                           </div>
@@ -694,7 +694,7 @@ export function ExecutionHistoryModal({
                         ) : executionSteps.length === 0 ? (
                           <div className="flex flex-col items-center justify-center py-12">
                             <Code2 className="h-12 w-12 text-gray-300 dark:text-gray-700 mb-3" />
-                            <p className="text-gray-500 dark:text-gray-400 font-medium">No execution steps recorded</p>
+                            <p className="text-gray-500 dark:text-gray-300 font-medium">No execution steps recorded</p>
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -731,7 +731,7 @@ export function ExecutionHistoryModal({
                                           {formatDuration(step.duration_ms)}
                                         </span>
                                         {step.started_at && (
-                                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                                          <span className="text-xs text-gray-400 dark:text-gray-400">
                                             {format(new Date(step.started_at), 'HH:mm:ss')}
                                           </span>
                                         )}

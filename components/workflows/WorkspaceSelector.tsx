@@ -104,7 +104,7 @@ export function WorkspaceSelector({
             <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
               Creating in: {currentWorkspace?.name || 'Personal Workspace'}
             </p>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
+            <p className="text-xs text-slate-600 dark:text-slate-200">
               {workspaceType === 'personal'
                 ? 'Your private workspace'
                 : workspaceType === 'team'
