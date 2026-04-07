@@ -1,10 +1,11 @@
 "use client"
 
+import { useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { PanelLeftClose } from "lucide-react"
+import { PanelLeftClose, Settings, Plug, Users, Crown, CreditCard, Shield, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { NavSection } from "@/lib/navigation/nav-config"
+import type { NavSection, NavItem } from "@/lib/navigation/nav-config"
 
 interface NavPanelProps {
   section: NavSection | null
@@ -17,20 +18,49 @@ export function NavPanel({ section, isPanelOpen, onClose }: NavPanelProps) {
 
   if (!section || !isPanelOpen) return null
 
+  // Detect if we're on an org settings page and inject settings sub-items
+  const orgSettingsMatch = pathname?.match(/^\/org\/([^/]+)\/settings/)
+  const orgSlug = orgSettingsMatch?.[1]
+
+  const children = useMemo(() => {
+    if (section.id === "organization" && orgSlug) {
+      const base = `/org/${orgSlug}/settings`
+      const settingsItems: NavItem[] = [
+        { id: "org-back", label: "All Organizations", href: "/org", icon: ArrowLeft },
+        { id: "org-general", label: "General", href: base, icon: Settings },
+        { id: "org-integrations", label: "Apps", href: `${base}/integrations`, icon: Plug },
+        { id: "org-teams", label: "Teams", href: `${base}/teams`, icon: Users },
+        { id: "org-members", label: "Members", href: `${base}/members`, icon: Crown },
+        { id: "org-billing", label: "Billing", href: `${base}/billing`, icon: CreditCard },
+        { id: "org-sso", label: "Single Sign-On", href: `${base}/sso`, icon: Shield },
+      ]
+      return settingsItems
+    }
+    return section.children
+  }, [section, orgSlug])
+
   const isItemActive = (href: string) => {
     if (href === "/workflows") {
       return pathname === "/workflows"
     }
+    // Exact match for settings root (General)
+    if (href.endsWith("/settings") && !href.endsWith("/settings/")) {
+      return pathname === href
+    }
     return pathname === href || pathname?.startsWith(href + "/")
   }
+
+  const panelLabel = section.id === "organization" && orgSlug
+    ? decodeURIComponent(orgSlug).replace(/-/g, ' ')
+    : section.label
 
   return (
     <div className="flex flex-col h-full w-[220px] bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 shrink-0 transition-all duration-200">
       {/* Panel header */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 dark:border-gray-800">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            {section.label}
+          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">
+            {panelLabel}
           </span>
         </div>
         <button
@@ -44,9 +74,23 @@ export function NavPanel({ section, isPanelOpen, onClose }: NavPanelProps) {
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto px-3 py-2">
         <div className="space-y-0.5">
-          {section.children.map((item) => {
+          {children.map((item) => {
             const Icon = item.icon
             const active = isItemActive(item.href)
+
+            // Render back links (ArrowLeft icon) as a subtle text link
+            if (item.id === "org-back") {
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className="flex items-center gap-2 px-3 py-1.5 mb-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArrowLeft className="h-3 w-3" />
+                  <span>{item.label}</span>
+                </Link>
+              )
+            }
 
             return (
               <Link

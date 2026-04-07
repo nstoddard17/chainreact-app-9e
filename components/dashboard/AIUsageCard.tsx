@@ -130,7 +130,7 @@ export default function AIUsageCard() {
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <MessageSquare className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-medium text-slate-700">AI Assistant</span>
+                <span className="text-sm font-medium text-slate-700">Assistant</span>
               </div>
               <span className={`text-sm font-semibold ${getUsageColor(assistantPercentage)}`}>
                 {usage.ai_assistant_calls} / {usage.ai_assistant_limit === -1 ? '∞' : usage.ai_assistant_limit}

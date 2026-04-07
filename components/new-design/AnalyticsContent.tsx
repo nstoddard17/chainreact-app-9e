@@ -247,7 +247,11 @@ function HorizontalBarList({
   }
 
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground text-center py-6">{emptyMessage}</p>
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[120px]">
+        <p className="text-sm text-muted-foreground text-center">{emptyMessage}</p>
+      </div>
+    )
   }
 
   const maxValue = Math.max(...items.map((i) => i.value), 1)
@@ -376,15 +380,17 @@ function OverviewView({
             <h3 className="text-sm font-semibold">Status Distribution</h3>
             <p className="text-xs text-muted-foreground">Breakdown of all execution outcomes</p>
           </div>
-          <CardContent className="flex-1 pb-4">
+          <CardContent className="flex-1 pb-4 flex flex-col">
             {loading ? (
               <Skeleton className="h-full w-full rounded-lg" />
             ) : statusBreakdown.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No data yet</p>
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-sm text-muted-foreground">No data yet</p>
+              </div>
             ) : (
-              <div className="space-y-4">
+              <div className="flex flex-col flex-1 gap-4">
                 {/* Progress bar */}
-                <div className="h-3 rounded-full overflow-hidden bg-muted flex">
+                <div className="h-3 rounded-full overflow-hidden bg-muted flex flex-shrink-0">
                   {statusBreakdown.map((item) => {
                     const total = statusBreakdown.reduce((s, i) => s + (i.value || 0), 0)
                     const pct = total > 0 ? (item.value / total) * 100 : 0
@@ -393,8 +399,8 @@ function OverviewView({
                     return <div key={item.key} className={color} style={{ width: `${pct}%` }} />
                   })}
                 </div>
-                {/* Legend */}
-                <div className="space-y-2">
+                {/* Legend — distribute evenly to fill remaining height */}
+                <div className="flex flex-col flex-1 justify-between">
                   {statusBreakdown.map((item) => {
                     const total = statusBreakdown.reduce((s, i) => s + (i.value || 0), 0)
                     const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : "0"
@@ -426,11 +432,9 @@ function OverviewView({
 function ExecutionsView({
   recentExecutions,
   loading,
-  onExport,
 }: {
   recentExecutions: any[]
   loading: boolean
-  onExport: () => void
 }) {
   const getStatusStyles = (status: string) => {
     switch (status) {
@@ -449,15 +453,9 @@ function ExecutionsView({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-semibold">Recent Workflow Executions</h3>
-          <p className="text-xs text-muted-foreground">{recentExecutions.length} executions in this period</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={onExport} className="gap-1.5">
-          <Download className="w-3.5 h-3.5" />
-          Export CSV
-        </Button>
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold">Recent Workflow Executions</h3>
+        <p className="text-xs text-muted-foreground">{recentExecutions.length} executions in this period</p>
       </div>
 
       {loading ? (
@@ -472,35 +470,57 @@ function ExecutionsView({
           ))}
         </div>
       ) : recentExecutions.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-          <Activity className="w-12 h-12 mb-3 opacity-30" />
-          <p className="font-medium">No executions yet</p>
-          <p className="text-sm">Run a workflow to see execution history</p>
+        <div className="flex-1 flex flex-col">
+          {/* Table header */}
+          <div className="flex items-center gap-3 px-3 py-2 border-b text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <div className="w-2" />
+            <div className="flex-1">Workflow</div>
+            <div className="w-20 text-right">Duration</div>
+            <div className="w-20 text-center">Status</div>
+          </div>
+          {/* Empty state message — directly below headers */}
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Activity className="w-10 h-10 mb-2 opacity-30" />
+            <p className="font-medium text-sm">No executions yet</p>
+            <p className="text-xs">Run a workflow to see execution history</p>
+          </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-          {recentExecutions.slice(0, 15).map((exec, i) => {
-            const styles = getStatusStyles(exec.status)
-            return (
-              <div
-                key={exec.id}
-                className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors animate-fade-in-up"
-                style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
-              >
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${styles.dot}`} />
-                <div className="flex-1 min-w-0">
-                  <Link href={`/workflows/builder/${exec.workflowId}`} className="text-sm font-medium truncate block hover:text-primary transition-colors">
-                    {exec.workflowName}
-                  </Link>
-                  <p className="text-[11px] text-muted-foreground">{formatDistanceToNow(new Date(exec.startedAt), { addSuffix: true })}</p>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Table header */}
+          <div className="flex items-center gap-3 px-3 py-2 border-b text-xs font-medium text-muted-foreground uppercase tracking-wider flex-shrink-0">
+            <div className="w-2" />
+            <div className="flex-1">Workflow</div>
+            <div className="w-20 text-right">Duration</div>
+            <div className="w-20 text-center">Status</div>
+          </div>
+          {/* Rows */}
+          <div className="flex-1 overflow-y-auto space-y-0 pr-1">
+            {recentExecutions.slice(0, 15).map((exec, i) => {
+              const styles = getStatusStyles(exec.status)
+              return (
+                <div
+                  key={exec.id}
+                  className="flex items-center gap-3 px-3 py-3 border-b hover:bg-muted/50 transition-colors animate-fade-in-up"
+                  style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
+                >
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${styles.dot}`} />
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/workflows/builder/${exec.workflowId}`} className="text-sm font-medium truncate block hover:text-primary transition-colors">
+                      {exec.workflowName}
+                    </Link>
+                    <p className="text-[11px] text-muted-foreground">{formatDistanceToNow(new Date(exec.startedAt), { addSuffix: true })}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0 w-20 text-right">
+                    {exec.durationMs !== null ? formatDuration(exec.durationMs) : "-"}
+                  </span>
+                  <div className="w-20 flex justify-center">
+                    <Badge className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${styles.badge}`}>{styles.label}</Badge>
+                  </div>
                 </div>
-                {exec.durationMs !== null && (
-                  <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0">{formatDuration(exec.durationMs)}</span>
-                )}
-                <Badge className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${styles.badge}`}>{styles.label}</Badge>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -511,12 +531,10 @@ function WorkflowsView({
   topWorkflows,
   dailyStats,
   loading,
-  onExport,
 }: {
   topWorkflows: any[]
   dailyStats: any[]
   loading: boolean
-  onExport: () => void
 }) {
   const volumeData = dailyStats.slice(-7).map((d) => ({
     value: Number(d.executions) || 0,
@@ -525,15 +543,9 @@ function WorkflowsView({
 
   return (
     <div className="h-full flex flex-col gap-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold">Workflow Performance</h3>
-          <p className="text-xs text-muted-foreground">Top workflows ranked by execution count</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={onExport} className="gap-1.5">
-          <Download className="w-3.5 h-3.5" />
-          Export CSV
-        </Button>
+      <div>
+        <h3 className="text-sm font-semibold">Workflow Performance</h3>
+        <p className="text-xs text-muted-foreground">Top workflows ranked by execution count</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
@@ -541,7 +553,7 @@ function WorkflowsView({
           <div className="px-5 pt-4 pb-2">
             <h4 className="text-sm font-semibold">Top Workflows by Runs</h4>
           </div>
-          <CardContent className="flex-1 pb-4">
+          <CardContent className="flex-1 pb-4 flex flex-col">
             <HorizontalBarList
               items={topWorkflows.map((w) => ({
                 label: w.workflowName,
@@ -581,13 +593,11 @@ function FailuresView({
   failureReasons,
   dailyStats,
   loading,
-  onExport,
 }: {
   topFailingWorkflows: any[]
   failureReasons: any[]
   dailyStats: any[]
   loading: boolean
-  onExport: () => void
 }) {
   const failureData = dailyStats.slice(-7).map((d) => ({
     value: Number(d.failed ?? d.errors ?? d.error) || 0,
@@ -596,15 +606,9 @@ function FailuresView({
 
   return (
     <div className="h-full flex flex-col gap-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold">Failure Analysis</h3>
-          <p className="text-xs text-muted-foreground">Identify and resolve workflow issues</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={onExport} className="gap-1.5">
-          <Download className="w-3.5 h-3.5" />
-          Export CSV
-        </Button>
+      <div>
+        <h3 className="text-sm font-semibold">Failure Analysis</h3>
+        <p className="text-xs text-muted-foreground">Identify and resolve workflow issues</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
@@ -629,7 +633,7 @@ function FailuresView({
           <div className="px-5 pt-4 pb-2">
             <h4 className="text-sm font-semibold">Most Failing Workflows</h4>
           </div>
-          <CardContent className="flex-1 pb-4">
+          <CardContent className="flex-1 pb-4 flex flex-col">
             <HorizontalBarList
               items={topFailingWorkflows.map((w) => ({
                 label: w.workflowName,
@@ -646,7 +650,7 @@ function FailuresView({
           <div className="px-5 pt-4 pb-2">
             <h4 className="text-sm font-semibold">Common Error Types</h4>
           </div>
-          <CardContent className="flex-1 pb-4">
+          <CardContent className="flex-1 pb-4 flex flex-col">
             {loading ? (
               <div className="space-y-3">
                 {Array.from({ length: 4 }).map((_, i) => (
@@ -654,7 +658,9 @@ function FailuresView({
                 ))}
               </div>
             ) : failureReasons.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No errors recorded</p>
+              <div className="flex-1 flex items-center justify-center min-h-[120px]">
+                <p className="text-sm text-muted-foreground text-center">No errors recorded</p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {failureReasons.slice(0, 6).map((item: any, i: number) => (
@@ -769,7 +775,7 @@ export function AnalyticsContent() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Select value={selectedPeriod.toString()} onValueChange={(v) => setSelectedPeriod(parseInt(v, 10))}>
-              <SelectTrigger className="w-[170px] h-9 text-sm rounded-lg">
+              <SelectTrigger className="w-[170px] h-9 text-sm sm:text-sm rounded-lg">
                 <Calendar className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
                 <SelectValue />
               </SelectTrigger>
@@ -814,11 +820,11 @@ export function AnalyticsContent() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`relative flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors duration-200 border-b-2 -mb-px ${
                     isActive
-                      ? "border-orange-500 text-foreground"
+                      ? "border-foreground text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-orange-500" : ""}`} />
+                  <Icon className="w-4 h-4" />
                   {tab.label}
                   {tab.id === "failures" && failureCount > 0 && (
                     <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none ${
@@ -853,10 +859,10 @@ export function AnalyticsContent() {
           <OverviewView overview={overview} dailyStats={dailyStats} statusBreakdown={statusBreakdown} loading={dashboardLoading} />
         )}
         {activeTab === "executions" && (
-          <ExecutionsView recentExecutions={recentExecutions} loading={dashboardLoading} onExport={handleExportExecutions} />
+          <ExecutionsView recentExecutions={recentExecutions} loading={dashboardLoading} />
         )}
         {activeTab === "workflows" && (
-          <WorkflowsView topWorkflows={topWorkflows} dailyStats={dailyStats} loading={dashboardLoading} onExport={handleExportWorkflows} />
+          <WorkflowsView topWorkflows={topWorkflows} dailyStats={dailyStats} loading={dashboardLoading} />
         )}
         {activeTab === "failures" && (
           <FailuresView
@@ -864,7 +870,6 @@ export function AnalyticsContent() {
             failureReasons={failureReasons}
             dailyStats={dailyStats}
             loading={dashboardLoading}
-            onExport={handleExportFailures}
           />
         )}
       </div>

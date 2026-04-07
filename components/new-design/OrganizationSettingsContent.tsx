@@ -92,7 +92,12 @@ interface Organization {
 
 type SettingsSection = 'general' | 'integrations' | 'teams' | 'members' | 'billing' | 'sso'
 
-export function OrganizationSettingsContent() {
+interface OrganizationSettingsContentProps {
+  slugParam?: string
+  sectionParam?: string
+}
+
+export function OrganizationSettingsContent({ slugParam, sectionParam: sectionProp }: OrganizationSettingsContentProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuthStore()
@@ -104,9 +109,12 @@ export function OrganizationSettingsContent() {
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
-  const sectionParam = searchParams.get('section') as SettingsSection | null
-  const orgIdParam = searchParams.get('org')
-  const [activeSection, setActiveSection] = useState<SettingsSection>(sectionParam || 'general')
+
+  // Support both new slug-based route and legacy ?org= query param
+  const legacySectionParam = searchParams.get('section') as SettingsSection | null
+  const legacyOrgIdParam = searchParams.get('org')
+  const orgIdParam = legacyOrgIdParam // slug is resolved to ID via fetch
+  const [activeSection, setActiveSection] = useState<SettingsSection>((sectionProp || legacySectionParam || 'general') as SettingsSection)
 
   // Form state
   const [orgName, setOrgName] = useState("")
@@ -131,11 +139,12 @@ export function OrganizationSettingsContent() {
   }, [])
 
   // Update active section when URL parameter changes
+  const resolvedSection = sectionProp || legacySectionParam
   useEffect(() => {
-    if (sectionParam && ['general', 'integrations', 'teams', 'members', 'billing', 'sso'].includes(sectionParam)) {
-      setActiveSection(sectionParam)
+    if (resolvedSection && ['general', 'integrations', 'teams', 'members', 'billing', 'sso'].includes(resolvedSection)) {
+      setActiveSection(resolvedSection as SettingsSection)
     }
-  }, [sectionParam])
+  }, [resolvedSection])
 
   // Fetch integrations when viewing integrations section
   useEffect(() => {
@@ -144,28 +153,39 @@ export function OrganizationSettingsContent() {
     }
   }, [activeSection, user, fetchAllIntegrations])
 
+  // Helper to build settings URL for this org
+  const buildSettingsUrl = (section?: string) => {
+    const slug = organization?.slug || slugParam
+    if (slug) {
+      return `/org/${slug}/settings${section && section !== 'general' ? `/${section}` : ''}`
+    }
+    // Fallback to legacy URL
+    const orgParam = organization?.id ? `&org=${organization.id}` : ''
+    return `/organization-settings?section=${section || 'general'}${orgParam}`
+  }
+
   // Fetch current organization
   useEffect(() => {
-    if (user && orgIdParam) {
-      // Only fetch if we haven't fetched this org yet AND we're not currently fetching
+    if (user && (orgIdParam || slugParam)) {
+      const identifier = orgIdParam || slugParam!
       if (!hasFetchedRef.current && !fetchingRef.current) {
         hasFetchedRef.current = true
-        fetchOrganization(orgIdParam)
-      } else if (organization && organization.id !== orgIdParam) {
-        // Different org requested, allow re-fetch
+        fetchOrganization(identifier)
+      } else if (organization && organization.id !== identifier && organization.slug !== identifier) {
         hasFetchedRef.current = false
         fetchingRef.current = false
-        fetchOrganization(orgIdParam)
+        fetchOrganization(identifier)
       }
-    } else if (user && !orgIdParam) {
-      // No org ID provided — try to auto-select the user's org
+    } else if (user && !orgIdParam && !slugParam) {
+      // No org ID or slug — try to auto-select the user's org
       const autoSelect = async () => {
         try {
           const res = await fetch('/api/organizations')
           if (!res.ok) { setLoading(false); return }
-          const orgs = await res.json()
+          const data = await res.json()
+          const orgs = Array.isArray(data) ? data : data.organizations || []
           if (orgs.length === 1) {
-            router.replace(`/organization-settings?org=${orgs[0].id}`)
+            router.replace(`/organization/${orgs[0].slug}/settings`)
           } else {
             setLoading(false)
           }
@@ -175,7 +195,7 @@ export function OrganizationSettingsContent() {
       }
       autoSelect()
     }
-  }, [user, orgIdParam])
+  }, [user, orgIdParam, slugParam])
 
   // Listen for organization changes
   useEffect(() => {
@@ -190,16 +210,28 @@ export function OrganizationSettingsContent() {
     }
   }, [])
 
-  const fetchOrganization = async (orgId: string) => {
-    // Prevent concurrent fetches
-    if (fetchingRef.current) {
-      return
-    }
+  const fetchOrganization = async (identifier: string) => {
+    if (fetchingRef.current) return
 
     try {
       fetchingRef.current = true
       setLoading(true)
-      logEvent('info', 'OrgSettings', 'Fetching organization...', { orgId })
+      logEvent('info', 'OrgSettings', 'Fetching organization...', { identifier })
+
+      // If identifier looks like a UUID, fetch directly. Otherwise resolve slug first.
+      let orgId = identifier
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier)
+
+      if (!isUUID) {
+        // Resolve slug to org ID via the list endpoint
+        const listRes = await fetch('/api/organizations')
+        if (!listRes.ok) throw new Error('Failed to fetch organizations')
+        const listData = await listRes.json()
+        const allOrgs = Array.isArray(listData) ? listData : listData.organizations || []
+        const match = allOrgs.find((o: any) => o.slug === identifier)
+        if (!match) throw new Error('Organization not found')
+        orgId = match.id
+      }
 
       const response = await fetch(`/api/organizations/${orgId}`)
       if (!response.ok) throw new Error('Failed to fetch organization')
@@ -339,7 +371,7 @@ export function OrganizationSettingsContent() {
   // Navigation items
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings, description: 'Organization details and settings' },
-    { id: 'integrations' as const, label: 'Integrations', icon: Plug, description: 'Connected apps and sharing' },
+    { id: 'integrations' as const, label: 'Apps', icon: Plug, description: 'Connected apps and sharing' },
     { id: 'teams' as const, label: 'Teams', icon: Users, description: 'Manage organization teams' },
     { id: 'members' as const, label: 'Members', icon: Crown, description: 'Manage team members' },
     { id: 'billing' as const, label: 'Billing', icon: CreditCard, description: 'Manage subscription' },
@@ -396,8 +428,8 @@ export function OrganizationSettingsContent() {
   }
 
   if (!organization && !loading) {
-    return <OrganizationPicker onSelect={(orgId) => {
-      router.push(`/organization-settings?org=${orgId}`)
+    return <OrganizationPicker onSelect={(slug) => {
+      router.push(`/org/${slug}/settings`)
     }} />
   }
 
@@ -436,46 +468,8 @@ export function OrganizationSettingsContent() {
   const org = organization!
 
   return (
-    <div className="flex gap-8 max-w-7xl mx-auto">
-      {/* Sidebar Navigation */}
-      <aside className="w-52 shrink-0">
-        <div className="sticky top-6">
-          <div className="mb-4">
-            <h2 className="text-sm font-semibold text-foreground">Settings</h2>
-            <p className="text-xs text-muted-foreground truncate">{org.name}</p>
-          </div>
-
-          <nav className="space-y-0.5">
-            {navigationItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activeSection === item.id
-
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setActiveSection(item.id)
-                    const orgParam = org.id ? `&org=${org.id}` : ''
-                    router.push(`/organization-settings?section=${item.id}${orgParam}`)
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors",
-                    isActive
-                      ? "text-foreground font-medium bg-muted"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  {item.label}
-                </button>
-              )
-            })}
-          </nav>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 min-w-0">
+    <div className="w-full">
+      <div className="w-full">
         {/* General Settings */}
         {activeSection === 'general' && (
           <div className="space-y-6">
@@ -526,7 +520,7 @@ export function OrganizationSettingsContent() {
                 </div>
 
                 {isAdmin && (
-                  <Button onClick={handleSaveSettings} disabled={saving}>
+                  <Button onClick={handleSaveSettings} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
                     {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {!saving && <Save className="w-4 h-4 mr-2" />}
                     Save Changes
@@ -545,7 +539,7 @@ export function OrganizationSettingsContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
+                  <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-semibold">Delete Organization</h4>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -807,16 +801,10 @@ export function OrganizationSettingsContent() {
 
         {/* Members Section */}
         {activeSection === 'members' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold">Members</h2>
-              <p className="text-muted-foreground mt-2">Manage organization members and their permissions</p>
-            </div>
-            <OrganizationMembersManager
-              organizationId={org.id}
-              currentUserRole={org.user_role as any}
-            />
-          </div>
+          <OrganizationMembersManager
+            organizationId={org.id}
+            currentUserRole={org.user_role as any}
+          />
         )}
 
         {/* Billing Section */}
@@ -863,7 +851,7 @@ export function OrganizationSettingsContent() {
                   </div>
                   <Button
                     onClick={() => router.push('/settings?section=billing')}
-                    className="gap-2"
+                    className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
                   >
                     <CreditCard className="w-4 h-4" />
                     {organization?.billing?.plan === 'free' || !organization?.billing?.plan ? 'Upgrade Plan' : 'Manage Plan'}
@@ -962,7 +950,7 @@ export function OrganizationSettingsContent() {
                 </div>
 
                 {isAdmin && (
-                  <Button onClick={handleSaveSettings} disabled={saving}>
+                  <Button onClick={handleSaveSettings} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
                     {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {!saving && <Save className="w-4 h-4 mr-2" />}
                     Save Changes
@@ -987,7 +975,7 @@ export function OrganizationSettingsContent() {
             />
           </div>
         )}
-      </main>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -1039,15 +1027,15 @@ export function OrganizationSettingsContent() {
   )
 }
 
-function OrganizationPicker({ onSelect }: { onSelect: (orgId: string) => void }) {
+function OrganizationPicker({ onSelect }: { onSelect: (orgSlug: string) => void }) {
   const [orgs, setOrgs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
   useEffect(() => {
     fetch('/api/organizations')
-      .then(res => res.ok ? res.json() : [])
-      .then(data => setOrgs(data))
+      .then(res => res.ok ? res.json() : { organizations: [] })
+      .then(data => setOrgs(Array.isArray(data) ? data : data.organizations || []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -1082,7 +1070,7 @@ function OrganizationPicker({ onSelect }: { onSelect: (orgId: string) => void })
         {orgs.map((org: any) => (
           <button
             key={org.id}
-            onClick={() => onSelect(org.id)}
+            onClick={() => onSelect(org.slug || org.id)}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left hover:bg-muted transition-colors"
           >
             <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />

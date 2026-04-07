@@ -763,7 +763,7 @@ function cleanAIOutput(text: string): string {
 function parseAIResponseForEmail(aiResponse: string, goal: string): { subject: string; body: string } {
   if (!aiResponse) {
     return {
-      subject: "Response from AI Assistant",
+      subject: "Response from ChainReact Assistant",
       body: "No response generated."
     }
   }
@@ -804,7 +804,7 @@ function parseAIResponseForEmail(aiResponse: string, goal: string): { subject: s
       if (body.split(' ').length > 8) {
         subject += '...'
       }
-      subject = subject || "Response from AI Assistant"
+      subject = subject || "Response from ChainReact Assistant"
     }
   }
 

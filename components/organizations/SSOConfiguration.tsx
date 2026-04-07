@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -46,20 +46,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
-  Shield,
   Key,
   Plus,
   Trash2,
   Loader2,
   CheckCircle2,
-  XCircle,
-  ExternalLink,
   Copy,
-  RefreshCw,
   AlertTriangle,
-  Globe,
-  Users,
   Lock,
+  RefreshCw,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -80,70 +75,64 @@ interface SSOConfig {
   created_at: string
 }
 
-interface DomainMapping {
-  id: string
-  domain: string
-  is_verified: boolean
-  verified_at?: string
-}
-
 interface SSOConfigurationProps {
   organizationId: string
   isOwner: boolean
 }
 
+const INITIAL_FORM = {
+  provider: "saml" as "saml" | "oidc",
+  providerName: "",
+  entityId: "",
+  ssoUrl: "",
+  sloUrl: "",
+  x509Certificate: "",
+  clientId: "",
+  clientSecret: "",
+  discoveryUrl: "",
+  enforceSso: false,
+  autoProvisionUsers: true,
+  defaultRole: "member",
+  allowedDomains: "",
+}
+
 export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationProps) {
   const [configs, setConfigs] = useState<SSOConfig[]>([])
-  const [domains, setDomains] = useState<DomainMapping[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null)
   const [editingConfig, setEditingConfig] = useState<Partial<SSOConfig> | null>(null)
+  const [formData, setFormData] = useState(INITIAL_FORM)
 
-  // Form state for new/edit config
-  const [formData, setFormData] = useState({
-    provider: "saml" as "saml" | "oidc",
-    providerName: "",
-    entityId: "",
-    ssoUrl: "",
-    sloUrl: "",
-    x509Certificate: "",
-    clientId: "",
-    clientSecret: "",
-    discoveryUrl: "",
-    enforceSso: false,
-    autoProvisionUsers: true,
-    defaultRole: "member",
-    allowedDomains: "",
-  })
-
-  useEffect(() => {
-    fetchSSOConfig()
-  }, [organizationId])
-
-  const fetchSSOConfig = async () => {
+  const fetchSSOConfig = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const response = await fetch(`/api/organizations/${organizationId}/sso`)
       if (response.ok) {
         const data = await response.json()
         setConfigs(data.configurations || [])
-        setDomains(data.domains || [])
+      } else {
+        setError("Failed to load SSO configuration")
       }
-    } catch (error) {
-      toast.error("Failed to load SSO configuration")
+    } catch {
+      setError("Failed to load SSO configuration")
     } finally {
       setLoading(false)
     }
-  }
+  }, [organizationId])
+
+  useEffect(() => {
+    fetchSSOConfig()
+  }, [fetchSSOConfig])
 
   const handleSave = async () => {
     setSaving(true)
     try {
       const endpoint = `/api/organizations/${organizationId}/sso`
       const method = editingConfig?.id ? "PATCH" : "POST"
-
       const body = editingConfig?.id
         ? { configId: editingConfig.id, ...formData }
         : formData
@@ -155,17 +144,17 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to save")
+        const err = await response.json()
+        throw new Error(err.error || "Failed to save")
       }
 
       toast.success(editingConfig?.id ? "SSO configuration updated" : "SSO configuration created")
       setShowAddDialog(false)
       setEditingConfig(null)
-      resetForm()
+      setFormData(INITIAL_FORM)
       fetchSSOConfig()
-    } catch (error: any) {
-      toast.error(error.message)
+    } catch (err: any) {
+      toast.error(err.message)
     } finally {
       setSaving(false)
     }
@@ -177,15 +166,12 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
         `/api/organizations/${organizationId}/sso?configId=${configId}`,
         { method: "DELETE" }
       )
-
-      if (!response.ok) {
-        throw new Error("Failed to delete")
-      }
+      if (!response.ok) throw new Error("Failed to delete")
 
       toast.success("SSO configuration deleted")
       setShowDeleteDialog(null)
       fetchSSOConfig()
-    } catch (error) {
+    } catch {
       toast.error("Failed to delete SSO configuration")
     }
   }
@@ -200,32 +186,13 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
           isActive: !config.is_active,
         }),
       })
-
       if (!response.ok) throw new Error("Failed to update")
 
       toast.success(config.is_active ? "SSO deactivated" : "SSO activated")
       fetchSSOConfig()
-    } catch (error) {
+    } catch {
       toast.error("Failed to update SSO status")
     }
-  }
-
-  const resetForm = () => {
-    setFormData({
-      provider: "saml",
-      providerName: "",
-      entityId: "",
-      ssoUrl: "",
-      sloUrl: "",
-      x509Certificate: "",
-      clientId: "",
-      clientSecret: "",
-      discoveryUrl: "",
-      enforceSso: false,
-      autoProvisionUsers: true,
-      defaultRole: "member",
-      allowedDomains: "",
-    })
   }
 
   const openEditDialog = (config: SSOConfig) => {
@@ -258,9 +225,23 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
 
   if (loading) {
     return (
-      <Card className="bg-white dark:bg-gray-900/50">
+      <Card>
         <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
+          <p className="text-sm text-muted-foreground">{error}</p>
+          <Button variant="outline" size="sm" onClick={fetchSSOConfig}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry
+          </Button>
         </CardContent>
       </Card>
     )
@@ -268,124 +249,109 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-            <Shield className="w-5 h-5 text-rose-600" />
-            Single Sign-On (SSO)
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-200 mt-1">
-            Configure SAML or OIDC authentication for your organization
-          </p>
-        </div>
-        {isOwner && (
-          <Button
-            onClick={() => {
-              resetForm()
-              setEditingConfig(null)
-              setShowAddDialog(true)
-            }}
-            className="bg-rose-600 hover:bg-rose-700 text-white"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add SSO Provider
-          </Button>
-        )}
-      </div>
-
       {/* Service Provider Info */}
-      <Card className="bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/50">
+      <Card className="border-dashed">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium text-orange-900 dark:text-orange-100">
+          <CardTitle className="text-sm font-medium">
             Service Provider Information
           </CardTitle>
-          <CardDescription className="text-orange-700 dark:text-orange-300">
+          <CardDescription>
             Use these values when configuring your Identity Provider
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded border border-orange-200 dark:border-orange-900">
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">SAML ACS URL</p>
-              <p className="text-sm font-mono text-gray-900 dark:text-white">{acsUrl}</p>
+          <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">SAML ACS URL</p>
+              <p className="text-sm font-mono truncate">{acsUrl}</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(acsUrl)}>
+            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(acsUrl)} className="flex-shrink-0 ml-2">
               <Copy className="w-4 h-4" />
             </Button>
           </div>
-          <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded border border-orange-200 dark:border-orange-900">
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">OIDC Callback URL</p>
-              <p className="text-sm font-mono text-gray-900 dark:text-white">{oidcCallbackUrl}</p>
+          <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">OIDC Callback URL</p>
+              <p className="text-sm font-mono truncate">{oidcCallbackUrl}</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(oidcCallbackUrl)}>
+            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(oidcCallbackUrl)} className="flex-shrink-0 ml-2">
               <Copy className="w-4 h-4" />
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Add Provider Button */}
+      {isOwner && (
+        <div className="flex justify-end">
+          <Button
+            onClick={() => {
+              setFormData(INITIAL_FORM)
+              setEditingConfig(null)
+              setShowAddDialog(true)
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add SSO Provider
+          </Button>
+        </div>
+      )}
+
       {/* Existing Configurations */}
       {configs.length === 0 ? (
-        <Card className="bg-white dark:bg-gray-900/50 border-dashed">
+        <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Lock className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-4" />
-            <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              No SSO configured
-            </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-200 text-center max-w-md">
-              Set up Single Sign-On to allow your team members to authenticate using your company's identity provider like Okta, Azure AD, or Google Workspace.
+            <Lock className="w-12 h-12 text-muted-foreground/30 mb-4" />
+            <h4 className="text-base font-medium mb-1">No SSO configured</h4>
+            <p className="text-sm text-muted-foreground text-center max-w-md">
+              Set up Single Sign-On to allow your team members to authenticate using your
+              company&apos;s identity provider like Okta, Azure AD, or Google Workspace.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {configs.map((config) => (
-            <Card key={config.id} className="bg-white dark:bg-gray-900/50">
+            <Card key={config.id}>
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
                     <div className={`p-2 rounded-lg ${
                       config.is_active
                         ? "bg-green-100 dark:bg-green-900/30"
-                        : "bg-gray-100 dark:bg-gray-800"
+                        : "bg-muted"
                     }`}>
                       <Key className={`w-5 h-5 ${
                         config.is_active
                           ? "text-green-600 dark:text-green-400"
-                          : "text-gray-400"
+                          : "text-muted-foreground"
                       }`} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="font-medium text-gray-900 dark:text-white">
+                        <h4 className="font-medium">
                           {config.provider_name}
                         </h4>
-                        <Badge variant="outline" className={
-                          config.provider === "saml"
-                            ? "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800"
-                            : "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-800"
-                        }>
+                        <Badge variant="outline">
                           {config.provider.toUpperCase()}
                         </Badge>
                         {config.is_active ? (
-                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Active
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-gray-500">
+                          <Badge variant="outline" className="text-muted-foreground">
                             Inactive
                           </Badge>
                         )}
                       </div>
-                      <div className="mt-2 space-y-1 text-sm text-gray-500 dark:text-gray-200">
+                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                         {config.provider === "saml" && config.sso_url && (
-                          <p>SSO URL: {config.sso_url}</p>
+                          <p className="truncate max-w-md">SSO URL: {config.sso_url}</p>
                         )}
                         {config.provider === "oidc" && config.discovery_url && (
-                          <p>Discovery: {config.discovery_url}</p>
+                          <p className="truncate max-w-md">Discovery: {config.discovery_url}</p>
                         )}
                         {config.enforce_sso && (
                           <p className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
@@ -412,7 +378,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => setShowDeleteDialog(config.id)}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -484,7 +450,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
               <div className="space-y-2">
                 <Label>X.509 Certificate</Label>
                 <Textarea
-                  placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
+                  placeholder={"-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"}
                   rows={4}
                   className="font-mono text-xs"
                   value={formData.x509Certificate}
@@ -535,12 +501,12 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
 
           {/* Common Settings */}
           <div className="space-y-4 pt-4 border-t">
-            <h4 className="font-medium text-gray-900 dark:text-white">Settings</h4>
+            <h4 className="font-medium">Settings</h4>
 
             <div className="flex items-center justify-between">
               <div>
                 <Label>Enforce SSO</Label>
-                <p className="text-xs text-gray-500">Require all users to authenticate via SSO</p>
+                <p className="text-xs text-muted-foreground">Require all users to authenticate via SSO</p>
               </div>
               <Switch
                 checked={formData.enforceSso}
@@ -551,7 +517,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
             <div className="flex items-center justify-between">
               <div>
                 <Label>Auto-provision Users</Label>
-                <p className="text-xs text-gray-500">Automatically create accounts for new SSO users</p>
+                <p className="text-xs text-muted-foreground">Automatically create accounts for new SSO users</p>
               </div>
               <Switch
                 checked={formData.autoProvisionUsers}
@@ -582,7 +548,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
                 value={formData.allowedDomains}
                 onChange={(e) => setFormData({ ...formData, allowedDomains: e.target.value })}
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Comma-separated list. Leave empty to allow all domains.
               </p>
             </div>
@@ -595,7 +561,6 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="bg-rose-600 hover:bg-rose-700"
             >
               {saving ? (
                 <>
@@ -624,7 +589,7 @@ export function SSOConfiguration({ organizationId, isOwner }: SSOConfigurationPr
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => showDeleteDialog && handleDelete(showDeleteDialog)}
             >
               Delete

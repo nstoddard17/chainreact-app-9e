@@ -38,7 +38,7 @@ const ROUTE_LABELS: Record<string, string> = {
   security: "Security",
   notifications: "Notifications",
   "api-keys": "API Keys",
-  "ai-assistant": "AI Assistant",
+  "ai-assistant": "Assistant",
   team: "Team",
 }
 

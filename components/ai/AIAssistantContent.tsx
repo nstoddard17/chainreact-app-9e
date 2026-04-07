@@ -1236,7 +1236,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
   // Loading skeleton while conversations load
   if (isLoadingConversations) {
     return (
-      <div className="flex h-full w-full">
+      <div className="flex absolute inset-0 -mb-16">
         {/* Sidebar skeleton */}
         <div className="w-72 border-r bg-muted/20 dark:bg-muted/10 flex flex-col shrink-0">
           <div className="p-4 border-b">
@@ -1285,7 +1285,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
   }, {})
 
   return (
-    <div className="flex h-full w-full">
+    <div className="flex absolute inset-0 -mb-16">
       {/* Chat History Sidebar */}
       <div className="w-72 border-r border-border/50 bg-muted/20 dark:bg-muted/10 flex flex-col shrink-0">
         {/* Sidebar Header */}
@@ -1294,7 +1294,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-rose-500 flex items-center justify-center shadow-sm">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-sm tracking-tight">AI Assistant</h3>
+            <h3 className="font-semibold text-sm tracking-tight">ChainReact Assistant</h3>
           </div>
         </div>
 

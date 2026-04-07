@@ -341,10 +341,10 @@ export function WaitlistForm() {
                 <div className="flex-1">
                   <Label htmlFor="ai-assistant-toggle" className="text-base font-semibold cursor-pointer flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                    AI Assistant
+                    Assistant
                   </Label>
                   <p className="text-sm text-muted-foreground mt-1">
-                    A conversational AI that helps you build workflows, provides suggestions, and optimizes your automation
+                    A conversational assistant that helps you build workflows, provides suggestions, and optimizes your automation
                   </p>
                 </div>
                 <Switch

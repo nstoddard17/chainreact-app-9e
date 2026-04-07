@@ -143,7 +143,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     { name: "Workflows", href: "/workflows", icon: Home, keywords: ["home", "dashboard", "flows"] },
     { name: "Templates", href: "/templates", icon: Layers, keywords: ["library", "prebuilt"] },
     { name: "Apps & Integrations", href: "/apps", icon: Layout, keywords: ["connections", "connect", "integrations", "apps"] },
-    { name: "AI Assistant", href: "/ai-assistant", icon: Sparkles, keywords: ["ai", "chat", "assistant", "help"] },
+    { name: "Assistant", href: "/ai-assistant", icon: Sparkles, keywords: ["ai", "chat", "assistant", "help", "chainreact"] },
     { name: "Analytics", href: "/analytics", icon: BarChart3, keywords: ["stats", "metrics", "usage", "reports"] },
     { name: "Teams", href: "/teams", icon: Users, keywords: ["members", "team", "invite"] },
     { name: "Organization", href: "/organization", icon: Building, keywords: ["org", "company"] },

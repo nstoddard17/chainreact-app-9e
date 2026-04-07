@@ -20,7 +20,7 @@ interface AccessGuardProps {
 }
 
 const PAGE_DISPLAY_NAMES: Record<string, string> = {
-  '/ai-assistant': 'AI Assistant',
+  '/ai-assistant': 'Assistant',
   '/analytics': 'Analytics',
   '/teams': 'Teams',
   '/organization': 'Organization',

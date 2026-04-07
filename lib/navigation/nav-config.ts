@@ -64,11 +64,11 @@ export function getNavSections(isAdmin: boolean): NavSection[] {
     },
     {
       id: "ai-assistant",
-      label: "AI Assistant",
+      label: "Assistant",
       icon: Sparkles,
       href: "/ai-assistant",
       children: [
-        { id: "ai-assistant", label: "AI Assistant", href: "/ai-assistant", icon: Sparkles },
+        { id: "ai-assistant", label: "Assistant", href: "/ai-assistant", icon: Sparkles },
       ],
     },
     {
@@ -84,9 +84,9 @@ export function getNavSections(isAdmin: boolean): NavSection[] {
       id: "organization",
       label: "Organization",
       icon: Building,
-      href: "/organization-settings",
+      href: "/org",
       children: [
-        { id: "organization-settings", label: "Settings", href: "/organization-settings", icon: Building },
+        { id: "org", label: "Organization", href: "/org", icon: Building },
       ],
     },
     {
@@ -99,8 +99,8 @@ export function getNavSections(isAdmin: boolean): NavSection[] {
       ],
     },
     {
-      id: "my-plan",
-      label: "My Plan",
+      id: "billing",
+      label: "Billing",
       icon: CreditCard,
       href: "/subscription",
       children: [

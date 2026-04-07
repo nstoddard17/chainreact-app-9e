@@ -52,7 +52,7 @@ export default function UpgradePrompt({
 
   const getUsageTypeName = () => {
     switch (usageType) {
-      case "ai_assistant": return "AI Assistant"
+      case "ai_assistant": return "Assistant"
       case "ai_compose": return "AI Compose"
       case "ai_agent": return "AI Agent"
       default: return "AI Feature"

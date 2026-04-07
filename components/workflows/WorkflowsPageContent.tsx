@@ -94,6 +94,7 @@ import { useToast } from '@/hooks/use-toast'
 import { logger } from '@/lib/utils/logger'
 import { fetchWithTimeout, retryWithBackoff } from '@/lib/utils/fetch-with-timeout'
 import { PagePreloader } from '@/components/common/PagePreloader'
+import { ListPageSkeleton } from '@/components/common/PageSkeleton'
 import type { Workflow as WorkflowRecord, WorkflowNode } from '@/stores/workflowStore'
 
 type ViewTab = 'workflows' | 'folders'
@@ -137,7 +138,7 @@ function WorkflowAvatar({ avatarUrl, name, initials, className }: { avatarUrl: s
 
 export function WorkflowsContentInner() {
   const router = useRouter()
-  const { workflows, loadingList, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache, duplicateWorkflow, shareWorkflow, batchMoveToFolder, batchTrash, batchDelete, batchRestore, createFolder: storeCreateFolder, updateFolder: storeUpdateFolder, deleteFolder: storeDeleteFolder, setDefaultFolder: storeSetDefaultFolder, activateWorkflow, deactivateWorkflow } = useWorkflowStore()
+  const { workflows, loadingList, loadedOnce, fetchWorkflows, updateWorkflow, deleteWorkflow, moveWorkflowToTrash, restoreWorkflowFromTrash, emptyTrash, invalidateCache, duplicateWorkflow, shareWorkflow, batchMoveToFolder, batchTrash, batchDelete, batchRestore, createFolder: storeCreateFolder, updateFolder: storeUpdateFolder, deleteFolder: storeDeleteFolder, setDefaultFolder: storeSetDefaultFolder, activateWorkflow, deactivateWorkflow } = useWorkflowStore()
   const { user, profile } = useAuthStore()
   const { getConnectedProviders } = useIntegrationStore()
   const { checkActionLimit } = usePlanRestrictions()
@@ -1351,6 +1352,11 @@ export function WorkflowsContentInner() {
 
   useKeyboardShortcuts({ shortcuts })
   const { HelpDialog, isOpen: helpOpen, setIsOpen: setHelpOpen } = useKeyboardShortcutsHelp(shortcuts)
+
+  // Show skeleton until workflows have loaded at least once
+  if (!loadedOnce && loadingList) {
+    return <ListPageSkeleton />
+  }
 
   return (
     <>

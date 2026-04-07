@@ -172,13 +172,36 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const roleHierarchy = { owner: 4, admin: 3, member: 2, viewer: 1 }
+    const roleHierarchy: Record<string, number> = { owner: 4, admin: 3, manager: 2, hr: 2, finance: 2, member: 1, viewer: 0 }
     const rolesByOrg = new Map<string, string>()
+
+    // 1. Check if user is the org owner (owner_id on the organization row)
+    organizations?.forEach((org: any) => {
+      if (org.owner_id === user.id) {
+        rolesByOrg.set(org.id, 'owner')
+      }
+    })
+
+    // 2. Check organization_members for org-level roles
+    const { data: orgMemberships } = await serviceClient
+      .from("organization_members")
+      .select("organization_id, role")
+      .eq("user_id", user.id)
+      .in("organization_id", orgIds_array)
+
+    orgMemberships?.forEach((m: any) => {
+      const current = rolesByOrg.get(m.organization_id) || 'viewer'
+      if ((roleHierarchy[m.role] || 0) > (roleHierarchy[current] || 0)) {
+        rolesByOrg.set(m.organization_id, m.role)
+      }
+    })
+
+    // 3. Check team-level roles as fallback
     userRoles?.forEach((role: any) => {
       const orgId = role.team?.organization_id
       if (orgId) {
         const current = rolesByOrg.get(orgId) || 'viewer'
-        if ((roleHierarchy[role.role as keyof typeof roleHierarchy] || 0) > (roleHierarchy[current as keyof typeof roleHierarchy] || 0)) {
+        if ((roleHierarchy[role.role] || 0) > (roleHierarchy[current] || 0)) {
           rolesByOrg.set(orgId, role.role)
         }
       }

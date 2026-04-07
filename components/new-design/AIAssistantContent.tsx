@@ -112,7 +112,7 @@ export function AIAssistantContent() {
           <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
             <Sparkles className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="text-2xl font-semibold mb-2">AI Assistant</h2>
+          <h2 className="text-2xl font-semibold mb-2">Assistant</h2>
           <p className="text-muted-foreground text-center max-w-md mb-8">
             I can help you create workflows, troubleshoot issues, and provide insights about your automations. I'll automatically format responses based on the data type!
           </p>

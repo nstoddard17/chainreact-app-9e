@@ -52,7 +52,7 @@ export const mainTourSteps: TourStep[] = [
   {
     id: 'sidebar-navigation',
     title: 'Your Navigation Hub',
-    description: 'Use the sidebar to navigate between your workflows, templates, connected apps, and AI assistant.',
+    description: 'Use the sidebar to navigate between your workflows, templates, connected apps, and assistant.',
     target: '[data-tour="sidebar"]',
     placement: 'right',
     action: 'none',
@@ -86,7 +86,7 @@ export const mainTourSteps: TourStep[] = [
   {
     id: 'ai-assistant',
     title: 'AI-Powered Automation',
-    description: 'Use our AI assistant to build workflows by describing what you want to automate in plain English.',
+    description: 'Use the assistant to build workflows by describing what you want to automate in plain English.',
     target: '[data-tour="ai-assistant"]',
     placement: 'right',
     action: 'none',

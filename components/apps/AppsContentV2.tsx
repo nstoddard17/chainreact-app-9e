@@ -12,15 +12,12 @@ import {
   Home,
   Users,
   Building,
-  Check,
   Trash2,
   AlertTriangle,
   Zap,
   Search,
   X,
   Plug,
-  Signal,
-  Package,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -321,58 +318,58 @@ export function AppsContentV2() {
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
-      <div className="space-y-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight animate-fade-in">Integrations</h1>
-          <p className="text-muted-foreground mt-1 animate-fade-in">
-            Connect your favorite tools to automate workflows
-          </p>
+      {/* Row 1: Title + Stats left, Search right */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between animate-fade-in">
+        <div className="space-y-2 min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">Apps</h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <p className="text-sm text-muted-foreground">
+              Connect your favorite tools to automate workflows
+            </p>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-green-500" />
+                {stats.connected} connected
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                {stats.available} available
+              </span>
+              {stats.needsAttention > 0 && (
+                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="w-3 h-3" />
+                  {stats.needsAttention} need attention
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Stats Pills */}
-        <div className="flex flex-wrap gap-2 animate-fade-in">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-500/20">
-            <Signal className="w-3 h-3" />
-            {stats.connected} connected
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
-            <Package className="w-3 h-3" />
-            {stats.available} available
-          </span>
-          {stats.needsAttention > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20">
-              <AlertTriangle className="w-3 h-3" />
-              {stats.needsAttention} need attention
-            </span>
+        {/* Search — full-width mobile, fixed-width desktop */}
+        <div className="relative w-full lg:w-80 xl:w-96 flex-shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search integrations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-9 pl-9 pr-9 text-sm bg-background border border-input rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors placeholder:text-muted-foreground"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-muted flex items-center justify-center hover:bg-muted-foreground/20 transition-colors"
+            >
+              <X className="w-3 h-3 text-muted-foreground" />
+            </button>
           )}
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative w-full max-w-lg animate-fade-in">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search integrations..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-11 pl-10 pr-10 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-muted-foreground/60"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-muted flex items-center justify-center hover:bg-muted-foreground/20 transition-colors"
-          >
-            <X className="w-3 h-3 text-muted-foreground" />
-          </button>
-        )}
-      </div>
-
-      {/* Tab/Filter Bar */}
-      <div className="space-y-3">
-        {/* Status Tabs */}
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Row 2: Toolbar — Status tabs left, Category filter right */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
+        {/* Status Tabs — underline style */}
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none -mb-px">
           {[
             { id: 'all' as const, label: 'All', count: stats.available },
             { id: 'connected' as const, label: 'Connected', count: stats.connected },
@@ -383,40 +380,45 @@ export function AppsContentV2() {
               key={tab.id}
               onClick={() => { setActiveTab(tab.id); setDetailProvider(null) }}
               className={cn(
-                "px-4 py-2 text-sm font-medium rounded-full transition-all border",
+                "relative px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors",
                 activeTab === tab.id
                   ? tab.id === 'attention'
-                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-500/30"
-                    : "bg-gradient-to-r from-orange-500/10 to-rose-500/10 text-foreground border-orange-300/50 dark:border-orange-500/30 shadow-sm"
-                  : "bg-transparent text-muted-foreground border-transparent hover:bg-muted/50 hover:text-foreground"
+                    ? "text-amber-700 dark:text-amber-400"
+                    : "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               {tab.label}
               <span className={cn(
-                "ml-2 px-1.5 py-0.5 text-xs rounded-full",
+                "ml-1.5 text-xs tabular-nums",
                 activeTab === tab.id
-                  ? tab.id === 'attention'
-                    ? "bg-amber-500/20 text-amber-700 dark:text-amber-400"
-                    : "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground"
+                  ? "text-inherit"
+                  : "text-muted-foreground"
               )}>
                 {tab.count}
               </span>
+              {/* Active indicator bar */}
+              {activeTab === tab.id && (
+                <span className={cn(
+                  "absolute bottom-0 left-3 right-3 h-0.5 rounded-full",
+                  tab.id === 'attention' ? "bg-amber-500" : "bg-foreground"
+                )} />
+              )}
             </button>
           ))}
         </div>
 
-        {/* Category Filter Pills */}
-        <div className="flex flex-wrap gap-1.5">
+        {/* Category Filter — pill row on desktop, horizontal scroll on mobile */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-shrink-0">
           {CATEGORIES.map(cat => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
               className={cn(
-                "px-3 py-1 text-xs font-medium rounded-full transition-all",
+                "px-3 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-all",
                 selectedCategory === cat.id
-                  ? "bg-foreground text-background shadow-sm"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-secondary text-secondary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               )}
             >
               {cat.label}
@@ -425,13 +427,12 @@ export function AppsContentV2() {
         </div>
       </div>
 
-      {/* Integration Card Grid */}
+      {/* Integration Card Grid — 4 columns on xl */}
       {appsList.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {appsList.map((provider, index) => {
             const accounts = getConnectedAccounts(provider.id)
             const isConnected = accounts.length > 0
-            const connection = getConnectionStatus(provider.id)
             const isExpired = accounts.some(a => a.status === 'expired' || a.status === 'needs_reauthorization')
             const config = INTEGRATION_CONFIGS[provider.id]
             const categoryLabel = config?.category
