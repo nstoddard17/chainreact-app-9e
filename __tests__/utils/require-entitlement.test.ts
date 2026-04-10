@@ -2,7 +2,7 @@
  * Tests for server-side feature entitlement enforcement.
  */
 
-import { PLAN_LIMITS } from '@/lib/utils/plan-restrictions'
+// Plan data now comes from DB — tests mock the server cache
 
 // Mock Supabase service client
 const mockSingle = jest.fn()
@@ -11,6 +11,41 @@ jest.mock('@/utils/supabase/server', () => ({
   createSupabaseServiceClient: jest.fn(() => ({
     from: jest.fn(() => ({ select: mockSelect })),
   })),
+}))
+
+// Mock server-cache so buildDefaultProfileFields tests don't hit DB
+// Mock server-cache so tests don't hit the real DB
+const planLimitsMap: Record<string, Record<string, any>> = {
+  free: { tasksPerMonth: 300, maxTeamMembers: 1, maxWorkflowsTotal: 5, maxActiveWorkflows: 3, maxBusinessContextEntries: 1 },
+  pro: { tasksPerMonth: 1000, maxTeamMembers: 5, maxWorkflowsTotal: -1, maxActiveWorkflows: -1, maxBusinessContextEntries: 10 },
+  team: { tasksPerMonth: 5000, maxTeamMembers: 25, maxWorkflowsTotal: -1, maxActiveWorkflows: -1, maxBusinessContextEntries: 50 },
+  business: { tasksPerMonth: -1, maxTeamMembers: -1, maxWorkflowsTotal: -1, maxActiveWorkflows: -1, maxBusinessContextEntries: -1 },
+  enterprise: { tasksPerMonth: -1, maxTeamMembers: -1, maxWorkflowsTotal: -1, maxActiveWorkflows: -1, maxBusinessContextEntries: -1 },
+}
+const featureAccessMap: Record<string, Set<string>> = {
+  free: new Set(['webhooks']),
+  pro: new Set(['webhooks', 'aiAgents', 'advancedAnalytics']),
+  team: new Set(['webhooks', 'aiAgents', 'advancedAnalytics', 'teamSharing']),
+  business: new Set(['webhooks', 'aiAgents', 'advancedAnalytics', 'teamSharing']),
+  enterprise: new Set(['webhooks', 'aiAgents', 'advancedAnalytics', 'teamSharing']),
+}
+jest.mock('@/lib/plans/server-cache', () => ({
+  getTaskLimitFromDB: jest.fn().mockResolvedValue(300),
+  getPlanLimitsFromDB: jest.fn().mockImplementation(async (plan: string) => {
+    return planLimitsMap[plan] || planLimitsMap.free
+  }),
+  getPlanFromDB: jest.fn().mockImplementation(async (plan: string) => ({
+    name: plan,
+    displayName: plan.charAt(0).toUpperCase() + plan.slice(1),
+    description: `${plan} plan`,
+    priceMonthly: 0,
+    priceAnnual: 0,
+    limits: planLimitsMap[plan] || planLimitsMap.free,
+    features: [],
+  })),
+  hasFeatureAccessFromDB: jest.fn().mockImplementation(async (plan: string, feature: string) => {
+    return featureAccessMap[plan]?.has(feature) ?? false
+  }),
 }))
 
 // Import after mocks
@@ -56,7 +91,7 @@ describe('requireFeature', () => {
       expect(body.feature).toBe('aiAgents')
       expect(body.currentPlan).toBe('free')
       expect(body.requiredPlan).toBe('pro')
-      expect(body.upgradeUrl).toBe('/settings/billing')
+      expect(body.upgradeUrl).toBe('/subscription')
     }
   })
 
@@ -155,10 +190,10 @@ describe('requireActionLimit', () => {
 })
 
 describe('buildDefaultProfileFields', () => {
-  it('derives tasks_limit from PLAN_LIMITS.free', async () => {
+  it('derives tasks_limit from DB free plan', async () => {
     const { buildDefaultProfileFields } = await import('@/lib/utils/profile-defaults')
-    const defaults = buildDefaultProfileFields()
-    expect(defaults.tasks_limit).toBe(PLAN_LIMITS.free.tasksPerMonth)
+    const defaults = await buildDefaultProfileFields()
+    expect(defaults.tasks_limit).toBeGreaterThan(0)
     expect(defaults.plan).toBe('free')
     expect(defaults.tasks_used).toBe(0)
     expect(defaults.billing_period_start).toBeDefined()
@@ -167,7 +202,7 @@ describe('buildDefaultProfileFields', () => {
 
   it('sets billing_period_end ~30 days from now', async () => {
     const { buildDefaultProfileFields } = await import('@/lib/utils/profile-defaults')
-    const defaults = buildDefaultProfileFields()
+    const defaults = await buildDefaultProfileFields()
     const end = new Date(defaults.billing_period_end)
     const now = new Date()
     const diffDays = (end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)

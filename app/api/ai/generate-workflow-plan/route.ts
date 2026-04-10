@@ -105,7 +105,7 @@ Return ONLY a JSON object with this structure:
 
 export async function POST(req: NextRequest) {
   // Rate limiting: 30 workflow plan generations per minute per IP
-  const rateLimitResult = checkRateLimit(req, {
+  const rateLimitResult = await checkRateLimit(req, {
     limit: 30,
     windowSeconds: 60
   })

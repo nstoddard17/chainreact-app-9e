@@ -296,7 +296,7 @@ export default function WaitlistContent() {
 
   const handleExportData = () => {
     const csvContent = [
-      ["Name", "Email", "Status", "Integrations", "AI Assistant", "AI Actions", "AI Actions Importance", "Created", "Invited"],
+      ["Name", "Email", "Status", "Integrations", "Assistant", "AI Actions", "AI Actions Importance", "Created", "Invited"],
       ...waitlistMembers.map(m => [
         m.name,
         m.email,
@@ -395,7 +395,7 @@ export default function WaitlistContent() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
-                <p className="text-xs sm:text-sm text-muted-foreground truncate">AI Assistant</p>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">Assistant</p>
                 <p className="text-xl sm:text-2xl font-bold text-rose-600">{stats.aiAssistantInterest}</p>
               </div>
               <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-rose-600 flex-shrink-0" />
@@ -713,7 +713,7 @@ export default function WaitlistContent() {
                 <h4 className="text-sm font-semibold mb-3">AI Preferences</h4>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="ai-assistant">Wants AI Assistant</Label>
+                    <Label htmlFor="ai-assistant">Wants Assistant</Label>
                     <Checkbox
                       id="ai-assistant"
                       checked={selectedMember.wants_ai_assistant}

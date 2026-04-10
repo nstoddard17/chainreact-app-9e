@@ -175,52 +175,17 @@ export async function GET(request: NextRequest) {
       })
       
       if (isGoogleAuth) {
-        // Always check for username for Google users
-        const { data: profileData, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('username, provider')
-          .eq('id', data.user.id)
-          .single()
-        
-        logger.info('Profile check result:', { profileData, profileError })
-        
-        // If profile doesn't exist, create it first
-        if (profileError && profileError.code === 'PGRST116') {
-          logger.info('Creating new Google user profile:', {
-            id: data.user.id,
-            email: data.user.email,
+        // Ensure profile exists for Google users
+        try {
+          const serviceClient = getServiceClient()
+          await ensureUserProfile(serviceClient, data.user.id, {
+            provider: 'google',
           })
-
-          try {
-            const serviceClient = getServiceClient()
-            await ensureUserProfile(serviceClient, data.user.id, {
-              provider: 'google',
-              username: null, // Explicitly null — Google users pick username later
-            })
-          } catch (createError) {
-            logger.error('Error creating Google user profile:', createError)
-          }
-
-          // Always redirect to username setup for new Google users
-          logger.info('New Google user created, redirecting to username setup')
-          return NextResponse.redirect(`${origin}/auth/setup-username`)
+        } catch (createError) {
+          logger.error('Error ensuring Google user profile:', createError)
         }
-        
-        // Check if this is a Google user without username
-        // This check should catch ALL Google users without usernames
-        if (!profileData?.username || profileData.username === '' || profileData.username === null) {
-          logger.info('Google user without username detected, redirecting to setup:', {
-            hasUsername: !!profileData?.username,
-            provider: profileData?.provider
-          })
-          return NextResponse.redirect(`${origin}/auth/setup-username`)
-        }
-        
-        // Google user has a username, proceed normally
-        logger.info('Google user has username, proceeding to workflows')
       }
-      
-      // User has username or is not Google auth, proceed to workflows
+
       return NextResponse.redirect(`${origin}${next}`)
     }
 

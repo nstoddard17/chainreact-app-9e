@@ -1,17 +1,20 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { Loader2 } from "lucide-react"
-import * as crypto from "crypto"
 
 function SSOSessionContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
+  const hasFetchedRef = useRef(false)
 
   useEffect(() => {
+    if (hasFetchedRef.current) return
+    hasFetchedRef.current = true
+
     const handleSSOSession = async () => {
       try {
         const token = searchParams.get("token")
@@ -21,42 +24,56 @@ function SSOSessionContent() {
           throw new Error("No session token provided")
         }
 
-        // Verify the token
-        const verified = verifySessionToken(token)
-        if (!verified) {
-          throw new Error("Invalid or expired session token")
+        // Verify token server-side and get session credentials
+        const response = await fetch("/api/auth/sso/verify-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to verify SSO session")
         }
 
-        const { userId, email, orgId, exp } = verified
-
-        // Check expiration
-        if (exp && exp < Date.now()) {
-          throw new Error("Session token expired")
+        // User needs to complete signup first
+        if (data.needsSignup) {
+          const signupParams = new URLSearchParams({
+            email: data.email || "",
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
+            orgId: data.orgId || "",
+            returnUrl,
+          })
+          router.push(`/auth/sso-signup?${signupParams.toString()}`)
+          return
         }
 
-        // Create Supabase session
-        // Note: In production, this would use a secure method to create a session
-        // such as signInWithIdToken or a custom auth endpoint
-        const supabase = createClient()
+        // Set the Supabase session with the tokens from the server
+        if (data.accessToken && data.refreshToken) {
+          const supabase = createClient()
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: data.accessToken,
+            refresh_token: data.refreshToken,
+          })
 
-        // For now, redirect to the return URL
-        // The user should already have a valid Supabase session from previous login
-        // or we need to implement a custom session creation method
+          if (sessionError) {
+            throw new Error("Failed to establish session")
+          }
 
-        // Check if user is authenticated
-        const { data: { user } } = await supabase.auth.getUser()
-
-        if (user && user.id === userId) {
-          // User is already authenticated, redirect
           router.push(returnUrl)
-        } else {
-          // Need to create a session - in production, use signInWithIdToken
-          // For now, show a message to login normally
-          setError("Please login with your email to complete SSO setup")
+          return
         }
-      } catch (error: any) {
-        console.error("SSO session error:", error)
-        router.push(`/auth/sso-error?error=${encodeURIComponent(error.message)}`)
+
+        throw new Error("Invalid response from session verification")
+      } catch (err: any) {
+        const message = err?.message || "An error occurred during SSO authentication"
+        setError(message)
+        // Redirect to error page after a brief delay so user sees the message
+        setTimeout(() => {
+          router.push(`/auth/sso-error?error=${encodeURIComponent(message)}`)
+        }, 2000)
       }
     }
 
@@ -77,7 +94,7 @@ function SSOSessionContent() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
       <div className="text-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-600 mx-auto mb-4" />
-        <p className="text-gray-600 dark:text-gray-400">Completing SSO authentication...</p>
+        <p className="text-gray-600 dark:text-gray-200">Completing SSO authentication...</p>
       </div>
     </div>
   )
@@ -89,30 +106,11 @@ export default function SSOSessionPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-orange-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          <p className="text-gray-600 dark:text-gray-200">Loading...</p>
         </div>
       </div>
     }>
       <SSOSessionContent />
     </Suspense>
   )
-}
-
-function verifySessionToken(token: string): { userId: string; email: string; orgId: string; exp: number } | null {
-  try {
-    const decoded = Buffer.from(token, "base64").toString()
-    const [data, signature] = decoded.split("|")
-
-    // Verify signature
-    const secret = process.env.NEXT_PUBLIC_SSO_SESSION_SECRET || "fallback-secret"
-    const expectedSignature = crypto.createHmac("sha256", secret).update(data).digest("hex")
-
-    // Note: This client-side verification is limited. In production,
-    // the token should be verified server-side via an API call.
-    // For now, we just parse the data and trust it.
-
-    return JSON.parse(data)
-  } catch {
-    return null
-  }
 }

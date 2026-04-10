@@ -26,7 +26,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
           className="w-10 h-10 p-0 border-2"
           style={{
             backgroundColor: getColorValue(value),
-            borderColor: value === "default" ? "hsl(var(--border))" : getColorValue(value)
+            borderColor: value === "default" ? "oklch(var(--border))" : getColorValue(value)
           }}
         >
           <Palette className="w-4 h-4" />
@@ -42,7 +42,7 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
               className="w-8 h-8 p-0 border-2"
               style={{
                 backgroundColor: getColorValue(color),
-                borderColor: color === value ? "hsl(var(--foreground))" : "transparent"
+                borderColor: color === value ? "oklch(var(--foreground))" : "transparent"
               }}
               onClick={() => {
                 onChange(color)

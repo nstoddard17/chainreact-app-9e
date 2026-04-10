@@ -155,7 +155,7 @@ export function DiscordMessageSelector({
           </span>
         ))}
         {reactions.length > 4 && (
-          <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">
+          <span className="text-xs text-slate-400 dark:text-slate-400 ml-1">
             +{reactions.length - 4} more
           </span>
         )}
@@ -208,7 +208,7 @@ export function DiscordMessageSelector({
             </AvatarFallback>
           </Avatar>
           
-          <div className="text-sm text-slate-600 dark:text-slate-400">
+          <div className="text-sm text-slate-600 dark:text-slate-200">
             <span className="font-medium text-slate-800 dark:text-slate-200">
               {authorName}
             </span>

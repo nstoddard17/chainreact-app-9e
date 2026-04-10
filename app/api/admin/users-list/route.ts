@@ -13,7 +13,7 @@ export async function GET() {
   try {
     const { data: profiles, error: profilesError } = await adminSupabase
       .from('user_profiles')
-      .select('id, full_name, username, role, created_at, avatar_url')
+      .select('id, full_name, first_name, last_name, role, created_at, avatar_url')
       .order('created_at', { ascending: false })
 
     if (profilesError) {
@@ -94,7 +94,7 @@ export async function GET() {
     const usersWithOnlineStatus = profiles?.map((profile: any) => ({
       ...profile,
       email: emailMap.get(profile.id) || 'No email available',
-      displayEmail: emailMap.get(profile.id) || profile.username || 'No email set',
+      displayEmail: emailMap.get(profile.id) || profile.full_name || 'No email set',
       created_at: createdAtMap.get(profile.id) || profile.created_at,
       isOnline: onlineUserIds.has(profile.id),
     })) || []

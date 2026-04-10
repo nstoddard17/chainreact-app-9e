@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
             .update({
               status: 'cancelled',
               completed_at: new Date().toISOString(),
-              error: `HITL conversation timed out after ${timeoutMinutes} minutes with no response`
+              error_message: `HITL conversation timed out after ${timeoutMinutes} minutes with no response`
             })
             .eq('id', execution.id)
 

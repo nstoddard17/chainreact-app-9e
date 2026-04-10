@@ -253,22 +253,22 @@ export function TeamSettingsContent() {
   if (teams.length === 0) {
     return (
       <>
-        <div className="h-full w-full flex items-center justify-center p-6">
+        <div className="h-full w-full flex items-center justify-center p-6 animate-fade-in-up">
           <Card className="max-w-2xl w-full border-2">
             <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Users className="w-6 h-6 text-muted-foreground" />
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500/10 to-rose-500/10 dark:from-orange-500/20 dark:to-rose-500/20 flex items-center justify-center mb-4 shadow-sm">
+                <Users className="w-8 h-8 text-orange-500" />
               </div>
               <CardTitle className="text-2xl">No Teams</CardTitle>
-              <CardDescription className="text-base mt-2">
+              <CardDescription className="text-base mt-2 leading-relaxed">
                 You're currently not part of any team. Join a team or create an organization to collaborate with teams.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Feature Benefits */}
               <div className="space-y-4">
-                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                  <Users className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg border-l-4 border-l-orange-500 animate-fade-in-up" style={{ animationDelay: '75ms', animationFillMode: 'both' }}>
+                  <Users className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <h3 className="font-semibold text-sm mb-1">Collaborate with Teams</h3>
                     <p className="text-sm text-muted-foreground">
@@ -277,8 +277,8 @@ export function TeamSettingsContent() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                  <Shield className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg border-l-4 border-l-blue-500 animate-fade-in-up" style={{ animationDelay: '150ms', animationFillMode: 'both' }}>
+                  <Shield className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <h3 className="font-semibold text-sm mb-1">Manage Permissions</h3>
                     <p className="text-sm text-muted-foreground">
@@ -287,8 +287,8 @@ export function TeamSettingsContent() {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                  <UserIcon className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg border-l-4 border-l-purple-500 animate-fade-in-up" style={{ animationDelay: '225ms', animationFillMode: 'both' }}>
+                  <UserIcon className="w-5 h-5 text-purple-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <h3 className="font-semibold text-sm mb-1">Organized Workflows</h3>
                     <p className="text-sm text-muted-foreground">
@@ -303,6 +303,7 @@ export function TeamSettingsContent() {
                 <Button
                   size="lg"
                   onClick={() => setCreateTeamDialogOpen(true)}
+                  className="bg-gradient-to-r from-orange-500 to-rose-500 text-white hover:from-orange-600 hover:to-rose-600 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   <Users className="w-4 h-4 mr-2" />
                   Create Team
@@ -340,7 +341,7 @@ export function TeamSettingsContent() {
   ]
 
   return (
-    <div className="flex gap-8 max-w-7xl mx-auto">
+    <div className="flex gap-8 max-w-7xl mx-auto animate-fade-in-up">
       {/* Sidebar Navigation */}
       <aside className="w-64 shrink-0">
         <div className="sticky top-6 space-y-6">
@@ -437,13 +438,13 @@ export function TeamSettingsContent() {
 
         {activeSection === 'general' && (
           <div className="space-y-6">
-            <div>
+            <div className="animate-fade-in-up" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
               <h2 className="text-3xl font-bold tracking-tight">General Settings</h2>
               <p className="text-muted-foreground mt-2">Update your team's basic information</p>
             </div>
 
             {/* Team Details */}
-            <Card>
+            <Card className="animate-fade-in-up transition-shadow duration-200 hover:shadow-sm" style={{ animationDelay: '75ms', animationFillMode: 'both' }}>
         <CardHeader>
           <CardTitle>Team Details</CardTitle>
           <CardDescription>Update your team's basic information</CardDescription>
@@ -456,6 +457,7 @@ export function TeamSettingsContent() {
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
               disabled={!canManage}
+              className="transition-all duration-200 focus:ring-2 focus:ring-orange-500/20"
             />
           </div>
 
@@ -481,11 +483,12 @@ export function TeamSettingsContent() {
               rows={3}
               disabled={!canManage}
               placeholder="What does your team work on?"
+              className="transition-all duration-200 focus:ring-2 focus:ring-orange-500/20"
             />
           </div>
 
           {canManage && (
-            <Button onClick={handleSaveSettings} disabled={saving}>
+            <Button onClick={handleSaveSettings} disabled={saving} className="bg-gradient-to-r from-orange-500 to-rose-500 text-white hover:from-orange-600 hover:to-rose-600 transition-all duration-200 shadow-sm hover:shadow-md">
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {!saving && <Save className="w-4 h-4 mr-2" />}
               Save Changes
@@ -496,7 +499,7 @@ export function TeamSettingsContent() {
 
             {/* Danger Zone */}
             {isOwner && (
-              <Card className="border-destructive">
+              <Card className="border-destructive animate-fade-in-up transition-shadow duration-200 hover:shadow-sm" style={{ animationDelay: '150ms', animationFillMode: 'both' }}>
                 <CardHeader>
                   <CardTitle className="text-destructive">Danger Zone</CardTitle>
                   <CardDescription>
@@ -528,12 +531,12 @@ export function TeamSettingsContent() {
         {/* Billing Section */}
         {activeSection === 'billing' && isStandaloneTeam && (
           <div className="space-y-6">
-            <div>
+            <div className="animate-fade-in-up" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
               <h2 className="text-3xl font-bold tracking-tight">Billing & Subscription</h2>
               <p className="text-muted-foreground mt-2">Manage your team's subscription through Stripe</p>
             </div>
 
-            <Card>
+            <Card className="animate-fade-in-up transition-shadow duration-200 hover:shadow-sm" style={{ animationDelay: '75ms', animationFillMode: 'both' }}>
               <CardHeader>
                 <CardTitle>Current Plan</CardTitle>
                 <CardDescription>
@@ -573,7 +576,7 @@ export function TeamSettingsContent() {
                         router.push('/settings?section=billing')
                       } else if (currentTeam?.organization_id) {
                         // For org teams, route to org settings
-                        router.push('/organization-settings?section=billing')
+                        router.push('/subscription')
                       } else {
                         // Fallback to personal settings
                         router.push('/settings?section=billing')
@@ -615,7 +618,7 @@ export function TeamSettingsContent() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="animate-fade-in-up transition-shadow duration-200 hover:shadow-sm" style={{ animationDelay: '150ms', animationFillMode: 'both' }}>
               <CardHeader>
                 <CardTitle>Billing Management</CardTitle>
                 <CardDescription>

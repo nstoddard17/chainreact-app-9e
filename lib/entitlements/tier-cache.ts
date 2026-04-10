@@ -2,11 +2,11 @@
  * Cached tier lookup backed by the `plans` table.
  *
  * Lookups use the immutable `plans.code` column, never `plans.name`.
- * Falls back to hardcoded PLAN_LIMITS if the DB fetch fails.
+ * Fails closed if the DB is unreachable and no cache exists.
  */
 
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
-import { PLAN_LIMITS, type PlanLimits, type PlanTier } from '@/lib/utils/plan-restrictions'
+import type { PlanLimits } from '@/lib/utils/plan-restrictions'
 import { logger } from '@/lib/utils/logger'
 
 // ─── Types ───────────────────────────────────────────────────────────
@@ -111,21 +111,18 @@ function tierRowToLimits(row: TierRow): PlanLimits {
 
 /**
  * Get PlanLimits for a tier by its immutable code.
- * Falls back to hardcoded PLAN_LIMITS if DB unavailable.
+ * Fails closed if tier not found and DB unavailable.
  */
 export async function getTierLimitsByCode(tierCode: string): Promise<PlanLimits> {
-  try {
-    const cache = await ensureCache()
-    const row = cache.get(tierCode)
-    if (row) return tierRowToLimits(row)
-  } catch {
-    // Fall through to hardcoded fallback
-  }
+  const cache = await ensureCache()
+  const row = cache.get(tierCode)
+  if (row) return tierRowToLimits(row)
 
-  // Hardcoded fallback
-  const fallback = PLAN_LIMITS[tierCode as PlanTier]
-  if (fallback) return fallback
-  return PLAN_LIMITS.free
+  // Try 'free' as fallback for unknown tier codes
+  const freeRow = cache.get('free')
+  if (freeRow) return tierRowToLimits(freeRow)
+
+  throw new Error(`Tier "${tierCode}" not found in DB and no free tier available`)
 }
 
 /**

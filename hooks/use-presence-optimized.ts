@@ -7,7 +7,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 
 interface OnlineUser {
   user_id: string
-  username?: string
+  first_name?: string
   full_name?: string
   avatar_url?: string
   online_at: string
@@ -114,7 +114,7 @@ export function usePresenceOptimized(options: UsePresenceOptions = {}) {
     try {
       await channelRef.current.track({
         user_id: user.id,
-        username: profile?.username,
+        first_name: profile?.first_name,
         full_name: profile?.full_name,
         avatar_url: profile?.avatar_url,
         online_at: new Date().toISOString(),
@@ -187,7 +187,7 @@ export function usePresenceOptimized(options: UsePresenceOptions = {}) {
             // Initial presence track
             await channel.track({
               user_id: user.id,
-              username: profile?.username,
+              first_name: profile?.first_name,
               full_name: profile?.full_name,
               avatar_url: profile?.avatar_url,
               online_at: new Date().toISOString(),
@@ -286,7 +286,7 @@ export function usePresenceOptimized(options: UsePresenceOptions = {}) {
 
     const presence = {
       user_id: user.id,
-      username: profile?.username,
+      first_name: profile?.first_name,
       full_name: profile?.full_name,
       avatar_url: profile?.avatar_url,
       online_at: new Date().toISOString(),

@@ -1,18 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useEffect, useState, useCallback } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -32,17 +24,16 @@ import {
   RefreshCw,
   BarChart3,
   Workflow,
-  Link2,
   Calendar,
-  Plus,
-  Settings,
-  X,
+  Download,
 } from "lucide-react"
 import { useAnalyticsStore } from "@/stores/analyticsStore"
-import { useIntegrationStore } from "@/stores/integrationStore"
-import { formatDistanceToNow, format } from "date-fns"
+import { formatDistanceToNow } from "date-fns"
 import Link from "next/link"
-// Fixed slot layout (no freeform drag)
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function formatDuration(ms: number | null): string {
   if (ms === null || ms === undefined) return "-"
@@ -51,686 +42,648 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 60000).toFixed(1)}m`
 }
 
-function StatCard({
-  title,
+function exportToCSV(filename: string, headers: string[], rows: string[][]) {
+  const csvContent = [
+    headers.join(","),
+    ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+  ].join("\n")
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `${filename}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+type AnalyticsTab = "overview" | "executions" | "workflows" | "failures"
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function MetricTile({
+  label,
   value,
   icon: Icon,
-  description,
   trend,
+  color,
   loading,
-  size = "large",
 }: {
-  title: string
+  label: string
   value: string | number
   icon: React.ElementType
-  description?: string
-  trend?: { direction: "up" | "down" | "neutral"; value: string }
+  trend?: { direction: "up" | "down" | "neutral"; text: string }
+  color: string
   loading?: boolean
-  size?: "small" | "medium" | "large"
 }) {
-  const compact = size === "small"
-  const paddingClass = compact ? "p-4" : "p-6"
-  const titleClass = compact ? "text-xs" : "text-sm"
-  const valueClass = compact ? "text-xl" : "text-2xl"
-
   if (loading) {
     return (
-      <Card className="h-full">
-        <CardContent className={`${paddingClass} h-full`}>
-          <div className="flex items-center justify-between mb-2">
-            <Skeleton className="w-10 h-10 rounded-lg" />
-            <Skeleton className="w-16 h-4" />
-          </div>
-          <Skeleton className="w-20 h-8 mb-1" />
-          <Skeleton className="w-24 h-4" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center gap-4 p-4 rounded-xl border bg-card">
+        <Skeleton className="w-11 h-11 rounded-xl" />
+        <div className="space-y-1.5 flex-1">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-7 w-16" />
+        </div>
+      </div>
     )
   }
 
-  const getTrendColor = () => {
-    if (!trend) return ""
-    if (trend.direction === "up") return "text-green-600 dark:text-green-400"
-    if (trend.direction === "down") return "text-red-600 dark:text-red-400"
-    return "text-muted-foreground"
-  }
-
-  const TrendIcon = trend?.direction === "up" ? TrendingUp : TrendingDown
+  const trendColor =
+    trend?.direction === "up"
+      ? "text-green-600 dark:text-green-400"
+      : trend?.direction === "down"
+        ? "text-red-600 dark:text-red-400"
+        : "text-muted-foreground"
 
   return (
-    <Card className="h-full">
-      <CardContent className={`${paddingClass} h-full`}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Icon className="w-5 h-5 text-primary" />
-          </div>
+    <div className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:shadow-md transition-all duration-200">
+      <div className={`w-11 h-11 rounded-xl ${color} flex items-center justify-center flex-shrink-0`}>
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-bold tracking-tight">{value}</span>
           {trend && (
-            <div className={`flex items-center gap-1 text-sm ${getTrendColor()}`}>
-              <TrendIcon className="w-4 h-4" />
-              <span>{trend.value}</span>
-            </div>
+            <span className={`text-xs font-medium flex items-center gap-0.5 ${trendColor}`}>
+              {trend.direction === "up" ? <TrendingUp className="w-3 h-3" /> : trend.direction === "down" ? <TrendingDown className="w-3 h-3" /> : null}
+              {trend.text}
+            </span>
           )}
         </div>
-        <h3 className={`${valueClass} font-bold mb-1`}>{value}</h3>
-        <p className={`${titleClass} text-muted-foreground sr-only`}>{title}</p>
-        {!compact && description && (
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
-function ExecutionChart({
-  dailyStats,
+function BarChart({
+  data,
+  valueKey,
+  labelKey,
+  secondaryKey,
   loading,
-  size = "large",
+  emptyMessage = "No data available",
+  barColor = "bg-primary",
+  secondaryColor = "bg-red-500",
+  showLegend,
+  legendLabels,
+  height = "h-[240px]",
 }: {
-  dailyStats: any[]
-  loading: boolean
-  size?: "small" | "medium" | "large"
+  data: any[]
+  valueKey: string
+  labelKey: string
+  secondaryKey?: string
+  loading?: boolean
+  emptyMessage?: string
+  barColor?: string
+  secondaryColor?: string
+  showLegend?: boolean
+  legendLabels?: { primary: string; secondary: string }
+  height?: string
 }) {
   if (loading) {
     return (
-      <Card className="col-span-full h-full">
-        <CardContent className="flex-1">
-          <div className="flex items-end gap-1 h-48">
-            {Array.from({ length: 7 }).map((_, i) => (
-              <Skeleton key={i} className="flex-1 h-full" />
-            ))}
+      <div className={`flex items-end gap-2 ${height}`}>
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="flex-1 flex flex-col justify-end h-full">
+            <Skeleton className="w-full" style={{ height: `${30 + Math.random() * 50}%` }} />
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
     )
   }
 
-  const chartData = dailyStats.slice(-7)
-  const maxExecutions = Math.max(...chartData.map((d) => Number(d.executions) || 0), 1)
-  const isSmall = size === "small"
+  if (data.length === 0) {
+    return (
+      <div className={`flex flex-col items-center justify-center ${height} text-muted-foreground`}>
+        <BarChart3 className="w-10 h-10 mb-2 opacity-30" />
+        <p className="text-sm">{emptyMessage}</p>
+      </div>
+    )
+  }
+
+  const maxVal = Math.max(
+    ...data.map((d) => {
+      const primary = Number(d[valueKey]) || 0
+      const secondary = secondaryKey ? Number(d[secondaryKey]) || 0 : 0
+      return primary + secondary
+    }),
+    1,
+  )
 
   return (
-    <Card className="col-span-full h-full flex flex-col">
-      <CardContent className="flex-1 min-h-0 flex flex-col">
-        {chartData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <Activity className="w-12 h-12 mb-2 opacity-50" />
-            <p>No execution data yet</p>
-            {!isSmall && <p className="text-sm">Run some workflows to see analytics here</p>}
+    <div>
+      <div className={`flex items-end gap-1.5 ${height}`}>
+        {data.map((item, i) => {
+          const primary = Number(item[valueKey]) || 0
+          const secondary = secondaryKey ? Number(item[secondaryKey]) || 0 : 0
+          const primaryPct = (primary / maxVal) * 100
+          const secondaryPct = (secondary / maxVal) * 100
+          const label = item[labelKey] || ""
+
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end min-w-0 group">
+              <span className="text-[10px] font-medium text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity tabular-nums">
+                {secondaryKey ? `${primary} / ${secondary}` : primary}
+              </span>
+              <div className="w-full flex flex-col justify-end flex-1 rounded-t overflow-hidden bg-muted/30">
+                {secondaryKey && secondary > 0 && (
+                  <div
+                    className={`w-full ${secondaryColor} opacity-80 transition-all duration-500`}
+                    style={{ height: `${secondaryPct}%`, minHeight: secondary > 0 ? "2px" : "0" }}
+                  />
+                )}
+                {primary > 0 && (
+                  <div
+                    className={`w-full ${barColor} opacity-90 transition-all duration-500`}
+                    style={{ height: `${primaryPct}%`, minHeight: "2px" }}
+                  />
+                )}
+              </div>
+              <span className="text-[10px] text-muted-foreground truncate w-full text-center">{label}</span>
+            </div>
+          )
+        })}
+      </div>
+      {showLegend && legendLabels && (
+        <div className="flex items-center justify-center gap-5 mt-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2.5 h-2.5 rounded-sm ${barColor}`} />
+            {legendLabels.primary}
           </div>
-        ) : (
-          <div
-            className={`grid grid-cols-7 gap-2 flex-1 min-h-0 ${
-              isSmall ? "min-h-[140px]" : size === "medium" ? "min-h-[170px]" : "min-h-[230px]"
-            }`}
-          >
-            {chartData.map((day, i) => {
-              const executions = Number(day.executions) || 0
-              const successfulRaw = Number(day.successful ?? day.completed ?? day.success) || 0
-              const failedRaw = Number(day.failed ?? day.errors ?? day.error) || 0
-              const successful = Math.max(0, Math.min(executions, successfulRaw))
-              const failed = Math.max(0, Math.min(executions - successful, failedRaw))
-              const other = Math.max(0, executions - successful - failed)
+          <div className="flex items-center gap-1.5">
+            <div className={`w-2.5 h-2.5 rounded-sm ${secondaryColor}`} />
+            {legendLabels.secondary}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
-              const totalHeight = maxExecutions > 0 ? (executions / maxExecutions) * 100 : 0
-              const successHeight = executions > 0 ? (successful / executions) * totalHeight : 0
-              const failedHeight = executions > 0 ? (failed / executions) * totalHeight : 0
-              const otherHeight = Math.max(0, totalHeight - successHeight - failedHeight)
+function HorizontalBarList({
+  items,
+  loading,
+  emptyMessage = "No data",
+  max = 5,
+}: {
+  items: { label: string; value: number; href?: string; badge?: string }[]
+  loading?: boolean
+  emptyMessage?: string
+  max?: number
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: max }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton className="h-4 flex-1" />
+            <Skeleton className="h-4 w-12" />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
+  if (items.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[120px]">
+        <p className="text-sm text-muted-foreground text-center">{emptyMessage}</p>
+      </div>
+    )
+  }
+
+  const maxValue = Math.max(...items.map((i) => i.value), 1)
+
+  return (
+    <div className="space-y-2.5">
+      {items.slice(0, max).map((item, i) => {
+        const pct = (item.value / maxValue) * 100
+        return (
+          <div key={i} className="group">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-xs font-medium text-muted-foreground w-4">{i + 1}</span>
+                {item.href ? (
+                  <Link href={item.href} className="text-sm font-medium truncate hover:text-primary transition-colors">
+                    {item.label}
+                  </Link>
+                ) : (
+                  <span className="text-sm font-medium truncate">{item.label}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {item.badge && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    {item.badge}
+                  </Badge>
+                )}
+                <span className="text-sm font-semibold tabular-nums">{item.value}</span>
+              </div>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary/70 transition-all duration-700"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Tab Views
+// ---------------------------------------------------------------------------
+
+function OverviewView({
+  overview,
+  dailyStats,
+  statusBreakdown,
+  loading,
+}: {
+  overview: any
+  dailyStats: any[]
+  statusBreakdown: any[]
+  loading: boolean
+}) {
+  const chartData = dailyStats.slice(-7).map((d) => ({
+    ...d,
+    successful: Math.max(0, Math.min(Number(d.executions) || 0, Number(d.successful ?? d.completed ?? d.success) || 0)),
+    failed: Math.max(0, Number(d.failed ?? d.errors ?? d.error) || 0),
+    label: d.dayName || d.date || "",
+  }))
+
+  return (
+    <div className="h-full flex flex-col gap-5">
+      {/* Metrics row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="animate-fade-in-up" style={{ animationDelay: "0ms", animationFillMode: "both" }}>
+          <MetricTile label="Total Runs" value={overview?.total?.toLocaleString() || "0"} icon={Zap} color="bg-blue-500" loading={loading} />
+        </div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "50ms", animationFillMode: "both" }}>
+          <MetricTile
+            label="Success Rate"
+            value={`${overview?.successRate || 0}%`}
+            icon={CheckCircle2}
+            color="bg-green-500"
+            loading={loading}
+            trend={
+              overview?.successRate
+                ? {
+                    direction: overview.successRate >= 90 ? "up" : overview.successRate >= 70 ? "neutral" : "down",
+                    text: overview.successRate >= 90 ? "Healthy" : overview.successRate >= 70 ? "Fair" : "Low",
+                  }
+                : undefined
+            }
+          />
+        </div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "100ms", animationFillMode: "both" }}>
+          <MetricTile label="Failed Runs" value={overview?.failed?.toLocaleString() || "0"} icon={XCircle} color="bg-red-500" loading={loading} />
+        </div>
+        <div className="animate-fade-in-up" style={{ animationDelay: "150ms", animationFillMode: "both" }}>
+          <MetricTile label="Avg. Duration" value={formatDuration(overview?.avgExecutionTimeMs || 0)} icon={Clock} color="bg-purple-500" loading={loading} />
+        </div>
+      </div>
+
+      {/* Chart row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+        <Card className="lg:col-span-2 flex flex-col animate-fade-in-up" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
+          <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">Daily Executions</h3>
+              <p className="text-xs text-muted-foreground">Successful vs failed runs over the last 7 days</p>
+            </div>
+          </div>
+          <CardContent className="flex-1 min-h-0 pb-4">
+            <BarChart
+              data={chartData}
+              valueKey="successful"
+              secondaryKey="failed"
+              labelKey="label"
+              loading={loading}
+              emptyMessage="Run some workflows to see execution data"
+              barColor="bg-green-500"
+              secondaryColor="bg-red-500"
+              showLegend
+              legendLabels={{ primary: "Successful", secondary: "Failed" }}
+              height="h-[200px]"
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col animate-fade-in-up" style={{ animationDelay: "250ms", animationFillMode: "both" }}>
+          <div className="px-5 pt-4 pb-2">
+            <h3 className="text-sm font-semibold">Status Distribution</h3>
+            <p className="text-xs text-muted-foreground">Breakdown of all execution outcomes</p>
+          </div>
+          <CardContent className="flex-1 pb-4 flex flex-col">
+            {loading ? (
+              <Skeleton className="h-full w-full rounded-lg" />
+            ) : statusBreakdown.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-sm text-muted-foreground">No data yet</p>
+              </div>
+            ) : (
+              <div className="flex flex-col flex-1 gap-4">
+                {/* Progress bar */}
+                <div className="h-3 rounded-full overflow-hidden bg-muted flex flex-shrink-0">
+                  {statusBreakdown.map((item) => {
+                    const total = statusBreakdown.reduce((s, i) => s + (i.value || 0), 0)
+                    const pct = total > 0 ? (item.value / total) * 100 : 0
+                    const color =
+                      item.key === "completed" ? "bg-green-500" : item.key === "failed" ? "bg-red-500" : item.key === "running" ? "bg-blue-500" : "bg-slate-400"
+                    return <div key={item.key} className={color} style={{ width: `${pct}%` }} />
+                  })}
+                </div>
+                {/* Legend — distribute evenly to fill remaining height */}
+                <div className="flex flex-col flex-1 justify-between">
+                  {statusBreakdown.map((item) => {
+                    const total = statusBreakdown.reduce((s, i) => s + (i.value || 0), 0)
+                    const pct = total > 0 ? ((item.value / total) * 100).toFixed(0) : "0"
+                    const dotColor =
+                      item.key === "completed" ? "bg-green-500" : item.key === "failed" ? "bg-red-500" : item.key === "running" ? "bg-blue-500" : "bg-slate-400"
+                    return (
+                      <div key={item.key} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2.5 h-2.5 rounded-full ${dotColor}`} />
+                          <span className="text-muted-foreground">{item.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold tabular-nums">{item.value}</span>
+                          <span className="text-muted-foreground text-xs w-8 text-right">{pct}%</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function ExecutionsView({
+  recentExecutions,
+  loading,
+}: {
+  recentExecutions: any[]
+  loading: boolean
+}) {
+  const getStatusStyles = (status: string) => {
+    switch (status) {
+      case "completed":
+        return { dot: "bg-green-500", badge: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", label: "Success" }
+      case "failed":
+        return { dot: "bg-red-500", badge: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", label: "Failed" }
+      case "running":
+        return { dot: "bg-blue-500 animate-pulse", badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", label: "Running" }
+      case "cancelled":
+        return { dot: "bg-gray-400", badge: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400", label: "Cancelled" }
+      default:
+        return { dot: "bg-gray-400", badge: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300", label: status }
+    }
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold">Recent Workflow Executions</h3>
+        <p className="text-xs text-muted-foreground">{recentExecutions.length} executions in this period</p>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3 flex-1">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-lg border">
+              <Skeleton className="w-2 h-2 rounded-full" />
+              <Skeleton className="h-4 flex-1" />
+              <Skeleton className="h-5 w-16" />
+              <Skeleton className="h-5 w-20" />
+            </div>
+          ))}
+        </div>
+      ) : recentExecutions.length === 0 ? (
+        <div className="flex-1 flex flex-col">
+          {/* Table header */}
+          <div className="flex items-center gap-3 px-3 py-2 border-b text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <div className="w-2" />
+            <div className="flex-1">Workflow</div>
+            <div className="w-20 text-right">Duration</div>
+            <div className="w-20 text-center">Status</div>
+          </div>
+          {/* Empty state message — directly below headers */}
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <Activity className="w-10 h-10 mb-2 opacity-30" />
+            <p className="font-medium text-sm">No executions yet</p>
+            <p className="text-xs">Run a workflow to see execution history</p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Table header */}
+          <div className="flex items-center gap-3 px-3 py-2 border-b text-xs font-medium text-muted-foreground uppercase tracking-wider flex-shrink-0">
+            <div className="w-2" />
+            <div className="flex-1">Workflow</div>
+            <div className="w-20 text-right">Duration</div>
+            <div className="w-20 text-center">Status</div>
+          </div>
+          {/* Rows */}
+          <div className="flex-1 overflow-y-auto space-y-0 pr-1">
+            {recentExecutions.slice(0, 15).map((exec, i) => {
+              const styles = getStatusStyles(exec.status)
               return (
-                <div key={`${day.date || day.dayName || "day"}-${i}`} className="h-full flex flex-col justify-end min-h-0">
-                  <div className="w-full h-full flex flex-col justify-end rounded-t-sm overflow-hidden bg-muted/20">
-                    {other > 0 && (
-                      <div
-                        className="w-full bg-slate-400/60 dark:bg-slate-500/60 transition-all"
-                        style={{ height: `${otherHeight}%`, minHeight: "2px" }}
-                        title={`${other} other`}
-                      />
-                    )}
-                    {failed > 0 && (
-                      <div
-                        className="w-full bg-red-500/80 dark:bg-red-600/80 transition-all"
-                        style={{ height: `${failedHeight}%`, minHeight: "2px" }}
-                        title={`${failed} failed`}
-                      />
-                    )}
-                    {successful > 0 && (
-                      <div
-                        className="w-full bg-green-500/80 dark:bg-green-600/80 transition-all"
-                        style={{ height: `${successHeight}%`, minHeight: "2px" }}
-                        title={`${successful} successful`}
-                      />
-                    )}
+                <div
+                  key={exec.id}
+                  className="flex items-center gap-3 px-3 py-3 border-b hover:bg-muted/50 transition-colors animate-fade-in-up"
+                  style={{ animationDelay: `${i * 40}ms`, animationFillMode: "both" }}
+                >
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${styles.dot}`} />
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/workflows/builder/${exec.workflowId}`} className="text-sm font-medium truncate block hover:text-primary transition-colors">
+                      {exec.workflowName}
+                    </Link>
+                    <p className="text-[11px] text-muted-foreground">{formatDistanceToNow(new Date(exec.startedAt), { addSuffix: true })}</p>
                   </div>
-                  <div className={`mt-1 text-center text-muted-foreground ${isSmall ? "text-[10px]" : "text-xs"}`}>{day.dayName}</div>
-                  <div className={`text-center font-medium ${isSmall ? "text-[10px]" : "text-xs"}`}>{executions}</div>
+                  <span className="text-xs text-muted-foreground tabular-nums flex-shrink-0 w-20 text-right">
+                    {exec.durationMs !== null ? formatDuration(exec.durationMs) : "-"}
+                  </span>
+                  <div className="w-20 flex justify-center">
+                    <Badge className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${styles.badge}`}>{styles.label}</Badge>
+                  </div>
                 </div>
               )
             })}
           </div>
-        )}
-        <div className={`flex items-center justify-center gap-4 mt-3 ${isSmall ? "text-xs" : "text-sm"}`}>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-green-500/80" />
-            <span className="text-muted-foreground">Successful</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-red-500/80" />
-            <span className="text-muted-foreground">Failed</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-slate-400/60" />
-            <span className="text-muted-foreground">Other</span>
-          </div>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   )
 }
 
-function TopWorkflows({
-  workflows,
+function WorkflowsView({
+  topWorkflows,
+  dailyStats,
   loading,
-  size = "large",
 }: {
-  workflows: any[]
+  topWorkflows: any[]
+  dailyStats: any[]
   loading: boolean
-  size?: "small" | "medium" | "large"
 }) {
-  if (loading) {
-    return (
-      <Card className="h-full flex flex-col">
-        <CardContent className="flex-1">
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <Skeleton className="w-40 h-4" />
-                <Skeleton className="w-20 h-4" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const maxItems = size === "small" ? 3 : size === "medium" ? 4 : 5
-
-  return (
-    <Card className="h-full flex flex-col">
-      <CardContent className="flex-1">
-        {workflows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <Workflow className="w-10 h-10 mb-2 opacity-50" />
-            <p className="text-sm">No workflows executed yet</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {workflows.slice(0, maxItems).map((workflow, i) => (
-              <div key={workflow.workflowId} className="flex items-center justify-between">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                    {i + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/workflows/builder/${workflow.workflowId}`}
-                      className="font-medium truncate block hover:text-primary transition-colors"
-                    >
-                      {workflow.workflowName}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">
-                      {workflow.totalExecutions} executions
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={
-                      workflow.successRate >= 90
-                        ? "border-green-500/50 text-green-600 dark:text-green-400"
-                        : workflow.successRate >= 70
-                          ? "border-yellow-500/50 text-yellow-600 dark:text-yellow-400"
-                          : "border-red-500/50 text-red-600 dark:text-red-400"
-                    }
-                  >
-                    {workflow.successRate}%
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function RecentExecutions({
-  executions,
-  loading,
-  size = "large",
-}: {
-  executions: any[]
-  loading: boolean
-  size?: "small" | "medium" | "large"
-}) {
-  if (loading) {
-    return (
-      <Card className="h-full flex flex-col">
-        <CardContent className="flex-1 overflow-auto min-h-0">
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between py-3 border-b last:border-b-0">
-                <Skeleton className="w-40 h-4" />
-                <Skeleton className="w-24 h-6" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "completed":
-        return (
-          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100">
-            <CheckCircle2 className="w-3 h-3 mr-1" />
-            Success
-          </Badge>
-        )
-      case "failed":
-        return (
-          <Badge variant="destructive">
-            <XCircle className="w-3 h-3 mr-1" />
-            Failed
-          </Badge>
-        )
-      case "running":
-        return (
-          <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-            <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
-            Running
-          </Badge>
-        )
-      case "cancelled":
-        return (
-          <Badge variant="secondary">
-            <XCircle className="w-3 h-3 mr-1" />
-            Cancelled
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
-
-  const maxItems = size === "small" ? 4 : size === "medium" ? 6 : 10
-
-  return (
-    <Card className="h-full flex flex-col">
-      <CardContent className="flex-1 overflow-auto min-h-0">
-        {executions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <Activity className="w-10 h-10 mb-2 opacity-50" />
-            <p className="text-sm">No recent executions</p>
-            <p className="text-xs">Execute a workflow to see it here</p>
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {executions.slice(0, maxItems).map((exec) => (
-              <div
-                key={exec.id}
-                className="flex items-center justify-between py-3 border-b last:border-b-0"
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      exec.status === "completed"
-                        ? "bg-green-500"
-                        : exec.status === "failed"
-                          ? "bg-red-500"
-                          : exec.status === "running"
-                            ? "bg-blue-500 animate-pulse"
-                            : "bg-gray-400"
-                    }`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/workflows/builder/${exec.workflowId}`}
-                      className="font-medium truncate block hover:text-primary transition-colors"
-                    >
-                      {exec.workflowName}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(exec.startedAt), { addSuffix: true })}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {exec.durationMs !== null && (
-                    <Badge variant="outline" className="text-xs">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {formatDuration(exec.durationMs)}
-                    </Badge>
-                  )}
-                  {getStatusBadge(exec.status)}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function IntegrationHealth({
-  stats,
-  loading,
-  size = "large",
-}: {
-  stats: any
-  loading: boolean
-  size?: "small" | "medium" | "large"
-}) {
-  if (loading) {
-    return (
-      <Card className="h-full flex flex-col">
-        <CardHeader>
-          <CardTitle>Integration Health</CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1">
-          <Skeleton className="w-full h-24" />
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const { connected, expiring, expired, disconnected, total } = stats
-  const compact = size === "small"
-
-  return (
-    <Card className="h-full flex flex-col">
-      <CardContent className={`flex-1 ${compact ? "space-y-2" : ""}`}>
-        {total === 0 ? (
-          <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-            <Link2 className="w-10 h-10 mb-2 opacity-50" />
-            <p className="text-sm">No integrations connected</p>
-            {!compact && (
-              <Link href="/apps">
-                <Button variant="outline" size="sm" className="mt-2">
-                  Connect Apps
-                </Button>
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className={compact ? "space-y-2" : "space-y-4"}>
-            <div className={`grid grid-cols-2 ${compact ? "gap-2" : "gap-4"}`}>
-              <div className={`text-center rounded-lg bg-green-50 dark:bg-green-900/20 ${compact ? "p-2" : "p-3"}`}>
-                <div className={`${compact ? "text-lg" : "text-2xl"} font-bold text-green-600 dark:text-green-400`}>
-                  {connected}
-                </div>
-                <div className="text-xs text-muted-foreground">Connected</div>
-              </div>
-              <div className={`text-center rounded-lg bg-gray-50 dark:bg-gray-800 ${compact ? "p-2" : "p-3"}`}>
-                <div className={`${compact ? "text-lg" : "text-2xl"} font-bold`}>{total}</div>
-                <div className="text-xs text-muted-foreground">Total</div>
-              </div>
-            </div>
-
-            {(expiring > 0 || expired > 0 || disconnected > 0) && (
-              <div className={compact ? "space-y-1" : "space-y-2"}>
-                {expired > 0 && (
-                  <div className={`flex items-center justify-between rounded-lg bg-red-50 dark:bg-red-900/20 ${compact ? "text-xs p-1.5" : "text-sm p-2"}`}>
-                    <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>{expired} expired</span>
-                    </div>
-                    {!compact && (
-                      <Link href="/apps">
-                        <Button variant="ghost" size="sm" className="text-red-600 h-auto p-1">
-                          Fix
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
-                )}
-                {expiring > 0 && (
-                  <div className={`flex items-center justify-between rounded-lg bg-yellow-50 dark:bg-yellow-900/20 ${compact ? "text-xs p-1.5" : "text-sm p-2"}`}>
-                    <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
-                      <Clock className="w-4 h-4" />
-                      <span>{expiring} expiring soon</span>
-                    </div>
-                    {!compact && (
-                      <Link href="/apps">
-                        <Button variant="ghost" size="sm" className="text-yellow-600 h-auto p-1">
-                          Refresh
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
-                )}
-                {disconnected > 0 && (
-                  <div className={`flex items-center justify-between rounded-lg bg-gray-100 dark:bg-gray-800 ${compact ? "text-xs p-1.5" : "text-sm p-2"}`}>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <XCircle className="w-4 h-4" />
-                      <span>{disconnected} disconnected</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-function TrendBars({
-  title,
-  points,
-  valueKey,
-  loading,
-  size = "large",
-}: {
-  title: string
-  points: any[]
-  valueKey: string
-  loading: boolean
-  size?: "small" | "medium" | "large"
-}) {
-  if (loading) {
-    return <Card className="h-full"><CardContent className="p-4"><Skeleton className="h-32 w-full" /></CardContent></Card>
-  }
-  const max = Math.max(...points.map((p) => Number(p[valueKey]) || 0), 1)
-  const compact = size === "small"
-  return (
-    <Card className="h-full flex flex-col">
-      <CardContent className="flex-1 min-h-0">
-        <div className={`grid grid-cols-7 gap-2 ${compact ? "h-[130px]" : "h-[180px]"}`}>
-          {points.slice(-7).map((p, i) => {
-            const value = Number(p[valueKey]) || 0
-            const height = max > 0 ? (value / max) * 100 : 0
-            return (
-              <div key={i} className="h-full flex flex-col justify-end min-h-0">
-                <div className="h-full bg-muted/20 rounded-t-sm flex items-end">
-                  <div className="w-full bg-primary/70 rounded-t-sm" style={{ height: `${height}%`, minHeight: value > 0 ? "2px" : "0px" }} />
-                </div>
-                <div className={`text-center text-muted-foreground ${compact ? "text-[10px]" : "text-xs"}`}>{p.dayName || p.day || p.label}</div>
-                <div className={`text-center font-medium ${compact ? "text-[10px]" : "text-xs"}`}>{value}</div>
-              </div>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function StatusBreakdownWidget({ breakdown, loading }: { breakdown: any[]; loading: boolean }) {
-  if (loading) return <Card className="h-full"><CardContent className="p-4"><Skeleton className="h-24 w-full" /></CardContent></Card>
-  const total = breakdown.reduce((sum, item) => sum + (item.value || 0), 0)
-  return (
-    <Card className="h-full flex flex-col">
-      <CardContent className="space-y-3">
-        <div className="w-full h-3 rounded-full overflow-hidden bg-muted flex">
-          {breakdown.map((item) => (
-            <div
-              key={item.key}
-              className={item.key === "completed" ? "bg-green-500" : item.key === "failed" ? "bg-red-500" : item.key === "running" ? "bg-blue-500" : "bg-slate-400"}
-              style={{ width: `${total > 0 ? (item.value / total) * 100 : 0}%` }}
-            />
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {breakdown.map((item) => (
-            <div key={item.key} className="flex items-center justify-between">
-              <span className="text-muted-foreground">{item.label}</span>
-              <span className="font-medium">{item.value}</span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function TopFailingWorkflowsWidget({ rows, loading, size = "large" }: { rows: any[]; loading: boolean; size?: "small" | "medium" | "large" }) {
-  if (loading) return <Card className="h-full"><CardContent className="p-4"><Skeleton className="h-28 w-full" /></CardContent></Card>
-  const maxItems = size === "small" ? 3 : size === "medium" ? 5 : 8
-  return (
-    <Card className="h-full flex flex-col">
-      <CardContent className="flex-1 min-h-0 overflow-auto">
-        <div className="space-y-2">
-          {rows.slice(0, maxItems).map((row: any) => (
-            <div key={row.workflowId} className="flex items-center justify-between text-sm border-b pb-2">
-              <span className="truncate pr-2">{row.workflowName}</span>
-              <Badge variant="destructive">{row.failedExecutions}</Badge>
-            </div>
-          ))}
-          {rows.length === 0 && <div className="text-sm text-muted-foreground">No failures in this period.</div>}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function FailureReasonsWidget({ reasons, loading, size = "large" }: { reasons: any[]; loading: boolean; size?: "small" | "medium" | "large" }) {
-  if (loading) return <Card className="h-full"><CardContent className="p-4"><Skeleton className="h-28 w-full" /></CardContent></Card>
-  const maxItems = size === "small" ? 3 : size === "medium" ? 5 : 8
-  return (
-    <Card className="h-full flex flex-col">
-      <CardContent className="flex-1 min-h-0 overflow-auto">
-        <div className="space-y-2">
-          {reasons.slice(0, maxItems).map((item: any, i: number) => (
-            <div key={`${item.reason}-${i}`} className="flex items-center justify-between gap-2 text-sm border-b pb-2">
-              <span className="truncate text-muted-foreground">{item.reason}</span>
-              <Badge variant="outline">{item.count}</Badge>
-            </div>
-          ))}
-          {reasons.length === 0 && <div className="text-sm text-muted-foreground">No failure reasons available.</div>}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-const SIZE_OPTIONS = [
-  { value: "small", label: "Small", w: 3, h: 2 },
-  { value: "medium", label: "Medium", w: 4, h: 3 },
-  { value: "large", label: "Large", w: 6, h: 4 },
-  { value: "wide", label: "Wide", w: 8, h: 4 },
-  { value: "full", label: "Full", w: 12, h: 4 },
-]
-
-const DEFAULT_ROWS = [{ id: "row_default" }]
-
-type DashboardRow = {
-  id: string
-  slots: Array<{ slotId: string; widgetId: string | null; size: string }>
-}
-
-function sanitizeLayout(rows: DashboardRow[]): DashboardRow[] {
-  return rows.map((row) => {
-    const seen = new Set<string>()
-    const slots = row.slots.map((slot) => {
-      const requestedId = slot.slotId || `${row.id}:slot`
-      if (!seen.has(requestedId)) {
-        seen.add(requestedId)
-        return slot
-      }
-      const uniqueId = `${row.id}:slot_${crypto.randomUUID().slice(0, 8)}`
-      seen.add(uniqueId)
-      return { ...slot, slotId: uniqueId }
-    })
-    return { ...row, slots }
-  })
-}
-
-function buildRows(rows: Array<{ id: string }>): DashboardRow[] {
-  return rows.map((row) => ({
-    id: row.id,
-    slots: [],
+  const volumeData = dailyStats.slice(-7).map((d) => ({
+    value: Number(d.executions) || 0,
+    label: d.dayName || d.date || "",
   }))
+
+  return (
+    <div className="h-full flex flex-col gap-5">
+      <div>
+        <h3 className="text-sm font-semibold">Workflow Performance</h3>
+        <p className="text-xs text-muted-foreground">Top workflows ranked by execution count</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
+        <Card className="flex flex-col">
+          <div className="px-5 pt-4 pb-2">
+            <h4 className="text-sm font-semibold">Top Workflows by Runs</h4>
+          </div>
+          <CardContent className="flex-1 pb-4 flex flex-col">
+            <HorizontalBarList
+              items={topWorkflows.map((w) => ({
+                label: w.workflowName,
+                value: w.totalExecutions,
+                href: `/workflows/builder/${w.workflowId}`,
+                badge: `${w.successRate}%`,
+              }))}
+              loading={loading}
+              emptyMessage="No workflows executed yet"
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col">
+          <div className="px-5 pt-4 pb-2">
+            <h4 className="text-sm font-semibold">Execution Volume (7 day)</h4>
+          </div>
+          <CardContent className="flex-1 pb-4">
+            <BarChart
+              data={volumeData}
+              valueKey="value"
+              labelKey="label"
+              loading={loading}
+              emptyMessage="No execution data"
+              barColor="bg-blue-500"
+              height="h-[200px]"
+            />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 }
 
-function normalizeLayout(rawLayout: any, widgets: any[]): DashboardRow[] {
-  if (!rawLayout || rawLayout.length === 0) {
-    return sanitizeLayout(buildRows(DEFAULT_ROWS))
-  }
+function FailuresView({
+  topFailingWorkflows,
+  failureReasons,
+  dailyStats,
+  loading,
+}: {
+  topFailingWorkflows: any[]
+  failureReasons: any[]
+  dailyStats: any[]
+  loading: boolean
+}) {
+  const failureData = dailyStats.slice(-7).map((d) => ({
+    value: Number(d.failed ?? d.errors ?? d.error) || 0,
+    label: d.dayName || d.date || "",
+  }))
 
-  if (rawLayout.rows && Array.isArray(rawLayout.rows)) {
-    return sanitizeLayout(rawLayout.rows as DashboardRow[])
-  }
+  return (
+    <div className="h-full flex flex-col gap-5">
+      <div>
+        <h3 className="text-sm font-semibold">Failure Analysis</h3>
+        <p className="text-xs text-muted-foreground">Identify and resolve workflow issues</p>
+      </div>
 
-  if (Array.isArray(rawLayout) && rawLayout.some((item) => "slotId" in item)) {
-    const rows = buildRows(DEFAULT_ROWS)
-    const widgetIds = widgets.map((w) => w.id)
-    if (rows[0]) {
-      rows[0].slots = widgetIds.map((id, index) => ({
-        slotId: `${rows[0].id}:slot_${index + 1}`,
-        widgetId: id,
-        size: "small",
-      }))
-    }
-    return sanitizeLayout(rows)
-  }
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+        <Card className="flex flex-col">
+          <div className="px-5 pt-4 pb-2">
+            <h4 className="text-sm font-semibold">Failure Trend (7 day)</h4>
+          </div>
+          <CardContent className="flex-1 pb-4">
+            <BarChart
+              data={failureData}
+              valueKey="value"
+              labelKey="label"
+              loading={loading}
+              emptyMessage="No failures — great!"
+              barColor="bg-red-500"
+              height="h-[200px]"
+            />
+          </CardContent>
+        </Card>
 
-  return sanitizeLayout(buildRows(DEFAULT_ROWS))
+        <Card className="flex flex-col">
+          <div className="px-5 pt-4 pb-2">
+            <h4 className="text-sm font-semibold">Most Failing Workflows</h4>
+          </div>
+          <CardContent className="flex-1 pb-4 flex flex-col">
+            <HorizontalBarList
+              items={topFailingWorkflows.map((w) => ({
+                label: w.workflowName,
+                value: w.failedExecutions,
+                href: `/workflows/builder/${w.workflowId}`,
+              }))}
+              loading={loading}
+              emptyMessage="No failures in this period"
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col">
+          <div className="px-5 pt-4 pb-2">
+            <h4 className="text-sm font-semibold">Common Error Types</h4>
+          </div>
+          <CardContent className="flex-1 pb-4 flex flex-col">
+            {loading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-4 w-full" />
+                ))}
+              </div>
+            ) : failureReasons.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center min-h-[120px]">
+                <p className="text-sm text-muted-foreground text-center">No errors recorded</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {failureReasons.slice(0, 6).map((item: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2 text-sm">
+                    <AlertCircle className="w-3.5 h-3.5 text-red-500 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-muted-foreground truncate text-xs">{item.reason}</p>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] flex-shrink-0">{item.count}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 }
 
-function buildStarterLayoutFromWidgetIds(widgetIds: string[]): DashboardRow[] {
-  return sanitizeLayout([
-    {
-      id: "row_metrics",
-      slots: [
-        { slotId: "row_metrics:slot_1", widgetId: widgetIds[0] || null, size: "small" },
-        { slotId: "row_metrics:slot_2", widgetId: widgetIds[1] || null, size: "small" },
-        { slotId: "row_metrics:slot_3", widgetId: widgetIds[2] || null, size: "small" },
-        { slotId: "row_metrics:slot_4", widgetId: widgetIds[3] || null, size: "small" },
-      ],
-    },
-    {
-      id: "row_history",
-      slots: [
-        { slotId: "row_history:slot_1", widgetId: widgetIds[4] || null, size: "wide" },
-        { slotId: "row_history:slot_2", widgetId: widgetIds[5] || null, size: "medium" },
-      ],
-    },
-    {
-      id: "row_recent",
-      slots: [
-        { slotId: "row_recent:slot_1", widgetId: widgetIds[6] || null, size: "large" },
-        { slotId: "row_recent:slot_2", widgetId: widgetIds[7] || null, size: "large" },
-      ],
-    },
-  ])
-}
+// ---------------------------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------------------------
 
 export function AnalyticsContent() {
   const {
@@ -741,230 +694,91 @@ export function AnalyticsContent() {
     fetchDashboard,
     setSelectedPeriod,
   } = useAnalyticsStore()
-  const { integrations, fetchIntegrations } = useIntegrationStore()
-  const [widgets, setWidgets] = useState<any[]>([])
-  const [layout, setLayout] = useState<DashboardRow[]>([])
-  const [loadingWidgets, setLoadingWidgets] = useState(true)
-  const [showAddWidget, setShowAddWidget] = useState(false)
-  const [pendingRowId, setPendingRowId] = useState<string | null>(null)
-  const [pendingSlotId, setPendingSlotId] = useState<string | null>(null)
-  const [pendingSlotSize, setPendingSlotSize] = useState<string>("small")
-  const [pendingMaxCols, setPendingMaxCols] = useState<number | null>(null)
-  const [savingLayout, setSavingLayout] = useState(false)
-  const [editMode, setEditMode] = useState(false)
-  const [draggingSlotId, setDraggingSlotId] = useState<string | null>(null)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [activeTab, setActiveTab] = useState<AnalyticsTab>("overview")
 
   useEffect(() => {
     fetchDashboard()
   }, [fetchDashboard])
 
-  useEffect(() => {
-    fetchIntegrations()
-  }, [fetchIntegrations])
-
-  const loadWidgets = useCallback(async () => {
-    setLoadingWidgets(true)
-    try {
-      const res = await fetch("/api/analytics/widgets")
-      const data = await res.json()
-      const loadedWidgets = data.widgets || []
-      const loadedLayout = normalizeLayout(data.layout || [], loadedWidgets)
-      setWidgets(loadedWidgets)
-      setLayout(loadedLayout)
-    } catch (error) {
-      console.error("Failed to load widgets", error)
-    } finally {
-      setLoadingWidgets(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadWidgets()
-  }, [loadWidgets])
-
-  const persistLayout = (nextLayout: DashboardRow[]) => {
-    const normalizedLayout = sanitizeLayout(nextLayout)
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-    }
-    saveTimeoutRef.current = setTimeout(async () => {
-      setSavingLayout(true)
-      try {
-        await fetch("/api/analytics/widgets", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ layout: { rows: normalizedLayout } }),
-        })
-      } finally {
-        setSavingLayout(false)
-      }
-    }, 500)
-  }
-
-  const handleRemoveWidget = async (widgetId: string) => {
-    await fetch(`/api/analytics/widgets/${widgetId}`, { method: "DELETE" })
-    setWidgets((prev) => prev.filter((w) => w.id !== widgetId))
-    setLayout((prev) => {
-      const next = prev.map((row) => ({
-        ...row,
-        slots: row.slots.filter((slot) => slot.widgetId !== widgetId),
-      }))
-      persistLayout(next)
-      return next
-    })
-  }
-
-  const moveWidgetToSlot = (widgetId: string, targetSlotId: string) => {
-    setLayout((prev) => {
-      let sourceSlotId: string | null = null
-      prev.forEach((row) => {
-        row.slots.forEach((slot) => {
-          if (slot.widgetId === widgetId) sourceSlotId = slot.slotId
-        })
-      })
-      const sourceSlot = sourceSlotId
-      if (!sourceSlot || sourceSlot === targetSlotId) {
-        return prev
-      }
-      let targetWidgetId: string | null = null
-      prev.forEach((row) => {
-        row.slots.forEach((slot) => {
-          if (slot.slotId === targetSlotId) targetWidgetId = slot.widgetId
-        })
-      })
-      const next = prev.map((row) => ({
-        ...row,
-        slots: row.slots.map((slot) => {
-          if (slot.slotId === sourceSlot) {
-            return { ...slot, widgetId: targetWidgetId }
-          }
-          if (slot.slotId === targetSlotId) {
-            return { ...slot, widgetId: widgetId }
-          }
-          return slot
-        }),
-      }))
-      persistLayout(next)
-      return next
-    })
-  }
-
-  const reorderWidgetInRow = (rowId: string, sourceSlotId: string, targetSlotId: string) => {
-    if (sourceSlotId === targetSlotId) return
-    setLayout((prev) => {
-      const next = prev.map((row) => {
-        if (row.id !== rowId) return row
-        const slots = [...row.slots]
-        const fromIndex = slots.findIndex((slot) => slot.slotId === sourceSlotId)
-        const toIndex = slots.findIndex((slot) => slot.slotId === targetSlotId)
-        if (fromIndex === -1 || toIndex === -1) return row
-        const [moved] = slots.splice(fromIndex, 1)
-        slots.splice(toIndex, 0, moved)
-        return { ...row, slots }
-      })
-      persistLayout(next)
-      return next
-    })
-  }
-
-  const handleAddWidget = async (widget: any, selectedSize?: string) => {
-    const res = await fetch("/api/analytics/widgets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(widget),
-    })
-    const created = await res.json()
-    setWidgets((prev) => [...prev, created])
-    setLayout((prev) => {
-      const targetRowId = pendingRowId || prev[0]?.id || null
-      if (!targetRowId) return prev
-      const desiredSize = selectedSize || pendingSlotSize
-      const sizeOption = SIZE_OPTIONS.find((opt) => opt.value === desiredSize) || SIZE_OPTIONS[0]
-      const remainingCols =
-        pendingMaxCols ?? 12
-      const allowed = SIZE_OPTIONS.filter((opt) => opt.w <= remainingCols)
-      const finalSize = allowed.find((opt) => opt.value === sizeOption.value) || allowed[0] || SIZE_OPTIONS[0]
-      const next = prev.map((row) => {
-        if (row.id !== targetRowId) return row
-        if (pendingSlotId) {
-          const slots = row.slots.map((slot) =>
-            slot.slotId === pendingSlotId
-              ? { ...slot, widgetId: created.id, size: finalSize.value }
-              : slot
-          )
-          return { ...row, slots }
-        }
-        const nextSlot = {
-          slotId: `${row.id}:slot_${crypto.randomUUID().slice(0, 8)}`,
-          widgetId: created.id,
-          size: finalSize.value,
-        }
-        return { ...row, slots: [...row.slots, nextSlot] }
-      })
-      persistLayout(next)
-      return next
-    })
-    setShowAddWidget(false)
-    setPendingRowId(null)
-    setPendingSlotId(null)
-    setPendingMaxCols(null)
-  }
-
-  const addRow = () => {
-    setLayout((prev) => {
-      const nextRow: DashboardRow = {
-        id: `row_${crypto.randomUUID().slice(0, 8)}`,
-        slots: [],
-      }
-      const next = [...prev, nextRow]
-      persistLayout(next)
-      return next
-    })
-  }
-
-  const removeRow = (rowId: string) => {
-    setLayout((prev) => {
-      const next = prev.filter((row) => row.id !== rowId)
-      persistLayout(next)
-      return next
-    })
-  }
-
   const overview = dashboard?.overview
-  const dailyStats = dashboard?.dailyStats || []
-  const topWorkflows = dashboard?.topWorkflows || []
-  const recentExecutions = dashboard?.recentExecutions || []
-  const integrationStats = dashboard?.integrationStats || {
-    total: 0,
-    connected: 0,
-    expiring: 0,
-    expired: 0,
-    disconnected: 0,
-  }
-  const statusBreakdown = dashboard?.statusBreakdown || []
-  const topFailingWorkflows = dashboard?.topFailingWorkflows || []
-  const executionsByHour = dashboard?.executionsByHour || []
-  const executionsByWeekday = dashboard?.executionsByWeekday || []
-  const failureReasons = dashboard?.failureReasons || []
-  const avgDurationTrend = dashboard?.avgDurationTrend || []
-  const p95ExecutionTimeMs = dashboard?.p95ExecutionTimeMs || 0
-  const hasPlacedWidgets = layout.some((row) => row.slots.some((slot) => !!slot.widgetId))
+  const dailyStats = dashboard?.dailyStats ?? []
+  const topWorkflows = dashboard?.topWorkflows ?? []
+  const recentExecutions = dashboard?.recentExecutions ?? []
+  const statusBreakdown = dashboard?.statusBreakdown ?? []
+  const topFailingWorkflows = dashboard?.topFailingWorkflows ?? []
+  const failureReasons = dashboard?.failureReasons ?? []
 
-  // Note: Page-level access control is handled by AccessGuard in the page component
+  const handleExportExecutions = useCallback(() => {
+    exportToCSV(
+      `executions-${new Date().toISOString().slice(0, 10)}`,
+      ["Workflow", "Status", "Duration", "Started At"],
+      recentExecutions.map((e: any) => [e.workflowName, e.status, formatDuration(e.durationMs), new Date(e.startedAt).toISOString()]),
+    )
+  }, [recentExecutions])
+
+  const handleExportWorkflows = useCallback(() => {
+    exportToCSV(
+      `workflows-${new Date().toISOString().slice(0, 10)}`,
+      ["Workflow", "Executions", "Success Rate"],
+      topWorkflows.map((w: any) => [w.workflowName, String(w.totalExecutions), `${w.successRate}%`]),
+    )
+  }, [topWorkflows])
+
+  const handleExportFailures = useCallback(() => {
+    exportToCSV(
+      `failures-${new Date().toISOString().slice(0, 10)}`,
+      ["Workflow", "Failed Executions"],
+      topFailingWorkflows.map((w: any) => [w.workflowName, String(w.failedExecutions)]),
+    )
+  }, [topFailingWorkflows])
+
+  const handleExportOverview = useCallback(() => {
+    const rows = dailyStats.map((d: any) => [
+      d.dayName || d.date || "",
+      String(Number(d.executions) || 0),
+      String(Number(d.successful ?? d.completed ?? d.success) || 0),
+      String(Number(d.failed ?? d.errors ?? d.error) || 0),
+    ])
+    exportToCSV(`overview-${new Date().toISOString().slice(0, 10)}`, ["Day", "Executions", "Successful", "Failed"], rows)
+  }, [dailyStats])
+
+  const currentExportHandler =
+    activeTab === "overview" ? handleExportOverview
+    : activeTab === "executions" ? handleExportExecutions
+    : activeTab === "workflows" ? handleExportWorkflows
+    : handleExportFailures
+
+  const tabs: { id: AnalyticsTab; label: string; icon: React.ElementType }[] = [
+    { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "executions", label: "Executions", icon: Activity },
+    { id: "workflows", label: "Workflows", icon: Workflow },
+    { id: "failures", label: "Failures", icon: AlertCircle },
+  ]
+
+  const tabDescriptions: Record<AnalyticsTab, string> = {
+    overview: "A snapshot of your workflow performance across all metrics.",
+    executions: "Detailed log of every workflow run in this period.",
+    workflows: "Compare individual workflow performance and volume.",
+    failures: "Identify issues and debug failing workflows.",
+  }
+
+  const failureCount = dashboard?.topFailingWorkflows?.length ?? 0
+
   return (
-    <div className="space-y-6 pb-8">
-      {/* Header with period selector */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-muted-foreground" />
-          <Select
-            value={selectedPeriod.toString()}
-            onValueChange={(value) => setSelectedPeriod(parseInt(value, 10))}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select period" />
-            </SelectTrigger>
+    <div className="h-full flex flex-col">
+      {/* Page header */}
+      <div className="flex-shrink-0 animate-fade-in-down">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{tabDescriptions[activeTab]}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Select value={selectedPeriod.toString()} onValueChange={(v) => setSelectedPeriod(parseInt(v, 10))}>
+              <SelectTrigger className="w-[170px] h-9 text-sm sm:text-sm rounded-lg">
+                <Calendar className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="7">Last 7 days</SelectItem>
                 <SelectItem value="14">Last 14 days</SelectItem>
@@ -973,772 +787,92 @@ export function AnalyticsContent() {
                 <SelectItem value="0">All time</SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={currentExportHandler}
+              className="h-9 gap-1.5 rounded-lg text-sm"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Export
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchDashboard()}
+              disabled={dashboardLoading}
+              className="h-9 w-9 p-0 rounded-lg"
+            >
+              <RefreshCw className={`w-4 h-4 ${dashboardLoading ? "animate-spin" : ""}`} />
+            </Button>
           </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => fetchDashboard()}
-            disabled={dashboardLoading}
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${dashboardLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            variant={editMode ? "secondary" : "default"}
-            onClick={() => setEditMode((prev) => !prev)}
-          >
-            {editMode ? "Done" : "Edit"}
-          </Button>
+        </div>
+
+        {/* Full-width tab navigation */}
+        <div className="border-b -mx-6 px-6">
+          <nav className="flex w-full" aria-label="Analytics views">
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors duration-200 border-b-2 -mb-px ${
+                    isActive
+                      ? "border-foreground text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                  {tab.id === "failures" && failureCount > 0 && (
+                    <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold leading-none ${
+                      isActive
+                        ? "bg-red-500 text-white"
+                        : "bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400"
+                    }`}>
+                      {failureCount}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </nav>
         </div>
       </div>
 
-      {/* Error state */}
+      {/* Error */}
       {dashboardError && (
-        <Card className="border-red-200 dark:border-red-900">
-          <CardContent className="p-4 flex items-center gap-3 text-red-600 dark:text-red-400">
-            <AlertCircle className="w-5 h-5" />
-            <span>{dashboardError}</span>
-            <Button variant="outline" size="sm" onClick={() => fetchDashboard()} className="ml-auto">
-              Retry
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {loadingWidgets ? (
-        <Card>
-          <CardContent className="p-6 flex items-center gap-3">
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Loading dashboard widgets...</span>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {!hasPlacedWidgets && (
-            <Card className="border-dashed">
-              <CardContent className="p-8 flex flex-col items-center text-center gap-4">
-                <BarChart3 className="w-10 h-10 text-muted-foreground" />
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold">Build your analytics dashboard</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Add widgets to start tracking performance.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={async () => {
-                      if (widgets.length > 0) {
-                        const starterLayout = buildStarterLayoutFromWidgetIds(widgets.map((w) => w.id))
-                        setLayout(starterLayout)
-                        persistLayout(starterLayout)
-                      } else {
-                        await loadWidgets()
-                      }
-                    }}
-                  >
-                    Use Starter Layout
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      let targetRowId = layout[0]?.id || null
-                      if (!layout[0]) {
-                        targetRowId = `row_${crypto.randomUUID().slice(0, 8)}`
-                        const next = [{ id: targetRowId, slots: [] }]
-                        setLayout(next)
-                        persistLayout(next)
-                      }
-                      setPendingRowId(targetRowId)
-                      setPendingSlotId(null)
-                      setPendingMaxCols(12)
-                      setPendingSlotSize("small")
-                      setShowAddWidget(true)
-                    }}
-                  >
-                    Add First Widget
-                  </Button>
-                  {!editMode && (
-                    <Button variant="outline" onClick={() => setEditMode(true)}>
-                      Enter Edit Mode
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {layout.map((row) => {
-            const widgetSlots = row.slots.filter((slot) => slot.widgetId)
-            const usedCols = widgetSlots.reduce((sum, s) => {
-              const opt = SIZE_OPTIONS.find((o) => o.value === s.size) || SIZE_OPTIONS[0]
-              return sum + opt.w
-            }, 0)
-            const remainingCols = Math.max(0, 12 - usedCols)
-            const minCols = Math.min(...SIZE_OPTIONS.map((option) => option.w))
-            const canAddInRow = editMode && remainingCols >= minCols
-            return (
-              <div key={row.id} className="space-y-3">
-                {editMode && (
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <div>Row</div>
-                    <div className="flex items-center gap-2">
-                      {canAddInRow && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setPendingRowId(row.id)
-                            setPendingSlotId(null)
-                            setPendingMaxCols(remainingCols)
-                            setPendingSlotSize(
-                              (SIZE_OPTIONS.filter((o) => o.w <= remainingCols).slice(-1)[0]?.value) ||
-                                "small"
-                            )
-                            setShowAddWidget(true)
-                          }}
-                        >
-                          Add Widget
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="sm" onClick={() => removeRow(row.id)}>
-                        Remove Row
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                <div
-                  className={
-                    editMode
-                      ? "border-2 border-dashed border-muted-foreground/30 rounded-lg p-4"
-                      : ""
-                  }
-                >
-                  <div className="grid grid-cols-12 gap-x-4 gap-y-4 auto-rows-[130px]">
-                  {widgetSlots.length === 0 && editMode ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPendingRowId(row.id)
-                        setPendingSlotId(null)
-                        setPendingMaxCols(12)
-                        setPendingSlotSize("small")
-                        setShowAddWidget(true)
-                      }}
-                      className="h-full w-full border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:border-primary/50 hover:text-primary transition col-span-12"
-                    >
-                      <Plus className="w-6 h-6 mb-2" />
-                      <div className="text-sm font-medium">Add Widget</div>
-                    </button>
-                  ) : (
-                    widgetSlots.map((slot) => {
-                      const widgetId = slot.widgetId
-                      const widget = widgetId ? widgets.find((w) => w.id === widgetId) : null
-                      const sizeOption =
-                        SIZE_OPTIONS.find((opt) => opt.value === slot.size) || SIZE_OPTIONS[0]
-                      const size =
-                        sizeOption.h <= 2 ? "small" : sizeOption.h <= 4 ? "medium" : "large"
-                      if (!widget) return null
-                      return (
-                        <div
-                          key={slot.slotId}
-                          style={{
-                            gridColumnEnd: `span ${sizeOption.w}`,
-                            gridRowEnd: `span ${sizeOption.h}`,
-                          }}
-                          className="relative"
-                          draggable={editMode}
-                          onDragStart={() => setDraggingSlotId(slot.slotId)}
-                          onDragEnd={() => setDraggingSlotId(null)}
-                          onDragOver={(event) => {
-                            if (!editMode) return
-                            event.preventDefault()
-                          }}
-                          onDrop={() => {
-                            if (!editMode || !draggingSlotId) return
-                            reorderWidgetInRow(row.id, draggingSlotId, slot.slotId)
-                            setDraggingSlotId(null)
-                          }}
-                        >
-                          <div
-                            className={`group h-full overflow-hidden ${
-                              editMode ? "cursor-move" : ""
-                            }`}
-                          >
-                            <div className="flex items-center justify-between mb-3 min-h-[28px]">
-                              <div className="flex items-center gap-2 text-sm font-medium">
-                                <Settings className="w-4 h-4 text-muted-foreground" />
-                                {widget.title}
-                              </div>
-                              {editMode && (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => handleRemoveWidget(widget.id)}
-                                    className="p-1"
-                                  >
-                                    <X className="w-4 h-4 text-muted-foreground hover:text-red-500" />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                            <div className="h-[calc(100%-40px)] min-h-0 overflow-auto pr-1">
-                              <WidgetRenderer
-                                widget={widget}
-                                loading={dashboardLoading}
-                                overview={overview}
-                                dailyStats={dailyStats}
-                                topWorkflows={topWorkflows}
-                                recentExecutions={recentExecutions}
-                                integrationStats={integrationStats}
-                                integrations={integrations}
-                                statusBreakdown={statusBreakdown}
-                                topFailingWorkflows={topFailingWorkflows}
-                                executionsByHour={executionsByHour}
-                                executionsByWeekday={executionsByWeekday}
-                                failureReasons={failureReasons}
-                                avgDurationTrend={avgDurationTrend}
-                                p95ExecutionTimeMs={p95ExecutionTimeMs}
-                                size={size}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-          {editMode && (
-            <div className="flex items-center gap-3">
-              <Button size="sm" onClick={addRow}>
-                Add Row
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      <AddWidgetDialog
-        open={showAddWidget}
-        integrations={integrations}
-        onClose={() => setShowAddWidget(false)}
-        onCreate={handleAddWidget}
-        maxCols={pendingMaxCols}
-        defaultSize={pendingSlotSize}
-      />
-      {savingLayout && (
-        <div className="text-xs text-muted-foreground flex items-center gap-2">
-          <RefreshCw className="w-3 h-3 animate-spin" />
-          Saving layout...
-        </div>
-      )}
-    </div>
-  )
-}
-
-function WidgetRenderer({
-  widget,
-  loading,
-  overview,
-  dailyStats,
-  topWorkflows,
-  recentExecutions,
-  integrationStats,
-  integrations,
-  statusBreakdown,
-  topFailingWorkflows,
-  executionsByHour,
-  executionsByWeekday,
-  failureReasons,
-  avgDurationTrend,
-  p95ExecutionTimeMs,
-  size = "large",
-}: {
-  widget: any
-  loading: boolean
-  overview: any
-  dailyStats: any[]
-  topWorkflows: any[]
-  recentExecutions: any[]
-  integrationStats: any
-  integrations: any[]
-  statusBreakdown: any[]
-  topFailingWorkflows: any[]
-  executionsByHour: any[]
-  executionsByWeekday: any[]
-  failureReasons: any[]
-  avgDurationTrend: any[]
-  p95ExecutionTimeMs: number
-  size?: "small" | "medium" | "large"
-}) {
-  switch (widget.type) {
-    case "total_executions":
-      return (
-        <StatCard
-          title="Total Executions"
-          value={overview?.total?.toLocaleString() || "0"}
-          icon={Zap}
-          loading={loading}
-          size={size}
-        />
-      )
-    case "success_rate":
-      return (
-        <StatCard
-          title="Success Rate"
-          value={`${overview?.successRate || 0}%`}
-          icon={CheckCircle2}
-          loading={loading}
-          size={size}
-          trend={
-            overview?.successRate
-              ? {
-                  direction: overview.successRate >= 90 ? "up" : overview.successRate >= 70 ? "neutral" : "down",
-                  value: overview.successRate >= 90 ? "Good" : overview.successRate >= 70 ? "Fair" : "Low",
-                }
-              : undefined
-          }
-        />
-      )
-    case "failed_executions":
-      return (
-        <StatCard
-          title="Failed Executions"
-          value={overview?.failed?.toLocaleString() || "0"}
-          icon={XCircle}
-          loading={loading}
-          size={size}
-        />
-      )
-    case "avg_execution_time":
-      return (
-        <StatCard
-          title="Avg. Execution Time"
-          value={formatDuration(overview?.avgExecutionTimeMs || 0)}
-          icon={Clock}
-          loading={loading}
-          size={size}
-        />
-      )
-    case "execution_history":
-      return <ExecutionChart dailyStats={dailyStats} loading={loading} size={size} />
-    case "top_workflows":
-      return <TopWorkflows workflows={topWorkflows} loading={loading} size={size} />
-    case "recent_executions":
-      return <RecentExecutions executions={recentExecutions} loading={loading} size={size} />
-    case "integration_health":
-      return <IntegrationHealth stats={integrationStats} loading={loading} size={size} />
-    case "success_rate_trend":
-      return (
-        <TrendBars
-          title="Success Rate Trend"
-          points={dailyStats.map((d) => ({
-            ...d,
-            successRate: d.executions > 0 ? Math.round((d.successful / d.executions) * 100) : 0,
-          }))}
-          valueKey="successRate"
-          loading={loading}
-          size={size}
-        />
-      )
-    case "execution_volume_trend":
-      return <TrendBars title="Execution Volume Trend" points={dailyStats} valueKey="executions" loading={loading} size={size} />
-    case "failure_trend":
-      return <TrendBars title="Failure Trend" points={dailyStats} valueKey="failed" loading={loading} size={size} />
-    case "status_breakdown":
-      return <StatusBreakdownWidget breakdown={statusBreakdown} loading={loading} />
-    case "top_failing_workflows":
-      return <TopFailingWorkflowsWidget rows={topFailingWorkflows} loading={loading} size={size} />
-    case "avg_duration_trend":
-      return <TrendBars title="Avg Duration Trend" points={avgDurationTrend} valueKey="avgDurationMs" loading={loading} size={size} />
-    case "p95_execution_time":
-      return (
-        <StatCard
-          title="P95 Execution Time"
-          value={formatDuration(p95ExecutionTimeMs)}
-          icon={Clock}
-          loading={loading}
-          size={size}
-        />
-      )
-    case "executions_by_hour":
-      return <TrendBars title="Executions by Hour" points={executionsByHour} valueKey="executions" loading={loading} size={size} />
-    case "executions_by_day":
-      return <TrendBars title="Executions by Day" points={executionsByWeekday} valueKey="executions" loading={loading} size={size} />
-    case "failure_reasons":
-      return <FailureReasonsWidget reasons={failureReasons} loading={loading} size={size} />
-    case "custom":
-      return (
-        <Card className="h-full">
-          <CardContent className="p-4 space-y-2 h-full">
-            <div className="text-sm text-muted-foreground">Custom widget</div>
-            <div className="text-xs text-muted-foreground">
-              Integration: {widget.config?.integration || "Not set"}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Schedule: {widget.schedule || "on_demand"}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Data source: {widget.config?.metric || "Not set"}
-            </div>
-          </CardContent>
-        </Card>
-      )
-    default:
-      return (
-        <Card>
-          <CardContent className="p-4 text-sm text-muted-foreground">
-            Unsupported widget type.
-          </CardContent>
-        </Card>
-      )
-  }
-}
-
-function AddWidgetDialog({
-  open,
-  integrations,
-  onClose,
-  onCreate,
-  maxCols,
-  defaultSize,
-}: {
-  open: boolean
-  integrations: any[]
-  onClose: () => void
-  onCreate: (widget: any, size: string) => void
-  maxCols: number | null
-  defaultSize: string
-}) {
-  const [type, setType] = useState("total_executions")
-  const [title, setTitle] = useState("Total Executions")
-  const [schedule, setSchedule] = useState("on_demand")
-  const [size, setSize] = useState("small")
-  const [integration, setIntegration] = useState("")
-  const [metric, setMetric] = useState("")
-  const [advancedConfig, setAdvancedConfig] = useState("")
-  const [advancedError, setAdvancedError] = useState<string | null>(null)
-
-  const presetOptions = useMemo(() => [
-    {
-      value: "total_executions",
-      label: "Total Executions",
-      description: "Total workflow runs in the selected period.",
-      icon: Zap,
-    },
-    {
-      value: "success_rate",
-      label: "Success Rate",
-      description: "Percentage of successful runs.",
-      icon: CheckCircle2,
-    },
-    {
-      value: "failed_executions",
-      label: "Failed Executions",
-      description: "Count of failed workflow runs.",
-      icon: XCircle,
-    },
-    {
-      value: "avg_execution_time",
-      label: "Avg. Execution Time",
-      description: "Average duration across runs.",
-      icon: Clock,
-    },
-    {
-      value: "execution_history",
-      label: "Execution History",
-      description: "Bar chart of daily executions.",
-      icon: BarChart3,
-    },
-    {
-      value: "top_workflows",
-      label: "Top Workflows",
-      description: "Most active workflows.",
-      icon: Workflow,
-    },
-    {
-      value: "recent_executions",
-      label: "Recent Executions",
-      description: "Latest workflow runs.",
-      icon: Activity,
-    },
-    {
-      value: "integration_health",
-      label: "Integration Health",
-      description: "Status of connected apps.",
-      icon: Link2,
-    },
-    {
-      value: "success_rate_trend",
-      label: "Success Rate Trend",
-      description: "Daily success rate trend.",
-      icon: TrendingUp,
-    },
-    {
-      value: "execution_volume_trend",
-      label: "Execution Volume Trend",
-      description: "Daily execution volume trend.",
-      icon: Activity,
-    },
-    {
-      value: "failure_trend",
-      label: "Failure Trend",
-      description: "Daily failed executions trend.",
-      icon: XCircle,
-    },
-    {
-      value: "status_breakdown",
-      label: "Status Breakdown",
-      description: "Distribution across statuses.",
-      icon: BarChart3,
-    },
-    {
-      value: "top_failing_workflows",
-      label: "Top Failing Workflows",
-      description: "Workflows with the most failures.",
-      icon: Workflow,
-    },
-    {
-      value: "avg_duration_trend",
-      label: "Avg Duration Trend",
-      description: "Daily average execution time trend.",
-      icon: Clock,
-    },
-    {
-      value: "p95_execution_time",
-      label: "P95 Execution Time",
-      description: "95th percentile execution duration.",
-      icon: Clock,
-    },
-    {
-      value: "executions_by_hour",
-      label: "Executions by Hour",
-      description: "Distribution by hour of day.",
-      icon: Calendar,
-    },
-    {
-      value: "executions_by_day",
-      label: "Executions by Day",
-      description: "Distribution by day of week.",
-      icon: Calendar,
-    },
-    {
-      value: "failure_reasons",
-      label: "Failure Reasons",
-      description: "Most common execution errors.",
-      icon: AlertCircle,
-    },
-    {
-      value: "custom",
-      label: "Custom (Integration)",
-      description: "Build a widget from an integration metric.",
-      icon: Settings,
-    },
-  ], [])
-
-  useEffect(() => {
-    const match = presetOptions.find((opt) => opt.value === type)
-    if (match && type !== "custom") {
-      setTitle(match.label)
-    }
-  }, [type, presetOptions])
-
-  useEffect(() => {
-    if (open) {
-      setSize(defaultSize || "small")
-    }
-  }, [open, defaultSize])
-
-  useEffect(() => {
-    if (!maxCols) return
-    const allowed = SIZE_OPTIONS.filter((option) => option.w <= maxCols)
-    if (allowed.length === 0) return
-    if (!allowed.find((option) => option.value === size)) {
-      setSize(allowed[allowed.length - 1].value)
-    }
-  }, [maxCols, size])
-
-  const handleCreate = () => {
-    let config: any = {}
-    if (type === "custom") {
-      if (advancedConfig.trim()) {
-        try {
-          JSON.parse(advancedConfig)
-          setAdvancedError(null)
-        } catch (error) {
-          setAdvancedError("Advanced JSON is invalid. Please fix it before saving.")
-          return
-        }
-      }
-      config = {
-        integration,
-        metric,
-        advanced: advancedConfig ? JSON.parse(advancedConfig) : undefined,
-      }
-    }
-    onCreate({ type, title, schedule, config }, size)
-  }
-  const selectedOption = presetOptions.find((option) => option.value === type)
-
-  return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="w-[min(96vw,1100px)] max-w-none sm:max-w-[1100px] sm:w-[min(96vw,1100px)] max-h-[90vh] overflow-y-auto bg-white/95 dark:bg-slate-950/95">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
-            Add Widget
-          </DialogTitle>
-          <DialogDescription>
-            Choose a preset widget or configure a custom analytics widget from your connected apps.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-8">
-          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Widget Library
-            </div>
-            <div className="space-y-3">
-              {presetOptions.map((option) => {
-                const Icon = option.icon
-                const selected = option.value === type
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setType(option.value)}
-                    aria-pressed={selected}
-                    className={`w-full text-left border rounded-xl p-4 transition ${
-                      selected
-                        ? "border-primary/60 bg-primary/10 shadow-sm"
-                        : "border-border hover:border-primary/40 hover:bg-muted/60"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-muted/80 flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold">{option.label}</div>
-                        <div className="text-xs text-muted-foreground leading-relaxed">
-                          {option.description}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          <div className="space-y-5">
-            <div className="flex items-start justify-between gap-4 border-b pb-5">
-              <div>
-                <div className="text-sm font-semibold">Widget Details</div>
-                <div className="text-xs text-muted-foreground leading-relaxed">
-                  {selectedOption?.description || "Configure the widget settings."}
-                </div>
-              </div>
-              {selectedOption && (
-                <Badge variant="outline" className="text-xs rounded-full px-3 py-1">
-                  {selectedOption.label}
-                </Badge>
-              )}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium">Title</label>
-                <input
-                  className="w-full border rounded-lg p-2.5 text-sm bg-background"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Refresh Schedule</label>
-                <Select value={schedule} onValueChange={setSchedule}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select schedule" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="on_demand">On demand only</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="bi_weekly">Bi-weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Widget Size</label>
-                <Select value={size} onValueChange={setSize}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SIZE_OPTIONS.filter((option) =>
-                      maxCols ? option.w <= maxCols : true
-                    ).map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {type === "custom" && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">Integration</label>
-                    <Select value={integration} onValueChange={setIntegration}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select integration" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {integrations.map((i: any) => (
-                          <SelectItem key={i.id} value={i.provider}>
-                            {i.provider}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Metric</label>
-                    <input
-                      className="w-full border rounded-lg p-2.5 text-sm bg-background"
-                      value={metric}
-                      onChange={(e) => setMetric(e.target.value)}
-                      placeholder="e.g. total_revenue"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Advanced JSON</label>
-                  <textarea
-                    className="w-full border rounded-lg p-2.5 text-sm h-28 bg-background"
-                    value={advancedConfig}
-                    onChange={(e) => setAdvancedConfig(e.target.value)}
-                    placeholder='{"filters": {"status": "paid"}}'
-                  />
-                  {advancedError && (
-                    <p className="text-xs text-red-500 mt-1">{advancedError}</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-sm flex-shrink-0">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span className="flex-1">{dashboardError}</span>
+          <Button variant="outline" size="sm" onClick={() => fetchDashboard()}>
+            Retry
           </Button>
-          <Button onClick={handleCreate}>Add Widget</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      )}
+
+      {/* Active tab content */}
+      <div className="flex-1 min-h-0 pt-5">
+        {activeTab === "overview" && (
+          <OverviewView overview={overview} dailyStats={dailyStats} statusBreakdown={statusBreakdown} loading={dashboardLoading} />
+        )}
+        {activeTab === "executions" && (
+          <ExecutionsView recentExecutions={recentExecutions} loading={dashboardLoading} />
+        )}
+        {activeTab === "workflows" && (
+          <WorkflowsView topWorkflows={topWorkflows} dailyStats={dailyStats} loading={dashboardLoading} />
+        )}
+        {activeTab === "failures" && (
+          <FailuresView
+            topFailingWorkflows={topFailingWorkflows}
+            failureReasons={failureReasons}
+            dailyStats={dailyStats}
+            loading={dashboardLoading}
+          />
+        )}
+      </div>
+    </div>
   )
 }

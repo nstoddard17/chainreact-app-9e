@@ -818,7 +818,7 @@ export function SlackMessageEditor({
       <style jsx>{`
         [contenteditable][data-placeholder]:empty:before {
           content: attr(data-placeholder);
-          color: hsl(var(--muted-foreground));
+          color: oklch(var(--muted-foreground));
           pointer-events: none;
         }
       `}</style>

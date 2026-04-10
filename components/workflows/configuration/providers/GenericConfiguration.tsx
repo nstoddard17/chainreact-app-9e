@@ -1218,7 +1218,7 @@ export function GenericConfiguration({
         <h3 className="text-lg font-semibold mb-2">
           {displayName} Connection Required
         </h3>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
+        <p className="text-sm text-slate-600 dark:text-slate-200">
           Please connect your account to use this {nodeInfo?.isTrigger ? 'trigger' : 'action'}.
         </p>
       </div>
@@ -1363,7 +1363,7 @@ export function GenericConfiguration({
 
                 if (!previewEmails.length) {
                   return (
-                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                    <div className="text-sm text-slate-600 dark:text-slate-200">
                       No email currently matches your criteria
                     </div>
                   )
@@ -1562,7 +1562,7 @@ export function GenericConfiguration({
                   )}
                 </div>
               ) : (
-                <div className="text-sm text-slate-600 dark:text-slate-400">
+                <div className="text-sm text-slate-600 dark:text-slate-200">
                   No email data available
                 </div>
               )}
@@ -1661,7 +1661,7 @@ export function GenericConfiguration({
                   )}
                 </div>
               ) : (
-                <div className="text-sm text-slate-600 dark:text-slate-400">
+                <div className="text-sm text-slate-600 dark:text-slate-200">
                   No email data available
                 </div>
               )}
@@ -1716,7 +1716,7 @@ export function GenericConfiguration({
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
+                        <span className="text-xs text-slate-600 dark:text-slate-200 whitespace-nowrap">Show:</span>
                         <div className="w-[100px]">
                           <GenericSelectField
                             field={PREVIEW_LIMIT_FIELD}
@@ -1751,7 +1751,7 @@ export function GenericConfiguration({
                               {file.name}
                             </div>
                           </div>
-                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-200">
                             <div>
                               <span className="font-medium">Owner:</span> {file.owner}
                             </div>
@@ -1782,7 +1782,7 @@ export function GenericConfiguration({
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-slate-600 dark:text-slate-200">
                       No files found matching your criteria
                     </p>
                   )}
@@ -1839,7 +1839,7 @@ export function GenericConfiguration({
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
+                      <span className="text-xs text-slate-600 dark:text-slate-200 whitespace-nowrap">Show:</span>
                       <div className="w-[100px]">
                         <GenericSelectField
                           field={PREVIEW_LIMIT_FIELD}
@@ -1864,7 +1864,7 @@ export function GenericConfiguration({
                               {file.name}
                             </div>
                           </div>
-                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-200">
                             <div>
                               <span className="font-medium">Owner:</span> {file.owner}
                             </div>
@@ -1895,7 +1895,7 @@ export function GenericConfiguration({
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-slate-600 dark:text-slate-200">
                       No files found in this folder
                     </p>
                   )}
@@ -1952,7 +1952,7 @@ export function GenericConfiguration({
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
+                      <span className="text-xs text-slate-600 dark:text-slate-200 whitespace-nowrap">Show:</span>
                       <div className="min-w-[100px]">
                         <GenericSelectField
                           field={PREVIEW_LIMIT_FIELD}
@@ -2013,7 +2013,7 @@ export function GenericConfiguration({
                                 )}
                               </div>
                             </div>
-                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-200">
                               <div>
                                 <span className="font-medium">From:</span> {email.from}
                               </div>
@@ -2031,7 +2031,7 @@ export function GenericConfiguration({
                             {isExpanded && (
                               <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                                 {email.to && (
-                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-200">
                                     <span className="font-medium">To:</span> {email.to}
                                   </div>
                                 )}
@@ -2060,7 +2060,7 @@ export function GenericConfiguration({
                                     </h5>
                                     <div className="space-y-1">
                                       {email.attachments.map((att: any, attIndex: number) => (
-                                        <div key={attIndex} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                        <div key={attIndex} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-200">
                                           <span>📎</span>
                                           <span className="font-medium">{att.filename}</span>
                                           <span className="text-slate-500">
@@ -2083,7 +2083,7 @@ export function GenericConfiguration({
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-slate-600 dark:text-slate-200">
                       No emails found matching your criteria
                     </p>
                   )}
@@ -2148,7 +2148,7 @@ export function GenericConfiguration({
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
+                      <span className="text-xs text-slate-600 dark:text-slate-200 whitespace-nowrap">Show:</span>
                       <div className="min-w-[100px]">
                         <GenericSelectField
                           field={PREVIEW_LIMIT_FIELD}
@@ -2209,7 +2209,7 @@ export function GenericConfiguration({
                                 )}
                               </div>
                             </div>
-                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-200">
                               <div>
                                 <span className="font-medium">From:</span> {email.from}
                               </div>
@@ -2227,7 +2227,7 @@ export function GenericConfiguration({
                             {isExpanded && (
                               <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                                 {email.to && (
-                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-200">
                                     <span className="font-medium">To:</span> {email.to}
                                   </div>
                                 )}
@@ -2256,7 +2256,7 @@ export function GenericConfiguration({
                                     </h5>
                                     <div className="space-y-1">
                                       {email.attachments.map((att: any, attIndex: number) => (
-                                        <div key={attIndex} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                                        <div key={attIndex} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-200">
                                           <span>📎</span>
                                           <span className="font-medium">{att.filename}</span>
                                           <span className="text-slate-500">
@@ -2279,7 +2279,7 @@ export function GenericConfiguration({
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-slate-600 dark:text-slate-200">
                       No emails found matching your criteria
                     </p>
                   )}
@@ -2342,7 +2342,7 @@ export function GenericConfiguration({
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
+                      <span className="text-xs text-slate-600 dark:text-slate-200 whitespace-nowrap">Show:</span>
                       <div className="min-w-[100px]">
                         <GenericSelectField
                           field={PREVIEW_LIMIT_FIELD}
@@ -2402,7 +2402,7 @@ export function GenericConfiguration({
                                 )}
                               </div>
                             </div>
-                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-200">
                               <div>
                                 <span className="font-medium">From:</span> {email.from}
                               </div>
@@ -2420,12 +2420,12 @@ export function GenericConfiguration({
                             {isExpanded && (
                               <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                                 {email.to && (
-                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-200">
                                     <span className="font-medium">To:</span> {email.to}
                                   </div>
                                 )}
                                 {email.snippet && (
-                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-200">
                                     <span className="font-medium">Preview:</span> {email.snippet}
                                   </div>
                                 )}
@@ -2441,7 +2441,7 @@ export function GenericConfiguration({
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-slate-600 dark:text-slate-200">
                       No emails found matching your criteria
                     </p>
                   )}
@@ -2504,7 +2504,7 @@ export function GenericConfiguration({
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Show:</span>
+                      <span className="text-xs text-slate-600 dark:text-slate-200 whitespace-nowrap">Show:</span>
                       <div className="min-w-[100px]">
                         <GenericSelectField
                           field={PREVIEW_LIMIT_FIELD}
@@ -2564,7 +2564,7 @@ export function GenericConfiguration({
                                 )}
                               </div>
                             </div>
-                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
+                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-200">
                               <div>
                                 <span className="font-medium">From:</span> {email.from}
                               </div>
@@ -2582,12 +2582,12 @@ export function GenericConfiguration({
                             {isExpanded && (
                               <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                                 {email.to && (
-                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-200">
                                     <span className="font-medium">To:</span> {email.to}
                                   </div>
                                 )}
                                 {email.snippet && (
-                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400">
+                                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-200">
                                     <span className="font-medium">Preview:</span> {email.snippet}
                                   </div>
                                 )}
@@ -2603,7 +2603,7 @@ export function GenericConfiguration({
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-slate-600 dark:text-slate-200">
                       No emails found matching your criteria
                     </p>
                   )}

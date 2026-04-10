@@ -23,7 +23,7 @@ export function LibraryContent() {
   const router = useRouter()
   const { toast } = useToast()
   const { integrations } = useIntegrationStore()
-  const { createWorkflowFromTemplate } = useWorkflowStore()
+  const { createWorkflow } = useWorkflowStore()
 
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -114,7 +114,7 @@ export function LibraryContent() {
       }
 
       // Create workflow from template
-      await createWorkflowFromTemplate(modifiedTemplate)
+      await createWorkflow(modifiedTemplate.name || "Untitled Workflow", modifiedTemplate.description || "")
 
       toast({
         title: "Workflow Created!",
@@ -150,9 +150,10 @@ export function LibraryContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Template Library</h1>
-        <p className="text-muted-foreground">
+      <div className="animate-fade-in-down relative overflow-hidden rounded-xl bg-gradient-to-r from-orange-500/10 via-rose-500/10 to-purple-500/10 dark:from-orange-500/5 dark:via-rose-500/5 dark:to-purple-500/5 p-6 border border-orange-200/50 dark:border-orange-800/30">
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-400/5 to-transparent pointer-events-none" />
+        <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-orange-600 to-rose-600 dark:from-orange-400 dark:to-rose-400 bg-clip-text text-transparent relative">Template Library</h1>
+        <p className="text-muted-foreground relative">
           Start with professionally designed workflows. Customize and deploy in minutes.
         </p>
       </div>
@@ -175,7 +176,7 @@ export function LibraryContent() {
               variant={selectedCategory === category ? "default" : "outline"}
               size="sm"
               onClick={() => setSelectedCategory(category)}
-              className="whitespace-nowrap"
+              className={`whitespace-nowrap transition-all duration-300 ${selectedCategory === category ? "shadow-md scale-[1.02]" : "hover:scale-[1.02] hover:shadow-sm"}`}
             >
               {category === "all" ? "All Templates" : category}
             </Button>
@@ -192,14 +193,14 @@ export function LibraryContent() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTemplates.map((template) => {
+          {filteredTemplates.map((template, index) => {
             const templateIntegrations = getTemplateIntegrations(template)
             const hasAllConnected = templateIntegrations.every(p =>
               connectedIntegrations.includes(p)
             )
 
             return (
-              <Card key={template.id} className="group hover:shadow-lg transition-all overflow-hidden">
+              <Card key={template.id} className="group hover:shadow-lg hover:scale-[1.02] transition-all duration-300 overflow-hidden animate-fade-in-up" style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'both' }}>
                 <CardContent className="p-0">
                   {/* Preview Area - Mini Workflow Canvas */}
                   <div className="h-48 bg-gradient-to-br from-orange-50 to-rose-50 dark:from-orange-950/20 dark:to-rose-950/20 border-b relative overflow-hidden">
@@ -299,9 +300,15 @@ export function LibraryContent() {
 
       {/* Empty State */}
       {!loading && filteredTemplates.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-muted-foreground mb-4">No templates found</p>
-          <Button variant="outline" onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}>
+        <div className="text-center py-20 animate-fade-in">
+          <div className="mx-auto w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-100 to-rose-100 dark:from-orange-900/30 dark:to-rose-900/30 flex items-center justify-center mb-6">
+            <Sparkles className="w-10 h-10 text-orange-500 dark:text-orange-400" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">No templates found</h3>
+          <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+            Try adjusting your search or filter to find the workflow template you need.
+          </p>
+          <Button variant="outline" onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }} className="transition-all duration-300 hover:scale-[1.02] hover:shadow-sm">
             Clear Filters
           </Button>
         </div>

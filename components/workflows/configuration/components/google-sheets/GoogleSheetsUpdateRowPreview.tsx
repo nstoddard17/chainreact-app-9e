@@ -70,7 +70,7 @@ export function GoogleSheetsUpdateRowPreview({
         {/* Loading State */}
         {loadingPreview && (
           <div className="flex items-center justify-center py-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
-            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-200">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-transparent"></div>
               <span className="text-sm">Loading sheet data...</span>
             </div>
@@ -82,7 +82,7 @@ export function GoogleSheetsUpdateRowPreview({
           <div className="flex items-center justify-center py-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
             <div className="text-center">
               <Database className="h-12 w-12 mx-auto mb-3 text-slate-400" />
-              <p className="text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-sm text-slate-600 dark:text-slate-200">
                 Preparing to load sheet data...
               </p>
             </div>
@@ -97,7 +97,7 @@ export function GoogleSheetsUpdateRowPreview({
                 <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">
                   Sheet Preview: {values.sheetName}
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
+                <p className="text-xs text-slate-600 dark:text-slate-200">
                   {values.rowNumber ? `Row ${values.rowNumber} selected` : 'Click a row to select it'}
                 </p>
               </div>

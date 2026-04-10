@@ -219,7 +219,7 @@ export function UpgradeOverlay({ requiredRole, currentRole, featureName, onClose
                             getActionButtonStyle(role as UserRole)
                           )}
                           onClick={() => {
-                            window.location.href = `/settings/billing?plan=${role}`;
+                            window.location.href = `/subscription?plan=${role}`;
                           }}
                         >
                           {getActionText(role as UserRole)}

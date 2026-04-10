@@ -8,7 +8,7 @@ import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 5 requests per minute (auth - very strict for password reset)
-  const rateLimitResult = checkRateLimit(request, RateLimitPresets.auth)
+  const rateLimitResult = await checkRateLimit(request, RateLimitPresets.auth)
   if (!rateLimitResult.success && rateLimitResult.response) {
     return rateLimitResult.response
   }
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     // Get user profile for personalization
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('username, full_name, first_name')
+      .select('full_name, first_name')
       .eq('id', existingUser.user.id)
       .single()
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         subject: 'Reset your ChainReact password',
       },
       {
-        username: profile?.username || profile?.first_name || profile?.full_name || undefined,
+        username: profile?.first_name || profile?.full_name || undefined,
         resetUrl: data.properties?.action_link || '',
       }
     )

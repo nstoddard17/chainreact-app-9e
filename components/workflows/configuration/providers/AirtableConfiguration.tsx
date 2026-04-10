@@ -3821,7 +3821,7 @@ export function AirtableConfiguration({
                           label="Select Record"
                           className="border-none pb-0"
                         />
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                        <p className="text-xs text-gray-600 dark:text-gray-200">
                           Click a row to select the record you want to add the attachment to, or paste a record ID above
                         </p>
                       </div>

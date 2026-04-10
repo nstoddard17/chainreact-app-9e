@@ -324,11 +324,11 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'owner':
-        return <Badge variant="default" className="text-xs">Owner</Badge>
+        return <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 border-amber-500/30">Owner</Badge>
       case 'admin':
-        return <Badge variant="secondary" className="text-xs">Admin</Badge>
+        return <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 border-blue-500/30">Admin</Badge>
       default:
-        return <Badge variant="outline" className="text-xs">Member</Badge>
+        return <Badge variant="outline" className="text-xs bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300 border-gray-500/30">Member</Badge>
     }
   }
 
@@ -341,7 +341,7 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -372,7 +372,7 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
               </Button>
             </div>
           )}
-          <Button onClick={() => setCreateDialog(true)}>
+          <Button onClick={() => setCreateDialog(true)} className="bg-gradient-to-r from-orange-500 to-rose-500 text-white hover:from-orange-600 hover:to-rose-600 transition-all duration-200 shadow-sm hover:shadow-md">
             <Plus className="w-4 h-4 mr-2" />
             Create Team
           </Button>
@@ -385,29 +385,30 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
           <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : teams.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4 border rounded-xl">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-            <Users className="w-8 h-8 text-primary" />
+        <div className="flex flex-col items-center justify-center py-16 px-4 border rounded-xl bg-gradient-to-b from-muted/30 to-transparent animate-fade-in-up">
+          <div className="w-20 h-20 bg-gradient-to-br from-orange-500/10 to-rose-500/10 dark:from-orange-500/20 dark:to-rose-500/20 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
+            <Users className="w-10 h-10 text-orange-500" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">No teams yet</h3>
-          <p className="text-muted-foreground text-center max-w-md mb-6">
+          <h3 className="text-2xl font-bold mb-2">No teams yet</h3>
+          <p className="text-muted-foreground text-center max-w-md mb-8 leading-relaxed">
             Create a team to collaborate with others and share workflows across your organization.
           </p>
-          <Button onClick={() => setCreateDialog(true)}>
+          <Button onClick={() => setCreateDialog(true)} className="bg-gradient-to-r from-orange-500 to-rose-500 text-white hover:from-orange-600 hover:to-rose-600 transition-all duration-200 shadow-sm hover:shadow-md">
             <Plus className="w-4 h-4 mr-2" />
             Create Your First Team
           </Button>
         </div>
       ) : viewMode === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {teams.map((team) => {
+          {teams.map((team, index) => {
             const role = getUserRole(team)
             const memberCount = team.team_members?.length || 0
 
             return (
               <div
                 key={team.id}
-                className="group relative flex flex-col p-6 border rounded-xl hover:bg-accent/50 transition-all"
+                className="group relative flex flex-col p-6 border rounded-xl hover:bg-accent/50 hover:shadow-md hover:scale-[1.01] transition-all duration-200 animate-fade-in-up"
+                style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'both' }}
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -490,14 +491,15 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
         </div>
       ) : (
         <div className="space-y-3">
-          {teams.map((team) => {
+          {teams.map((team, index) => {
             const role = getUserRole(team)
             const memberCount = team.team_members?.length || 0
 
             return (
               <div
                 key={team.id}
-                className="group relative flex items-center justify-between p-4 border rounded-xl hover:bg-accent/50 transition-all"
+                className="group relative flex items-center justify-between p-4 border rounded-xl hover:bg-accent/50 hover:shadow-md transition-all duration-200 animate-fade-in-up"
+                style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'both' }}
               >
                 <div className="flex items-center gap-4 flex-1">
                   {/* Icon */}
@@ -598,6 +600,7 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
                 placeholder="Engineering Team"
                 value={newTeam.name}
                 onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
+                className="transition-all duration-200 focus:ring-2 focus:ring-orange-500/20"
               />
             </div>
             <div className="space-y-2">
@@ -607,6 +610,7 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
                 value={newTeam.description}
                 onChange={(e) => setNewTeam({ ...newTeam, description: e.target.value })}
                 rows={3}
+                className="transition-all duration-200 focus:ring-2 focus:ring-orange-500/20"
               />
             </div>
           </div>
@@ -614,7 +618,7 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
             <Button variant="outline" onClick={() => setCreateDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateTeam} disabled={loading}>
+            <Button onClick={handleCreateTeam} disabled={loading} className="bg-gradient-to-r from-orange-500 to-rose-500 text-white hover:from-orange-600 hover:to-rose-600 transition-all duration-200">
               {loading ? (
                 <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
               ) : (
@@ -682,8 +686,8 @@ export function TeamContent({ organizationId: propOrgId }: TeamContentProps = {}
           <div className="py-4">
             {membersDialog.team?.team_members && membersDialog.team.team_members.length > 0 ? (
               <div className="space-y-2">
-                {membersDialog.team.team_members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
+                {membersDialog.team.team_members.map((member, index) => (
+                  <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg animate-fade-in-up transition-colors duration-200 hover:bg-accent/50" style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
                         <UserIcon className="w-5 h-5 text-muted-foreground" />

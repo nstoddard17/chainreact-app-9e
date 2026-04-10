@@ -1,10 +1,10 @@
 "use client"
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import Link from 'next/link'
 import { Check, ArrowRight } from 'lucide-react'
-import { PLAN_INFO, PLAN_FEATURES } from '@/lib/utils/plan-restrictions'
 import type { PlanTier } from '@/lib/utils/plan-restrictions'
+import { usePlansStore } from '@/stores/plansStore'
 
 interface PricingCard {
   tier: PlanTier
@@ -19,6 +19,12 @@ const displayPlans: PricingCard[] = [
 ]
 
 export function PricingPreview() {
+  const { getPlan, getPlanFeatures, fetchPlans } = usePlansStore()
+
+  useEffect(() => {
+    fetchPlans()
+  }, [fetchPlans])
+
   return (
     <section id="pricing" className="bg-slate-950 py-20 px-6">
       <div className="max-w-4xl mx-auto">
@@ -33,8 +39,13 @@ export function PricingPreview() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {displayPlans.map(({ tier, highlighted, badge }) => {
-            const info = PLAN_INFO[tier]
-            const features = (PLAN_FEATURES[tier] ?? []).filter(
+            const plan = getPlan(tier)
+            const info = plan ? {
+              name: plan.displayName,
+              price: plan.priceMonthly,
+              priceAnnual: plan.priceAnnual,
+            } : { name: tier, price: 0, priceAnnual: 0 }
+            const features = (getPlanFeatures(tier) ?? []).filter(
               (f) => !f.startsWith('Everything in')
             )
             const showAnnual = info.price > 0

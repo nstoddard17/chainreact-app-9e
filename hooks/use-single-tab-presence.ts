@@ -28,7 +28,7 @@ interface TabMessage {
 
 interface OnlineUser {
   user_id: string
-  username?: string
+  first_name?: string
   full_name?: string
   last_seen: string
 }
@@ -133,7 +133,7 @@ export function useSingleTabPresence() {
           // Track presence
           await channel.track({
             user_id: user.id,
-            username: profile?.username,
+            first_name: profile?.first_name,
             full_name: profile?.full_name,
             online_at: new Date().toISOString(),
           })

@@ -1,5 +1,5 @@
-import { PageLoadingSpinner } from "@/components/common/PageLoadingSpinner"
+import { ListPageSkeleton } from "@/components/common/PageSkeleton"
 
 export default function Loading() {
-  return <PageLoadingSpinner message="Loading teams..." />
+  return <ListPageSkeleton />
 }

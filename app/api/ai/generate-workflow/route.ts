@@ -12,7 +12,7 @@ import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 10 workflow generation requests per minute per IP (expensive operation)
-  const rateLimitResult = checkRateLimit(request, {
+  const rateLimitResult = await checkRateLimit(request, {
     limit: 10,
     windowSeconds: 60
   })

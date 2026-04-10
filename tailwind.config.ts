@@ -10,65 +10,73 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+  		fontFamily: {
+  			sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
+  			mono: ['var(--font-geist-mono)', 'monospace'],
+  		},
   		screens: {
   			'xs': '480px',
   		},
   		colors: {
-  			background: 'hsl(var(--background))',
-  			foreground: 'hsl(var(--foreground))',
+  			background: 'oklch(var(--background) / <alpha-value>)',
+  			foreground: 'oklch(var(--foreground) / <alpha-value>)',
   			gray: {
   				850: '#1a202e'
   			},
   			card: {
-  				DEFAULT: 'hsl(var(--card))',
-  				foreground: 'hsl(var(--card-foreground))'
+  				DEFAULT: 'oklch(var(--card) / <alpha-value>)',
+  				foreground: 'oklch(var(--card-foreground) / <alpha-value>)'
   			},
   			popover: {
-  				DEFAULT: 'hsl(var(--popover))',
-  				foreground: 'hsl(var(--popover-foreground))'
+  				DEFAULT: 'oklch(var(--popover) / <alpha-value>)',
+  				foreground: 'oklch(var(--popover-foreground) / <alpha-value>)'
   			},
   			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
+  				DEFAULT: 'oklch(var(--primary) / <alpha-value>)',
+  				foreground: 'oklch(var(--primary-foreground) / <alpha-value>)'
   			},
   			secondary: {
-  				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
+  				DEFAULT: 'oklch(var(--secondary) / <alpha-value>)',
+  				foreground: 'oklch(var(--secondary-foreground) / <alpha-value>)'
   			},
   			muted: {
-  				DEFAULT: 'hsl(var(--muted))',
-  				foreground: 'hsl(var(--muted-foreground))'
+  				DEFAULT: 'oklch(var(--muted) / <alpha-value>)',
+  				foreground: 'oklch(var(--muted-foreground) / <alpha-value>)'
   			},
   			accent: {
-  				DEFAULT: 'hsl(var(--accent))',
-  				foreground: 'hsl(var(--accent-foreground))'
+  				DEFAULT: 'oklch(var(--accent) / <alpha-value>)',
+  				foreground: 'oklch(var(--accent-foreground) / <alpha-value>)'
   			},
   			destructive: {
-  				DEFAULT: 'hsl(var(--destructive))',
-  				foreground: 'hsl(var(--destructive-foreground))'
+  				DEFAULT: 'oklch(var(--destructive) / <alpha-value>)',
+  				foreground: 'oklch(var(--destructive-foreground) / <alpha-value>)'
   			},
-  			border: 'hsl(var(--border))',
-  			input: 'hsl(var(--input))',
-  			ring: 'hsl(var(--ring))',
+  			border: 'oklch(var(--border) / <alpha-value>)',
+  			input: 'oklch(var(--input) / <alpha-value>)',
+  			ring: 'oklch(var(--ring) / <alpha-value>)',
   			chart: {
-  				'1': 'hsl(var(--chart-1))',
-  				'2': 'hsl(var(--chart-2))',
-  				'3': 'hsl(var(--chart-3))',
-  				'4': 'hsl(var(--chart-4))',
-  				'5': 'hsl(var(--chart-5))'
+  				'1': 'oklch(var(--chart-1) / <alpha-value>)',
+  				'2': 'oklch(var(--chart-2) / <alpha-value>)',
+  				'3': 'oklch(var(--chart-3) / <alpha-value>)',
+  				'4': 'oklch(var(--chart-4) / <alpha-value>)',
+  				'5': 'oklch(var(--chart-5) / <alpha-value>)'
   			},
   			sidebar: {
-  				DEFAULT: 'hsl(var(--sidebar-background))',
-  				foreground: 'hsl(var(--sidebar-foreground))',
-  				primary: 'hsl(var(--sidebar-primary))',
-  				'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-  				accent: 'hsl(var(--sidebar-accent))',
-  				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-  				border: 'hsl(var(--sidebar-border))',
-  				ring: 'hsl(var(--sidebar-ring))'
+  				DEFAULT: 'oklch(var(--sidebar-background) / <alpha-value>)',
+  				foreground: 'oklch(var(--sidebar-foreground) / <alpha-value>)',
+  				primary: 'oklch(var(--sidebar-primary) / <alpha-value>)',
+  				'primary-foreground': 'oklch(var(--sidebar-primary-foreground) / <alpha-value>)',
+  				accent: 'oklch(var(--sidebar-accent) / <alpha-value>)',
+  				'accent-foreground': 'oklch(var(--sidebar-accent-foreground) / <alpha-value>)',
+  				border: 'oklch(var(--sidebar-border) / <alpha-value>)',
+  				ring: 'oklch(var(--sidebar-ring) / <alpha-value>)'
   			}
   		},
   		borderRadius: {
+  			'4xl': 'calc(var(--radius) + 16px)',
+  			'3xl': 'calc(var(--radius) + 12px)',
+  			'2xl': 'calc(var(--radius) + 8px)',
+  			xl: 'calc(var(--radius) + 4px)',
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
@@ -310,11 +318,51 @@ const config: Config = {
   				'100%': {
   					transform: 'translate(0px, 0px) scale(1) rotate(360deg)'
   				}
+  			},
+  			'fade-in': {
+  				'0%': { opacity: '0' },
+  				'100%': { opacity: '1' }
+  			},
+  			'fade-in-up': {
+  				'0%': { opacity: '0', transform: 'translateY(16px)' },
+  				'100%': { opacity: '1', transform: 'translateY(0)' }
+  			},
+  			'fade-in-down': {
+  				'0%': { opacity: '0', transform: 'translateY(-16px)' },
+  				'100%': { opacity: '1', transform: 'translateY(0)' }
+  			},
+  			'slide-in-right': {
+  				'0%': { opacity: '0', transform: 'translateX(16px)' },
+  				'100%': { opacity: '1', transform: 'translateX(0)' }
+  			},
+  			'slide-in-left': {
+  				'0%': { opacity: '0', transform: 'translateX(-16px)' },
+  				'100%': { opacity: '1', transform: 'translateX(0)' }
+  			},
+  			'scale-in': {
+  				'0%': { opacity: '0', transform: 'scale(0.95)' },
+  				'100%': { opacity: '1', transform: 'scale(1)' }
+  			},
+  			'shimmer': {
+  				'0%': { backgroundPosition: '-200% 0' },
+  				'100%': { backgroundPosition: '200% 0' }
+  			},
+  			'count-up': {
+  				'0%': { opacity: '0', transform: 'translateY(8px)' },
+  				'100%': { opacity: '1', transform: 'translateY(0)' }
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'fade-in': 'fade-in 0.4s ease-out',
+  			'fade-in-up': 'fade-in-up 0.5s ease-out',
+  			'fade-in-down': 'fade-in-down 0.5s ease-out',
+  			'slide-in-right': 'slide-in-right 0.4s ease-out',
+  			'slide-in-left': 'slide-in-left 0.4s ease-out',
+  			'scale-in': 'scale-in 0.3s ease-out',
+  			'shimmer': 'shimmer 2s linear infinite',
+  			'count-up': 'count-up 0.6s ease-out',
   			'lightning-strike': 'lightning-strike 2s infinite',
   			'chain-form': 'chain-form 2s infinite',
   			'chain-shimmer': 'chain-shimmer 3s ease-in-out infinite',
@@ -332,6 +380,14 @@ const config: Config = {
   			'blob-slow': 'blob-slow 25s infinite'
   		},
   		animationDelay: {
+  			'75': '75ms',
+  			'100': '100ms',
+  			'150': '150ms',
+  			'200': '200ms',
+  			'300': '300ms',
+  			'500': '500ms',
+  			'700': '700ms',
+  			'1000': '1s',
   			'2000': '2s',
   			'3000': '3s',
   			'4000': '4s',

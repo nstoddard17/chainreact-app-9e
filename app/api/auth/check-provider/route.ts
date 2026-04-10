@@ -71,14 +71,19 @@ export async function POST(request: NextRequest) {
     if (profileError) {
       logger.error('Error fetching user profile:', profileError);
       // Fallback to auth.users metadata if profile doesn't exist
-      const hasGoogleProvider = user.app_metadata?.provider === 'google' || 
-                               user.app_metadata?.providers?.includes('google') ||
-                               user.user_metadata?.provider === 'google' ||
-                               user.identities?.some(identity => identity.provider === 'google');
+      const appProvider = user.app_metadata?.provider;
+      const providers = user.app_metadata?.providers || [];
+      const identityProviders = user.identities?.map((i: { provider: string }) => i.provider) || [];
+      const allProviders = [appProvider, ...providers, ...identityProviders];
 
-      return jsonResponse({ 
+      let detectedProvider = 'email';
+      if (allProviders.includes('google')) detectedProvider = 'google';
+      else if (allProviders.includes('github')) detectedProvider = 'github';
+      else if (allProviders.includes('azure')) detectedProvider = 'microsoft';
+
+      return jsonResponse({
         exists: true,
-        provider: hasGoogleProvider ? 'google' : 'email',
+        provider: detectedProvider,
         user_id: user.id
       });
     }

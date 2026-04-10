@@ -31,13 +31,14 @@ export class AIIntentAnalysisService {
   }
 
   async analyzeIntent(
-    message: string, 
-    integrations: Integration[], 
-    timeout: number = 8000
+    message: string,
+    integrations: Integration[],
+    timeout: number = 8000,
+    memoryContext: string = ""
   ): Promise<IntentAnalysisResult> {
     logger.info("🧠 Starting intent analysis for message length:", message.length)
 
-    const systemPrompt = this.buildSystemPrompt(integrations, message)
+    const systemPrompt = this.buildSystemPrompt(integrations, message) + memoryContext
 
     try {
       const controller = new AbortController()
@@ -97,7 +98,7 @@ export class AIIntentAnalysisService {
 Available integrations: ${availableIntegrations}
 
 Analyze the user's message and determine their intent. Return a JSON object with:
-- intent: "calendar_query", "calendar_action", "email_query", "email_action", "file_query", "file_action", "social_query", "social_action", "crm_query", "crm_action", "ecommerce_query", "ecommerce_action", "developer_query", "developer_action", "productivity_query", "productivity_action", "communication_query", "communication_action", "workflow_query", "workflow_action", "app_knowledge", "app_help", "integration_query", "integration_action", "general"
+- intent: "calendar_query", "calendar_action", "email_query", "email_action", "file_query", "file_action", "social_query", "social_action", "crm_query", "crm_action", "ecommerce_query", "ecommerce_action", "developer_query", "developer_action", "productivity_query", "productivity_action", "communication_query", "communication_action", "workflow_query", "workflow_action", "app_knowledge", "app_help", "integration_query", "integration_action", "web_search", "document_qa", "general"
 - action: specific action to take
 - parameters: any relevant parameters from the message
 - requiresConfirmation: boolean (true for destructive actions)
@@ -157,6 +158,21 @@ Examples:
 - "What integrations do I have?" → integration_query, list_integrations, {}
 - "Connect Gmail" → integration_action, connect_integration, {provider: "gmail"}, specifiedIntegration: "gmail"
 - "Disconnect Slack" → integration_action, disconnect_integration, {provider: "slack"}, requiresConfirmation: true, specifiedIntegration: "slack"
+- "Read my project proposal document" → file_query, read_document, {query: "project proposal"}
+- "What does the company policy doc say?" → file_query, read_document, {query: "company policy"}
+- "Open the Q4 budget spreadsheet" → file_query, read_document, {query: "Q4 budget", mimeType: "application/vnd.google-apps.spreadsheet"}
+- "Read my Notion meeting notes page" → productivity_query, read_page, {query: "meeting notes"}, specifiedIntegration: "notion"
+- "What's in the onboarding checklist on Notion?" → productivity_query, read_page, {query: "onboarding checklist"}, specifiedIntegration: "notion"
+- "Summarize the content of my project plan doc" → file_query, read_document, {query: "project plan"}
+- "Search the web for GDPR compliance requirements" → web_search, search, {query: "GDPR compliance requirements"}
+- "What are the latest Stripe API changes?" → web_search, search, {query: "latest Stripe API changes"}
+- "Look up best practices for email marketing" → web_search, search, {query: "best practices email marketing"}
+- "Google how to set up a webhook" → web_search, search, {query: "how to set up a webhook"}
+- "What is our vacation policy?" → document_qa, search_and_answer, {query: "vacation policy"}
+- "How many sick days do we get?" → document_qa, search_and_answer, {query: "sick days policy"}
+- "What did the team decide about the Q4 roadmap?" → document_qa, search_and_answer, {query: "Q4 roadmap decision"}
+- "Find where we discussed the pricing change" → document_qa, search_and_answer, {query: "pricing change discussion"}
+- "What are our onboarding steps for new hires?" → document_qa, search_and_answer, {query: "onboarding steps new hires"}
 - "Reconnect Notion" → integration_action, reconnect_integration, {provider: "notion"}, specifiedIntegration: "notion"
 
 User message: "${message}"`
@@ -177,7 +193,8 @@ User message: "${message}"`
       "crm_query", "crm_action", "ecommerce_query", "ecommerce_action",
       "developer_query", "developer_action", "productivity_query", "productivity_action",
       "communication_query", "communication_action", "workflow_query", "workflow_action",
-      "app_knowledge", "app_help", "integration_query", "integration_action", "general"
+      "app_knowledge", "app_help", "integration_query", "integration_action",
+      "web_search", "document_qa", "general"
     ]
 
     return validIntents.includes(intent.intent) &&

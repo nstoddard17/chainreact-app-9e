@@ -208,7 +208,7 @@ export function GoogleSheetsAddRowFields({
             <LightningLoader size="md" color="blue" />
             <div className="text-center">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Preparing column fields...</p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              <p className="text-xs text-slate-600 dark:text-slate-200 mt-1">
                 Analyzing your sheet "{sheetNameDisplay}" to create input fields for each column
               </p>
             </div>

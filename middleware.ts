@@ -61,7 +61,7 @@ export async function middleware(req: NextRequest) {
     // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser()
 
-    // If no user, redirect to login (except for setup-username page)
+    // If no user, redirect to login
     if (!user) {
       if (!pathname.startsWith('/auth/')) {
         return NextResponse.redirect(new URL('/auth/login', req.url))
@@ -73,27 +73,7 @@ export async function middleware(req: NextRequest) {
     // No DB query needed — claims are embedded in the token.
     const appMeta = user.app_metadata || {}
     const plan = appMeta.plan || 'free'
-    const hasUsername = appMeta.has_username === true
     const adminCapabilities = appMeta.admin_capabilities || {}
-
-    // Username check — redirect to setup if missing
-    if (!hasUsername && !pathname.startsWith('/auth/setup-username')) {
-      // Grace period for brand-new accounts (< 60s old) — claims may not be synced yet
-      const accountAge = Date.now() - new Date(user.created_at).getTime()
-      if (accountAge < 60000) {
-        logger.info('[Middleware] New user, claims may be pending, allowing access', {
-          userId: user.id,
-          accountAge,
-        })
-        return res
-      }
-
-      logger.info('[Middleware] User without username, redirecting to setup', {
-        userId: user.id,
-        has_username: hasUsername,
-      })
-      return NextResponse.redirect(new URL('/auth/setup-username', req.url))
-    }
 
     // Log unrecognized plan values for telemetry
     if (plan && !isRecognizedPlan(plan)) {
@@ -106,7 +86,7 @@ export async function middleware(req: NextRequest) {
 
     // Canonical access policy evaluation — pure function, no I/O
     const subject = buildAccessSubject(
-      { plan, username: hasUsername ? 'present' : null, admin_capabilities: adminCapabilities },
+      { plan, admin_capabilities: adminCapabilities },
       true,
     )
     const decision = evaluateAccess(subject, pathname)

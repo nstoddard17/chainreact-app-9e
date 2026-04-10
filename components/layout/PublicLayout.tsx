@@ -42,10 +42,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       // Sign out will clear the state instantly
       await signOut()
       // The UI will update automatically as user becomes null
-      // No need to redirect if already on homepage
-      if (window.location.pathname !== '/') {
-        router.push("/")
-      }
+      router.push("/auth/login")
     } catch (error) {
       logger.error("Logout error:", error)
       setMobileMenuOpen(false)
@@ -65,9 +62,9 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   }
 
   const getDisplayName = () => {
-    if (profile?.username) return profile.username
     if (!user) return ""
-    if (user.first_name) return user.first_name
+    if (profile?.full_name) return profile.full_name
+    if (profile?.first_name) return profile.first_name
     if (user.name) return user.name.split(" ")[0]
     if (user.email) return user.email.split("@")[0]
     return "User"

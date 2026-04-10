@@ -12,7 +12,7 @@ import OpenAI from 'openai'
  */
 export async function POST(request: NextRequest) {
   // Rate limiting: 10 transcription requests per minute per IP (expensive operation)
-  const rateLimitResult = checkRateLimit(request, {
+  const rateLimitResult = await checkRateLimit(request, {
     limit: 10,
     windowSeconds: 60
   })

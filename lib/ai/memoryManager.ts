@@ -1,4 +1,4 @@
-import { supabase } from '../supabase-client';
+import { supabase } from '../../utils/supabaseClient';
 import { createEmbedding, cosineSimilarity } from './embeddings';
 
 import { logger } from '@/lib/utils/logger'
@@ -143,7 +143,7 @@ export class MemoryManager {
       // Calculate similarity scores and filter
       const minSimilarity = options.minSimilarity || 0.7;
       const memories: MemoryEntry[] = data
-        .map(record => {
+        .map((record: any) => {
           const similarity = cosineSimilarity(queryEmbedding, record.embedding);
           return {
             id: record.id,
@@ -160,8 +160,8 @@ export class MemoryManager {
             updatedAt: new Date(record.updated_at)
           };
         })
-        .filter(memory => memory.relevanceScore! >= minSimilarity)
-        .sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
+        .filter((memory: any) => memory.relevanceScore! >= minSimilarity)
+        .sort((a: any, b: any) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
 
       return memories;
 
@@ -323,7 +323,7 @@ Success Metrics: ${JSON.stringify(pattern.successMetrics)}
         confidenceSum: number;
       }>();
 
-      data.forEach(record => {
+      data.forEach((record: any) => {
         record.tags.forEach((tag: string) => {
           if (!tagPatterns.has(tag)) {
             tagPatterns.set(tag, {

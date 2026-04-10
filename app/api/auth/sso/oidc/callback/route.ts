@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
       return redirectWithError('SSO not configured for this organization')
     }
 
+    const ssoConf = config as Record<string, any>
+
     // Exchange code for tokens
     const tokenResponse = await exchangeCodeForTokens(code, config)
 
@@ -66,9 +68,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if email domain is allowed
-    if (config.allowed_domains && config.allowed_domains.length > 0) {
+    if (ssoConf.allowed_domains && ssoConf.allowed_domains.length > 0) {
       const emailDomain = userInfo.email.split('@')[1]
-      if (!config.allowed_domains.includes(emailDomain)) {
+      if (!ssoConf.allowed_domains.includes(emailDomain)) {
         await logAttempt(supabase, config.id, userInfo.email, request, 'failed', `Domain ${emailDomain} not allowed`)
         return redirectWithError('Your email domain is not authorized for this organization')
       }
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     if (existingUser) {
       userId = existingUser.id
-    } else if (config.auto_provision_users) {
+    } else if (ssoConf.auto_provision_users) {
       // Redirect to SSO signup for new users
       const signupUrl = new URL('/auth/sso-signup', process.env.NEXT_PUBLIC_APP_URL)
       signupUrl.searchParams.set('email', userInfo.email)
@@ -107,11 +109,11 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId)
       .single()
 
-    if (!membership && config.auto_provision_users) {
+    if (!membership && ssoConf.auto_provision_users) {
       await supabase.from('organization_members').insert({
         organization_id: orgId,
         user_id: userId,
-        role: config.default_role || 'member',
+        role: ssoConf.default_role || 'member',
       })
     } else if (!membership) {
       await logAttempt(supabase, config.id, userInfo.email, request, 'failed', 'User not member of organization')
@@ -121,12 +123,14 @@ export async function GET(request: NextRequest) {
     // Log successful login
     await logAttempt(supabase, config.id, userInfo.email, request, 'success', null, userId)
 
-    // Create session
+    // Create a signed session token containing all user info
     const sessionUrl = new URL('/auth/sso-session', process.env.NEXT_PUBLIC_APP_URL)
     const token = signSessionToken({
       userId,
       email: userInfo.email,
       orgId,
+      firstName: userInfo.given_name || '',
+      lastName: userInfo.family_name || '',
       exp: Date.now() + 60000,
     })
     sessionUrl.searchParams.set('token', token)
@@ -242,7 +246,7 @@ function redirectWithError(message: string) {
 }
 
 function signSessionToken(payload: any): string {
-  const secret = process.env.SSO_SESSION_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret'
+  const secret = process.env.SSO_SESSION_SECRET || 'chainreact-sso-secret'
   const data = JSON.stringify(payload)
   const signature = crypto.createHmac('sha256', secret).update(data).digest('hex')
   return Buffer.from(`${data}|${signature}`).toString('base64')

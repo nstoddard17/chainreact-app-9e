@@ -103,7 +103,7 @@ export function EmptyStateCard({
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
             {finalTitle}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {finalDescription}
           </p>
         </div>
@@ -136,7 +136,7 @@ export function EmptyStateCard({
       </h3>
 
       {/* Description */}
-      <p className="text-sm text-slate-600 dark:text-slate-400 text-center max-w-md mb-4">
+      <p className="text-sm text-slate-600 dark:text-slate-200 text-center max-w-md mb-4">
         {finalDescription}
       </p>
 
@@ -266,7 +266,7 @@ function getEmptyStateConfig(type: EmptyStateType) {
     },
     generic: {
       icon: Folder,
-      iconColor: 'text-slate-600 dark:text-slate-400',
+      iconColor: 'text-slate-600 dark:text-slate-300',
       iconBg: 'from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-700',
       title: 'No Data Available',
       description: 'No compatible data found from previous workflow steps.',

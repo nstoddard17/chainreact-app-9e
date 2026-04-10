@@ -163,7 +163,7 @@ export function MicrosoftExcelTableAddRowFields({
             <LightningLoader size="md" color="blue" />
             <div className="text-center">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Loading column fields...</p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              <p className="text-xs text-slate-600 dark:text-slate-200 mt-1">
                 Analyzing your table "{values.tableName}" to create input fields for each column
               </p>
             </div>
@@ -191,7 +191,7 @@ export function MicrosoftExcelTableAddRowFields({
             <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-3">
               Add New Row to Table
             </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
+            <p className="text-xs text-slate-600 dark:text-slate-200 mb-4">
               Enter values for each column. Leave blank to skip a column.
             </p>
           </div>

@@ -70,8 +70,8 @@ function DependencyItem({ dep }: { dep: UpstreamDependency }) {
             </Badge>
           )}
         </div>
-        <div className="text-sm text-slate-500 dark:text-slate-400">
-          <span className="text-slate-400 dark:text-slate-500">Will use: </span>
+        <div className="text-sm text-slate-500 dark:text-slate-200">
+          <span className="text-slate-400 dark:text-slate-400">Will use: </span>
           <span className="text-slate-600 dark:text-slate-300 font-medium">
             {dep.hasExecutionData ? (
               <>Cached data from {formatTimestamp(dep.executionDataTimestamp!)}</>
@@ -169,7 +169,7 @@ export function TestDataConfirmationDialog({
             )}
 
             {/* Recommendation */}
-            <div className="text-sm text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+            <div className="text-sm text-slate-500 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
               <p className="flex items-start gap-2">
                 <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <span>

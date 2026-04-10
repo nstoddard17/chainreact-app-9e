@@ -18,7 +18,7 @@ export interface OrganizationMember {
   updated_at: string
   user?: {
     email: string
-    username?: string
+    full_name?: string
   }
 }
 
@@ -32,7 +32,7 @@ export interface TeamMember {
   updated_at: string
   user?: {
     email: string
-    username?: string
+    full_name?: string
   }
 }
 

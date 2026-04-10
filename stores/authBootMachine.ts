@@ -37,7 +37,6 @@ export interface Profile {
   avatar_url?: string
   company?: string
   job_title?: string
-  username?: string
   secondary_email?: string
   phone_number?: string
   email?: string
@@ -73,7 +72,7 @@ type SetState = (partial: Partial<BootSlice> | ((state: BootSlice) => Partial<Bo
 type GetState = () => BootSlice
 
 const BOOT_TIMEOUT_MS = 10_000
-const PROFILE_COLUMNS = 'id, first_name, last_name, full_name, company, job_title, username, secondary_email, phone_number, avatar_url, provider, role, plan, admin_capabilities, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at'
+const PROFILE_COLUMNS = 'id, first_name, last_name, full_name, company, job_title, secondary_email, phone_number, avatar_url, provider, role, plan, admin_capabilities, email, tasks_used, tasks_limit, billing_period_start, created_at, updated_at'
 
 // ---------------------------------------------------------------------------
 // Transition guard
@@ -102,7 +101,6 @@ function transition(
 export function mapProfileData(raw: any): Profile {
   return {
     id: raw.id,
-    username: raw.username ?? undefined,
     full_name: raw.full_name ?? undefined,
     first_name: raw.first_name ?? undefined,
     last_name: raw.last_name ?? undefined,
@@ -237,7 +235,6 @@ async function fetchProfilePipeline(
       email: supabaseUser.email ?? undefined,
       provider: detectedProvider,
       role: deriveRoleFromMetadata(supabaseUser.user_metadata),
-      username: isGoogleUser ? undefined : supabaseUser.email?.split('@')[0] || 'user',
     }
     userObj.first_name = firstName
     userObj.last_name = lastName
@@ -462,15 +459,6 @@ export async function boot(set: SetState, get: GetState): Promise<void> {
 
     // Post-boot side effects
     if (profile) {
-      // Check username and redirect if needed
-      setTimeout(() => {
-        if (profile.provider === 'google' && (!profile.username || profile.username.trim() === '')) {
-          if (typeof window !== 'undefined' && !window.location.pathname.includes('/auth/setup-username')) {
-            window.location.href = '/auth/setup-username'
-          }
-        }
-      }, 100)
-
       // Update integration store
       setTimeout(async () => {
         try {

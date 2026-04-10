@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { Shield, Cloud, Users, Zap, Lock, HeadphonesIcon, ArrowRight, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { StandardHeader } from '@/components/layout/StandardHeader'
+import { ForceTheme } from '@/components/theme/ForceTheme'
 
 const enterpriseFeatures = [
   {
@@ -56,6 +57,7 @@ export default function EnterprisePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-orange-900">
+      <ForceTheme theme="light" />
       <StandardHeader />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

@@ -46,6 +46,10 @@ export class FileActionHandler extends BaseActionHandler {
               return this.handleSearchFiles(parameters, fileIntegrations, userId)
             case "list_files":
               return this.handleListFiles(parameters, fileIntegrations, userId)
+            case "read_document":
+            case "read_file":
+            case "get_document_content":
+              return this.handleReadDocument(parameters, fileIntegrations, userId)
             default:
               return this.getErrorResponse(`File query "${action}" is not supported yet.`)
           }
@@ -436,6 +440,161 @@ export class FileActionHandler extends BaseActionHandler {
         link: file.data.webViewLink
       }
     )
+  }
+
+  private async handleReadDocument(
+    parameters: any,
+    integrations: Integration[],
+    userId: string
+  ): Promise<ActionExecutionResult> {
+    const integration = this.getPreferredIntegration(integrations, parameters.provider)
+    if (!integration || integration.provider !== "google-drive") {
+      return this.getErrorResponse("Reading documents currently supports Google Drive.")
+    }
+
+    let fileId = parameters.fileId || parameters.documentId || parameters.id
+    let fileName = parameters.fileName || parameters.name
+    let mimeType = parameters.mimeType || ""
+
+    // If no fileId, search for the document first
+    if (!fileId) {
+      const query = parameters.query || parameters.fileName || parameters.name || parameters.search
+      if (!query) {
+        return this.getErrorResponse("Provide a document name or search term to read.")
+      }
+
+      const drive = await this.getDriveClient(userId)
+      const searchResponse = await drive.files.list({
+        q: `name contains '${query.replace(/'/g, "\\'")}'`,
+        pageSize: 1,
+        fields: "files(id, name, mimeType, webViewLink)"
+      })
+
+      const firstFile = searchResponse.data.files?.[0]
+      if (!firstFile) {
+        return this.getErrorResponse(`No document found matching "${query}".`)
+      }
+
+      fileId = firstFile.id
+      fileName = firstFile.name
+      mimeType = firstFile.mimeType || ""
+    }
+
+    // Google Docs — use the existing Docs API content reader
+    if (mimeType === "application/vnd.google-apps.document" || !mimeType) {
+      try {
+        const accessToken = await getDecryptedAccessToken(userId, "google-drive")
+        const { getGoogleDocsContent } = await import(
+          "@/app/api/integrations/google/data/handlers/drive"
+        )
+
+        const integrationObj = {
+          id: integration.id || "ai-read",
+          user_id: userId,
+          provider: "google-drive",
+          access_token: accessToken,
+          status: "connected"
+        }
+
+        const result = await getGoogleDocsContent(integrationObj, {
+          documentId: fileId,
+          previewOnly: false
+        })
+
+        if (result.error) {
+          return this.getErrorResponse(result.error || "Could not read the document.")
+        }
+
+        const content = result.content || result.preview || "(Empty document)"
+        const title = result.title || fileName || "Untitled document"
+
+        // Get the webViewLink for source citation
+        const drive = await this.getDriveClient(userId)
+        const fileMeta = await drive.files.get({ fileId: fileId!, fields: "webViewLink" })
+
+        return {
+          content: `Here is the content of "${title}":\n\n${content}`,
+          metadata: {
+            type: "file",
+            provider: "google-drive",
+            documentTitle: title,
+            documentId: fileId,
+            webViewLink: fileMeta.data.webViewLink,
+            contentLength: content.length
+          }
+        }
+      } catch (error: any) {
+        logger.error("❌ Error reading Google Doc:", error)
+        return this.getErrorResponse("Failed to read the document content. Please try again.")
+      }
+    }
+
+    // Google Sheets — read sheet data
+    if (mimeType === "application/vnd.google-apps.spreadsheet") {
+      try {
+        const accessToken = await getDecryptedAccessToken(userId, "google-drive")
+        const auth = new google.auth.OAuth2()
+        auth.setCredentials({ access_token: accessToken })
+        const sheets = google.sheets({ version: "v4", auth })
+
+        const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: fileId! })
+        const sheetName = parameters.sheetName || spreadsheet.data.sheets?.[0]?.properties?.title || "Sheet1"
+
+        const maxRows = Math.min(Number(parameters.limit) || 100, 500)
+        const range = `${sheetName}!A1:Z${maxRows}`
+
+        const dataResponse = await sheets.spreadsheets.values.get({
+          spreadsheetId: fileId!,
+          range
+        })
+
+        const rows = dataResponse.data.values || []
+        const title = spreadsheet.data.properties?.title || fileName || "Untitled spreadsheet"
+
+        // Format as a readable table
+        let content = `Spreadsheet: "${title}" — Sheet: "${sheetName}" — ${rows.length} rows\n\n`
+        if (rows.length > 0) {
+          const headers = rows[0]
+          content += headers.join(" | ") + "\n"
+          content += headers.map(() => "---").join(" | ") + "\n"
+          rows.slice(1).forEach(row => {
+            content += row.join(" | ") + "\n"
+          })
+        }
+
+        return {
+          content,
+          metadata: {
+            type: "table",
+            provider: "google-sheets",
+            spreadsheetTitle: title,
+            sheetName,
+            spreadsheetId: fileId,
+            rowCount: rows.length,
+            webViewLink: `https://docs.google.com/spreadsheets/d/${fileId}`
+          }
+        }
+      } catch (error: any) {
+        logger.error("❌ Error reading Google Sheet:", error)
+        return this.getErrorResponse("Failed to read the spreadsheet. Make sure Google Drive is connected.")
+      }
+    }
+
+    // Other file types — return link
+    const drive = await this.getDriveClient(userId)
+    const fileMeta = await drive.files.get({ fileId: fileId!, fields: "webViewLink, name" })
+
+    return {
+      content: `This file type (${mimeType || "unknown"}) cannot be read directly. You can open it here: ${fileMeta.data.webViewLink}`,
+      metadata: {
+        type: "file",
+        provider: "google-drive",
+        fileId,
+        fileName: fileMeta.data.name,
+        mimeType,
+        webViewLink: fileMeta.data.webViewLink
+      }
+    }
   }
 
   private async getDriveClient(userId: string): Promise<drive_v3.Drive> {

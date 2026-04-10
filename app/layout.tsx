@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import Script from "next/script"
 import "./globals.css"
+import { Geist, Geist_Mono } from "next/font/google"
 import localFont from "next/font/local"
 import { ThemeProvider } from "@/components/theme-provider"
 import SupabaseProvider from "@/components/providers/SupabaseProvider"
@@ -21,7 +22,10 @@ import { WebVitalsReporter } from "@/components/monitoring/WebVitalsReporter"
 import { OnboardingTour } from "@/components/onboarding/OnboardingTour"
 // Discord bot now initialized server-side via instrumentation.ts
 
-// Optimize font loading with display: swap for better LCP
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] })
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] })
+
+// Keep Space Grotesk available as a secondary font
 const spaceGrotesk = localFont({
   src: [
     {
@@ -148,7 +152,7 @@ export default function RootLayout({
           `}
         </Script>
       </head>
-      <body className={spaceGrotesk.className} suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} font-sans`} suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <SupabaseProvider>
             <AuthErrorBoundary>

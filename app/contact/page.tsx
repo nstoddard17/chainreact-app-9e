@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Mail, MessageSquare, Clock, Check } from 'lucide-react'
 import { PublicPageHeader } from '@/components/layout/PublicPageHeader'
 import { TempFooter } from '@/components/temp-landing/TempFooter'
+import { ForceTheme } from '@/components/theme/ForceTheme'
 
 export default function ContactPage() {
   const router = useRouter()
@@ -21,6 +22,7 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <ForceTheme theme="light" />
       <PublicPageHeader breadcrumb="Contact" />
 
       <main className="max-w-5xl mx-auto px-6 py-12">

@@ -433,7 +433,7 @@ export function TemplatesContent() {
           <CardTitle className="text-xl font-bold text-gray-900 dark:text-gray-100 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
             {template.title}
           </CardTitle>
-          <CardDescription className="text-gray-600 dark:text-gray-400 line-clamp-2">{template.description}</CardDescription>
+          <CardDescription className="text-gray-600 dark:text-gray-200 line-clamp-2">{template.description}</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -463,7 +463,7 @@ export function TemplatesContent() {
               </span>
             ))}
             {template.tags.length > 3 && (
-              <span className="text-xs text-gray-500 dark:text-gray-500">+{template.tags.length - 3} more</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">+{template.tags.length - 3} more</span>
             )}
           </div>
 
@@ -783,7 +783,7 @@ export function TemplatesContent() {
             <TabsContent value="public" className="space-y-8">
               <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">{filteredTemplates.length} Public Templates Found</h2>
-                <p className="text-lg text-gray-600 dark:text-gray-400">Choose a template to get started or customize it to fit your needs</p>
+                <p className="text-lg text-gray-600 dark:text-gray-200">Choose a template to get started or customize it to fit your needs</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -814,7 +814,7 @@ export function TemplatesContent() {
             <TabsContent value="personal" className="space-y-8">
               <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">{filteredPersonalTemplates.length} Personal Templates</h2>
-                <p className="text-lg text-gray-600 dark:text-gray-400">Your saved and created templates</p>
+                <p className="text-lg text-gray-600 dark:text-gray-200">Your saved and created templates</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

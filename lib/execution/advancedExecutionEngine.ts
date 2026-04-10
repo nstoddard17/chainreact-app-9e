@@ -87,6 +87,7 @@ export class AdvancedExecutionEngine {
       execution_context: context,
       input_data: context?.inputData ?? null,
       status: "pending",
+      started_at: new Date().toISOString(),
     }
 
     // Stamp billing scope from canonical workflow scope if provided

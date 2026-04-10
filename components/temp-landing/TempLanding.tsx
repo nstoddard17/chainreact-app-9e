@@ -20,12 +20,12 @@ export function TempLanding() {
       <TempHeader />
       <HeroSection />
       <StatsSection />
+      <IntegrationsSection />
       <WhyAutomationBreaks />
       <HowItWorks />
       <AINodesSection />
       <UseCasesSection />
       <FeaturesGrid />
-      <IntegrationsSection />
       <PricingPreview />
       <FinalCTA />
       <TempFooter />

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { TempFooter } from '@/components/temp-landing/TempFooter'
+import { ForceTheme } from '@/components/theme/ForceTheme'
 
 /* ------------------------------------------------------------------ */
 /*  Rich content block types                                           */
@@ -113,7 +114,7 @@ const pages: DocPage[] = [
         { title: 'Review the plan', text: 'The agent shows a step-by-step breakdown: a Gmail trigger, followed by a Slack action. It auto-configures the variable mappings (sender name, subject line) and selects your default Slack channel.' },
         { title: 'Apply the plan', text: 'The agent generates the nodes directly on your canvas. The trigger and action appear, already connected and configured. You can continue chatting with the agent to refine the workflow.' },
       ]},
-      { type: 'callout', variant: 'info', text: 'The React agent inside the workflow builder is different from the AI Assistant page. The agent builds and modifies workflows on your canvas. The AI Assistant (/ai-assistant) is a separate general-purpose chat for questions about your account, integrations, and ChainReact features.' },
+      { type: 'callout', variant: 'info', text: 'The React agent inside the workflow builder is different from the Assistant page. The agent builds and modifies workflows on your canvas. The Assistant (/ai-assistant) is a separate general-purpose chat for questions about your account, integrations, and ChainReact features.' },
       { type: 'heading', text: 'Step 4: Configure and test' },
       { type: 'paragraph', text: 'Click on any node to open its configuration panel. Review the fields - the AI has filled in most of them, but you may want to customize.' },
       { type: 'list', items: [
@@ -398,7 +399,7 @@ const pages: DocPage[] = [
     group: 'AI FEATURES',
     blocks: [
       { type: 'paragraph', text: 'The React agent is an AI-powered assistant built directly into the workflow builder. It lets you build automations by describing what you want in plain English - the agent creates nodes, configures fields, maps variables, and connects everything on your canvas.' },
-      { type: 'paragraph', text: 'The React agent is different from the AI Assistant page. The agent lives inside the workflow builder and modifies your canvas in real-time. The AI Assistant (/ai-assistant) is a separate general-purpose chat for questions about your account and ChainReact features.' },
+      { type: 'paragraph', text: 'The React agent is different from the Assistant page. The agent lives inside the workflow builder and modifies your canvas in real-time. The Assistant (/ai-assistant) is a separate general-purpose chat for questions about your account and ChainReact features.' },
       { type: 'heading', text: 'How to use' },
       { type: 'steps', items: [
         { title: 'Open the agent panel', text: 'In the workflow builder, the React agent panel is on the right side of the canvas. Type your request in the chat input at the bottom.' },
@@ -891,6 +892,7 @@ export default function DocsPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <ForceTheme theme="light" />
       {/* Top nav */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between h-14 px-6">

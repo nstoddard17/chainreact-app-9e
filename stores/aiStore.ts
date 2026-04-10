@@ -224,8 +224,8 @@ export const useAIStore = create<AIState & AIActions>((set, get) => ({
       if (result.success) {
         set((state) => ({
           ...state,
-          workflowAnalysis: result.analysis,
-          optimizationSuggestions: result.analysis.suggestions,
+          workflowAnalysis: result.analysis!,
+          optimizationSuggestions: result.analysis!.suggestions,
           loading: { ...state.loading, optimization: false },
         }))
 
@@ -236,11 +236,11 @@ export const useAIStore = create<AIState & AIActions>((set, get) => ({
           body: JSON.stringify({
             workflow_id: workflow.id,
             optimization_type: "performance_analysis",
-            suggestions: result.analysis.suggestions,
+            suggestions: result.analysis!.suggestions,
             performance_metrics: {
-              performance_score: result.analysis.performance_score,
-              reliability_score: result.analysis.reliability_score,
-              maintainability_score: result.analysis.maintainability_score,
+              performance_score: result.analysis!.performance_score,
+              reliability_score: result.analysis!.reliability_score,
+              maintainability_score: result.analysis!.maintainability_score,
             },
           }),
         })
@@ -268,12 +268,12 @@ export const useAIStore = create<AIState & AIActions>((set, get) => ({
       if (result.success) {
         set((state) => ({
           ...state,
-          anomalies: result.anomalies,
+          anomalies: result.anomalies as any,
           loading: { ...state.loading, anomalies: false },
         }))
 
         // Save anomalies to database
-        for (const anomaly of result.anomalies) {
+        for (const anomaly of result.anomalies!) {
           await fetch("/api/ai/anomaly-detection", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -309,7 +309,7 @@ export const useAIStore = create<AIState & AIActions>((set, get) => ({
           ...state,
           optimizationSuggestions: [
             ...state.optimizationSuggestions,
-            ...result.opportunities.map((opp: any) => ({
+            ...result.opportunities!.map((opp: any) => ({
               type: "consolidation",
               title: `Consolidate ${opp.workflow_ids.length} workflows`,
               description: opp.description,

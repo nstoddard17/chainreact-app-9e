@@ -136,6 +136,7 @@ async function createTestExecution(serviceClient: any, workflowId: string, userI
       status: "running",
       trigger_data: triggerData,
       test_mode: true,
+      started_at: new Date().toISOString(),
     })
     .select("id")
     .single()

@@ -9,7 +9,7 @@ import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 60 subject generations per minute per IP
-  const rateLimitResult = checkRateLimit(request, {
+  const rateLimitResult = await checkRateLimit(request, {
     limit: 60,
     windowSeconds: 60
   })

@@ -27,8 +27,7 @@ export default function BillingOverview() {
   const [billingEntities, setBillingEntities] = useState<BillingEntity[]>([])
   const [openingPortal, setOpeningPortal] = useState(false)
 
-  // Check if user is a beta tester
-  const isBetaTester = profile?.role === 'beta-pro'
+  const isBetaTester = false // Beta program removed
 
   useEffect(() => {
     fetchAllBilling()
@@ -125,7 +124,7 @@ export default function BillingOverview() {
         const error = await response.json()
         if (error.error === 'No subscription found') {
           toast.error('No subscription found. Redirecting to upgrade...')
-          router.push('/settings/billing')
+          router.push('/subscription')
           return
         }
         toast.error(error.error || 'Failed to open billing portal')
@@ -146,7 +145,7 @@ export default function BillingOverview() {
   }
 
   const handleUpgrade = () => {
-    router.push('/settings/billing')
+    router.push('/subscription')
   }
 
   const getPlanColor = (plan: string) => {
@@ -155,8 +154,8 @@ export default function BillingOverview() {
         return 'bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/20'
       case 'enterprise':
         return 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20'
-      case 'beta':
-        return 'bg-gradient-to-r from-rose-500/10 to-orange-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20'
+      case 'team':
+        return 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20'
       default:
         return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20'
     }
@@ -168,8 +167,8 @@ export default function BillingOverview() {
         return ['Unlimited workflows', 'Up to 25 team members', 'Email support', 'Advanced integrations']
       case 'enterprise':
         return ['Unlimited workflows', 'Unlimited team members', 'Priority support', 'Custom integrations']
-      case 'beta':
-        return ['Full Pro access', 'Early features', 'Priority support', 'Community feedback']
+      case 'team':
+        return ['Unlimited workflows', 'Unlimited team members', 'Shared workspaces', 'Priority support']
       default:
         return ['Up to 5 workflows', 'Up to 5 team members', 'Community support', 'Basic integrations']
     }
@@ -322,7 +321,7 @@ export default function BillingOverview() {
                     size="sm"
                     onClick={() => {
                       if (entity.type === 'organization') {
-                        router.push(`/organization-settings?org=${entity.id}&section=billing`)
+                        router.push(`/org/${(entity as any).slug || entity.id}/settings/billing`)
                       } else {
                         router.push(`/team-settings?team=${entity.id}&section=billing`)
                       }

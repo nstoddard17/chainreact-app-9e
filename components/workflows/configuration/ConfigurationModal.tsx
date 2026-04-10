@@ -790,7 +790,7 @@ export function ConfigurationModal({
                   onClick={handleClose}
                   className="flex-shrink-0 h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
-                  <ArrowRight className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                  <ArrowRight className="h-4 w-4 text-slate-600 dark:text-slate-200" />
                 </Button>
                 {onBack && (
                   <Button
@@ -800,7 +800,7 @@ export function ConfigurationModal({
                     className="flex-shrink-0 h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800"
                     title="Back to apps"
                   >
-                    <ArrowLeft className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                    <ArrowLeft className="h-4 w-4 text-slate-600 dark:text-slate-200" />
                   </Button>
                 )}
 
@@ -815,7 +815,7 @@ export function ConfigurationModal({
                   </h2>
                   {/* Hide description for nodes that manage their own headers */}
                   {!['extract_website_data', 'format_transformer', 'parse_file', 'internet_search'].includes(nodeInfo?.type || '') && (
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5 truncate">
+                    <p className="text-sm text-slate-600 dark:text-slate-200 mt-0.5 truncate">
                       {(nodeInfo as any)?.description || (nodeInfo?.providerId
                         ? `Configure your ${getProviderBrandName(nodeInfo.providerId)} integration settings`
                         : 'Configure your workflow node settings')}

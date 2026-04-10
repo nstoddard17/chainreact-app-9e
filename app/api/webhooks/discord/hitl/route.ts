@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
           .update({
             status: 'paused',
             paused_node_id: conversation.node_id,
-            error: null,  // Clear the timeout error
+            error_message: null,  // Clear the timeout error
             paused_at: conversation.started_at  // Keep original paused time
           })
           .eq('id', execution.id)

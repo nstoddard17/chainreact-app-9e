@@ -8,6 +8,7 @@
  */
 
 import { getOpenAIClient } from '@/lib/ai/openai-client'
+import type OpenAI from 'openai'
 import type { HITLConfig, ConversationMessage, ExtractedVariables } from './types'
 import { logger } from '@/lib/utils/logger'
 import { createSupabaseServerClient } from '@/utils/supabase/server'
@@ -324,7 +325,7 @@ async function searchGoogleDrive(
       return []
     }
 
-    const accessToken = decrypt(integration.access_token)
+    const accessToken = decrypt(integration.access_token!)
 
     // Initialize Google Drive API
     const oauth2Client = new google.auth.OAuth2()
@@ -348,7 +349,7 @@ async function searchGoogleDrive(
       id: file.id!,
       name: file.name!,
       url: file.webViewLink!,
-      type: file.mimeType,
+      type: file.mimeType ?? undefined,
       snippet: file.description || `Modified ${new Date(file.modifiedTime!).toLocaleDateString()}`
     }))
   } catch (error: any) {
@@ -383,7 +384,7 @@ async function searchGoogleDocs(
       return []
     }
 
-    const accessToken = decrypt(integration.access_token)
+    const accessToken = decrypt(integration.access_token!)
 
     const oauth2Client = new google.auth.OAuth2()
     oauth2Client.setCredentials({ access_token: accessToken })
@@ -440,7 +441,7 @@ async function searchOneDrive(
       return []
     }
 
-    const accessToken = decrypt(integration.access_token)
+    const accessToken = decrypt(integration.access_token!)
 
     // Search OneDrive using Microsoft Graph API
     const searchUrl = `https://graph.microsoft.com/v1.0/me/drive/search(q='${encodeURIComponent(query)}')?$top=20&$select=id,name,webUrl,file,lastModifiedDateTime,size`
@@ -500,7 +501,7 @@ async function searchNotion(
       return []
     }
 
-    const accessToken = decrypt(integration.access_token)
+    const accessToken = decrypt(integration.access_token!)
 
     // Search Notion pages
     const searchResponse = await fetch('https://api.notion.com/v1/search', {

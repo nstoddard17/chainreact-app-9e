@@ -1,7 +1,7 @@
 "use client"
 
 import React from 'react'
-import { MousePointerClick, LayoutTemplate, Activity, Users, ImageIcon } from 'lucide-react'
+import { MousePointerClick, LayoutTemplate, Activity, Users, ImageIcon, Sparkles } from 'lucide-react'
 
 const features = [
   {
@@ -13,6 +13,16 @@ const features = [
     colSpan: 'lg:col-span-7',
     iconColor: 'text-blue-500',
     iconBg: 'bg-blue-50',
+  },
+  {
+    icon: Sparkles,
+    title: 'AI Assistant',
+    description: 'Ask questions, get answers from your connected tools. Read documents, search the web, and get cited answers — all in one place.',
+    details: ['Document Q&A with source citations', 'Web search with synthesis', 'Cross-app search (Drive, Notion, Gmail)', 'Session memory & proactive insights'],
+    screenshotHint: 'Screenshot or GIF: Assistant page showing a question like "What is our vacation policy?" with a cited answer and source links.',
+    colSpan: 'lg:col-span-5',
+    iconColor: 'text-rose-500',
+    iconBg: 'bg-rose-50',
   },
   {
     icon: LayoutTemplate,

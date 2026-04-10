@@ -127,8 +127,8 @@ export function AppsWorkspaceGroupView({ integrations, renderAppCard }: AppsWork
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Folder className="w-16 h-16 text-slate-300 dark:text-slate-600 mb-4" />
-        <p className="text-lg font-medium text-slate-600 dark:text-slate-400">No connected apps</p>
-        <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">Connect your first app to get started</p>
+        <p className="text-lg font-medium text-slate-600 dark:text-slate-200">No connected apps</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Connect your first app to get started</p>
       </div>
     )
   }

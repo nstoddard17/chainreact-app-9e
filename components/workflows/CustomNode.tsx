@@ -66,6 +66,7 @@ export interface CustomNodeData {
   note?: string // Optional note explaining why this node was added (useful for AI-inserted nodes like transformers)
   onConfigure: (id: string, options?: ConfigureOptions) => void
   onDelete: (id: string) => void
+  onDeleteSelected?: (selectedIds: string[]) => void
   onAddChain?: (nodeId: string) => void
   onRename?: (id: string, newTitle: string) => void
   onEditingStateChange?: (id: string, isEditing: boolean) => void
@@ -114,7 +115,6 @@ export interface CustomNodeData {
   onAddNodeAfter?: (afterNodeId: string, nodeType: string, component: any, sourceHandle?: string) => void
   selectedNodeIds?: string[]
   isBeingConfigured?: boolean // Highlight when this node is actively being edited
-  isBeingReordered?: boolean
   reorderDragOffset?: number
   previewOffset?: number
   isBeingReordered?: boolean
@@ -202,13 +202,10 @@ function formatConditionSummary(condition: any): string {
 
 function CustomNode({ id, data, selected }: NodeProps) {
   const updateNodeInternalsHook = useUpdateNodeInternals?.()
-  const reactFlowInstance = useReactFlow()
   const updateNodeInternals = typeof updateNodeInternalsHook === 'function'
     ? updateNodeInternalsHook
-    : typeof reactFlowInstance?.updateNodeInternals === 'function'
-      ? reactFlowInstance.updateNodeInternals
-      : null
-  const nodeData = data as CustomNodeData & { debugListeningMode?: boolean; debugExecutionStatus?: string }
+    : null
+  const nodeData = data as unknown as CustomNodeData & { debugListeningMode?: boolean; debugExecutionStatus?: string }
 
   // Phase 1: Node state helpers
   const nodeState = nodeData.state || 'ready'
@@ -252,7 +249,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
     if (nodeData.isListening) return 'listening'
     if (nodeData.executionStatus === 'paused') return 'paused'
     if (nodeData.executionStatus === 'running' || nodeData.isActiveExecution) return 'running'
-    if (nodeData.executionStatus === 'completed' || nodeData.executionStatus === 'success') return 'passed'
+    if (nodeData.executionStatus === 'completed' || (nodeData.executionStatus as string) === 'success') return 'passed'
     if (nodeData.executionStatus === 'error') return 'failed'
     return nodeState
   }, [nodeData.executionStatus, nodeData.isActiveExecution, nodeData.isListening, nodeState, isTestListeningForNode, isTestPausedForNode, isTestRunningForNode, isTestCompletedForNode, isTestFailedForNode])
@@ -656,7 +653,8 @@ function CustomNode({ id, data, selected }: NodeProps) {
 
     if (!executionStatus && !isListening) return ""
 
-    switch (executionStatus) {
+    const execStatus = executionStatus as string | null
+    switch (execStatus) {
       case 'running':
         // Let nodeState handle running styling
         return ""
@@ -2020,7 +2018,7 @@ function CustomNode({ id, data, selected }: NodeProps) {
                   <p className="text-muted-foreground">Checks for changes every {pollingIntervalLabel}</p>
                   {showPollingUpgradeCTA && (
                     <p className="text-blue-600 dark:text-blue-400">
-                      <Link href="/settings/billing" className="underline hover:no-underline" onClick={(e) => e.stopPropagation()}>
+                      <Link href="/subscription" className="underline hover:no-underline" onClick={(e) => e.stopPropagation()}>
                         Upgrade your plan
                       </Link>
                       {' '}for faster polling (down to 1 min)

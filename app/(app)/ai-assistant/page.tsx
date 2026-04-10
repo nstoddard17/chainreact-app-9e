@@ -7,8 +7,8 @@ export default function AIAssistantPage() {
     <AccessGuard pathname="/ai-assistant">
       <PagePreloader
         pageType="ai-assistant"
-        loadingTitle="Loading AI Assistant"
-        loadingDescription="Setting up your AI assistant..."
+        loadingTitle="Loading Assistant"
+        loadingDescription="Setting up your assistant..."
         skipConversations={true}
         skipIntegrations={true}
         skipWorkflows={true}

@@ -6,6 +6,8 @@ import { trackUsage } from "@/lib/usageTracking"
 import { conversationStateManager } from "./conversationStateManager"
 import { clarificationService } from "./clarificationService"
 
+import { aiMemoryService } from "./aiMemoryService"
+
 import { logger } from '@/lib/utils/logger'
 
 export interface AIAssistantRequest {
@@ -79,6 +81,9 @@ export class AIAssistantService {
       const conversationContext = conversationStateManager.getContext(user.id, existingConversationId)
       const conversationId = conversationContext.conversationId
 
+      // 3.6. Load user memory for personalization (non-blocking)
+      const userMemory = await aiMemoryService.loadUserMemory(user.id).catch(() => null)
+
       // Add user message to history
       conversationStateManager.addTurn(conversationId, 'user', message)
 
@@ -139,7 +144,8 @@ export class AIAssistantService {
       // 6. Analyze intent
       let intent
       try {
-        intent = await this.intentService.analyzeIntent(message, integrations, 15000)
+        const memoryContext = aiMemoryService.formatMemoryForPrompt(userMemory)
+        intent = await this.intentService.analyzeIntent(message, integrations, 15000, memoryContext)
         logger.info("🧠 Intent analysis completed:", {
           intent: intent.intent,
           action: intent.action,
@@ -215,6 +221,15 @@ export class AIAssistantService {
 
       // Add assistant response to history
       conversationStateManager.addTurn(conversationId, 'assistant', result.content, result.metadata)
+
+      // Extract and save memory from conversation (non-blocking, fire and forget)
+      const history = conversationStateManager.getHistory?.(conversationId)
+      if (history && history.length >= 4) {
+        aiMemoryService.extractAndSaveMemory(
+          user.id,
+          history.map((h: any) => ({ role: h.role, content: h.content }))
+        ).catch(err => logger.error("Memory extraction failed (non-blocking):", err))
+      }
 
       logger.info("✅ AI Assistant processing completed successfully")
       return {

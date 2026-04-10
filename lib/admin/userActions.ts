@@ -117,7 +117,7 @@ export async function deleteUser(
   // Prevent deletion of other admin accounts
   const { data: userProfile } = await adminSupabase
     .from('user_profiles')
-    .select('admin_capabilities, full_name, username')
+    .select('admin_capabilities, full_name')
     .eq('id', targetUserId)
     .single()
 
@@ -154,7 +154,7 @@ export async function deleteUser(
       action: 'user_disable',
       resourceType: 'user_profiles',
       resourceId: targetUserId,
-      oldValues: { full_name: userProfile?.full_name, username: userProfile?.username },
+      oldValues: { full_name: userProfile?.full_name },
       request,
     })
 
@@ -176,7 +176,7 @@ export async function deleteUser(
       action: 'user_delete',
       resourceType: 'user_profiles',
       resourceId: targetUserId,
-      oldValues: { full_name: userProfile?.full_name, username: userProfile?.username },
+      oldValues: { full_name: userProfile?.full_name },
       request,
     })
 
@@ -197,7 +197,6 @@ export interface CreateUserParams {
   email: string
   password?: string
   full_name?: string
-  username?: string
   role?: string
 }
 
@@ -219,12 +218,11 @@ export async function createUser(adminUserId: string, params: CreateUserParams, 
     const { ensureUserProfile } = await import('@/lib/auth/ensureUserProfile')
     await ensureUserProfile(adminSupabase, authUser.user)
 
-    if (params.full_name || params.username || params.role) {
+    if (params.full_name || params.role) {
       await adminSupabase
         .from('user_profiles')
         .update({
           full_name: params.full_name || null,
-          username: params.username || null,
           role: params.role || 'free',
         })
         .eq('id', authUser.user.id)
@@ -246,7 +244,7 @@ export async function createUser(adminUserId: string, params: CreateUserParams, 
 export async function updateUser(
   adminUserId: string,
   targetUserId: string,
-  updates: { email?: string; password?: string; full_name?: string; username?: string; role?: string },
+  updates: { email?: string; password?: string; full_name?: string; role?: string },
   request?: Request
 ) {
   const adminSupabase = getAdminAuthClient()
@@ -267,7 +265,6 @@ export async function updateUser(
   // Update profile fields
   const profileUpdates: Record<string, unknown> = {}
   if (updates.full_name !== undefined) profileUpdates.full_name = updates.full_name
-  if (updates.username !== undefined) profileUpdates.username = updates.username
   if (updates.role !== undefined) profileUpdates.role = updates.role
 
   if (Object.keys(profileUpdates).length > 0) {

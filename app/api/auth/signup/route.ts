@@ -85,7 +85,6 @@ export async function POST(request: NextRequest) {
       // Create the user profile via idempotent upsert
       try {
         await ensureUserProfile(serviceClient, userId, {
-          username: metadata?.username,
           first_name: metadata?.first_name,
           last_name: metadata?.last_name,
           full_name: metadata?.full_name,
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
     logger.info('[signup] Generated custom confirmation URL (not using Supabase link)')
 
     // Send our branded confirmation email via Resend
-    const username = metadata?.full_name || metadata?.first_name || metadata?.username || email.split('@')[0]
+    const displayName = metadata?.first_name || metadata?.full_name || email.split('@')[0]
 
     logger.info('[signup] Sending branded email via Resend to:', email?.substring(0, 3) + '***')
     logger.info('[signup] Using confirmation URL:', confirmationUrl?.substring(0, 50) + '...')
@@ -125,7 +124,7 @@ export async function POST(request: NextRequest) {
         subject: 'Confirm your ChainReact account',
       },
       {
-        username,
+        username: displayName,
         confirmationUrl,
       }
     )

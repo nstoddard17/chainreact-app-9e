@@ -197,7 +197,7 @@ export function NotificationsDropdown() {
                         <div className="h-2 w-2 rounded-full bg-orange-500 flex-shrink-0" />
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
+                    <p className="text-xs text-gray-600 dark:text-gray-200 mt-0.5 line-clamp-2">
                       {notification.message}
                     </p>
                     {notification.action_label && (
@@ -205,7 +205,7 @@ export function NotificationsDropdown() {
                         {notification.action_label}
                       </p>
                     )}
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {formatTimeAgo(notification.created_at)}
                     </p>
                   </div>
@@ -226,7 +226,7 @@ export function NotificationsDropdown() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-gray-500 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
+                      className="h-6 w-6 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                       onClick={(e) => handleDeleteNotification(notification.id, e)}
                     >
                       <X className="h-3 w-3" />

@@ -176,7 +176,7 @@ function TagsInput({ value, onChange, field, error }: TagsInputProps) {
 
         {/* Animated Press Enter indicator */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Press</span>
+          <span className="text-xs text-gray-400 dark:text-gray-400 font-medium">Press</span>
           <kbd className="px-2 py-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-sm animate-pulse">
             Enter
           </kbd>
@@ -3165,7 +3165,7 @@ export function FieldRenderer({
         // This is a simplified placeholder - full preview requires GoogleSheetsConfiguration
         return (
           <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-slate-600 dark:text-slate-200">
               New rows will be appended to the end of the sheet by default.
             </p>
           </div>

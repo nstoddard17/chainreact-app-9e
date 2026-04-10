@@ -68,7 +68,7 @@ export class AIAuthenticationService {
         logger.info("❌ AI usage limit exceeded:", usageCheck)
         return {
           allowed: false,
-          error: `You've reached your AI assistant usage limit for this month (${usageCheck.limit} messages). Please upgrade your plan for more AI usage.`,
+          error: `You've reached your assistant usage limit for this month (${usageCheck.limit} messages). Please upgrade your plan for more usage.`,
           details: usageCheck
         }
       }
@@ -93,7 +93,7 @@ export class AIAuthenticationService {
       logger.error("❌ OpenAI API key is not configured")
       return {
         valid: false,
-        error: "AI assistant is not properly configured. Please contact support."
+        error: "Assistant is not properly configured. Please contact support."
       }
     }
 

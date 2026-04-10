@@ -102,7 +102,7 @@ export function getStatusConfig(status: string, validation?: WorkflowValidation)
     borderColor: 'border-gray-500/20',
     dotColor: 'bg-gray-400',
     label: 'Draft',
-    labelColor: 'text-gray-600 dark:text-gray-400',
+    labelColor: 'text-gray-600 dark:text-gray-300',
     description: 'Workflow is saved but not active'
   }
 }

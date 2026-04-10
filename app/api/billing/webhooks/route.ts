@@ -6,13 +6,14 @@ import { getStripeClient } from "@/lib/stripe/client"
 import { headers } from "next/headers"
 
 import { logger } from '@/lib/utils/logger'
-import { getTaskLimitForPlan } from '@/lib/utils/plan-restrictions'
+import { getTaskLimitFromDB } from '@/lib/plans/server-cache'
 
 export async function POST(request: NextRequest) {
   const stripe = getStripeClient("2024-12-18.acacia")
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!
   const body = await request.text()
-  const sig = headers().get("stripe-signature")!
+  const headersList = await headers()
+  const sig = headersList.get("stripe-signature")!
 
   let event: Stripe.Event
 
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Reset task usage for new plan and set task limit (including billing_period_end)
-      const taskLimit = getTaskLimitForPlan(planId)
+      const taskLimit = await getTaskLimitFromDB(planId)
       const { error: taskResetError } = await supabase
         .from("user_profiles")
         .update({
@@ -229,7 +230,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (subData?.user_id) {
-        const taskLimit = getTaskLimitForPlan(subData.plan_id)
+        const taskLimit = await getTaskLimitFromDB(subData.plan_id)
         const { error: resetError } = await supabase
           .from("user_profiles")
           .update({

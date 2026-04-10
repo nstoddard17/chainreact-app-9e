@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   // Rate limiting: 30 AI workflow builder requests per minute per IP
-  const rateLimitResult = checkRateLimit(request, {
+  const rateLimitResult = await checkRateLimit(request, {
     limit: 30,
     windowSeconds: 60
   })

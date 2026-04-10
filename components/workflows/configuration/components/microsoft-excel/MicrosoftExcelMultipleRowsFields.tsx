@@ -274,7 +274,7 @@ export function MicrosoftExcelMultipleRowsFields({
             <LightningLoader size="md" color="blue" />
             <div className="text-center">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Loading column fields...</p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              <p className="text-xs text-slate-600 dark:text-slate-200 mt-1">
                 Analyzing your worksheet "{values.worksheetName}" to create input fields
               </p>
             </div>
@@ -312,7 +312,7 @@ export function MicrosoftExcelMultipleRowsFields({
             <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">
               Add Multiple Rows
             </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-600 dark:text-slate-200 mt-1">
               Configure values for each row. Click "+ Add Row" to add more rows.
             </p>
           </div>

@@ -160,7 +160,7 @@ export function withRateLimit(
       
       return handler(req, res);
     } catch (error) {
-      if (error.message.includes('Rate limit exceeded')) {
+      if (error instanceof Error && error.message.includes('Rate limit exceeded')) {
         return res.status(429).json({
           error: 'Rate limit exceeded',
           message: error.message,
@@ -170,50 +170,4 @@ export function withRateLimit(
       throw error;
     }
   };
-}
-
-// Redis-based rate limiter for production use
-export class RedisRateLimiter {
-  private redis: any;
-  private interval: number;
-
-  constructor(redisClient: any, interval: number = 60 * 60 * 1000) {
-    this.redis = redisClient;
-    this.interval = interval;
-  }
-
-  async check(limit: number, token: string): Promise<RateLimitResult> {
-    const key = `rate_limit:${token}`;
-    const now = Date.now();
-    const window = Math.floor(now / this.interval);
-    const windowKey = `${key}:${window}`;
-
-    const pipeline = this.redis.pipeline();
-    pipeline.incr(windowKey);
-    pipeline.expire(windowKey, Math.ceil(this.interval / 1000));
-    
-    const results = await pipeline.exec();
-    const count = results[0][1];
-
-    if (count > limit) {
-      const ttl = await this.redis.ttl(windowKey);
-      const resetTime = now + (ttl * 1000);
-      
-      throw new Error(`Rate limit exceeded. Try again in ${ttl} seconds`);
-    }
-
-    return {
-      limit,
-      remaining: limit - count,
-      reset: now + this.interval
-    };
-  }
-
-  async clear(token: string): Promise<void> {
-    const key = `rate_limit:${token}`;
-    const keys = await this.redis.keys(`${key}:*`);
-    if (keys.length > 0) {
-      await this.redis.del(...keys);
-    }
-  }
 }

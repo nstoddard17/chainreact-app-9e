@@ -3,7 +3,8 @@
 import { ReactNode, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Lock, ArrowRight } from 'lucide-react'
-import { PlanTier, PlanLimits, PLAN_INFO } from '@/lib/utils/plan-restrictions'
+import type { PlanTier, PlanLimits } from '@/lib/utils/plan-restrictions'
+import { usePlansStore } from '@/stores/plansStore'
 import { usePlanRestrictions } from '@/hooks/use-plan-restrictions'
 import { UpgradePlanModal } from './UpgradePlanModal'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ export function LockedPage({
 }: LockedPageProps) {
   const router = useRouter()
   const { checkFeatureAccess, isProfileReady } = usePlanRestrictions()
+  const { getPlan } = usePlansStore()
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
 
   const access = checkFeatureAccess(feature)
@@ -49,7 +51,12 @@ export function LockedPage({
 
   // Get plan info for the required plan
   const requiredPlan = access.minimumPlan || 'team'
-  const planInfo = PLAN_INFO[requiredPlan] || PLAN_INFO.team
+  const planData = getPlan(requiredPlan) || getPlan('team')
+  const planInfo = planData ? {
+    name: planData.displayName,
+    price: planData.priceMonthly,
+    billingPeriod: 'mo' as const,
+  } : { name: requiredPlan, price: 0, billingPeriod: 'mo' as const }
 
   return (
     <>
@@ -96,7 +103,7 @@ export function LockedPage({
                   See What's Included
                 </Button>
                 <Button
-                  onClick={() => router.push('/settings/billing')}
+                  onClick={() => router.push('/subscription')}
                   className="flex-1 gap-2"
                 >
                   Upgrade Now

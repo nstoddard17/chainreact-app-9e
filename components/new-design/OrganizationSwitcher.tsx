@@ -550,7 +550,7 @@ export function OrganizationSwitcher() {
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
-                onClick={() => router.push('/organization-settings')}
+                onClick={() => router.push('/org')}
                 className="cursor-pointer"
               >
                 <Settings className="w-4 h-4 mr-2" />

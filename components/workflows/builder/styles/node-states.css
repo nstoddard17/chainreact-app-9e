@@ -59,16 +59,16 @@
 
 /* Ready state badge */
 .badge-ready {
-  background: hsl(var(--muted) / 0.5);
-  color: hsl(var(--muted-foreground));
-  border: 1px solid hsl(var(--border));
+  background: oklch(var(--muted) / 0.5);
+  color: oklch(var(--muted-foreground));
+  border: 1px solid oklch(var(--border));
 }
 
 /* Skeleton state badge */
 .badge-skeleton {
-  background: hsl(var(--muted) / 0.3);
-  color: hsl(var(--muted-foreground));
-  border: 1px solid hsl(var(--border) / 0.3);
+  background: oklch(var(--muted) / 0.3);
+  color: oklch(var(--muted-foreground));
+  border: 1px solid oklch(var(--border) / 0.3);
 }
 
 /* Incomplete state badge - warning for missing required fields */
@@ -116,17 +116,17 @@
 
 /* Failed state badge - clickable */
 .badge-failed {
-  background: hsl(var(--destructive) / 0.1);
-  color: hsl(var(--destructive));
-  border: 1px solid hsl(var(--destructive) / 0.3);
+  background: oklch(var(--destructive) / 0.1);
+  color: oklch(var(--destructive));
+  border: 1px solid oklch(var(--destructive) / 0.3);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .badge-failed:hover {
-  background: hsl(var(--destructive) / 0.2);
-  border-color: hsl(var(--destructive) / 0.5);
+  background: oklch(var(--destructive) / 0.2);
+  border-color: oklch(var(--destructive) / 0.5);
   transform: translateY(-1px);
 }
 
@@ -146,8 +146,8 @@
 
 /* Failed state - red border */
 .workflow-node-card.node-failed {
-  border-color: hsl(var(--destructive) / 0.5) !important;
-  box-shadow: 0 0 8px hsl(var(--destructive) / 0.1);
+  border-color: oklch(var(--destructive) / 0.5) !important;
+  box-shadow: 0 0 8px oklch(var(--destructive) / 0.1);
 }
 
 /* ===== Listening State (Trigger waiting for event) ===== */

@@ -49,7 +49,6 @@ export default function DashboardContent() {
         } : null,
         profile: profile ? {
           id: profile.id,
-          username: profile.username,
           user_role: profile.role,
           full_name: profile.full_name,
           first_name: profile.first_name,
@@ -102,37 +101,10 @@ export default function DashboardContent() {
   })
 
   const getFirstName = () => {
-    logger.info('📝 [Dashboard] Getting first name from:', {
-      'profile.username': profile?.username,
-      'profile.full_name': profile?.full_name,
-      'user.name': user?.name,
-      'user.email': user?.email
-    })
-
-    // First try username from profile
-    if (profile?.username) {
-      logger.info('✅ [Dashboard] Using username from profile')
-      return profile.username
-    }
-    // Then try full name and extract first part
-    if (profile?.full_name) {
-      const firstName = profile.full_name.split(" ")[0]
-      logger.info('✅ [Dashboard] Using full_name first part')
-      return firstName
-    }
-    // Fallback to user name if available
-    if (user?.name) {
-      const firstName = user.name.split(" ")[0]
-      logger.info('⚠️ [Dashboard] Falling back to user.name')
-      return firstName
-    }
-    // Last resort: extract from email
-    if (user?.email) {
-      const emailName = user.email.split("@")[0]
-      logger.info('⚠️ [Dashboard] Falling back to email prefix')
-      return emailName
-    }
-    logger.info('❌ [Dashboard] No name found, using default "User"')
+    if (profile?.first_name) return profile.first_name
+    if (profile?.full_name) return profile.full_name.split(" ")[0]
+    if (user?.name) return user.name.split(" ")[0]
+    if (user?.email) return user.email.split("@")[0]
     return "User"
   }
 
@@ -159,29 +131,54 @@ export default function DashboardContent() {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-8">
+        {/* Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <MetricCard
-            title="Active Workflows"
-            value={activeWorkflowsCount}
-            icon={<Workflow className="w-6 h-6" />}
-            color="blue"
-          />
-          <MetricCard
-            title="Integrations"
-            value={connectedIntegrationsCount}
-            icon={<Puzzle className="w-6 h-6" />}
-            color="purple"
-          />
+          <div className="animate-fade-in-up" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
+            <div className="relative overflow-hidden rounded-xl border bg-card shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300 cursor-default">
+              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-500 to-blue-600" />
+              <div className="pl-4">
+                <MetricCard
+                  title="Active Workflows"
+                  value={activeWorkflowsCount}
+                  icon={<Workflow className="w-6 h-6" />}
+                  color="blue"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="animate-fade-in-up" style={{ animationDelay: '100ms', animationFillMode: 'both' }}>
+            <div className="relative overflow-hidden rounded-xl border bg-card shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300 cursor-default">
+              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-purple-500 to-purple-600" />
+              <div className="pl-4">
+                <MetricCard
+                  title="Integrations"
+                  value={connectedIntegrationsCount}
+                  icon={<Puzzle className="w-6 h-6" />}
+                  color="purple"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* Chart and Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <WorkflowChart data={chartData} />
+          <div className="lg:col-span-2 animate-fade-in-up" style={{ animationDelay: '200ms', animationFillMode: 'both' }}>
+            <div className="relative overflow-hidden rounded-xl border bg-card shadow-sm">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.02] via-transparent to-primary/[0.02] pointer-events-none" />
+              <div className="relative">
+                <WorkflowChart data={chartData} />
+              </div>
+            </div>
           </div>
           <div className="lg:col-span-1 space-y-6">
-            <AIUsageCard />
-            <ActivityFeed />
+            <div className="animate-fade-in-up" style={{ animationDelay: '300ms', animationFillMode: 'both' }}>
+              <AIUsageCard />
+            </div>
+            <div className="animate-fade-in-up" style={{ animationDelay: '400ms', animationFillMode: 'both' }}>
+              <ActivityFeed />
+            </div>
           </div>
         </div>
       </div>

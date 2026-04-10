@@ -229,7 +229,7 @@ export function SubscriptionExpirationBanner({ userId }: SubscriptionExpirationB
             )}
           </Button>
 
-          <Button variant="outline" size="sm" onClick={() => (window.location.href = "/settings/billing")}>
+          <Button variant="outline" size="sm" onClick={() => (window.location.href = "/subscription")}>
             View Billing Details
           </Button>
 
@@ -240,7 +240,7 @@ export function SubscriptionExpirationBanner({ userId }: SubscriptionExpirationB
           )}
         </div>
 
-        <p className="text-xs text-gray-600 dark:text-gray-400 mt-3">
+        <p className="text-xs text-gray-600 dark:text-gray-200 mt-3">
           💡 <strong>Tip:</strong> You can reactivate your subscription at any time before it expires to
           avoid the grace period.
         </p>

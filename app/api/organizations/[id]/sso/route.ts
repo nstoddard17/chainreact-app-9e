@@ -29,6 +29,12 @@ export async function GET(
       .order('created_at', { ascending: false })
 
     if (configError) {
+      // Table may not exist if migration hasn't been pushed — treat as empty
+      const isTableMissing = configError.message?.includes('does not exist') || configError.code === '42P01'
+      if (isTableMissing) {
+        logger.debug('[SSO] sso_configurations table not found — returning empty', { error: configError.message })
+        return NextResponse.json({ configurations: [], domains: [] })
+      }
       logger.error('[SSO] Failed to fetch configurations', { error: configError.message })
       return NextResponse.json({ error: 'Failed to fetch SSO configurations' }, { status: 500 })
     }
@@ -40,7 +46,7 @@ export async function GET(
       .eq('organization_id', organizationId)
 
     if (domainError) {
-      logger.error('[SSO] Failed to fetch domain mappings', { error: domainError.message })
+      logger.debug('[SSO] Failed to fetch domain mappings', { error: domainError.message })
     }
 
     // Mask sensitive fields in configuration

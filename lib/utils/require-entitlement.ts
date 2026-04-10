@@ -19,7 +19,8 @@ const jsonResponse = (body: any, init?: { status?: number }) => {
   })
 }
 import { createSupabaseServiceClient } from '@/utils/supabase/server'
-import { hasFeatureAccess, canPerformAction, type PlanLimits, type PlanTier } from '@/lib/utils/plan-restrictions'
+import type { PlanLimits, PlanTier } from '@/lib/utils/plan-restrictions'
+import { hasFeatureAccessFromDB, getPlanLimitsFromDB } from '@/lib/plans/server-cache'
 import { normalizePlan, isRecognizedPlan } from '@/lib/access-policy/normalize'
 import type { AccessPlan } from '@/lib/access-policy/types'
 import { logger } from '@/lib/utils/logger'
@@ -69,7 +70,7 @@ function featureDeniedResponse(
       feature,
       currentPlan,
       requiredPlan: requiredPlan ?? 'pro',
-      upgradeUrl: '/settings/billing',
+      upgradeUrl: '/subscription',
     },
     { status: 403 }
   )
@@ -88,7 +89,7 @@ function actionDeniedResponse(
       action,
       currentPlan,
       requiredPlan: upgradeTo ?? 'pro',
-      upgradeUrl: '/settings/billing',
+      upgradeUrl: '/subscription',
     },
     { status: 403 }
   )
@@ -116,12 +117,20 @@ export async function requireFeature(
     return { allowed: true, plan }
   }
 
-  if (hasFeatureAccess(plan, feature)) {
+  const hasAccess = await hasFeatureAccessFromDB(plan, String(feature))
+  if (hasAccess) {
     return { allowed: true, plan }
   }
 
-  const { getMinimumPlanForFeature } = await import('@/lib/utils/plan-restrictions')
-  const requiredPlan = getMinimumPlanForFeature(feature)
+  // Determine which plan is needed by checking each tier
+  const tiers: PlanTier[] = ['free', 'pro', 'team', 'business', 'enterprise']
+  let requiredPlan: PlanTier | null = null
+  for (const tier of tiers) {
+    if (await hasFeatureAccessFromDB(tier, String(feature))) {
+      requiredPlan = tier
+      break
+    }
+  }
 
   return {
     allowed: false,
@@ -145,15 +154,65 @@ export async function requireActionLimit(
     return { allowed: true, plan }
   }
 
-  const result = canPerformAction(plan, action, currentCount, required)
+  const limits = await getPlanLimitsFromDB(plan)
 
-  if (result.allowed) {
+  // Check action against DB limits
+  let allowed = true
+  let reason = 'Limit reached'
+  let upgradeTo: PlanTier = 'pro'
+
+  switch (action) {
+    case 'createWorkflow': {
+      const max = limits.maxWorkflowsTotal ?? -1
+      if (max !== -1 && currentCount >= max) {
+        allowed = false
+        reason = `You've reached your workflow limit (${max}). Upgrade to create more.`
+      }
+      break
+    }
+    case 'activateWorkflow': {
+      const max = limits.maxActiveWorkflows ?? -1
+      if (max !== -1 && currentCount >= max) {
+        allowed = false
+        reason = `You've reached your active workflow limit (${max}). Upgrade to activate more.`
+      }
+      break
+    }
+    case 'addTeamMember': {
+      const max = limits.maxTeamMembers ?? 1
+      if (max !== -1 && currentCount >= max) {
+        allowed = false
+        reason = `You've reached your team member limit (${max}). Upgrade for more members.`
+        upgradeTo = 'team'
+      }
+      break
+    }
+    case 'useTasks': {
+      const max = limits.tasksPerMonth ?? 300
+      const needed = required ?? 1
+      if (max !== -1 && currentCount + needed > max) {
+        allowed = false
+        reason = `You've used ${currentCount} of ${max} tasks this month.`
+      }
+      break
+    }
+    case 'addBusinessContext': {
+      const max = limits.maxBusinessContextEntries ?? 1
+      if (max !== -1 && currentCount >= max) {
+        allowed = false
+        reason = `You've reached your AI context limit (${max}). Upgrade for more.`
+      }
+      break
+    }
+  }
+
+  if (allowed) {
     return { allowed: true, plan }
   }
 
   return {
     allowed: false,
-    response: actionDeniedResponse(action, result.reason || 'Limit reached', plan, result.upgradeTo as PlanTier | undefined),
+    response: actionDeniedResponse(action, reason, plan, upgradeTo),
   }
 }
 
@@ -268,12 +327,20 @@ export async function requireScopedFeature(
 ): Promise<FeatureResult> {
   const context = await resolveEntitlementContext(scope)
 
-  if (hasFeatureAccess(context.plan, feature)) {
+  const hasAccess = await hasFeatureAccessFromDB(context.plan, String(feature))
+  if (hasAccess) {
     return { allowed: true, plan: context.plan }
   }
 
-  const { getMinimumPlanForFeature } = await import('@/lib/utils/plan-restrictions')
-  const requiredPlan = getMinimumPlanForFeature(feature)
+  // Find minimum plan with this feature
+  const tiers: PlanTier[] = ['free', 'pro', 'team', 'business', 'enterprise']
+  let requiredPlan: PlanTier | null = null
+  for (const tier of tiers) {
+    if (await hasFeatureAccessFromDB(tier, String(feature))) {
+      requiredPlan = tier
+      break
+    }
+  }
 
   return {
     allowed: false,

@@ -4,7 +4,6 @@ import { supabase } from "@/utils/supabaseClient"
 // Define the user profile type
 export interface UserProfile {
   id: string
-  username?: string
   full_name?: string
   first_name?: string
   last_name?: string

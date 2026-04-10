@@ -9,7 +9,7 @@ import { useAuthStore, type BootPhase } from "@/stores/authStore"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { Mail, Lock, Eye, EyeOff, Shield } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { supabase } from "@/utils/supabaseClient"
 
@@ -22,7 +22,10 @@ function LoginFormContent() {
   const [loading, setLoading] = useState(false)
   const [providerError, setProviderError] = useState("")
   const [loginError, setLoginError] = useState("")
-  const { signIn, signInWithGoogle } = useAuthStore()
+  const [showSSOInput, setShowSSOInput] = useState(false)
+  const [ssoEmail, setSsoEmail] = useState("")
+  const [ssoLoading, setSsoLoading] = useState(false)
+  const { signIn, signInWithGoogle, signInWithGitHub, signInWithMicrosoft } = useAuthStore()
   const router = useRouter()
   const searchParams = useSearchParams()
   const returnUrl = searchParams.get('returnUrl')
@@ -96,12 +99,13 @@ function LoginFormContent() {
       }
       const data = await response.json();
 
-      if (data.exists && data.provider === 'google') {
-        setProviderError('This account was created with Google. Please sign in with Google instead.');
+      if (data.exists && data.provider && data.provider !== 'email') {
+        const providerName = data.provider.charAt(0).toUpperCase() + data.provider.slice(1);
+        setProviderError(`This account was created with ${providerName}. Please sign in with ${providerName} instead.`);
         return false;
-      } 
-        setProviderError('');
-        return true;
+      }
+      setProviderError('');
+      return true;
       
     } catch (error) {
       logger.error('Error checking provider:', error);
@@ -176,6 +180,38 @@ function LoginFormContent() {
         variant: "destructive",
       })
       setLoading(false)
+    }
+  }
+
+  const handleSSOSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!ssoEmail) return
+    setSsoLoading(true)
+    try {
+      const response = await fetch('/api/auth/sso/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: ssoEmail }),
+      })
+      const data = await response.json()
+      if (data.ssoRequired && data.redirectUrl) {
+        window.location.href = data.redirectUrl
+      } else {
+        toast({
+          title: "SSO Not Available",
+          description: "No SSO configured for this email domain.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      logger.error("SSO initiation error:", error)
+      toast({
+        title: "SSO Error",
+        description: "Could not initiate SSO. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSsoLoading(false)
     }
   }
 
@@ -300,32 +336,113 @@ function LoginFormContent() {
             </div>
           </div>
 
+          <div className="grid grid-cols-3 gap-3">
+            <Button
+              onClick={handleGoogleSignIn}
+              variant="outline"
+              className="flex items-center justify-center gap-2 border border-slate-300 !bg-white text-black hover:!bg-slate-100 active:!bg-slate-200"
+              disabled={loading}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              <span className="text-black text-sm">Google</span>
+            </Button>
+
+            <Button
+              onClick={async () => {
+                setLoading(true)
+                setProviderError('')
+                setLoginError('')
+                try {
+                  await signInWithGitHub()
+                } catch (error) {
+                  logger.error("GitHub sign in error:", error)
+                  toast({ title: "GitHub Sign In Failed", description: "Could not sign in with GitHub. Please try again.", variant: "destructive" })
+                  setLoading(false)
+                }
+              }}
+              variant="outline"
+              className="flex items-center justify-center gap-2 border border-slate-300 !bg-white text-black hover:!bg-slate-100 active:!bg-slate-200"
+              disabled={loading}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+              </svg>
+              <span className="text-black text-sm">GitHub</span>
+            </Button>
+
+            <Button
+              onClick={async () => {
+                setLoading(true)
+                setProviderError('')
+                setLoginError('')
+                try {
+                  await signInWithMicrosoft()
+                } catch (error) {
+                  logger.error("Microsoft sign in error:", error)
+                  toast({ title: "Microsoft Sign In Failed", description: "Could not sign in with Microsoft. Please try again.", variant: "destructive" })
+                  setLoading(false)
+                }
+              }}
+              variant="outline"
+              className="flex items-center justify-center gap-2 border border-slate-300 !bg-white text-black hover:!bg-slate-100 active:!bg-slate-200"
+              disabled={loading}
+            >
+              <svg className="w-4 h-4" viewBox="0 0 21 21">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+              </svg>
+              <span className="text-black text-sm">Microsoft</span>
+            </Button>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-slate-500">Or</span>
+            </div>
+          </div>
+
           <Button
-            onClick={handleGoogleSignIn}
             variant="outline"
-            className="w-full flex items-center space-x-2 border border-slate-300 !bg-white text-black hover:!bg-slate-100 active:!bg-slate-200"
-            disabled={loading}
+            className="w-full border-slate-300 !bg-white text-black hover:!bg-slate-100"
+            onClick={() => setShowSSOInput(!showSSOInput)}
+            type="button"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-            <span className="text-black">Google</span>
+            <Shield className="w-4 h-4 mr-2" />
+            Sign in with SSO
           </Button>
+
+          {showSSOInput && (
+            <form onSubmit={handleSSOSubmit} className="space-y-3">
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="email"
+                  value={ssoEmail}
+                  onChange={(e) => setSsoEmail(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 !bg-white text-black border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Enter your work email"
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white"
+                disabled={ssoLoading}
+              >
+                {ssoLoading ? "Redirecting..." : "Continue with SSO"}
+              </Button>
+            </form>
+          )}
 
           <div className="text-center text-sm text-slate-600">
             {"Don't have an account? "}

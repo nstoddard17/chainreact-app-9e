@@ -43,7 +43,7 @@ Now improve the user's prompt. Return ONLY the improved prompt text, nothing els
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 60 prompt improvements per minute per IP
-  const rateLimitResult = checkRateLimit(request, {
+  const rateLimitResult = await checkRateLimit(request, {
     limit: 60,
     windowSeconds: 60
   })

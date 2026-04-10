@@ -104,12 +104,12 @@ export function TemplateSetupDialog({
                           {section.title || `Step ${index + 1}`}
                         </p>
                         {section.description && (
-                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                          <p className="text-xs text-slate-600 dark:text-slate-200 mt-1">
                             {section.description}
                           </p>
                         )}
                         {section.items && section.items.length > 0 && (
-                          <ul className="mt-2 space-y-1 list-disc pl-4 text-xs text-slate-600 dark:text-slate-400">
+                          <ul className="mt-2 space-y-1 list-disc pl-4 text-xs text-slate-600 dark:text-slate-200">
                             {section.items.map((item, itemIndex) => (
                               <li key={`${section.title ?? 'section'}-${itemIndex}`}>{item}</li>
                             ))}
@@ -201,7 +201,7 @@ function AirtableSummary({ requirement }: AirtableSummaryProps) {
           <p className="font-semibold text-lg text-slate-900 dark:text-slate-100">
             Airtable Base: {requirement.baseName}
           </p>
-          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+          <p className="text-sm text-slate-600 dark:text-slate-200 leading-relaxed">
             Create this base with the tables and fields listed below before enabling the workflow.
           </p>
         </div>
@@ -223,7 +223,7 @@ function AirtableSummary({ requirement }: AirtableSummaryProps) {
               </Badge>
             </div>
             {table.description && (
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">{table.description}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-200 mb-3">{table.description}</p>
             )}
             <ul className="space-y-2 text-xs">
               {table.fields.map((field, fieldIndex) => (
@@ -234,10 +234,10 @@ function AirtableSummary({ requirement }: AirtableSummaryProps) {
                     {field.type.replace(/([A-Z])/g, ' $1').trim()}
                   </Badge>
                   {field.options && field.options.length > 0 && (
-                    <span className="ml-2 text-slate-600 dark:text-slate-400">({field.options.join(', ')})</span>
+                    <span className="ml-2 text-slate-600 dark:text-slate-200">({field.options.join(', ')})</span>
                   )}
                   {field.description && (
-                    <div className="mt-1 text-slate-600 dark:text-slate-400">{field.description}</div>
+                    <div className="mt-1 text-slate-600 dark:text-slate-200">{field.description}</div>
                   )}
                 </li>
               ))}
@@ -305,7 +305,7 @@ function RequirementSummary({ requirement }: RequirementSummaryProps) {
                       {sheet.sheetName}
                     </a>
                     {sheet.description && (
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{sheet.description}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-200 mt-0.5">{sheet.description}</p>
                     )}
                   </div>
                 </li>
@@ -335,7 +335,7 @@ function RequirementSummary({ requirement }: RequirementSummaryProps) {
                       {resource.name}
                     </a>
                     {resource.description && (
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{resource.description}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-200 mt-0.5">{resource.description}</p>
                     )}
                   </div>
                 </li>

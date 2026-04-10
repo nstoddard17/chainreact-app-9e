@@ -1,8 +1,8 @@
 /**
  * Rate Limiting Utility
  *
- * Simple in-memory rate limiter for API routes.
- * For production, consider using Redis-based rate limiting.
+ * Uses Upstash Redis for persistent, cross-instance rate limiting.
+ * Falls back to in-memory if Redis is not configured.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -13,11 +13,10 @@ interface RateLimitEntry {
   resetTime: number
 }
 
-// In-memory store for rate limiting
-// Note: This resets on server restart. For production, use Redis.
+// In-memory fallback store
 const rateLimitStore = new Map<string, RateLimitEntry>()
 
-// Clean up expired entries periodically
+// Clean up expired entries periodically (only used for in-memory fallback)
 setInterval(() => {
   const now = Date.now()
   for (const [key, entry] of rateLimitStore.entries()) {
@@ -25,7 +24,7 @@ setInterval(() => {
       rateLimitStore.delete(key)
     }
   }
-}, 60000) // Clean up every minute
+}, 60000)
 
 export interface RateLimitConfig {
   /** Maximum requests allowed in the window */
@@ -49,7 +48,6 @@ export interface RateLimitResult {
  * Get client identifier for rate limiting
  */
 function getClientKey(req: NextRequest): string {
-  // Try to get real IP from various headers
   const forwardedFor = req.headers.get('x-forwarded-for')
   const realIp = req.headers.get('x-real-ip')
   const cfConnectingIp = req.headers.get('cf-connecting-ip')
@@ -60,26 +58,88 @@ function getClientKey(req: NextRequest): string {
 }
 
 /**
- * Check rate limit for a request
+ * Try Redis-based rate limit check. Returns null if Redis is unavailable.
  */
-export function checkRateLimit(
-  req: NextRequest,
-  config: RateLimitConfig
-): RateLimitResult {
-  const { limit, windowSeconds, keyGenerator, onRateLimited } = config
+async function checkRateLimitRedis(
+  key: string,
+  limit: number,
+  windowSeconds: number
+): Promise<RateLimitResult | null> {
+  try {
+    const { getRedisClient, redisKey: rk } = await import('@/lib/redis/client')
+    const redis = getRedisClient()
 
-  const key = keyGenerator ? keyGenerator(req) : getClientKey(req)
+    const redisKey = rk('rate_limit', key)
+    const now = Date.now()
+
+    // Use Redis pipeline: increment counter and set expiry atomically
+    const pipeline = redis.pipeline()
+    pipeline.incr(redisKey)
+    pipeline.ttl(redisKey)
+    const results = await pipeline.exec()
+
+    const count = results[0] as number
+    const ttl = results[1] as number
+
+    // Set expiry on first request in window (when count is 1 or key had no TTL)
+    if (count === 1 || ttl === -1) {
+      await redis.expire(redisKey, windowSeconds)
+    }
+
+    const resetIn = ttl > 0 ? ttl : windowSeconds
+
+    if (count > limit) {
+      logger.warn('[Rate Limit] Redis: request blocked', {
+        key: key.substring(0, 10) + '...',
+        count,
+        limit,
+      })
+
+      return {
+        success: false,
+        remaining: 0,
+        resetIn,
+        response: NextResponse.json(
+          { error: 'Too many requests', retryAfter: resetIn },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': String(resetIn),
+              'X-RateLimit-Limit': String(limit),
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(Math.ceil((now + resetIn * 1000) / 1000)),
+            },
+          }
+        ),
+      }
+    }
+
+    return {
+      success: true,
+      remaining: Math.max(0, limit - count),
+      resetIn,
+    }
+  } catch {
+    // Redis unavailable — fall through to in-memory
+    return null
+  }
+}
+
+/**
+ * In-memory rate limit check (fallback)
+ */
+function checkRateLimitMemory(
+  key: string,
+  limit: number,
+  windowSeconds: number
+): RateLimitResult {
   const now = Date.now()
   const windowMs = windowSeconds * 1000
 
   let entry = rateLimitStore.get(key)
 
-  // Create new entry if none exists or window has expired
   if (!entry || now > entry.resetTime) {
-    entry = {
-      count: 0,
-      resetTime: now + windowMs
-    }
+    entry = { count: 0, resetTime: now + windowMs }
   }
 
   entry.count++
@@ -89,32 +149,51 @@ export function checkRateLimit(
   const resetIn = Math.ceil((entry.resetTime - now) / 1000)
 
   if (entry.count > limit) {
-    logger.warn('[Rate Limit] Request blocked', {
+    logger.warn('[Rate Limit] Memory: request blocked', {
       key: key.substring(0, 10) + '...',
       count: entry.count,
-      limit
+      limit,
     })
 
-    const response = onRateLimited?.() || NextResponse.json(
-      {
-        error: 'Too many requests',
-        retryAfter: resetIn
-      },
-      {
-        status: 429,
-        headers: {
-          'Retry-After': String(resetIn),
-          'X-RateLimit-Limit': String(limit),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(Math.ceil(entry.resetTime / 1000))
+    return {
+      success: false,
+      remaining: 0,
+      resetIn,
+      response: NextResponse.json(
+        { error: 'Too many requests', retryAfter: resetIn },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(resetIn),
+            'X-RateLimit-Limit': String(limit),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(Math.ceil(entry.resetTime / 1000)),
+          },
         }
-      }
-    )
-
-    return { success: false, remaining: 0, resetIn, response }
+      ),
+    }
   }
 
   return { success: true, remaining, resetIn }
+}
+
+/**
+ * Check rate limit for a request.
+ * Uses Redis when available, falls back to in-memory.
+ */
+export async function checkRateLimit(
+  req: NextRequest,
+  config: RateLimitConfig
+): Promise<RateLimitResult> {
+  const { limit, windowSeconds, keyGenerator } = config
+  const key = keyGenerator ? keyGenerator(req) : getClientKey(req)
+
+  // Try Redis first
+  const redisResult = await checkRateLimitRedis(key, limit, windowSeconds)
+  if (redisResult) return redisResult
+
+  // Fall back to in-memory
+  return checkRateLimitMemory(key, limit, windowSeconds)
 }
 
 /**
@@ -125,7 +204,7 @@ export function withRateLimit(
   config: RateLimitConfig
 ) {
   return async (req: NextRequest, context?: any): Promise<NextResponse> => {
-    const result = checkRateLimit(req, config)
+    const result = await checkRateLimit(req, config)
 
     if (!result.success && result.response) {
       return result.response
@@ -133,7 +212,6 @@ export function withRateLimit(
 
     const response = await handler(req, context)
 
-    // Add rate limit headers to successful responses
     response.headers.set('X-RateLimit-Limit', String(config.limit))
     response.headers.set('X-RateLimit-Remaining', String(result.remaining))
 

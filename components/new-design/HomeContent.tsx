@@ -146,7 +146,7 @@ export function HomeContent() {
   const [selectedOrgId, setSelectedOrgId] = useState<string>("")
   const [selectedCreateTeamIds, setSelectedCreateTeamIds] = useState<string[]>([])
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
-  const [requiredPlan, setRequiredPlan] = useState<'free' | 'starter' | 'professional' | 'team' | 'enterprise' | undefined>()
+  const [requiredPlan, setRequiredPlan] = useState<string | undefined>()
   const { toast } = useToast()
 
   const connectedProviders = getConnectedProviders()
@@ -291,7 +291,7 @@ export function HomeContent() {
     if (workflow.user_id === user?.id) return 'You'
     // Check if creator data is loaded
     if (workflow.creator) {
-      return workflow.creator.username || workflow.creator.email?.split('@')[0] || 'Team Member'
+      return workflow.creator.full_name || workflow.creator.email?.split('@')[0] || 'Team Member'
     }
     return 'Unknown'
   }
@@ -611,70 +611,70 @@ export function HomeContent() {
         {/* Dashboard Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Active Workflows */}
-          <div className="relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="animate-fade-in-up relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300" style={{ animationDelay: '0ms', animationFillMode: 'both' }}>
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">Active</p>
-                <p className="text-3xl font-bold">{stats.active}</p>
+                <p className="text-3xl font-bold tracking-tight">{stats.active}</p>
                 <p className="text-xs text-muted-foreground">Workflows Running</p>
               </div>
-              <div className="rounded-full bg-green-500/10 p-3">
+              <div className="rounded-full bg-green-500/10 p-3 ring-1 ring-green-500/20">
                 <PlayCircle className="h-6 w-6 text-green-500" />
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-500/20">
-              <div className="h-full bg-green-500" style={{ width: `${(stats.active / stats.total) * 100}%` }} />
+              <div className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500" style={{ width: `${stats.total > 0 ? (stats.active / stats.total) * 100 : 0}%` }} />
             </div>
           </div>
 
           {/* Total Workflows */}
-          <div className="relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="animate-fade-in-up relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300" style={{ animationDelay: '75ms', animationFillMode: 'both' }}>
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">Total</p>
-                <p className="text-3xl font-bold">{stats.total}</p>
+                <p className="text-3xl font-bold tracking-tight">{stats.total}</p>
                 <p className="text-xs text-muted-foreground">All Workflows</p>
               </div>
-              <div className="rounded-full bg-orange-500/10 p-3">
+              <div className="rounded-full bg-orange-500/10 p-3 ring-1 ring-orange-500/20">
                 <Layers className="h-6 w-6 text-orange-500" />
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-500/20">
-              <div className="h-full bg-orange-500" style={{ width: '100%' }} />
+              <div className="h-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-500" style={{ width: '100%' }} />
             </div>
           </div>
 
           {/* Executions Today */}
-          <div className="relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="animate-fade-in-up relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300" style={{ animationDelay: '150ms', animationFillMode: 'both' }}>
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">Today</p>
-                <p className="text-3xl font-bold">{todayExecutions}</p>
+                <p className="text-3xl font-bold tracking-tight">{todayExecutions}</p>
                 <p className="text-xs text-muted-foreground">Executions</p>
               </div>
-              <div className="rounded-full bg-rose-500/10 p-3">
+              <div className="rounded-full bg-rose-500/10 p-3 ring-1 ring-rose-500/20">
                 <TrendingUp className="h-6 w-6 text-rose-500" />
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-rose-500/20">
-              <div className="h-full bg-rose-500" style={{ width: `${Math.min((todayExecutions / 100) * 100, 100)}%` }} />
+              <div className="h-full bg-gradient-to-r from-rose-500 to-pink-400 transition-all duration-500" style={{ width: `${Math.min((todayExecutions / 100) * 100, 100)}%` }} />
             </div>
           </div>
 
           {/* Success Rate */}
-          <div className="relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="animate-fade-in-up relative overflow-hidden rounded-xl border bg-card p-6 shadow-sm hover:shadow-md hover:scale-[1.02] transition-all duration-300" style={{ animationDelay: '225ms', animationFillMode: 'both' }}>
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-muted-foreground">Success</p>
-                <p className="text-3xl font-bold">{successRate}%</p>
+                <p className="text-3xl font-bold tracking-tight">{successRate}%</p>
                 <p className="text-xs text-muted-foreground">Success Rate</p>
               </div>
-              <div className="rounded-full bg-emerald-500/10 p-3">
+              <div className="rounded-full bg-emerald-500/10 p-3 ring-1 ring-emerald-500/20">
                 <CheckCircle2 className="h-6 w-6 text-emerald-500" />
               </div>
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500/20">
-              <div className="h-full bg-emerald-500" style={{ width: `${successRate}%` }} />
+              <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500" style={{ width: `${successRate}%` }} />
             </div>
           </div>
         </div>
@@ -724,11 +724,11 @@ export function HomeContent() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => router.push('/templates')}>
+            <Button variant="outline" onClick={() => router.push('/templates')} className="hover:border-primary/50 transition-colors">
               <Sparkles className="w-4 h-4 mr-2" />
               Templates
             </Button>
-            <Button onClick={handleNewWorkflowClick}>
+            <Button onClick={handleNewWorkflowClick} className="bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white border-0 shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 transition-all duration-300">
               <Plus className="w-4 h-4 mr-2" />
               New Workflow
             </Button>
@@ -737,58 +737,66 @@ export function HomeContent() {
 
       {/* Loading State */}
       {loadingList && workflows.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 px-4">
-          <RefreshCw className="w-8 h-8 text-primary animate-spin mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Loading workflows...</h3>
-          <p className="text-muted-foreground text-center max-w-md">
-            Fetching your automations
-          </p>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="animate-fade-in-up flex items-center gap-4 p-4 rounded-xl border border-gray-200/60 dark:border-gray-800/60 bg-card" style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'both' }}>
+              <div className="animate-pulse h-10 w-10 rounded-xl bg-gradient-to-br from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 flex-shrink-0" />
+              <div className="flex-1 space-y-2.5">
+                <div className="animate-pulse h-4 w-1/3 rounded-md bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700" />
+                <div className="animate-pulse h-3 w-1/2 rounded-md bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700" />
+              </div>
+              <div className="animate-pulse h-8 w-20 rounded-lg bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 flex-shrink-0" />
+            </div>
+          ))}
         </div>
       )}
 
       {/* Empty State */}
       {!loadingList && filtered.length === 0 && workflows.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 px-4">
-          <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-            <Zap className="w-8 h-8 text-primary" />
-          </div>
-          <h3 className="text-2xl font-semibold mb-2">Create your first workflow</h3>
-          <p className="text-muted-foreground text-center max-w-md mb-6">
-            Automate tasks by connecting your apps and services. Start from scratch or use a template.
-          </p>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => router.push('/templates')}>
-              <Layers className="w-4 h-4 mr-2" />
-              Explore Templates
-            </Button>
-            <Button onClick={handleNewWorkflowClick}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Workflow
-            </Button>
-          </div>
-
-          {connectedCount === 0 && (
-            <div className="mt-8 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-lg max-w-md">
-              <p className="text-sm text-center text-orange-900 dark:text-orange-100">
-                <strong>Tip:</strong> Connect your apps first to see available actions
-              </p>
-              <Button
-                variant="link"
-                size="sm"
-                onClick={() => router.push('/apps')}
-                className="mt-2 w-full"
-              >
-                Connect Apps →
+        <div className="animate-fade-in-up relative flex flex-col items-center justify-center py-20 px-4 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 overflow-hidden" style={{ animationDelay: '100ms', animationFillMode: 'both' }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/[0.03] via-transparent to-rose-500/[0.03] dark:from-orange-500/[0.05] dark:to-rose-500/[0.05] pointer-events-none" />
+          <div className="relative">
+            <div className="w-20 h-20 bg-gradient-to-br from-orange-500/15 to-rose-500/15 dark:from-orange-500/20 dark:to-rose-500/20 rounded-2xl flex items-center justify-center mb-6 mx-auto ring-1 ring-orange-500/20">
+              <Zap className="w-10 h-10 text-orange-500" />
+            </div>
+            <h3 className="text-2xl font-bold mb-2 text-center">Create your first workflow</h3>
+            <p className="text-muted-foreground text-center max-w-md mb-8">
+              Automate tasks by connecting your apps and services. Start from scratch or use a template.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button variant="outline" onClick={() => router.push('/templates')} className="hover:border-primary/50 transition-colors">
+                <Layers className="w-4 h-4 mr-2" />
+                Explore Templates
+              </Button>
+              <Button onClick={handleNewWorkflowClick} className="bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white border-0 shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 transition-all duration-300">
+                <Plus className="w-4 h-4 mr-2" />
+                New Workflow
               </Button>
             </div>
-          )}
+
+            {connectedCount === 0 && (
+              <div className="mt-8 p-4 bg-orange-50 dark:bg-orange-950/30 border border-orange-200/60 dark:border-orange-800/40 rounded-xl max-w-md mx-auto">
+                <p className="text-sm text-center text-orange-900 dark:text-orange-100">
+                  <strong>Tip:</strong> Connect your apps first to see available actions
+                </p>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => router.push('/apps')}
+                  className="mt-2 w-full text-orange-600 dark:text-orange-400"
+                >
+                  Connect Apps →
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {/* Workflows List */}
       {filtered.length > 0 && (
         <div className="space-y-2">
-          {filtered.map((workflow: any) => {
+          {filtered.map((workflow: any, index: number) => {
             const stats = executionStats[workflow.id] || { total: 0, today: 0, success: 0, failed: 0 }
             const statusDisplay = getStatusDisplay(workflow)
             const StatusIcon = statusDisplay.icon
@@ -796,7 +804,8 @@ export function HomeContent() {
             return (
               <div
                 key={workflow.id}
-                className="group flex items-center gap-4 p-4 border rounded-xl bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-pointer"
+                className="animate-fade-in-up group flex items-center gap-4 p-4 border rounded-xl bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800/80 hover:shadow-md hover:border-primary/20 dark:hover:border-primary/30 transition-all duration-200 cursor-pointer"
+                style={{ animationDelay: `${index * 75}ms`, animationFillMode: 'both' }}
                 onClick={() => router.push(`/workflows/builder/${workflow.id}`)}
               >
                 {/* Status Icon with Color */}
@@ -836,8 +845,16 @@ export function HomeContent() {
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.labelColor} border ${statusDisplay.borderColor} cursor-help`}>
-                            {statusDisplay.warning && <AlertTriangle className="w-3 h-3 mr-1" />}
+                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.labelColor} border ${statusDisplay.borderColor} cursor-help`}>
+                            {statusDisplay.warning ? (
+                              <AlertTriangle className="w-3 h-3" />
+                            ) : (
+                              <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                                statusDisplay.label === 'Active' ? 'bg-green-500 animate-pulse' :
+                                statusDisplay.label === 'Paused' ? 'bg-yellow-500' :
+                                'bg-gray-400'
+                              }`} />
+                            )}
                             {statusDisplay.label}
                           </div>
                         </TooltipTrigger>
@@ -994,9 +1011,10 @@ export function HomeContent() {
 
       {/* No Results */}
       {filtered.length === 0 && workflows.length > 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No workflows match your filters</p>
-          <Button variant="link" onClick={() => { setSearchQuery(''); setViewMode('all'); }}>
+        <div className="animate-fade-in text-center py-16 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+          <Search className="w-8 h-8 text-muted-foreground/50 mx-auto mb-3" />
+          <p className="text-muted-foreground font-medium">No workflows match your filters</p>
+          <Button variant="link" onClick={() => { setSearchQuery(''); setViewMode('all'); }} className="mt-1">
             Clear filters
           </Button>
         </div>
@@ -1017,7 +1035,7 @@ export function HomeContent() {
         <RecentFavorites maxItems={5} />
 
         {/* Quick Actions Card */}
-        <div className="rounded-xl border bg-card p-6 shadow-sm">
+        <div className="animate-fade-in-up rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-shadow duration-300" style={{ animationDelay: '300ms', animationFillMode: 'both' }}>
           <h3 className="font-semibold mb-4 flex items-center gap-2">
             <Zap className="w-4 h-4 text-primary" />
             Quick Actions
@@ -1051,7 +1069,7 @@ export function HomeContent() {
         </div>
 
         {/* Stats Summary */}
-        <div className="rounded-xl border bg-card p-6 shadow-sm">
+        <div className="animate-fade-in-up rounded-xl border bg-card p-6 shadow-sm hover:shadow-md transition-shadow duration-300" style={{ animationDelay: '400ms', animationFillMode: 'both' }}>
           <h3 className="font-semibold mb-4">Overview</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -1075,7 +1093,7 @@ export function HomeContent() {
         </div>
 
         {/* Recent Activity Card */}
-        <div className="rounded-xl border bg-gradient-to-br from-primary/10 to-primary/5 p-6 shadow-sm">
+        <div className="animate-fade-in-up rounded-xl border bg-gradient-to-br from-primary/10 to-primary/5 p-6 shadow-sm hover:shadow-md transition-shadow duration-300" style={{ animationDelay: '500ms', animationFillMode: 'both' }}>
           <h3 className="font-semibold mb-4 flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" />
             Recent Activity
@@ -1135,7 +1153,7 @@ export function HomeContent() {
                   size="sm"
                   onClick={() => {
                     setShareDialog({ open: false, workflowId: null })
-                    router.push('/organization-settings?tab=teams')
+                    router.push('/org')
                   }}
                 >
                   Create or Join a Team
@@ -1387,7 +1405,7 @@ export function HomeContent() {
                       size="sm"
                       onClick={() => {
                         setCreateDialog(false)
-                        router.push('/organization-settings?tab=teams')
+                        router.push('/org')
                       }}
                     >
                       Create a Team
@@ -1680,7 +1698,7 @@ export function HomeContent() {
       <UpgradePlanModal
         open={upgradeModalOpen}
         onOpenChange={setUpgradeModalOpen}
-        requiredPlan={requiredPlan}
+        requiredPlan={requiredPlan as any}
       />
     </>
   )

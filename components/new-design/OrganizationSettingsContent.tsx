@@ -35,7 +35,6 @@ import {
   CreditCard,
   Settings,
   Users,
-  ChevronRight,
   ArrowLeft,
   Plug,
   Share2,
@@ -93,7 +92,12 @@ interface Organization {
 
 type SettingsSection = 'general' | 'integrations' | 'teams' | 'members' | 'billing' | 'sso'
 
-export function OrganizationSettingsContent() {
+interface OrganizationSettingsContentProps {
+  slugParam?: string
+  sectionParam?: string
+}
+
+export function OrganizationSettingsContent({ slugParam, sectionParam: sectionProp }: OrganizationSettingsContentProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuthStore()
@@ -105,9 +109,12 @@ export function OrganizationSettingsContent() {
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
-  const sectionParam = searchParams.get('section') as SettingsSection | null
-  const orgIdParam = searchParams.get('org')
-  const [activeSection, setActiveSection] = useState<SettingsSection>(sectionParam || 'general')
+
+  // Support both new slug-based route and legacy ?org= query param
+  const legacySectionParam = searchParams.get('section') as SettingsSection | null
+  const legacyOrgIdParam = searchParams.get('org')
+  const orgIdParam = legacyOrgIdParam // slug is resolved to ID via fetch
+  const [activeSection, setActiveSection] = useState<SettingsSection>((sectionProp || legacySectionParam || 'general') as SettingsSection)
 
   // Form state
   const [orgName, setOrgName] = useState("")
@@ -132,11 +139,12 @@ export function OrganizationSettingsContent() {
   }, [])
 
   // Update active section when URL parameter changes
+  const resolvedSection = sectionProp || legacySectionParam
   useEffect(() => {
-    if (sectionParam && ['general', 'integrations', 'teams', 'members', 'billing', 'sso'].includes(sectionParam)) {
-      setActiveSection(sectionParam)
+    if (resolvedSection && ['general', 'integrations', 'teams', 'members', 'billing', 'sso'].includes(resolvedSection)) {
+      setActiveSection(resolvedSection as SettingsSection)
     }
-  }, [sectionParam])
+  }, [resolvedSection])
 
   // Fetch integrations when viewing integrations section
   useEffect(() => {
@@ -145,25 +153,49 @@ export function OrganizationSettingsContent() {
     }
   }, [activeSection, user, fetchAllIntegrations])
 
+  // Helper to build settings URL for this org
+  const buildSettingsUrl = (section?: string) => {
+    const slug = organization?.slug || slugParam
+    if (slug) {
+      return `/org/${slug}/settings${section && section !== 'general' ? `/${section}` : ''}`
+    }
+    // Fallback to legacy URL
+    const orgParam = organization?.id ? `&org=${organization.id}` : ''
+    return `/org/settings${orgParam}`
+  }
+
   // Fetch current organization
   useEffect(() => {
-    if (user && orgIdParam) {
-      // Only fetch if we haven't fetched this org yet AND we're not currently fetching
+    if (user && (orgIdParam || slugParam)) {
+      const identifier = orgIdParam || slugParam!
       if (!hasFetchedRef.current && !fetchingRef.current) {
         hasFetchedRef.current = true
-        fetchOrganization(orgIdParam)
-      } else if (organization && organization.id !== orgIdParam) {
-        // Different org requested, allow re-fetch
+        fetchOrganization(identifier)
+      } else if (organization && organization.id !== identifier && organization.slug !== identifier) {
         hasFetchedRef.current = false
         fetchingRef.current = false
-        fetchOrganization(orgIdParam)
+        fetchOrganization(identifier)
       }
-    } else if (user && !orgIdParam) {
-      // No org ID provided - show empty state
-      setLoading(false)
-      setOrganization(null)
+    } else if (user && !orgIdParam && !slugParam) {
+      // No org ID or slug — try to auto-select the user's org
+      const autoSelect = async () => {
+        try {
+          const res = await fetch('/api/organizations')
+          if (!res.ok) { setLoading(false); return }
+          const data = await res.json()
+          const orgs = Array.isArray(data) ? data : data.organizations || []
+          if (orgs.length === 1) {
+            router.replace(`/organization/${orgs[0].slug}/settings`)
+          } else {
+            setLoading(false)
+          }
+        } catch {
+          setLoading(false)
+        }
+      }
+      autoSelect()
     }
-  }, [user, orgIdParam])
+  }, [user, orgIdParam, slugParam])
 
   // Listen for organization changes
   useEffect(() => {
@@ -178,16 +210,28 @@ export function OrganizationSettingsContent() {
     }
   }, [])
 
-  const fetchOrganization = async (orgId: string) => {
-    // Prevent concurrent fetches
-    if (fetchingRef.current) {
-      return
-    }
+  const fetchOrganization = async (identifier: string) => {
+    if (fetchingRef.current) return
 
     try {
       fetchingRef.current = true
       setLoading(true)
-      logEvent('info', 'OrgSettings', 'Fetching organization...', { orgId })
+      logEvent('info', 'OrgSettings', 'Fetching organization...', { identifier })
+
+      // If identifier looks like a UUID, fetch directly. Otherwise resolve slug first.
+      let orgId = identifier
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier)
+
+      if (!isUUID) {
+        // Resolve slug to org ID via the list endpoint
+        const listRes = await fetch('/api/organizations')
+        if (!listRes.ok) throw new Error('Failed to fetch organizations')
+        const listData = await listRes.json()
+        const allOrgs = Array.isArray(listData) ? listData : listData.organizations || []
+        const match = allOrgs.find((o: any) => o.slug === identifier)
+        if (!match) throw new Error('Organization not found')
+        orgId = match.id
+      }
 
       const response = await fetch(`/api/organizations/${orgId}`)
       if (!response.ok) throw new Error('Failed to fetch organization')
@@ -327,7 +371,7 @@ export function OrganizationSettingsContent() {
   // Navigation items
   const navigationItems = [
     { id: 'general' as const, label: 'General', icon: Settings, description: 'Organization details and settings' },
-    { id: 'integrations' as const, label: 'Integrations', icon: Plug, description: 'Connected apps and sharing' },
+    { id: 'integrations' as const, label: 'Apps', icon: Plug, description: 'Connected apps and sharing' },
     { id: 'teams' as const, label: 'Teams', icon: Users, description: 'Manage organization teams' },
     { id: 'members' as const, label: 'Members', icon: Crown, description: 'Manage team members' },
     { id: 'billing' as const, label: 'Billing', icon: CreditCard, description: 'Manage subscription' },
@@ -383,12 +427,10 @@ export function OrganizationSettingsContent() {
     )
   }
 
-  if (!organization) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">No organization selected</p>
-      </div>
-    )
+  if (!organization && !loading) {
+    return <OrganizationPicker onSelect={(slug) => {
+      router.push(`/org/${slug}/settings`)
+    }} />
   }
 
   // Show special UI for personal workspaces
@@ -422,78 +464,17 @@ export function OrganizationSettingsContent() {
     )
   }
 
+  // At this point organization is guaranteed non-null by the guards above
+  const org = organization!
+
   return (
-    <div className="flex gap-8 max-w-7xl mx-auto">
-      {/* Sidebar Navigation */}
-      <aside className="w-64 shrink-0">
-        <div className="sticky top-6 space-y-6">
-          {/* Back Button */}
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/organization?org=${organization.id}`)}
-            className="w-full justify-start gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to {organization.name}
-          </Button>
-
-          {/* Navigation Menu */}
-          <div className="space-y-1">
-          {navigationItems.map((item) => {
-            const Icon = item.icon
-            const isActive = activeSection === item.id
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id)
-                  const orgParam = organization?.id ? `&org=${organization.id}` : ''
-                  router.push(`/organization-settings?section=${item.id}${orgParam}`)
-                }}
-                className={cn(
-                  "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 group",
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className={cn(
-                    "w-5 h-5 transition-transform group-hover:scale-110",
-                    isActive ? "text-primary-foreground" : ""
-                  )} />
-                  <div className="flex-1">
-                    <div className={cn(
-                      "font-semibold text-sm",
-                      isActive ? "text-primary-foreground" : ""
-                    )}>
-                      {item.label}
-                    </div>
-                    {!isActive && (
-                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                        {item.description}
-                      </div>
-                    )}
-                  </div>
-                  {isActive && (
-                    <ChevronRight className="w-4 h-4 text-primary-foreground" />
-                  )}
-                </div>
-              </button>
-            )
-          })}
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 min-w-0">
+    <div className="w-full">
+      <div className="w-full">
         {/* General Settings */}
         {activeSection === 'general' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">General Settings</h2>
+              <h2 className="text-xl font-semibold">General Settings</h2>
               <p className="text-muted-foreground mt-2">Update your organization's basic information</p>
             </div>
 
@@ -517,7 +498,7 @@ export function OrganizationSettingsContent() {
                   <Label htmlFor="org-slug">URL Slug</Label>
                   <Input
                     id="org-slug"
-                    value={organization.slug}
+                    value={org.slug}
                     disabled
                     className="bg-muted"
                   />
@@ -539,7 +520,7 @@ export function OrganizationSettingsContent() {
                 </div>
 
                 {isAdmin && (
-                  <Button onClick={handleSaveSettings} disabled={saving}>
+                  <Button onClick={handleSaveSettings} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
                     {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {!saving && <Save className="w-4 h-4 mr-2" />}
                     Save Changes
@@ -558,7 +539,7 @@ export function OrganizationSettingsContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
+                  <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-semibold">Delete Organization</h4>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -583,7 +564,7 @@ export function OrganizationSettingsContent() {
         {activeSection === 'integrations' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Integrations</h2>
+              <h2 className="text-xl font-semibold">Integrations</h2>
               <p className="text-muted-foreground mt-2">Manage connected apps for your organization</p>
             </div>
 
@@ -593,7 +574,7 @@ export function OrganizationSettingsContent() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Organization Connections</CardTitle>
-                    <CardDescription>Apps connected directly to {organization.name}</CardDescription>
+                    <CardDescription>Apps connected directly to {org.name}</CardDescription>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -815,28 +796,22 @@ export function OrganizationSettingsContent() {
 
         {/* Teams Section */}
         {activeSection === 'teams' && (
-          <TeamContent organizationId={organization.id} />
+          <TeamContent organizationId={org.id} />
         )}
 
         {/* Members Section */}
         {activeSection === 'members' && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">Members</h2>
-              <p className="text-muted-foreground mt-2">Manage organization members and their permissions</p>
-            </div>
-            <OrganizationMembersManager
-              organizationId={organization.id}
-              currentUserRole={organization.user_role as any}
-            />
-          </div>
+          <OrganizationMembersManager
+            organizationId={org.id}
+            currentUserRole={org.user_role as any}
+          />
         )}
 
         {/* Billing Section */}
         {activeSection === 'billing' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Billing & Subscription</h2>
+              <h2 className="text-xl font-semibold">Billing & Subscription</h2>
               <p className="text-muted-foreground mt-2">Manage your organization's subscription through Stripe</p>
             </div>
 
@@ -864,8 +839,6 @@ export function OrganizationSettingsContent() {
                         ? 'Advanced features for growing teams'
                         : organization?.billing?.plan === 'enterprise'
                         ? 'Full platform access with premium support'
-                        : organization?.billing?.plan === 'beta'
-                        ? 'Beta access with early features'
                         : 'Basic features for small teams'}
                     </p>
                     {organization?.billing?.tasksRemaining !== undefined && organization?.billing?.tasksRemaining !== null && (
@@ -876,7 +849,7 @@ export function OrganizationSettingsContent() {
                   </div>
                   <Button
                     onClick={() => router.push('/settings?section=billing')}
-                    className="gap-2"
+                    className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
                   >
                     <CreditCard className="w-4 h-4" />
                     {organization?.billing?.plan === 'free' || !organization?.billing?.plan ? 'Upgrade Plan' : 'Manage Plan'}
@@ -975,7 +948,7 @@ export function OrganizationSettingsContent() {
                 </div>
 
                 {isAdmin && (
-                  <Button onClick={handleSaveSettings} disabled={saving}>
+                  <Button onClick={handleSaveSettings} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
                     {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     {!saving && <Save className="w-4 h-4 mr-2" />}
                     Save Changes
@@ -990,17 +963,17 @@ export function OrganizationSettingsContent() {
         {activeSection === 'sso' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight">Single Sign-On</h2>
+              <h2 className="text-xl font-semibold">Single Sign-On</h2>
               <p className="text-muted-foreground mt-2">Configure SAML or OIDC authentication for your organization</p>
             </div>
 
             <SSOConfiguration
-              organizationId={organization.id}
+              organizationId={org.id}
               isOwner={isOwner}
             />
           </div>
         )}
-      </main>
+      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -1008,7 +981,7 @@ export function OrganizationSettingsContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{organization.name}</strong> and remove all
+              This will permanently delete <strong>{org.name}</strong> and remove all
               associated data including teams, workflows, and member access. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1048,6 +1021,65 @@ export function OrganizationSettingsContent() {
           }}
         />
       )}
+    </div>
+  )
+}
+
+function OrganizationPicker({ onSelect }: { onSelect: (orgSlug: string) => void }) {
+  const [orgs, setOrgs] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/organizations')
+      .then(res => res.ok ? res.json() : { organizations: [] })
+      .then(data => setOrgs(Array.isArray(data) ? data : data.organizations || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (orgs.length === 0) {
+    return (
+      <div className="max-w-md mx-auto text-center py-16">
+        <Building2 className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+        <h2 className="text-lg font-semibold mb-1">No organization yet</h2>
+        <p className="text-sm text-muted-foreground mb-4">Create an organization to collaborate with your team.</p>
+        <Button onClick={() => window.dispatchEvent(new CustomEvent('create-organization'))}>
+          <Plus className="w-4 h-4 mr-1.5" />
+          Create Organization
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-lg mx-auto py-8">
+      <h2 className="text-lg font-semibold mb-1">Select an organization</h2>
+      <p className="text-sm text-muted-foreground mb-4">Choose which organization to manage.</p>
+      <div className="space-y-2">
+        {orgs.map((org: any) => (
+          <button
+            key={org.id}
+            onClick={() => onSelect(org.slug || org.id)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left hover:bg-muted transition-colors"
+          >
+            <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{org.name}</p>
+              {org.description && <p className="text-xs text-muted-foreground truncate">{org.description}</p>}
+            </div>
+            <span className="text-xs text-muted-foreground">{org.member_count || 0} members</span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

@@ -15,8 +15,8 @@ export const AIAssistantContentLazy = dynamic(
         <div className="text-center space-y-3">
           <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
           <div className="space-y-1">
-            <p className="text-lg font-medium">Loading AI Assistant...</p>
-            <p className="text-sm text-muted-foreground">Preparing your workflow assistant</p>
+            <p className="text-lg font-medium">Loading ChainReact Assistant...</p>
+            <p className="text-sm text-muted-foreground">Preparing your assistant</p>
           </div>
         </div>
       </div>

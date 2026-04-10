@@ -15,29 +15,26 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Check if user profile exists and has username
+    // Check if user profile exists
     const { data: profile, error } = await supabase
       .from('user_profiles')
-      .select('username')
+      .select('id, first_name, last_name')
       .eq('id', userId)
       .single()
 
     if (error) {
       return jsonResponse({
-        hasUsername: false,
+        hasProfile: false,
         error: error.message
       })
     }
 
-    const hasUsername = !!(profile?.username && profile.username.trim() !== '')
-
     return jsonResponse({
-      hasUsername,
-      username: profile?.username || null
+      hasProfile: !!profile,
     })
 
   } catch (error) {
     logger.error('Error checking user profile:', error)
-    return errorResponse('Internal server error', 500, { hasUsername: false  })
+    return errorResponse('Internal server error', 500, { hasProfile: false })
   }
 }

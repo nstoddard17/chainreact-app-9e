@@ -3,6 +3,7 @@
 import { Shield, Lock, Key, Eye, Server, RefreshCw } from 'lucide-react'
 import { PublicPageHeader } from '@/components/layout/PublicPageHeader'
 import { TempFooter } from '@/components/temp-landing/TempFooter'
+import { ForceTheme } from '@/components/theme/ForceTheme'
 
 const securityPractices = [
   {
@@ -46,6 +47,7 @@ const securityPractices = [
 export default function SecurityPage() {
   return (
     <div className="min-h-screen bg-white">
+      <ForceTheme theme="light" />
       <PublicPageHeader breadcrumb="Security" />
 
       <main className="max-w-5xl mx-auto px-6 py-12">

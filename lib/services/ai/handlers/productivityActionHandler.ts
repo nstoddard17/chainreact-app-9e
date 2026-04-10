@@ -245,6 +245,36 @@ export class ProductivityActionHandler extends BaseActionHandler {
       )
     }
 
+    // Read a specific Notion page's content
+    if (action === "read_page" || action === "get_page_content" || action === "get_content") {
+      let pageId = parameters.pageId || parameters.page_id || parameters.id
+      const query = parameters.query || parameters.title || parameters.name
+
+      // If no pageId, search first and use top result
+      if (!pageId && query) {
+        const searchResult = await this.executeAction(
+          userId,
+          "notion_action_search",
+          {
+            query,
+            filter: { property: "object", value: "page" },
+            page_size: 1
+          }
+        )
+        const firstPage = searchResult.output?.results?.[0]
+        if (!firstPage) {
+          return this.getErrorResponse(`No Notion page found matching "${query}".`)
+        }
+        pageId = firstPage.id
+      }
+
+      if (!pageId) {
+        return this.getErrorResponse("Provide a page name or ID to read.")
+      }
+
+      return this.handleReadNotionPage(pageId, userId)
+    }
+
     const result = await this.executeAction(
       userId,
       "notion_action_search",
@@ -268,6 +298,73 @@ export class ProductivityActionHandler extends BaseActionHandler {
         results: result.output?.results || result.output
       }
     )
+  }
+
+  private async handleReadNotionPage(
+    pageId: string,
+    userId: string
+  ): Promise<ActionExecutionResult> {
+    try {
+      // Fetch page blocks (content) via the existing workflow action
+      const blocksResult = await this.executeAction(
+        userId,
+        "notion_action_get_blocks",
+        {
+          page_id: pageId,
+          page_size: 100
+        }
+      )
+
+      if (!blocksResult.success) {
+        return this.getErrorResponse(blocksResult.message || "Failed to read the Notion page.")
+      }
+
+      const blocks = blocksResult.output?.results || blocksResult.output || []
+
+      // Extract text content from each block type
+      const textContent = blocks.map((block: any) => {
+        const type = block.type
+        const content = block[type]
+        if (!content) return ""
+
+        const richText = content.rich_text || content.text || []
+        const text = richText.map((t: any) => t.plain_text || t.text?.content || "").join("")
+
+        // Add formatting hints based on block type
+        if (type === "heading_1") return `# ${text}`
+        if (type === "heading_2") return `## ${text}`
+        if (type === "heading_3") return `### ${text}`
+        if (type === "bulleted_list_item") return `- ${text}`
+        if (type === "numbered_list_item") return `1. ${text}`
+        if (type === "to_do") {
+          const checked = content.checked ? "x" : " "
+          return `- [${checked}] ${text}`
+        }
+        if (type === "code") return `\`\`\`\n${text}\n\`\`\``
+        if (type === "quote") return `> ${text}`
+        if (type === "divider") return "---"
+
+        return text
+      }).filter(Boolean).join("\n")
+
+      const pageUrl = `https://notion.so/${pageId.replace(/-/g, "")}`
+
+      return {
+        content: textContent
+          ? `Here is the content of the Notion page:\n\n${textContent}`
+          : "This Notion page appears to be empty.",
+        metadata: {
+          type: "productivity_query",
+          provider: "notion",
+          pageId,
+          webViewLink: pageUrl,
+          contentLength: textContent.length
+        }
+      }
+    } catch (error: any) {
+      logger.error("❌ Error reading Notion page:", error)
+      return this.getErrorResponse("Failed to read the Notion page content.")
+    }
   }
 
   private async handleNotionAction(

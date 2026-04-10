@@ -14,7 +14,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 30 AI assistant requests per minute per IP
-  const rateLimitResult = checkRateLimit(request, {
+  const rateLimitResult = await checkRateLimit(request, {
     limit: 30,
     windowSeconds: 60
   })

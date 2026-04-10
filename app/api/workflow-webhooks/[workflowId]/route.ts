@@ -125,7 +125,7 @@ export async function POST(
   const { workflowId } = await params;
 
   // Rate limiting: 100 requests per minute per workflow
-  const rateLimitResult = checkRateLimit(request, {
+  const rateLimitResult = await checkRateLimit(request, {
     ...RateLimitPresets.webhook,
     keyGenerator: () => `webhook:${workflowId}`
   });

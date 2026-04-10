@@ -104,7 +104,13 @@
       "Bash(OPENAI_API_KEY=dummy-key-for-build STRIPE_CLIENT_SECRET=sk_test_dummy_key_for_build NODE_OPTIONS=--max-old-space-size=4096 npx next build)",
       "Bash(rm -rf .next)",
       "Bash(OPENAI_API_KEY=dummy-key-for-build NODE_OPTIONS=--max-old-space-size=4096 npx next build)",
-      "Bash(NODE_OPTIONS=--max-old-space-size=4096 npx next build)"
+      "Bash(NODE_OPTIONS=--max-old-space-size=4096 npx next build)",
+      "WebFetch(domain:pipedream.com)",
+      "WebFetch(domain:www.activepieces.com)",
+      "WebFetch(domain:www.lindy.ai)",
+      "WebFetch(domain:www.electricmonk.com)",
+      "WebFetch(domain:www.lowcode.agency)",
+      "WebFetch(domain:automationatlas.io)"
     ],
     "deny": [],
     "ask": [],

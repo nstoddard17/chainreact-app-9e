@@ -76,16 +76,16 @@ export function QualitySection({ data, onSessionClick }: QualitySectionProps) {
             <p className="text-xs text-muted-foreground mb-1">Is the agent getting smarter?</p>
             <ResponsiveContainer width="100%" height={100}>
               <LineChart data={data.weekly_trends}>
-                <XAxis dataKey="week" tick={{ fontSize: 9 }} tickFormatter={w => w.substring(5)} stroke="hsl(var(--muted-foreground))" />
-                <YAxis tick={{ fontSize: 9 }} width={25} domain={[0, 1]} tickFormatter={v => `${(v * 100).toFixed(0)}%`} stroke="hsl(var(--muted-foreground))" />
+                <XAxis dataKey="week" tick={{ fontSize: 9 }} tickFormatter={w => w.substring(5)} stroke="oklch(var(--muted-foreground))" />
+                <YAxis tick={{ fontSize: 9 }} width={25} domain={[0, 1]} tickFormatter={v => `${(v * 100).toFixed(0)}%`} stroke="oklch(var(--muted-foreground))" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '6px', fontSize: '11px' }}
+                  contentStyle={{ backgroundColor: 'oklch(var(--card))', border: '1px solid oklch(var(--border))', borderRadius: '6px', fontSize: '11px' }}
                   formatter={(v: number, name: string) => [`${(v * 100).toFixed(1)}%`, name === 'first_plan_accept' ? 'Accept' : 'Corrections']}
                 />
                 <Line type="monotone" dataKey="first_plan_accept" stroke="hsl(142, 60%, 50%)" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="correction_rate" stroke="hsl(0, 60%, 50%)" strokeWidth={2} dot={false} />
                 {versionChanges.map(week => (
-                  <ReferenceLine key={week} x={week} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 3" />
+                  <ReferenceLine key={week} x={week} stroke="oklch(var(--muted-foreground))" strokeDasharray="3 3" />
                 ))}
               </LineChart>
             </ResponsiveContainer>

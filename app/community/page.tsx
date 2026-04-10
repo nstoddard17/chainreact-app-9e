@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { PublicPageHeader } from '@/components/layout/PublicPageHeader'
 import { TempFooter } from '@/components/temp-landing/TempFooter'
+import { ForceTheme } from '@/components/theme/ForceTheme'
 import { useAuthStore } from '@/stores/authStore'
 
 interface Discussion {
@@ -52,6 +53,7 @@ export default function CommunityPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <ForceTheme theme="light" />
       <PublicPageHeader breadcrumb="Community" />
 
       <main className="max-w-5xl mx-auto px-6 py-12">

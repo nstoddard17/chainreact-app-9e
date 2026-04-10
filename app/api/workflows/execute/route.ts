@@ -80,7 +80,7 @@ function generateMockTriggerData(triggerType: string, userId: string): any {
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 30 workflow executions per minute per IP
-  const rateLimitResult = checkRateLimit(request, {
+  const rateLimitResult = await checkRateLimit(request, {
     limit: 30,
     windowSeconds: 60
   })

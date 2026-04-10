@@ -5,14 +5,15 @@
  * Used by both auth/profile and auth/signup creation paths.
  */
 
-import { PLAN_LIMITS } from '@/lib/utils/plan-restrictions'
+import { getTaskLimitFromDB } from '@/lib/plans/server-cache'
 
-export function buildDefaultProfileFields() {
+export async function buildDefaultProfileFields() {
   const now = new Date()
+  const tasksLimit = await getTaskLimitFromDB('free')
   return {
     plan: 'free' as const,
     tasks_used: 0,
-    tasks_limit: PLAN_LIMITS.free.tasksPerMonth,
+    tasks_limit: tasksLimit,
     billing_period_start: now.toISOString(),
     billing_period_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
   }
