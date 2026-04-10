@@ -13,6 +13,41 @@ jest.mock('@/utils/supabase/server', () => ({
   })),
 }))
 
+// Mock server-cache so buildDefaultProfileFields tests don't hit DB
+// Mock server-cache so tests don't hit the real DB
+const planLimitsMap: Record<string, Record<string, any>> = {
+  free: { tasksPerMonth: 300, maxTeamMembers: 1, maxWorkflowsTotal: 5, maxActiveWorkflows: 3, maxBusinessContextEntries: 1 },
+  pro: { tasksPerMonth: 1000, maxTeamMembers: 5, maxWorkflowsTotal: -1, maxActiveWorkflows: -1, maxBusinessContextEntries: 10 },
+  team: { tasksPerMonth: 5000, maxTeamMembers: 25, maxWorkflowsTotal: -1, maxActiveWorkflows: -1, maxBusinessContextEntries: 50 },
+  business: { tasksPerMonth: -1, maxTeamMembers: -1, maxWorkflowsTotal: -1, maxActiveWorkflows: -1, maxBusinessContextEntries: -1 },
+  enterprise: { tasksPerMonth: -1, maxTeamMembers: -1, maxWorkflowsTotal: -1, maxActiveWorkflows: -1, maxBusinessContextEntries: -1 },
+}
+const featureAccessMap: Record<string, Set<string>> = {
+  free: new Set(['webhooks']),
+  pro: new Set(['webhooks', 'aiAgents', 'advancedAnalytics']),
+  team: new Set(['webhooks', 'aiAgents', 'advancedAnalytics', 'teamSharing']),
+  business: new Set(['webhooks', 'aiAgents', 'advancedAnalytics', 'teamSharing']),
+  enterprise: new Set(['webhooks', 'aiAgents', 'advancedAnalytics', 'teamSharing']),
+}
+jest.mock('@/lib/plans/server-cache', () => ({
+  getTaskLimitFromDB: jest.fn().mockResolvedValue(300),
+  getPlanLimitsFromDB: jest.fn().mockImplementation(async (plan: string) => {
+    return planLimitsMap[plan] || planLimitsMap.free
+  }),
+  getPlanFromDB: jest.fn().mockImplementation(async (plan: string) => ({
+    name: plan,
+    displayName: plan.charAt(0).toUpperCase() + plan.slice(1),
+    description: `${plan} plan`,
+    priceMonthly: 0,
+    priceAnnual: 0,
+    limits: planLimitsMap[plan] || planLimitsMap.free,
+    features: [],
+  })),
+  hasFeatureAccessFromDB: jest.fn().mockImplementation(async (plan: string, feature: string) => {
+    return featureAccessMap[plan]?.has(feature) ?? false
+  }),
+}))
+
 // Import after mocks
 import { requireFeature, requireActionLimit } from '@/lib/utils/require-entitlement'
 

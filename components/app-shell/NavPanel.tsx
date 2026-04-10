@@ -16,13 +16,12 @@ interface NavPanelProps {
 export function NavPanel({ section, isPanelOpen, onClose }: NavPanelProps) {
   const pathname = usePathname()
 
-  if (!section || !isPanelOpen) return null
-
   // Detect if we're on an org settings page and inject settings sub-items
   const orgSettingsMatch = pathname?.match(/^\/org\/([^/]+)\/settings/)
   const orgSlug = orgSettingsMatch?.[1]
 
   const children = useMemo(() => {
+    if (!section) return []
     if (section.id === "organization" && orgSlug) {
       const base = `/org/${orgSlug}/settings`
       const settingsItems: NavItem[] = [
@@ -38,6 +37,8 @@ export function NavPanel({ section, isPanelOpen, onClose }: NavPanelProps) {
     }
     return section.children
   }, [section, orgSlug])
+
+  if (!section || !isPanelOpen) return null
 
   const isItemActive = (href: string) => {
     if (href === "/workflows") {
