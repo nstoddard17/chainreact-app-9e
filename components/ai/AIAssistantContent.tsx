@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import Link from "next/link"
 import { useIntegrationStore } from "@/stores/integrationStore"
 import { useAuthStore } from "@/stores/authStore"
@@ -31,6 +31,7 @@ import {
   Mic,
   Trash2,
   X,
+  Search,
   Brain,
   Plus
 } from "lucide-react"
@@ -60,7 +61,7 @@ import {
 
 // Import voice components
 import { VoiceDictation } from './VoiceDictation'
-import { AIAssistantComingSoon } from './AIAssistantComingSoon'
+// AIAssistantComingSoon removed — voice feature not yet available
 
 interface Message {
   id: string
@@ -164,8 +165,11 @@ export default function AIAssistantContent() {
   const [activeConversationTitle, setActiveConversationTitle] = useState<string>("New Chat")
   const [typingConversationId, setTypingConversationId] = useState<string | null>(null)
   const [isDictating, setIsDictating] = useState(false)
-  const [showAIAssistantModal, setShowAIAssistantModal] = useState(false)
+  // showAIAssistantModal removed — voice feature not yet available
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [sidebarSearch, setSidebarSearch] = useState("")
+  const [insights, setInsights] = useState<Array<{ type: string; icon: string; text: string; priority: "info" | "warning" | "success" }>>([])
+  const [insightsLoaded, setInsightsLoaded] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
@@ -195,6 +199,25 @@ export default function AIAssistantContent() {
       }
     };
   }, []);
+
+  // Load proactive insights on mount (non-blocking)
+  useEffect(() => {
+    if (!user || insightsLoaded) return
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.access_token) return
+      fetch("/api/ai/insights", {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.insights) setInsights(data.insights)
+          setInsightsLoaded(true)
+        })
+        .catch(() => setInsightsLoaded(true))
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
 
   // Load conversations on mount with timeout safety
   useEffect(() => {
@@ -1206,15 +1229,40 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
     return "Older"
   }
 
-  // Example prompts that users can click
-  const suggestions = [
-    { icon: Zap, text: "Show me my upcoming calendar events", category: "Calendar", color: "text-amber-500 bg-amber-500/10 dark:bg-amber-500/20" },
-    { icon: Workflow, text: "What workflows do I have active?", category: "Workflows", color: "text-blue-500 bg-blue-500/10 dark:bg-blue-500/20" },
-    { icon: Clock, text: "Summarize my recent workflow executions", category: "Analytics", color: "text-violet-500 bg-violet-500/10 dark:bg-violet-500/20" },
-    { icon: Mail, text: "What's in my inbox?", category: "Email", color: "text-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/20" },
-    { icon: FileText, text: "Show my Notion workspace", category: "Productivity", color: "text-rose-500 bg-rose-500/10 dark:bg-rose-500/20" },
-    { icon: MessageSquare, text: "How do I create a workflow?", category: "Help", color: "text-cyan-500 bg-cyan-500/10 dark:bg-cyan-500/20" },
-  ]
+  // Dynamic suggestions based on connected integrations
+  const suggestions = useMemo(() => {
+    const connected = new Set(
+      integrations
+        .filter(i => i.status === 'connected')
+        .map(i => i.provider)
+    )
+
+    const allSuggestions = [
+      // Integration-dependent suggestions
+      { icon: Calendar, text: "Show me my upcoming calendar events", category: "Calendar", color: "text-amber-500 bg-amber-500/10 dark:bg-amber-500/20", providers: ["google-calendar", "google"] },
+      { icon: Mail, text: "What's in my inbox?", category: "Email", color: "text-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/20", providers: ["gmail", "google", "microsoft-outlook"] },
+      { icon: FileText, text: "Find my recent documents", category: "Files", color: "text-orange-500 bg-orange-500/10 dark:bg-orange-500/20", providers: ["google-drive", "google", "dropbox", "onedrive"] },
+      { icon: FileText, text: "Show my Notion workspace", category: "Productivity", color: "text-rose-500 bg-rose-500/10 dark:bg-rose-500/20", providers: ["notion"] },
+      { icon: Code, text: "Show my GitHub repositories", category: "Developer", color: "text-gray-500 bg-gray-500/10 dark:bg-gray-500/20", providers: ["github"] },
+      { icon: DollarSign, text: "Show my recent Stripe payments", category: "Payments", color: "text-indigo-500 bg-indigo-500/10 dark:bg-indigo-500/20", providers: ["stripe"] },
+      { icon: Users, text: "Show my HubSpot contacts", category: "CRM", color: "text-teal-500 bg-teal-500/10 dark:bg-teal-500/20", providers: ["hubspot"] },
+      { icon: MessageSquare, text: "Search my Slack messages", category: "Communication", color: "text-purple-500 bg-purple-500/10 dark:bg-purple-500/20", providers: ["slack"] },
+      // Always-available suggestions (no integration needed)
+      { icon: Workflow, text: "What workflows do I have active?", category: "Workflows", color: "text-blue-500 bg-blue-500/10 dark:bg-blue-500/20", providers: [] as string[] },
+      { icon: Clock, text: "Summarize my recent workflow executions", category: "Analytics", color: "text-violet-500 bg-violet-500/10 dark:bg-violet-500/20", providers: [] as string[] },
+      { icon: Zap, text: "How do I create a workflow?", category: "Help", color: "text-cyan-500 bg-cyan-500/10 dark:bg-cyan-500/20", providers: [] as string[] },
+    ]
+
+    // Filter: always-available (providers=[]) + those with at least one connected provider
+    const available = allSuggestions.filter(s =>
+      s.providers.length === 0 || s.providers.some(p => connected.has(p))
+    )
+
+    // Prioritize integration-specific, then general, return up to 6
+    const integrationSpecific = available.filter(s => s.providers.length > 0)
+    const general = available.filter(s => s.providers.length === 0)
+    return [...integrationSpecific, ...general].slice(0, 6)
+  }, [integrations])
 
   const handleSuggestionClick = (text: string) => {
     setInput(text)
@@ -1276,8 +1324,15 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
     )
   }
 
-  // Group conversations for sidebar rendering
-  const groupedConversations = conversations.reduce<Record<string, Conversation[]>>((groups, conv) => {
+  // Filter and group conversations for sidebar rendering
+  const filteredConversations = sidebarSearch
+    ? conversations.filter(conv =>
+        conv.title?.toLowerCase().includes(sidebarSearch.toLowerCase()) ||
+        conv.preview?.toLowerCase().includes(sidebarSearch.toLowerCase())
+      )
+    : conversations
+
+  const groupedConversations = filteredConversations.reduce<Record<string, Conversation[]>>((groups, conv) => {
     const group = getDateGroup(conv.updated_at)
     if (!groups[group]) groups[group] = []
     groups[group].push(conv)
@@ -1291,12 +1346,36 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
         {/* Sidebar Header */}
         <div className="p-4 border-b border-border/50">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-rose-500 flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <h3 className="font-semibold text-sm tracking-tight">ChainReact Assistant</h3>
+            <h3 className="font-semibold text-sm tracking-tight">Assistant</h3>
           </div>
         </div>
+
+        {/* Conversation Search */}
+        {conversations.length > 3 && (
+          <div className="px-3 py-2 border-b border-border/50">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+                className="w-full h-8 pl-8 pr-8 text-xs bg-background border border-border/60 rounded-lg focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+              />
+              {sidebarSearch && (
+                <button
+                  onClick={() => setSidebarSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-muted flex items-center justify-center hover:bg-muted-foreground/20"
+                >
+                  <X className="w-2.5 h-2.5 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Conversation List */}
         <div className="flex-1 overflow-y-auto">
@@ -1304,7 +1383,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
             {/* Show current "New Chat" if no conversationId */}
             {!conversationId && messages.length === 0 && (
               <button
-                className="w-full text-left p-3 rounded-xl bg-orange-500/10 dark:bg-orange-500/15 border-l-2 border-orange-500 transition-all duration-200"
+                className="w-full text-left p-3 rounded-xl bg-primary/10 dark:bg-primary/15 border-l-2 border-primary transition-all duration-200"
               >
                 <div className="font-medium text-sm truncate text-foreground">
                   New Chat
@@ -1332,7 +1411,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                       className={cn(
                         "group relative w-full rounded-xl transition-all duration-200 mb-0.5",
                         conversationId === conversation.id
-                          ? "bg-orange-500/10 dark:bg-orange-500/15 border-l-2 border-orange-500"
+                          ? "bg-primary/10 dark:bg-primary/15 border-l-2 border-primary"
                           : "hover:bg-muted/80 dark:hover:bg-muted/40 border-l-2 border-transparent"
                       )}
                     >
@@ -1402,7 +1481,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
         <div className="p-3 border-t border-border/50">
           <Button
             onClick={startNewChat}
-            className="w-full bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white border-0 shadow-sm transition-all duration-200"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 border-0 shadow-sm transition-all duration-200"
             size="sm"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -1421,7 +1500,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                 className="animate-fade-in-up"
                 style={{ animationDelay: '0ms', animationFillMode: 'both' }}
               >
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-orange-500 to-rose-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-orange-500/20 mx-auto">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary rounded-2xl flex items-center justify-center mb-6 shadow-lg mx-auto">
                   <Brain className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                 </div>
               </div>
@@ -1437,6 +1516,35 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
               >
                 Ask me about your workflows, integrations, analytics, or anything about ChainReact.
               </p>
+
+              {/* Proactive Insights */}
+              {insights.length > 0 && (
+                <div
+                  className="w-full max-w-2xl mb-8 space-y-2 animate-fade-in-up"
+                  style={{ animationDelay: '250ms', animationFillMode: 'both' }}
+                >
+                  {insights.map((insight, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm border",
+                        insight.priority === "warning"
+                          ? "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-300"
+                          : insight.priority === "success"
+                            ? "bg-green-50 dark:bg-green-500/10 border-green-200 dark:border-green-500/20 text-green-800 dark:text-green-300"
+                            : "bg-muted/50 border-border text-muted-foreground"
+                      )}
+                    >
+                      {insight.icon === "alert" && <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+                      {insight.icon === "check" && <CheckCircle className="w-4 h-4 flex-shrink-0" />}
+                      {insight.icon === "zap" && <Zap className="w-4 h-4 flex-shrink-0" />}
+                      {insight.icon === "clock" && <Clock className="w-4 h-4 flex-shrink-0" />}
+                      {insight.icon === "info" && <Workflow className="w-4 h-4 flex-shrink-0" />}
+                      <span>{insight.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Suggestion Cards */}
               <div className="w-full max-w-3xl px-2">
@@ -1480,14 +1588,14 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                 {message.role === "user" ? (
                   // User message - right-aligned gradient bubble
                   <div className="flex justify-end">
-                    <div className="bg-gradient-to-br from-orange-500 to-rose-500 text-white rounded-2xl rounded-br-md px-4 py-3 max-w-[80%] shadow-sm">
+                    <div className="bg-primary text-white rounded-2xl rounded-br-md px-4 py-3 max-w-[80%] shadow-sm">
                       <div className="text-[15px] leading-relaxed">{renderMessageContent(message.content)}</div>
                     </div>
                   </div>
                 ) : (
                   // AI message - left-aligned with avatar
                   <div className="flex gap-3 items-start">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-rose-500 flex items-center justify-center shadow-sm mt-0.5">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm mt-0.5">
                       <Sparkles className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1709,7 +1817,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                                         {item.databases.map((database: any, dbIndex: number) => (
                                           <div key={dbIndex} className="space-y-2">
                                             <div className="flex items-start gap-3 p-2 bg-orange-50 dark:bg-orange-950/20 rounded-md border-l-2 border-orange-200 dark:border-orange-800">
-                                              <div className="flex-shrink-0 w-1.5 h-1.5 bg-orange-500 rounded-full mt-2"></div>
+                                              <div className="flex-shrink-0 w-1.5 h-1.5 bg-primary rounded-full mt-2"></div>
                                               <div className="flex-1 min-w-0">
                                                 <div className="font-medium text-xs mb-1 text-orange-700 dark:text-orange-300">
                                                   📊 {database.title}
@@ -1836,7 +1944,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                                 href={page.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-lg font-semibold text-orange-500 hover:underline"
+                                className="text-lg font-semibold text-primary hover:underline"
                               >
                                 {page.title}
                               </a>
@@ -1874,15 +1982,15 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
             <div className="animate-fade-in w-full py-4 sm:py-5 px-4">
               <div className="max-w-3xl mx-auto">
                 <div className="flex gap-3 items-start">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-rose-500 flex items-center justify-center shadow-sm">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm">
                     <Sparkles className="w-4 h-4 text-white" />
                   </div>
                   <div className="bg-gray-100 dark:bg-gray-800/50 rounded-2xl rounded-bl-md px-4 py-3">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <div className="flex gap-1">
-                        <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" style={{ animationDelay: '0ms' }} />
-                        <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" style={{ animationDelay: '150ms' }} />
-                        <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" style={{ animationDelay: '300ms' }} />
+                        <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse" style={{ animationDelay: '0ms' }} />
+                        <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse" style={{ animationDelay: '150ms' }} />
+                        <div className="w-2 h-2 rounded-full bg-muted-foreground animate-pulse" style={{ animationDelay: '300ms' }} />
                       </div>
                       <span className="text-sm ml-1">Thinking...</span>
                     </div>
@@ -1933,19 +2041,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
         {/* Input Area - At Bottom */}
         <div className="border-t border-border/50 bg-card/80 backdrop-blur-sm px-4 sm:px-8 py-4">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex gap-3 items-end bg-background rounded-2xl border border-border/60 shadow-sm focus-within:shadow-md focus-within:border-orange-500/40 dark:focus-within:border-orange-500/30 transition-all duration-300 p-1.5">
-              {/* AI Assistant Button */}
-              <Button
-                onClick={() => setShowAIAssistantModal(true)}
-                disabled={isLoading}
-                size="sm"
-                variant="ghost"
-                className="px-2.5 h-9 rounded-xl text-muted-foreground hover:text-foreground flex-shrink-0"
-                title="AI Voice Assistant (Coming Soon)"
-              >
-                <Sparkles className="w-4.5 h-4.5" />
-              </Button>
-
+            <div className="relative flex gap-3 items-end bg-background rounded-2xl border border-border/60 shadow-sm focus-within:shadow-md focus-within:border-primary/40 dark:focus-within:border-primary/30 transition-all duration-300 p-1.5">
               {/* Input with inline microphone */}
               <div className="flex-1 relative">
                 <textarea
@@ -1956,7 +2052,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                     resizeInput()
                   }}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask anything about your workflows..."
+                  placeholder="Ask about your documents, integrations, or workflows..."
                   rows={1}
                   aria-label="Ask about integrations, workflows, or ChainReact"
                   className="flex w-full bg-transparent px-1 py-2 text-[15px] pr-10 placeholder:text-muted-foreground/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-none"
@@ -1997,7 +2093,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                       top: '-32px',
                     }}
                   >
-                    <div className="bg-gradient-to-br from-orange-500 to-rose-500 text-white rounded-full p-2 shadow-lg animate-pulse">
+                    <div className="bg-primary text-white rounded-full p-2 shadow-lg animate-pulse">
                       <Mic className="w-4 h-4" />
                     </div>
                   </div>
@@ -2011,7 +2107,7 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
                 className={cn(
                   "h-9 px-3 rounded-xl flex-shrink-0 transition-all duration-300",
                   input.trim()
-                    ? "bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white shadow-sm border-0"
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm border-0"
                     : "bg-muted text-muted-foreground border-0"
                 )}
               >
@@ -2035,12 +2131,6 @@ For detailed pricing and features, check out our [Pricing page](/pricing).
         />
       )}
 
-      {/* AI Assistant Coming Soon Modal */}
-      {showAIAssistantModal && (
-        <AIAssistantComingSoon
-          onClose={() => setShowAIAssistantModal(false)}
-        />
-      )}
     </div>
   )
 } 

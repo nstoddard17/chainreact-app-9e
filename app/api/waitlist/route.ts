@@ -16,7 +16,7 @@ interface WaitlistSubmission {
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 10 requests per minute (strict - prevent spam signups)
-  const rateLimitResult = checkRateLimit(request, RateLimitPresets.strict)
+  const rateLimitResult = await checkRateLimit(request, RateLimitPresets.strict)
   if (!rateLimitResult.success && rateLimitResult.response) {
     return rateLimitResult.response
   }

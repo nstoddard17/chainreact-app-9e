@@ -46,7 +46,7 @@ const plans: PlanTierConfig[] = [
     cta: "Current plan",
     ctaHref: "#",
     limits: {
-      tasks: "300/month",
+      tasks: "750/month",
       aiBuilds: "5/month",
       workflows: "3",
       integrations: "3 connected",
@@ -63,6 +63,7 @@ const plans: PlanTierConfig[] = [
       "Template gallery",
       "Error notifications",
       "AI learns from corrections",
+      "Assistant (20 messages/mo)",
       "Community support",
     ],
   },
@@ -91,6 +92,8 @@ const plans: PlanTierConfig[] = [
       "Re-run failed executions",
       "Integration health dashboard",
       "AI decision logs",
+      "Assistant (200 messages/mo)",
+      "Document Q&A & web search",
       "$0.025/task overage",
       "Email support",
     ],
@@ -117,6 +120,8 @@ const plans: PlanTierConfig[] = [
       "Role-based permissions",
       "90-day execution history",
       "Team analytics",
+      "Assistant (1,000 messages/mo)",
+      "Cross-app search & session memory",
       "$0.02/task overage",
       "Priority support",
     ],
@@ -142,6 +147,8 @@ const plans: PlanTierConfig[] = [
       "Audit logs",
       "99.9% SLA guarantee",
       "Advanced analytics & reporting",
+      "Assistant (unlimited messages)",
+      "Proactive insights & alerts",
       "$0.015/task overage",
       "Dedicated support",
     ],
@@ -168,6 +175,7 @@ const plans: PlanTierConfig[] = [
       "Data residency options",
       "Dedicated success manager",
       "Custom integrations",
+      "Assistant with custom knowledge base",
     ],
   },
 ]
@@ -181,7 +189,7 @@ const comparisonData: ComparisonCategory[] = [
   {
     name: "Execution & Limits",
     rows: [
-      { feature: "Tasks per month", free: "300", pro: "3,000", team: "10,000", business: "30,000", enterprise: "Unlimited" },
+      { feature: "Tasks per month", free: "750", pro: "3,000", team: "10,000", business: "30,000", enterprise: "Unlimited" },
       { feature: "Extra task packs", free: false, pro: "+1,000 for $15", team: "+5,000 for $35", business: "+15,000 for $100", enterprise: "Custom" },
       { feature: "Active workflows", free: "3", pro: "Unlimited", team: "Unlimited", business: "Unlimited", enterprise: "Unlimited" },
       { feature: "AI workflow builds", free: "5/month", pro: "Unlimited", team: "Unlimited", business: "Unlimited", enterprise: "Unlimited" },
@@ -374,12 +382,27 @@ function PlanCard({
 
 export default function SubscriptionPage() {
   const { profile } = useAuthStore()
+  const getPlan = usePlansStore(s => s.getPlan)
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("annual")
 
   const currentPlan = profile?.plan || "free"
   const tasksUsed = profile?.tasks_used ?? 0
   const tasksLimit = profile?.tasks_limit ?? 100
   const tasksPercent = Math.min((tasksUsed / tasksLimit) * 100, 100)
+
+  // Get actual prices from the plan store
+  const proPlan = getPlan("pro")
+  const teamPlan = getPlan("team")
+  const businessPlan = getPlan("business")
+  const currentPlanData = getPlan(currentPlan)
+  const currentPrice = currentPlanData
+    ? billingCycle === "annual" ? currentPlanData.priceAnnual : currentPlanData.priceMonthly
+    : 0
+
+  const getPrice = (plan: ReturnType<typeof getPlan>) => {
+    if (!plan) return 0
+    return billingCycle === "annual" ? plan.priceAnnual : plan.priceMonthly
+  }
 
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(comparisonData.map((c) => c.name))
@@ -415,7 +438,9 @@ export default function SubscriptionPage() {
             </tr>
             <tr>
               <td className="px-6 py-4 text-gray-500 dark:text-gray-400">Billing</td>
-              <td className="px-6 py-4 text-gray-900 dark:text-gray-100">$0.00 billed monthly</td>
+              <td className="px-6 py-4 text-gray-900 dark:text-gray-100">
+                ${currentPrice === 0 ? "0.00" : currentPrice % 1 === 0 ? `${currentPrice}.00` : currentPrice.toFixed(2)} billed {billingCycle === "annual" ? "annually" : "monthly"}
+              </td>
             </tr>
             <tr>
               <td className="px-6 py-4 text-gray-500 dark:text-gray-400">Requests</td>
@@ -556,70 +581,123 @@ export default function SubscriptionPage() {
           </div>
         </div>
 
-        {/* Price comparison table */}
+        {/* Price comparison — normalized to workflow runs */}
         <div className="bg-white dark:bg-slate-900/50 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Based on a <span className="font-semibold text-slate-700 dark:text-slate-300">typical 3-action workflow</span>. ChainReact &amp; Zapier count 3 tasks per run. Make.com counts ~5 credits per run (trigger + router + 3 actions).
+            </p>
+          </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
-                <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 dark:text-slate-400">Same workload</th>
+              <tr className="border-b border-gray-200 dark:border-slate-800">
+                <th className="text-left py-3 px-4 text-xs font-medium text-slate-500 dark:text-slate-400">Plan</th>
                 <th className="text-center py-3 px-4 text-xs font-medium text-orange-500">ChainReact</th>
                 <th className="text-center py-3 px-4 text-xs font-medium text-slate-500 dark:text-slate-400">Zapier</th>
                 <th className="text-center py-3 px-4 text-xs font-medium text-slate-500 dark:text-slate-400">Make.com</th>
               </tr>
             </thead>
             <tbody>
+              {/* Free */}
               <tr className="border-b border-gray-100 dark:border-slate-800/30">
-                <td className="py-3 px-4">
-                  <div className="text-xs font-medium text-slate-900 dark:text-white">Solo (3 workflows, 10x/day)</div>
-                  <div className="text-[11px] text-slate-500">~2,700 tasks/mo</div>
+                <td className="py-3.5 px-4">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white">Free</div>
                 </td>
-                <td className="py-3 px-4 text-center bg-orange-500/[0.03]">
-                  <div className="text-sm font-bold text-orange-600 dark:text-orange-400">$19/mo</div>
-                  <div className="text-[11px] text-slate-500">3,000 tasks</div>
+                <td className="py-3.5 px-4 text-center bg-orange-500/[0.03]">
+                  <div className="text-sm font-bold text-orange-600 dark:text-orange-400">$0</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">250 runs</div>
+                  <div className="text-[10px] text-slate-400">750 tasks</div>
                 </td>
-                <td className="py-3 px-4 text-center">
-                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">$73.50/mo</div>
-                  <div className="text-[11px] text-slate-500">2,000 tasks + overage</div>
+                <td className="py-3.5 px-4 text-center">
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">$0</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">33 runs</div>
+                  <div className="text-[10px] text-slate-400">100 tasks</div>
                 </td>
-                <td className="py-3 px-4 text-center">
-                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">$18.82/mo</div>
-                  <div className="text-[11px] text-slate-500">10,000 ops (4,500+ used)</div>
+                <td className="py-3.5 px-4 text-center">
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">$0</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">200 runs</div>
+                  <div className="text-[10px] text-slate-400">1,000 credits</div>
                 </td>
               </tr>
+              {/* Pro */}
               <tr className="border-b border-gray-100 dark:border-slate-800/30">
-                <td className="py-3 px-4">
-                  <div className="text-xs font-medium text-slate-900 dark:text-white">Team (8 workflows, 15x/day)</div>
-                  <div className="text-[11px] text-slate-500">~7,200 tasks/mo</div>
+                <td className="py-3.5 px-4">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white">Pro</div>
                 </td>
-                <td className="py-3 px-4 text-center bg-orange-500/[0.03]">
-                  <div className="text-sm font-bold text-orange-600 dark:text-orange-400">$49/mo</div>
-                  <div className="text-[11px] text-slate-500">10,000 tasks</div>
+                <td className="py-3.5 px-4 text-center bg-orange-500/[0.03]">
+                  <div className="text-sm font-bold text-orange-600 dark:text-orange-400">${getPrice(proPlan) || 19}/mo</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">1,000 runs</div>
+                  <div className="text-[10px] text-slate-400">3,000 tasks</div>
                 </td>
-                <td className="py-3 px-4 text-center">
-                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">$103.50/mo</div>
-                  <div className="text-[11px] text-slate-500">2,000 tasks + heavy overage</div>
+                <td className="py-3.5 px-4 text-center">
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{billingCycle === "annual" ? "$19.99" : "$29.99"}/mo</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">250 runs</div>
+                  <div className="text-[10px] text-slate-400">750 tasks (Professional)</div>
                 </td>
-                <td className="py-3 px-4 text-center">
-                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">$34.12/mo</div>
-                  <div className="text-[11px] text-slate-500">10,000 ops (12,000+ used)</div>
+                <td className="py-3.5 px-4 text-center">
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{billingCycle === "annual" ? "$16" : "$18.82"}/mo</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">2,000 runs</div>
+                  <div className="text-[10px] text-slate-400">10,000 credits (Pro)</div>
                 </td>
               </tr>
-              <tr>
-                <td className="py-3 px-4">
-                  <div className="text-xs font-medium text-slate-900 dark:text-white">Business (20 workflows, 20x/day)</div>
-                  <div className="text-[11px] text-slate-500">~18,000 tasks/mo</div>
+              {/* Team */}
+              <tr className="border-b border-gray-100 dark:border-slate-800/30">
+                <td className="py-3.5 px-4">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white">Team</div>
                 </td>
-                <td className="py-3 px-4 text-center bg-orange-500/[0.03]">
-                  <div className="text-sm font-bold text-orange-600 dark:text-orange-400">$149/mo</div>
-                  <div className="text-[11px] text-slate-500">30,000 tasks</div>
+                <td className="py-3.5 px-4 text-center bg-orange-500/[0.03]">
+                  <div className="text-sm font-bold text-orange-600 dark:text-orange-400">${getPrice(teamPlan) || 49}/mo</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">3,333 runs</div>
+                  <div className="text-[10px] text-slate-400">10,000 tasks</div>
                 </td>
-                <td className="py-3 px-4 text-center">
+                <td className="py-3.5 px-4 text-center">
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{billingCycle === "annual" ? "$69" : "$103.50"}/mo</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">666 runs</div>
+                  <div className="text-[10px] text-slate-400">2,000 tasks (Team, per user)</div>
+                </td>
+                <td className="py-3.5 px-4 text-center">
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">{billingCycle === "annual" ? "$29" : "$34.12"}/mo</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">2,000 runs</div>
+                  <div className="text-[10px] text-slate-400">10,000 credits (Teams)</div>
+                </td>
+              </tr>
+              {/* Business */}
+              <tr className="border-b border-gray-100 dark:border-slate-800/30">
+                <td className="py-3.5 px-4">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white">Business</div>
+                </td>
+                <td className="py-3.5 px-4 text-center bg-orange-500/[0.03]">
+                  <div className="text-sm font-bold text-orange-600 dark:text-orange-400">${getPrice(businessPlan) || 149}/mo</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">10,000 runs</div>
+                  <div className="text-[10px] text-slate-400">30,000 tasks</div>
+                </td>
+                <td className="py-3.5 px-4 text-center">
                   <div className="text-sm font-bold text-slate-700 dark:text-slate-300">Custom</div>
-                  <div className="text-[11px] text-slate-500">Enterprise only</div>
+                  <div className="text-[11px] text-slate-500">Enterprise required</div>
+                  <div className="text-[10px] text-slate-400">for audit logs + SLA</div>
                 </td>
-                <td className="py-3 px-4 text-center">
-                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">$165+/mo</div>
-                  <div className="text-[11px] text-slate-500">Scaled ops (30,000+ used)</div>
+                <td className="py-3.5 px-4 text-center">
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">Custom</div>
+                  <div className="text-[11px] text-slate-500">Enterprise required</div>
+                  <div className="text-[10px] text-slate-400">for audit logs + SLA</div>
+                </td>
+              </tr>
+              {/* Enterprise */}
+              <tr>
+                <td className="py-3.5 px-4">
+                  <div className="text-xs font-semibold text-slate-900 dark:text-white">Enterprise</div>
+                </td>
+                <td className="py-3.5 px-4 text-center bg-orange-500/[0.03]">
+                  <div className="text-sm font-bold text-orange-600 dark:text-orange-400">Custom</div>
+                  <div className="text-[11px] font-semibold text-slate-900 dark:text-white">Unlimited runs</div>
+                </td>
+                <td className="py-3.5 px-4 text-center">
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">Custom</div>
+                  <div className="text-[11px] text-slate-500">Enterprise</div>
+                </td>
+                <td className="py-3.5 px-4 text-center">
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">Custom</div>
+                  <div className="text-[11px] text-slate-500">Enterprise</div>
                 </td>
               </tr>
             </tbody>

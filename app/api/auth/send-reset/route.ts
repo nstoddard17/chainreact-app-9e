@@ -8,7 +8,7 @@ import { logger } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   // Rate limiting: 5 requests per minute (auth - very strict for password reset)
-  const rateLimitResult = checkRateLimit(request, RateLimitPresets.auth)
+  const rateLimitResult = await checkRateLimit(request, RateLimitPresets.auth)
   if (!rateLimitResult.success && rateLimitResult.response) {
     return rateLimitResult.response
   }

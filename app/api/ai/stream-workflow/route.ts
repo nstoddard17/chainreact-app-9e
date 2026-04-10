@@ -44,7 +44,7 @@ export const runtime = 'edge'
  */
 export async function POST(request: NextRequest) {
   // Rate limiting: 20 AI streaming requests per minute per IP
-  const rateLimitResult = checkRateLimit(request, {
+  const rateLimitResult = await checkRateLimit(request, {
     limit: 20,
     windowSeconds: 60
   })

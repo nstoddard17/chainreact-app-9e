@@ -91,6 +91,7 @@
     "@types/papaparse": "^5.5.0",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",
+    "@upstash/redis": "^1.37.0",
     "@xyflow/react": "latest",
     "aes256": "latest",
     "ai": "^5.0.56",

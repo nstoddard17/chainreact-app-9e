@@ -11,6 +11,8 @@ import { CommunicationActionHandler } from "./handlers/communicationActionHandle
 import { WorkflowManagementHandler } from "./handlers/workflowManagementHandler"
 import { AppKnowledgeHandler } from "./handlers/appKnowledgeHandler"
 import { IntegrationManagementHandler } from "./handlers/integrationManagementHandler"
+import { WebSearchHandler } from "./handlers/webSearchHandler"
+import { DocumentSearchService } from "./documentSearchService"
 
 import { logger } from '@/lib/utils/logger'
 
@@ -32,6 +34,8 @@ export class AIActionExecutionService {
   private workflowHandler: WorkflowManagementHandler
   private appKnowledgeHandler: AppKnowledgeHandler
   private integrationHandler: IntegrationManagementHandler
+  private webSearchHandler: WebSearchHandler
+  private documentSearchService: DocumentSearchService
 
   constructor() {
     this.calendarHandler = new CalendarActionHandler()
@@ -46,6 +50,8 @@ export class AIActionExecutionService {
     this.workflowHandler = new WorkflowManagementHandler()
     this.appKnowledgeHandler = new AppKnowledgeHandler()
     this.integrationHandler = new IntegrationManagementHandler()
+    this.webSearchHandler = new WebSearchHandler()
+    this.documentSearchService = new DocumentSearchService()
   }
 
   async executeAction(
@@ -157,6 +163,14 @@ export class AIActionExecutionService {
         return await this.integrationHandler.handleQuery(intent, integrations, userId, supabaseAdmin)
       case "integration_action":
         return await this.integrationHandler.handleAction(intent, integrations, userId, supabaseAdmin)
+      case "web_search":
+        return await this.webSearchHandler.handleQuery(intent, integrations, userId, supabaseAdmin)
+      case "document_qa":
+        return await this.documentSearchService.answerQuestion(
+          intent.parameters?.query || intent.parameters?.question || intent.action || "",
+          integrations,
+          userId
+        )
       case "general":
       case "chat":
       default:

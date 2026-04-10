@@ -502,7 +502,7 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
 
   return (
     <>
-    <div className="max-w-3xl mx-auto">
+    <div className="w-full">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Account</h1>
         <p className="text-sm text-gray-500 dark:text-gray-200 mt-1">Manage your profile, notifications, and account settings.</p>

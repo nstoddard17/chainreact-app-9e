@@ -226,21 +226,8 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
         </div>
       )}
 
-      {/* Empty State */}
-      {!loading && !error && events.length === 0 && (
-        <Card className="bg-white dark:bg-gray-900/50 border-gray-200 dark:border-gray-700/50">
-          <CardContent className="pt-12 pb-12 text-center">
-            <Inbox className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-1">No payment history yet</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-200">
-              {sourceFilter ? "No events match this filter. Try a different source." : "Run a workflow to see your task usage here."}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Payment History Table */}
-      {!loading && !error && events.length > 0 && (
+      {!loading && !error && (
         <div className="bg-white dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700/50 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -254,45 +241,57 @@ export default function BillingContent({ isModal = false }: BillingContentProps)
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {events.map((event) => (
-                  <tr key={event.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div className="text-gray-900 dark:text-gray-100">{formatDate(event.createdAt)}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{formatTime(event.createdAt)}</div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2">
-                        {getSourceBadge(event.source)}
-                        {event.isRetry && (
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">RETRY</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {event.workflowName ? (
-                        <span className="text-gray-900 dark:text-gray-100 truncate block max-w-[200px]" title={event.workflowName}>
-                          {event.workflowName}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 dark:text-gray-600">-</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <span className={`font-medium ${
-                        event.source === "reset"
-                          ? "text-green-600 dark:text-green-400"
-                          : "text-gray-900 dark:text-gray-100"
-                      }`}>
-                        {event.source === "reset" ? "" : "-"}{event.tasksCharged}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <span className="text-gray-500 dark:text-gray-200">
-                        {event.balanceAfter?.toLocaleString() ?? "-"} / {event.tasksLimit?.toLocaleString() ?? "-"}
-                      </span>
+                {events.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-12 text-center">
+                      <Inbox className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">No payment history yet</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-200">
+                        {sourceFilter ? "No events match this filter. Try a different source." : "Run a workflow to see your task usage here."}
+                      </p>
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  events.map((event) => (
+                    <tr key={event.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <div className="text-gray-900 dark:text-gray-100">{formatDate(event.createdAt)}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{formatTime(event.createdAt)}</div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          {getSourceBadge(event.source)}
+                          {event.isRetry && (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">RETRY</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {event.workflowName ? (
+                          <span className="text-gray-900 dark:text-gray-100 truncate block max-w-[200px]" title={event.workflowName}>
+                            {event.workflowName}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-600">-</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <span className={`font-medium ${
+                          event.source === "reset"
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-gray-900 dark:text-gray-100"
+                        }`}>
+                          {event.source === "reset" ? "" : "-"}{event.tasksCharged}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <span className="text-gray-500 dark:text-gray-200">
+                          {event.balanceAfter?.toLocaleString() ?? "-"} / {event.tasksLimit?.toLocaleString() ?? "-"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

@@ -6,7 +6,7 @@ import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   // Rate limiting: 60 requests per minute (standard)
-  const rateLimitResult = checkRateLimit(request, RateLimitPresets.standard)
+  const rateLimitResult = await checkRateLimit(request, RateLimitPresets.standard)
   if (!rateLimitResult.success && rateLimitResult.response) {
     return rateLimitResult.response
   }
