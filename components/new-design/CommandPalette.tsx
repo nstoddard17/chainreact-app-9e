@@ -146,7 +146,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     { name: "Assistant", href: "/ai-assistant", icon: Sparkles, keywords: ["ai", "chat", "assistant", "help", "chainreact"] },
     { name: "Analytics", href: "/analytics", icon: BarChart3, keywords: ["stats", "metrics", "usage", "reports"] },
     { name: "Teams", href: "/teams", icon: Users, keywords: ["members", "team", "invite"] },
-    { name: "Organization", href: "/organization", icon: Building, keywords: ["org", "company"] },
+    { name: "Organization", href: "/org", icon: Building, keywords: ["org", "company"] },
     { name: "Subscription", href: "/subscription", icon: CreditCard, keywords: ["plan", "billing", "pricing", "upgrade", "my plan"] },
     { name: "Payments", href: "/payments", icon: Receipt, keywords: ["invoices", "billing history", "payment"] },
     { name: "Settings", href: "/settings", icon: Settings, keywords: ["preferences", "config", "account", "profile", "notifications", "appearance", "theme", "security", "2fa", "password", "workspace", "ai context"] },

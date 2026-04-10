@@ -13,7 +13,7 @@
  * NO HARDCODED PLAN DATA EXISTS IN THIS FILE.
  */
 
-export type PlanTier = 'free' | 'pro' | 'beta' | 'team' | 'business' | 'enterprise'
+export type PlanTier = 'free' | 'pro' | 'team' | 'business' | 'enterprise'
 
 export interface PlanLimits {
   tasksPerMonth: number

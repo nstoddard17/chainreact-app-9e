@@ -576,7 +576,7 @@ export function TeamSettingsContent() {
                         router.push('/settings?section=billing')
                       } else if (currentTeam?.organization_id) {
                         // For org teams, route to org settings
-                        router.push('/organization-settings?section=billing')
+                        router.push('/subscription')
                       } else {
                         // Fallback to personal settings
                         router.push('/settings?section=billing')

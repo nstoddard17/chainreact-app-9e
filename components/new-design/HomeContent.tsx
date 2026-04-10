@@ -1153,7 +1153,7 @@ export function HomeContent() {
                   size="sm"
                   onClick={() => {
                     setShareDialog({ open: false, workflowId: null })
-                    router.push('/organization-settings?tab=teams')
+                    router.push('/org')
                   }}
                 >
                   Create or Join a Team
@@ -1405,7 +1405,7 @@ export function HomeContent() {
                       size="sm"
                       onClick={() => {
                         setCreateDialog(false)
-                        router.push('/organization-settings?tab=teams')
+                        router.push('/org')
                       }}
                     >
                       Create a Team

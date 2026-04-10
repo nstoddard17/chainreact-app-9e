@@ -20,7 +20,6 @@ const featureNames: Record<keyof PlanLimits, string> = {
   maxActiveWorkflows: 'Unlimited Active Workflows',
   maxWorkflowsTotal: 'Unlimited Total Workflows',
   multiStepWorkflows: 'Multi-Step Workflows',
-  premiumIntegrations: 'Premium Integrations',
   aiAgents: 'AI Agents',
   conditionalPaths: 'Conditional Logic (If/Else)',
   webhooks: 'Webhooks & HTTP Requests',
@@ -33,7 +32,11 @@ const featureNames: Record<keyof PlanLimits, string> = {
   prioritySupport: 'Priority Support',
   dedicatedSupport: 'Dedicated Support',
   historyRetentionDays: 'Extended History Retention',
-  detailedLogs: 'Detailed Logs'
+  detailedLogs: 'Detailed Logs',
+  maxBusinessContextEntries: 'Business Context',
+  sso: 'Single Sign-On (SSO)',
+  customContracts: 'Custom Contracts',
+  slaGuarantee: 'SLA Guarantee',
 }
 
 export function UpgradePlanModal({ open, onOpenChange, requiredPlan, feature }: UpgradePlanModalProps) {
@@ -149,7 +152,7 @@ export function UpgradePlanModal({ open, onOpenChange, requiredPlan, feature }: 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             Upgrade to {planInfo.name}
-            {planToShow === 'professional' && (
+            {planToShow === 'pro' && (
               <Badge variant="default" className="text-xs">Most Popular</Badge>
             )}
           </DialogTitle>

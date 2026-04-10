@@ -139,7 +139,7 @@ export class FlowRepository {
   }
 
   private async withFallback<T>(
-    executor: (client: FlowRepositoryClient) => Promise<{ data: T; error: any }>
+    executor: (client: FlowRepositoryClient) => Promise<{ data: T; error: any }> | { data: T; error: any } | any
   ): Promise<{ data: T; error: any }> {
     const primary = await executor(this.client)
     if (!primary?.error || !this.fallbackClient || this.fallbackClient === this.client || !this.shouldUseFallback(primary.error)) {

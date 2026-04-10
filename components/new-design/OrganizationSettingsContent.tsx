@@ -161,7 +161,7 @@ export function OrganizationSettingsContent({ slugParam, sectionParam: sectionPr
     }
     // Fallback to legacy URL
     const orgParam = organization?.id ? `&org=${organization.id}` : ''
-    return `/organization-settings?section=${section || 'general'}${orgParam}`
+    return `/org/settings${orgParam}`
   }
 
   // Fetch current organization
@@ -839,8 +839,6 @@ export function OrganizationSettingsContent({ slugParam, sectionParam: sectionPr
                         ? 'Advanced features for growing teams'
                         : organization?.billing?.plan === 'enterprise'
                         ? 'Full platform access with premium support'
-                        : organization?.billing?.plan === 'beta'
-                        ? 'Beta access with early features'
                         : 'Basic features for small teams'}
                     </p>
                     {organization?.billing?.tasksRemaining !== undefined && organization?.billing?.tasksRemaining !== null && (

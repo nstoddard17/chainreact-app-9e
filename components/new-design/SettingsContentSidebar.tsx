@@ -702,9 +702,7 @@ export function SettingsContent({ initialSection }: SettingsContentProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    toast({ title: "Coming soon", description: "Passkey support is coming in a future update." })
-                  }}
+                  disabled
                 >
                   + Add Passkey
                 </Button>
