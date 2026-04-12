@@ -10,7 +10,6 @@ import { z } from 'zod'
 const createWorkflowSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200, 'Name is too long'),
   description: z.string().max(2000, 'Description is too long').optional(),
-  organization_id: z.string().uuid().optional().nullable(),
   status: z.enum(['draft', 'active', 'inactive', 'archived']).default('draft'),
   folder_id: z.string().uuid().optional().nullable(),
   workspace_type: z.enum(['personal', 'team', 'organization']).default('personal'),
@@ -311,7 +310,6 @@ export async function POST(request: Request) {
     const {
       name,
       description,
-      organization_id,
       status,
       folder_id,
       workspace_type,
@@ -379,48 +377,31 @@ export async function POST(request: Request) {
       userId: user.id,
     })
 
-    const { data: workflow, error } = await supabase
-      .from("workflows")
-      .insert({
-        name,
-        description,
-        organization_id: organization_id || null,
-        folder_id: targetFolderId,
-        user_id: user.id,
-        workspace_type,
-        workspace_id,
-        created_by: user.id,
-        last_modified_by: user.id,
-        status: status || "draft",
-        ...scopeFields,
-      })
-      .select()
-      .single()
+    // Atomic creation: workflow + admin permission + revision 0 in one transaction
+    const serviceClient = await createSupabaseServiceClient()
+    const { data: workflow, error } = await serviceClient.rpc(
+      'create_workflow_with_revision',
+      {
+        p_name: name,
+        p_description: description || null,
+        p_user_id: user.id,
+        p_workspace_type: workspace_type,
+        p_workspace_id: workspace_id || null,
+        p_folder_id: targetFolderId,
+        p_status: status || 'draft',
+        p_billing_scope_type: scopeFields.billing_scope_type,
+        p_billing_scope_id: scopeFields.billing_scope_id,
+      }
+    ).single()
 
     if (error) {
-      logger.error('[API /api/workflows] Insert error:', error)
-      return errorResponse(error.message , 500)
-    }
-
-    // Grant admin permission to the creator
-    const { error: permissionError } = await supabase
-      .from("workflow_permissions")
-      .insert({
-        workflow_id: workflow.id,
-        user_id: user.id,
-        permission: 'admin',
-        granted_by: user.id
-      })
-
-    if (permissionError) {
-      logger.error('[API /api/workflows] Permission grant error:', permissionError)
-      // Don't fail the request, just log it
+      logger.error('[API /api/workflows] Create error:', error)
+      return errorResponse(error.message, 500)
     }
 
     logger.info('[API /api/workflows] Workflow created', {
       id: workflow.id,
       workspace_type,
-      permission_granted: !permissionError
     })
 
     return successResponse({ workflow })
